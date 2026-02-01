@@ -235,7 +235,36 @@ export default function RaceDetails() {
       {/* Roster Section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h2>Racer Roster</h2>
-        <button className="secondary-btn" onClick={handleAddRacerClick}>+ Add Racer</button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+            <button 
+                className="secondary-btn" 
+                onClick={async () => {
+                   try {
+                        // Change icon to loading, or disable button
+                        const btn = document.getElementById('populate-btn');
+                        if (btn) btn.textContent = '⏳ Populating...';
+                        if (btn) (btn as HTMLButtonElement).disabled = true;
+
+                        await apiClient.post(`/races/${raceId}/populate?count=20`, {});
+                        await fetchRacers();
+                        
+                        // alert("Successfully added 20 fake racers!");
+                   } catch (e) {
+                        console.error("Failed to populate", e);
+                        alert("Failed to populate test data. Check console for details.");
+                   } finally {
+                        const btn = document.getElementById('populate-btn');
+                        if (btn) btn.textContent = '⚡ Populate Test Data';
+                        if (btn) (btn as HTMLButtonElement).disabled = false;
+                   }
+                }}
+                id="populate-btn"
+                style={{ backgroundColor: '#f0f0f0', color: '#666', border: '1px solid #ccc' }}
+            >
+                ⚡ Populate Test Data
+            </button>
+            <button className="secondary-btn" onClick={handleAddRacerClick}>+ Add Racer</button>
+        </div>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
@@ -243,6 +272,7 @@ export default function RaceDetails() {
                 <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
                     <tr>
                         <th style={{ padding: '12px', textAlign: 'left' }}>Car #</th>
+                        <th style={{ padding: '12px', textAlign: 'center' }}>Photo</th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>First Name</th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>Last Name</th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>Rank</th>
@@ -252,10 +282,23 @@ export default function RaceDetails() {
                 </thead>
                 <tbody>
                     {racers.length === 0 ? (
-                        <tr><td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>No racers registered yet.</td></tr>
+                        <tr><td colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>No racers registered yet.</td></tr>
                     ) : racers.map(racer => (
                         <tr key={racer.id} style={{ borderBottom: '1px solid #eee' }}>
                             <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
+                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                {racer.racer_image_url ? (
+                                    <img 
+                                        src={racer.racer_image_url} 
+                                        alt={`${racer.first_name}`} 
+                                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                                    />
+                                ) : (
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#999', fontSize: '0.8rem' }}>
+                                        No
+                                    </div>
+                                )}
+                            </td>
                             <td style={{ padding: '12px' }}>{racer.first_name}</td>
                             <td style={{ padding: '12px' }}>{racer.last_name}</td>
                             <td style={{ padding: '12px' }}>{racer.rank}</td>

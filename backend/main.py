@@ -25,6 +25,31 @@ def get_db():
     finally:
         db.close()
 
+from fastapi.staticfiles import StaticFiles
+import os
+import uuid
+import shutil
+from fastapi import UploadFile, File
+
+# Create uploads directory if not exists
+UPLOAD_DIR = "backend/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
+
+@app.post("/upload/")
+async def upload_file(file: UploadFile = File(...)):
+    # Create unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    return {"url": f"http://127.0.0.1:8000/static/{filename}"}
+
 @app.post("/groups/", response_model=schemas.Group)
 def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):
     db_group = crud.get_group_by_name(db, name=group.name)
@@ -138,6 +163,12 @@ def delete_racer(racer_id: int, db: Session = Depends(get_db)):
     if db_racer is None:
         raise HTTPException(status_code=404, detail="Racer not found")
     return {"ok": True}
+
+@app.post("/races/{race_id}/populate")
+def populate_race(race_id: int, count: int = 20, db: Session = Depends(get_db)):
+    from . import populate
+    populate.generate_fake_racers(db, race_id, count)
+    return {"message": f"Populated race {race_id} with {count} racers"}
 
 @app.post("/races/{race_id}/generate_heats", response_model=List[schemas.Heat])
 def generate_schedule(race_id: int, db: Session = Depends(get_db)):

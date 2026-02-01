@@ -208,3 +208,6 @@ __marimo__/
 trusty-track.db
 .venv/
 __pycache__/
+
+# Backend data
+backend/uploads/*

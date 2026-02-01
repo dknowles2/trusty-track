@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import CameraCapture from './CameraCapture';
 
 export interface RacerData {
   first_name: string;
@@ -6,6 +7,8 @@ export interface RacerData {
   car_number?: number;
   rank: string;
   car_passed_inspection: boolean;
+  racer_image_url?: string;
+  car_image_url?: string;
 }
 
 interface RacerFormProps {
@@ -23,6 +26,7 @@ export default function RacerForm({ initialData, onSubmit, onCancel }: RacerForm
     car_passed_inspection: false
   });
   const [loading, setLoading] = useState(false);
+  const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
 
   useEffect(() => {
     if (initialData) {
@@ -37,6 +41,27 @@ export default function RacerForm({ initialData, onSubmit, onCancel }: RacerForm
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
                name === 'car_number' ? parseInt(value) || undefined : value
     }));
+  };
+
+  const uploadFile = async (file: File, type: 'racer' | 'car') => {
+      const data = new FormData();
+      data.append('file', file);
+      
+      try {
+          const response = await fetch('http://127.0.0.1:8000/upload/', {
+              method: 'POST',
+              body: data
+          });
+          if (response.ok) {
+              const result = await response.json();
+              setFormData(prev => ({ 
+                  ...prev, 
+                  [type === 'racer' ? 'racer_image_url' : 'car_image_url']: result.url 
+              }));
+          }
+      } catch (error) {
+          console.error("Upload failed", error);
+      }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,6 +145,71 @@ export default function RacerForm({ initialData, onSubmit, onCancel }: RacerForm
             </label>
         </div>
 
+        <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            {/* Racer Image Upload */}
+            <div>
+                <label style={{ display: 'block', marginBottom: '5px' }}>Racer Photo</label>
+                {formData.racer_image_url && (
+                    <img src={formData.racer_image_url} alt="Racer" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: '#eee' }} />
+                )}
+                <div style={{ display: 'flex', gap: '5px' }}>
+                    <input 
+                        type="file" 
+                        accept="image/*"
+                        style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
+                        id="racer-file"
+                        onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                                uploadFile(e.target.files[0], 'racer');
+                            }
+                        }}
+                    />
+                    <label htmlFor="racer-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid #ccc', borderRadius: '4px' }}>
+                         Upload File
+                    </label>
+                    <button 
+                        type="button" 
+                        className="secondary-btn"
+                        onClick={() => setShowCamera('racer')}
+                        style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                        📷 Camera
+                    </button>
+                </div>
+            </div>
+             {/* Car Image Upload */}
+             <div>
+                <label style={{ display: 'block', marginBottom: '5px' }}>Car Photo</label>
+                {formData.car_image_url && (
+                    <img src={formData.car_image_url} alt="Car" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: '#eee' }} />
+                )}
+                <div style={{ display: 'flex', gap: '5px' }}>
+                    <input 
+                        type="file" 
+                        accept="image/*"
+                        style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
+                        id="car-file"
+                        onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                                uploadFile(e.target.files[0], 'car');
+                            }
+                        }}
+                    />
+                    <label htmlFor="car-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid #ccc', borderRadius: '4px' }}>
+                         Upload File
+                    </label>
+                    <button 
+                        type="button" 
+                        className="secondary-btn"
+                        onClick={() => setShowCamera('car')}
+                        style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                        📷 Camera
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button type="button" onClick={onCancel} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
           <button type="submit" disabled={loading} className="primary-btn" style={{ fontSize: '0.9rem', padding: '8px 16px' }}>
@@ -127,6 +217,16 @@ export default function RacerForm({ initialData, onSubmit, onCancel }: RacerForm
           </button>
         </div>
       </form>
+      
+      {showCamera !== 'none' && (
+          <CameraCapture 
+            onClose={() => setShowCamera('none')}
+            onCapture={(file) => {
+                uploadFile(file, showCamera as 'racer' | 'car');
+                setShowCamera('none');
+            }}
+          />
+      )}
     </div>
   );
 }
