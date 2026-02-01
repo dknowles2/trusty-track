@@ -1,0 +1,65 @@
+:root {
+  /* BSA Official Colors */
+  --scouting-blue: #003F87;
+  --cub-scouting-gold: #FCD116;
+  
+  /* Additional Palette */
+  --background-color: #f5f5f5;
+  --text-color: #333333;
+  --white: #ffffff;
+  --error: #d32f2f;
+  
+  /* Typography */
+  --font-header: 'Roboto Condensed', sans-serif;
+  --font-body: 'Roboto', sans-serif;
+  
+  /* Spacing & Layout */
+  --border-radius: 12px;
+  --spacing-unit: 8px;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-header);
+  color: var(--scouting-blue);
+  margin-top: 0;
+}
+
+button {
+  font-family: var(--font-header);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  border: none;
+  padding: 10px 20px;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.primary-btn {
+  background-color: var(--scouting-blue);
+  color: var(--white);
+}
+
+.primary-btn:hover {
+  filter: brightness(1.1);
+}
+
+.secondary-btn {
+  background-color: var(--cub-scouting-gold);
+  color: var(--scouting-blue);
+  font-weight: bold;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
