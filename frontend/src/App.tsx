@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import Navigation from './components/Navigation';
 import InitialSetup from './pages/InitialSetup';
 import { apiClient } from './api/client';
 
@@ -59,15 +60,7 @@ function App() {
   return (
     <Router>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <nav style={{ backgroundColor: 'var(--scouting-blue)', padding: '1rem', color: 'white' }}>
-            <div className="container" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Trusty Track</span>
-                <div>
-                     <Link to="/" style={{ color: 'white', marginRight: '1rem', textDecoration: 'none' }}>Home</Link>
-                     <Link to="/setup" style={{ color: 'white', marginRight: '1rem', textDecoration: 'none' }}>Setup</Link>
-                </div>
-            </div>
-        </nav>
+        <Navigation />
         <main style={{ flex: 1 }}>
           <Routes>
             <Route path="/initial-setup" element={<ProtectedRoute><InitialSetup /></ProtectedRoute>} />

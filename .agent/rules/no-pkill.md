@@ -2,4 +2,4 @@
 trigger: always_on
 ---
 
-Do not run the 'pkill' command without my explicit approval. An improperly formatted 'pkill' command can cause unrecoverable errors.
+Never run the 'pkill' command. An improperly formatted 'pkill' command can cause unrecoverable errors. Find tasks to terminate using other means.
