@@ -42,7 +42,10 @@ export default function Navigation() {
             >
               ☰
             </button>
-            <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Trusty Track</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <img src="/src/assets/logo.png" alt="Trusty Track Logo" style={{ height: '40px', width: 'auto' }} />
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Trusty Track</span>
+            </div>
           </div>
           
           {/* Desktop Links (optional, maybe hide on small screens if we want full hamburger) */}
