@@ -31,7 +31,8 @@ class InitialConfigStatus(BaseModel):
 class RacerBase(BaseModel):
     first_name: str
     last_name: str
-    car_number: int
+    car_number: Optional[int] = None
+    rank: Rank = Rank.BEAR
     car_name: Optional[str] = None
     car_passed_inspection: bool = False
     racer_image_url: Optional[str] = None
@@ -39,6 +40,9 @@ class RacerBase(BaseModel):
     racing_group_id: Optional[int] = None
 
 class RacerCreate(RacerBase):
+    pass
+
+class RacerUpdate(RacerBase):
     pass
 
 class Racer(RacerBase):

@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } f
 import InitialSetup from './pages/InitialSetup';
 import { apiClient } from './api/client';
 
+import CheckIn from './pages/CheckIn';
+
 // Placeholder components
 const Home = () => (
   <div className="container">
@@ -18,7 +20,6 @@ const Home = () => (
 );
 
 const RaceSetup = () => <div className="container"><h1>Race Setup</h1><p>Configuration options go here.</p></div>;
-const CheckIn = () => <div className="container"><h1>Check-In</h1><p>Racer check-in interface.</p></div>;
 const RaceControl = () => <div className="container"><h1>Race Control</h1><p>Manage heats and start races.</p></div>;
 const Observation = () => <div className="container"><h1>Observation</h1><p>Public display view.</p></div>;
 

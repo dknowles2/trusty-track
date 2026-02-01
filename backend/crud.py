@@ -55,3 +55,69 @@ def create_initial_config(db: Session, config: schemas.InitialConfigCreate):
     db.refresh(group)
     db.refresh(track)
     return group, track
+
+def get_racers(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Racer).offset(skip).limit(limit).all()
+
+def create_racer(db: Session, racer: schemas.RacerCreate):
+    # Ensure a race exists.
+    race = db.query(models.Race).first()
+    if not race:
+        group = db.query(models.Group).first()
+        if not group:
+            return None
+        race = models.Race(name="Main Event", group_id=group.id)
+        db.add(race)
+        db.commit()
+        db.refresh(race)
+
+    racer_data = racer.dict()
+    rank = racer_data.pop("rank", None) # Remove rank from dict as it's not in Racer model
+
+    # Handle Racing Group based on Rank
+    if rank:
+        # Find existing racing group for this rank in this race
+        racing_group = db.query(models.RacingGroup).filter(
+            models.RacingGroup.race_id == race.id,
+            models.RacingGroup.rank == rank
+        ).first()
+
+        if not racing_group:
+            # Create a new racing group for this rank
+            # Format name nicely e.g. "Tigers" or just use the Rank value
+            racing_group = models.RacingGroup(
+                race_id=race.id,
+                name=f"{rank.value}s", # e.g. BEARS, TIGERS
+                rank=rank
+            )
+            db.add(racing_group)
+            db.commit()
+            db.refresh(racing_group)
+        
+        racer_data["racing_group_id"] = racing_group.id
+
+    db_racer = models.Racer(**racer_data, race_id=race.id)
+    db.add(db_racer)
+    db.commit()
+    db.refresh(db_racer)
+    return db_racer
+
+def update_racer(db: Session, racer_id: int, racer_update: schemas.RacerUpdate):
+    db_racer = db.query(models.Racer).filter(models.Racer.id == racer_id).first()
+    if not db_racer:
+        return None
+    
+    update_data = racer_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_racer, key, value)
+        
+    db.commit()
+    db.refresh(db_racer)
+    return db_racer
+
+def delete_racer(db: Session, racer_id: int):
+    db_racer = db.query(models.Racer).filter(models.Racer.id == racer_id).first()
+    if db_racer:
+        db.delete(db_racer)
+        db.commit()
+    return db_racer

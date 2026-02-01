@@ -1,5 +1,6 @@
 from typing import List
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from . import crud, models, schemas
 from .database import SessionLocal, engine
@@ -7,6 +8,14 @@ from .database import SessionLocal, engine
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Dependency
 def get_db():
@@ -69,6 +78,29 @@ def create_initial_config(config: schemas.InitialConfigCreate, db: Session = Dep
         group_name=group.name,
         track_id=track.id
     )
+
+@app.get("/racers/", response_model=List[schemas.Racer])
+def read_racers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    racers = crud.get_racers(db, skip=skip, limit=limit)
+    return racers
+
+@app.post("/racers/", response_model=schemas.Racer)
+def create_racer(racer: schemas.RacerCreate, db: Session = Depends(get_db)):
+    return crud.create_racer(db=db, racer=racer)
+
+@app.put("/racers/{racer_id}", response_model=schemas.Racer)
+def update_racer(racer_id: int, racer_update: schemas.RacerUpdate, db: Session = Depends(get_db)):
+    db_racer = crud.update_racer(db, racer_id=racer_id, racer_update=racer_update)
+    if db_racer is None:
+        raise HTTPException(status_code=404, detail="Racer not found")
+    return db_racer
+
+@app.delete("/racers/{racer_id}")
+def delete_racer(racer_id: int, db: Session = Depends(get_db)):
+    db_racer = crud.delete_racer(db, racer_id=racer_id)
+    if db_racer is None:
+        raise HTTPException(status_code=404, detail="Racer not found")
+    return {"ok": True}
 
 @app.get("/")
 def read_root():
