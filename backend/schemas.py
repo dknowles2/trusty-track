@@ -2,6 +2,32 @@ from typing import List, Optional
 from pydantic import BaseModel
 from .models import TimerType, CarNumberingStrategy, Rank, SchedulingStrategy, ScoringStrategy
 
+class TrackBase(BaseModel):
+    lane_count: int = 4
+    length_feet: Optional[int] = None
+    timer_type: TimerType = TimerType.SKIP
+    serial_port: Optional[str] = None
+
+class TrackCreate(TrackBase):
+    pass
+
+class Track(TrackBase):
+    id: int
+    
+    class Config:
+        orm_mode = True
+
+class InitialConfigCreate(BaseModel):
+    group_name: str
+    lane_count: int
+    length_feet: Optional[int] = None
+    timer_type: TimerType = TimerType.SKIP
+
+class InitialConfigStatus(BaseModel):
+    initialized: bool
+    group_name: Optional[str] = None
+    track_id: Optional[int] = None
+
 class RacerBase(BaseModel):
     first_name: str
     last_name: str

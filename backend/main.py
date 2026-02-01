@@ -39,6 +39,37 @@ def read_races(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     races = crud.get_races(db, skip=skip, limit=limit)
     return races
 
+@app.get("/config/initial", response_model=schemas.InitialConfigStatus)
+def get_initial_config_status(db: Session = Depends(get_db)):
+    # Check if a group exists (simplest check for now, can be more robust)
+    # We really should have a 'SystemConfig' table, but checking for ANY group or Track is a good proxy.
+    track = crud.get_track(db)
+    if track:
+        # If we have a track, we assume we are initialized. 
+        # We might want to find the "primary" group, but for now let's just say true.
+        # Ideally we fetch the group too.
+        # Let's just find the first group.
+        group = db.query(models.Group).first()
+        return schemas.InitialConfigStatus(
+            initialized=True, 
+            group_name=group.name if group else None,
+            track_id=track.id
+        )
+    return schemas.InitialConfigStatus(initialized=False)
+
+@app.post("/config/initial", response_model=schemas.InitialConfigStatus)
+def create_initial_config(config: schemas.InitialConfigCreate, db: Session = Depends(get_db)):
+    # Check if already initialized
+    if crud.get_track(db):
+        raise HTTPException(status_code=400, detail="System already initialized")
+    
+    group, track = crud.create_initial_config(db, config)
+    return schemas.InitialConfigStatus(
+        initialized=True,
+        group_name=group.name,
+        track_id=track.id
+    )
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}

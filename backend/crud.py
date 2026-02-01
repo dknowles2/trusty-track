@@ -26,3 +26,32 @@ def create_race(db: Session, race: schemas.RaceCreate):
 
 def get_race(db: Session, race_id: int):
     return db.query(models.Race).filter(models.Race.id == race_id).first()
+
+def get_track(db: Session):
+    # Assuming single track for now
+    return db.query(models.Track).first()
+
+def create_track(db: Session, track: schemas.TrackCreate):
+    db_track = models.Track(**track.dict())
+    db.add(db_track)
+    db.commit()
+    db.refresh(db_track)
+    return db_track
+
+def create_initial_config(db: Session, config: schemas.InitialConfigCreate):
+    # Create Group
+    group = models.Group(name=config.group_name)
+    db.add(group)
+    
+    # Create Track
+    track = models.Track(
+        lane_count=config.lane_count,
+        length_feet=config.length_feet,
+        timer_type=config.timer_type
+    )
+    db.add(track)
+    
+    db.commit()
+    db.refresh(group)
+    db.refresh(track)
+    return group, track
