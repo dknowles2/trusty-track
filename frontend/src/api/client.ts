@@ -21,5 +21,18 @@ export const apiClient = {
     }
     return response.json();
   },
-    // Add put/delete as needed
+  put: async (endpoint: string, data: any) => {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+       throw new Error(`API Error: ${response.statusText}`);
+    }
+    return response.json();
+  },
+    // Add delete as needed
 };

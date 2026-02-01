@@ -50,19 +50,16 @@ def read_races(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 
 @app.get("/config/initial", response_model=schemas.InitialConfigStatus)
 def get_initial_config_status(db: Session = Depends(get_db)):
-    # Check if a group exists (simplest check for now, can be more robust)
-    # We really should have a 'SystemConfig' table, but checking for ANY group or Track is a good proxy.
+    # Check if a group exists
     track = crud.get_track(db)
     if track:
-        # If we have a track, we assume we are initialized. 
-        # We might want to find the "primary" group, but for now let's just say true.
-        # Ideally we fetch the group too.
-        # Let's just find the first group.
         group = db.query(models.Group).first()
+        race = db.query(models.Race).first()
         return schemas.InitialConfigStatus(
             initialized=True, 
             group_name=group.name if group else None,
-            track_id=track.id
+            track_id=track.id,
+            current_race_id=race.id if race else None
         )
     return schemas.InitialConfigStatus(initialized=False)
 
@@ -101,6 +98,19 @@ def delete_racer(racer_id: int, db: Session = Depends(get_db)):
     if db_racer is None:
         raise HTTPException(status_code=404, detail="Racer not found")
     return {"ok": True}
+
+@app.post("/races/{race_id}/generate_heats", response_model=List[schemas.Heat])
+def generate_schedule(race_id: int, db: Session = Depends(get_db)):
+    return crud.generate_heats(db, race_id)
+
+@app.get("/races/{race_id}/heats", response_model=List[schemas.Heat])
+def get_heats(race_id: int, db: Session = Depends(get_db)):
+    return crud.get_heats(db, race_id)
+
+@app.put("/heats/{heat_id}", response_model=schemas.Heat)
+def update_heat_result(heat_id: int, result: schemas.HeatBase, db: Session = Depends(get_db)):
+    # result.lane_results should be the JSON string
+    return crud.record_heat_result(db, heat_id, result.lane_results)
 
 @app.get("/")
 def read_root():

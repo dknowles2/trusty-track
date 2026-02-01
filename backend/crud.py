@@ -121,3 +121,89 @@ def delete_racer(db: Session, racer_id: int):
         db.delete(db_racer)
         db.commit()
     return db_racer
+
+def get_heats(db: Session, race_id: int):
+    return db.query(models.Heat).filter(models.Heat.race_id == race_id).order_by(models.Heat.round_number, models.Heat.heat_number).all()
+
+import json
+from collections import deque
+
+def generate_heats(db: Session, race_id: int):
+    # 1. Get Race and Track Details
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if not race:
+        return []
+    
+    # Assuming single track for now, getting the first one
+    track = db.query(models.Track).first()
+    lane_count = track.lane_count if track else 4
+
+    # 2. Get Racers for this race
+    # If we have racing groups, we might want to schedule them separately or together.
+    # For now, let's schedule ALL racers in the race together (Interleaved) or just grab all.
+    racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
+    if not racers:
+        return []
+    
+    # Clear existing heats?
+    db.query(models.Heat).filter(models.Heat.race_id == race_id).delete()
+    db.commit()
+
+    # 3. Simple Lane Rotation Algorithm
+    # Goal: Run every car in every lane once.
+    # Rounds = Lane Count
+    
+    # We will rotate the list of racers 
+    racer_ids = [r.id for r in racers]
+    # If not enough racers to fill lanes, we just have empty lanes.
+    # If more racers than lanes, we chunk them.
+    
+    generated_heats = []
+    
+    # Use a copy we can rotate
+    current_order = deque(racer_ids)
+    
+    for round_num in range(1, lane_count + 1):
+        # Create heats for this round by chunking the current order
+        # We need to cover all racers.
+        
+        # Chunking
+        for i in range(0, len(current_order), lane_count):
+            heat_racers = list(current_order)[i : i + lane_count]
+            
+            # Map to lanes
+            lane_assignment = []
+            for lane_idx, r_id in enumerate(heat_racers):
+                lane_assignment.append({
+                    "lane": lane_idx + 1,
+                    "racer_id": r_id,
+                    "time": None,
+                    "place": None
+                })
+            
+            # Fill empty lanes if needed (optional, just omitting them is fine)
+            
+            heat = models.Heat(
+                race_id=race_id,
+                round_number=round_num,
+                heat_number=len(generated_heats) + 1, # sequential global heat number
+                lane_results=json.dumps(lane_assignment)
+            )
+            db.add(heat)
+            generated_heats.append(heat)
+            
+        # Rotate for next round
+        # Rotate by 1 ensures shifting.
+        current_order.rotate(1)
+        
+    db.commit()
+    return get_heats(db, race_id)
+
+def record_heat_result(db: Session, heat_id: int, results: str):
+    # results is a JSON string or we can take a dict
+    heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    if heat:
+        heat.lane_results = results
+        db.commit()
+        db.refresh(heat)
+    return heat

@@ -4,6 +4,8 @@ import InitialSetup from './pages/InitialSetup';
 import { apiClient } from './api/client';
 
 import CheckIn from './pages/CheckIn';
+import RaceControl from './pages/RaceControl';
+import Observation from './pages/Observation';
 
 // Placeholder components
 const Home = () => (
@@ -20,8 +22,6 @@ const Home = () => (
 );
 
 const RaceSetup = () => <div className="container"><h1>Race Setup</h1><p>Configuration options go here.</p></div>;
-const RaceControl = () => <div className="container"><h1>Race Control</h1><p>Manage heats and start races.</p></div>;
-const Observation = () => <div className="container"><h1>Observation</h1><p>Public display view.</p></div>;
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
     const [loading, setLoading] = useState(true);

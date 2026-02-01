@@ -27,6 +27,7 @@ class InitialConfigStatus(BaseModel):
     initialized: bool
     group_name: Optional[str] = None
     track_id: Optional[int] = None
+    current_race_id: Optional[int] = None
 
 class RacerBase(BaseModel):
     first_name: str
@@ -101,5 +102,20 @@ class Group(GroupBase):
     id: int
     races: List[Race] = []
 
+    class Config:
+        orm_mode = True
+
+class HeatBase(BaseModel):
+    round_number: int
+    heat_number: int
+    lane_results: Optional[str] = None # JSON string: [{"lane": 1, "racer_id": 10, "time": 3.45}, ...]
+
+class HeatCreate(HeatBase):
+    race_id: int
+
+class Heat(HeatBase):
+    id: int
+    race_id: int
+    
     class Config:
         orm_mode = True
