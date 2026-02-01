@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 
 interface Heat {
@@ -9,34 +10,23 @@ interface Heat {
 }
 
 export default function RaceControl() {
-  const [currentRaceId, setCurrentRaceId] = useState<number | null>(null);
+  const { raceId } = useParams<{ raceId: string }>();
+  const [activeRaceId, setActiveRaceId] = useState<number | null>(null);
   const [heats, setHeats] = useState<Heat[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [activeHeatId, setActiveHeatId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchRaceInfo();
-  }, []);
-
-  const fetchRaceInfo = async () => {
-    try {
-      const config = await apiClient.get('/config/initial');
-      if (config.current_race_id) {
-        setCurrentRaceId(config.current_race_id);
-        fetchHeats(config.current_race_id);
-      } else {
-        setLoading(false);
-      }
-    } catch (e) {
-      console.error("Failed to fetch config", e);
-      setLoading(false);
+    if (raceId) {
+      setActiveRaceId(parseInt(raceId));
+      fetchHeats(parseInt(raceId));
     }
-  };
+  }, [raceId]);
 
-  const fetchHeats = async (raceId: number) => {
+  const fetchHeats = async (id: number) => {
     try {
-      const data = await apiClient.get(`/races/${raceId}/heats`);
+      const data = await apiClient.get(`/races/${id}/heats`);
       setHeats(data);
     } catch (e) {
       console.error("Failed to fetch heats", e);
@@ -46,10 +36,10 @@ export default function RaceControl() {
   };
 
   const handleGenerateSchedule = async () => {
-    if (!currentRaceId) return;
+    if (!activeRaceId) return;
     setGenerating(true);
     try {
-      const data = await apiClient.post(`/races/${currentRaceId}/generate_heats`, {});
+      const data = await apiClient.post(`/races/${activeRaceId}/generate_heats`, {});
       setHeats(data);
     } catch (e) {
       console.error("Failed to generate", e);
@@ -81,7 +71,7 @@ export default function RaceControl() {
           ...heat, 
           lane_results: JSON.stringify(results) 
         });
-        if (currentRaceId) fetchHeats(currentRaceId);
+        if (activeRaceId) fetchHeats(activeRaceId);
       } catch (e) {
         console.error("Failed to save results", e);
       } finally {
@@ -92,10 +82,10 @@ export default function RaceControl() {
 
   if (loading) return <div>Loading Race Control...</div>;
 
-  if (!currentRaceId) return (
+  if (!activeRaceId) return (
     <div className="container">
       <h1>Race Control</h1>
-      <p>No active race found. Please register racers and ensure a race is created.</p>
+      <p>No active race found. Please return home and select a race.</p>
     </div>
   );
 

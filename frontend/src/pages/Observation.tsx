@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 
 interface Standing {
@@ -8,28 +9,23 @@ interface Standing {
 }
 
 export default function Observation() {
+  const { raceId } = useParams<{ raceId: string }>();
   const [standings, setStandings] = useState<Standing[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Poll for updates every 5 seconds
-    const interval = setInterval(fetchData, 5000);
-    fetchData();
-    return () => clearInterval(interval);
-  }, []);
+    if (raceId) {
+        const interval = setInterval(() => fetchData(parseInt(raceId)), 5000);
+        fetchData(parseInt(raceId));
+        return () => clearInterval(interval);
+    }
+  }, [raceId]);
 
-  const fetchData = async () => {
+  const fetchData = async (id: number) => {
     try {
-      const config = await apiClient.get('/config/initial');
-      if (config.current_race_id) {
-          // Fetch heats to calculate standings on client side for MVP simplicity
-          // Ideally backend providing /standings endpoint is better.
-          // Let's implement client-side calculation for now as we didn't add /standings endpoint yet in crud.py
-          // Wait, I put it in the plan but didn't implement it in crud.py execution step. 
-          // I'll calculate here.
-          const heatsData = await apiClient.get(`/races/${config.current_race_id}/heats`);
-          calculateStandings(heatsData);
-      }
+        const heatsData = await apiClient.get(`/races/${id}/heats`);
+        calculateStandings(heatsData);
     } catch (e) {
       console.error("Fetch error", e);
     } finally {

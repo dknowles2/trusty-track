@@ -18,8 +18,24 @@ def get_races(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Race).offset(skip).limit(limit).all()
 
 def create_race(db: Session, race: schemas.RaceCreate):
-    db_race = models.Race(**race.dict())
+    race_data = race.dict()
+    # Name is now required by schema, so no need to default it.
+    
+    db_race = models.Race(**race_data)
     db.add(db_race)
+    db.commit()
+    db.refresh(db_race)
+    return db_race
+
+def update_race(db: Session, race_id: int, race_update: schemas.RaceUpdate):
+    db_race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if not db_race:
+        return None
+    
+    update_data = race_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_race, key, value)
+        
     db.commit()
     db.refresh(db_race)
     return db_race
@@ -70,12 +86,19 @@ def update_track(db: Session, track: models.Track, config: schemas.InitialConfig
     db.refresh(track)
     return track
 
-def get_racers(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Racer).offset(skip).limit(limit).all()
+def get_racers(db: Session, skip: int = 0, limit: int = 100, race_id: int = None):
+    query = db.query(models.Racer)
+    if race_id:
+        query = query.filter(models.Racer.race_id == race_id)
+    return query.offset(skip).limit(limit).all()
 
 def create_racer(db: Session, racer: schemas.RacerCreate):
     # Ensure a race exists.
-    race = db.query(models.Race).first()
+    if racer.race_id:
+        race = db.query(models.Race).filter(models.Race.id == racer.race_id).first()
+    else:
+        race = db.query(models.Race).first()
+        
     if not race:
         group = db.query(models.Group).first()
         if not group:
@@ -86,6 +109,9 @@ def create_racer(db: Session, racer: schemas.RacerCreate):
         db.refresh(race)
 
     racer_data = racer.dict()
+    if 'race_id' in racer_data:
+        del racer_data['race_id']
+        
     rank = racer_data.pop("rank", None) # Remove rank from dict as it's not in Racer model
 
     # Handle Racing Group based on Rank

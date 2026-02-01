@@ -43,6 +43,20 @@ def read_group(group_id: int, db: Session = Depends(get_db)):
 def create_race(race: schemas.RaceCreate, db: Session = Depends(get_db)):
     return crud.create_race(db=db, race=race)
 
+@app.get("/races/{race_id}", response_model=schemas.Race)
+def read_race(race_id: int, db: Session = Depends(get_db)):
+    db_race = crud.get_race(db, race_id=race_id)
+    if not db_race:
+        raise HTTPException(status_code=404, detail="Race not found")
+    return db_race
+
+@app.put("/races/{race_id}", response_model=schemas.Race)
+def update_race(race_id: int, race_update: schemas.RaceUpdate, db: Session = Depends(get_db)):
+    db_race = crud.update_race(db, race_id=race_id, race_update=race_update)
+    if not db_race:
+        raise HTTPException(status_code=404, detail="Race not found")
+    return db_race
+
 @app.get("/races/", response_model=List[schemas.Race])
 def read_races(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     races = crud.get_races(db, skip=skip, limit=limit)
@@ -103,8 +117,8 @@ def update_initial_config(config: schemas.InitialConfigCreate, db: Session = Dep
     )
 
 @app.get("/racers/", response_model=List[schemas.Racer])
-def read_racers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    racers = crud.get_racers(db, skip=skip, limit=limit)
+def read_racers(skip: int = 0, limit: int = 100, race_id: int = None, db: Session = Depends(get_db)):
+    racers = crud.get_racers(db, skip=skip, limit=limit, race_id=race_id)
     return racers
 
 @app.post("/racers/", response_model=schemas.Racer)

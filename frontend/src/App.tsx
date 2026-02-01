@@ -1,26 +1,18 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route,  Navigate, useLocation } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import SystemConfig from './pages/SystemConfig';
+import Home from './pages/Home';
 import { apiClient } from './api/client';
 
 import CheckIn from './pages/CheckIn';
+import RaceDetails from './pages/RaceDetails';
 import RaceControl from './pages/RaceControl';
 import Observation from './pages/Observation';
 
-const Home = () => (
-  <div className="container" style={{ textAlign: 'center', padding: '2rem' }}>
-    <img src="/src/assets/logo_full.png" alt="Trusty Track Logo" style={{ maxWidth: '400px', marginBottom: '1rem' }} />
-    <h1>Welcome to Trusty Track</h1>
-    <p>Select an option below to get started.</p>
-    <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
-        <Link to="/system-config" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>System Config</Link>
-        <Link to="/checkin" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>Check-In</Link>
-        <Link to="/control" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>Race Control</Link>
-        <Link to="/observation" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>Observation</Link>
-    </div>
-  </div>
-);
+import { useState, useEffect } from 'react';
+
+// Placeholder components
+// Home moved to separate file
 
 const RaceSetup = () => <div className="container"><h1>Race Setup</h1><p>Configuration options go here.</p></div>;
 
@@ -64,10 +56,15 @@ function App() {
           <Routes>
             <Route path="/system-config" element={<ProtectedRoute><SystemConfig /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-            <Route path="/setup" element={<ProtectedRoute><RaceSetup /></ProtectedRoute>} />
-            <Route path="/checkin" element={<ProtectedRoute><CheckIn /></ProtectedRoute>} />
-            <Route path="/control" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
-            <Route path="/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />
+            <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
+            <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
+            <Route path="/race/:raceId/control" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
+            <Route path="/race/:raceId/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />
+
+            {/* Legacy Redirects or Handle 404 */}
+            <Route path="/checkin" element={<Navigate to="/" replace />} />
+            <Route path="/control" element={<Navigate to="/" replace />} />
+            <Route path="/observation" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>

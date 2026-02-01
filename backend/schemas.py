@@ -15,7 +15,7 @@ class Track(TrackBase):
     id: int
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class InitialConfigCreate(BaseModel):
     group_name: str
@@ -44,7 +44,7 @@ class RacerBase(BaseModel):
     racing_group_id: Optional[int] = None
 
 class RacerCreate(RacerBase):
-    pass
+    race_id: Optional[int] = None
 
 class RacerUpdate(RacerBase):
     pass
@@ -54,7 +54,7 @@ class Racer(RacerBase):
     race_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class RacingGroupBase(BaseModel):
     name: str
@@ -71,7 +71,7 @@ class RacingGroup(RacingGroupBase):
     racers: List[Racer] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class RaceBase(BaseModel):
     name: str
@@ -85,15 +85,26 @@ class RaceBase(BaseModel):
 
 class RaceCreate(RaceBase):
     group_id: int
+    name: str
+    date_time: Optional[str] = None
+    location: Optional[str] = None
+
+class RaceUpdate(BaseModel):
+    name: Optional[str] = None
+    date_time: Optional[str] = None
+    location: Optional[str] = None
+    scheduling_strategy: Optional[SchedulingStrategy] = None
+    scoring_strategy: Optional[ScoringStrategy] = None
+    car_numbering_strategy: Optional[CarNumberingStrategy] = None
 
 class Race(RaceBase):
     id: int
-    group_id: int
+    group_id: Optional[int] = None
     racing_groups: List[RacingGroup] = []
     racers: List[Racer] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class GroupBase(BaseModel):
     name: str
@@ -106,7 +117,7 @@ class Group(GroupBase):
     races: List[Race] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class HeatBase(BaseModel):
     round_number: int
@@ -121,4 +132,4 @@ class Heat(HeatBase):
     race_id: int
     
     class Config:
-        orm_mode = True
+        from_attributes = True
