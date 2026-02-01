@@ -8,10 +8,9 @@ import CheckIn from './pages/CheckIn';
 import RaceControl from './pages/RaceControl';
 import Observation from './pages/Observation';
 
-// Placeholder components
 const Home = () => (
   <div className="container" style={{ textAlign: 'center', padding: '2rem' }}>
-    <img src="/src/assets/logo.png" alt="Trusty Track Logo" style={{ maxWidth: '300px', marginBottom: '1rem' }} />
+    <img src="/src/assets/logo_full.png" alt="Trusty Track Logo" style={{ maxWidth: '400px', marginBottom: '1rem' }} />
     <h1>Welcome to Trusty Track</h1>
     <p>Select an option below to get started.</p>
     <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
