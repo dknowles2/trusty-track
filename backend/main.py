@@ -59,7 +59,10 @@ def get_initial_config_status(db: Session = Depends(get_db)):
             initialized=True, 
             group_name=group.name if group else None,
             track_id=track.id,
-            current_race_id=race.id if race else None
+            current_race_id=race.id if race else None,
+            lane_count=track.lane_count,
+            length_feet=track.length_feet,
+            timer_type=track.timer_type.value if track.timer_type else None
         )
     return schemas.InitialConfigStatus(initialized=False)
 
@@ -73,6 +76,29 @@ def create_initial_config(config: schemas.InitialConfigCreate, db: Session = Dep
     return schemas.InitialConfigStatus(
         initialized=True,
         group_name=group.name,
+        track_id=track.id
+    )
+
+@app.put("/config/initial", response_model=schemas.InitialConfigStatus)
+def update_initial_config(config: schemas.InitialConfigCreate, db: Session = Depends(get_db)):
+    track = crud.get_track(db)
+    if not track:
+        raise HTTPException(status_code=404, detail="System not initialized")
+    
+    group = db.query(models.Group).first()
+    if group:
+        if group.name != config.group_name:
+            # Check if name is taken
+            existing = crud.get_group_by_name(db, config.group_name)
+            if existing:
+                raise HTTPException(status_code=400, detail=f"Group '{config.group_name}' already exists")
+            crud.update_group(db, group, config.group_name)
+    
+    track = crud.update_track(db, track, config)
+    
+    return schemas.InitialConfigStatus(
+        initialized=True,
+        group_name=group.name if group else None,
         track_id=track.id
     )
 

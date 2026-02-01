@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import Navigation from './components/Navigation';
-import InitialSetup from './pages/InitialSetup';
+import SystemConfig from './pages/SystemConfig';
 import { apiClient } from './api/client';
 
 import CheckIn from './pages/CheckIn';
@@ -14,7 +14,7 @@ const Home = () => (
     <h1>Welcome to Trusty Track</h1>
     <p>Select an option below to get started.</p>
     <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
-        <Link to="/setup" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>Race Setup</Link>
+        <Link to="/system-config" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>System Config</Link>
         <Link to="/checkin" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>Check-In</Link>
         <Link to="/control" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>Race Control</Link>
         <Link to="/observation" className="secondary-btn" style={{textAlign: 'center', textDecoration: 'none'}}>Observation</Link>
@@ -45,13 +45,12 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
     if (loading) return <div>Loading...</div>;
 
-    if (!initialized && location.pathname !== '/initial-setup') {
-        return <Navigate to="/initial-setup" replace />;
+    if (!initialized && location.pathname !== '/system-config') {
+        return <Navigate to="/system-config" replace />;
     }
     
-    if (initialized && location.pathname === '/initial-setup') {
-         return <Navigate to="/" replace />;
-    }
+    // Allow initialized users to visit system-config (Edit Mode)
+    // Removed the redirect away from config page logic.
 
     return children;
 }
@@ -63,7 +62,7 @@ function App() {
         <Navigation />
         <main style={{ flex: 1 }}>
           <Routes>
-            <Route path="/initial-setup" element={<ProtectedRoute><InitialSetup /></ProtectedRoute>} />
+            <Route path="/system-config" element={<ProtectedRoute><SystemConfig /></ProtectedRoute>} />
             <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             <Route path="/setup" element={<ProtectedRoute><RaceSetup /></ProtectedRoute>} />
             <Route path="/checkin" element={<ProtectedRoute><CheckIn /></ProtectedRoute>} />

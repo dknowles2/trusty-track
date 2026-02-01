@@ -28,6 +28,9 @@ class InitialConfigStatus(BaseModel):
     group_name: Optional[str] = None
     track_id: Optional[int] = None
     current_race_id: Optional[int] = None
+    lane_count: Optional[int] = None
+    length_feet: Optional[int] = None
+    timer_type: Optional[str] = None
 
 class RacerBase(BaseModel):
     first_name: str

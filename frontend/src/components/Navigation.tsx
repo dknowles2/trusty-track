@@ -15,7 +15,7 @@ export default function Navigation() {
 
   const links = [
     { to: '/', label: 'Home' },
-    { to: '/setup', label: 'Race Setup' },
+    { to: '/system-config', label: 'System Config' },
     { to: '/checkin', label: 'Check-In' },
     { to: '/control', label: 'Race Control' },
     { to: '/observation', label: 'Observation' },

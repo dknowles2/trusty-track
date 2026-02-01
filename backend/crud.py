@@ -56,6 +56,20 @@ def create_initial_config(db: Session, config: schemas.InitialConfigCreate):
     db.refresh(track)
     return group, track
 
+def update_group(db: Session, group: models.Group, name: str):
+    group.name = name
+    db.commit()
+    db.refresh(group)
+    return group
+
+def update_track(db: Session, track: models.Track, config: schemas.InitialConfigCreate):
+    track.lane_count = config.lane_count
+    track.length_feet = config.length_feet
+    track.timer_type = config.timer_type
+    db.commit()
+    db.refresh(track)
+    return track
+
 def get_racers(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Racer).offset(skip).limit(limit).all()
 

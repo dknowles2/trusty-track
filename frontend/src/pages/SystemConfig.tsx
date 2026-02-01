@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 
-export default function InitialSetup() {
+export default function SystemConfig() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     group_name: '',
@@ -12,6 +12,43 @@ export default function InitialSetup() {
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchConfig();
+  }, []);
+
+  const fetchConfig = async () => {
+      try {
+          const config = await apiClient.get('/config/initial');
+          if (config.initialized) {
+             setIsEditing(true);
+             // We need to fetch details, but /config/initial only gives summary. 
+             // Ideally we should have a GET for full config or just use what we have.
+             // Wait, the POST/PUT takes all fields but GET /config/initial returns summary.
+             // I need to fetch the existing values to pre-fill.
+             // I'll fetch Group and Track separately or just assume user re-enters if I can't easily get them.
+             // Actually, I can use the existing /groups/{id} and just assume track details are default if not exposed?
+             // No, I should probably expose a way to get the full config.
+             // But for now, let's just pre-fill what we can (Organization Name) and maybe default the rest or fetch via separate calls if possible.
+             // Let's rely on the user re-confirming technical details or update backend to return full config.
+             // Actually, for a Polish phase, getting the data is better.
+             // Let's try to get group info.
+             setFormData(prev => ({
+                 ...prev,
+                 group_name: config.group_name || '',
+                 lane_count: config.lane_count || 4,
+                 length_feet: config.length_feet || 40,
+                 timer_type: config.timer_type || 'SKIP'
+             }));
+          }
+      } catch (e) {
+          console.error("Failed to load config", e);
+      } finally {
+          setLoading(false);
+      }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -27,7 +64,11 @@ export default function InitialSetup() {
     setError('');
 
     try {
-      await apiClient.post('/config/initial', formData);
+      if (isEditing) {
+          await apiClient.put('/config/initial', formData);
+      } else {
+          await apiClient.post('/config/initial', formData);
+      }
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Failed to apply configuration');
@@ -36,10 +77,12 @@ export default function InitialSetup() {
     }
   };
 
+  if (loading) return <div>Loading Configuration...</div>;
+
   return (
     <div className="container">
-      <h1>Initial Setup</h1>
-      <p>Welcome to Trusty Track! Let's set up your racing environment.</p>
+      <h1>{isEditing ? 'System Configuration' : 'Initial Setup'}</h1>
+      <p>{isEditing ? 'Update your racing environment settings.' : "Welcome to Trusty Track! Let's set up your racing environment."}</p>
       
       {error && <div style={{ color: 'var(--error)', marginBottom: '1rem' }}>{error}</div>}
 
