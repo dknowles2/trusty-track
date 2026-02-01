@@ -28,7 +28,8 @@ The backend will be developed in Python, leveraging a robust framework (e.g., Fa
 
 ### 3.1. Core Application Logic
 
--   **Race Management:** Scheduling algorithms for heats, championship runoffs, and overall race progression.
+-   **Race Management:** Scheduling algorithms for heats (Lane Rotation, Perfect-N), championship runoffs, and overall race progression.
+
 -   **Data Processing:** Coalescing race results, calculating standings based on predefined rules.
 -   **Configuration Management:** Handling global settings and race-specific configurations.
 
@@ -54,7 +55,10 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `date_time` (optional)
     -   `location` (optional)
     -   `car_numbering_strategy` (Enum: `PER_GROUP`, `GLOBAL`, `MANUAL`)
-    -   `global_start_number` (if GLOBAL)
+    - `global_start_number` (if GLOBAL)
+    - `scheduling_strategy` (Enum: `LANE_ROTATION`, `PERFECT_N`, `CHAOTIC` - default `LANE_ROTATION`)
+    - `scoring_strategy` (Enum: `TIMED`, `POINTS` - default `TIMED`)
+    - `rules_configuration` (JSON, optional parameters for the chosen strategies)
 -   **`RacingGroup`**: Sub-divisions within a race (e.g., Den).
     -   `id` (PK)
     -   `race_id` (FK to Race)
