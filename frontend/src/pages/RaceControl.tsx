@@ -9,10 +9,19 @@ interface Heat {
   lane_results: string; // JSON
 }
 
+// Add Racer interface
+interface Racer {
+  id: number;
+  first_name: string;
+  last_name: string;
+  car_number: number;
+}
+
 export default function RaceControl() {
   const { raceId } = useParams<{ raceId: string }>();
   const [activeRaceId, setActiveRaceId] = useState<number | null>(null);
   const [heats, setHeats] = useState<Heat[]>([]);
+  const [racers, setRacers] = useState<Record<number, Racer>>({});
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [activeHeatId, setActiveHeatId] = useState<number | null>(null);
@@ -20,19 +29,30 @@ export default function RaceControl() {
   useEffect(() => {
     if (raceId) {
       setActiveRaceId(parseInt(raceId));
-      fetchHeats(parseInt(raceId));
+      fetchData(parseInt(raceId));
     }
   }, [raceId]);
 
-  const fetchHeats = async (id: number) => {
-    try {
-      const data = await apiClient.get(`/races/${id}/heats`);
-      setHeats(data);
-    } catch (e) {
-      console.error("Failed to fetch heats", e);
-    } finally {
-      setLoading(false);
-    }
+  const fetchData = async (id: number) => {
+      setLoading(true);
+      try {
+          const [heatsData, racersData] = await Promise.all([
+              apiClient.get(`/races/${id}/heats`),
+              apiClient.get(`/racers/?race_id=${id}`)
+          ]);
+          setHeats(heatsData);
+          
+          const racerMap: Record<number, Racer> = {};
+          racersData.forEach((r: Racer) => {
+              racerMap[r.id] = r;
+          });
+          setRacers(racerMap);
+          
+      } catch (e) {
+          console.error("Failed to fetch race data", e);
+      } finally {
+          setLoading(false);
+      }
   };
 
   const handleGenerateSchedule = async () => {
@@ -43,7 +63,7 @@ export default function RaceControl() {
       setHeats(data);
     } catch (e) {
       console.error("Failed to generate", e);
-      alert("Failed to generate schedule");
+      alert("Failed to generate schedule. Ensure you have at least 2 racers.");
     } finally {
       setGenerating(false);
     }
@@ -71,13 +91,24 @@ export default function RaceControl() {
           ...heat, 
           lane_results: JSON.stringify(results) 
         });
-        if (activeRaceId) fetchHeats(activeRaceId);
+        
+        // Update local state without full refetch if possible, but refetch is safer for sync
+        if (activeRaceId) {
+            const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+            setHeats(updatedHeats);
+        }
       } catch (e) {
         console.error("Failed to save results", e);
       } finally {
         setActiveHeatId(null);
       }
     }, 2000); // 2 second race simulation
+  };
+
+  const getRacerName = (id: number) => {
+      const r = racers[id];
+      if (!r) return `Racer #${id}`;
+      return `${r.first_name} ${r.last_name} (#${r.car_number})`;
   };
 
   if (loading) return <div>Loading Race Control...</div>;
@@ -89,8 +120,17 @@ export default function RaceControl() {
     </div>
   );
 
+  // Group Heats by Round
+  const rounds: Record<number, Heat[]> = {};
+  heats.forEach(h => {
+      if (!rounds[h.round_number]) rounds[h.round_number] = [];
+      rounds[h.round_number].push(h);
+  });
+  
+  const sortedRounds = Object.keys(rounds).map(Number).sort((a,b) => a - b);
+
   return (
-    <div className="container">
+    <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>Race Control</h1>
         <button 
@@ -108,53 +148,66 @@ export default function RaceControl() {
           <button className="primary-btn" onClick={handleGenerateSchedule}>Generate Schedule</button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '15px' }}>
-            {heats.map(heat => {
-                const results = heat.lane_results ? JSON.parse(heat.lane_results) : [];
-                const isCompleted = results.length > 0 && results[0].time !== null;
-                const isRunning = activeHeatId === heat.id;
-
-                return (
-                    <div key={heat.id} style={{ 
-                        background: '#fff', padding: '15px', borderRadius: '8px',
-                        borderLeft: isRunning ? '5px solid orange' : isCompleted ? '5px solid green' : '5px solid #ccc'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3>Round {heat.round_number} - Heat {heat.heat_number}</h3>
-                            {(!isCompleted || isRunning) && (
-                                <button 
-                                    className="primary-btn"
-                                    onClick={() => handleRunHeat(heat)}
-                                    disabled={isRunning}
-                                    style={{ padding: '5px 10px', fontSize: '0.9rem' }}
-                                >
-                                    {isRunning ? 'Racing...' : isCompleted ? 'Re-Run' : 'Start Heat'}
-                                </button>
-                            )}
-                        </div>
-                        <div style={{ marginTop: '10px', fontSize: '0.9rem' }}>
-                            {results.map((r: any) => (
-                                <div key={r.lane} style={{ display: 'grid', gridTemplateColumns: '50px 1fr 100px', padding: '4px 0' }}>
-                                    <span style={{ fontWeight: 'bold' }}>L{r.lane}</span>
-                                    <span>Racer #{r.racer_id}</span>
-                                    <span style={{ textAlign: 'right' }}>
-                                        {r.time ? `${r.time}s` : '-'}
-                                        {r.place ? ` (${r.place}${getOrdinal(r.place)})` : ''}
-                                    </span>
+        <div style={{ 
+            display: 'flex', 
+            overflowX: 'auto', 
+            gap: '20px', 
+            paddingBottom: '20px',
+            alignItems: 'flex-start'
+        }}>
+            {sortedRounds.map(roundNum => (
+                <div key={roundNum} style={{ 
+                    minWidth: '350px', 
+                    background: '#f5f5f5', 
+                    borderRadius: '8px', 
+                    padding: '10px',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}>
+                    <h3 style={{ textAlign: 'center', margin: '0 0 15px 0', color: 'var(--scouting-blue)' }}>Round {roundNum}</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                        {rounds[roundNum].map(heat => {
+                            const results = heat.lane_results ? JSON.parse(heat.lane_results) : [];
+                            const isCompleted = results.length > 0 && results[0].time !== null;
+                            const isRunning = activeHeatId === heat.id;
+                            
+                            return (
+                                <div key={heat.id} style={{ 
+                                    background: '#fff', padding: '15px', borderRadius: '8px',
+                                    borderLeft: isRunning ? '5px solid orange' : isCompleted ? '5px solid green' : '5px solid #ccc',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                        <span style={{ fontWeight: 'bold' }}>Heat {heat.heat_number}</span>
+                                        <button 
+                                            className="primary-btn"
+                                            onClick={() => handleRunHeat(heat)}
+                                            disabled={isRunning}
+                                            style={{ padding: '4px 8px', fontSize: '0.8rem', minWidth: '60px' }}
+                                        >
+                                            {isRunning ? '...' : isCompleted ? 'Re-Run' : 'Run'}
+                                        </button>
+                                    </div>
+                                    <div style={{ fontSize: '0.85rem' }}>
+                                        {results.map((r: any) => (
+                                            <div key={r.lane} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
+                                                <span style={{ fontWeight: 'bold', width: '30px', color: '#666' }}>L{r.lane}</span>
+                                                <span style={{ flex: 1, paddingLeft: '5px' }}>{getRacerName(r.racer_id)}</span>
+                                                <span style={{ textAlign: 'right', minWidth: '50px', fontFamily: 'monospace' }}>
+                                                    {r.time ? `${r.time}s` : ''}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+                            );
+                        })}
                     </div>
-                );
-            })}
+                </div>
+            ))}
         </div>
       )}
     </div>
   );
 }
 
-function getOrdinal(n: number) {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
-}
+
