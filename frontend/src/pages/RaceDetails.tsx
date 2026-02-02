@@ -37,6 +37,7 @@ export default function RaceDetails() {
   
   // Roster View State
   const [isGroupedByDen, setIsGroupedByDen] = useState(false);
+  const [isAddRacerDropdownOpen, setIsAddRacerDropdownOpen] = useState(false);
 
 
   useEffect(() => {
@@ -264,33 +265,69 @@ export default function RaceDetails() {
                     <span className="slider"></span>
                 </label>
             </div>
-            <button 
-                className="secondary-btn" 
-                onClick={async () => {
-                   try {
-                        const btn = document.getElementById('populate-btn');
-                        if (btn) btn.textContent = '⏳ Populating...';
-                        if (btn) (btn as HTMLButtonElement).disabled = true;
-
-                        await apiClient.post(`/races/${raceId}/populate?count=20`, {});
-                        await fetchRacers();
-                        
-                   } catch (e) {
-                        console.error("Failed to populate", e);
-                        alert("Failed to populate test data. Check console for details.");
-                   } finally {
-                        const btn = document.getElementById('populate-btn');
-                        if (btn) btn.textContent = '⚡ Populate Test Data';
-                        if (btn) (btn as HTMLButtonElement).disabled = false;
-                   }
-                }}
-                id="populate-btn"
-                style={{ backgroundColor: '#f0f0f0', color: '#666', border: '1px solid #ccc' }}
-            >
-                ⚡ Populate Test Data
-            </button>
-            <button className="secondary-btn" onClick={handleAddRacerClick}>+ Add Racer</button>
+            
             <button className="secondary-btn" onClick={() => setShowDenManager(true)}>Manage Dens</button>
+
+            <div className="dropdown" style={{ position: 'relative' }}>
+                <div className="split-btn-container">
+                    <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
+                        + Add Racer
+                    </button>
+                    <button 
+                        className="secondary-btn split-btn-arrow" 
+                        style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsAddRacerDropdownOpen(!isAddRacerDropdownOpen);
+                        }}
+                    >
+                        ▼
+                    </button>
+                </div>
+                {isAddRacerDropdownOpen && (
+                    <div 
+                        className="dropdown-content" 
+                        style={{ display: 'block' }}
+                        ref={(node) => {
+                            if (node) {
+                                // Close when clicking outside
+                                const handleClickOutside = (event: MouseEvent) => {
+                                    if (node && !node.contains(event.target as Node) && !(event.target as Element).classList.contains('split-btn-arrow')) {
+                                        setIsAddRacerDropdownOpen(false);
+                                    }
+                                };
+                                document.addEventListener('mousedown', handleClickOutside);
+                                return () => {
+                                    document.removeEventListener('mousedown', handleClickOutside);
+                                };
+                            }
+                        }}
+                    >
+                        <button 
+                            onClick={async () => {
+                               try {
+                                    const btn = document.getElementById('populate-btn-drop');
+                                    if (btn) btn.textContent = '⏳ Populating...';
+                                    
+                                    await apiClient.post(`/races/${raceId}/populate?count=20`, {});
+                                    await fetchRacers();
+                                    
+                               } catch (e) {
+                                    console.error("Failed to populate", e);
+                                    alert("Failed to populate test data. Check console for details.");
+                               } finally {
+                                    const btn = document.getElementById('populate-btn-drop');
+                                    if (btn) btn.textContent = '⚡ Populate Test Data';
+                                    setIsAddRacerDropdownOpen(false);
+                               }
+                            }}
+                            id="populate-btn-drop"
+                        >
+                            ⚡ Populate Test Data
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
       </div>
 
