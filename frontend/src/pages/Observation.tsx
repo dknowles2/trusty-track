@@ -8,10 +8,20 @@ interface Standing {
   runs: number;
 }
 
+// Duplicate Heat interface to avoid shared dependency issues for now
+interface Heat {
+  id: number;
+  round_number: number;
+  heat_number: number;
+  lane_results: string; // JSON
+}
+
 export default function Observation() {
   const { raceId } = useParams<{ raceId: string }>();
   const [standings, setStandings] = useState<Standing[]>([]);
   const [racers, setRacers] = useState<Record<number, any>>({});
+  const [currentHeat, setCurrentHeat] = useState<Heat | null>(null);
+  const [nextHeat, setNextHeat] = useState<Heat | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,13 +47,32 @@ export default function Observation() {
 
   const fetchData = async (id: number) => {
     try {
-        const heatsData = await apiClient.get(`/races/${id}/heats`);
+        const heatsData: Heat[] = await apiClient.get(`/races/${id}/heats`);
         calculateStandings(heatsData);
+        determineUpcomingHeats(heatsData);
     } catch (e) {
       console.error("Fetch error", e);
     } finally {
       setLoading(false);
     }
+  };
+
+  const determineUpcomingHeats = (heatsList: Heat[]) => {
+      // Sort by round then heat
+      const sorted = [...heatsList].sort((a, b) => {
+          if (a.round_number !== b.round_number) return a.round_number - b.round_number;
+          return a.heat_number - b.heat_number;
+      });
+
+      // Find first uncompleted heat
+      const uncompleted = sorted.filter(h => {
+          const results = h.lane_results ? JSON.parse(h.lane_results) : [];
+          // Considered completed if results exist and have time
+          return !(results.length > 0 && results[0].time !== null);
+      });
+
+      setCurrentHeat(uncompleted.length > 0 ? uncompleted[0] : null);
+      setNextHeat(uncompleted.length > 1 ? uncompleted[1] : null);
   };
 
   const calculateStandings = (heatsList: any[]) => {
@@ -75,10 +104,61 @@ export default function Observation() {
       setStandings(calculated);
   };
 
+  const renderHeatCard = (title: string, heat: Heat | null, isNext: boolean = false) => {
+      if (!heat) return (
+        <div style={{ flex: 1, background: '#f5f5f5', borderRadius: '8px', padding: '20px', textAlign: 'center', opacity: 0.7 }}>
+            <h3>{title}</h3>
+            <p>No heat scheduled</p>
+        </div>
+      );
+
+      const assignments = heat.lane_results ? JSON.parse(heat.lane_results) : [];
+
+      return (
+          <div style={{ flex: 1, background: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderTop: `5px solid ${isNext ? '#999' : 'var(--scouting-blue)'}` }}>
+              <h2 style={{ marginTop: 0, fontSize: '1.5rem', color: isNext ? '#666' : '#333' }}>
+                  {title} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#666' }}>(Round {heat.round_number}, Heat {heat.heat_number})</span>
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
+                  {assignments.map((a: any) => {
+                      const racer = racers[a.racer_id];
+                      return (
+                          <div key={a.lane} style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
+                              <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {a.lane}</div>
+                              {racer?.racer_image_url ? (
+                                  <img 
+                                    src={racer.racer_image_url} 
+                                    alt="Racer" 
+                                    style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 5px', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                                  />
+                              ) : (
+                                  <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 5px', fontWeight: 'bold', color: '#999' }}>
+                                      #{a.racer_id}
+                                  </div>
+                              )}
+                              <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                                  {racer ? `${racer.first_name} ${racer.last_name}` : `#{a.racer_id}`}
+                              </div>
+                              {racer?.car_number && <div style={{ fontSize: '0.8rem', color: '#666' }}>Car #{racer.car_number}</div>}
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
+      );
+  };
+
   if (loading) return <div>Loading Standings...</div>;
 
   return (
-    <div className="container">
+    <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
+      
+      {/* Active Racing Section */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
+          {renderHeatCard("🔥 Now Racing", currentHeat)}
+          {renderHeatCard("🔜 On Deck", nextHeat, true)}
+      </div>
+
       <h1>Live Standings</h1>
       
       <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
