@@ -34,6 +34,10 @@ export default function RaceDetails() {
   // Race Edit State
   const [isEditingRace, setIsEditingRace] = useState(false);
   const [editRaceData, setEditRaceData] = useState<Partial<Race>>({});
+  
+  // Roster View State
+  const [isGroupedByDen, setIsGroupedByDen] = useState(false);
+
 
   useEffect(() => {
     if (raceId) {
@@ -248,12 +252,22 @@ export default function RaceDetails() {
       {/* Roster Section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h2>Racer Roster</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginRight: '10px' }}>
+                <span style={{ marginRight: '8px', fontSize: '0.9rem', color: '#555' }}>Group by Den</span>
+                <label className="toggle-switch">
+                    <input 
+                        type="checkbox" 
+                        checked={isGroupedByDen} 
+                        onChange={e => setIsGroupedByDen(e.target.checked)} 
+                    />
+                    <span className="slider"></span>
+                </label>
+            </div>
             <button 
                 className="secondary-btn" 
                 onClick={async () => {
                    try {
-                        // Change icon to loading, or disable button
                         const btn = document.getElementById('populate-btn');
                         if (btn) btn.textContent = '⏳ Populating...';
                         if (btn) (btn as HTMLButtonElement).disabled = true;
@@ -261,7 +275,6 @@ export default function RaceDetails() {
                         await apiClient.post(`/races/${raceId}/populate?count=20`, {});
                         await fetchRacers();
                         
-                        // alert("Successfully added 20 fake racers!");
                    } catch (e) {
                         console.error("Failed to populate", e);
                         alert("Failed to populate test data. Check console for details.");
@@ -297,56 +310,148 @@ export default function RaceDetails() {
                 <tbody>
                     {racers.length === 0 ? (
                         <tr><td colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>No racers registered yet.</td></tr>
-                    ) : racers.map(racer => (
-                        <tr key={racer.id} style={{ borderBottom: '1px solid #eee' }}>
-                            <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
-                            <td style={{ padding: '12px', textAlign: 'center' }}>
-                                {racer.racer_image_url ? (
-                                    <img 
-                                        src={racer.racer_image_url} 
-                                        alt={`${racer.first_name}`} 
-                                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                    ) : isGroupedByDen ? (
+                        // Grouped View
+                        Object.values(racers.reduce((acc, racer) => {
+                            const denId = racer.den_id || -1;
+                            if (!acc[denId]) acc[denId] = { denId, items: [] };
+                            acc[denId].items.push(racer);
+                            return acc;
+                        }, {} as Record<number, { denId: number, items: Racer[] }>))
+                        .sort((a, b) => {
+                             // Sort groups logic
+                             if (a.denId === -1) return 1; // Unassigned last
+                             if (b.denId === -1) return -1;
+                             const denA = dens.find(d => d.id === a.denId);
+                             const denB = dens.find(d => d.id === b.denId);
+                             return (denA?.name || '').localeCompare(denB?.name || '');
+                        })
+                        .map(group => {
+                            const den = dens.find(d => d.id === group.denId);
+                            const denName = group.denId === -1 ? "Unassigned" : (den?.name || 'Unknown Den');
+                            const denColor = group.denId === -1 ? "#eee" : (den?.color || '#eee');
+                            
+                            return (
+                                <>
+                                    <tr key={`header-${group.denId}`} style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
+                                        <td colSpan={7} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                            <span style={{ 
+                                                display: 'inline-block', 
+                                                width: '12px', 
+                                                height: '12px', 
+                                                borderRadius: '50%', 
+                                                backgroundColor: denColor,
+                                                marginRight: '8px'
+                                            }}></span>
+                                            {denName} ({group.items.length})
+                                        </td>
+                                    </tr>
+                                    {group.items.map(racer => (
+                                         <tr key={racer.id} style={{ borderBottom: '1px solid #eee' }}>
+                                            <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                {racer.racer_image_url ? (
+                                                    <img 
+                                                        src={racer.racer_image_url} 
+                                                        alt={`${racer.first_name}`} 
+                                                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                                                    />
+                                                ) : (
+                                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#999', fontSize: '0.8rem' }}>
+                                                        No
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '12px' }}>{racer.first_name}</td>
+                                            <td style={{ padding: '12px' }}>{racer.last_name}</td>
+                                            <td style={{ padding: '12px' }}>
+                                                {racer.den_id ? (
+                                                    <span style={{ 
+                                                        padding: '4px 8px', 
+                                                        borderRadius: '12px', 
+                                                        backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
+                                                        color: '#333',
+                                                        fontSize: '0.85rem',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        {dens.find(d => d.id === racer.den_id)?.name || 'Unknown'}
+                                                    </span>
+                                                ) : '-'}
+                                            </td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={racer.car_passed_inspection}
+                                                    onChange={() => handleToggleCheckIn(racer)}
+                                                    style={{ transform: 'scale(1.5)', cursor: 'pointer' }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                                                <button
+                                                    onClick={() => handleEditRacerClick(racer)}
+                                                    style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', textDecoration: 'underline', cursor: 'pointer' }}
+                                                >
+                                                    Edit
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </>
+                            );
+                        })
+                    ) : (
+                        // Standard View
+                         racers.map(racer => (
+                            <tr key={racer.id} style={{ borderBottom: '1px solid #eee' }}>
+                                <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    {racer.racer_image_url ? (
+                                        <img 
+                                            src={racer.racer_image_url} 
+                                            alt={`${racer.first_name}`} 
+                                            style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                                        />
+                                    ) : (
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#999', fontSize: '0.8rem' }}>
+                                            No
+                                        </div>
+                                    )}
+                                </td>
+                                <td style={{ padding: '12px' }}>{racer.first_name}</td>
+                                <td style={{ padding: '12px' }}>{racer.last_name}</td>
+                                <td style={{ padding: '12px' }}>
+                                    {racer.den_id ? (
+                                        <span style={{ 
+                                            padding: '4px 8px', 
+                                            borderRadius: '12px', 
+                                            backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
+                                            color: '#333',
+                                            fontSize: '0.85rem',
+                                            fontWeight: 'bold'
+                                        }}>
+                                            {dens.find(d => d.id === racer.den_id)?.name || 'Unknown'}
+                                        </span>
+                                    ) : '-'}
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={racer.car_passed_inspection}
+                                        onChange={() => handleToggleCheckIn(racer)}
+                                        style={{ transform: 'scale(1.5)', cursor: 'pointer' }}
                                     />
-                                ) : (
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#999', fontSize: '0.8rem' }}>
-                                        No
-                                    </div>
-                                )}
-                            </td>
-                            <td style={{ padding: '12px' }}>{racer.first_name}</td>
-                            <td style={{ padding: '12px' }}>{racer.last_name}</td>
-                            <td style={{ padding: '12px' }}>
-                                {racer.den_id ? (
-                                    <span style={{ 
-                                        padding: '4px 8px', 
-                                        borderRadius: '12px', 
-                                        backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
-                                        color: '#333', // Assuming light backgrounds for colors, or we need contrast logic
-                                        fontSize: '0.85rem',
-                                        fontWeight: 'bold'
-                                    }}>
-                                        {dens.find(d => d.id === racer.den_id)?.name || 'Unknown'}
-                                    </span>
-                                ) : '-'}
-                            </td>
-                            <td style={{ padding: '12px', textAlign: 'center' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={racer.car_passed_inspection}
-                                    onChange={() => handleToggleCheckIn(racer)}
-                                    style={{ transform: 'scale(1.5)', cursor: 'pointer' }}
-                                />
-                            </td>
-                            <td style={{ padding: '12px', textAlign: 'right' }}>
-                                <button
-                                    onClick={() => handleEditRacerClick(racer)}
-                                    style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', textDecoration: 'underline', cursor: 'pointer' }}
-                                >
-                                    Edit
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
+                                </td>
+                                <td style={{ padding: '12px', textAlign: 'right' }}>
+                                    <button
+                                        onClick={() => handleEditRacerClick(racer)}
+                                        style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', textDecoration: 'underline', cursor: 'pointer' }}
+                                    >
+                                        Edit
+                                    </button>
+                                </td>
+                            </tr>
+                        ))
+                    )}
                 </tbody>
             </table>
       </div>
