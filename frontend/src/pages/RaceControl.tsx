@@ -190,11 +190,11 @@ export default function RaceControl() {
 
   return (
     <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Race Control</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 style={{ margin: 0 }}>Race Control</h1>
         
-        {/* Mode Switcher */}
-        <div style={{ display: 'flex', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
+        {/* Mode Switcher - Centered */}
+        <div style={{ display: 'flex', background: '#e0e0e0', padding: '5px', borderRadius: '25px', justifySelf: 'center' }}>
             <button 
                 onClick={() => setViewMode('SCHEDULE')}
                 style={{ 
@@ -225,15 +225,19 @@ export default function RaceControl() {
             </button>
         </div>
 
-        {viewMode === 'SCHEDULE' && (
-            <button 
-              className="secondary-btn" 
-              onClick={handleGenerateSchedule}
-              disabled={generating}
-            >
-              {generating ? 'Generating...' : 'Regenerate Schedule'}
-            </button>
-        )}
+        {/* Action Button - Right Aligned */}
+        <div style={{ justifySelf: 'end' }}>
+            {viewMode === 'SCHEDULE' && (
+                <button 
+                  className="secondary-btn" 
+                  onClick={handleGenerateSchedule}
+                  disabled={generating}
+                >
+                  {generating ? 'Generating...' : 'Regenerate Schedule'}
+                </button>
+            )}
+            {/* Placeholder to maintain grid height if empty? Not needed with grid. */}
+        </div>
       </div>
 
       {heats.length === 0 ? (
@@ -246,7 +250,7 @@ export default function RaceControl() {
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
               {activeExecutionHeat ? (
                   <>
-                    <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scot-gold)' }}>
+                    <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                              <div>
                                  <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heat_number}</h2>
@@ -258,37 +262,70 @@ export default function RaceControl() {
                                      const isCompleted = results.length > 0 && results[0].time !== null;
                                      const isRunning = activeHeatId === activeExecutionHeat.id;
                                      
-                                     return (
-                                        <>
-                                            <button 
-                                                className="primary-btn"
-                                                onClick={() => handleRunHeat(activeExecutionHeat)}
-                                                disabled={isRunning}
-                                                style={{ 
-                                                    padding: '15px 30px', 
-                                                    fontSize: '1.3rem',
-                                                    background: isRunning ? 'orange' : isCompleted ? '#4caf50' : 'var(--scouting-blue)'
-                                                }}
-                                            >
-                                                {isRunning ? 'Racing...' : isCompleted ? 'Re-Run Heat' : 'Start Heat'}
-                                            </button>
-                                            
-                                            {isCompleted && nextExecutionHeat && (
+                                     // State: Running -> Disable all
+                                     // State: Completed -> Show "Next Heat" (Primary) and "Re-Run" (Secondary)
+                                     // State: Ready -> Show "Start Heat" (Primary)
+                                     
+                                     if (isCompleted) {
+                                        return (
+                                            <>
+                                                {/* Re-Run Button (Secondary/Caution) */}
                                                 <button
-                                                    className="primary-btn"
-                                                    onClick={handleNextHeat}
+                                                    onClick={() => {
+                                                        if (confirm('Are you sure you want to re-run this heat? Previous results will be overwritten.')) {
+                                                            handleRunHeat(activeExecutionHeat);
+                                                        }
+                                                    }}
                                                     style={{
-                                                        padding: '15px 30px',
-                                                        fontSize: '1.3rem',
-                                                        background: 'var(--scouting-red)',
-                                                        color: 'white',
-                                                        marginLeft: '10px'
+                                                        padding: '10px 20px',
+                                                        fontSize: '1rem',
+                                                        background: 'var(--cub-scouting-gold)', // Caution color
+                                                        color: 'black',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 'bold'
                                                     }}
                                                 >
-                                                    Next Heat ➡
+                                                    ↺ Re-Run
                                                 </button>
-                                            )}
-                                        </>
+
+                                                {/* Next Heat Button (Primary/Action) */}
+                                                {nextExecutionHeat && (
+                                                    <button
+                                                        className="primary-btn"
+                                                        onClick={handleNextHeat}
+                                                        style={{
+                                                            padding: '15px 30px',
+                                                            fontSize: '1.3rem',
+                                                            background: '#2e7d32', // Green for Go
+                                                            color: 'white',
+                                                            marginLeft: '10px',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '8px'
+                                                        }}
+                                                    >
+                                                        Next Heat ➡
+                                                    </button>
+                                                )}
+                                            </>
+                                        );
+                                     }
+                                     
+                                     return (
+                                        <button 
+                                            className="primary-btn"
+                                            onClick={() => handleRunHeat(activeExecutionHeat)}
+                                            disabled={isRunning}
+                                            style={{ 
+                                                padding: '15px 30px', 
+                                                fontSize: '1.3rem',
+                                                background: isRunning ? 'orange' : 'var(--scouting-blue)'
+                                            }}
+                                        >
+                                            {isRunning ? 'Racing...' : 'Start Heat'}
+                                        </button>
                                      );
                                  })()}
                              </div>
