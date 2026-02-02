@@ -23,6 +23,11 @@ def get_dens(db: Session, skip: int = 0, limit: int = 100) -> List[models.Den]:
 def get_den(db: Session, den_id: int) -> models.Den | None:
     return db.query(models.Den).filter(models.Den.id == den_id).first()
 
+def get_den_by_name(db: Session, name: str) -> models.Den | None:
+    # Example: Case insensitive search could be done here if DB supports it easily,
+    # or just do exact match for simplicity first
+    return db.query(models.Den).filter(models.Den.name == name).first()
+
 def create_den(db: Session, den: schemas.DenCreate) -> models.Den:
     db_den = models.Den(**den.model_dump())
     db.add(db_den)

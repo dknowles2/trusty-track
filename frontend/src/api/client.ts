@@ -9,12 +9,13 @@ export const apiClient = {
     return response.json();
   },
   post: async (endpoint: string, data: any) => {
+    const isFormData = data instanceof FormData;
+    const headers: HeadersInit = isFormData ? {} : { 'Content-Type': 'application/json' };
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+      headers: headers,
+      body: isFormData ? data : JSON.stringify(data),
     });
      if (!response.ok) {
         throw new Error(`API Error: ${response.statusText}`);
@@ -22,12 +23,13 @@ export const apiClient = {
     return response.json();
   },
   put: async (endpoint: string, data: any) => {
+    const isFormData = data instanceof FormData;
+    const headers: HeadersInit = isFormData ? {} : { 'Content-Type': 'application/json' };
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+      headers: headers,
+      body: isFormData ? data : JSON.stringify(data),
     });
     if (!response.ok) {
        throw new Error(`API Error: ${response.statusText}`);

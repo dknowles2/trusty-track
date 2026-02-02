@@ -5,6 +5,7 @@ import RacerForm, { RacerData, Den } from '../components/RacerForm';
 import DenManager from '../components/DenManager';
 import Modal from '../components/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
+import ImportRacersModal from '../components/ImportRacersModal';
 
 interface Race extends RaceFormData {
     id: number;
@@ -23,6 +24,7 @@ export default function RaceDetails() {
   
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showDenManager, setShowDenManager] = useState(false);
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
 
@@ -250,6 +252,14 @@ export default function RaceDetails() {
                         >
                             ⚡ Populate Test Data
                         </button>
+                        <button
+                            onClick={() => {
+                                setShowImportModal(true);
+                                setIsAddRacerDropdownOpen(false);
+                            }}
+                        >
+                            📂 Import from CSV
+                        </button>
                     </div>
                 )}
             </div>
@@ -445,6 +455,20 @@ export default function RaceDetails() {
             }}
           />
       </Modal>
+
+      {/* Import Racers Modal */}
+      {race && (
+          <ImportRacersModal
+            isOpen={showImportModal}
+            onClose={() => setShowImportModal(false)}
+            raceId={race.id}
+            onImportSuccess={() => {
+                fetchRacers();
+                // Optional: close modal automatically or let user close
+                // setShowImportModal(false); 
+            }}
+          />
+      )}
     </div>
   );
 }

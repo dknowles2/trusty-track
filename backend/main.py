@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 import os
 import uuid
 import shutil
+import csv
+import io
+import random
 from . import crud, models, schemas
 from .database import SessionLocal, engine
 
@@ -200,6 +203,69 @@ def populate_race(race_id: int, count: int = 20, db: Session = Depends(get_db)):
     from . import populate
     populate.generate_fake_racers(db, race_id, count)
     return {"message": f"Populated race {race_id} with {count} racers"}
+
+@app.post("/races/{race_id}/import-racers")
+async def import_racers_csv(race_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Invalid file type. Please upload a CSV file.")
+
+    content = await file.read()
+    decoded_content = content.decode('utf-8')
+    csv_reader = csv.DictReader(io.StringIO(decoded_content))
+    
+    # Expected headers: First Name, Last Name, Car Number, Den
+    # Normalize headers just in case
+    
+    added_count = 0
+    errors = []
+    
+    for row_idx, row in enumerate(csv_reader):
+        try:
+            # Flexible key access (handle case sensitivity or extra spaces)
+            row_clean = {k.strip().lower(): v.strip() for k, v in row.items() if k}
+            
+            first_name = row_clean.get("first name")
+            last_name = row_clean.get("last name")
+            
+            if not first_name or not last_name:
+                errors.append(f"Row {row_idx + 2}: Missing First Name or Last Name")
+                continue
+                
+            car_number_str = row_clean.get("car number")
+            car_number = int(car_number_str) if car_number_str and car_number_str.isdigit() else None
+            
+            den_name = row_clean.get("den")
+            den_id = None
+            if den_name:
+                # Try to find den by name (case insensitive)
+                den = crud.get_den_by_name(db, den_name)
+                if den:
+                    den_id = den.id
+                else:
+                    # Create new Den
+                    random_color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
+                    new_den = schemas.DenCreate(name=den_name, color=random_color)
+                    created_den = crud.create_den(db, new_den)
+                    den_id = created_den.id
+            
+            racer_Create = schemas.RacerCreate(
+                first_name=first_name,
+                last_name=last_name,
+                car_number=car_number,
+                den_id=den_id,
+                race_id=race_id
+            )
+            
+            crud.create_racer(db, racer_Create)
+            added_count += 1
+            
+        except Exception as e:
+            errors.append(f"Row {row_idx + 2}: {str(e)}")
+            
+    return {
+        "message": f"Successfully imported {added_count} racers.",
+        "errors": errors
+    }
 
 @app.post("/races/{race_id}/generate_heats", response_model=List[schemas.Heat])
 def generate_schedule(race_id: int, db: Session = Depends(get_db)):
