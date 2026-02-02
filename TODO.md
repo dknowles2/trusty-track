@@ -11,9 +11,9 @@
 [ ] FEAT: Update the "Race Control" page to have a few different modes:
   1.  Schedule generation and maintenance. This is essentially the current implementation.
   2.  Race execution. This mode should display the current heat, the racers in the heat, and the racers "on deck". It should provide an option for re-running the heat, overriding the timing results, and continuing to the next heat.
+[ ] FEAT: When utilizing a fake timer, there should be a "mole" UI element that provides access to the fake timer controls.
 [ ] FEAT: We should improve the concepts of "Rounds" versus "Heats". A race consists of multiple rounds. Each round consists of multiple heats. Each round consists of a set number of racers, and the heats should be generated to fulfill the configured scheduling algorithm. Race control should have the ability to add additional rounds dynamically. But also when setting up a race initially, the type of round selection should be configurable, allowing for options such as "race entire roster together", "race per group", and "manual scheduling".
 [ ] FEAT: Allow configuring how champions are selected. Should we use the standard "top 3 advance" algorithm, or should we use a different algorithm? Should we allow for manual selection of champions?
-[ ] FEAT: When utilizing a fake timer, there should be a "mole" UI element that provides access to the fake timer controls.
 [ ] FEAT: Allow for bulk-editing of roster items:
   1.  Add a checkbox to each row that appears on hover
   2.  Allow "select all" via the top header
