@@ -211,3 +211,6 @@ __pycache__/
 
 # Backend data
 backend/uploads/*
+node_modules/
+frontend/dist/
+frontend/node_modules/

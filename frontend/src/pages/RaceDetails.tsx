@@ -151,9 +151,20 @@ export default function RaceDetails() {
       <div style={{ marginBottom: '2rem', background: '#f9f9f9', padding: '1rem', borderRadius: '8px' }}>
           <h3 style={{ marginTop: 0 }}>Race Settings</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              <div><strong>Scheduling:</strong> {race?.scheduling_strategy}</div>
-              <div><strong>Scoring:</strong> {race?.scoring_strategy}</div>
-              <div><strong>Car Numbering:</strong> {race?.car_numbering_strategy === 'PER_GROUP' ? 'Per Den' : race?.car_numbering_strategy}</div>
+              <div><strong>Scheduling:</strong> {race?.scheduling_strategy ? ({
+                  'LANE_ROTATION': 'Lane Rotation',
+                  'PERFECT_N': 'Perfect N',
+                  'CHAOTIC': 'Chaotic'
+              }[race.scheduling_strategy] || race.scheduling_strategy) : '-'}</div>
+              <div><strong>Scoring:</strong> {race?.scoring_strategy ? ({
+                  'TIMED': 'Timed',
+                  'POINTS': 'Points'
+              }[race.scoring_strategy] || race.scoring_strategy) : '-'}</div>
+              <div><strong>Car Numbering:</strong> {race?.car_numbering_strategy ? ({
+                  'MANUAL': 'Manual',
+                  'PER_GROUP': 'Per Den',
+                  'GLOBAL': 'Global'
+              }[race.car_numbering_strategy] || race.car_numbering_strategy) : '-'}</div>
           </div>
       </div>
 
