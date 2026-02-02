@@ -153,7 +153,7 @@ export default function RaceDetails() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div><strong>Scheduling:</strong> {race?.scheduling_strategy}</div>
               <div><strong>Scoring:</strong> {race?.scoring_strategy}</div>
-              <div><strong>Car Numbering:</strong> {race?.car_numbering_strategy}</div>
+              <div><strong>Car Numbering:</strong> {race?.car_numbering_strategy === 'PER_GROUP' ? 'Per Den' : race?.car_numbering_strategy}</div>
           </div>
       </div>
 
@@ -190,6 +190,32 @@ export default function RaceDetails() {
             </div>
             
             <button className="secondary-btn" onClick={() => setShowDenManager(true)}>Manage Dens</button>
+            
+            <button 
+                className="secondary-btn" 
+                onClick={async () => {
+                     const btn = document.getElementById('auto-num-btn');
+                     if (btn) btn.textContent = '⏳ ...';
+                     try {
+                         const res = await apiClient.post(`/races/${raceId}/auto_number`, {});
+                         await fetchRacers();
+                         
+                         if (res.updated_count === 0) {
+                             alert(res.message + ".\n\nTip: If using 'Per Den', ensure Dens have number ranges configured.");
+                         } else {
+                             alert(res.message);
+                         }
+                     } catch(e) {
+                         alert("Failed to auto-number");
+                     } finally {
+                         if (btn) btn.textContent = '#️⃣ Auto #';
+                     }
+                }}
+                id="auto-num-btn"
+                title="Auto Number Racers"
+            >
+                #️⃣ Auto #
+            </button>
 
             <div className="dropdown" style={{ position: 'relative' }}>
                 <div className="split-btn-container">

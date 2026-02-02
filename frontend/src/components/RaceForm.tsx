@@ -8,6 +8,7 @@ export interface RaceFormData {
     scheduling_strategy: string;
     scoring_strategy: string;
     car_numbering_strategy: string;
+    global_start_number: number;
 }
 
 interface RaceFormProps {
@@ -26,6 +27,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
         scheduling_strategy: 'LANE_ROTATION',
         scoring_strategy: 'TIMED',
         car_numbering_strategy: 'MANUAL',
+        global_start_number: 1,
         ...initialData
     });
     const [loading, setLoading] = useState(false);
@@ -126,7 +128,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
                     </select>
                 </div>
             </div>
-             <div>
+            <div>
                 <label style={labelStyle}>Car Numbering</label>
                 <select 
                     value={formData.car_numbering_strategy} 
@@ -134,10 +136,22 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
                     style={inputStyle}
                 >
                     <option value="MANUAL">Manual</option>
-                    <option value="PER_GROUP">Per Group</option>
+                    <option value="PER_GROUP">Per Den</option>
                     <option value="GLOBAL">Global</option>
                 </select>
             </div>
+             {formData.car_numbering_strategy === 'GLOBAL' && (
+                <div>
+                     <label style={labelStyle}>Global Start Number</label>
+                    <input 
+                        type="number" 
+                        value={formData.global_start_number} 
+                        onChange={e => handleChange('global_start_number', parseInt(e.target.value))}
+                        style={inputStyle}
+                        placeholder="e.g. 1"
+                    />
+                </div>
+            )}
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
                 <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1, padding: '12px' }}>

@@ -275,3 +275,71 @@ def record_heat_result(db: Session, heat_id: int, results: str | None) -> models
         db.commit()
         db.refresh(heat)
     return heat
+
+def auto_number_racers(db: Session, race_id: int) -> int:
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if not race:
+        return 0
+        
+    racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
+    if not racers:
+        return 0
+        
+    updated_count = 0
+    
+    if race.car_numbering_strategy == models.CarNumberingStrategy.GLOBAL:
+        # Sort by ID to ensure stable ordering, or last name? Let's do ID (entry order)
+        # Or maybe sort by Last Name, First Name
+        racers.sort(key=lambda r: (r.last_name, r.first_name))
+        
+        current_number = race.global_start_number or 1
+        for racer in racers:
+            racer.car_number = current_number
+            current_number += 1
+            updated_count += 1
+            
+    elif race.car_numbering_strategy == models.CarNumberingStrategy.PER_GROUP:
+        # Group racers by Den
+        # We need to get all dens for this race to know ranges
+        dens = db.query(models.Den).filter(models.Den.race_id == race_id).all()
+        den_map = {d.id: d for d in dens}
+        
+        # Pre-bucket racers
+        den_racers: dict[int, list[models.Racer]] = {}
+        unassigned_racers: list[models.Racer] = []
+        
+        for racer in racers:
+            if racer.den_id:
+                if racer.den_id not in den_racers:
+                    den_racers[racer.den_id] = []
+                den_racers[racer.den_id].append(racer)
+            else:
+                unassigned_racers.append(racer)
+                
+        # Assign numbers per Den
+        for den_id, group_racers in den_racers.items():
+            den = den_map.get(den_id)
+            if not den or den.car_number_range_start is None:
+                continue # Skip if no config
+            
+            # Sort
+            group_racers.sort(key=lambda r: (r.last_name, r.first_name))
+            
+            current = den.car_number_range_start
+            limit = den.car_number_range_end
+            
+            for racer in group_racers:
+                if limit and current > limit:
+                     break # Stop assigning if out of range? Or just keep going?
+                     # Let's stop to respect the "end" concept, user can fix.
+                
+                racer.car_number = current
+                current += 1
+                updated_count += 1
+                
+    else:
+        # MANUAL or Unset - do nothing
+        return 0
+        
+    db.commit()
+    return updated_count

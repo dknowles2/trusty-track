@@ -26,8 +26,8 @@ DENS = [
     {"name": "Arrow of Light", "color": "#CB4335", "rank": models.Rank.ARROW_OF_LIGHT}
 ]
 
-def ensure_dens(db: Session):
-    existing_dens = crud.get_dens(db)
+def ensure_dens(db: Session, race_id: int):
+    existing_dens = crud.get_dens(db, race_id=race_id)
     if not existing_dens:
         created_dens = []
         for den_data in DENS:
@@ -38,7 +38,7 @@ def ensure_dens(db: Session):
                 color=str(den_data["color"]),
                 rank=den_data["rank"] # type: ignore
             )
-            created_dens.append(crud.create_den(db, den_in))
+            created_dens.append(crud.create_den(db, den_in, race_id=race_id))
         return created_dens
     return existing_dens
 
@@ -71,7 +71,7 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
     existing_names = set(f"{r.first_name} {r.last_name}" for r in existing_racers)
     
     # Ensure Dens exist and get them
-    dens = ensure_dens(db)
+    dens = ensure_dens(db, race_id)
     if not dens:
         return {"error": "Could not create dens"}
     

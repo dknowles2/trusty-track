@@ -12,6 +12,8 @@ class DenBase(BaseModel):
     name: str
     color: str = "#000000"
     rank: Optional[Rank] = None
+    car_number_range_start: Optional[int] = None
+    car_number_range_end: Optional[int] = None
 
 class DenCreate(DenBase):
     pass
@@ -20,6 +22,8 @@ class DenUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
     rank: Optional[Rank] = None
+    car_number_range_start: Optional[int] = None
+    car_number_range_end: Optional[int] = None
 
 class Den(DenBase):
     id: int
@@ -113,6 +117,7 @@ class RaceUpdate(BaseModel):
     scheduling_strategy: Optional[SchedulingStrategy] = None
     scoring_strategy: Optional[ScoringStrategy] = None
     car_numbering_strategy: Optional[CarNumberingStrategy] = None
+    global_start_number: Optional[int] = None
 
 class Race(RaceBase):
     id: int

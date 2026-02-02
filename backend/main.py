@@ -272,6 +272,11 @@ async def import_racers_csv(race_id: int, file: UploadFile = File(...), db: Sess
         "errors": errors
     }
 
+@app.post("/races/{race_id}/auto_number")
+def auto_number_racers(race_id: int, db: Session = Depends(get_db)):
+    count = crud.auto_number_racers(db, race_id)
+    return {"message": f"Auto-numbered {count} racers", "updated_count": count}
+
 @app.post("/races/{race_id}/generate_heats", response_model=List[schemas.Heat])
 def generate_schedule(race_id: int, db: Session = Depends(get_db)):
     return crud.generate_heats(db, race_id)

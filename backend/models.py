@@ -32,6 +32,8 @@ class Den(Base):
     color: Mapped[str] = mapped_column(String, default="#000000")
     rank: Mapped[Optional[Rank]] = mapped_column(SAEnum(Rank), default=Rank.OTHER, nullable=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
+    car_number_range_start: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    car_number_range_end: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="dens")
     racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="den")
