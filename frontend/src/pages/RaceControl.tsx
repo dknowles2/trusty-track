@@ -111,6 +111,29 @@ export default function RaceControl() {
       return `${r.first_name} ${r.last_name} (#${r.car_number})`;
   };
 
+  // ... existing state ...
+  const [viewMode, setViewMode] = useState<'SCHEDULE' | 'EXECUTION'>('SCHEDULE');
+
+  // ... (keep existing useEffects and handlers) ...
+
+  // Derived state for Execution Mode
+  const sortedHeatsEx = [...heats].sort((a, b) => {
+      if (a.round_number !== b.round_number) return a.round_number - b.round_number;
+      return a.heat_number - b.heat_number;
+  });
+  
+  const currentHeatIndex = sortedHeatsEx.findIndex(h => {
+      const results = h.lane_results ? JSON.parse(h.lane_results) : [];
+      return !(results.length > 0 && results[0].time !== null);
+  });
+  
+  // If all completed, show last one or a "Race Over" state. Default to last if all done.
+  const activeExecutionHeat = currentHeatIndex !== -1 ? sortedHeatsEx[currentHeatIndex] : (sortedHeatsEx.length > 0 ? sortedHeatsEx[sortedHeatsEx.length - 1] : null);
+  const nextExecutionHeat = currentHeatIndex !== -1 && currentHeatIndex + 1 < sortedHeatsEx.length ? sortedHeatsEx[currentHeatIndex + 1] : null;
+
+  // Auto-switch to execution mode if we have heats? Optional. 
+  // Let's default to SCHEDULE for overview, but user can switch.
+
   if (loading) return <div>Loading Race Control...</div>;
 
   if (!activeRaceId) return (
@@ -120,7 +143,7 @@ export default function RaceControl() {
     </div>
   );
 
-  // Group Heats by Round
+  // Group Heats by Round for Schedule View
   const rounds: Record<number, Heat[]> = {};
   heats.forEach(h => {
       if (!rounds[h.round_number]) rounds[h.round_number] = [];
@@ -133,6 +156,39 @@ export default function RaceControl() {
     <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>Race Control</h1>
+        
+        {/* Mode Switcher */}
+        <div style={{ display: 'flex', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
+            <button 
+                onClick={() => setViewMode('SCHEDULE')}
+                style={{ 
+                    padding: '8px 20px', 
+                    borderRadius: '20px', 
+                    border: 'none', 
+                    background: viewMode === 'SCHEDULE' ? 'white' : 'transparent',
+                    boxShadow: viewMode === 'SCHEDULE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                    fontWeight: viewMode === 'SCHEDULE' ? 'bold' : 'normal',
+                    cursor: 'pointer'
+                }}
+            >
+                📅 Schedule
+            </button>
+            <button 
+                onClick={() => setViewMode('EXECUTION')}
+                style={{ 
+                    padding: '8px 20px', 
+                    borderRadius: '20px', 
+                    border: 'none', 
+                    background: viewMode === 'EXECUTION' ? 'white' : 'transparent',
+                    boxShadow: viewMode === 'EXECUTION' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                    fontWeight: viewMode === 'EXECUTION' ? 'bold' : 'normal',
+                    cursor: 'pointer'
+                }}
+            >
+                🏁 Race
+            </button>
+        </div>
+
         <button 
           className="secondary-btn" 
           onClick={handleGenerateSchedule}
@@ -147,7 +203,79 @@ export default function RaceControl() {
           <p>No heats scheduled.</p>
           <button className="primary-btn" onClick={handleGenerateSchedule}>Generate Schedule</button>
         </div>
+      ) : viewMode === 'EXECUTION' ? (
+          // --- EXECUTION MODE ---
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+              {activeExecutionHeat ? (
+                  <>
+                    <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scot-gold)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                             <div>
+                                 <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heat_number}</h2>
+                                 <div style={{ color: '#666', fontSize: '1.1rem' }}>Round {activeExecutionHeat.round_number}</div>
+                             </div>
+                             <div>
+                                 {(() => {
+                                     const results = activeExecutionHeat.lane_results ? JSON.parse(activeExecutionHeat.lane_results) : [];
+                                     const isCompleted = results.length > 0 && results[0].time !== null;
+                                     const isRunning = activeHeatId === activeExecutionHeat.id;
+                                     
+                                     return (
+                                        <button 
+                                            className="primary-btn"
+                                            onClick={() => handleRunHeat(activeExecutionHeat)}
+                                            disabled={isRunning}
+                                            style={{ 
+                                                padding: '15px 40px', 
+                                                fontSize: '1.5rem',
+                                                background: isRunning ? 'orange' : isCompleted ? '#4caf50' : 'var(--scouting-blue)'
+                                            }}
+                                        >
+                                            {isRunning ? 'Racing...' : isCompleted ? 'Re-Run Heat' : 'Start Heat'}
+                                        </button>
+                                     );
+                                 })()}
+                             </div>
+                        </div>
+                        
+                        <div style={{ display: 'grid', gap: '15px' }}>
+                            {(activeExecutionHeat.lane_results ? JSON.parse(activeExecutionHeat.lane_results) : []).map((r: any) => (
+                                <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: '#f9f9f9', borderRadius: '8px', borderLeft: '5px solid #ddd' }}>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {r.lane}</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{getRacerName(r.racer_id)}</div>
+                                    </div>
+                                    <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                        {r.time ? `${r.time}s` : '--'}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Next Heat Preview */}
+                    {nextExecutionHeat && (
+                        <div style={{ marginTop: '30px', opacity: 0.7 }}>
+                            <h3>Up Next: Heat {nextExecutionHeat.heat_number} (Round {nextExecutionHeat.round_number})</h3>
+                            <div style={{ background: '#f0f0f0', padding: '15px', borderRadius: '8px' }}>
+                                {(nextExecutionHeat.lane_results ? JSON.parse(nextExecutionHeat.lane_results) : []).map((r: any) => (
+                                    <span key={r.lane} style={{ display: 'inline-block', marginRight: '20px' }}>
+                                        <strong>L{r.lane}:</strong> {getRacerName(r.racer_id)}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                  </>
+              ) : (
+                  <div style={{ textAlign: 'center', padding: '50px' }}>
+                      <h2>Race Complete! 🎉</h2>
+                      <p>All heats have been run.</p>
+                  </div>
+              )}
+          </div>
       ) : (
+        // --- SCHEDULE MODE (Bracket View) ---
         <div style={{ 
             display: 'flex', 
             overflowX: 'auto', 
@@ -180,7 +308,13 @@ export default function RaceControl() {
                                         <span style={{ fontWeight: 'bold' }}>Heat {heat.heat_number}</span>
                                         <button 
                                             className="primary-btn"
-                                            onClick={() => handleRunHeat(heat)}
+                                            onClick={() => {
+                                                // Switch to execution mode and run? Or just run in place?
+                                                // Let's run in place for schedule view consistency, or switch?
+                                                // User might want to "jump to" this heat in execution mode.
+                                                // For now, keep existing behavior: Run in place.
+                                                handleRunHeat(heat);
+                                            }}
                                             disabled={isRunning}
                                             style={{ padding: '4px 8px', fontSize: '0.8rem', minWidth: '60px' }}
                                         >
