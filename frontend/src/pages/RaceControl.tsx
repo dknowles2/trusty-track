@@ -124,6 +124,7 @@ export default function RaceControl() {
         }
       } catch (e) {
         console.error("Failed to save results", e);
+        alert("Failed to save race results. Please try again.");
       } finally {
         setActiveHeatId(null);
       }
@@ -224,13 +225,15 @@ export default function RaceControl() {
             </button>
         </div>
 
-        <button 
-          className="secondary-btn" 
-          onClick={handleGenerateSchedule}
-          disabled={generating}
-        >
-          {generating ? 'Generating...' : 'Regenerate Schedule'}
-        </button>
+        {viewMode === 'SCHEDULE' && (
+            <button 
+              className="secondary-btn" 
+              onClick={handleGenerateSchedule}
+              disabled={generating}
+            >
+              {generating ? 'Generating...' : 'Regenerate Schedule'}
+            </button>
+        )}
       </div>
 
       {heats.length === 0 ? (
@@ -272,18 +275,14 @@ export default function RaceControl() {
                                             
                                             {isCompleted && nextExecutionHeat && (
                                                 <button
+                                                    className="primary-btn"
                                                     onClick={handleNextHeat}
                                                     style={{
                                                         padding: '15px 30px',
                                                         fontSize: '1.3rem',
                                                         background: 'var(--scouting-red)',
                                                         color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        cursor: 'pointer',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px'
+                                                        marginLeft: '10px'
                                                     }}
                                                 >
                                                     Next Heat ➡
