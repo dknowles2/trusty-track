@@ -193,40 +193,39 @@ export default function RaceControl() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Race Control</h1>
         
-        {/* Mode Switcher - Centered */}
-        <div style={{ display: 'flex', background: '#e0e0e0', padding: '5px', borderRadius: '25px', justifySelf: 'center' }}>
-            <button 
-                onClick={() => setViewMode('SCHEDULE')}
-                style={{ 
-                    padding: '8px 20px', 
-                    borderRadius: '20px', 
-                    border: 'none', 
-                    background: viewMode === 'SCHEDULE' ? 'white' : 'transparent',
-                    boxShadow: viewMode === 'SCHEDULE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                    fontWeight: viewMode === 'SCHEDULE' ? 'bold' : 'normal',
-                    cursor: 'pointer'
-                }}
-            >
-                📅 Schedule
-            </button>
-            <button 
-                onClick={() => setViewMode('EXECUTION')}
-                style={{ 
-                    padding: '8px 20px', 
-                    borderRadius: '20px', 
-                    border: 'none', 
-                    background: viewMode === 'EXECUTION' ? 'white' : 'transparent',
-                    boxShadow: viewMode === 'EXECUTION' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-                    fontWeight: viewMode === 'EXECUTION' ? 'bold' : 'normal',
-                    cursor: 'pointer'
-                }}
-            >
-                🏁 Race
-            </button>
-        </div>
+        {/* Mode Switcher and Actions - Centered */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', justifySelf: 'center' }}>
+            <div style={{ display: 'flex', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
+                <button 
+                    onClick={() => setViewMode('SCHEDULE')}
+                    style={{ 
+                        padding: '8px 20px', 
+                        borderRadius: '20px', 
+                        border: 'none', 
+                        background: viewMode === 'SCHEDULE' ? 'white' : 'transparent',
+                        boxShadow: viewMode === 'SCHEDULE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                        fontWeight: viewMode === 'SCHEDULE' ? 'bold' : 'normal',
+                        cursor: 'pointer'
+                    }}
+                >
+                    📅 Schedule
+                </button>
+                <button 
+                    onClick={() => setViewMode('EXECUTION')}
+                    style={{ 
+                        padding: '8px 20px', 
+                        borderRadius: '20px', 
+                        border: 'none', 
+                        background: viewMode === 'EXECUTION' ? 'white' : 'transparent',
+                        boxShadow: viewMode === 'EXECUTION' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                        fontWeight: viewMode === 'EXECUTION' ? 'bold' : 'normal',
+                        cursor: 'pointer'
+                    }}
+                >
+                    🏁 Race
+                </button>
+            </div>
 
-        {/* Action Button - Right Aligned */}
-        <div style={{ justifySelf: 'end' }}>
             {viewMode === 'SCHEDULE' && (
                 <button 
                   className="secondary-btn" 
@@ -236,7 +235,11 @@ export default function RaceControl() {
                   {generating ? 'Generating...' : 'Regenerate Schedule'}
                 </button>
             )}
-            {/* Placeholder to maintain grid height if empty? Not needed with grid. */}
+        </div>
+
+        {/* Action Button - Right Aligned (Empty now, but kept for grid balance if needed, or remove) */}
+        <div style={{ justifySelf: 'end' }}>
+            {/* Empty to maintain grid structure if we want title-center-right 1fr-auto-1fr balance */}
         </div>
       </div>
 
