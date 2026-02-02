@@ -32,29 +32,66 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
     if os.path.exists(f"{assets_base}/cars"):
         car_assets = [f for f in os.listdir(f"{assets_base}/cars") if f.endswith(".png")]
 
-    for _ in range(count):
-        # Pick names
+def get_unique_name(existing_names):
+    for _ in range(100): # Try 100 times to get a unique name
         first = random.choice(FIRST_NAMES)
         last = random.choice(LAST_NAMES)
+        full_name = f"{first} {last}"
+        if full_name not in existing_names:
+            existing_names.add(full_name)
+            return first, last
+    # Fallback if we accidentally exhaust combinations (unlikely)
+    return f"Racer{random.randint(1000,9999)}", "Doe"
+
+def generate_fake_racers(db: Session, race_id: int, count: int = 20):
+    # Ensure assets exist
+    assets_base = "backend/assets/defaults"
+    uploads_dir = "backend/uploads"
+    
+    racer_assets = []
+    if os.path.exists(f"{assets_base}/racers"):
+        racer_assets = [f for f in os.listdir(f"{assets_base}/racers") if f.endswith(".png")]
+        
+    car_assets = []
+    if os.path.exists(f"{assets_base}/cars"):
+        car_assets = [f for f in os.listdir(f"{assets_base}/cars") if f.endswith(".png")]
+
+    # Get existing names to enforce uniqueness
+    existing_racers = crud.get_racers(db, race_id=race_id)
+    existing_names = set(f"{r.first_name} {r.last_name}" for r in existing_racers)
+    
+    # Shuffle assets for variety in this batch
+    random.shuffle(racer_assets)
+    random.shuffle(car_assets)
+    
+    racer_asset_idx = 0
+    car_asset_idx = 0
+
+    for _ in range(count):
+        # Pick unique names
+        first, last = get_unique_name(existing_names)
         rank = random.choice(RANKS)
         
-        # Handle Images
+        # Handle Racer Images (Cycling)
         racer_img_url = None
         if racer_assets:
-            src_name = random.choice(racer_assets)
+            src_name = racer_assets[racer_asset_idx % len(racer_assets)]
+            racer_asset_idx += 1
+            
             src_path = f"{assets_base}/racers/{src_name}"
-            # Copy to uploads with unique name
             ext = os.path.splitext(src_name)[1]
             new_filename = f"{uuid.uuid4()}{ext}"
             dst_path = f"{uploads_dir}/{new_filename}"
             shutil.copy(src_path, dst_path)
             racer_img_url = f"http://127.0.0.1:8000/static/{new_filename}"
             
+        # Handle Car Images (Cycling)
         car_img_url = None
         if car_assets:
-            src_name = random.choice(car_assets)
+            src_name = car_assets[car_asset_idx % len(car_assets)]
+            car_asset_idx += 1
+            
             src_path = f"{assets_base}/cars/{src_name}"
-            # Copy to uploads with unique name
             ext = os.path.splitext(src_name)[1]
             new_filename = f"{uuid.uuid4()}{ext}"
             dst_path = f"{uploads_dir}/{new_filename}"
