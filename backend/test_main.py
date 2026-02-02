@@ -50,31 +50,43 @@ def test_create_race():
     assert data["group_id"] == group_id
 
 def test_create_den_and_racer():
+    # Create a Race first
+    group_name = get_unique_name("Pack Racer Test")
+    resp_group = client.post("/groups/", json={"name": group_name})
+    group_id = resp_group.json()["id"]
+
+    race_name = get_unique_name("Den Test Race")
+    resp_race = client.post(
+        "/races/",
+        json={
+            "name": race_name,
+            "group_id": group_id,
+            "car_numbering_strategy": "MANUAL"
+        },
+    )
+    race_id = resp_race.json()["id"]
+
     # Create a Den
     den_name = get_unique_name("Lion")
+    # New API: /races/{race_id}/dens/
     response = client.post(
-        "/dens/",
+        f"/races/{race_id}/dens/",
         json={"name": den_name, "color": "#FFD700", "rank": "LION"}
     )
     assert response.status_code == 200
     den_data = response.json()
     assert den_data["name"] == den_name
-    den_id = den_data["id"]
+    den_id = den_data["id"] 
+    # Ensure race_id is in response
+    assert den_data["race_id"] == race_id
 
-    # Ensure race/group exists
-    group_name = get_unique_name("Pack Racer Test")
-    client.post("/groups/", json={"name": group_name})
-    
-    # We don't strictly need the group ID for racer creation if backend handles defaults,
-    # but creating a race explicitly is better.
-    # The backend create_racer attempts to find a race.
-    
     response = client.post(
         "/racers/",
         json={
             "first_name": "Johnny",
             "last_name": "Bravo",
             "den_id": den_id,
+            "race_id": race_id, # Added race_id here as it's required generally
             "car_number": 101,
             "car_passed_inspection": True
         }

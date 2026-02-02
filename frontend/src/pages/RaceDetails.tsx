@@ -66,7 +66,8 @@ export default function RaceDetails() {
 
   const fetchDens = async () => {
       try {
-          const data = await apiClient.get('/dens/');
+          if (!raceId) return;
+          const data = await apiClient.get(`/races/${raceId}/dens/`);
           setDens(data);
       } catch (e) {
           console.error("Failed to fetch dens", e);
@@ -447,13 +448,16 @@ export default function RaceDetails() {
         onClose={() => setShowDenManager(false)}
         title="Manage Dens"
       >
-          <DenManager 
-            onClose={() => setShowDenManager(false)}
-            onUpdate={() => {
-                fetchDens();
-                fetchRacers();
-            }}
-          />
+          {race ? (
+             <DenManager 
+                raceId={race.id}
+                onClose={() => setShowDenManager(false)}
+                onUpdate={() => {
+                    fetchDens();
+                    fetchRacers();
+                }}
+              />
+          ) : <p>Loading race details...</p>}
       </Modal>
 
       {/* Import Racers Modal */}

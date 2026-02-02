@@ -28,10 +28,12 @@ class Den(Base):
     __tablename__ = "dens"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String, index=True)
     color: Mapped[str] = mapped_column(String, default="#000000")
     rank: Mapped[Optional[Rank]] = mapped_column(SAEnum(Rank), default=Rank.OTHER, nullable=True)
+    race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
 
+    race: Mapped["Race"] = relationship("Race", back_populates="dens")
     racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="den")
 
 
@@ -79,6 +81,7 @@ class Race(Base):
     group: Mapped["Group"] = relationship("Group", back_populates="races")
     racing_groups: Mapped[List["RacingGroup"]] = relationship("RacingGroup", back_populates="race")
     racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="race")
+    dens: Mapped[List["Den"]] = relationship("Den", back_populates="race", cascade="all, delete-orphan")
     heats: Mapped[List["Heat"]] = relationship("Heat", back_populates="race")
 
 class RacingGroup(Base):

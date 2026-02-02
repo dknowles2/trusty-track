@@ -23,6 +23,7 @@ class DenUpdate(BaseModel):
 
 class Den(DenBase):
     id: int
+    race_id: int
 
     model_config = ConfigDict(from_attributes=True)
 

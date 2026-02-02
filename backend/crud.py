@@ -17,19 +17,19 @@ def create_group(db: Session, group: schemas.GroupCreate) -> models.Group:
     db.refresh(db_group)
     return db_group
 
-def get_dens(db: Session, skip: int = 0, limit: int = 100) -> List[models.Den]:
-    return db.query(models.Den).offset(skip).limit(limit).all()
+def get_dens(db: Session, race_id: int, skip: int = 0, limit: int = 100) -> List[models.Den]:
+    return db.query(models.Den).filter(models.Den.race_id == race_id).offset(skip).limit(limit).all()
 
 def get_den(db: Session, den_id: int) -> models.Den | None:
     return db.query(models.Den).filter(models.Den.id == den_id).first()
 
-def get_den_by_name(db: Session, name: str) -> models.Den | None:
+def get_den_by_name(db: Session, name: str, race_id: int) -> models.Den | None:
     # Example: Case insensitive search could be done here if DB supports it easily,
     # or just do exact match for simplicity first
-    return db.query(models.Den).filter(models.Den.name == name).first()
+    return db.query(models.Den).filter(models.Den.name == name, models.Den.race_id == race_id).first()
 
-def create_den(db: Session, den: schemas.DenCreate) -> models.Den:
-    db_den = models.Den(**den.model_dump())
+def create_den(db: Session, den: schemas.DenCreate, race_id: int) -> models.Den:
+    db_den = models.Den(**den.model_dump(), race_id=race_id)
     db.add(db_den)
     db.commit()
     db.refresh(db_den)

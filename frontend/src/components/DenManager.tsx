@@ -15,11 +15,12 @@ const DEN_COLORS = [
 ];
 
 interface DenManagerProps {
+    raceId: number;
     onClose: () => void;
     onUpdate: () => void;
 }
 
-export default function DenManager({ onClose, onUpdate }: DenManagerProps) {
+export default function DenManager({ raceId, onClose, onUpdate }: DenManagerProps) {
     const [dens, setDens] = useState<Den[]>([]);
     const [loading, setLoading] = useState(false);
     
@@ -41,7 +42,7 @@ export default function DenManager({ onClose, onUpdate }: DenManagerProps) {
 
     const fetchDens = async () => {
         try {
-            const data = await apiClient.get('/dens/');
+            const data = await apiClient.get(`/races/${raceId}/dens/`);
             setDens(data);
         } catch (e) {
             console.error("Failed to fetch dens", e);
@@ -52,7 +53,7 @@ export default function DenManager({ onClose, onUpdate }: DenManagerProps) {
         e.preventDefault();
         setLoading(true);
         try {
-            await apiClient.post('/dens/', {
+            await apiClient.post(`/races/${raceId}/dens/`, {
                 name: newDenName,
                 color: newDenColor,
                 rank: newDenRank

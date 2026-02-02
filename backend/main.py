@@ -61,13 +61,18 @@ def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Group already registered")
     return crud.create_group(db=db, group=group)
 
-@app.get("/dens/", response_model=List[schemas.Den])
-def read_dens(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return crud.get_dens(db, skip=skip, limit=limit)
+@app.get("/races/{race_id}/dens/", response_model=List[schemas.Den])
+def read_dens(race_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return crud.get_dens(db, race_id=race_id, skip=skip, limit=limit)
 
-@app.post("/dens/", response_model=schemas.Den)
-def create_den(den: schemas.DenCreate, db: Session = Depends(get_db)):
-    return crud.create_den(db=db, den=den)
+@app.post("/races/{race_id}/dens/", response_model=schemas.Den)
+def create_den(race_id: int, den: schemas.DenCreate, db: Session = Depends(get_db)):
+    # Check if name exists in this race? Or just create. Unique constraint is removed, but we might want logical uniqueness.
+    # For now, let's just create.
+    existing = crud.get_den_by_name(db, den.name, race_id)
+    if existing:
+         raise HTTPException(status_code=400, detail="Den with this name already exists in this race")
+    return crud.create_den(db=db, den=den, race_id=race_id)
 
 @app.delete("/dens/{den_id}")
 def delete_den(den_id: int, db: Session = Depends(get_db)):
@@ -238,14 +243,14 @@ async def import_racers_csv(race_id: int, file: UploadFile = File(...), db: Sess
             den_id = None
             if den_name:
                 # Try to find den by name (case insensitive)
-                den = crud.get_den_by_name(db, den_name)
+                den = crud.get_den_by_name(db, den_name, race_id)
                 if den:
                     den_id = den.id
                 else:
                     # Create new Den
                     random_color = "#{:06x}".format(random.randint(0, 0xFFFFFF))
                     new_den = schemas.DenCreate(name=den_name, color=random_color)
-                    created_den = crud.create_den(db, new_den)
+                    created_den = crud.create_den(db, new_den, race_id)
                     den_id = created_den.id
             
             racer_Create = schemas.RacerCreate(
