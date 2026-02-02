@@ -250,9 +250,14 @@ export default function DenManager({ onClose, onUpdate }: DenManagerProps) {
                                         <option value="OTHER">Other</option>
                                     </select>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '5px' }}>
-                                        <button type="submit" disabled={loading} style={{ fontSize: '0.8rem' }}>Save</button>
-                                        <button type="button" onClick={handleCancelEdit} style={{ fontSize: '0.8rem' }}>Cancel</button>
+
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
+                                            {loading ? 'Saving...' : 'Save Changes'}
+                                        </button>
+                                        <button type="button" onClick={handleCancelEdit} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>
+                                            Cancel
+                                        </button>
                                     </div>
                                 </form>
                             ) : (
