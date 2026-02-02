@@ -25,6 +25,7 @@ export default function RaceControl() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [activeHeatId, setActiveHeatId] = useState<number | null>(null);
+  const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
 
   useEffect(() => {
     if (raceId) {
@@ -32,6 +33,28 @@ export default function RaceControl() {
       fetchData(parseInt(raceId));
     }
   }, [raceId]);
+
+  // Initialize selectedHeatId to first uncompleted heat when heats load
+  useEffect(() => {
+      if (heats.length > 0 && selectedHeatId === null) {
+          const sorted = [...heats].sort((a, b) => {
+            if (a.round_number !== b.round_number) return a.round_number - b.round_number;
+            return a.heat_number - b.heat_number;
+          });
+          
+          const firstUncompleted = sorted.find(h => {
+              const results = h.lane_results ? JSON.parse(h.lane_results) : [];
+              return !(results.length > 0 && results[0].time !== null);
+          });
+          
+          if (firstUncompleted) {
+              setSelectedHeatId(firstUncompleted.id);
+          } else if (sorted.length > 0) {
+              // All completed, default to last
+              setSelectedHeatId(sorted[sorted.length - 1].id);
+          }
+      }
+  }, [heats, selectedHeatId]);
 
   const fetchData = async (id: number) => {
       setLoading(true);
@@ -61,6 +84,7 @@ export default function RaceControl() {
     try {
       const data = await apiClient.post(`/races/${activeRaceId}/generate_heats`, {});
       setHeats(data);
+      setSelectedHeatId(null); // Reset selection to trigger re-init
     } catch (e) {
       console.error("Failed to generate", e);
       alert("Failed to generate schedule. Ensure you have at least 2 racers.");
@@ -96,6 +120,7 @@ export default function RaceControl() {
         if (activeRaceId) {
             const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
             setHeats(updatedHeats);
+            // NOTE: We do NOT update selectedHeatId here, satisfying "no auto-advance"
         }
       } catch (e) {
         console.error("Failed to save results", e);
@@ -122,14 +147,24 @@ export default function RaceControl() {
       return a.heat_number - b.heat_number;
   });
   
-  const currentHeatIndex = sortedHeatsEx.findIndex(h => {
-      const results = h.lane_results ? JSON.parse(h.lane_results) : [];
-      return !(results.length > 0 && results[0].time !== null);
-  });
-  
-  // If all completed, show last one or a "Race Over" state. Default to last if all done.
-  const activeExecutionHeat = currentHeatIndex !== -1 ? sortedHeatsEx[currentHeatIndex] : (sortedHeatsEx.length > 0 ? sortedHeatsEx[sortedHeatsEx.length - 1] : null);
-  const nextExecutionHeat = currentHeatIndex !== -1 && currentHeatIndex + 1 < sortedHeatsEx.length ? sortedHeatsEx[currentHeatIndex + 1] : null;
+  // Use selectedHeatId for active execution heat
+  const activeExecutionHeat = selectedHeatId 
+      ? sortedHeatsEx.find(h => h.id === selectedHeatId)
+      : (sortedHeatsEx.length > 0 ? sortedHeatsEx[0] : null); // Fallback until effect runs
+      
+  const currentIndex = activeExecutionHeat 
+      ? sortedHeatsEx.findIndex(h => h.id === activeExecutionHeat.id) 
+      : -1;
+      
+  const nextExecutionHeat = currentIndex !== -1 && currentIndex + 1 < sortedHeatsEx.length 
+      ? sortedHeatsEx[currentIndex + 1] 
+      : null;
+
+  const handleNextHeat = () => {
+      if (nextExecutionHeat) {
+          setSelectedHeatId(nextExecutionHeat.id);
+      }
+  };
 
   // Auto-switch to execution mode if we have heats? Optional. 
   // Let's default to SCHEDULE for overview, but user can switch.
@@ -214,25 +249,47 @@ export default function RaceControl() {
                                  <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heat_number}</h2>
                                  <div style={{ color: '#666', fontSize: '1.1rem' }}>Round {activeExecutionHeat.round_number}</div>
                              </div>
-                             <div>
+                             <div style={{ display: 'flex', gap: '10px' }}>
                                  {(() => {
                                      const results = activeExecutionHeat.lane_results ? JSON.parse(activeExecutionHeat.lane_results) : [];
                                      const isCompleted = results.length > 0 && results[0].time !== null;
                                      const isRunning = activeHeatId === activeExecutionHeat.id;
                                      
                                      return (
-                                        <button 
-                                            className="primary-btn"
-                                            onClick={() => handleRunHeat(activeExecutionHeat)}
-                                            disabled={isRunning}
-                                            style={{ 
-                                                padding: '15px 40px', 
-                                                fontSize: '1.5rem',
-                                                background: isRunning ? 'orange' : isCompleted ? '#4caf50' : 'var(--scouting-blue)'
-                                            }}
-                                        >
-                                            {isRunning ? 'Racing...' : isCompleted ? 'Re-Run Heat' : 'Start Heat'}
-                                        </button>
+                                        <>
+                                            <button 
+                                                className="primary-btn"
+                                                onClick={() => handleRunHeat(activeExecutionHeat)}
+                                                disabled={isRunning}
+                                                style={{ 
+                                                    padding: '15px 30px', 
+                                                    fontSize: '1.3rem',
+                                                    background: isRunning ? 'orange' : isCompleted ? '#4caf50' : 'var(--scouting-blue)'
+                                                }}
+                                            >
+                                                {isRunning ? 'Racing...' : isCompleted ? 'Re-Run Heat' : 'Start Heat'}
+                                            </button>
+                                            
+                                            {isCompleted && nextExecutionHeat && (
+                                                <button
+                                                    onClick={handleNextHeat}
+                                                    style={{
+                                                        padding: '15px 30px',
+                                                        fontSize: '1.3rem',
+                                                        background: 'var(--scouting-red)',
+                                                        color: 'white',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px'
+                                                    }}
+                                                >
+                                                    Next Heat ➡
+                                                </button>
+                                            )}
+                                        </>
                                      );
                                  })()}
                              </div>
