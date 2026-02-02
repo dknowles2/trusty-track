@@ -3,16 +3,11 @@ import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import RacerForm, { RacerData, Den } from '../components/RacerForm';
 import DenManager from '../components/DenManager';
+import Modal from '../components/Modal';
+import RaceForm, { RaceFormData } from '../components/RaceForm';
 
-interface Race {
+interface Race extends RaceFormData {
     id: number;
-    name: string;
-    date_time: string;
-    location: string;
-    group_id?: number;
-    scheduling_strategy: string;
-    scoring_strategy: string;
-    car_numbering_strategy: string;
 }
 
 interface Racer extends RacerData {
@@ -33,7 +28,6 @@ export default function RaceDetails() {
 
   // Race Edit State
   const [isEditingRace, setIsEditingRace] = useState(false);
-  const [editRaceData, setEditRaceData] = useState<Partial<Race>>({});
   
   // Roster View State
   const [isGroupedByDen, setIsGroupedByDen] = useState(false);
@@ -52,7 +46,6 @@ export default function RaceDetails() {
       try {
           const data = await apiClient.get(`/races/${raceId}`);
           setRace(data);
-          setEditRaceData(data);
       } catch (e) {
           console.error("Failed to fetch race details", e);
       }
@@ -78,10 +71,9 @@ export default function RaceDetails() {
       }
   };
 
-  const handleUpdateRace = async (e: React.FormEvent) => {
-      e.preventDefault();
+  const handleUpdateRace = async (data: RaceFormData) => {
       try {
-          await apiClient.put(`/races/${raceId}`, editRaceData);
+          await apiClient.put(`/races/${raceId}`, data);
           setIsEditingRace(false);
           fetchRaceDetails();
       } catch (e) {
@@ -168,87 +160,20 @@ export default function RaceDetails() {
       </div>
 
       {/* Edit Race Modal */}
-      {isEditingRace && race && (
-          <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-        }}>
-            <div style={{ background: 'white', padding: '2rem', borderRadius: '8px', width: '100%', maxWidth: '500px' }}>
-                <h2>Edit Race Details</h2>
-                <form onSubmit={handleUpdateRace} style={{ display: 'grid', gap: '1rem' }}>
-                    <div>
-                        <label>Event Name</label>
-                        <input 
-                            type="text" 
-                            value={editRaceData.name || ''} 
-                            onChange={e => setEditRaceData({...editRaceData, name: e.target.value})}
-                            style={{ width: '100%', padding: '0.5rem' }}
-                        />
-                    </div>
-                    <div>
-                        <label>Date & Time</label>
-                        <input 
-                            type="datetime-local" 
-                            value={editRaceData.date_time || ''} 
-                            onChange={e => setEditRaceData({...editRaceData, date_time: e.target.value})}
-                            style={{ width: '100%', padding: '0.5rem' }}
-                        />
-                    </div>
-                    <div>
-                        <input 
-                            type="text" 
-                            value={editRaceData.location || ''} 
-                            onChange={e => setEditRaceData({...editRaceData, location: e.target.value})}
-                            style={{ width: '100%', padding: '0.5rem' }}
-                        />
-                    </div>
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Scheduling</label>
-                            <select 
-                                value={editRaceData.scheduling_strategy || 'LANE_ROTATION'} 
-                                onChange={e => setEditRaceData({...editRaceData, scheduling_strategy: e.target.value})}
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            >
-                                <option value="LANE_ROTATION">Lane Rotation</option>
-                                <option value="PERFECT_N">Perfect N</option>
-                                <option value="CHAOTIC">Chaotic</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Scoring</label>
-                            <select 
-                                value={editRaceData.scoring_strategy || 'TIMED'} 
-                                onChange={e => setEditRaceData({...editRaceData, scoring_strategy: e.target.value})}
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            >
-                                <option value="TIMED">Timed</option>
-                                <option value="POINTS">Points</option>
-                            </select>
-                        </div>
-                         <div>
-                            <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.3rem' }}>Car Numbering</label>
-                            <select 
-                                value={editRaceData.car_numbering_strategy || 'MANUAL'} 
-                                onChange={e => setEditRaceData({...editRaceData, car_numbering_strategy: e.target.value})}
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            >
-                                <option value="MANUAL">Manual</option>
-                                <option value="PER_GROUP">Per Group</option>
-                                <option value="GLOBAL">Global</option>
-                            </select>
-                        </div>
-                    </div>
-                    {/* Settings could be editable here too */}
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                        <button type="submit">Save Changes</button>
-                        <button type="button" onClick={() => setIsEditingRace(false)} className="secondary-btn">Cancel</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-      )}
+      <Modal
+          isOpen={isEditingRace}
+          onClose={() => setIsEditingRace(false)}
+          title="Edit Race Details"
+      >
+          {race && (
+            <RaceForm
+                initialData={race}
+                onSubmit={handleUpdateRace}
+                onCancel={() => setIsEditingRace(false)}
+                submitLabel="Save Changes"
+            />
+          )}
+      </Modal>
 
       {/* Roster Section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -493,22 +418,25 @@ export default function RaceDetails() {
             </table>
       </div>
 
-      {showRacerForm && (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-        }}>
-            <div style={{ width: '100%', maxWidth: '500px' }}>
-                <RacerForm
-                    initialData={editingRacer}
-                    onSubmit={handleRacerFormSubmit}
-                    onCancel={() => setShowRacerForm(false)}
-                />
-            </div>
-        </div>
-      )}
+      {/* Racer Form Modal */}
+      <Modal
+         isOpen={showRacerForm}
+         onClose={() => setShowRacerForm(false)}
+         title={editingRacer ? 'Edit Racer' : 'Add New Racer'}
+      >
+        <RacerForm
+            initialData={editingRacer}
+            onSubmit={handleRacerFormSubmit}
+            onCancel={() => setShowRacerForm(false)}
+        />
+      </Modal>
 
-      {showDenManager && (
+      {/* Den Manager Modal */}
+      <Modal
+        isOpen={showDenManager}
+        onClose={() => setShowDenManager(false)}
+        title="Manage Dens"
+      >
           <DenManager 
             onClose={() => setShowDenManager(false)}
             onUpdate={() => {
@@ -516,7 +444,7 @@ export default function RaceDetails() {
                 fetchRacers();
             }}
           />
-      )}
+      </Modal>
     </div>
   );
 }

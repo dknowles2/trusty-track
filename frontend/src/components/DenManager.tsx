@@ -118,172 +118,162 @@ export default function DenManager({ onClose, onUpdate }: DenManagerProps) {
     const visibleDens = editingDenId ? dens.filter(d => d.id === editingDenId) : dens;
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-        }}>
-            <div style={{ background: 'white', padding: '20px', borderRadius: '8px', width: '100%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ margin: 0 }}>Manage Dens</h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✖</button>
-                </div>
-
-                {/* Add New Den */}
-                {!editingDenId && (
-                    !isAddingDen ? (
-                     <button 
-                        onClick={() => setIsAddingDen(true)} 
-                        className="secondary-btn" 
-                        style={{ width: '100%', marginBottom: '20px', padding: '10px' }}
-                    >
-                        + Add New Den
-                     </button>
-                ) : (
-                    <form onSubmit={handleAddDen} style={{ marginBottom: '20px', padding: '15px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' }}>
-                        <h4 style={{ marginTop: 0 }}>Add New Den</h4>
-                        <div style={{ marginBottom: '10px' }}>
-                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Name</label>
-                             <input 
-                                    type="text" 
-                                    value={newDenName} 
-                                    onChange={e => setNewDenName(e.target.value)} 
-                                    required
-                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                             />
-                        </div>
-                        <div style={{ marginBottom: '10px' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px' }}>Color</label>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {DEN_COLORS.map(color => (
-                                    <button
-                                        key={color}
-                                        type="button"
-                                        onClick={() => setNewDenColor(color)}
-                                        style={{
-                                            width: '24px',
-                                            height: '24px',
-                                            borderRadius: '50%',
-                                            backgroundColor: color,
-                                            border: newDenColor === color ? '2px solid white' : '1px solid transparent',
-                                            boxShadow: newDenColor === color ? '0 0 0 2px #333' : 'none',
-                                            cursor: 'pointer',
-                                            padding: 0
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                        <div style={{ marginBottom: '10px' }}>
-                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Rank Mapping (Optional)</label>
-                             <select 
-                                value={newDenRank || ''} 
-                                onChange={e => setNewDenRank(e.target.value || undefined)}
+        <div>
+            {/* Add New Den */}
+            {!editingDenId && (
+                !isAddingDen ? (
+                    <button 
+                    onClick={() => setIsAddingDen(true)} 
+                    className="secondary-btn" 
+                    style={{ width: '100%', marginBottom: '20px', padding: '10px' }}
+                >
+                    + Add New Den
+                    </button>
+            ) : (
+                <form onSubmit={handleAddDen} style={{ marginBottom: '20px', padding: '15px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' }}>
+                    <h4 style={{ marginTop: 0 }}>Add New Den</h4>
+                    <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Name</label>
+                            <input 
+                                type="text" 
+                                value={newDenName} 
+                                onChange={e => setNewDenName(e.target.value)} 
+                                required
                                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-                            >
-                                <option value="">None</option>
-                                <option value="LION">Lion</option>
-                                <option value="TIGER">Tiger</option>
-                                <option value="WOLF">Wolf</option>
-                                <option value="BEAR">Bear</option>
-                                <option value="WEBELOS">Webelos</option>
-                                <option value="ARROW_OF_LIGHT">Arrow of Light</option>
-                                <option value="OTHER">Other</option>
-                             </select>
+                            />
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>
+                        <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px' }}>Color</label>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {DEN_COLORS.map(color => (
+                                <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => setNewDenColor(color)}
+                                    style={{
+                                        width: '24px',
+                                        height: '24px',
+                                        borderRadius: '50%',
+                                        backgroundColor: color,
+                                        border: newDenColor === color ? '2px solid white' : '1px solid transparent',
+                                        boxShadow: newDenColor === color ? '0 0 0 2px #333' : 'none',
+                                        cursor: 'pointer',
+                                        padding: 0
+                                    }}
+                                />
+                            ))}
                         </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                             <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
-                                {loading ? 'Adding...' : 'Add Den'}
-                            </button>
-                            <button type="button" onClick={() => setIsAddingDen(false)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
-                    )
-                )}
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Rank Mapping (Optional)</label>
+                            <select 
+                            value={newDenRank || ''} 
+                            onChange={e => setNewDenRank(e.target.value || undefined)}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                        >
+                            <option value="">None</option>
+                            <option value="LION">Lion</option>
+                            <option value="TIGER">Tiger</option>
+                            <option value="WOLF">Wolf</option>
+                            <option value="BEAR">Bear</option>
+                            <option value="WEBELOS">Webelos</option>
+                            <option value="ARROW_OF_LIGHT">Arrow of Light</option>
+                            <option value="OTHER">Other</option>
+                            </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                            <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
+                            {loading ? 'Adding...' : 'Add Den'}
+                        </button>
+                        <button type="button" onClick={() => setIsAddingDen(false)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+                )
+            )}
 
-                {/* List Dens */}
-                {!isAddingDen && (
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                    {visibleDens.map(den => (
-                        <li key={den.id} style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
-                            {editingDenId === den.id ? (
-                                <form onSubmit={handleUpdateDen} style={{ display: 'grid', gap: '10px' }}>
-                                    
-                                        <div>
-                                            <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Name</label>
-                                            <input type="text" value={editDenName} onChange={e => setEditDenName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} required />
-                                        </div>
-                                        <div>
-                                            <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>Color</label>
-                                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                                                {DEN_COLORS.map(color => (
-                                                    <button
-                                                        key={color}
-                                                        type="button"
-                                                        onClick={() => setEditDenColor(color)}
-                                                        style={{
-                                                            width: '20px',
-                                                            height: '20px',
-                                                            borderRadius: '50%',
-                                                            backgroundColor: color,
-                                                            border: editDenColor === color ? '2px solid white' : '1px solid transparent',
-                                                            boxShadow: editDenColor === color ? '0 0 0 1px #333' : 'none',
-                                                            cursor: 'pointer',
-                                                            padding: 0
-                                                        }}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                    
+            {/* List Dens */}
+            {!isAddingDen && (
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+                {visibleDens.map(den => (
+                    <li key={den.id} style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        {editingDenId === den.id ? (
+                            <form onSubmit={handleUpdateDen} style={{ display: 'grid', gap: '10px' }}>
+                                
                                     <div>
-                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Rank</label>
-                                         <select value={editDenRank || ''} onChange={e => setEditDenRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
-                                        <option value="">None</option>
-                                        <option value="LION">Lion</option>
-                                        <option value="TIGER">Tiger</option>
-                                        <option value="WOLF">Wolf</option>
-                                        <option value="BEAR">Bear</option>
-                                        <option value="WEBELOS">Webelos</option>
-                                        <option value="ARROW_OF_LIGHT">Arrow of Light</option>
-                                        <option value="OTHER">Other</option>
-                                    </select>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
-                                            {loading ? 'Saving...' : 'Save Changes'}
-                                        </button>
-                                        <button type="button" onClick={handleCancelEdit} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </form>
-                            ) : (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: den.color, border: '1px solid #ddd' }}></div>
-                                        <b>{den.name}</b>
-                                        {den.rank && <span style={{ fontSize: '0.8rem', color: '#666' }}>({den.rank})</span>}
+                                        <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Name</label>
+                                        <input type="text" value={editDenName} onChange={e => setEditDenName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} required />
                                     </div>
                                     <div>
-                                        <button onClick={() => handleEditDenClick(den)} style={{ marginRight: '10px', background: 'none', border: 'none', color: 'blue', cursor: 'pointer' }}>Edit</button>
-                                        <button 
-                                            onClick={() => handleDeleteDen(den.id)}
-                                            style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }}
-                                        >
-                                            Delete
-                                        </button>
+                                        <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>Color</label>
+                                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                            {DEN_COLORS.map(color => (
+                                                <button
+                                                    key={color}
+                                                    type="button"
+                                                    onClick={() => setEditDenColor(color)}
+                                                    style={{
+                                                        width: '20px',
+                                                        height: '20px',
+                                                        borderRadius: '50%',
+                                                        backgroundColor: color,
+                                                        border: editDenColor === color ? '2px solid white' : '1px solid transparent',
+                                                        boxShadow: editDenColor === color ? '0 0 0 1px #333' : 'none',
+                                                        cursor: 'pointer',
+                                                        padding: 0
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
                                     </div>
+                                
+                                <div>
+                                        <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Rank</label>
+                                        <select value={editDenRank || ''} onChange={e => setEditDenRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                    <option value="">None</option>
+                                    <option value="LION">Lion</option>
+                                    <option value="TIGER">Tiger</option>
+                                    <option value="WOLF">Wolf</option>
+                                    <option value="BEAR">Bear</option>
+                                    <option value="WEBELOS">Webelos</option>
+                                    <option value="ARROW_OF_LIGHT">Arrow of Light</option>
+                                    <option value="OTHER">Other</option>
+                                </select>
                                 </div>
-                            )}
-                        </li>
-                    ))}
-                    {visibleDens.length === 0 && <li style={{ padding: '10px', color: '#999', textAlign: 'center' }}>No dens found.</li>}
-                </ul>
-                )}
-            </div>
+
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
+                                        {loading ? 'Saving...' : 'Save Changes'}
+                                    </button>
+                                    <button type="button" onClick={handleCancelEdit} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: den.color, border: '1px solid #ddd' }}></div>
+                                    <b>{den.name}</b>
+                                    {den.rank && <span style={{ fontSize: '0.8rem', color: '#666' }}>({den.rank})</span>}
+                                </div>
+                                <div>
+                                    <button onClick={() => handleEditDenClick(den)} style={{ marginRight: '10px', background: 'none', border: 'none', color: 'blue', cursor: 'pointer' }}>Edit</button>
+                                    <button 
+                                        onClick={() => handleDeleteDen(den.id)}
+                                        style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }}
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </li>
+                ))}
+                {visibleDens.length === 0 && <li style={{ padding: '10px', color: '#999', textAlign: 'center' }}>No dens found.</li>}
+            </ul>
+            )}
         </div>
     );
 }

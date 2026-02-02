@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import Modal from '../components/Modal';
+import RaceForm, { RaceFormData } from '../components/RaceForm';
 
 interface Race {
     id: number;
@@ -9,22 +11,10 @@ interface Race {
     location: string;
 }
 
-interface Group {
-    id: number;
-    name: string;
-}
-
 export default function Home() {
     const [races, setRaces] = useState<Race[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
-    // New Race Form State
-    const [newRaceData, setNewRaceData] = useState({
-        name: '',
-        date_time: '',
-        location: '',
-        group_id: 1 // Default to 1
-    });
 
     useEffect(() => {
         fetchRaces();
@@ -41,14 +31,11 @@ export default function Home() {
         }
     };
 
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleCreate = async (data: RaceFormData) => {
         try {
-            await apiClient.post('/races/', newRaceData);
+            await apiClient.post('/races/', data);
             setShowCreate(false);
             fetchRaces();
-            // Reset form
-            setNewRaceData({ name: '', date_time: '', location: '', group_id: 1 });
         } catch (e) {
             console.error("Failed to create race", e);
             alert("Failed to create race");
@@ -65,49 +52,23 @@ export default function Home() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2>Your Races</h2>
-                <button onClick={() => setShowCreate(!showCreate)}>
-                    {showCreate ? 'Cancel' : 'Create New Race'}
+                <button onClick={() => setShowCreate(true)} className="primary-btn">
+                    + Create New Race
                 </button>
             </div>
 
-            {showCreate && (
-                <div style={{ background: '#f5f5f5', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-                    <h3>New Race Event</h3>
-                    <form onSubmit={handleCreate} style={{ display: 'grid', gap: '1rem', maxWidth: '500px' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Event Name *</label>
-                            <input 
-                                type="text" 
-                                value={newRaceData.name} 
-                                onChange={e => setNewRaceData({...newRaceData, name: e.target.value})}
-                                placeholder="e.g. 2024 Pinewood Derby"
-                                required
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Date & Time</label>
-                            <input 
-                                type="datetime-local" 
-                                value={newRaceData.date_time} 
-                                onChange={e => setNewRaceData({...newRaceData, date_time: e.target.value})}
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Location</label>
-                            <input 
-                                type="text" 
-                                value={newRaceData.location} 
-                                onChange={e => setNewRaceData({...newRaceData, location: e.target.value})}
-                                placeholder="e.g. School Gym"
-                                style={{ width: '100%', padding: '0.5rem' }}
-                            />
-                        </div>
-                        <button type="submit" style={{ justifySelf: 'start' }}>Create Race</button>
-                    </form>
-                </div>
-            )}
+            {/* Create Race Modal */}
+            <Modal
+                isOpen={showCreate}
+                onClose={() => setShowCreate(false)}
+                title="Create New Race Event"
+            >
+                <RaceForm
+                    onSubmit={handleCreate}
+                    onCancel={() => setShowCreate(false)}
+                    submitLabel="Create Race"
+                />
+            </Modal>
 
             {loading ? <p>Loading races...</p> : (
                 <div style={{ overflowX: 'auto' }}>
