@@ -222,8 +222,8 @@ def generate_heats(db: Session, race_id: int) -> List[models.Heat]:
 
     # 2. Get Racers for this race
     racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
-    if not racers:
-        return []
+    if not racers or len(racers) < 2:
+        raise ValueError("Not enough racers to generate a schedule (minimum 2 required)")
     
     # Clear existing heats?
     db.query(models.Heat).filter(models.Heat.race_id == race_id).delete()

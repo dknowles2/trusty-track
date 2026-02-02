@@ -279,7 +279,10 @@ def auto_number_racers(race_id: int, db: Session = Depends(get_db)):
 
 @app.post("/races/{race_id}/generate_heats", response_model=List[schemas.Heat])
 def generate_schedule(race_id: int, db: Session = Depends(get_db)):
-    return crud.generate_heats(db, race_id)
+    try:
+        return crud.generate_heats(db, race_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/races/{race_id}/heats", response_model=List[schemas.Heat])
 def get_heats(race_id: int, db: Session = Depends(get_db)):

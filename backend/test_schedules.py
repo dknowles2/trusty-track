@@ -1,0 +1,104 @@
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from . import models, schemas, crud
+from .main import app, get_db
+
+# Use in-memory SQLite for testing
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test_schedules.db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def override_get_db():
+    try:
+        db = TestingSessionLocal()
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
+
+client = TestClient(app)
+
+def setup_module(module):
+    models.Base.metadata.create_all(bind=engine)
+
+def teardown_module(module):
+    models.Base.metadata.drop_all(bind=engine)
+
+def test_generate_schedule_not_enough_racers():
+    # 1. Setup Config
+    resp = client.post("/config/initial", json={
+        "group_name": "Schedule Validation Group",
+        "lane_count": 4,
+        "length_feet": 40,
+        "timer_type": "FAKE"
+    })
+    # If config already exists from other tests (db file persistence), it might return 400, which is fine
+    # But usually we drop tables in teardown. 
+    # However, if reusing DB file in parallel tests, could be issue. 
+    # Using specific DB file name helps isolation if running manually.
+
+    # 2. Add 1 Racer
+    racer_data = {
+        "first_name": "Lonely",
+        "last_name": "Racer",
+        "car_number": 99,
+        "race_id": 1 # Assuming ID 1 if fresh DB
+    }
+    # Note: create_racer creates race if missing.
+    
+    # We need to know the race_id.
+    # Get races.
+    races_resp = client.get("/races/")
+    races = races_resp.json()
+    
+    if not races:
+        # Create racer to fetch race
+        client.post("/racers/", json=racer_data)
+        races = client.get("/races/").json()
+        
+    race_id = races[0]["id"]
+    
+    # Ensure only 1 racer in this race for the test
+    # (Clean DB so should be 1 if we just added one, or 0 if we didn't)
+    # Let's delete all racers first to be safe?
+    # No, teardown setup should handle it.
+    
+    # Check racer count
+    current_racers = client.get(f"/racers/?race_id={race_id}").json()
+    if len(current_racers) < 1:
+         client.post("/racers/", json=racer_data)
+         current_racers = client.get(f"/racers/?race_id={race_id}").json()
+    
+    # If we have more than 1 (from other tests?), we should maybe clean up.
+    # But for a unit test with setup/teardown it should be clean.
+    
+    # 3. Try to generate heats - Should FAIL
+    response = client.post(f"/races/{race_id}/generate_heats")
+    
+    assert response.status_code == 400
+    assert "not enough racers" in response.json()["detail"].lower()
+
+def test_generate_schedule_success_with_min_racers():
+    # Setup - ensure we have at least 2 racers
+    # Get race ID
+    races = client.get("/races/").json()
+    race_id = races[0]["id"]
+    
+    # Add second racer
+    client.post("/racers/", json={
+        "first_name": "Second",
+        "last_name": "Racer",
+        "car_number": 100,
+        "race_id": race_id
+    })
+    
+    # Generate - Should SUCCEED
+    response = client.post(f"/races/{race_id}/generate_heats")
+    assert response.status_code == 200
+    heats = response.json()
+    assert len(heats) > 0
