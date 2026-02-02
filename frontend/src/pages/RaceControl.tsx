@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import { ScheduleManagement } from '../components/race-control/ScheduleManagement';
+import { RaceExecution } from '../components/race-control/RaceExecution';
 
 interface Heat {
   id: number;
@@ -131,6 +133,41 @@ export default function RaceControl() {
     }, 2000); // 2 second race simulation
   };
 
+  const handleUpdateResult = async (heatId: number, results: any[]) => {
+      try {
+          const heat = heats.find(h => h.id === heatId);
+          if (!heat) return;
+
+          // Re-sort to assign places based on new times
+          // Clone results to avoid mutating the passed array just in case
+          const sortedResults = [...results];
+          // Filter out results with empty time to avoid parsing errors, or handle elegantly
+          // Assuming valid input for now or partial input
+          
+          sortedResults.sort((a: any, b: any) => {
+              const tA = parseFloat(a.time || '9999');
+              const tB = parseFloat(b.time || '9999');
+              return tA - tB;
+          });
+          
+          sortedResults.forEach((r: any, idx: number) => r.place = idx + 1);
+
+          await apiClient.put(`/heats/${heatId}`, {
+              ...heat,
+              lane_results: JSON.stringify(sortedResults)
+          });
+
+          // Update local state
+          if (activeRaceId) {
+              const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+              setHeats(updatedHeats);
+          }
+      } catch (e) {
+          console.error("Failed to update results", e);
+          alert("Failed to update results.");
+      }
+  };
+
   const getRacerName = (id: number) => {
       const r = racers[id];
       if (!r) return `Racer #${id}`;
@@ -178,15 +215,6 @@ export default function RaceControl() {
       <p>No active race found. Please return home and select a race.</p>
     </div>
   );
-
-  // Group Heats by Round for Schedule View
-  const rounds: Record<number, Heat[]> = {};
-  heats.forEach(h => {
-      if (!rounds[h.round_number]) rounds[h.round_number] = [];
-      rounds[h.round_number].push(h);
-  });
-  
-  const sortedRounds = Object.keys(rounds).map(Number).sort((a,b) => a - b);
 
   return (
     <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
@@ -238,203 +266,24 @@ export default function RaceControl() {
           <button className="primary-btn" onClick={handleGenerateSchedule}>Generate Schedule</button>
         </div>
       ) : viewMode === 'EXECUTION' ? (
-          // --- EXECUTION MODE ---
-          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-              {activeExecutionHeat ? (
-                  <>
-                    <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                             <div>
-                                 <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heat_number}</h2>
-                                 <div style={{ color: '#666', fontSize: '1.1rem' }}>Round {activeExecutionHeat.round_number}</div>
-                             </div>
-                             <div style={{ display: 'flex', gap: '10px' }}>
-                                 {(() => {
-                                     const results = activeExecutionHeat.lane_results ? JSON.parse(activeExecutionHeat.lane_results) : [];
-                                     const isCompleted = results.length > 0 && results[0].time !== null;
-                                     const isRunning = activeHeatId === activeExecutionHeat.id;
-                                     
-                                     // State: Running -> Disable all
-                                     // State: Completed -> Show "Next Heat" (Primary) and "Re-Run" (Secondary)
-                                     // State: Ready -> Show "Start Heat" (Primary)
-                                     
-                                     if (isCompleted) {
-                                        return (
-                                            <>
-                                                {/* Re-Run Button (Secondary/Caution) */}
-                                                <button
-                                                    onClick={() => {
-                                                        if (confirm('Are you sure you want to re-run this heat? Previous results will be overwritten.')) {
-                                                            handleRunHeat(activeExecutionHeat);
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        padding: '10px 20px',
-                                                        fontSize: '1rem',
-                                                        background: 'var(--cub-scouting-gold)', // Caution color
-                                                        color: 'black',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        cursor: 'pointer',
-                                                        fontWeight: 'bold'
-                                                    }}
-                                                >
-                                                    ↺ Re-Run
-                                                </button>
-
-                                                {/* Next Heat Button (Primary/Action) */}
-                                                {nextExecutionHeat && (
-                                                    <button
-                                                        className="primary-btn"
-                                                        onClick={handleNextHeat}
-                                                        style={{
-                                                            padding: '15px 30px',
-                                                            fontSize: '1.3rem',
-                                                            background: '#2e7d32', // Green for Go
-                                                            color: 'white',
-                                                            marginLeft: '10px',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '8px'
-                                                        }}
-                                                    >
-                                                        Next Heat ➡
-                                                    </button>
-                                                )}
-                                            </>
-                                        );
-                                     }
-                                     
-                                     return (
-                                        <button 
-                                            className="primary-btn"
-                                            onClick={() => handleRunHeat(activeExecutionHeat)}
-                                            disabled={isRunning}
-                                            style={{ 
-                                                padding: '15px 30px', 
-                                                fontSize: '1.3rem',
-                                                background: isRunning ? 'orange' : 'var(--scouting-blue)'
-                                            }}
-                                        >
-                                            {isRunning ? 'Racing...' : 'Start Heat'}
-                                        </button>
-                                     );
-                                 })()}
-                             </div>
-                        </div>
-                        
-                        <div style={{ display: 'grid', gap: '15px' }}>
-                            {(activeExecutionHeat.lane_results ? JSON.parse(activeExecutionHeat.lane_results) : []).map((r: any) => (
-                                <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: '#f9f9f9', borderRadius: '8px', borderLeft: '5px solid #ddd' }}>
-                                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {r.lane}</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{getRacerName(r.racer_id)}</div>
-                                    </div>
-                                    <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                        {r.time ? `${r.time}s` : '--'}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Next Heat Preview */}
-                    {nextExecutionHeat && (
-                        <div style={{ marginTop: '30px', opacity: 0.7 }}>
-                            <h3>Up Next: Heat {nextExecutionHeat.heat_number} (Round {nextExecutionHeat.round_number})</h3>
-                            <div style={{ background: '#f0f0f0', padding: '15px', borderRadius: '8px' }}>
-                                {(nextExecutionHeat.lane_results ? JSON.parse(nextExecutionHeat.lane_results) : []).map((r: any) => (
-                                    <span key={r.lane} style={{ display: 'inline-block', marginRight: '20px' }}>
-                                        <strong>L{r.lane}:</strong> {getRacerName(r.racer_id)}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                  </>
-              ) : (
-                  <div style={{ textAlign: 'center', padding: '50px' }}>
-                      <h2>Race Complete! 🎉</h2>
-                      <p>All heats have been run.</p>
-                  </div>
-              )}
-          </div>
+        <RaceExecution
+          activeExecutionHeat={activeExecutionHeat || null}
+          nextExecutionHeat={nextExecutionHeat}
+          activeHeatId={activeHeatId}
+          onRunHeat={handleRunHeat}
+          onNextHeat={handleNextHeat}
+          getRacerName={getRacerName}
+          onUpdateResult={handleUpdateResult}
+        />
       ) : (
-        // --- SCHEDULE MODE (Bracket View) ---
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ width: '100%', maxWidth: 'fit-content' }}>
-                {/* Actions Toolbar */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
-                    <button 
-                      className="secondary-btn" 
-                      onClick={handleGenerateSchedule}
-                      disabled={generating}
-                      style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}
-                    >
-                      {generating ? 'Generating...' : 'Regenerate Schedule'}
-                    </button>
-                </div>
-
-                <div style={{ 
-                    display: 'flex', 
-                    overflowX: 'auto', 
-                    gap: '20px', 
-                    paddingBottom: '20px',
-                    alignItems: 'flex-start',
-                    justifyContent: 'center'
-                }}>
-                    {sortedRounds.map(roundNum => (
-                        <div key={roundNum} style={{ 
-                            minWidth: '350px', 
-                            background: '#f5f5f5', 
-                            borderRadius: '8px', 
-                            padding: '10px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                        }}>
-                            <h3 style={{ textAlign: 'center', margin: '0 0 15px 0', color: 'var(--scouting-blue)' }}>Round {roundNum}</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                {rounds[roundNum].map(heat => {
-                                    const results = heat.lane_results ? JSON.parse(heat.lane_results) : [];
-                                    const isCompleted = results.length > 0 && results[0].time !== null;
-                                    const isRunning = activeHeatId === heat.id;
-                                    
-                                    return (
-                                        <div key={heat.id} style={{ 
-                                            background: '#fff', padding: '15px', borderRadius: '8px',
-                                            borderLeft: isRunning ? '5px solid orange' : isCompleted ? '5px solid green' : '5px solid #ccc',
-                                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                                <span style={{ fontWeight: 'bold' }}>Heat {heat.heat_number}</span>
-                                                <button 
-                                                    className="primary-btn"
-                                                    onClick={() => handleRunHeat(heat)}
-                                                    disabled={isRunning}
-                                                    style={{ padding: '4px 8px', fontSize: '0.8rem', minWidth: '60px' }}
-                                                >
-                                                    {isRunning ? '...' : isCompleted ? 'Re-Run' : 'Run'}
-                                                </button>
-                                            </div>
-                                            <div style={{ fontSize: '0.85rem' }}>
-                                                {results.map((r: any) => (
-                                                    <div key={r.lane} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
-                                                        <span style={{ fontWeight: 'bold', width: '30px', color: '#666' }}>L{r.lane}</span>
-                                                        <span style={{ flex: 1, paddingLeft: '5px' }}>{getRacerName(r.racer_id)}</span>
-                                                        <span style={{ textAlign: 'right', minWidth: '50px', fontFamily: 'monospace' }}>
-                                                            {r.time ? `${r.time}s` : ''}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
+        <ScheduleManagement
+          heats={heats}
+          generating={generating}
+          activeHeatId={activeHeatId}
+          onGenerate={handleGenerateSchedule}
+          onRunHeat={handleRunHeat}
+          getRacerName={getRacerName}
+        />
       )}
     </div>
   );

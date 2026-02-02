@@ -8,7 +8,7 @@
 [x] BUG: Generating a race schedule should fail if there are not enough racers to create a valid schedule.
 [x] FEAT: Generate a view of the racing heats that resembles a tournament bracket.
 [x] FEAT: Generate a view that shows the current racers and the racers "on deck" for the next race.
-[ ] FEAT: Update the "Race Control" page to have a few different modes:
+[x] FEAT: Update the "Race Control" page to have a few different modes:
   1.  Schedule generation and maintenance. This is essentially the current implementation.
   2.  Race execution. This mode should display the current heat, the racers in the heat, and the racers "on deck". It should provide an option for re-running the heat, overriding the timing results, and continuing to the next heat.
 [ ] FEAT: When utilizing a fake timer, there should be a "mole" UI element that provides access to the fake timer controls.
