@@ -17,7 +17,28 @@ LAST_NAMES = [
     "Power", "Engine", "Gear", "Shift", "Clutch", "Brake", "Tire", "Rim", "Axle"
 ]
 
-RANKS = ["LION", "TIGER", "WOLF", "BEAR", "WEBELOS", "ARROW_OF_LIGHT"]
+DENS = [
+    {"name": "Lion", "color": "#F4D03F", "rank": "LION"},
+    {"name": "Tiger", "color": "#E67E22", "rank": "TIGER"},
+    {"name": "Wolf", "color": "#AAB7B8", "rank": "WOLF"},
+    {"name": "Bear", "color": "#85C1E9", "rank": "BEAR"},
+    {"name": "Webelos", "color": "#2E86C1", "rank": "WEBELOS"},
+    {"name": "Arrow of Light", "color": "#CB4335", "rank": "ARROW_OF_LIGHT"}
+]
+
+def ensure_dens(db: Session):
+    existing_dens = crud.get_dens(db)
+    if not existing_dens:
+        created_dens = []
+        for den_data in DENS:
+            den_in = schemas.DenCreate(
+                name=den_data["name"],
+                color=den_data["color"],
+                rank=den_data["rank"]
+            )
+            created_dens.append(crud.create_den(db, den_in))
+        return created_dens
+    return existing_dens
 
 def generate_fake_racers(db: Session, race_id: int, count: int = 20):
     # Ensure assets exist
@@ -60,6 +81,11 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
     existing_racers = crud.get_racers(db, race_id=race_id)
     existing_names = set(f"{r.first_name} {r.last_name}" for r in existing_racers)
     
+    # Ensure Dens exist and get them
+    dens = ensure_dens(db)
+    if not dens:
+        return {"error": "Could not create dens"}
+    
     # Shuffle assets for variety in this batch
     random.shuffle(racer_assets)
     random.shuffle(car_assets)
@@ -70,7 +96,7 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
     for _ in range(count):
         # Pick unique names
         first, last = get_unique_name(existing_names)
-        rank = random.choice(RANKS)
+        den = random.choice(dens)
         
         # Handle Racer Images (Cycling)
         racer_img_url = None
@@ -102,7 +128,7 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
         racer_in = schemas.RacerCreate(
             first_name=first,
             last_name=last,
-            rank=rank,
+            den_id=den.id,
             car_number=random.randint(100, 999), 
             car_passed_inspection=True,
             racer_image_url=racer_img_url,

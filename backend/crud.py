@@ -12,7 +12,50 @@ def create_group(db: Session, group: schemas.GroupCreate):
     db.add(db_group)
     db.commit()
     db.refresh(db_group)
+    db.refresh(db_group)
     return db_group
+
+def get_dens(db: Session, skip: int = 0, limit: int = 100):
+    return db.query(models.Den).offset(skip).limit(limit).all()
+
+def get_den(db: Session, den_id: int):
+    return db.query(models.Den).filter(models.Den.id == den_id).first()
+
+def create_den(db: Session, den: schemas.DenCreate):
+    db_den = models.Den(**den.dict())
+    db.add(db_den)
+    db.commit()
+    db.refresh(db_den)
+    return db_den
+
+def delete_den(db: Session, den_id: int):
+    db_den = db.query(models.Den).filter(models.Den.id == den_id).first()
+    if db_den:
+        # Set racers' den_id to None before deleting (though ON DELETE SET NULL on FK would be better, dealing with ORM)
+        # SQLAlchemy default is usually NO ACTION or CASCADE depending on setup.
+        # Let's explicitly nullify to match plan description "deleting... will set... to NULL"
+        # Actually if we rely on nullability in model `den_id = Column(Integer, ForeignKey("dens.id"), nullable=True)`
+        # we still should ensure safety.
+        racers = db.query(models.Racer).filter(models.Racer.den_id == den_id).all()
+        for racer in racers:
+            racer.den_id = None
+        
+        db.delete(db_den)
+        db.commit()
+    return db_den
+
+def update_den(db: Session, den_id: int, den_update: schemas.DenUpdate):
+    db_den = db.query(models.Den).filter(models.Den.id == den_id).first()
+    if not db_den:
+        return None
+    
+    update_data = den_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_den, key, value)
+        
+    db.commit()
+    db.refresh(db_den)
+    return db_den
 
 def get_races(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Race).offset(skip).limit(limit).all()
@@ -112,29 +155,30 @@ def create_racer(db: Session, racer: schemas.RacerCreate):
     if 'race_id' in racer_data:
         del racer_data['race_id']
         
-    rank = racer_data.pop("rank", None) # Remove rank from dict as it's not in Racer model
+    den_id = racer_data.get("den_id")
 
-    # Handle Racing Group based on Rank
-    if rank:
-        # Find existing racing group for this rank in this race
-        racing_group = db.query(models.RacingGroup).filter(
-            models.RacingGroup.race_id == race.id,
-            models.RacingGroup.rank == rank
-        ).first()
+    # Handle Racing Group based on Den
+    # For now, let's group by Den if a Den is assigned
+    if den_id:
+        den = get_den(db, den_id)
+        if den:
+            # Find or create racing group for this Den
+            racing_group = db.query(models.RacingGroup).filter(
+                models.RacingGroup.race_id == race.id,
+                models.RacingGroup.den_id == den_id
+            ).first()
 
-        if not racing_group:
-            # Create a new racing group for this rank
-            # Format name nicely e.g. "Tigers" or just use the Rank value
-            racing_group = models.RacingGroup(
-                race_id=race.id,
-                name=f"{rank.value}s", # e.g. BEARS, TIGERS
-                rank=rank
-            )
-            db.add(racing_group)
-            db.commit()
-            db.refresh(racing_group)
-        
-        racer_data["racing_group_id"] = racing_group.id
+            if not racing_group:
+                racing_group = models.RacingGroup(
+                    race_id=race.id,
+                    name=f"{den.name}s",
+                    den_id=den_id
+                )
+                db.add(racing_group)
+                db.commit()
+                db.refresh(racing_group)
+            
+            racer_data["racing_group_id"] = racing_group.id
 
     db_racer = models.Racer(**racer_data, race_id=race.id)
     db.add(db_racer)

@@ -5,10 +5,17 @@ export interface RacerData {
   first_name: string;
   last_name: string;
   car_number?: number;
-  rank: string;
+  den_id?: number;
   car_passed_inspection: boolean;
   racer_image_url?: string;
   car_image_url?: string;
+}
+
+export interface Den {
+    id: number;
+    name: string;
+    color: string;
+    rank?: string;
 }
 
 interface RacerFormProps {
@@ -22,9 +29,10 @@ export default function RacerForm({ initialData, onSubmit, onCancel }: RacerForm
     first_name: '',
     last_name: '',
     car_number: undefined,
-    rank: 'BEAR',
+    den_id: undefined,
     car_passed_inspection: false
   });
+  const [dens, setDens] = useState<Den[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
 
@@ -39,9 +47,16 @@ export default function RacerForm({ initialData, onSubmit, onCancel }: RacerForm
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
-               name === 'car_number' ? parseInt(value) || undefined : value
+               name === 'car_number' || name === 'den_id' ? parseInt(value) || undefined : value
     }));
   };
+
+  useEffect(() => {
+      fetch('http://127.0.0.1:8000/dens/')
+          .then(res => res.json())
+          .then(data => setDens(data))
+          .catch(err => console.error("Failed to fetch dens", err));
+  }, []);
 
   const uploadFile = async (file: File, type: 'racer' | 'car') => {
       const data = new FormData();
@@ -115,20 +130,17 @@ export default function RacerForm({ initialData, onSubmit, onCancel }: RacerForm
         </div>
 
         <div style={{ marginBottom: '10px' }}>
-             <label style={{ display: 'block', marginBottom: '5px' }}>Rank</label>
+             <label style={{ display: 'block', marginBottom: '5px' }}>Den</label>
              <select
-               name="rank"
-               value={formData.rank}
+               name="den_id"
+               value={formData.den_id || ''}
                onChange={handleChange}
                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
              >
-                <option value="LION">Lion</option>
-                <option value="TIGER">Tiger</option>
-                <option value="WOLF">Wolf</option>
-                <option value="BEAR">Bear</option>
-                <option value="WEBELOS">Webelos</option>
-                <option value="ARROW_OF_LIGHT">Arrow of Light</option>
-                <option value="OTHER">Other</option>
+                <option value="">Select a Den...</option>
+                {dens.map(den => (
+                    <option key={den.id} value={den.id}>{den.name}</option>
+                ))}
              </select>
         </div>
         

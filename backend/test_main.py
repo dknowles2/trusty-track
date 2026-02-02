@@ -42,3 +42,40 @@ def test_create_race():
     assert data["name"] == "Pinewood Derby 2024"
     assert data["group_id"] == group_id
 
+def test_create_den_and_racer():
+    # Create a Den
+    response = client.post(
+        "/dens/",
+        json={"name": "Lion", "color": "#FFD700", "rank": "LION"}
+    )
+    assert response.status_code == 200
+    den_data = response.json()
+    assert den_data["name"] == "Lion"
+    den_id = den_data["id"]
+
+    # Create a Racer in that Den
+    # We need a race first. We can rely on the previous tests having created one or create one here.
+    # To be safe and independent, let's create a group and race.
+    client.post("/groups/", json={"name": "Pack Test Den"})
+    g_res = client.get("/groups/1") # ID might vary, but let's assume auto-increment or just fetch all
+    # Actually, simpler to just get the first race if it exists or create new
+    
+    # Let's just try creating a racer, letting the backend handle race creation if needed (it does fallback)
+    # But crud.create_racer logic needing a race might fail if no race exists and no group exists.
+    # We created groups in previous tests.
+    
+    response = client.post(
+        "/racers/",
+        json={
+            "first_name": "Johnny",
+            "last_name": "Bravo",
+            "den_id": den_id,
+            "car_number": 101,
+            "car_passed_inspection": True
+        }
+    )
+    assert response.status_code == 200
+    racer_data = response.json()
+    assert racer_data["first_name"] == "Johnny"
+    assert racer_data["den_id"] == den_id
+

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import RacerForm, { RacerData } from '../components/RacerForm';
+import RacerForm, { RacerData, Den } from '../components/RacerForm';
+import DenManager from '../components/DenManager';
 
 interface Race {
     id: number;
@@ -22,10 +23,12 @@ export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
   const [race, setRace] = useState<Race | null>(null);
   const [racers, setRacers] = useState<Racer[]>([]);
+  const [dens, setDens] = useState<Den[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
+  const [showDenManager, setShowDenManager] = useState(false);
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
 
   // Race Edit State
@@ -36,6 +39,7 @@ export default function RaceDetails() {
     if (raceId) {
         fetchRaceDetails();
         fetchRacers();
+        fetchDens();
     }
   }, [raceId]);
 
@@ -58,6 +62,15 @@ export default function RaceDetails() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchDens = async () => {
+      try {
+          const data = await apiClient.get('/dens/');
+          setDens(data);
+      } catch (e) {
+          console.error("Failed to fetch dens", e);
+      }
   };
 
   const handleUpdateRace = async (e: React.FormEvent) => {
@@ -264,6 +277,7 @@ export default function RaceDetails() {
                 ⚡ Populate Test Data
             </button>
             <button className="secondary-btn" onClick={handleAddRacerClick}>+ Add Racer</button>
+            <button className="secondary-btn" onClick={() => setShowDenManager(true)}>Manage Dens</button>
         </div>
       </div>
 
@@ -275,7 +289,7 @@ export default function RaceDetails() {
                         <th style={{ padding: '12px', textAlign: 'center' }}>Photo</th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>First Name</th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>Last Name</th>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>Rank</th>
+                        <th style={{ padding: '12px', textAlign: 'left' }}>Den</th>
                         <th style={{ padding: '12px', textAlign: 'center' }}>Checked In</th>
                         <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
                     </tr>
@@ -301,7 +315,20 @@ export default function RaceDetails() {
                             </td>
                             <td style={{ padding: '12px' }}>{racer.first_name}</td>
                             <td style={{ padding: '12px' }}>{racer.last_name}</td>
-                            <td style={{ padding: '12px' }}>{racer.rank}</td>
+                            <td style={{ padding: '12px' }}>
+                                {racer.den_id ? (
+                                    <span style={{ 
+                                        padding: '4px 8px', 
+                                        borderRadius: '12px', 
+                                        backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
+                                        color: '#333', // Assuming light backgrounds for colors, or we need contrast logic
+                                        fontSize: '0.85rem',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {dens.find(d => d.id === racer.den_id)?.name || 'Unknown'}
+                                    </span>
+                                ) : '-'}
+                            </td>
                             <td style={{ padding: '12px', textAlign: 'center' }}>
                                 <input
                                     type="checkbox"
@@ -337,6 +364,16 @@ export default function RaceDetails() {
                 />
             </div>
         </div>
+      )}
+
+      {showDenManager && (
+          <DenManager 
+            onClose={() => setShowDenManager(false)}
+            onUpdate={() => {
+                fetchDens();
+                fetchRacers();
+            }}
+          />
       )}
     </div>
   );

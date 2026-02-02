@@ -8,6 +8,25 @@ class TrackBase(BaseModel):
     timer_type: TimerType = TimerType.SKIP
     serial_port: Optional[str] = None
 
+class DenBase(BaseModel):
+    name: str
+    color: str = "#000000"
+    rank: Optional[Rank] = None
+
+class DenCreate(DenBase):
+    pass
+
+class DenUpdate(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    rank: Optional[Rank] = None
+
+class Den(DenBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
 class TrackCreate(TrackBase):
     pass
 
@@ -36,7 +55,7 @@ class RacerBase(BaseModel):
     first_name: str
     last_name: str
     car_number: Optional[int] = None
-    rank: Rank = Rank.BEAR
+    den_id: Optional[int] = None
     car_name: Optional[str] = None
     car_passed_inspection: bool = False
     racer_image_url: Optional[str] = None
@@ -58,7 +77,7 @@ class Racer(RacerBase):
 
 class RacingGroupBase(BaseModel):
     name: str
-    rank: Rank = Rank.OTHER
+    den_id: Optional[int] = None
     car_number_range_start: Optional[int] = None
     car_number_range_end: Optional[int] = None
 

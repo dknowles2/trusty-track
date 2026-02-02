@@ -57,6 +57,28 @@ def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Group already registered")
     return crud.create_group(db=db, group=group)
 
+@app.get("/dens/", response_model=List[schemas.Den])
+def read_dens(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return crud.get_dens(db, skip=skip, limit=limit)
+
+@app.post("/dens/", response_model=schemas.Den)
+def create_den(den: schemas.DenCreate, db: Session = Depends(get_db)):
+    return crud.create_den(db=db, den=den)
+
+@app.delete("/dens/{den_id}")
+def delete_den(den_id: int, db: Session = Depends(get_db)):
+    db_den = crud.delete_den(db, den_id)
+    if not db_den:
+        raise HTTPException(status_code=404, detail="Den not found")
+    return {"ok": True}
+
+@app.put("/dens/{den_id}", response_model=schemas.Den)
+def update_den(den_id: int, den_update: schemas.DenUpdate, db: Session = Depends(get_db)):
+    db_den = crud.update_den(db, den_id, den_update)
+    if not db_den:
+        raise HTTPException(status_code=404, detail="Den not found")
+    return db_den
+
 @app.get("/groups/{group_id}", response_model=schemas.Group)
 def read_group(group_id: int, db: Session = Depends(get_db)):
     db_group = crud.get_group(db, group_id=group_id)

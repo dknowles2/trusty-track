@@ -1,4 +1,4 @@
-[ ] FEAT: Replace ranks with dens. Allow the dens to be configurable. Each den should have a color and an optional rank.
+[x] FEAT: Replace ranks with dens. Allow the dens to be configurable. Each den should have a color and an optional rank.
 [ ] FEAT: With dens in place, we should add the option to group the roster by den.
 [ ] FEAT: Allow bulk-upload of racers via CSV.
 [ ] FEAT: Replace the "checked in" checkbox in the roster table with a simple indicator for whether the car has been checked in. A button should be added to the row to complete the check-in process. This should open a modal that allows the user to (optionally) enter the weight of the car and whether it passed inspection. This should also allow taking or uploading pictures of the racer and the car.

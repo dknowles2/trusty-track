@@ -23,6 +23,17 @@ class Rank(str, enum.Enum):
     ARROW_OF_LIGHT = "ARROW_OF_LIGHT"
     OTHER = "OTHER"
 
+class Den(Base):
+    __tablename__ = "dens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    color = Column(String, default="#000000")
+    rank = Column(SAEnum(Rank), default=Rank.OTHER, nullable=True) # Optional link to traditional rank
+
+    racers = relationship("Racer", back_populates="den")
+
+
 class SchedulingStrategy(str, enum.Enum):
     LANE_ROTATION = "LANE_ROTATION"
     PERFECT_N = "PERFECT_N"
@@ -75,7 +86,7 @@ class RacingGroup(Base):
     id = Column(Integer, primary_key=True, index=True)
     race_id = Column(Integer, ForeignKey("races.id"))
     name = Column(String)
-    rank = Column(SAEnum(Rank), default=Rank.OTHER)
+    den_id = Column(Integer, ForeignKey("dens.id"), nullable=True)
     car_number_range_start = Column(Integer, nullable=True)
     car_number_range_end = Column(Integer, nullable=True)
 
@@ -95,9 +106,11 @@ class Racer(Base):
     racer_image_url = Column(String, nullable=True)
     car_image_url = Column(String, nullable=True)
     racing_group_id = Column(Integer, ForeignKey("racing_groups.id"), nullable=True)
+    den_id = Column(Integer, ForeignKey("dens.id"), nullable=True)
 
     race = relationship("Race", back_populates="racers")
     racing_group = relationship("RacingGroup", back_populates="racers")
+    den = relationship("Den", back_populates="racers")
 
 class Heat(Base):
     __tablename__ = "heats"
