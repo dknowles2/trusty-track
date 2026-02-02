@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 import '../setupTests';
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import RaceDetails from './RaceDetails';
 import { apiClient } from '../api/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+
+// Cleanup after each test
+afterEach(() => {
+    cleanup();
+});
 
 // Mock apiClient
 vi.mock('../api/client', () => ({
@@ -56,5 +61,50 @@ describe('RaceDetails', () => {
         expect(screen.getByText('Lane Rotation')).toBeInTheDocument();
         expect(screen.getByText('Timed')).toBeInTheDocument();
         expect(screen.getByText('Per Den')).toBeInTheDocument();
+    });
+
+    it('filters racers by search term', async () => {
+        const mockRacers = [
+            { id: 1, first_name: 'John', last_name: 'Doe', car_number: 101, den_id: 1, car_passed_inspection: false },
+            { id: 2, first_name: 'Jane', last_name: 'Smith', car_number: 102, den_id: 2, car_passed_inspection: true },
+        ];
+        
+        const mockDens = [
+            { id: 1, name: 'Tigers', color: 'orange' },
+            { id: 2, name: 'Wolves', color: 'red' },
+        ];
+
+        (apiClient.get as any).mockImplementation((url: string) => {
+            if (url === '/races/1') return Promise.resolve({ id: 1, name: 'Test Race' });
+            if (url.includes('/racers/')) return Promise.resolve(mockRacers);
+            if (url.includes('/dens/')) return Promise.resolve(mockDens);
+            return Promise.resolve({});
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes>
+                    <Route path="/races/:raceId" element={<RaceDetails />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('John')).toBeInTheDocument();
+        });
+
+        // Search for "Jane"
+        const searchInput = screen.getByPlaceholderText('🔍 Search racers...');
+        const user = (await import('@testing-library/user-event')).default.setup();
+        await user.type(searchInput, 'Jane');
+
+        expect(screen.getByText('Jane')).toBeInTheDocument();
+        expect(screen.queryByText('John')).not.toBeInTheDocument();
+        
+        // Search for car number
+        await user.clear(searchInput);
+        await user.type(searchInput, '101');
+        expect(screen.getByText('John')).toBeInTheDocument();
+        expect(screen.queryByText('Jane')).not.toBeInTheDocument();
     });
 });

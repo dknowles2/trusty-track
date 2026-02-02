@@ -39,6 +39,7 @@ export default function RaceDetails() {
   // Roster View State
   const [isGroupedByDen, setIsGroupedByDen] = useState(false);
   const [isAddRacerDropdownOpen, setIsAddRacerDropdownOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
 
   useEffect(() => {
@@ -127,6 +128,18 @@ export default function RaceDetails() {
       }
   };
 
+  const filteredRacers = racers.filter(racer => {
+      const searchLower = searchTerm.toLowerCase();
+      const denName = dens.find(d => d.id === racer.den_id)?.name || '';
+      
+      return (
+          (racer.first_name || '').toLowerCase().includes(searchLower) ||
+          (racer.last_name || '').toLowerCase().includes(searchLower) ||
+          (racer.car_number || '').toString().includes(searchLower) ||
+          denName.toLowerCase().includes(searchLower)
+      );
+  });
+
   if (loading && !race) return <p>Loading...</p>;
 
   return (
@@ -189,6 +202,20 @@ export default function RaceDetails() {
         <h2>Racer Roster</h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginRight: '10px' }}>
+                <input
+                    type="text"
+                    placeholder="🔍 Search racers..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{
+                        padding: '8px 12px',
+                        borderRadius: '20px',
+                        border: '1px solid #ddd',
+                        marginRight: '1rem',
+                        fontSize: '0.9rem',
+                        width: '200px'
+                    }}
+                />
                 <span style={{ marginRight: '8px', fontSize: '0.9rem', color: '#555' }}>Group by Den</span>
                 <label className="toggle-switch">
                     <input 
@@ -313,11 +340,13 @@ export default function RaceDetails() {
                     </tr>
                 </thead>
                 <tbody>
-                    {racers.length === 0 ? (
-                        <tr><td colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>No racers registered yet.</td></tr>
+                    {filteredRacers.length === 0 ? (
+                        <tr><td colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>
+                            {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
+                        </td></tr>
                     ) : isGroupedByDen ? (
                         // Grouped View
-                        Object.values(racers.reduce((acc, racer) => {
+                        Object.values(filteredRacers.reduce((acc, racer) => {
                             const denId = racer.den_id || -1;
                             if (!acc[denId]) acc[denId] = { denId, items: [] };
                             acc[denId].items.push(racer);
@@ -417,7 +446,7 @@ export default function RaceDetails() {
                         })
                     ) : (
                         // Standard View
-                         racers.map(racer => (
+                         filteredRacers.map(racer => (
                             <tr key={racer.id} style={{ borderBottom: '1px solid #eee' }}>
                                 <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>
