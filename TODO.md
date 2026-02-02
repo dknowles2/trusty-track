@@ -1,7 +1,7 @@
 [x] FEAT: Replace ranks with dens. Allow the dens to be configurable. Each den should have a color and an optional rank.
 [x] FEAT: With dens in place, we should add the option to group the roster by den.
 [x] FEAT: Allow bulk-upload of racers via CSV.
-[ ] FEAT: Replace the "checked in" checkbox in the roster table with a simple indicator for whether the car has been checked in. A button should be added to the row to complete the check-in process. This should open a modal that allows the user to (optionally) enter the weight of the car and whether it passed inspection. This should also allow taking or uploading pictures of the racer and the car.
+[x] FEAT: Replace the "checked in" checkbox in the roster table with a simple indicator for whether the car has been checked in. A button should be added to the row to complete the check-in process. This should open a modal that allows the user to (optionally) enter the weight of the car and whether it passed inspection. This should also allow taking or uploading pictures of the racer and the car.
 [ ] FEAT: Implement the "auto numbering" algorithms.
 [ ] BUG: In the Race home page, update the "Race Settings" section to show the human-readable names of the configuration options instead of the enum values.
 [ ] FEAT: Provide a way to search for a racer by name or car number. For usability, the search should be case-insensitive and search all searchable fields (name, car number, den, etc.)

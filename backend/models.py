@@ -1,6 +1,6 @@
 import enum
 from typing import List, Optional
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Enum as SAEnum
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Float, Enum as SAEnum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from .database import Base
 
@@ -107,6 +107,7 @@ class Racer(Base):
     car_number: Mapped[int] = mapped_column(Integer)
     car_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     car_passed_inspection: Mapped[bool] = mapped_column(Boolean, default=False)
+    car_weight: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     racer_image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     car_image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     racing_group_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("racing_groups.id"), nullable=True)

@@ -57,6 +57,7 @@ class RacerBase(BaseModel):
     den_id: Optional[int] = None
     car_name: Optional[str] = None
     car_passed_inspection: bool = False
+    car_weight: Optional[float] = None
     racer_image_url: Optional[str] = None
     car_image_url: Optional[str] = None
     racing_group_id: Optional[int] = None

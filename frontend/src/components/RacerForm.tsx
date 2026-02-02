@@ -20,11 +20,12 @@ export interface Den {
 
 interface RacerFormProps {
   initialData?: RacerData;
+  raceId?: number;
   onSubmit: (data: RacerData) => Promise<void>;
   onCancel: () => void;
 }
 
-export default function RacerForm({ initialData, onSubmit, onCancel }: RacerFormProps) {
+export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: RacerFormProps) {
   const [formData, setFormData] = useState<RacerData>({
     first_name: '',
     last_name: '',
@@ -52,11 +53,13 @@ export default function RacerForm({ initialData, onSubmit, onCancel }: RacerForm
   };
 
   useEffect(() => {
-      fetch('http://127.0.0.1:8000/dens/')
-          .then(res => res.json())
-          .then(data => setDens(data))
-          .catch(err => console.error("Failed to fetch dens", err));
-  }, []);
+      if (raceId) {
+        fetch(`http://127.0.0.1:8000/races/${raceId}/dens/`)
+            .then(res => res.json())
+            .then(data => setDens(data))
+            .catch(err => console.error("Failed to fetch dens", err));
+      }
+  }, [raceId]);
 
   const uploadFile = async (file: File, type: 'racer' | 'car') => {
       const data = new FormData();

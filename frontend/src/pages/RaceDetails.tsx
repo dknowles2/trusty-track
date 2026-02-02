@@ -6,6 +6,7 @@ import DenManager from '../components/DenManager';
 import Modal from '../components/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
+import CheckInModal from '../components/CheckInModal';
 
 interface Race extends RaceFormData {
     id: number;
@@ -27,6 +28,10 @@ export default function RaceDetails() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showDenManager, setShowDenManager] = useState(false);
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
+  
+  // Check In Modal
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [checkingInRacer, setCheckingInRacer] = useState<Racer | null>(null);
 
   // Race Edit State
   const [isEditingRace, setIsEditingRace] = useState(false);
@@ -96,19 +101,9 @@ export default function RaceDetails() {
     setShowRacerForm(true);
   };
 
-  const handleToggleCheckIn = async (racer: Racer) => {
-      try {
-       const response = await fetch(`/api/racers/${racer.id}`, {
-           method: 'PUT',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ ...racer, car_passed_inspection: !racer.car_passed_inspection })
-       });
-       if(response.ok) {
-           fetchRacers();
-       }
-    } catch (error) {
-        console.error("Failed to toggle", error);
-    }
+  const handleCheckInClick = (racer: Racer) => {
+      setCheckingInRacer(racer);
+      setShowCheckInModal(true);
   };
   
   const handleRacerFormSubmit = async (data: RacerData) => {
@@ -352,12 +347,23 @@ export default function RaceDetails() {
                                                 ) : '-'}
                                             </td>
                                             <td style={{ padding: '12px', textAlign: 'center' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={racer.car_passed_inspection}
-                                                    onChange={() => handleToggleCheckIn(racer)}
-                                                    style={{ transform: 'scale(1.5)', cursor: 'pointer' }}
-                                                />
+                                                <button 
+                                                    onClick={() => handleCheckInClick(racer)}
+                                                    style={{ 
+                                                        background: racer.car_passed_inspection ? '#e8f5e9' : '#fafafa', 
+                                                        border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`, 
+                                                        borderRadius: '20px',
+                                                        padding: '6px 12px',
+                                                        cursor: 'pointer',
+                                                        color: racer.car_passed_inspection ? '#2e7d32' : '#666',
+                                                        fontSize: '0.85rem',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '5px'
+                                                    }}
+                                                >
+                                                    {racer.car_passed_inspection ? '✅ Checked In' : 'Check In'}
+                                                </button>
                                             </td>
                                             <td style={{ padding: '12px', textAlign: 'right' }}>
                                                 <button
@@ -407,12 +413,23 @@ export default function RaceDetails() {
                                     ) : '-'}
                                 </td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={racer.car_passed_inspection}
-                                        onChange={() => handleToggleCheckIn(racer)}
-                                        style={{ transform: 'scale(1.5)', cursor: 'pointer' }}
-                                    />
+                                    <button 
+                                        onClick={() => handleCheckInClick(racer)}
+                                        style={{ 
+                                            background: racer.car_passed_inspection ? '#e8f5e9' : '#fafafa', 
+                                            border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`, 
+                                            borderRadius: '20px',
+                                            padding: '6px 12px',
+                                            cursor: 'pointer',
+                                            color: racer.car_passed_inspection ? '#2e7d32' : '#666',
+                                            fontSize: '0.85rem',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '5px'
+                                        }}
+                                    >
+                                        {racer.car_passed_inspection ? '✅ Checked In' : 'Check In'}
+                                    </button>
                                 </td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>
                                     <button
@@ -437,6 +454,7 @@ export default function RaceDetails() {
       >
         <RacerForm
             initialData={editingRacer}
+            raceId={race ? race.id : undefined}
             onSubmit={handleRacerFormSubmit}
             onCancel={() => setShowRacerForm(false)}
         />
@@ -473,6 +491,21 @@ export default function RaceDetails() {
             }}
           />
       )}
+
+      {/* Check In Modal */}
+      <Modal
+        isOpen={showCheckInModal}
+        onClose={() => setShowCheckInModal(false)}
+        title="Racer Check In"
+      >
+          {checkingInRacer && (
+              <CheckInModal 
+                racer={checkingInRacer}
+                onClose={() => setShowCheckInModal(false)}
+                onSave={fetchRacers}
+              />
+          )}
+      </Modal>
     </div>
   );
 }
