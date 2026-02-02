@@ -3,7 +3,7 @@ import os
 import shutil
 import uuid
 from sqlalchemy.orm import Session
-from . import crud, models, schemas
+from . import crud, schemas, models
 
 FIRST_NAMES = [
     "Ace", "Blaze", "Crash", "Dash", "Earl", "Flynn", "Gus", "Hawk", "Iggy", "Jax",
@@ -18,12 +18,12 @@ LAST_NAMES = [
 ]
 
 DENS = [
-    {"name": "Lion", "color": "#F4D03F", "rank": "LION"},
-    {"name": "Tiger", "color": "#E67E22", "rank": "TIGER"},
-    {"name": "Wolf", "color": "#AAB7B8", "rank": "WOLF"},
-    {"name": "Bear", "color": "#85C1E9", "rank": "BEAR"},
-    {"name": "Webelos", "color": "#2E86C1", "rank": "WEBELOS"},
-    {"name": "Arrow of Light", "color": "#CB4335", "rank": "ARROW_OF_LIGHT"}
+    {"name": "Lion", "color": "#F4D03F", "rank": models.Rank.LION},
+    {"name": "Tiger", "color": "#E67E22", "rank": models.Rank.TIGER},
+    {"name": "Wolf", "color": "#AAB7B8", "rank": models.Rank.WOLF},
+    {"name": "Bear", "color": "#85C1E9", "rank": models.Rank.BEAR},
+    {"name": "Webelos", "color": "#2E86C1", "rank": models.Rank.WEBELOS},
+    {"name": "Arrow of Light", "color": "#CB4335", "rank": models.Rank.ARROW_OF_LIGHT}
 ]
 
 def ensure_dens(db: Session):
@@ -31,27 +31,16 @@ def ensure_dens(db: Session):
     if not existing_dens:
         created_dens = []
         for den_data in DENS:
+            # Explicitly cast rank to help mypy if needed, or rely on runtime type.
+            # DENS has Rank enum members now.
             den_in = schemas.DenCreate(
-                name=den_data["name"],
-                color=den_data["color"],
-                rank=den_data["rank"]
+                name=str(den_data["name"]),
+                color=str(den_data["color"]),
+                rank=den_data["rank"] # type: ignore
             )
             created_dens.append(crud.create_den(db, den_in))
         return created_dens
     return existing_dens
-
-def generate_fake_racers(db: Session, race_id: int, count: int = 20):
-    # Ensure assets exist
-    assets_base = "backend/assets/defaults"
-    uploads_dir = "backend/uploads"
-    
-    racer_assets = []
-    if os.path.exists(f"{assets_base}/racers"):
-        racer_assets = [f for f in os.listdir(f"{assets_base}/racers") if f.endswith(".png")]
-        
-    car_assets = []
-    if os.path.exists(f"{assets_base}/cars"):
-        car_assets = [f for f in os.listdir(f"{assets_base}/cars") if f.endswith(".png")]
 
 def get_unique_name(existing_names):
     for _ in range(100): # Try 100 times to get a unique name

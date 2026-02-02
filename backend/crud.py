@@ -1,41 +1,38 @@
+from typing import List, Any
+import json
+from collections import deque
 from sqlalchemy.orm import Session
 from . import models, schemas
 
-def get_group(db: Session, group_id: int):
+def get_group(db: Session, group_id: int) -> models.Group | None:
     return db.query(models.Group).filter(models.Group.id == group_id).first()
 
-def get_group_by_name(db: Session, name: str):
+def get_group_by_name(db: Session, name: str) -> models.Group | None:
     return db.query(models.Group).filter(models.Group.name == name).first()
 
-def create_group(db: Session, group: schemas.GroupCreate):
+def create_group(db: Session, group: schemas.GroupCreate) -> models.Group:
     db_group = models.Group(name=group.name)
     db.add(db_group)
     db.commit()
     db.refresh(db_group)
-    db.refresh(db_group)
     return db_group
 
-def get_dens(db: Session, skip: int = 0, limit: int = 100):
+def get_dens(db: Session, skip: int = 0, limit: int = 100) -> List[models.Den]:
     return db.query(models.Den).offset(skip).limit(limit).all()
 
-def get_den(db: Session, den_id: int):
+def get_den(db: Session, den_id: int) -> models.Den | None:
     return db.query(models.Den).filter(models.Den.id == den_id).first()
 
-def create_den(db: Session, den: schemas.DenCreate):
-    db_den = models.Den(**den.dict())
+def create_den(db: Session, den: schemas.DenCreate) -> models.Den:
+    db_den = models.Den(**den.model_dump())
     db.add(db_den)
     db.commit()
     db.refresh(db_den)
     return db_den
 
-def delete_den(db: Session, den_id: int):
+def delete_den(db: Session, den_id: int) -> models.Den | None:
     db_den = db.query(models.Den).filter(models.Den.id == den_id).first()
     if db_den:
-        # Set racers' den_id to None before deleting (though ON DELETE SET NULL on FK would be better, dealing with ORM)
-        # SQLAlchemy default is usually NO ACTION or CASCADE depending on setup.
-        # Let's explicitly nullify to match plan description "deleting... will set... to NULL"
-        # Actually if we rely on nullability in model `den_id = Column(Integer, ForeignKey("dens.id"), nullable=True)`
-        # we still should ensure safety.
         racers = db.query(models.Racer).filter(models.Racer.den_id == den_id).all()
         for racer in racers:
             racer.den_id = None
@@ -44,12 +41,12 @@ def delete_den(db: Session, den_id: int):
         db.commit()
     return db_den
 
-def update_den(db: Session, den_id: int, den_update: schemas.DenUpdate):
+def update_den(db: Session, den_id: int, den_update: schemas.DenUpdate) -> models.Den | None:
     db_den = db.query(models.Den).filter(models.Den.id == den_id).first()
     if not db_den:
         return None
     
-    update_data = den_update.dict(exclude_unset=True)
+    update_data = den_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_den, key, value)
         
@@ -57,25 +54,23 @@ def update_den(db: Session, den_id: int, den_update: schemas.DenUpdate):
     db.refresh(db_den)
     return db_den
 
-def get_races(db: Session, skip: int = 0, limit: int = 100):
+def get_races(db: Session, skip: int = 0, limit: int = 100) -> List[models.Race]:
     return db.query(models.Race).offset(skip).limit(limit).all()
 
-def create_race(db: Session, race: schemas.RaceCreate):
-    race_data = race.dict()
-    # Name is now required by schema, so no need to default it.
-    
+def create_race(db: Session, race: schemas.RaceCreate) -> models.Race:
+    race_data = race.model_dump()
     db_race = models.Race(**race_data)
     db.add(db_race)
     db.commit()
     db.refresh(db_race)
     return db_race
 
-def update_race(db: Session, race_id: int, race_update: schemas.RaceUpdate):
+def update_race(db: Session, race_id: int, race_update: schemas.RaceUpdate) -> models.Race | None:
     db_race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not db_race:
         return None
     
-    update_data = race_update.dict(exclude_unset=True)
+    update_data = race_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_race, key, value)
         
@@ -83,21 +78,20 @@ def update_race(db: Session, race_id: int, race_update: schemas.RaceUpdate):
     db.refresh(db_race)
     return db_race
 
-def get_race(db: Session, race_id: int):
+def get_race(db: Session, race_id: int) -> models.Race | None:
     return db.query(models.Race).filter(models.Race.id == race_id).first()
 
-def get_track(db: Session):
-    # Assuming single track for now
+def get_track(db: Session) -> models.Track | None:
     return db.query(models.Track).first()
 
-def create_track(db: Session, track: schemas.TrackCreate):
-    db_track = models.Track(**track.dict())
+def create_track(db: Session, track: schemas.TrackCreate) -> models.Track:
+    db_track = models.Track(**track.model_dump())
     db.add(db_track)
     db.commit()
     db.refresh(db_track)
     return db_track
 
-def create_initial_config(db: Session, config: schemas.InitialConfigCreate):
+def create_initial_config(db: Session, config: schemas.InitialConfigCreate) -> tuple[models.Group, models.Track]:
     # Create Group
     group = models.Group(name=config.group_name)
     db.add(group)
@@ -115,13 +109,13 @@ def create_initial_config(db: Session, config: schemas.InitialConfigCreate):
     db.refresh(track)
     return group, track
 
-def update_group(db: Session, group: models.Group, name: str):
+def update_group(db: Session, group: models.Group, name: str) -> models.Group:
     group.name = name
     db.commit()
     db.refresh(group)
     return group
 
-def update_track(db: Session, track: models.Track, config: schemas.InitialConfigCreate):
+def update_track(db: Session, track: models.Track, config: schemas.InitialConfigCreate) -> models.Track:
     track.lane_count = config.lane_count
     track.length_feet = config.length_feet
     track.timer_type = config.timer_type
@@ -129,14 +123,15 @@ def update_track(db: Session, track: models.Track, config: schemas.InitialConfig
     db.refresh(track)
     return track
 
-def get_racers(db: Session, skip: int = 0, limit: int = 100, race_id: int = None):
+def get_racers(db: Session, skip: int = 0, limit: int = 100, race_id: int | None = None) -> List[models.Racer]:
     query = db.query(models.Racer)
     if race_id:
         query = query.filter(models.Racer.race_id == race_id)
     return query.offset(skip).limit(limit).all()
 
-def create_racer(db: Session, racer: schemas.RacerCreate):
+def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None:
     # Ensure a race exists.
+    race: models.Race | None = None
     if racer.race_id:
         race = db.query(models.Race).filter(models.Race.id == racer.race_id).first()
     else:
@@ -151,14 +146,15 @@ def create_racer(db: Session, racer: schemas.RacerCreate):
         db.commit()
         db.refresh(race)
 
-    racer_data = racer.dict()
+    assert race is not None
+
+    racer_data = racer.model_dump()
     if 'race_id' in racer_data:
         del racer_data['race_id']
         
     den_id = racer_data.get("den_id")
 
     # Handle Racing Group based on Den
-    # For now, let's group by Den if a Den is assigned
     if den_id:
         den = get_den(db, den_id)
         if den:
@@ -186,12 +182,12 @@ def create_racer(db: Session, racer: schemas.RacerCreate):
     db.refresh(db_racer)
     return db_racer
 
-def update_racer(db: Session, racer_id: int, racer_update: schemas.RacerUpdate):
+def update_racer(db: Session, racer_id: int, racer_update: schemas.RacerUpdate) -> models.Racer | None:
     db_racer = db.query(models.Racer).filter(models.Racer.id == racer_id).first()
     if not db_racer:
         return None
     
-    update_data = racer_update.dict(exclude_unset=True)
+    update_data = racer_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_racer, key, value)
         
@@ -199,20 +195,17 @@ def update_racer(db: Session, racer_id: int, racer_update: schemas.RacerUpdate):
     db.refresh(db_racer)
     return db_racer
 
-def delete_racer(db: Session, racer_id: int):
+def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
     db_racer = db.query(models.Racer).filter(models.Racer.id == racer_id).first()
     if db_racer:
         db.delete(db_racer)
         db.commit()
     return db_racer
 
-def get_heats(db: Session, race_id: int):
+def get_heats(db: Session, race_id: int) -> List[models.Heat]:
     return db.query(models.Heat).filter(models.Heat.race_id == race_id).order_by(models.Heat.round_number, models.Heat.heat_number).all()
 
-import json
-from collections import deque
-
-def generate_heats(db: Session, race_id: int):
+def generate_heats(db: Session, race_id: int) -> List[models.Heat]:
     # 1. Get Race and Track Details
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
@@ -223,8 +216,6 @@ def generate_heats(db: Session, race_id: int):
     lane_count = track.lane_count if track else 4
 
     # 2. Get Racers for this race
-    # If we have racing groups, we might want to schedule them separately or together.
-    # For now, let's schedule ALL racers in the race together (Interleaved) or just grab all.
     racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
     if not racers:
         return []
@@ -234,29 +225,20 @@ def generate_heats(db: Session, race_id: int):
     db.commit()
 
     # 3. Simple Lane Rotation Algorithm
-    # Goal: Run every car in every lane once.
-    # Rounds = Lane Count
-    
-    # We will rotate the list of racers 
     racer_ids = [r.id for r in racers]
-    # If not enough racers to fill lanes, we just have empty lanes.
-    # If more racers than lanes, we chunk them.
     
-    generated_heats = []
+    generated_heats: List[models.Heat] = []
     
     # Use a copy we can rotate
     current_order = deque(racer_ids)
     
     for round_num in range(1, lane_count + 1):
-        # Create heats for this round by chunking the current order
-        # We need to cover all racers.
-        
         # Chunking
         for i in range(0, len(current_order), lane_count):
             heat_racers = list(current_order)[i : i + lane_count]
             
             # Map to lanes
-            lane_assignment = []
+            lane_assignment: List[dict[str, Any]] = []
             for lane_idx, r_id in enumerate(heat_racers):
                 lane_assignment.append({
                     "lane": lane_idx + 1,
@@ -265,28 +247,25 @@ def generate_heats(db: Session, race_id: int):
                     "place": None
                 })
             
-            # Fill empty lanes if needed (optional, just omitting them is fine)
-            
             heat = models.Heat(
                 race_id=race_id,
                 round_number=round_num,
-                heat_number=len(generated_heats) + 1, # sequential global heat number
+                heat_number=len(generated_heats) + 1,
                 lane_results=json.dumps(lane_assignment)
             )
             db.add(heat)
             generated_heats.append(heat)
             
         # Rotate for next round
-        # Rotate by 1 ensures shifting.
         current_order.rotate(1)
         
     db.commit()
+    # Refresh/Reload all heats
     return get_heats(db, race_id)
 
-def record_heat_result(db: Session, heat_id: int, results: str):
-    # results is a JSON string or we can take a dict
+def record_heat_result(db: Session, heat_id: int, results: str | None) -> models.Heat | None:
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-    if heat:
+    if heat and results is not None:
         heat.lane_results = results
         db.commit()
         db.refresh(heat)

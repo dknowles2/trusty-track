@@ -1,7 +1,11 @@
-from typing import List
-from fastapi import FastAPI, Depends, HTTPException
+from typing import List, Optional
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+import os
+import uuid
+import shutil
 from . import crud, models, schemas
 from .database import SessionLocal, engine
 
@@ -25,12 +29,6 @@ def get_db():
     finally:
         db.close()
 
-from fastapi.staticfiles import StaticFiles
-import os
-import uuid
-import shutil
-from fastapi import UploadFile, File
-
 # Create uploads directory if not exists
 UPLOAD_DIR = "backend/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -41,6 +39,9 @@ app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     # Create unique filename
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is missing")
+        
     file_extension = os.path.splitext(file.filename)[1]
     filename = f"{uuid.uuid4()}{file_extension}"
     file_path = os.path.join(UPLOAD_DIR, filename)
@@ -116,14 +117,19 @@ def get_initial_config_status(db: Session = Depends(get_db)):
     if track:
         group = db.query(models.Group).first()
         race = db.query(models.Race).first()
+        
+        group_name = group.name if group else None
+        current_race_id = race.id if race else None
+        timer_type_val = track.timer_type.value if track.timer_type else None
+
         return schemas.InitialConfigStatus(
             initialized=True, 
-            group_name=group.name if group else None,
+            group_name=group_name,
             track_id=track.id,
-            current_race_id=race.id if race else None,
+            current_race_id=current_race_id,
             lane_count=track.lane_count,
             length_feet=track.length_feet,
-            timer_type=track.timer_type.value if track.timer_type else None
+            timer_type=timer_type_val
         )
     return schemas.InitialConfigStatus(initialized=False)
 
@@ -154,6 +160,9 @@ def update_initial_config(config: schemas.InitialConfigCreate, db: Session = Dep
             if existing:
                 raise HTTPException(status_code=400, detail=f"Group '{config.group_name}' already exists")
             crud.update_group(db, group, config.group_name)
+            
+            # Refresh group after update to get new name
+            db.refresh(group)
     
     track = crud.update_track(db, track, config)
     
@@ -164,7 +173,7 @@ def update_initial_config(config: schemas.InitialConfigCreate, db: Session = Dep
     )
 
 @app.get("/racers/", response_model=List[schemas.Racer])
-def read_racers(skip: int = 0, limit: int = 100, race_id: int = None, db: Session = Depends(get_db)):
+def read_racers(skip: int = 0, limit: int = 100, race_id: Optional[int] = None, db: Session = Depends(get_db)):
     racers = crud.get_racers(db, skip=skip, limit=limit, race_id=race_id)
     return racers
 
@@ -203,7 +212,10 @@ def get_heats(race_id: int, db: Session = Depends(get_db)):
 @app.put("/heats/{heat_id}", response_model=schemas.Heat)
 def update_heat_result(heat_id: int, result: schemas.HeatBase, db: Session = Depends(get_db)):
     # result.lane_results should be the JSON string
-    return crud.record_heat_result(db, heat_id, result.lane_results)
+    updated = crud.record_heat_result(db, heat_id, result.lane_results)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Heat not found")
+    return updated
 
 @app.get("/")
 def read_root():

@@ -1,21 +1,24 @@
 from fastapi.testclient import TestClient
 from backend.main import app
+import uuid
 
 client = TestClient(app)
+
+def get_unique_name(prefix: str) -> str:
+    return f"{prefix} {uuid.uuid4()}"
 
 def test_delete_den_logic():
     # 1. Create a Den
     print("Creating Den...")
+    den_name = get_unique_name("DeleteMe")
     response = client.post(
         "/dens/",
-        json={"name": "DeleteMe", "color": "#000000", "rank": "LION"}
+        json={"name": den_name, "color": "#000000", "rank": "LION"}
     )
     assert response.status_code == 200
     den_id = response.json()["id"]
 
     # 2. Create a Racer in that Den
-    # Need a race first. Assuming race setup from other flows or flexible.
-    # We will just try creating a racer.
     print("Creating Racer...")
     response = client.post(
         "/racers/",
@@ -29,10 +32,7 @@ def test_delete_den_logic():
     )
     if response.status_code != 200:
         # Maybe race missing, try creating group/race first
-        client.post("/groups/", json={"name": "Delete Test Group"})
-        # We rely on crud.create_racer auto-creating race if missing group/race exists but maybe not enough
-        # Just ensure a race exists
-        # Actually create_racer creates a race if none exists if group exists.
+        client.post("/groups/", json={"name": get_unique_name("Delete Test Group")})
         
         # Retry
         response = client.post(
@@ -61,35 +61,32 @@ def test_delete_den_logic():
     assert not any(d["id"] == den_id for d in dens)
 
     # 5. Verify Racer is still there but den_id is None
-    response = client.get(f"/racers/?race_id={response.json()[0]['race_id']}" if 'race_id' in response.json() else "/racers/") # Hacky, fetching all racers is safer
-    # Actually just use list endpoint, it filters by race_id optionally.
-    
-    # We don't have get_racer by ID exposed, but we have list.
     response = client.get("/racers/")
     racers = response.json()
     target_racer = next((r for r in racers if r["id"] == racer_id), None)
-    
     
     assert target_racer is not None
     assert target_racer["den_id"] is None
 
 def test_edit_den_logic():
     # 1. Create a Den
+    den_name = get_unique_name("EditMe")
     response = client.post(
         "/dens/",
-        json={"name": "EditMe", "color": "#111111", "rank": "WOLF"}
+        json={"name": den_name, "color": "#111111", "rank": "WOLF"}
     )
     assert response.status_code == 200
     den_id = response.json()["id"]
 
     # 2. Update Den
+    new_name = get_unique_name("EditedDen")
     response = client.put(
         f"/dens/{den_id}",
-        json={"name": "EditedDen", "color": "#222222"} # Rank unchanged
+        json={"name": new_name, "color": "#222222"} # Rank unchanged
     )
     assert response.status_code == 200
     updated_den = response.json()
-    assert updated_den["name"] == "EditedDen"
+    assert updated_den["name"] == new_name
     assert updated_den["color"] == "#222222"
     assert updated_den["rank"] == "WOLF"
 
@@ -97,4 +94,4 @@ def test_edit_den_logic():
     response = client.get("/dens/")
     dens = response.json()
     target_den = next((d for d in dens if d["id"] == den_id), None)
-    assert target_den["name"] == "EditedDen"
+    assert target_den["name"] == new_name

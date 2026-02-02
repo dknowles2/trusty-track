@@ -1,7 +1,11 @@
 from fastapi.testclient import TestClient
 from backend.main import app
+import uuid
 
 client = TestClient(app)
+
+def get_unique_name(prefix: str) -> str:
+    return f"{prefix} {uuid.uuid4()}"
 
 def test_read_main():
     response = client.get("/")
@@ -9,60 +13,61 @@ def test_read_main():
     assert response.json() == {"Hello": "World"}
 
 def test_create_group():
+    # Use unique name
+    name = get_unique_name("Pack")
     response = client.post(
         "/groups/",
-        json={"name": "Pack 123"},
+        json={"name": name},
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["name"] == "Pack 123"
+    assert data["name"] == name
     assert "id" in data
 
 def test_create_race():
-    # First create a group
-    client.post("/groups/", json={"name": "Pack 456"})
-    group_response = client.get("/groups/1") # Assuming ID 1 if test DB is fresh, but safer to query or rely on flow
-    # Actually this relies on persistent DB if we don't tear down.
-    # For now let's just use a known group ID from the previous test or new one.
+    # Create unique group
+    group_name = get_unique_name("Pack Race Test")
+    resp_group = client.post("/groups/", json={"name": group_name})
+    if resp_group.status_code == 400:
+        # If it exists, try to find it (though unique name avoids this usually)
+        # But for robustness, just assert we got a group
+         assert resp_group.status_code == 200
     
-    # We need to get the group ID we just created
-    response = client.post("/groups/", json={"name": "Pack 789"})
-    group_id = response.json()["id"]
+    group_id = resp_group.json()["id"]
 
+    race_name = get_unique_name("Pinewood Derby")
     response = client.post(
         "/races/",
         json={
-            "name": "Pinewood Derby 2024",
+            "name": race_name,
             "group_id": group_id,
             "car_numbering_strategy": "MANUAL"
         },
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["name"] == "Pinewood Derby 2024"
+    assert data["name"] == race_name
     assert data["group_id"] == group_id
 
 def test_create_den_and_racer():
     # Create a Den
+    den_name = get_unique_name("Lion")
     response = client.post(
         "/dens/",
-        json={"name": "Lion", "color": "#FFD700", "rank": "LION"}
+        json={"name": den_name, "color": "#FFD700", "rank": "LION"}
     )
     assert response.status_code == 200
     den_data = response.json()
-    assert den_data["name"] == "Lion"
+    assert den_data["name"] == den_name
     den_id = den_data["id"]
 
-    # Create a Racer in that Den
-    # We need a race first. We can rely on the previous tests having created one or create one here.
-    # To be safe and independent, let's create a group and race.
-    client.post("/groups/", json={"name": "Pack Test Den"})
-    g_res = client.get("/groups/1") # ID might vary, but let's assume auto-increment or just fetch all
-    # Actually, simpler to just get the first race if it exists or create new
+    # Ensure race/group exists
+    group_name = get_unique_name("Pack Racer Test")
+    client.post("/groups/", json={"name": group_name})
     
-    # Let's just try creating a racer, letting the backend handle race creation if needed (it does fallback)
-    # But crud.create_racer logic needing a race might fail if no race exists and no group exists.
-    # We created groups in previous tests.
+    # We don't strictly need the group ID for racer creation if backend handles defaults,
+    # but creating a race explicitly is better.
+    # The backend create_racer attempts to find a race.
     
     response = client.post(
         "/racers/",

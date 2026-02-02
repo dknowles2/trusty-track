@@ -1,6 +1,7 @@
 import enum
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Enum as SAEnum
-from sqlalchemy.orm import relationship
+from typing import List, Optional
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Enum as SAEnum
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from .database import Base
 
 class TimerType(str, enum.Enum):
@@ -26,12 +27,12 @@ class Rank(str, enum.Enum):
 class Den(Base):
     __tablename__ = "dens"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-    color = Column(String, default="#000000")
-    rank = Column(SAEnum(Rank), default=Rank.OTHER, nullable=True) # Optional link to traditional rank
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    color: Mapped[str] = mapped_column(String, default="#000000")
+    rank: Mapped[Optional[Rank]] = mapped_column(SAEnum(Rank), default=Rank.OTHER, nullable=True)
 
-    racers = relationship("Racer", back_populates="den")
+    racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="den")
 
 
 class SchedulingStrategy(str, enum.Enum):
@@ -46,79 +47,79 @@ class ScoringStrategy(str, enum.Enum):
 class Group(Base):
     __tablename__ = "groups"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
 
-    races = relationship("Race", back_populates="group")
+    races: Mapped[List["Race"]] = relationship("Race", back_populates="group")
 
 class Track(Base):
     __tablename__ = "tracks"
 
-    id = Column(Integer, primary_key=True, index=True)
-    lane_count = Column(Integer, default=4)
-    length_feet = Column(Integer, nullable=True)
-    timer_type = Column(SAEnum(TimerType), default=TimerType.SKIP)
-    serial_port = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    lane_count: Mapped[int] = mapped_column(Integer, default=4)
+    length_feet: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    timer_type: Mapped[TimerType] = mapped_column(SAEnum(TimerType), default=TimerType.SKIP)
+    serial_port: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 class Race(Base):
     __tablename__ = "races"
 
-    id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("groups.id"))
-    name = Column(String, unique=True, index=True)
-    date_time = Column(String, nullable=True) # ISO format or similar
-    location = Column(String, nullable=True)
-    car_numbering_strategy = Column(SAEnum(CarNumberingStrategy), default=CarNumberingStrategy.MANUAL)
-    global_start_number = Column(Integer, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"))
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    date_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    car_numbering_strategy: Mapped[CarNumberingStrategy] = mapped_column(SAEnum(CarNumberingStrategy), default=CarNumberingStrategy.MANUAL)
+    global_start_number: Mapped[int] = mapped_column(Integer, default=1)
     
-    scheduling_strategy = Column(SAEnum(SchedulingStrategy), default=SchedulingStrategy.LANE_ROTATION)
-    scoring_strategy = Column(SAEnum(ScoringStrategy), default=ScoringStrategy.TIMED)
-    rules_configuration = Column(String, nullable=True) # JSON string
+    scheduling_strategy: Mapped[SchedulingStrategy] = mapped_column(SAEnum(SchedulingStrategy), default=SchedulingStrategy.LANE_ROTATION)
+    scoring_strategy: Mapped[ScoringStrategy] = mapped_column(SAEnum(ScoringStrategy), default=ScoringStrategy.TIMED)
+    rules_configuration: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    group = relationship("Group", back_populates="races")
-    racing_groups = relationship("RacingGroup", back_populates="race")
-    racers = relationship("Racer", back_populates="race")
-    heats = relationship("Heat", back_populates="race")
+    group: Mapped["Group"] = relationship("Group", back_populates="races")
+    racing_groups: Mapped[List["RacingGroup"]] = relationship("RacingGroup", back_populates="race")
+    racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="race")
+    heats: Mapped[List["Heat"]] = relationship("Heat", back_populates="race")
 
 class RacingGroup(Base):
     __tablename__ = "racing_groups"
 
-    id = Column(Integer, primary_key=True, index=True)
-    race_id = Column(Integer, ForeignKey("races.id"))
-    name = Column(String)
-    den_id = Column(Integer, ForeignKey("dens.id"), nullable=True)
-    car_number_range_start = Column(Integer, nullable=True)
-    car_number_range_end = Column(Integer, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
+    name: Mapped[str] = mapped_column(String)
+    den_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("dens.id"), nullable=True)
+    car_number_range_start: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    car_number_range_end: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
-    race = relationship("Race", back_populates="racing_groups")
-    racers = relationship("Racer", back_populates="racing_group")
+    race: Mapped["Race"] = relationship("Race", back_populates="racing_groups")
+    racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="racing_group")
 
 class Racer(Base):
     __tablename__ = "racers"
 
-    id = Column(Integer, primary_key=True, index=True)
-    race_id = Column(Integer, ForeignKey("races.id"))
-    first_name = Column(String)
-    last_name = Column(String)
-    car_number = Column(Integer) # Should be unique per race, logic to enforce this needed
-    car_name = Column(String, nullable=True)
-    car_passed_inspection = Column(Boolean, default=False)
-    racer_image_url = Column(String, nullable=True)
-    car_image_url = Column(String, nullable=True)
-    racing_group_id = Column(Integer, ForeignKey("racing_groups.id"), nullable=True)
-    den_id = Column(Integer, ForeignKey("dens.id"), nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
+    first_name: Mapped[str] = mapped_column(String)
+    last_name: Mapped[str] = mapped_column(String)
+    car_number: Mapped[int] = mapped_column(Integer)
+    car_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    car_passed_inspection: Mapped[bool] = mapped_column(Boolean, default=False)
+    racer_image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    car_image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    racing_group_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("racing_groups.id"), nullable=True)
+    den_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("dens.id"), nullable=True)
 
-    race = relationship("Race", back_populates="racers")
-    racing_group = relationship("RacingGroup", back_populates="racers")
-    den = relationship("Den", back_populates="racers")
+    race: Mapped["Race"] = relationship("Race", back_populates="racers")
+    racing_group: Mapped[Optional["RacingGroup"]] = relationship("RacingGroup", back_populates="racers")
+    den: Mapped[Optional["Den"]] = relationship("Den", back_populates="racers")
 
 class Heat(Base):
     __tablename__ = "heats"
 
-    id = Column(Integer, primary_key=True, index=True)
-    race_id = Column(Integer, ForeignKey("races.id"))
-    round_number = Column(Integer)
-    heat_number = Column(Integer)
-    lane_results = Column(String) # JSON string storing results
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
+    round_number: Mapped[int] = mapped_column(Integer)
+    heat_number: Mapped[int] = mapped_column(Integer)
+    lane_results: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    race = relationship("Race", back_populates="heats")
+    race: Mapped["Race"] = relationship("Race", back_populates="heats")

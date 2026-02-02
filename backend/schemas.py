@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from .models import TimerType, CarNumberingStrategy, Rank, SchedulingStrategy, ScoringStrategy
 
 class TrackBase(BaseModel):
@@ -24,8 +24,7 @@ class DenUpdate(BaseModel):
 class Den(DenBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TrackCreate(TrackBase):
     pass
@@ -33,8 +32,7 @@ class TrackCreate(TrackBase):
 class Track(TrackBase):
     id: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class InitialConfigCreate(BaseModel):
     group_name: str
@@ -72,8 +70,7 @@ class Racer(RacerBase):
     id: int
     race_id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class RacingGroupBase(BaseModel):
     name: str
@@ -89,8 +86,7 @@ class RacingGroup(RacingGroupBase):
     race_id: int
     racers: List[Racer] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class RaceBase(BaseModel):
     name: str
@@ -122,8 +118,7 @@ class Race(RaceBase):
     racing_groups: List[RacingGroup] = []
     racers: List[Racer] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class GroupBase(BaseModel):
     name: str
@@ -135,8 +130,7 @@ class Group(GroupBase):
     id: int
     races: List[Race] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class HeatBase(BaseModel):
     round_number: int
@@ -150,5 +144,4 @@ class Heat(HeatBase):
     id: int
     race_id: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
