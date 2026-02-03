@@ -107,7 +107,7 @@ class Racer(Base):
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
     first_name: Mapped[str] = mapped_column(String)
     last_name: Mapped[str] = mapped_column(String)
-    car_number: Mapped[int] = mapped_column(Integer)
+    car_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     car_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     car_passed_inspection: Mapped[bool] = mapped_column(Boolean, default=False)
     car_weight: Mapped[Optional[float]] = mapped_column(Float, nullable=True)

@@ -118,7 +118,7 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
             first_name=first,
             last_name=last,
             den_id=den.id,
-            car_number=random.randint(100, 999), 
+            car_number=None,  # Will be assigned by auto-numbering based on race strategy
             car_passed_inspection=True,
             racer_image_url=racer_img_url,
             car_image_url=car_img_url,
@@ -126,5 +126,8 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
         )
         
         crud.create_racer(db, racer_in)
+
+    # Apply auto-numbering based on race's car_numbering_strategy
+    crud.auto_number_racers(db, race_id)
 
     return {"message": f"Successfully created {count} fake racers"}
