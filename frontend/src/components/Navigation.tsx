@@ -164,22 +164,22 @@ export default function Navigation() {
 
           {/* Right: System Settings */}
           <Link 
-            to="/system-config" 
+            to="/system-settings" 
             title="System Settings"
             style={{
               textDecoration: 'none',
-              color: location.pathname === '/system-config' ? 'var(--cub-scouting-gold)' : 'white',
+              color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'white',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
               padding: '6px 12px',
               borderRadius: '8px',
-              background: location.pathname === '/system-config' ? 'rgba(255,255,255,0.15)' : 'transparent',
+              background: location.pathname === '/system-settings' ? 'rgba(255,255,255,0.15)' : 'transparent',
               transition: 'all 0.2s ease',
               flexShrink: 0
             }}
-            onMouseEnter={(e) => ! (location.pathname === '/system-config') && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
-            onMouseLeave={(e) => ! (location.pathname === '/system-config') && (e.currentTarget.style.background = 'transparent')}
+            onMouseEnter={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+            onMouseLeave={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'transparent')}
           >
             <span style={{ fontSize: '1.2rem' }}>⚙️</span>
             <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Settings</span>

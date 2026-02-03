@@ -81,7 +81,7 @@ export default function SystemConfig() {
 
   return (
     <div className="container">
-      <h1>{isEditing ? 'System Configuration' : 'Initial Setup'}</h1>
+      <h1>{isEditing ? 'System Settings' : 'Initial Setup'}</h1>
       <p>{isEditing ? 'Update your racing environment settings.' : "Welcome to Trusty Track! Let's set up your racing environment."}</p>
       
       {error && <div style={{ color: 'var(--error)', marginBottom: '1rem' }}>{error}</div>}

@@ -107,7 +107,7 @@ export default function Home() {
             )}
              
              <div style={{ marginTop: '3rem', borderTop: '1px solid #eee', paddingTop: '1rem', textAlign: 'center' }}>
-                <Link to="/system-config" style={{ color: '#666', textDecoration: 'none' }}>System Configuration</Link>
+                <Link to="/system-settings" style={{ color: '#666', textDecoration: 'none' }}>System Settings</Link>
              </div>
         </div>
     );

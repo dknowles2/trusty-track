@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route,  Navigate, useLocation } from 'react-router-dom';
 import Navigation from './components/Navigation';
-import SystemConfig from './pages/SystemConfig';
+import SystemSettings from './pages/SystemSettings';
 import Home from './pages/Home';
 import { apiClient } from './api/client';
 
@@ -33,11 +33,11 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
     if (loading) return <div>Loading...</div>;
 
-    if (!initialized && location.pathname !== '/system-config') {
-        return <Navigate to="/system-config" replace />;
+    if (!initialized && location.pathname !== '/system-settings') {
+        return <Navigate to="/system-settings" replace />;
     }
     
-    // Allow initialized users to visit system-config (Edit Mode)
+    // Allow initialized users to visit system-settings (Edit Mode)
     // Removed the redirect away from config page logic.
 
     return children;
@@ -50,7 +50,8 @@ function App() {
         <Navigation />
         <main style={{ flex: 1 }}>
           <Routes>
-            <Route path="/system-config" element={<ProtectedRoute><SystemConfig /></ProtectedRoute>} />
+            <Route path="/system-settings" element={<ProtectedRoute><SystemSettings /></ProtectedRoute>} />
+            <Route path="/system-config" element={<Navigate to="/system-settings" replace />} />
             <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
             <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
             <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
