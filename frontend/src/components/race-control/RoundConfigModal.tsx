@@ -5,12 +5,14 @@ interface RoundConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (schedulingStrategy: string) => Promise<void>;
+  currentRoundCount: number;  // Number of existing rounds
 }
 
 export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   isOpen,
   onClose,
-  onSubmit
+  onSubmit,
+  currentRoundCount
 }) => {
   const [schedulingStrategy, setSchedulingStrategy] = useState('LANE_ROTATION');
   const [loading, setLoading] = useState(false);
@@ -99,6 +101,38 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                 </div>
                 <div style={{ fontSize: '0.85rem', color: '#666' }}>
                   High social variety; racers face many different opponents.
+                </div>
+              </div>
+            </label>
+
+            {/* Stearns Option - Only available after Round 1 */}
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'flex-start', 
+              padding: '12px', 
+              border: schedulingStrategy === 'STEARNS' ? '2px solid var(--scouting-blue)' : '2px solid #ddd',
+              borderRadius: '8px',
+              cursor: currentRoundCount > 0 ? 'pointer' : 'not-allowed',
+              backgroundColor: schedulingStrategy === 'STEARNS' ? '#f0f7ff' : (currentRoundCount > 0 ? '#fff' : '#f5f5f5'),
+              opacity: currentRoundCount > 0 ? 1 : 0.6,
+              transition: 'all 0.2s'
+            }}>
+              <input 
+                type="radio" 
+                name="schedulingStrategy"
+                value="STEARNS"
+                checked={schedulingStrategy === 'STEARNS'}
+                onChange={e => setSchedulingStrategy(e.target.value)}
+                disabled={loading || currentRoundCount === 0}
+                style={{ marginTop: '3px', marginRight: '10px', cursor: currentRoundCount > 0 ? 'pointer' : 'not-allowed' }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#333' }}>
+                  Stearns Method (Speed-Based)
+                  {currentRoundCount === 0 && <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#999', marginLeft: '8px' }}>⚠️ Requires Round 1</span>}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                  Balanced heats using Round 1 times. Groups racers by speed for competitive racing.
                 </div>
               </div>
             </label>

@@ -68,6 +68,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             onSubmit={handleAddRound}
+            currentRoundCount={sortedRounds.length}
           />
 
           {sortedRounds.length === 0 ? (
