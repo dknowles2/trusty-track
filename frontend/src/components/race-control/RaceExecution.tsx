@@ -13,7 +13,7 @@ interface RaceExecutionProps {
   activeExecutionHeat: Heat | null;
   nextExecutionHeat: Heat | null;
   activeHeatId: number | null;
-  onRunHeat: (heat: Heat) => void;
+  onRunHeat: (heat: Heat, shouldStart?: boolean) => void;
   onNextHeat: () => void;
   getRacerName: (id: number) => string;
   onUpdateResult: (heatId: number, results: any[]) => Promise<void>;
@@ -86,7 +86,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
   const handleMoleStart = () => {
       console.log("Fake Timer Started via Mole");
-      onRunHeat(activeExecutionHeat);
+      onRunHeat(activeExecutionHeat, true);
   };
 
   const showFakeControls = timerType === 'FAKE';
@@ -118,11 +118,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 ✏️ Edit
                             </button>
                             <button
-                                onClick={() => {
-                                    if (confirm('Are you sure you want to re-run this heat? Previous results will be overwritten.')) {
-                                        onRunHeat(activeExecutionHeat);
-                                    }
-                                }}
+                                onClick={() => onRunHeat(activeExecutionHeat, false)}
                                 style={{
                                     padding: '10px 20px',
                                     fontSize: '1rem',

@@ -98,8 +98,46 @@ export default function RaceControl() {
     }
   };
 
-  const handleRunHeat = async (heat: Heat) => {
-    setActiveHeatId(heat.id);
+  const handleRunHeat = async (heat: Heat, shouldStart: boolean = true) => {
+    // Check if heat already has results
+    const hasResults = heat.lane_results && JSON.parse(heat.lane_results).some((r: any) => r.time !== null);
+    
+    if (hasResults) {
+        // Clear results locally first (Optimistic UI Update)
+        const emptyResults = JSON.parse(heat.lane_results).map((r: any) => ({ ...r, time: null, place: null }));
+        const updatedHeat = { ...heat, lane_results: JSON.stringify(emptyResults) };
+
+        // Update state immediately to reflect change in UI
+        setHeats(prevHeats => prevHeats.map(h => h.id === heat.id ? updatedHeat : h));
+        
+        try {
+            await apiClient.put(`/heats/${heat.id}`, updatedHeat);
+            
+            // Optionally refetch to confirm, but we already have valid state.
+            // Keeping refetch to ensure sync with other possible changes or server-side logic
+            if (activeRaceId) {
+                const fetchedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+                 setHeats(fetchedHeats);
+            }
+        } catch (error) {
+            console.error("Failed to clear results for re-run", error);
+            // Revert state if needed, or just let the next fetch handle it.
+            // For now, simple error logging.
+            alert("Failed to reset heat on server.");
+        }
+    }
+
+    if (shouldStart) {
+        setActiveHeatId(heat.id);
+    } else {
+        // If we are just selecting/resetting, ensure we are NOT active
+        if (activeHeatId === heat.id) {
+            setActiveHeatId(null);
+        }
+    }
+
+    setSelectedHeatId(heat.id); // Ensure the heat is selected in the execution view
+    setViewMode('EXECUTION'); // Switch to execution view
     
     // If we are using the fake timer system-wide (i.e. simulating separate hardware),
     // we do NOT run the local random simulation. We wait for the Mole or separate event.
@@ -136,6 +174,11 @@ export default function RaceControl() {
           if (activeRaceId) {
               const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
               setHeats(updatedHeats);
+          }
+           
+          // Clear active heat ID to stop the timer and reset state
+          if (activeHeatId === heatId) {
+              setActiveHeatId(null);
           }
       } catch (e) {
           console.error("Failed to update results", e);

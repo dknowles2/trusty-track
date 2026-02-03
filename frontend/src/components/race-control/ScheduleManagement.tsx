@@ -12,7 +12,7 @@ interface ScheduleManagementProps {
   generating: boolean;
   activeHeatId: number | null;
   onGenerate: () => void;
-  onRunHeat: (heat: Heat) => void;
+  onRunHeat: (heat: Heat, shouldStart?: boolean) => void;
   getRacerName: (id: number) => string;
 }
 
@@ -81,7 +81,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                           <span style={{ fontWeight: 'bold' }}>Heat {heat.heat_number}</span>
                                           <button 
                                               className="primary-btn"
-                                              onClick={() => onRunHeat(heat)}
+                                              onClick={() => onRunHeat(heat, false)}
                                               disabled={isRunning}
                                               style={{ padding: '4px 8px', fontSize: '0.8rem', minWidth: '60px' }}
                                           >
