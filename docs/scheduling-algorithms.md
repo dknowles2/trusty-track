@@ -46,9 +46,45 @@ Uses combinatorial design (Balanced Incomplete Block Design) to ensure everyone 
 
 ---
 
+## 3. Stearns Method (Speed-Based Grouping)
+
+**Goal:** Balanced, competitive heats based on racer speed.
+**Best For:** Championship rounds where you want evenly-matched races.
+**Requirement:** Must have timing data from Round 1 or previous rounds.
+
+### How it Works
+After Round 1, racers are sorted by their average time from all completed heats. They're then distributed across heats in a "snake" pattern to ensure each heat has a balanced mix of fast, medium, and slow racers.
+
+### The Algorithm
+1. Calculate each racer's average time from all previous heats
+2. Sort racers by average time (fastest to slowest)
+3. Distribute racers across heats using snake pattern:
+   - First row: assign racers 1, 2, 3, ... to heats in order
+   - Second row: assign racers in reverse order
+   - Continue alternating
+
+### Example (12 Racers, 3 Lanes)
+After sorting by speed (R1 = fastest, R12 = slowest):
+
+| Heat | Lane 1 | Lane 2 | Lane 3 |
+| :--- | :--- | :--- | :--- |
+| 1 | R1 (fast) | R8 (medium) | R9 (medium) |
+| 2 | R2 (fast) | R7 (medium) | R10 (slow) |
+| 3 | R3 (fast) | R6 (medium) | R11 (slow) |
+| 4 | R4 (fast) | R5 (fast) | R12 (slow) |
+
+**Result:** Each heat has a balanced mix of speeds, creating more competitive and exciting races.
+
+**Social Variety:** Medium. Racers face different opponents but are grouped by speed.
+
+**Availability:** Only available for Round 2 and beyond. Requires at least 50% of racers to have timing data from previous rounds.
+
+---
+
 ## Selecting an Algorithm in the UI
 
 You can select the scheduling algorithm in the **Race Configuration** settings:
 
 - **Lane Rotation (Perfect N):** Each racer runs once in every lane. Best for fairness.
 - **Partial Perfect Chart (PPC):** High social variety; racers face many different opponents.
+- **Stearns Method:** Speed-based grouping for balanced, competitive heats. (Requires Round 1 completion)
