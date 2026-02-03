@@ -71,13 +71,13 @@ export default function SystemConfig() {
       }
       navigate('/');
     } catch (err: any) {
-      setError(err.message || 'Failed to apply configuration');
+      setError(err.message || 'Failed to apply settings');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <div>Loading Configuration...</div>;
+  if (loading) return <div>Loading Settings...</div>;
 
   return (
     <div className="container">
