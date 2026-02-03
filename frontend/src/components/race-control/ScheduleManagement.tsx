@@ -46,12 +46,14 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ width: '100%', maxWidth: 'fit-content' }}>
           {/* Actions Toolbar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
-              <div style={{ textAlign: 'center', flex: 1, minWidth: '150px' }}>
-                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#333' }}>
-                      {sortedRounds.length > 0 ? `${sortedRounds.length} Round${sortedRounds.length > 1 ? 's' : ''}` : 'Schedule'}
-                  </span>
-              </div>
+          <div style={{ display: 'flex', justifyContent: sortedRounds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
+              {sortedRounds.length > 0 && (
+                <div style={{ textAlign: 'center', flex: 1, minWidth: '150px' }}>
+                    <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#333' }}>
+                        {sortedRounds.length} Round{sortedRounds.length > 1 ? 's' : ''}
+                    </span>
+                </div>
+              )}
               <button 
                 className="primary-btn" 
                 onClick={() => setIsModalOpen(true)}
