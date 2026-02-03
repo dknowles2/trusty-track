@@ -408,20 +408,25 @@ def _generate_stearns(db: Session, race_id: int, round_id: int, racers: List[mod
     num_heats = (P + L - 1) // L  # Ceiling division
     
     # Create heats using snake distribution
+    # The goal: distribute sorted racers so each heat has balanced speeds
+    # Pattern: fill heats 0,1,2,3 then 3,2,1,0 then 0,1,2,3 etc.
     heat_assignments: List[List[int]] = [[] for _ in range(num_heats)]
     
     for i, racer in enumerate(sorted_racers):
-        heat_idx = i // L
-        # Snake pattern: alternate direction for each row
-        if (i // L) % 2 == 0:
-            # Forward: assign to heat in order
-            target_heat = heat_idx
-        else:
-            # Backward: reverse assignment for snake pattern
-            target_heat = num_heats - 1 - (heat_idx - (i // L))
+        # Determine which "column" we're filling (0 to L-1)
+        column = i // num_heats
+        # Position within the column (which heat, 0 to num_heats-1)
+        pos_in_column = i % num_heats
         
-        if target_heat < num_heats:
-            heat_assignments[target_heat].append(racer.id)
+        # Snake pattern: alternate direction for each column
+        if column % 2 == 0:
+            # Even columns: fill heats top to bottom (0, 1, 2, 3, ...)
+            target_heat = pos_in_column
+        else:
+            # Odd columns: fill heats bottom to top (3, 2, 1, 0, ...)
+            target_heat = num_heats - 1 - pos_in_column
+        
+        heat_assignments[target_heat].append(racer.id)
     
     # Generate heats with lane rotation for fairness
     generated_heats: List[models.Heat] = []
