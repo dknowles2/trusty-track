@@ -349,6 +349,111 @@ def _generate_ppc(db: Session, race_id: int, round_id: int, racers: List[models.
     return generated_heats
 
 
+def _generate_stearns(db: Session, race_id: int, round_id: int, racers: List[models.Racer], lane_count: int) -> List[models.Heat]:
+    """
+    Generate Stearns method heats (speed-based grouping).
+    Uses timing data from previous rounds to create balanced heats.
+    Requires at least one previous round with timing data.
+    """
+    # Get the current round to find previous rounds
+    current_round = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if not current_round:
+        raise ValueError("Round not found")
+    
+    current_round_number = current_round.round_number
+    
+    # Get all heats from previous rounds
+    previous_heats = db.query(models.Heat).join(models.Round).filter(
+        models.Round.race_id == race_id,
+        models.Round.round_number < current_round_number
+    ).all()
+    
+    if not previous_heats:
+        raise ValueError("Stearns scheduling requires timing data from previous rounds")
+    
+    # Calculate average time for each racer
+    racer_times: dict[int, List[float]] = {}
+    for heat in previous_heats:
+        if not heat.lane_results:
+            continue
+        results = json.loads(heat.lane_results)
+        for result in results:
+            racer_id = result.get("racer_id")
+            time = result.get("time")
+            if racer_id and time is not None:
+                if racer_id not in racer_times:
+                    racer_times[racer_id] = []
+                racer_times[racer_id].append(time)
+    
+    # Calculate averages
+    racer_averages = {
+        racer_id: sum(times) / len(times)
+        for racer_id, times in racer_times.items()
+        if times
+    }
+    
+    # Check if we have enough timing data (at least 50% of racers)
+    if len(racer_averages) < len(racers) * 0.5:
+        raise ValueError(f"Insufficient timing data for Stearns scheduling. Only {len(racer_averages)}/{len(racers)} racers have times.")
+    
+    # Sort racers by average time (fastest first)
+    # Racers without times go to the end
+    sorted_racers = sorted(
+        racers,
+        key=lambda r: racer_averages.get(r.id, float('inf'))
+    )
+    
+    P = len(sorted_racers)
+    L = lane_count
+    num_heats = (P + L - 1) // L  # Ceiling division
+    
+    # Create heats using snake distribution
+    heat_assignments: List[List[int]] = [[] for _ in range(num_heats)]
+    
+    for i, racer in enumerate(sorted_racers):
+        heat_idx = i // L
+        # Snake pattern: alternate direction for each row
+        if (i // L) % 2 == 0:
+            # Forward: assign to heat in order
+            target_heat = heat_idx
+        else:
+            # Backward: reverse assignment for snake pattern
+            target_heat = num_heats - 1 - (heat_idx - (i // L))
+        
+        if target_heat < num_heats:
+            heat_assignments[target_heat].append(racer.id)
+    
+    # Generate heats with lane rotation for fairness
+    generated_heats: List[models.Heat] = []
+    for heat_num, racer_ids_in_heat in enumerate(heat_assignments):
+        if not racer_ids_in_heat:
+            continue
+        
+        # Rotate lane assignments based on heat number to ensure fairness
+        lane_assignment = []
+        for lane_idx in range(len(racer_ids_in_heat)):
+            # Rotate: racer at position i goes to lane (i + heat_num) % num_racers_in_heat
+            rotated_idx = (lane_idx + heat_num) % len(racer_ids_in_heat)
+            racer_id = racer_ids_in_heat[rotated_idx]
+            lane_assignment.append({
+                "lane": lane_idx + 1,
+                "racer_id": racer_id,
+                "time": None,
+                "place": None
+            })
+        
+        heat = models.Heat(
+            race_id=race_id,
+            round_id=round_id,
+            heat_number=heat_num + 1,
+            lane_results=json.dumps(lane_assignment)
+        )
+        db.add(heat)
+        generated_heats.append(heat)
+    
+    return generated_heats
+
+
 
 def generate_heats_for_round(db: Session, round_id: int) -> List[models.Heat]:
     """
@@ -371,6 +476,8 @@ def generate_heats_for_round(db: Session, round_id: int) -> List[models.Heat]:
         new_heats = _generate_lane_rotation(db, race_id, round_id, racers, lane_count)
     elif round_obj.scheduling_strategy == models.SchedulingStrategy.PPC:
         new_heats = _generate_ppc(db, race_id, round_id, racers, lane_count)
+    elif round_obj.scheduling_strategy == models.SchedulingStrategy.STEARNS:
+        new_heats = _generate_stearns(db, race_id, round_id, racers, lane_count)
     else:
         new_heats = _generate_lane_rotation(db, race_id, round_id, racers, lane_count)
     
