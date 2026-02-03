@@ -164,5 +164,6 @@ class Heat(HeatBase):
     id: int
     race_id: int
     round_id: int
+    round_number: int  # Computed from related Round
     
     model_config = ConfigDict(from_attributes=True)

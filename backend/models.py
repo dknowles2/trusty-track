@@ -143,3 +143,8 @@ class Heat(Base):
 
     race: Mapped["Race"] = relationship("Race", back_populates="heats")
     round: Mapped["Round"] = relationship("Round", back_populates="heats")
+    
+    @property
+    def round_number(self) -> int:
+        """Get the round number from the related Round."""
+        return self.round.round_number if self.round else 0
