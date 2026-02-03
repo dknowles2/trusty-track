@@ -146,7 +146,7 @@ export default function SystemConfig() {
         </div>
 
         <button type="submit" className="primary-btn" disabled={submitting}>
-          {submitting ? 'Saving...' : 'Save Configuration'}
+          {submitting ? 'Saving...' : 'Save Settings'}
         </button>
       </form>
     </div>
