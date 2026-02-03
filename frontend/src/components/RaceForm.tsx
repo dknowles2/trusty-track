@@ -105,16 +105,19 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                    <label style={labelStyle}>Scheduling</label>
+                    <label style={labelStyle}>Scheduling Strategy</label>
                     <select 
                         value={formData.scheduling_strategy} 
                         onChange={e => handleChange('scheduling_strategy', e.target.value)}
                         style={inputStyle}
                     >
-                        <option value="LANE_ROTATION">Lane Rotation</option>
-                        <option value="PERFECT_N">Perfect N</option>
-                        <option value="CHAOTIC">Chaotic</option>
+                        <option value="LANE_ROTATION">Lane Rotation (Perfect N)</option>
+                        <option value="PPC">Partial Perfect Chart (PPC)</option>
                     </select>
+                    <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                        {formData.scheduling_strategy === 'LANE_ROTATION' && "Each racer runs once in every lane. Best for fairness."}
+                        {formData.scheduling_strategy === 'PPC' && "High social variety; racers face many different opponents."}
+                    </p>
                 </div>
                 <div>
                     <label style={labelStyle}>Scoring</label>
@@ -123,8 +126,8 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
                         onChange={e => handleChange('scoring_strategy', e.target.value)}
                         style={inputStyle}
                     >
-                        <option value="TIMED">Timed</option>
-                        <option value="POINTS">Points</option>
+                        <option value="TIMED">Timed (Fastest Avg Time)</option>
+                        <option value="POINTS">Points (1st=1pt, 2nd=2pts...)</option>
                     </select>
                 </div>
             </div>

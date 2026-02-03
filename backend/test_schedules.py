@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from . import models, schemas, crud
+from . import models
 from .main import app, get_db
 
 # Use in-memory SQLite for testing
@@ -31,7 +31,7 @@ def teardown_module(module):
 
 def test_generate_schedule_not_enough_racers():
     # 1. Setup Config
-    resp = client.post("/config/initial", json={
+    client.post("/config/initial", json={
         "group_name": "Schedule Validation Group",
         "lane_count": 4,
         "length_feet": 40,
@@ -102,3 +102,22 @@ def test_generate_schedule_success_with_min_racers():
     assert response.status_code == 200
     heats = response.json()
     assert len(heats) > 0
+    # For 2 racers, Lane Rotation (default) should generate 2 heats
+    assert len(heats) == 2
+
+def test_generate_ppc_schedule():
+    # Setup - ensure we have at least 2 racers
+    races = client.get("/races/").json()
+    race_id = races[0]["id"]
+    
+    # Update race to use PPC
+    client.put(f"/races/{race_id}", json={"scheduling_strategy": "PPC"})
+    
+    # Generate
+    response = client.post(f"/races/{race_id}/generate_heats")
+    assert response.status_code == 200
+    heats = response.json()
+    # For 2 racers, PPC should also generate 2 heats
+    assert len(heats) == 2
+
+

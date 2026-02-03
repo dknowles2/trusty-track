@@ -211,7 +211,7 @@ def populate_race(race_id: int, count: int = 20, db: Session = Depends(get_db)):
 
 @app.post("/races/{race_id}/import-racers")
 async def import_racers_csv(race_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    if not file.filename.endswith('.csv'):
+    if not file.filename or not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload a CSV file.")
 
     content = await file.read()
