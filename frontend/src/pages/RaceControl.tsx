@@ -246,7 +246,7 @@ export default function RaceControl() {
   );
 
   return (
-    <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
+    <div className="container" style={{ padding: '20px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Race Control</h1>
         
