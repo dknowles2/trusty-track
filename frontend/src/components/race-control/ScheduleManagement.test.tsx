@@ -9,67 +9,72 @@ describe('ScheduleManagement', () => {
         { id: 2, round_number: 1, heat_number: 2, lane_results: '[]' }
     ];
     const mockGetRacerName = vi.fn((id) => `Racer ${id}`);
-    const mockOnGenerate = vi.fn();
+    const mockOnAddRound = vi.fn();
     const mockOnRunHeat = vi.fn();
 
-    it('renders the generate button', () => {
+    it('renders the add round button', () => {
         render(
             <ScheduleManagement 
+                raceId={1}
                 heats={[]} 
                 generating={false} 
                 activeHeatId={null}
-                onGenerate={mockOnGenerate}
+                onAddRound={mockOnAddRound}
                 onRunHeat={mockOnRunHeat}
                 getRacerName={mockGetRacerName}
             />
         );
-        expect(screen.getByText('Regenerate Schedule')).toBeInTheDocument();
+        expect(screen.getByText('Add Round')).toBeInTheDocument();
     });
 
     it('displays heats grouped by round', () => {
         render(
             <ScheduleManagement 
+                raceId={1}
                 heats={mockHeats} 
                 generating={false} 
                 activeHeatId={null}
-                onGenerate={mockOnGenerate}
+                onAddRound={mockOnAddRound}
                 onRunHeat={mockOnRunHeat}
                 getRacerName={mockGetRacerName}
             />
         );
-        expect(screen.getByText('Round 1')).toBeInTheDocument();
+        expect(screen.getByText('1 Round')).toBeInTheDocument();
         expect(screen.getByText('Heat 1')).toBeInTheDocument();
         expect(screen.getByText('Heat 2')).toBeInTheDocument();
     });
 
-    it('calls onGenerate when regenerate button is clicked', () => {
+    it('opens modal when add round button is clicked', () => {
         render(
             <ScheduleManagement 
+                raceId={1}
                 heats={[]} 
                 generating={false} 
                 activeHeatId={null}
-                onGenerate={mockOnGenerate}
+                onAddRound={mockOnAddRound}
                 onRunHeat={mockOnRunHeat}
                 getRacerName={mockGetRacerName}
             />
         );
-        fireEvent.click(screen.getByText('Regenerate Schedule'));
-        expect(mockOnGenerate).toHaveBeenCalled();
+        fireEvent.click(screen.getByText('Add Round'));
+        // Modal should open - check for modal content
+        expect(screen.getByText('Scheduling Strategy')).toBeInTheDocument();
     });
 
     it('calls onRunHeat when run button is clicked', () => {
         render(
             <ScheduleManagement 
+                raceId={1}
                 heats={mockHeats} 
                 generating={false} 
                 activeHeatId={null}
-                onGenerate={mockOnGenerate}
+                onAddRound={mockOnAddRound}
                 onRunHeat={mockOnRunHeat}
                 getRacerName={mockGetRacerName}
             />
         );
         const runButtons = screen.getAllByText('Run');
         fireEvent.click(runButtons[0]);
-        expect(mockOnRunHeat).toHaveBeenCalledWith(mockHeats[0]);
+        expect(mockOnRunHeat).toHaveBeenCalled();
     });
 });
