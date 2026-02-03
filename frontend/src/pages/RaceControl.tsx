@@ -28,6 +28,7 @@ export default function RaceControl() {
   const [generating, setGenerating] = useState(false);
   const [activeHeatId, setActiveHeatId] = useState<number | null>(null);
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
+  const [timerType, setTimerType] = useState<string | null>(null);
 
   useEffect(() => {
     if (raceId) {
@@ -61,11 +62,13 @@ export default function RaceControl() {
   const fetchData = async (id: number) => {
       setLoading(true);
       try {
-          const [heatsData, racersData] = await Promise.all([
+          const [heatsData, racersData, configData] = await Promise.all([
               apiClient.get(`/races/${id}/heats`),
-              apiClient.get(`/racers/?race_id=${id}`)
+              apiClient.get(`/racers/?race_id=${id}`),
+              apiClient.get('/config/initial')
           ]);
           setHeats(heatsData);
+          setTimerType(configData.timer_type);
           
           const racerMap: Record<number, Racer> = {};
           racersData.forEach((r: Racer) => {
@@ -97,40 +100,12 @@ export default function RaceControl() {
 
   const handleRunHeat = async (heat: Heat) => {
     setActiveHeatId(heat.id);
-    // Simulate race duration
-    setTimeout(async () => {
-      // Generate random results for lanes
-      // Parse existing lane_results to keep assignments
-      const assignments = JSON.parse(heat.lane_results || '[]');
-      const results = assignments.map((a: any) => ({
-        ...a,
-        time: (3.0 + Math.random()).toFixed(4),
-        place: 0 // logic to sort places later
-      }));
-      
-      // Sort to assign places
-      results.sort((a: any, b: any) => parseFloat(a.time) - parseFloat(b.time));
-      results.forEach((r: any, idx: number) => r.place = idx + 1);
-
-      try {
-        await apiClient.put(`/heats/${heat.id}`, { 
-          ...heat, 
-          lane_results: JSON.stringify(results) 
-        });
-        
-        // Update local state without full refetch if possible, but refetch is safer for sync
-        if (activeRaceId) {
-            const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
-            setHeats(updatedHeats);
-            // NOTE: We do NOT update selectedHeatId here, satisfying "no auto-advance"
-        }
-      } catch (e) {
-        console.error("Failed to save results", e);
-        alert("Failed to save race results. Please try again.");
-      } finally {
-        setActiveHeatId(null);
-      }
-    }, 2000); // 2 second race simulation
+    
+    // If we are using the fake timer system-wide (i.e. simulating separate hardware),
+    // we do NOT run the local random simulation. We wait for the Mole or separate event.
+    // In fact, with SKIP removed, all timer types are either FAKE (manual/external) or Hardware.
+    // So we just set active and wait.
+    return;
   };
 
   const handleUpdateResult = async (heatId: number, results: any[]) => {
@@ -274,6 +249,7 @@ export default function RaceControl() {
           onNextHeat={handleNextHeat}
           getRacerName={getRacerName}
           onUpdateResult={handleUpdateResult}
+          timerType={timerType}
         />
       ) : (
         <ScheduleManagement

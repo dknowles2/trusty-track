@@ -22,7 +22,7 @@ def test_verification_scenario():
     client.post("/config/initial", json={
         "group_name": "Scouts Test Verification",
         "lane_count": 4,
-        "timer_type": "SKIP"
+        "timer_type": "FAKE"
     })
 
     # Ensure we can get a group ID (assuming id=1 exists or we make one)

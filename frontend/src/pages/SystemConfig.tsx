@@ -8,7 +8,7 @@ export default function SystemConfig() {
     group_name: '',
     lane_count: 4,
     length_feet: 40,
-    timer_type: 'SKIP'
+    timer_type: 'FAKE'
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -40,7 +40,7 @@ export default function SystemConfig() {
                  group_name: config.group_name || '',
                  lane_count: config.lane_count || 4,
                  length_feet: config.length_feet || 40,
-                 timer_type: config.timer_type || 'SKIP'
+                 timer_type: config.timer_type || 'FAKE'
              }));
           }
       } catch (e) {
@@ -139,8 +139,7 @@ export default function SystemConfig() {
              onChange={handleChange}
              style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
            >
-             <option value="SKIP">Skip (Configure Later)</option>
-             <option value="FAKE">Fake Timer (Testing)</option>
+             <option value="FAKE">Fake Timer (Manual Control)</option>
              <option value="AUTO_DETECT_BACKEND">Auto-Detect (Backend Connected)</option>
              <option value="AUTO_DETECT_PROXY">Use Remote Proxy</option>
            </select>

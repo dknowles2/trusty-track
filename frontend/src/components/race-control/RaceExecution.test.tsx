@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { RaceExecution } from './RaceExecution';
 
 // Mock Modal component
@@ -126,5 +127,88 @@ describe('RaceExecution', () => {
             expect(args[0]).toBe(1);
             expect(args[1][0].time).toBe('4.0');
         });
+    });
+
+    const mockActiveHeat = { 
+        id: 1, 
+        round_number: 1, 
+        heat_number: 1, 
+        lane_results: JSON.stringify([
+            { lane: 1, racer_id: 101, time: null, place: null },
+            { lane: 2, racer_id: 102, time: null, place: null }
+        ]) 
+    };
+
+    const mockNextHeat = null;
+
+    it('renders FakeTimerMole when timerType is FAKE and active heat is running', async () => {
+        render(
+            <RaceExecution
+                activeExecutionHeat={mockActiveHeat}
+                nextExecutionHeat={mockNextHeat}
+                activeHeatId={1} // Running
+                onRunHeat={mockOnRunHeat}
+                onNextHeat={mockOnNextHeat}
+                getRacerName={mockGetRacerName}
+                onUpdateResult={mockOnUpdateResult}
+                timerType="FAKE"
+            />
+        );
+
+        // Should show "Racing..." 
+        expect(screen.getByText(/Racing.../)).toBeInTheDocument();
+        
+        // Mole button should be visible (title "Fake Timer Controls")
+        expect(screen.getByText('Fake Timer Controls')).toBeInTheDocument();
+    });
+
+
+    it('finishes heat when FakeTimerMole Finish button is clicked', async () => {
+        const user = userEvent.setup();
+        render(
+            <RaceExecution
+                activeExecutionHeat={mockActiveHeat}
+                nextExecutionHeat={mockNextHeat}
+                activeHeatId={1} // Running
+                onRunHeat={mockOnRunHeat}
+                onNextHeat={mockOnNextHeat}
+                getRacerName={mockGetRacerName}
+                onUpdateResult={mockOnUpdateResult}
+                timerType="FAKE"
+            />
+        );
+
+
+        
+        // Click "Finish Heat"
+        await user.click(screen.getByText('🏁 Finish Heat'));
+        
+        // Should verify results were saved
+        expect(mockOnUpdateResult).toHaveBeenCalledWith(1, expect.any(Array));
+    });
+
+    it('logs start timer event when FakeTimerMole Start button is clicked', async () => {
+        const consoleSpy = vi.spyOn(console, 'log');
+        const user = userEvent.setup();
+        render(
+            <RaceExecution
+                activeExecutionHeat={mockActiveHeat}
+                nextExecutionHeat={mockNextHeat}
+                activeHeatId={1} // Running
+                onRunHeat={mockOnRunHeat}
+                onNextHeat={mockOnNextHeat}
+                getRacerName={mockGetRacerName}
+                onUpdateResult={mockOnUpdateResult}
+                timerType="FAKE"
+            />
+        );
+
+
+        
+        // Click "Start Timer"
+        await user.click(screen.getByText('🟢 Start Timer'));
+        
+        expect(consoleSpy).toHaveBeenCalledWith('Fake Timer Started via Mole');
+        consoleSpy.mockRestore();
     });
 });

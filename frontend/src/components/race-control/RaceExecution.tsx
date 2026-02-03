@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
+import { FakeTimerMole } from './FakeTimerMole';
 
 interface Heat {
   id: number;
@@ -16,6 +17,7 @@ interface RaceExecutionProps {
   onNextHeat: () => void;
   getRacerName: (id: number) => string;
   onUpdateResult: (heatId: number, results: any[]) => Promise<void>;
+  timerType?: string | null;
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
@@ -26,9 +28,32 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   onNextHeat,
   getRacerName,
   onUpdateResult,
+  timerType,
 }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingResults, setEditingResults] = useState<any[]>([]);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
+
+  const results = activeExecutionHeat?.lane_results ? JSON.parse(activeExecutionHeat.lane_results) : [];
+  const isCompleted = results.length > 0 && results[0].time !== null;
+  const isRunning = activeHeatId !== null && activeHeatId === activeExecutionHeat?.id;
+
+  useEffect(() => {
+      let interval: NodeJS.Timeout;
+      if (isRunning) {
+          const startTime = Date.now();
+          setElapsedSeconds(0);
+          interval = setInterval(() => {
+              const now = Date.now();
+              setElapsedSeconds((now - startTime) / 1000);
+          }, 100);
+      } else {
+          setElapsedSeconds(0);
+      }
+      return () => {
+          if (interval) clearInterval(interval);
+      };
+  }, [isRunning, activeHeatId]);
 
   if (!activeExecutionHeat) {
       return (
@@ -38,10 +63,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
           </div>
       );
   }
-
-  const results = activeExecutionHeat.lane_results ? JSON.parse(activeExecutionHeat.lane_results) : [];
-  const isCompleted = results.length > 0 && results[0].time !== null;
-  const isRunning = activeHeatId === activeExecutionHeat.id;
 
   const handleEditOpen = () => {
     setEditingResults(JSON.parse(JSON.stringify(results))); // Deep copy
@@ -58,6 +79,17 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     await onUpdateResult(activeExecutionHeat.id, editingResults);
     setIsEditModalOpen(false);
   };
+
+  const handleMoleFinish = async (newResults: any[]) => {
+      await onUpdateResult(activeExecutionHeat.id, newResults);
+  };
+
+  const handleMoleStart = () => {
+      console.log("Fake Timer Started via Mole");
+      onRunHeat(activeExecutionHeat);
+  };
+
+  const showFakeControls = timerType === 'FAKE';
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -124,18 +156,16 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             )}
                         </>
                     ) : (
-                        <button 
-                            className="primary-btn"
-                            onClick={() => onRunHeat(activeExecutionHeat)}
-                            disabled={isRunning}
-                            style={{ 
-                                padding: '15px 30px', 
-                                fontSize: '1.3rem',
-                                background: isRunning ? 'orange' : 'var(--scouting-blue)'
-                            }}
-                        >
-                            {isRunning ? 'Racing...' : 'Start Heat'}
-                        </button>
+                        <div style={{ 
+                            padding: '15px 30px', 
+                            fontSize: '1.3rem',
+                            background: isRunning ? 'orange' : '#e0e0e0',
+                            color: isRunning ? 'white' : '#666',
+                            borderRadius: '4px',
+                            fontWeight: 'bold'
+                        }}>
+                            {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
+                        </div>
                     )}
                 </div>
           </div>
@@ -210,6 +240,14 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             </div>
           </div>
       </Modal>
+
+      {/* Fake Timer Mole */}
+      <FakeTimerMole 
+        isOpen={showFakeControls && !isCompleted}
+        activeHeat={activeExecutionHeat}
+        onTriggerFinish={handleMoleFinish}
+        onTriggerStart={handleMoleStart}
+      />
     </div>
   );
 };

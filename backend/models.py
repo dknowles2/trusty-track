@@ -5,7 +5,6 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from .database import Base
 
 class TimerType(str, enum.Enum):
-    SKIP = "SKIP"
     FAKE = "FAKE"
     AUTO_DETECT_BACKEND = "AUTO_DETECT_BACKEND"
     AUTO_DETECT_PROXY = "AUTO_DETECT_PROXY"
@@ -62,7 +61,7 @@ class Track(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     lane_count: Mapped[int] = mapped_column(Integer, default=4)
     length_feet: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    timer_type: Mapped[TimerType] = mapped_column(SAEnum(TimerType), default=TimerType.SKIP)
+    timer_type: Mapped[TimerType] = mapped_column(SAEnum(TimerType), default=TimerType.FAKE)
     serial_port: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
 class Race(Base):

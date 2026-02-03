@@ -5,7 +5,7 @@ from .models import TimerType, CarNumberingStrategy, Rank, SchedulingStrategy, S
 class TrackBase(BaseModel):
     lane_count: int = 4
     length_feet: Optional[int] = None
-    timer_type: TimerType = TimerType.SKIP
+    timer_type: TimerType = TimerType.FAKE
     serial_port: Optional[str] = None
 
 class DenBase(BaseModel):
@@ -43,7 +43,7 @@ class InitialConfigCreate(BaseModel):
     group_name: str
     lane_count: int
     length_feet: Optional[int] = None
-    timer_type: TimerType = TimerType.SKIP
+    timer_type: TimerType = TimerType.FAKE
 
 class InitialConfigStatus(BaseModel):
     initialized: bool
