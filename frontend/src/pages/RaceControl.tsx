@@ -83,16 +83,27 @@ export default function RaceControl() {
       }
   };
 
-  const handleGenerateSchedule = async () => {
+  const handleAddRound = async (schedulingStrategy: string) => {
     if (!activeRaceId) return;
     setGenerating(true);
     try {
-      const data = await apiClient.post(`/races/${activeRaceId}/generate_heats`, {});
-      setHeats(data);
+      // Create a new round
+      const roundData = await apiClient.post(`/races/${activeRaceId}/rounds`, {
+        race_id: activeRaceId,
+        round_number: 1, // Will be auto-calculated by backend
+        scheduling_strategy: schedulingStrategy
+      });
+      
+      // Generate heats for the new round
+      await apiClient.post(`/rounds/${roundData.id}/generate_heats`, {});
+      
+      // Fetch updated heats
+      const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+      setHeats(updatedHeats);
       setSelectedHeatId(null); // Reset selection to trigger re-init
     } catch (e) {
-      console.error("Failed to generate", e);
-      alert("Failed to generate schedule. Ensure you have at least 2 racers.");
+      console.error("Failed to add round", e);
+      alert("Failed to add round. Ensure you have at least 2 racers.");
     } finally {
       setGenerating(false);
     }
@@ -280,8 +291,7 @@ export default function RaceControl() {
 
       {heats.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '8px' }}>
-          <p>No heats scheduled.</p>
-          <button className="primary-btn" onClick={handleGenerateSchedule}>Generate Schedule</button>
+          <p>No rounds or heats yet. Click "Add Round" to create your first round.</p>
         </div>
       ) : viewMode === 'EXECUTION' ? (
         <RaceExecution
@@ -296,10 +306,11 @@ export default function RaceControl() {
         />
       ) : (
         <ScheduleManagement
+          raceId={activeRaceId}
           heats={heats}
           generating={generating}
           activeHeatId={activeHeatId}
-          onGenerate={handleGenerateSchedule}
+          onAddRound={handleAddRound}
           onRunHeat={handleRunHeat}
           getRacerName={getRacerName}
         />

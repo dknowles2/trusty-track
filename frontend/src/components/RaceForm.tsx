@@ -5,10 +5,10 @@ export interface RaceFormData {
     date_time: string;
     location: string;
     group_id?: number;
-    scheduling_strategy: string;
     scoring_strategy: string;
     car_numbering_strategy: string;
     global_start_number: number;
+    championship_trophies: number;
 }
 
 interface RaceFormProps {
@@ -24,10 +24,10 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
         date_time: '',
         location: '',
         group_id: 1, // Default
-        scheduling_strategy: 'LANE_ROTATION',
         scoring_strategy: 'TIMED',
         car_numbering_strategy: 'MANUAL',
         global_start_number: 1,
+        championship_trophies: 3,
         ...initialData
     });
     const [loading, setLoading] = useState(false);
@@ -105,21 +105,6 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                    <label style={labelStyle}>Scheduling Strategy</label>
-                    <select 
-                        value={formData.scheduling_strategy} 
-                        onChange={e => handleChange('scheduling_strategy', e.target.value)}
-                        style={inputStyle}
-                    >
-                        <option value="LANE_ROTATION">Lane Rotation (Perfect N)</option>
-                        <option value="PPC">Partial Perfect Chart (PPC)</option>
-                    </select>
-                    <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                        {formData.scheduling_strategy === 'LANE_ROTATION' && "Each racer runs once in every lane. Best for fairness."}
-                        {formData.scheduling_strategy === 'PPC' && "High social variety; racers face many different opponents."}
-                    </p>
-                </div>
-                <div>
                     <label style={labelStyle}>Scoring</label>
                     <select 
                         value={formData.scoring_strategy} 
@@ -129,6 +114,20 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
                         <option value="TIMED">Timed (Fastest Avg Time)</option>
                         <option value="POINTS">Points (1st=1pt, 2nd=2pts...)</option>
                     </select>
+                </div>
+                <div>
+                    <label style={labelStyle}>Championship Trophies</label>
+                    <input 
+                        type="number"
+                        value={formData.championship_trophies || 3}
+                        onChange={e => handleChange('championship_trophies', parseInt(e.target.value) || 3)}
+                        min="1"
+                        max="10"
+                        style={inputStyle}
+                    />
+                    <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                        Number of trophies to award for the championship.
+                    </p>
                 </div>
             </div>
             <div>

@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { RoundConfigModal } from './RoundConfigModal';
 
 interface Heat {
   id: number;
@@ -8,22 +9,26 @@ interface Heat {
 }
 
 interface ScheduleManagementProps {
+  raceId: number;
   heats: Heat[];
   generating: boolean;
   activeHeatId: number | null;
-  onGenerate: () => void;
+  onAddRound: (schedulingStrategy: string) => Promise<void>;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void;
   getRacerName: (id: number) => string;
 }
 
 export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
+  raceId,
   heats,
   generating,
   activeHeatId,
-  onGenerate,
+  onAddRound,
   onRunHeat,
   getRacerName,
 }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   // Group Heats by Round for Schedule View
   const rounds: Record<number, Heat[]> = {};
   heats.forEach(h => {
@@ -33,20 +38,35 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   
   const sortedRounds = Object.keys(rounds).map(Number).sort((a,b) => a - b);
 
+  const handleAddRound = async (schedulingStrategy: string) => {
+    await onAddRound(schedulingStrategy);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ width: '100%', maxWidth: 'fit-content' }}>
           {/* Actions Toolbar */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <div style={{ textAlign: 'center', flex: 1 }}>
+                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#333' }}>
+                      {sortedRounds.length > 0 ? `${sortedRounds.length} Round${sortedRounds.length > 1 ? 's' : ''}` : 'No Rounds Yet'}
+                  </span>
+              </div>
               <button 
-                className="secondary-btn" 
-                onClick={onGenerate}
+                className="primary-btn" 
+                onClick={() => setIsModalOpen(true)}
                 disabled={generating}
                 style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}
               >
-                {generating ? 'Generating...' : 'Regenerate Schedule'}
+                Add Round
               </button>
           </div>
+
+          <RoundConfigModal 
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onSubmit={handleAddRound}
+          />
 
           <div style={{ 
               display: 'flex', 
