@@ -9,7 +9,7 @@ import shutil
 import csv
 import io
 import random
-from . import crud, models, schemas
+from . import crud, models, schemas, scoring
 from .database import SessionLocal, engine
 
 models.Base.metadata.create_all(bind=engine)
@@ -315,6 +315,20 @@ def update_heat_result(heat_id: int, result: schemas.HeatBase, db: Session = Dep
     if not updated:
         raise HTTPException(status_code=404, detail="Heat not found")
     return updated
+
+@app.get("/races/{race_id}/scores")
+def get_race_scores(race_id: int, db: Session = Depends(get_db)):
+    """Get current scores/leaderboard for a race."""
+    race = crud.get_race(db, race_id)
+    if not race:
+        raise HTTPException(status_code=404, detail="Race not found")
+    
+    leaderboard = scoring.get_leaderboard(db, race_id)
+    return {
+        "race_id": race_id,
+        "scoring_strategy": race.scoring_strategy.value,
+        "leaderboard": leaderboard
+    }
 
 @app.get("/")
 def read_root():
