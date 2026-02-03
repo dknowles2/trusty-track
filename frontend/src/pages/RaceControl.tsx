@@ -289,21 +289,23 @@ export default function RaceControl() {
         </div>
       </div>
 
-      {heats.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '8px' }}>
-          <p>No rounds or heats yet. Click "Add Round" to create your first round.</p>
-        </div>
-      ) : viewMode === 'EXECUTION' ? (
-        <RaceExecution
-          activeExecutionHeat={activeExecutionHeat || null}
-          nextExecutionHeat={nextExecutionHeat}
-          activeHeatId={activeHeatId}
-          onRunHeat={handleRunHeat}
-          onNextHeat={handleNextHeat}
-          getRacerName={getRacerName}
-          onUpdateResult={handleUpdateResult}
-          timerType={timerType}
-        />
+      {viewMode === 'EXECUTION' ? (
+        heats.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '8px' }}>
+            <p>No heats available. Please add a round in the Schedule view first.</p>
+          </div>
+        ) : (
+          <RaceExecution
+            activeExecutionHeat={activeExecutionHeat || null}
+            nextExecutionHeat={nextExecutionHeat}
+            activeHeatId={activeHeatId}
+            onRunHeat={handleRunHeat}
+            onNextHeat={handleNextHeat}
+            getRacerName={getRacerName}
+            onUpdateResult={handleUpdateResult}
+            timerType={timerType}
+          />
+        )
       ) : (
         <ScheduleManagement
           raceId={activeRaceId}
