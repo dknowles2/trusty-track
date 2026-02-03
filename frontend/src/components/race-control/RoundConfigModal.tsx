@@ -28,15 +28,6 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     }
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '10px',
-    fontSize: '1rem',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    boxSizing: 'border-box' as const
-  };
-
   const labelStyle = {
     display: 'block',
     marginBottom: '0.5rem',
@@ -44,24 +35,74 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     color: '#333'
   };
 
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add Round">
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={labelStyle}>Scheduling Strategy</label>
-          <select 
-            value={schedulingStrategy} 
-            onChange={e => setSchedulingStrategy(e.target.value)}
-            style={inputStyle}
-            disabled={loading}
-          >
-            <option value="LANE_ROTATION">Lane Rotation (Perfect N)</option>
-            <option value="PPC">Partial Perfect Chart (PPC)</option>
-          </select>
-          <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
-            {schedulingStrategy === 'LANE_ROTATION' && "Each racer runs once in every lane. Best for fairness."}
-            {schedulingStrategy === 'PPC' && "High social variety; racers face many different opponents."}
-          </p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Lane Rotation Option */}
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'flex-start', 
+              padding: '12px', 
+              border: schedulingStrategy === 'LANE_ROTATION' ? '2px solid var(--scouting-blue)' : '2px solid #ddd',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              backgroundColor: schedulingStrategy === 'LANE_ROTATION' ? '#f0f7ff' : '#fff',
+              transition: 'all 0.2s'
+            }}>
+              <input 
+                type="radio" 
+                name="schedulingStrategy"
+                value="LANE_ROTATION"
+                checked={schedulingStrategy === 'LANE_ROTATION'}
+                onChange={e => setSchedulingStrategy(e.target.value)}
+                disabled={loading}
+                style={{ marginTop: '3px', marginRight: '10px', cursor: 'pointer' }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#333' }}>
+                  Lane Rotation (Perfect N)
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                  Each racer runs once in every lane. Best for fairness.
+                </div>
+              </div>
+            </label>
+
+            {/* PPC Option */}
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'flex-start', 
+              padding: '12px', 
+              border: schedulingStrategy === 'PPC' ? '2px solid var(--scouting-blue)' : '2px solid #ddd',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              backgroundColor: schedulingStrategy === 'PPC' ? '#f0f7ff' : '#fff',
+              transition: 'all 0.2s'
+            }}>
+              <input 
+                type="radio" 
+                name="schedulingStrategy"
+                value="PPC"
+                checked={schedulingStrategy === 'PPC'}
+                onChange={e => setSchedulingStrategy(e.target.value)}
+                disabled={loading}
+                style={{ marginTop: '3px', marginRight: '10px', cursor: 'pointer' }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '4px', color: '#333' }}>
+                  Partial Perfect Chart (PPC)
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                  High social variety; racers face many different opponents.
+                </div>
+              </div>
+            </label>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
