@@ -33,6 +33,10 @@ export default function RaceDetails() {
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkingInRacer, setCheckingInRacer] = useState<Racer | null>(null);
 
+  // Populate Modal
+  const [showPopulateModal, setShowPopulateModal] = useState(false);
+  const [populateCount, setPopulateCount] = useState(20);
+
   // Race Edit State
   const [isEditingRace, setIsEditingRace] = useState(false);
   
@@ -40,6 +44,23 @@ export default function RaceDetails() {
   const [isGroupedByDen, setIsGroupedByDen] = useState(false);
   const [isAddRacerDropdownOpen, setIsAddRacerDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Handle click outside for dropdown
+  useEffect(() => {
+    if (!isAddRacerDropdownOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      // Don't close if clicking the dropdown button or content
+      if (target.closest('.dropdown') || target.classList.contains('split-btn-arrow')) {
+        return;
+      }
+      setIsAddRacerDropdownOpen(false);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isAddRacerDropdownOpen]);
 
 
   useEffect(() => {
@@ -255,6 +276,7 @@ export default function RaceDetails() {
                 #️⃣ Auto #
             </button>
 
+
             <div className="dropdown" style={{ position: 'relative' }}>
                 <div className="split-btn-container">
                     <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
@@ -275,40 +297,14 @@ export default function RaceDetails() {
                     <div 
                         className="dropdown-content" 
                         style={{ display: 'block' }}
-                        ref={(node) => {
-                            if (node) {
-                                // Close when clicking outside
-                                const handleClickOutside = (event: MouseEvent) => {
-                                    if (node && !node.contains(event.target as Node) && !(event.target as Element).classList.contains('split-btn-arrow')) {
-                                        setIsAddRacerDropdownOpen(false);
-                                    }
-                                };
-                                document.addEventListener('mousedown', handleClickOutside);
-                                return () => {
-                                    document.removeEventListener('mousedown', handleClickOutside);
-                                };
-                            }
-                        }}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         <button 
-                            onClick={async () => {
-                               try {
-                                    const btn = document.getElementById('populate-btn-drop');
-                                    if (btn) btn.textContent = '⏳ Populating...';
-                                    
-                                    await apiClient.post(`/races/${raceId}/populate?count=20`, {});
-                                    await fetchRacers();
-                                    
-                               } catch (e) {
-                                    console.error("Failed to populate", e);
-                                    alert("Failed to populate test data. Check console for details.");
-                               } finally {
-                                    const btn = document.getElementById('populate-btn-drop');
-                                    if (btn) btn.textContent = '⚡ Populate Test Data';
-                                    setIsAddRacerDropdownOpen(false);
-                               }
+                            onClick={() => {
+                                setShowPopulateModal(true);
+                                setIsAddRacerDropdownOpen(false);
                             }}
-                            id="populate-btn-drop"
+                            title="Populate Test Data"
                         >
                             ⚡ Populate Test Data
                         </button>
@@ -571,6 +567,73 @@ export default function RaceDetails() {
                 onSave={fetchRacers}
               />
           )}
+      </Modal>
+
+      {/* Populate Modal */}
+      <Modal
+        isOpen={showPopulateModal}
+        onClose={() => setShowPopulateModal(false)}
+        title="Populate Test Data"
+      >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ color: '#666', lineHeight: '1.5' }}>
+                  Generate fake racers to test your race setup. You can specify how many racers to add.
+                  They will be assigned random names, ranks, and images.
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label htmlFor="pop-count" style={{ fontWeight: 'bold' }}>Number of Racers:</label>
+                  <input
+                      id="pop-count"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={populateCount}
+                      onChange={(e) => setPopulateCount(parseInt(e.target.value) || 0)}
+                      style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
+                  <button 
+                    onClick={async () => {
+                        if (populateCount <= 0) {
+                            alert("Please enter a valid count > 0");
+                            return;
+                        }
+                        
+                        setLoading(true); // Re-use main loading or local state if preferred? Let's assume passed in prop or handled by async
+                        const btn = document.getElementById('do-populate-btn');
+                        if (btn) btn.textContent = '⏳ Generating...';
+                        if (btn) (btn as HTMLButtonElement).disabled = true;
+
+                        try {
+                            await apiClient.post(`/races/${raceId}/populate?count=${populateCount}`, {});
+                            await fetchRacers();
+                            setShowPopulateModal(false);
+                            // alert(`Successfully added ${populateCount} racers!`);
+                        } catch (e) {
+                            console.error("Failed", e);
+                            alert("Failed to populate");
+                        } finally {
+                            if (btn) btn.textContent = 'Generate';
+                            if (btn) (btn as HTMLButtonElement).disabled = false;
+                            setLoading(false);
+                        }
+                    }}
+                    id="do-populate-btn"
+                    style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                  >
+                      Generate
+                  </button>
+                  <button 
+                    onClick={() => setShowPopulateModal(false)} 
+                    style={{ backgroundColor: '#e0e0e0', color: '#666', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+              </div>
+          </div>
       </Modal>
     </div>
   );
