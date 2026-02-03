@@ -49,6 +49,24 @@ def test_create_race():
     assert data["name"] == race_name
     assert data["group_id"] == group_id
 
+def test_create_race_ppc():
+    group_name = get_unique_name("PPC Group")
+    resp_group = client.post("/groups/", json={"name": group_name})
+    group_id = resp_group.json()["id"]
+
+    race_name = get_unique_name("PPC Race")
+    response = client.post(
+        "/races/",
+        json={
+            "name": race_name,
+            "group_id": group_id,
+            "scheduling_strategy": "PPC"
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["scheduling_strategy"] == "PPC"
+
 def test_create_den_and_racer():
     # Create a Race first
     group_name = get_unique_name("Pack Racer Test")

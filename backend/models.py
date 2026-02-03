@@ -41,6 +41,9 @@ class Den(Base):
 class SchedulingStrategy(str, enum.Enum):
     LANE_ROTATION = "LANE_ROTATION"
     PPC = "PPC"
+    STEARNS = "STEARNS"
+    PERFECT_N = "PERFECT_N"
+    CHAOTIC = "CHAOTIC"
 
 class ScoringStrategy(str, enum.Enum):
     TIMED = "TIMED"
