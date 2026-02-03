@@ -7,6 +7,7 @@ import Modal from '../components/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
 import CheckInModal from '../components/CheckInModal';
+import Leaderboard from '../components/Leaderboard';
 
 interface Race extends RaceFormData {
     id: number;
@@ -213,6 +214,13 @@ export default function RaceDetails() {
             />
           )}
       </Modal>
+
+      {/* Standings Section */}
+      {race && (
+        <div style={{ marginBottom: '2rem' }}>
+          <Leaderboard raceId={race.id} />
+        </div>
+      )}
 
       {/* Roster Section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
