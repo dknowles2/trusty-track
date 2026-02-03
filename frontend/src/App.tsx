@@ -4,17 +4,13 @@ import SystemConfig from './pages/SystemConfig';
 import Home from './pages/Home';
 import { apiClient } from './api/client';
 
-import CheckIn from './pages/CheckIn';
 import RaceDetails from './pages/RaceDetails';
 import RaceControl from './pages/RaceControl';
 import Observation from './pages/Observation';
 
 import { useState, useEffect } from 'react';
 
-// Placeholder components
-// Home moved to separate file
 
-const RaceSetup = () => <div className="container"><h1>Race Setup</h1><p>Configuration options go here.</p></div>;
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
     const [loading, setLoading] = useState(true);

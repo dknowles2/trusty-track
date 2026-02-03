@@ -19,7 +19,7 @@ interface ScheduleManagementProps {
 }
 
 export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
-  raceId,
+  raceId: _raceId,
   heats,
   generating,
   activeHeatId,

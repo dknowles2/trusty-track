@@ -20,7 +20,7 @@ interface DenManagerProps {
     onUpdate: () => void;
 }
 
-export default function DenManager({ raceId, onClose, onUpdate }: DenManagerProps) {
+export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenManagerProps) {
     const [dens, setDens] = useState<Den[]>([]);
     const [loading, setLoading] = useState(false);
     
