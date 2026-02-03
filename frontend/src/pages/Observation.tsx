@@ -163,7 +163,7 @@ export default function Observation() {
       
       <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: 'var(--scout-gold)', color: '#333' }}>
+              <thead style={{ backgroundColor: 'var(--cub-scouting-gold)', color: '#333' }}>
                   <tr>
                       <th style={{ padding: '15px' }}>Rank</th>
                       <th style={{ padding: '15px' }}>Racer</th>
