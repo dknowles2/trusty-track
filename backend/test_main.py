@@ -1,8 +1,34 @@
 from fastapi.testclient import TestClient
-from backend.main import app
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from backend import models
+from backend.main import app, get_db
 import uuid
 
+# Use in-memory SQLite for testing
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test_main.db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def override_get_db():
+    try:
+        db = TestingSessionLocal()
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
+
 client = TestClient(app)
+
+def setup_module(module):
+    models.Base.metadata.create_all(bind=engine)
+
+def teardown_module(module):
+    models.Base.metadata.drop_all(bind=engine)
 
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
@@ -48,24 +74,6 @@ def test_create_race():
     data = response.json()
     assert data["name"] == race_name
     assert data["group_id"] == group_id
-
-def test_create_race_ppc():
-    group_name = get_unique_name("PPC Group")
-    resp_group = client.post("/groups/", json={"name": group_name})
-    group_id = resp_group.json()["id"]
-
-    race_name = get_unique_name("PPC Race")
-    response = client.post(
-        "/races/",
-        json={
-            "name": race_name,
-            "group_id": group_id,
-            "scheduling_strategy": "PPC"
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["scheduling_strategy"] == "PPC"
 
 def test_create_den_and_racer():
     # Create a Race first

@@ -277,12 +277,32 @@ def auto_number_racers(race_id: int, db: Session = Depends(get_db)):
     count = crud.auto_number_racers(db, race_id)
     return {"message": f"Auto-numbered {count} racers", "updated_count": count}
 
-@app.post("/races/{race_id}/generate_heats", response_model=List[schemas.Heat])
-def generate_schedule(race_id: int, db: Session = Depends(get_db)):
+# Round endpoints
+@app.get("/races/{race_id}/rounds", response_model=List[schemas.Round])
+def get_rounds(race_id: int, db: Session = Depends(get_db)):
+    return crud.get_rounds(db, race_id)
+
+@app.post("/races/{race_id}/rounds", response_model=schemas.Round)
+def create_round(race_id: int, round_data: schemas.RoundCreate, db: Session = Depends(get_db)):
+    # Get the next round number
+    existing_rounds = crud.get_rounds(db, race_id)
+    next_round_number = len(existing_rounds) + 1
+    
+    return crud.create_round(db, race_id, next_round_number, round_data.scheduling_strategy)
+
+@app.post("/rounds/{round_id}/generate_heats", response_model=List[schemas.Heat])
+def generate_heats_for_round(round_id: int, db: Session = Depends(get_db)):
     try:
-        return crud.generate_heats(db, race_id)
+        return crud.generate_heats_for_round(db, round_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/rounds/{round_id}")
+def delete_round(round_id: int, db: Session = Depends(get_db)):
+    success = crud.delete_round(db, round_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Round not found")
+    return {"message": "Round deleted"}
 
 @app.get("/races/{race_id}/heats", response_model=List[schemas.Heat])
 def get_heats(race_id: int, db: Session = Depends(get_db)):

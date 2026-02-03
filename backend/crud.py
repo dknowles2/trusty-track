@@ -209,9 +209,34 @@ def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
 
 def get_heats(db: Session, race_id: int) -> List[models.Heat]:
     """Get all heats for a specific race, ordered by round and heat number."""
-    return db.query(models.Heat).filter(models.Heat.race_id == race_id).order_by(models.Heat.round_number, models.Heat.heat_number).all()
+    return db.query(models.Heat).filter(models.Heat.race_id == race_id).join(models.Round).order_by(models.Round.round_number, models.Heat.heat_number).all()
 
-def _generate_lane_rotation(db: Session, race_id: int, racers: List[models.Racer], lane_count: int) -> List[models.Heat]:
+def get_rounds(db: Session, race_id: int) -> List[models.Round]:
+    """Get all rounds for a specific race, ordered by round number."""
+    return db.query(models.Round).filter(models.Round.race_id == race_id).order_by(models.Round.round_number).all()
+
+def create_round(db: Session, race_id: int, round_number: int, scheduling_strategy: models.SchedulingStrategy) -> models.Round:
+    """Create a new round for a race."""
+    round_obj = models.Round(
+        race_id=race_id,
+        round_number=round_number,
+        scheduling_strategy=scheduling_strategy
+    )
+    db.add(round_obj)
+    db.commit()
+    db.refresh(round_obj)
+    return round_obj
+
+def delete_round(db: Session, round_id: int) -> bool:
+    """Delete a round and all its heats."""
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if round_obj:
+        db.delete(round_obj)
+        db.commit()
+        return True
+    return False
+
+def _generate_lane_rotation(db: Session, race_id: int, round_id: int, racers: List[models.Racer], lane_count: int) -> List[models.Heat]:
     """
     Generate Lane Rotation (Perfect N-Stage) heats.
     Each racer runs exactly once in every lane.
@@ -237,7 +262,7 @@ def _generate_lane_rotation(db: Session, race_id: int, racers: List[models.Racer
         
         heat = models.Heat(
             race_id=race_id,
-            round_number=1,
+            round_id=round_id,
             heat_number=i + 1,
             lane_results=json.dumps(lane_assignment)
         )
@@ -245,7 +270,7 @@ def _generate_lane_rotation(db: Session, race_id: int, racers: List[models.Racer
         generated_heats.append(heat)
     return generated_heats
 
-def _generate_ppc(db: Session, race_id: int, racers: List[models.Racer], lane_count: int) -> List[models.Heat]:
+def _generate_ppc(db: Session, race_id: int, round_id: int, racers: List[models.Racer], lane_count: int) -> List[models.Heat]:
     """
     Generate Partial Perfect Chart (PPC) heats.
     Uses greedy optimization to balance lane usage and maximize opponent variety.
@@ -315,7 +340,7 @@ def _generate_ppc(db: Session, race_id: int, racers: List[models.Racer], lane_co
             })
         heat = models.Heat(
             race_id=race_id,
-            round_number=1,
+            round_id=round_id,
             heat_number=i + 1,
             lane_results=json.dumps(lane_assignment)
         )
@@ -325,15 +350,15 @@ def _generate_ppc(db: Session, race_id: int, racers: List[models.Racer], lane_co
 
 
 
-def generate_heats(db: Session, race_id: int) -> List[models.Heat]:
+def generate_heats_for_round(db: Session, round_id: int) -> List[models.Heat]:
     """
-    Generate the race schedule based on the race's chosen scheduling strategy.
-    Clears any existing heats for the race.
+    Generate heats for a specific round based on its scheduling strategy.
     """
-    race = db.query(models.Race).filter(models.Race.id == race_id).first()
-    if not race:
-        return []
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if not round_obj:
+        raise ValueError(f"Round {round_id} not found")
     
+    race_id = round_obj.race_id
     track = db.query(models.Track).first()
     lane_count = track.lane_count if track else 4
 
@@ -341,19 +366,16 @@ def generate_heats(db: Session, race_id: int) -> List[models.Heat]:
     if not racers or len(racers) < 2:
         raise ValueError("Not enough racers to generate a schedule (minimum 2 required)")
     
-    # Determine new heats based on strategy
-    if race.scheduling_strategy == models.SchedulingStrategy.LANE_ROTATION:
-        _generate_lane_rotation(db, race_id, racers, lane_count)
-    elif race.scheduling_strategy == models.SchedulingStrategy.PPC:
-        _generate_ppc(db, race_id, racers, lane_count)
+    # Generate heats based on the round's scheduling strategy
+    if round_obj.scheduling_strategy == models.SchedulingStrategy.LANE_ROTATION:
+        new_heats = _generate_lane_rotation(db, race_id, round_id, racers, lane_count)
+    elif round_obj.scheduling_strategy == models.SchedulingStrategy.PPC:
+        new_heats = _generate_ppc(db, race_id, round_id, racers, lane_count)
     else:
-        _generate_lane_rotation(db, race_id, racers, lane_count)
-
-    # Clear existing heats
-    db.query(models.Heat).filter(models.Heat.race_id == race_id).delete()
+        new_heats = _generate_lane_rotation(db, race_id, round_id, racers, lane_count)
     
     db.commit()
-    return get_heats(db, race_id)
+    return new_heats
 
 def record_heat_result(db: Session, heat_id: int, results: str | None) -> models.Heat | None:
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()

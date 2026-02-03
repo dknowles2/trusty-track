@@ -76,8 +76,8 @@ class Race(Base):
     location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     car_numbering_strategy: Mapped[CarNumberingStrategy] = mapped_column(SAEnum(CarNumberingStrategy), default=CarNumberingStrategy.MANUAL)
     global_start_number: Mapped[int] = mapped_column(Integer, default=1)
+    championship_trophies: Mapped[int] = mapped_column(Integer, default=3)
     
-    scheduling_strategy: Mapped[SchedulingStrategy] = mapped_column(SAEnum(SchedulingStrategy), default=SchedulingStrategy.LANE_ROTATION)
     scoring_strategy: Mapped[ScoringStrategy] = mapped_column(SAEnum(ScoringStrategy), default=ScoringStrategy.TIMED)
     rules_configuration: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
@@ -85,6 +85,7 @@ class Race(Base):
     racing_groups: Mapped[List["RacingGroup"]] = relationship("RacingGroup", back_populates="race")
     racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="race")
     dens: Mapped[List["Den"]] = relationship("Den", back_populates="race", cascade="all, delete-orphan")
+    rounds: Mapped[List["Round"]] = relationship("Round", back_populates="race", cascade="all, delete-orphan")
     heats: Mapped[List["Heat"]] = relationship("Heat", back_populates="race")
 
 class RacingGroup(Base):
@@ -120,13 +121,25 @@ class Racer(Base):
     racing_group: Mapped[Optional["RacingGroup"]] = relationship("RacingGroup", back_populates="racers")
     den: Mapped[Optional["Den"]] = relationship("Den", back_populates="racers")
 
+class Round(Base):
+    __tablename__ = "rounds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
+    round_number: Mapped[int] = mapped_column(Integer)
+    scheduling_strategy: Mapped[SchedulingStrategy] = mapped_column(SAEnum(SchedulingStrategy), default=SchedulingStrategy.LANE_ROTATION)
+
+    race: Mapped["Race"] = relationship("Race", back_populates="rounds")
+    heats: Mapped[List["Heat"]] = relationship("Heat", back_populates="round", cascade="all, delete-orphan")
+
 class Heat(Base):
     __tablename__ = "heats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
-    round_number: Mapped[int] = mapped_column(Integer)
+    round_id: Mapped[int] = mapped_column(Integer, ForeignKey("rounds.id"))
     heat_number: Mapped[int] = mapped_column(Integer)
     lane_results: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="heats")
+    round: Mapped["Round"] = relationship("Round", back_populates="heats")

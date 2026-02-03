@@ -77,8 +77,18 @@ def test_generate_schedule_not_enough_racers():
     # If we have more than 1 (from other tests?), we should maybe clean up.
     # But for a unit test with setup/teardown it should be clean.
     
-    # 3. Try to generate heats - Should FAIL
-    response = client.post(f"/races/{race_id}/generate_heats")
+    # 3. Try to create a round and generate heats - Should FAIL
+    # First create a round
+    round_response = client.post(f"/races/{race_id}/rounds", json={
+        "race_id": race_id,
+        "round_number": 1,
+        "scheduling_strategy": "LANE_ROTATION"
+    })
+    assert round_response.status_code == 200
+    round_id = round_response.json()["id"]
+    
+    # Try to generate heats for the round
+    response = client.post(f"/rounds/{round_id}/generate_heats")
     
     assert response.status_code == 400
     assert "not enough racers" in response.json()["detail"].lower()
@@ -97,12 +107,21 @@ def test_generate_schedule_success_with_min_racers():
         "race_id": race_id
     })
     
-    # Generate - Should SUCCEED
-    response = client.post(f"/races/{race_id}/generate_heats")
+    # Create a round with Lane Rotation strategy
+    round_response = client.post(f"/races/{race_id}/rounds", json={
+        "race_id": race_id,
+        "round_number": 1,
+        "scheduling_strategy": "LANE_ROTATION"
+    })
+    assert round_response.status_code == 200
+    round_id = round_response.json()["id"]
+    
+    # Generate heats for the round - Should SUCCEED
+    response = client.post(f"/rounds/{round_id}/generate_heats")
     assert response.status_code == 200
     heats = response.json()
     assert len(heats) > 0
-    # For 2 racers, Lane Rotation (default) should generate 2 heats
+    # For 2 racers, Lane Rotation should generate 2 heats
     assert len(heats) == 2
 
 def test_generate_ppc_schedule():
@@ -110,11 +129,17 @@ def test_generate_ppc_schedule():
     races = client.get("/races/").json()
     race_id = races[0]["id"]
     
-    # Update race to use PPC
-    client.put(f"/races/{race_id}", json={"scheduling_strategy": "PPC"})
+    # Create a round with PPC strategy
+    round_response = client.post(f"/races/{race_id}/rounds", json={
+        "race_id": race_id,
+        "round_number": 1,
+        "scheduling_strategy": "PPC"
+    })
+    assert round_response.status_code == 200
+    round_id = round_response.json()["id"]
     
-    # Generate
-    response = client.post(f"/races/{race_id}/generate_heats")
+    # Generate heats for the round
+    response = client.post(f"/rounds/{round_id}/generate_heats")
     assert response.status_code == 200
     heats = response.json()
     # For 2 racers, PPC should also generate 2 heats

@@ -100,7 +100,7 @@ class RaceBase(BaseModel):
     location: Optional[str] = None
     car_numbering_strategy: CarNumberingStrategy = CarNumberingStrategy.MANUAL
     global_start_number: int = 1
-    scheduling_strategy: SchedulingStrategy = SchedulingStrategy.LANE_ROTATION
+    championship_trophies: int = 3
     scoring_strategy: ScoringStrategy = ScoringStrategy.TIMED
     rules_configuration: Optional[str] = None
 
@@ -114,10 +114,10 @@ class RaceUpdate(BaseModel):
     name: Optional[str] = None
     date_time: Optional[str] = None
     location: Optional[str] = None
-    scheduling_strategy: Optional[SchedulingStrategy] = None
     scoring_strategy: Optional[ScoringStrategy] = None
     car_numbering_strategy: Optional[CarNumberingStrategy] = None
     global_start_number: Optional[int] = None
+    championship_trophies: Optional[int] = None
 
 class Race(RaceBase):
     id: int
@@ -139,16 +139,30 @@ class Group(GroupBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-class HeatBase(BaseModel):
+class RoundBase(BaseModel):
     round_number: int
+    scheduling_strategy: SchedulingStrategy = SchedulingStrategy.LANE_ROTATION
+
+class RoundCreate(RoundBase):
+    race_id: int
+
+class Round(RoundBase):
+    id: int
+    race_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+class HeatBase(BaseModel):
     heat_number: int
     lane_results: Optional[str] = None # JSON string: [{"lane": 1, "racer_id": 10, "time": 3.45}, ...]
 
 class HeatCreate(HeatBase):
     race_id: int
+    round_id: int
 
 class Heat(HeatBase):
     id: int
     race_id: int
+    round_id: int
     
     model_config = ConfigDict(from_attributes=True)
