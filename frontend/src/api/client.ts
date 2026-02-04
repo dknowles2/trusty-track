@@ -1,12 +1,25 @@
 const API_BASE_URL = '/api'; // Vite proxy will handle this
 
+async function handleResponse(response: Response) {
+  if (!response.ok) {
+    let errorDetail = response.statusText;
+    try {
+      const errorBody = await response.json();
+      if (errorBody && errorBody.detail) {
+        errorDetail = errorBody.detail;
+      }
+    } catch (e) {
+      // Not a JSON error or other issue, use statusText
+    }
+    throw new Error(errorDetail);
+  }
+  return response.json();
+}
+
 export const apiClient = {
   get: async (endpoint: string) => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`);
-    if (!response.ok) {
-        throw new Error(`API Error: ${response.statusText}`);
-    }
-    return response.json();
+    return handleResponse(response);
   },
   post: async (endpoint: string, data: any) => {
     const isFormData = data instanceof FormData;
@@ -17,10 +30,7 @@ export const apiClient = {
       headers: headers,
       body: isFormData ? data : JSON.stringify(data),
     });
-     if (!response.ok) {
-        throw new Error(`API Error: ${response.statusText}`);
-    }
-    return response.json();
+    return handleResponse(response);
   },
   put: async (endpoint: string, data: any) => {
     const isFormData = data instanceof FormData;
@@ -31,18 +41,12 @@ export const apiClient = {
       headers: headers,
       body: isFormData ? data : JSON.stringify(data),
     });
-    if (!response.ok) {
-       throw new Error(`API Error: ${response.statusText}`);
-    }
-    return response.json();
+    return handleResponse(response);
   },
   delete: async (endpoint: string) => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',
     });
-    if (!response.ok) {
-       throw new Error(`API Error: ${response.statusText}`);
-    }
-    return response.json();
+    return handleResponse(response);
   }
 };

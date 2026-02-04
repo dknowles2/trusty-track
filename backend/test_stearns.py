@@ -161,9 +161,9 @@ def test_stearns_basic_distribution(db: Session, setup_race_with_round1):
     assert set(heat_racers[3]) == expected_heat_3, f"Heat 4 mismatch: got {heat_racers[3]}, expected {expected_heat_3}"
 
 
-def test_stearns_requires_previous_round(db: Session):
-    """Test that Stearns fails when there's no previous round."""
-    # Create minimal setup
+def test_stearns_works_without_previous_round(db: Session):
+    """Test that Stearns works even when there's no previous round."""
+    # ... setup ...
     group = models.Group(name="Test Group")
     db.add(group)
     db.commit()
@@ -185,61 +185,47 @@ def test_stearns_requires_previous_round(db: Session):
     db.add(race)
     db.commit()
     
-    # Add racers
     for i in range(6):
         racer = models.Racer(
-            first_name=f"Racer",
-            last_name=f"{i+1}",
-            car_number=i+1,
-            race_id=race.id
+            first_name=f"Racer", last_name=f"{i+1}", car_number=i+1, race_id=race.id
         )
         db.add(racer)
     db.commit()
     
-    # Try to create Round 1 with Stearns (should fail)
     round1 = models.Round(
-        race_id=race.id,
-        round_number=1,
-        scheduling_strategy=models.SchedulingStrategy.STEARNS
+        race_id=race.id, round_number=1, scheduling_strategy=models.SchedulingStrategy.STEARNS
     )
     db.add(round1)
     db.commit()
     
-    # Should raise ValueError
-    with pytest.raises(ValueError, match="requires timing data from previous rounds"):
-        crud.generate_heats_for_round(db, round1.id)
+    # Should SUCCEED
+    heats = crud.generate_heats_for_round(db, round1.id)
+    assert len(heats) == 2
 
 
-def test_stearns_insufficient_timing_data(db: Session, setup_race_with_round1):
-    """Test that Stearns fails when less than 50% of racers have times."""
+def test_stearns_works_with_insufficient_timing_data(db: Session, setup_race_with_round1):
+    """Test that Stearns works even when less than 50% of racers have times."""
     # Create race with Round 1
     race_id, _ = setup_race_with_round1
     
     # Add more racers without times
-    # Current setup_race_with_round1 adds 12 racers.
-    # To drop below 50% threshold (12/X < 0.5), we need total racers > 24.
     for i in range(12, 30):  # Add 18 more racers (total 30, only 12 have times = 40%)
         racer = models.Racer(
-            first_name=f"New",
-            last_name=f"Racer{i}",
-            car_number=i+1,
-            race_id=race_id
+            first_name=f"New", last_name=f"Racer{i}", car_number=i+1, race_id=race_id
         )
         db.add(racer)
     db.commit()
     
     # Create Round 2 with Stearns
     round2 = models.Round(
-        race_id=race_id,
-        round_number=2,
-        scheduling_strategy=models.SchedulingStrategy.STEARNS
+        race_id=race_id, round_number=2, scheduling_strategy=models.SchedulingStrategy.STEARNS
     )
     db.add(round2)
     db.commit()
     
-    # Should raise ValueError about insufficient data
-    with pytest.raises(ValueError, match="Insufficient timing data"):
-        crud.generate_heats_for_round(db, round2.id)
+    # Should SUCCEED
+    heats = crud.generate_heats_for_round(db, round2.id)
+    assert len(heats) == 10 # ceil(30/3)
 
 
 if __name__ == "__main__":

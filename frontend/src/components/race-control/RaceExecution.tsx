@@ -5,6 +5,7 @@ import { FakeTimerMole } from './FakeTimerMole';
 interface Heat {
   id: number;
   round_number: number;
+  round_id: number;
   heat_number: number;
   lane_results: string; // JSON
 }
@@ -13,7 +14,7 @@ interface RaceExecutionProps {
   activeExecutionHeat: Heat | null;
   nextExecutionHeat: Heat | null;
   activeHeatId: number | null;
-  onRunHeat: (heat: Heat, shouldStart?: boolean) => void;
+  onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   onNextHeat: () => void;
   getRacerName: (id: number) => string;
   onUpdateResult: (heatId: number, results: any[]) => Promise<void>;

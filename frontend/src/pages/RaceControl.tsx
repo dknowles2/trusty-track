@@ -8,6 +8,7 @@ import { RaceExecution } from '../components/race-control/RaceExecution';
 interface Heat {
   id: number;
   round_number: number;
+  round_id: number;
   heat_number: number;
   lane_results: string; // JSON
 }
@@ -103,9 +104,26 @@ export default function RaceControl() {
       const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
       setHeats(updatedHeats);
       setSelectedHeatId(null); // Reset selection to trigger re-init
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to add round", e);
-      showAlert("Failed to add round. Ensure you have at least 2 racers.", "Error");
+      showAlert(e.message || "Failed to add round.", "Error");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleRegenerateRound = async (roundId: number) => {
+    setGenerating(true);
+    try {
+      await apiClient.post(`/rounds/${roundId}/generate_heats`, {});
+      if (activeRaceId) {
+          const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+          setHeats(updatedHeats);
+          showAlert("Schedule updated successfully.", "Success");
+      }
+    } catch (e: any) {
+      console.error("Failed to regenerate round", e);
+      showAlert(e.message || "Failed to regenerate round.", "Error");
     } finally {
       setGenerating(false);
     }
@@ -315,6 +333,7 @@ export default function RaceControl() {
           generating={generating}
           activeHeatId={activeHeatId}
           onAddRound={handleAddRound}
+          onRegenerateRound={handleRegenerateRound}
           onRunHeat={handleRunHeat}
           getRacerName={getRacerName}
         />

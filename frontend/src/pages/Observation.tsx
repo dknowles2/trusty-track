@@ -12,6 +12,7 @@ interface Standing {
 interface Heat {
   id: number;
   round_number: number;
+  round_id: number;
   heat_number: number;
   lane_results: string; // JSON
 }

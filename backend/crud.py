@@ -353,7 +353,7 @@ def _generate_stearns(db: Session, race_id: int, round_id: int, racers: List[mod
     """
     Generate Stearns method heats (speed-based grouping).
     Uses timing data from previous rounds to create balanced heats.
-    Requires at least one previous round with timing data.
+    If no timing data exists, it falls back to a stable distribution.
     """
     # Get the current round to find previous rounds
     current_round = db.query(models.Round).filter(models.Round.id == round_id).first()
@@ -368,22 +368,22 @@ def _generate_stearns(db: Session, race_id: int, round_id: int, racers: List[mod
         models.Round.round_number < current_round_number
     ).all()
     
-    if not previous_heats:
-        raise ValueError("Stearns scheduling requires timing data from previous rounds")
-    
     # Calculate average time for each racer
     racer_times: dict[int, List[float]] = {}
     for heat in previous_heats:
         if not heat.lane_results:
             continue
-        results = json.loads(heat.lane_results)
-        for result in results:
-            racer_id = result.get("racer_id")
-            time = result.get("time")
-            if racer_id and time is not None:
-                if racer_id not in racer_times:
-                    racer_times[racer_id] = []
-                racer_times[racer_id].append(time)
+        try:
+            results = json.loads(heat.lane_results)
+            for result in results:
+                racer_id = result.get("racer_id")
+                time = result.get("time")
+                if racer_id and time is not None:
+                    if racer_id not in racer_times:
+                        racer_times[racer_id] = []
+                    racer_times[racer_id].append(time)
+        except (json.JSONDecodeError, TypeError):
+            continue
     
     # Calculate averages
     racer_averages = {
@@ -392,24 +392,21 @@ def _generate_stearns(db: Session, race_id: int, round_id: int, racers: List[mod
         if times
     }
     
-    # Check if we have enough timing data (at least 50% of racers)
-    if len(racer_averages) < len(racers) * 0.5:
-        raise ValueError(f"Insufficient timing data for Stearns scheduling. Only {len(racer_averages)}/{len(racers)} racers have times.")
-    
     # Sort racers by average time (fastest first)
-    # Racers without times go to the end
+    # Racers without times go to the end, sub-sorted by ID for stability
     sorted_racers = sorted(
         racers,
-        key=lambda r: racer_averages.get(r.id, float('inf'))
+        key=lambda r: (racer_averages.get(r.id, float('inf')), r.id)
     )
     
     P = len(sorted_racers)
     L = lane_count
     num_heats = (P + L - 1) // L  # Ceiling division
     
+    if num_heats == 0:
+        return []
+
     # Create heats using snake distribution
-    # The goal: distribute sorted racers so each heat has balanced speeds
-    # Pattern: fill heats 0,1,2,3 then 3,2,1,0 then 0,1,2,3 etc.
     heat_assignments: List[List[int]] = [[] for _ in range(num_heats)]
     
     for i, racer in enumerate(sorted_racers):
@@ -459,10 +456,10 @@ def _generate_stearns(db: Session, race_id: int, round_id: int, racers: List[mod
     return generated_heats
 
 
-
 def generate_heats_for_round(db: Session, round_id: int) -> List[models.Heat]:
     """
     Generate heats for a specific round based on its scheduling strategy.
+    Supports regeneration if no heats in the round have started.
     """
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
     if not round_obj:
@@ -471,6 +468,24 @@ def generate_heats_for_round(db: Session, round_id: int) -> List[models.Heat]:
     race_id = round_obj.race_id
     track = db.query(models.Track).first()
     lane_count = track.lane_count if track else 4
+
+    # Check for existing heats
+    existing_heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    if existing_heats:
+        # Check if any have results
+        for h in existing_heats:
+            if h.lane_results:
+                try:
+                    results = json.loads(h.lane_results)
+                    if any(r.get('time') is not None for r in results):
+                        raise ValueError("Cannot regenerate round: some heats already have results.")
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        
+        # Safe to delete
+        for h in existing_heats:
+            db.delete(h)
+        db.flush() # Ensure deletions are reflected before new generation
 
     racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
     if not racers or len(racers) < 2:
