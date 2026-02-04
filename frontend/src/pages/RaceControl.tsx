@@ -24,7 +24,7 @@ interface Racer {
 }
 
 export default function RaceControl() {
-  const { showAlert } = useAlert();
+  const { showAlert, showToast } = useAlert();
   const { raceId } = useParams<{ raceId: string }>();
   const [activeRaceId, setActiveRaceId] = useState<number | null>(null);
   const [heats, setHeats] = useState<Heat[]>([]);
@@ -114,18 +114,26 @@ export default function RaceControl() {
     }
   };
 
-  const handleRegenerateRound = async (roundId: number) => {
+  const handleRegenerateRound = async (roundNumber: number, silent: boolean = false) => {
+    if (!activeRaceId) return;
     setGenerating(true);
     try {
+      const roundId = heats.find(h => h.round_number === roundNumber)?.round_id;
+      if (!roundId) throw new Error('Round not found');
+      
       await apiClient.post(`/rounds/${roundId}/generate_heats`, {});
       if (activeRaceId) {
           const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
           setHeats(updatedHeats);
-          showAlert("Schedule updated successfully.", "Success");
+          if (!silent) {
+            showAlert("Schedule updated successfully.", "Success");
+          }
       }
     } catch (e: any) {
       console.error("Failed to regenerate round", e);
-      showAlert(e.message || "Failed to regenerate round.", "Error");
+      if (!silent) {
+        showAlert(e.message || "Failed to regenerate round.", "Error");
+      }
     } finally {
       setGenerating(false);
     }
@@ -146,31 +154,35 @@ export default function RaceControl() {
         try {
             await apiClient.put(`/heats/${heat.id}`, updatedHeat);
             
-            // Optionally refetch to confirm, but we already have valid state.
-            // Keeping refetch to ensure sync with other possible changes or server-side logic
+            // Refetch to confirm sync with server
             if (activeRaceId) {
                 const fetchedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
                  setHeats(fetchedHeats);
             }
         } catch (error) {
             console.error("Failed to clear results for re-run", error);
-            // Revert state if needed, or just let the next fetch handle it.
-            // For now, simple error logging.
-            showAlert("Failed to reset heat on server.", "Error");
+            // Revert state by refetching
+            if (activeRaceId) {
+                const fetchedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+                setHeats(fetchedHeats);
+            }
+            showToast("Failed to reset heat on server", "error");
+            return; // Don't proceed if clearing failed
         }
     }
 
     if (shouldStart) {
-        setActiveHeatId(heat.id);
+        // Just switch to execution view and select the heat
+        // Don't set activeHeatId - timer will be started by FakeTimerMole "Start Timer" button
+        setSelectedHeatId(heat.id);
+        setViewMode('EXECUTION');
     } else {
-        // If we are just selecting/resetting, ensure we are NOT active
+        // If we are just clearing results, ensure we are NOT active
         if (activeHeatId === heat.id) {
             setActiveHeatId(null);
         }
+        // Don't switch views when just clearing results
     }
-
-    setSelectedHeatId(heat.id); // Ensure the heat is selected in the execution view
-    setViewMode('EXECUTION'); // Switch to execution view
     
     // If we are using the fake timer system-wide (i.e. simulating separate hardware),
     // we do NOT run the local random simulation. We wait for the Mole or separate event.
@@ -255,6 +267,20 @@ export default function RaceControl() {
       }
   };
 
+  const refetchHeats = async () => {
+    if (!activeRaceId) return;
+    try {
+      const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+      setHeats(updatedHeats);
+    } catch (e) {
+      console.error("Failed to refetch heats", e);
+    }
+  };
+
+  const handleStartTimer = (heatId: number) => {
+    setActiveHeatId(heatId);
+  };
+
   // Auto-switch to execution mode if we have heats? Optional. 
   // Let's default to SCHEDULE for overview, but user can switch.
 
@@ -317,7 +343,15 @@ export default function RaceControl() {
         </div>
       </div>
 
-      {viewMode === 'EXECUTION' ? (
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p>Loading race data...</p>
+        </div>
+      ) : !activeRaceId ? (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p>No race selected</p>
+        </div>
+      ) : viewMode === 'EXECUTION' ? (
         heats.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '8px' }}>
             <p>No heats available. Please add a round in the Schedule view first.</p>
@@ -328,6 +362,7 @@ export default function RaceControl() {
             nextExecutionHeat={nextExecutionHeat}
             activeHeatId={activeHeatId}
             onRunHeat={handleRunHeat}
+            onStartTimer={handleStartTimer}
             onNextHeat={handleNextHeat}
             getRacerName={getRacerName}
             onUpdateResult={handleUpdateResult}
@@ -342,6 +377,7 @@ export default function RaceControl() {
           activeHeatId={activeHeatId}
           onAddRound={handleAddRound}
           onRegenerateRound={handleRegenerateRound}
+          onRefetchHeats={refetchHeats}
           onRunHeat={handleRunHeat}
           getRacerName={getRacerName}
         />

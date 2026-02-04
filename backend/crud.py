@@ -579,3 +579,82 @@ def auto_number_racers(db: Session, race_id: int) -> int:
         
     db.commit()
     return updated_count
+
+def reorder_heats(db: Session, heat_updates: List[dict]) -> List[models.Heat]:
+    """
+    Reorder heats within a round by updating their heat_number.
+    
+    Args:
+        db: Database session
+        heat_updates: List of dicts with 'heat_id' and 'new_heat_number'
+    
+    Returns:
+        List of updated Heat objects
+        
+    Raises:
+        HTTPException: If heats belong to different rounds or heat IDs are invalid
+    """
+    from fastapi import HTTPException
+    
+    if not heat_updates:
+        return []
+    
+    # Fetch all heats by ID
+    heat_ids = [update["heat_id"] for update in heat_updates]
+    heats = db.query(models.Heat).filter(models.Heat.id.in_(heat_ids)).all()
+    
+    if len(heats) != len(heat_ids):
+        raise HTTPException(status_code=404, detail="One or more heat IDs not found")
+    
+    # Verify all heats belong to the same round
+    round_ids = {heat.round_id for heat in heats}
+    if len(round_ids) > 1:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot reorder heats from different rounds"
+        )
+    
+    # Create a mapping of heat_id to new_heat_number
+    update_map = {update["heat_id"]: update["new_heat_number"] for update in heat_updates}
+    
+    # Update each heat's heat_number
+    for heat in heats:
+        if heat.id in update_map:
+            heat.heat_number = update_map[heat.id]
+    
+    # Commit the transaction
+    db.commit()
+    
+    # Refresh and return updated heats, sorted by heat_number
+    for heat in heats:
+        db.refresh(heat)
+    
+    return sorted(heats, key=lambda h: h.heat_number)
+
+
+def update_heat(db: Session, heat_id: int, heat: schemas.HeatCreate) -> models.Heat | None:
+    """
+    Update an existing heat's properties.
+    
+    Args:
+        db: Database session
+        heat_id: ID of the heat to update
+        heat: HeatCreate schema with updated values
+        
+    Returns:
+        Updated Heat model or None if not found
+    """
+    db_heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    if not db_heat:
+        return None
+    
+    # Update fields
+    db_heat.heat_number = heat.heat_number
+    db_heat.lane_results = heat.lane_results
+    # Note: race_id and round_id typically shouldn't change, but we'll allow it
+    db_heat.race_id = heat.race_id
+    db_heat.round_id = heat.round_id
+    
+    db.commit()
+    db.refresh(db_heat)
+    return db_heat

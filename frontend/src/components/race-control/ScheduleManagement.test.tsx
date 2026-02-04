@@ -1,7 +1,46 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ScheduleManagement } from './ScheduleManagement';
+import { AlertProvider } from '../../context/AlertContext';
+
+// Mock @dnd-kit modules
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children }: any) => <div data-testid="dnd-context">{children}</div>,
+  closestCenter: vi.fn(),
+  KeyboardSensor: vi.fn(),
+  PointerSensor: vi.fn(),
+  useSensor: vi.fn(),
+  useSensors: vi.fn(() => []),
+}));
+
+vi.mock('@dnd-kit/sortable', () => ({
+  arrayMove: (arr: any[], oldIndex: number, newIndex: number) => {
+    const newArr = [...arr];
+    const [removed] = newArr.splice(oldIndex, 1);
+    newArr.splice(newIndex, 0, removed);
+    return newArr;
+  },
+  SortableContext: ({ children }: any) => <div data-testid="sortable-context">{children}</div>,
+  sortableKeyboardCoordinates: vi.fn(),
+  useSortable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: vi.fn(),
+    transform: null,
+    transition: null,
+    isDragging: false,
+  }),
+  verticalListSortingStrategy: vi.fn(),
+}));
+
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: {
+    Transform: {
+      toString: () => '',
+    },
+  },
+}));
 
 describe('ScheduleManagement', () => {
     const mockHeats = [
@@ -13,34 +52,42 @@ describe('ScheduleManagement', () => {
     const mockOnRegenerateRound = vi.fn();
     const mockOnRunHeat = vi.fn();
 
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('renders the add round button', () => {
         render(
-            <ScheduleManagement 
-                raceId={1}
-                heats={[]} 
-                generating={false} 
-                activeHeatId={null}
-                onAddRound={mockOnAddRound}
-                onRegenerateRound={mockOnRegenerateRound}
-                onRunHeat={mockOnRunHeat}
-                getRacerName={mockGetRacerName}
-            />
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={[]} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                />
+            </AlertProvider>
         );
         expect(screen.getByText('Add Round')).toBeInTheDocument();
     });
 
     it('displays heats grouped by round', () => {
         render(
-            <ScheduleManagement 
-                raceId={1}
-                heats={mockHeats} 
-                generating={false} 
-                activeHeatId={null}
-                onAddRound={mockOnAddRound}
-                onRegenerateRound={mockOnRegenerateRound}
-                onRunHeat={mockOnRunHeat}
-                getRacerName={mockGetRacerName}
-            />
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={mockHeats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                />
+            </AlertProvider>
         );
         expect(screen.getByText('1 Round')).toBeInTheDocument();
         expect(screen.getByText('Heat 1')).toBeInTheDocument();
@@ -49,16 +96,18 @@ describe('ScheduleManagement', () => {
 
     it('opens modal when add round button is clicked', () => {
         render(
-            <ScheduleManagement 
-                raceId={1}
-                heats={[]} 
-                generating={false} 
-                activeHeatId={null}
-                onAddRound={mockOnAddRound}
-                onRegenerateRound={mockOnRegenerateRound}
-                onRunHeat={mockOnRunHeat}
-                getRacerName={mockGetRacerName}
-            />
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={[]} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                />
+            </AlertProvider>
         );
         fireEvent.click(screen.getByText('Add Round'));
         // Modal should open - check for modal content
@@ -67,19 +116,96 @@ describe('ScheduleManagement', () => {
 
     it('calls onRunHeat when run button is clicked', () => {
         render(
-            <ScheduleManagement 
-                raceId={1}
-                heats={mockHeats} 
-                generating={false} 
-                activeHeatId={null}
-                onAddRound={mockOnAddRound}
-                onRegenerateRound={mockOnRegenerateRound}
-                onRunHeat={mockOnRunHeat}
-                getRacerName={mockGetRacerName}
-            />
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={mockHeats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                />
+            </AlertProvider>
         );
         const runButtons = screen.getAllByText('Run');
         fireEvent.click(runButtons[0]);
         expect(mockOnRunHeat).toHaveBeenCalled();
+    });
+
+    // Heat reordering tests
+    it('renders drag-and-drop context for heat reordering', () => {
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={mockHeats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                />
+            </AlertProvider>
+        );
+
+        // Verify DndContext and SortableContext are rendered
+        expect(screen.getByTestId('dnd-context')).toBeInTheDocument();
+        expect(screen.getByTestId('sortable-context')).toBeInTheDocument();
+    });
+
+    it('displays heats sorted by heat_number', () => {
+        const unsortedHeats = [
+            { id: 3, round_number: 1, round_id: 1, heat_number: 3, lane_results: '[]' },
+            { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]' },
+            { id: 2, round_number: 1, round_id: 1, heat_number: 2, lane_results: '[]' },
+        ];
+
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={unsortedHeats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                />
+            </AlertProvider>
+        );
+
+        const heatElements = screen.getAllByText(/Heat \d/);
+        expect(heatElements[0]).toHaveTextContent('Heat 1');
+        expect(heatElements[1]).toHaveTextContent('Heat 2');
+        expect(heatElements[2]).toHaveTextContent('Heat 3');
+    });
+
+    it('groups heats by round correctly', () => {
+        const multiRoundHeats = [
+            ...mockHeats,
+            { id: 3, round_number: 2, round_id: 2, heat_number: 1, lane_results: '[]' },
+        ];
+
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={multiRoundHeats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                />
+            </AlertProvider>
+        );
+
+        expect(screen.getByText('Round 1')).toBeInTheDocument();
+        expect(screen.getByText('Round 2')).toBeInTheDocument();
     });
 });

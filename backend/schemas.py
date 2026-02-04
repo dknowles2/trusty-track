@@ -8,6 +8,9 @@ class TrackBase(BaseModel):
     timer_type: TimerType = TimerType.FAKE
     serial_port: Optional[str] = None
 
+class PopulateTestDataRequest(BaseModel):
+    count: int = 10
+
 class DenBase(BaseModel):
     name: str
     color: str = "#000000"
@@ -167,3 +170,17 @@ class Heat(HeatBase):
     round_number: int  # Computed from related Round
     
     model_config = ConfigDict(from_attributes=True)
+
+class HeatReorderItem(BaseModel):
+    """Single heat reorder operation."""
+    heat_id: int
+    new_heat_number: int
+
+class HeatReorderRequest(BaseModel):
+    """Request to reorder multiple heats within a round."""
+    heat_updates: List[HeatReorderItem]
+
+class HeatReorderResponse(BaseModel):
+    """Response after reordering heats."""
+    updated_count: int
+    heats: List[Heat]

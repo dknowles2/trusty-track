@@ -308,13 +308,31 @@ def delete_round(round_id: int, db: Session = Depends(get_db)):
 def get_heats(race_id: int, db: Session = Depends(get_db)):
     return crud.get_heats(db, race_id)
 
+@app.put("/heats/reorder", response_model=schemas.HeatReorderResponse)
+def reorder_heats(request: schemas.HeatReorderRequest, db: Session = Depends(get_db)):
+    """
+    Reorder heats within a round.
+    
+    All heats must belong to the same round.
+    """
+    heat_updates = [
+        {"heat_id": item.heat_id, "new_heat_number": item.new_heat_number}
+        for item in request.heat_updates
+    ]
+    
+    updated_heats = crud.reorder_heats(db, heat_updates)
+    
+    return schemas.HeatReorderResponse(
+        updated_count=len(updated_heats),
+        heats=updated_heats
+    )
+
 @app.put("/heats/{heat_id}", response_model=schemas.Heat)
-def update_heat_result(heat_id: int, result: schemas.HeatBase, db: Session = Depends(get_db)):
-    # result.lane_results should be the JSON string
-    updated = crud.record_heat_result(db, heat_id, result.lane_results)
-    if not updated:
+def update_heat(heat_id: int, heat: schemas.HeatCreate, db: Session = Depends(get_db)):
+    db_heat = crud.update_heat(db, heat_id=heat_id, heat=heat)
+    if db_heat is None:
         raise HTTPException(status_code=404, detail="Heat not found")
-    return updated
+    return db_heat
 
 @app.get("/races/{race_id}/scores")
 def get_race_scores(race_id: int, db: Session = Depends(get_db)):
