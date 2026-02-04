@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Den } from './RacerForm';
 import { apiClient } from '../api/client';
+import { useAlert } from '../context/AlertContext';
 
 const DEN_COLORS = [
     '#003F87', // Scouting Blue
@@ -21,6 +22,7 @@ interface DenManagerProps {
 }
 
 export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenManagerProps) {
+    const { showAlert, showConfirm } = useAlert();
     const [dens, setDens] = useState<Den[]>([]);
     const [loading, setLoading] = useState(false);
     
@@ -74,14 +76,15 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
             onUpdate();
         } catch (e) {
             console.error("Failed to add den", e);
-            alert("Failed to add den");
+            showAlert("Failed to add den", "Error");
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeleteDen = async (denId: number) => {
-        if (!confirm("Are you sure? Racers in this den will be unassigned.")) return;
+        const confirmed = await showConfirm("Are you sure? Racers in this den will be unassigned.", "Delete Den");
+        if (!confirmed) return;
         
         try {
             await apiClient.delete(`/dens/${denId}`);
@@ -89,7 +92,7 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
             onUpdate();
         } catch (e) {
             console.error("Failed to delete den", e);
-            alert("Failed to delete den");
+            showAlert("Failed to delete den", "Error");
         }
     };
 
@@ -118,7 +121,7 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
             onUpdate();
         } catch (e) {
             console.error("Failed to update den", e);
-            alert("Failed to update den");
+            showAlert("Failed to update den", "Error");
         } finally {
             setLoading(false);
         }

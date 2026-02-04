@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { RacerData } from './RacerForm';
 import { apiClient } from '../api/client';
 import CameraCapture from './CameraCapture';
+import { useAlert } from '../context/AlertContext';
 
 interface Racer extends RacerData {
     id: number;
@@ -17,6 +18,7 @@ interface CheckInModalProps {
 }
 
 export default function CheckInModal({ racer, onClose, onSave }: CheckInModalProps) {
+    const { showAlert } = useAlert();
     const [passedInspection, setPassedInspection] = useState(racer.car_passed_inspection || false);
     const [weight, setWeight] = useState<string>(racer.car_weight?.toString() || '');
     // Local URL state for immediate feedback
@@ -66,11 +68,11 @@ export default function CheckInModal({ racer, onClose, onSave }: CheckInModalPro
 
             } else {
                 console.error("Upload failed");
-                alert("Failed to upload image");
+                showAlert("Failed to upload image", "Error");
             }
         } catch (error) {
             console.error("Upload error", error);
-            alert("Error uploading image");
+            showAlert("Error uploading image", "Error");
         }
     };
     
@@ -104,7 +106,7 @@ export default function CheckInModal({ racer, onClose, onSave }: CheckInModalPro
 
         } catch (e) {
             console.error("Check-in failed", e);
-            alert("Failed to save check-in data.");
+            showAlert("Failed to save check-in data.", "Error");
         } finally {
             setLoading(false);
         }

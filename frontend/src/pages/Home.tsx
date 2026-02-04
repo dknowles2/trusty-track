@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import Modal from '../components/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
+import { useAlert } from '../context/AlertContext';
 
 interface Race {
     id: number;
@@ -12,6 +13,7 @@ interface Race {
 }
 
 export default function Home() {
+    const { showAlert } = useAlert();
     const [races, setRaces] = useState<Race[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
@@ -38,7 +40,7 @@ export default function Home() {
             fetchRaces();
         } catch (e) {
             console.error("Failed to create race", e);
-            alert("Failed to create race");
+            showAlert("Failed to create race", "Error");
         }
     };
 

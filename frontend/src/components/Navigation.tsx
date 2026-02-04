@@ -3,8 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import Modal from './Modal';
 import RaceForm, { RaceFormData } from './RaceForm';
+import { useAlert } from '../context/AlertContext';
 
 export default function Navigation() {
+  const { showAlert } = useAlert();
   const [races, setRaces] = useState<any[]>([]);
   const [isRaceDropdownOpen, setIsRaceDropdownOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -40,7 +42,7 @@ export default function Navigation() {
       navigate(`/race/${newRace.id}`);
     } catch (e) {
       console.error("Failed to create race", e);
-      alert("Failed to create race");
+      showAlert("Failed to create race", "Error");
     }
   };
 

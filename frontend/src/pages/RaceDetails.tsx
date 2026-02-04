@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import { useAlert } from '../context/AlertContext';
 import RacerForm, { RacerData, Den } from '../components/RacerForm';
 import DenManager from '../components/DenManager';
 import Modal from '../components/Modal';
@@ -19,6 +20,7 @@ interface Racer extends RacerData {
 
 export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
+  const { showAlert } = useAlert();
   const [race, setRace] = useState<Race | null>(null);
   const [racers, setRacers] = useState<Racer[]>([]);
   const [dens, setDens] = useState<Den[]>([]);
@@ -109,7 +111,7 @@ export default function RaceDetails() {
           fetchRaceDetails();
       } catch (e) {
           console.error("Failed to update race", e);
-          alert("Failed to update race details");
+          showAlert("Failed to update race details", "Error");
       }
   };
 
@@ -146,7 +148,7 @@ export default function RaceDetails() {
            fetchRacers();
       } catch (e) {
           console.error("Failed to save", e);
-          alert("Failed to save racer");
+          showAlert("Failed to save racer", "Error");
       }
   };
 
@@ -264,12 +266,12 @@ export default function RaceDetails() {
                          await fetchRacers();
                          
                          if (res.updated_count === 0) {
-                             alert(res.message + ".\n\nTip: If using 'Per Den', ensure Dens have number ranges configured.");
+                             showAlert(res.message + ".\n\nTip: If using 'Per Den', ensure Dens have number ranges configured.", "Auto-Number Result");
                          } else {
-                             alert(res.message);
+                             showAlert(res.message, "Auto-Number Result");
                          }
                      } catch(e) {
-                         alert("Failed to auto-number");
+                         showAlert("Failed to auto-number", "Error");
                      } finally {
                          if (btn) btn.textContent = '#️⃣ Auto #';
                      }
@@ -602,7 +604,7 @@ export default function RaceDetails() {
                   <button 
                     onClick={async () => {
                         if (populateCount <= 0) {
-                            alert("Please enter a valid count > 0");
+                            showAlert("Please enter a valid count > 0", "Invalid Input");
                             return;
                         }
                         
@@ -618,7 +620,7 @@ export default function RaceDetails() {
                             // alert(`Successfully added ${populateCount} racers!`);
                         } catch (e) {
                             console.error("Failed", e);
-                            alert("Failed to populate");
+                            showAlert("Failed to populate", "Error");
                         } finally {
                             if (btn) btn.textContent = 'Generate';
                             if (btn) (btn as HTMLButtonElement).disabled = false;

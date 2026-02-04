@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import { useAlert } from '../context/AlertContext';
 import { ScheduleManagement } from '../components/race-control/ScheduleManagement';
 import { RaceExecution } from '../components/race-control/RaceExecution';
 
@@ -20,6 +21,7 @@ interface Racer {
 }
 
 export default function RaceControl() {
+  const { showAlert } = useAlert();
   const { raceId } = useParams<{ raceId: string }>();
   const [activeRaceId, setActiveRaceId] = useState<number | null>(null);
   const [heats, setHeats] = useState<Heat[]>([]);
@@ -103,7 +105,7 @@ export default function RaceControl() {
       setSelectedHeatId(null); // Reset selection to trigger re-init
     } catch (e) {
       console.error("Failed to add round", e);
-      alert("Failed to add round. Ensure you have at least 2 racers.");
+      showAlert("Failed to add round. Ensure you have at least 2 racers.", "Error");
     } finally {
       setGenerating(false);
     }
@@ -134,7 +136,7 @@ export default function RaceControl() {
             console.error("Failed to clear results for re-run", error);
             // Revert state if needed, or just let the next fetch handle it.
             // For now, simple error logging.
-            alert("Failed to reset heat on server.");
+            showAlert("Failed to reset heat on server.", "Error");
         }
     }
 
@@ -193,7 +195,7 @@ export default function RaceControl() {
           }
       } catch (e) {
           console.error("Failed to update results", e);
-          alert("Failed to update results.");
+          showAlert("Failed to update results.", "Error");
       }
   };
 

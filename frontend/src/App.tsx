@@ -3,6 +3,7 @@ import Navigation from './components/Navigation';
 import SystemSettings from './pages/SystemSettings';
 import Home from './pages/Home';
 import { apiClient } from './api/client';
+import { AlertProvider } from './context/AlertContext';
 
 import RaceDetails from './pages/RaceDetails';
 import RaceControl from './pages/RaceControl';
@@ -45,27 +46,29 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 
 function App() {
   return (
-    <Router>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Navigation />
-        <main style={{ flex: 1 }}>
-          <Routes>
-            <Route path="/system-settings" element={<ProtectedRoute><SystemSettings /></ProtectedRoute>} />
-            <Route path="/system-config" element={<Navigate to="/system-settings" replace />} />
-            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-            <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
-            <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
-            <Route path="/race/:raceId/control" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
-            <Route path="/race/:raceId/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />
+    <AlertProvider>
+      <Router>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Navigation />
+          <main style={{ flex: 1 }}>
+            <Routes>
+              <Route path="/system-settings" element={<ProtectedRoute><SystemSettings /></ProtectedRoute>} />
+              <Route path="/system-config" element={<Navigate to="/system-settings" replace />} />
+              <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
+              <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
+              <Route path="/race/:raceId/control" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
+              <Route path="/race/:raceId/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />
 
-            {/* Legacy Redirects or Handle 404 */}
-            <Route path="/checkin" element={<Navigate to="/" replace />} />
-            <Route path="/control" element={<Navigate to="/" replace />} />
-            <Route path="/observation" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+              {/* Legacy Redirects or Handle 404 */}
+              <Route path="/checkin" element={<Navigate to="/" replace />} />
+              <Route path="/control" element={<Navigate to="/" replace />} />
+              <Route path="/observation" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+        </div>
+      </Router>
+    </AlertProvider>
   );
 }
 
