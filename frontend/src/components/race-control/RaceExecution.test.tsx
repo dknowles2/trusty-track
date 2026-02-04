@@ -17,7 +17,8 @@ vi.mock('../Modal', () => ({
 describe('RaceExecution', () => {
     const mockHeat = { 
         id: 1, 
-        round_number: 1, 
+        round_number: 1,
+        round_id: 1,
         heat_number: 1, 
         lane_results: JSON.stringify([
             { lane: 1, racer_id: 101, time: '3.5', place: 1 },
@@ -49,7 +50,7 @@ describe('RaceExecution', () => {
                 onUpdateResult={mockOnUpdateResult}
             />
         );
-        expect(screen.getByText('Race Complete! 🎉')).toBeInTheDocument();
+        expect(screen.getByText('Race Complete!')).toBeInTheDocument();
     });
 
     it('renders current heat details', () => {
@@ -81,7 +82,7 @@ describe('RaceExecution', () => {
                 onUpdateResult={mockOnUpdateResult}
             />
         );
-        expect(screen.getByText('✏️ Edit')).toBeInTheDocument();
+        expect(screen.getByText('Edit')).toBeInTheDocument();
     });
 
     it('opens modal when Edit button is clicked', () => {
@@ -96,7 +97,7 @@ describe('RaceExecution', () => {
                 onUpdateResult={mockOnUpdateResult}
             />
         );
-        fireEvent.click(screen.getByText('✏️ Edit'));
+        fireEvent.click(screen.getByText('Edit'));
         expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
         expect(screen.getByText('Edit Results - Heat 1')).toBeInTheDocument();
     });
@@ -113,7 +114,7 @@ describe('RaceExecution', () => {
                 onUpdateResult={mockOnUpdateResult}
             />
         );
-        fireEvent.click(screen.getByText('✏️ Edit'));
+        fireEvent.click(screen.getByText('Edit'));
         
         const inputs = screen.getAllByRole('spinbutton'); // number inputs
         fireEvent.change(inputs[0], { target: { value: '4.0' } });
@@ -131,7 +132,8 @@ describe('RaceExecution', () => {
 
     const mockActiveHeat = { 
         id: 1, 
-        round_number: 1, 
+        round_number: 1,
+        round_id: 1,
         heat_number: 1, 
         lane_results: JSON.stringify([
             { lane: 1, racer_id: 101, time: null, place: null },
@@ -181,7 +183,7 @@ describe('RaceExecution', () => {
 
         
         // Click "Finish Heat"
-        await user.click(screen.getByText('🏁 Finish Heat'));
+        await user.click(screen.getByText('Finish Heat'));
         
         // Should verify results were saved
         expect(mockOnUpdateResult).toHaveBeenCalledWith(1, expect.any(Array));
@@ -206,7 +208,7 @@ describe('RaceExecution', () => {
 
         
         // Click "Start Timer"
-        await user.click(screen.getByText('🟢 Start Timer'));
+        await user.click(screen.getByText('Start Timer'));
         
         expect(consoleSpy).toHaveBeenCalledWith('Fake Timer Started via Mole');
         consoleSpy.mockRestore();

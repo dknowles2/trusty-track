@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
+import Icon from '@mdi/react';
+import { mdiFire, mdiChevronDoubleRight } from '@mdi/js';
 
 interface Standing {
   racer_id: number;
@@ -105,20 +107,25 @@ export default function Observation() {
       setStandings(calculated);
   };
 
-  const renderHeatCard = (title: string, heat: Heat | null, isNext: boolean = false) => {
-      if (!heat) return (
-        <div style={{ flex: 1, background: '#f5f5f5', borderRadius: '8px', padding: '20px', textAlign: 'center', opacity: 0.7 }}>
-            <h3>{title}</h3>
-            <p>No heat scheduled</p>
-        </div>
-      );
+   const renderHeatCard = (title: string, heat: Heat | null, isNext: boolean = false, iconPath?: string) => {
+       if (!heat) return (
+         <div style={{ flex: 1, background: '#f5f5f5', borderRadius: '8px', padding: '20px', textAlign: 'center', opacity: 0.7 }}>
+             <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                {iconPath && <Icon path={iconPath} size={0.8} />}
+                {title}
+             </h3>
+             <p>No heat scheduled</p>
+         </div>
+       );
 
       const assignments = heat.lane_results ? JSON.parse(heat.lane_results) : [];
 
       return (
-          <div style={{ flex: 1, background: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderTop: `5px solid ${isNext ? '#999' : 'var(--scouting-blue)'}` }}>
-              <h2 style={{ marginTop: 0, fontSize: '1.5rem', color: isNext ? '#666' : '#333' }}>
-                  {title} <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#666' }}>(Round {heat.round_number}, Heat {heat.heat_number})</span>
+          <div style={{ flex: 1, background: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderTop: `5px solid ${isNext ? '#999' : '#d32f2f'}` }}>
+              <h2 style={{ marginTop: 0, fontSize: '1.5rem', color: isNext ? '#666' : '#333', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {iconPath && <Icon path={iconPath} size={1} color={isNext ? '#666' : '#d32f2f'} />}
+                  <span>{title}</span>
+                  <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#666', marginLeft: 'auto' }}>(Round {heat.round_number}, Heat {heat.heat_number})</span>
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
                   {assignments.map((a: any) => {
@@ -156,8 +163,8 @@ export default function Observation() {
       
       {/* Active Racing Section */}
       <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
-          {renderHeatCard("🔥 Now Racing", currentHeat)}
-          {renderHeatCard("🔜 On Deck", nextHeat, true)}
+          {renderHeatCard("Now Racing", currentHeat, false, mdiFire)}
+          {renderHeatCard("On Deck", nextHeat, true, mdiChevronDoubleRight)}
       </div>
 
       <h1>Live Standings</h1>
@@ -173,7 +180,7 @@ export default function Observation() {
                   </tr>
               </thead>
               <tbody>
-                  {standings.map((s, idx) => {
+                   {standings.map((s: Standing, idx: number) => {
                       const racer = racers[s.racer_id];
                       return (
                       <tr key={s.racer_id} style={{ borderBottom: '1px solid #eee' }}>

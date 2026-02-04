@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Den } from './RacerForm';
 import { apiClient } from '../api/client';
 import { useAlert } from '../context/AlertContext';
+import Icon from '@mdi/react';
+import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 
 const DEN_COLORS = [
     '#003F87', // Scouting Blue
@@ -177,9 +179,9 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
                     <button 
                     onClick={handleAddDenClick} 
                     className="secondary-btn" 
-                    style={{ width: '100%', marginBottom: '20px', padding: '10px' }}
+                    style={{ width: '100%', marginBottom: '20px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                    + Add New Den
+                    <Icon path={mdiPlus} size={0.8} /> Add New Den
                     </button>
             ) : (
                 <form onSubmit={handleAddDen} style={{ marginBottom: '20px', padding: '15px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' }}>
@@ -348,12 +350,19 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
                                     )}
                                 </div>
                                 <div>
-                                    <button onClick={() => handleEditDenClick(den)} style={{ marginRight: '10px', background: 'none', border: 'none', color: 'blue', cursor: 'pointer' }}>Edit</button>
+                                    <button 
+                                        onClick={() => handleEditDenClick(den)} 
+                                        style={{ marginRight: '10px', background: 'none', border: 'none', color: '#1a73e8', cursor: 'pointer', padding: '4px' }}
+                                        title="Edit Den"
+                                    >
+                                        <Icon path={mdiPencil} size={0.7} />
+                                    </button>
                                     <button 
                                         onClick={() => handleDeleteDen(den.id)}
-                                        style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }}
+                                        style={{ color: '#d32f2f', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                                        title="Delete Den"
                                     >
-                                        Delete
+                                        <Icon path={mdiDelete} size={0.7} />
                                     </button>
                                 </div>
                             </div>

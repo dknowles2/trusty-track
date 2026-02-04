@@ -9,6 +9,12 @@ import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
 import CheckInModal from '../components/CheckInModal';
 import Leaderboard from '../components/Leaderboard';
+import Icon from '@mdi/react';
+import { 
+  mdiCalendar, mdiMapMarker, mdiMagnify, mdiNumeric, 
+  mdiChevronDown, mdiLightningBolt, mdiFileUpload, 
+  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup
+} from '@mdi/js';
 
 interface Race extends RaceFormData {
     id: number;
@@ -174,14 +180,20 @@ export default function RaceDetails() {
               {race ? (
                   <>
                     <h1 style={{ margin: 0, color: 'var(--scouting-blue)' }}>{race.name}</h1>
-                    <div style={{ color: '#666', marginTop: '0.5rem' }}>
-                        <span style={{ marginRight: '1.5rem' }}>📅 {new Date(race.date_time).toLocaleString()}</span>
-                        <span>📍 {race.location || 'No Location Set'}</span>
+                    <div style={{ color: '#666', marginTop: '0.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Icon path={mdiCalendar} size={0.7} /> {new Date(race.date_time).toLocaleString()}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Icon path={mdiMapMarker} size={0.7} /> {race.location || 'No Location Set'}
+                        </span>
                     </div>
                   </>
               ) : <p>Race not found</p>}
           </div>
-          <button onClick={() => setIsEditingRace(true)}>Edit Details</button>
+          <button onClick={() => setIsEditingRace(true)} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Icon path={mdiPencil} size={0.7} /> Edit Details
+          </button>
       </div>
 
       {/* Race Settings Summary (Read-Only for now, can be expanded) */}
@@ -228,14 +240,15 @@ export default function RaceDetails() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h2>Racer Roster</h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginRight: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginRight: '10px', position: 'relative' }}>
+                <Icon path={mdiMagnify} size={0.8} style={{ position: 'absolute', left: '10px', color: '#999' }} />
                 <input
                     type="text"
-                    placeholder="🔍 Search racers..."
+                    placeholder="Search racers..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{
-                        padding: '8px 12px',
+                        padding: '8px 12px 8px 35px',
                         borderRadius: '20px',
                         border: '1px solid #ddd',
                         marginRight: '1rem',
@@ -254,7 +267,9 @@ export default function RaceDetails() {
                 </label>
             </div>
             
-            <button className="secondary-btn" onClick={() => setShowDenManager(true)}>Manage Dens</button>
+            <button className="secondary-btn" onClick={() => setShowDenManager(true)} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Icon path={mdiAccountGroup} size={0.8} /> Manage Dens
+            </button>
             
             <button 
                 className="secondary-btn" 
@@ -278,15 +293,16 @@ export default function RaceDetails() {
                 }}
                 id="auto-num-btn"
                 title="Auto Number Racers"
+                style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
             >
-                #️⃣ Auto #
+                <Icon path={mdiNumeric} size={0.8} /> Auto #
             </button>
 
 
             <div className="dropdown" style={{ position: 'relative' }}>
                 <div className="split-btn-container">
-                    <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
-                        + Add Racer
+                    <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Icon path={mdiPlus} size={0.8} /> Add Racer
                     </button>
                     <button 
                         className="secondary-btn split-btn-arrow" 
@@ -296,7 +312,7 @@ export default function RaceDetails() {
                             setIsAddRacerDropdownOpen(!isAddRacerDropdownOpen);
                         }}
                     >
-                        ▼
+                        <Icon path={mdiChevronDown} size={0.8} />
                     </button>
                 </div>
                 {isAddRacerDropdownOpen && (
@@ -311,16 +327,18 @@ export default function RaceDetails() {
                                 setIsAddRacerDropdownOpen(false);
                             }}
                             title="Populate Test Data"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                         >
-                            ⚡ Populate Test Data
+                            <Icon path={mdiLightningBolt} size={0.7} color="#fcd116" /> Populate Test Data
                         </button>
                         <button
                             onClick={() => {
                                 setShowImportModal(true);
                                 setIsAddRacerDropdownOpen(false);
                             }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                         >
-                            📂 Import from CSV
+                            <Icon path={mdiFileUpload} size={0.7} /> Import from CSV
                         </button>
                     </div>
                 )}
@@ -430,15 +448,16 @@ export default function RaceDetails() {
                                                         gap: '5px'
                                                     }}
                                                 >
-                                                    {racer.car_passed_inspection ? '✅ Checked In' : 'Check In'}
-                                                </button>
+                                                     {racer.car_passed_inspection ? <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In</> : 'Check In'}
+                                                 </button>
                                             </td>
                                             <td style={{ padding: '12px', textAlign: 'right' }}>
                                                 <button
                                                     onClick={() => handleEditRacerClick(racer)}
-                                                    style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', textDecoration: 'underline', cursor: 'pointer' }}
+                                                    style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                    title="Edit Racer"
                                                 >
-                                                    Edit
+                                                    <Icon path={mdiPencil} size={0.7} /> Edit
                                                 </button>
                                             </td>
                                         </tr>
@@ -496,15 +515,16 @@ export default function RaceDetails() {
                                             gap: '5px'
                                         }}
                                     >
-                                        {racer.car_passed_inspection ? '✅ Checked In' : 'Check In'}
+                                        {racer.car_passed_inspection ? <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In</> : 'Check In'}
                                     </button>
                                 </td>
                                 <td style={{ padding: '12px', textAlign: 'right' }}>
                                     <button
                                         onClick={() => handleEditRacerClick(racer)}
-                                        style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', textDecoration: 'underline', cursor: 'pointer' }}
+                                        style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        title="Edit Racer"
                                     >
-                                        Edit
+                                        <Icon path={mdiPencil} size={0.7} /> Edit
                                     </button>
                                 </td>
                             </tr>

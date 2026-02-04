@@ -1,4 +1,6 @@
 import React from 'react';
+import Icon from '@mdi/react';
+import { mdiTimerOutline, mdiPlay, mdiFlagCheckered } from '@mdi/js';
 
 
 interface FakeTimerMoleProps {
@@ -53,23 +55,23 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, o
             }}
         >
             <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>⏱️</span> Fake Timer Controls
+                <Icon path={mdiTimerOutline} size={0.9} color="#ff9800" /> Fake Timer Controls
             </h3>
             
             <button 
                 className="secondary-btn"
                 onClick={handleStartTimer}
-                style={{ width: '100%', cursor: 'pointer', padding: '10px', background: '#e0e0e0', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}
+                style={{ width: '100%', cursor: 'pointer', padding: '10px', background: '#e0e0e0', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-                🟢 Start Timer
+                <Icon path={mdiPlay} size={0.7} color="#4caf50" /> Start Timer
             </button>
 
             <button 
                 className="primary-btn"
                 onClick={handleFinishHeat}
-                style={{ width: '100%', cursor: 'pointer', padding: '10px', background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}
+                style={{ width: '100%', cursor: 'pointer', padding: '10px', background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-                🏁 Finish Heat
+                <Icon path={mdiFlagCheckered} size={0.7} color="white" /> Finish Heat
             </button>
             
             <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#666' }}>

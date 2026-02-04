@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { FakeTimerMole } from './FakeTimerMole';
+import Icon from '@mdi/react';
+import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight } from '@mdi/js';
 
 interface Heat {
   id: number;
@@ -59,8 +61,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   if (!activeExecutionHeat) {
       return (
           <div style={{ textAlign: 'center', padding: '50px' }}>
-              <h2>Race Complete! 🎉</h2>
-              <p>All heats have been run.</p>
+              <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" style={{ marginBottom: '20px' }} />
+              <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Race Complete!</h2>
+              <p style={{ fontSize: '1.2rem', color: '#666' }}>All heats have been run.</p>
           </div>
       );
   }
@@ -113,10 +116,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     border: '1px solid #ccc',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
                                 }}
                             >
-                                ✏️ Edit
+                                <Icon path={mdiPencil} size={0.7} /> Edit
                             </button>
                             <button
                                 onClick={() => onRunHeat(activeExecutionHeat, false)}
@@ -128,10 +134,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     border: 'none',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
                                 }}
                             >
-                                ↺ Re-Run
+                                <Icon path={mdiRefresh} size={0.7} /> Re-Run
                             </button>
                             {nextExecutionHeat && (
                                 <button
@@ -148,7 +157,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         gap: '8px'
                                     }}
                                 >
-                                    Next Heat ➡
+                                    Next Heat <Icon path={mdiArrowRight} size={0.8} />
                                 </button>
                             )}
                         </>

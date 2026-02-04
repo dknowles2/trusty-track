@@ -4,6 +4,8 @@ import { apiClient } from '../api/client';
 import { useAlert } from '../context/AlertContext';
 import { ScheduleManagement } from '../components/race-control/ScheduleManagement';
 import { RaceExecution } from '../components/race-control/RaceExecution';
+import Icon from '@mdi/react';
+import { mdiCalendarRange, mdiFlagCheckered } from '@mdi/js';
 
 interface Heat {
   id: number;
@@ -275,17 +277,20 @@ export default function RaceControl() {
             <div style={{ display: 'flex', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
                 <button 
                     onClick={() => setViewMode('SCHEDULE')}
-                    style={{ 
+                     style={{ 
                         padding: '8px 20px', 
                         borderRadius: '20px', 
                         border: 'none', 
                         background: viewMode === 'SCHEDULE' ? 'white' : 'transparent',
                         boxShadow: viewMode === 'SCHEDULE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                         fontWeight: viewMode === 'SCHEDULE' ? 'bold' : 'normal',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                     }}
                 >
-                    📅 Schedule
+                    <Icon path={mdiCalendarRange} size={0.8} /> Schedule
                 </button>
                 <button 
                     onClick={() => setViewMode('EXECUTION')}
@@ -296,10 +301,13 @@ export default function RaceControl() {
                         background: viewMode === 'EXECUTION' ? 'white' : 'transparent',
                         boxShadow: viewMode === 'EXECUTION' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                         fontWeight: viewMode === 'EXECUTION' ? 'bold' : 'normal',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                     }}
                 >
-                    🏁 Race
+                    <Icon path={mdiFlagCheckered} size={0.8} /> Race
                 </button>
             </div>
         </div>

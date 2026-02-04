@@ -4,6 +4,8 @@ import { apiClient } from '../api/client';
 import Modal from '../components/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { useAlert } from '../context/AlertContext';
+import Icon from '@mdi/react';
+import { mdiPlus, mdiFlagCheckered, mdiEye } from '@mdi/js';
 
 interface Race {
     id: number;
@@ -54,8 +56,8 @@ export default function Home() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2>Your Races</h2>
-                <button onClick={() => setShowCreate(true)} className="primary-btn">
-                    + Create New Race
+                 <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Icon path={mdiPlus} size={0.8} /> Create New Race
                 </button>
             </div>
 
@@ -97,9 +99,13 @@ export default function Home() {
                                         {race.date_time ? new Date(race.date_time).toLocaleString() : '-'}
                                     </td>
                                     <td style={{ padding: '15px' }}>{race.location || '-'}</td>
-                                    <td style={{ padding: '15px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                                        <Link to={`/race/${race.id}/control`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 10px' }}>Control</Link>
-                                        <Link to={`/race/${race.id}/observation`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 10px' }}>View</Link>
+                                     <td style={{ padding: '15px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                        <Link to={`/race/${race.id}/control`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Icon path={mdiFlagCheckered} size={0.7} /> Control
+                                        </Link>
+                                        <Link to={`/race/${race.id}/observation`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Icon path={mdiEye} size={0.7} /> View
+                                        </Link>
                                     </td>
                                 </tr>
                             ))}

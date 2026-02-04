@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { RoundConfigModal } from './RoundConfigModal';
+import Icon from '@mdi/react';
+import { mdiCached, mdiPlus } from '@mdi/js';
 
 interface Heat {
   id: number;
@@ -61,9 +63,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                 className="primary-btn" 
                 onClick={() => setIsModalOpen(true)}
                 disabled={generating}
-                style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.1)', whiteSpace: 'nowrap' }}
+                style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.1)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}
               >
-                Add Round
+                <Icon path={mdiPlus} size={0.8} /> Add Round
               </button>
           </div>
 
@@ -124,8 +126,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                             display: 'flex', alignItems: 'center', gap: '3px'
                                         }}
                                         title="Refresh the schedule based on latest timing data"
-                                    >
-                                        <span>🔄</span> Regenerate
+                                     >
+                                        <Icon path={mdiCached} size={0.6} /> Regenerate
                                     </button>
                                 )}
                             </div>

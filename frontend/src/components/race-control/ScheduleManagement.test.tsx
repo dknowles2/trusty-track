@@ -5,11 +5,12 @@ import { ScheduleManagement } from './ScheduleManagement';
 
 describe('ScheduleManagement', () => {
     const mockHeats = [
-        { id: 1, round_number: 1, heat_number: 1, lane_results: '[]' },
-        { id: 2, round_number: 1, heat_number: 2, lane_results: '[]' }
+        { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]' },
+        { id: 2, round_number: 1, round_id: 1, heat_number: 2, lane_results: '[]' }
     ];
     const mockGetRacerName = vi.fn((id) => `Racer ${id}`);
     const mockOnAddRound = vi.fn();
+    const mockOnRegenerateRound = vi.fn();
     const mockOnRunHeat = vi.fn();
 
     it('renders the add round button', () => {
@@ -20,6 +21,7 @@ describe('ScheduleManagement', () => {
                 generating={false} 
                 activeHeatId={null}
                 onAddRound={mockOnAddRound}
+                onRegenerateRound={mockOnRegenerateRound}
                 onRunHeat={mockOnRunHeat}
                 getRacerName={mockGetRacerName}
             />
@@ -35,6 +37,7 @@ describe('ScheduleManagement', () => {
                 generating={false} 
                 activeHeatId={null}
                 onAddRound={mockOnAddRound}
+                onRegenerateRound={mockOnRegenerateRound}
                 onRunHeat={mockOnRunHeat}
                 getRacerName={mockGetRacerName}
             />
@@ -52,6 +55,7 @@ describe('ScheduleManagement', () => {
                 generating={false} 
                 activeHeatId={null}
                 onAddRound={mockOnAddRound}
+                onRegenerateRound={mockOnRegenerateRound}
                 onRunHeat={mockOnRunHeat}
                 getRacerName={mockGetRacerName}
             />
@@ -69,6 +73,7 @@ describe('ScheduleManagement', () => {
                 generating={false} 
                 activeHeatId={null}
                 onAddRound={mockOnAddRound}
+                onRegenerateRound={mockOnRegenerateRound}
                 onRunHeat={mockOnRunHeat}
                 getRacerName={mockGetRacerName}
             />

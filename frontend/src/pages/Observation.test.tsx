@@ -74,13 +74,13 @@ describe('Observation Page', () => {
 
         await waitFor(() => {
             // Verify Now Racing (Heat 2)
-            const nowRacing = screen.getByText('🔥 Now Racing');
+            const nowRacing = screen.getByText('Now Racing');
             expect(nowRacing).toBeInTheDocument();
             // Check for content within relevant area if possible, or just text presence globally for simplicity first
             expect(screen.getByText('(Round 1, Heat 2)')).toBeInTheDocument();
             
             // Verify On Deck (Heat 3)
-            const onDeck = screen.getByText('🔜 On Deck');
+            const onDeck = screen.getByText('On Deck');
             expect(onDeck).toBeInTheDocument();
             expect(screen.getByText('(Round 1, Heat 3)')).toBeInTheDocument();
         });
@@ -117,7 +117,7 @@ describe('Observation Page', () => {
 
         await waitFor(() => {
             // Should see headers but "No heat scheduled"
-            expect(screen.getByText('🔥 Now Racing')).toBeInTheDocument();
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
             expect(screen.getAllByText('No heat scheduled')).toHaveLength(2); // One for Current, one for Next
         });
     });

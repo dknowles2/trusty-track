@@ -4,6 +4,8 @@ import { apiClient } from '../api/client';
 import Modal from './Modal';
 import RaceForm, { RaceFormData } from './RaceForm';
 import { useAlert } from '../context/AlertContext';
+import Icon from '@mdi/react';
+import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo } from '@mdi/js';
 
 export default function Navigation() {
   const { showAlert } = useAlert();
@@ -25,12 +27,12 @@ export default function Navigation() {
   const raceId = match ? match[1] : null;
   const activeRace = raceId ? races.find(r => r.id === parseInt(raceId)) : null;
 
-  const links: { to: string; label: string }[] = [];
+  const links: { to: string; label: string; icon: string }[] = [];
   if (raceId) {
       links.push(
-        { to: `/race/${raceId}`, label: 'Details' },
-        { to: `/race/${raceId}/control`, label: 'Control' },
-        { to: `/race/${raceId}/observation`, label: 'Live' }
+        { to: `/race/${raceId}`, label: 'Details', icon: mdiCardSearch },
+        { to: `/race/${raceId}/control`, label: 'Control', icon: mdiFlagCheckered },
+        { to: `/race/${raceId}/observation`, label: 'Live', icon: mdiVideo }
       );
   }
 
@@ -78,8 +80,9 @@ export default function Navigation() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             >
-              {activeRace ? `🏁 ${activeRace.name}` : 'Select a Race'}
-              <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>{isRaceDropdownOpen ? '▲' : '▼'}</span>
+              <Icon path={mdiFlagCheckered} size={0.8} color="white" />
+              {activeRace ? activeRace.name : 'Select a Race'}
+              <Icon path={isRaceDropdownOpen ? mdiChevronUp : mdiChevronDown} size={0.6} color="white" style={{ opacity: 0.8 }} />
             </button>
 
             {isRaceDropdownOpen && (
@@ -156,7 +159,7 @@ export default function Navigation() {
                       onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f7ff'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <span>+</span> New Race...
+                      <Icon path={mdiPlus} size={0.7} /> New Race...
                     </button>
                   </div>
                 </div>
@@ -182,8 +185,8 @@ export default function Navigation() {
             }}
             onMouseEnter={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
             onMouseLeave={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'transparent')}
-          >
-            <span style={{ fontSize: '1.2rem' }}>⚙️</span>
+           >
+            <Icon path={mdiCog} size={0.9} />
             <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Settings</span>
           </Link>
         </div>
@@ -224,7 +227,8 @@ export default function Navigation() {
                 }}
                 onMouseEnter={(e) => !isActive && (e.currentTarget.style.color = '#333')}
                 onMouseLeave={(e) => !isActive && (e.currentTarget.style.color = '#666')}
-              >
+               >
+                <Icon path={link.icon} size={0.7} />
                 {link.label}
               </Link>
             );
