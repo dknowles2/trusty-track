@@ -15,7 +15,7 @@ interface Toast {
 
 interface AlertContextType {
   showAlert: (message: string, title?: string) => void;
-  showConfirm: (message: string, title?: string) => Promise<boolean>;
+  showConfirm: (message: string, title?: string, confirmLabel?: string, confirmVariant?: 'primary' | 'danger') => Promise<boolean>;
   showToast: (message: string, type?: 'success' | 'error' | 'info', action?: ToastAction) => void;
 }
 
@@ -34,6 +34,8 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [message, setMessage] = useState('');
   const [title, setTitle] = useState('Alert');
   const [isConfirm, setIsConfirm] = useState(false);
+  const [confirmLabel, setConfirmLabel] = useState('Confirm');
+  const [confirmVariant, setConfirmVariant] = useState<'primary' | 'danger'>('primary');
   const [resolvePromise, setResolvePromise] = useState<((value: boolean) => void) | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [nextToastId, setNextToastId] = useState(1);
@@ -45,9 +47,11 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setIsOpen(true);
   };
 
-  const showConfirm = (msg: string, t: string = 'Confirm'): Promise<boolean> => {
+  const showConfirm = (msg: string, t: string = 'Confirm', label: string = 'Confirm', variant: 'primary' | 'danger' = 'primary'): Promise<boolean> => {
     setMessage(msg);
     setTitle(t);
+    setConfirmLabel(label);
+    setConfirmVariant(variant);
     setIsConfirm(true);
     setIsOpen(true);
     return new Promise((resolve) => {
@@ -104,12 +108,20 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           {isConfirm && (
-              <button onClick={() => handleAction(false)} className="secondary-btn">
+              <button 
+                onClick={() => handleAction(false)} 
+                className="secondary-btn"
+                style={{ backgroundColor: '#e0e0e0', color: '#333' }}
+              >
                   Cancel
               </button>
           )}
-          <button onClick={() => handleAction(true)} className="primary-btn">
-            {isConfirm ? 'Confirm' : 'OK'}
+          <button 
+            onClick={() => handleAction(true)} 
+            className="primary-btn"
+            style={confirmVariant === 'danger' ? { backgroundColor: '#d32f2f', color: 'white' } : {}}
+          >
+            {isConfirm ? confirmLabel : 'OK'}
           </button>
         </div>
       </Modal>

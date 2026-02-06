@@ -113,6 +113,13 @@ def update_race(race_id: int, race_update: schemas.RaceUpdate, db: Session = Dep
         raise HTTPException(status_code=404, detail="Race not found")
     return db_race
 
+@app.delete("/races/{race_id}")
+def delete_race(race_id: int, db: Session = Depends(get_db)):
+    success = crud.delete_race(db, race_id=race_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Race not found")
+    return {"message": "Race deleted successfully"}
+
 @app.get("/races/", response_model=List[schemas.Race])
 def read_races(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     races = crud.get_races(db, skip=skip, limit=limit)

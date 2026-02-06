@@ -26,7 +26,7 @@ interface Racer extends RacerData {
 
 export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [race, setRace] = useState<Race | null>(null);
   const [racers, setRacers] = useState<Racer[]>([]);
   const [dens, setDens] = useState<Den[]>([]);
@@ -119,6 +119,28 @@ export default function RaceDetails() {
           console.error("Failed to update race", e);
           showAlert("Failed to update race details", "Error");
       }
+  };
+
+  const handleDeleteRace = async () => {
+    const confirmed = await showConfirm(
+        "Are you sure you want to delete this race?\n\nThis action cannot be undone and will delete all racers, dens, rounds, heats, and results associated with it.",
+        "Delete Race",
+        "Delete",
+        "danger"
+    );
+    
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        await apiClient.delete(`/races/${raceId}`);
+        // Redirect to home
+        window.location.href = '/'; 
+    } catch (e) {
+        console.error("Failed to delete race", e);
+        showAlert("Failed to delete race", "Error");
+    }
   };
 
   // Racer Actions
@@ -224,6 +246,7 @@ export default function RaceDetails() {
                 initialData={race}
                 onSubmit={handleUpdateRace}
                 onCancel={() => setIsEditingRace(false)}
+                onDelete={handleDeleteRace}
                 submitLabel="Save Changes"
             />
           )}

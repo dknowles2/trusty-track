@@ -86,6 +86,41 @@ def update_race(db: Session, race_id: int, race_update: schemas.RaceUpdate) -> m
 def get_race(db: Session, race_id: int) -> models.Race | None:
     return db.query(models.Race).filter(models.Race.id == race_id).first()
 
+def delete_race(db: Session, race_id: int) -> bool:
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if not race:
+        return False
+    
+    # Manually delete racers to handle optional relationships cleaner if needed,
+    # though cascade might handle it. Let's rely on cascade for sub-tables but
+    # explicity check here safely.
+    
+    # Models have:
+    # dens: cascade="all, delete-orphan"
+    # rounds: cascade="all, delete-orphan"
+    
+    # racers: back_populates="race", but NO cascade specified in Race model for racers!
+    # So we MUST delete racers manually or update the model. 
+    # Let's delete them manually to be safe without changing models.py if not needed.
+    
+    # Actually, let's just delete the racers first.
+    db.query(models.Racer).filter(models.Racer.race_id == race_id).delete()
+    
+    # Racing groups also might need deletion?
+    # racing_groups: back_populates="race", no cascade.
+    db.query(models.RacingGroup).filter(models.RacingGroup.race_id == race_id).delete()
+    
+    # Heats?
+    # heats: back_populates="race", no cascade in Race model.
+    # But rounds delete heats via cascade.
+    # However, if heats are linked to race directly as well...
+    # Heat model has race_id.
+    db.query(models.Heat).filter(models.Heat.race_id == race_id).delete()
+
+    db.delete(race)
+    db.commit()
+    return True
+
 def get_track(db: Session) -> models.Track | None:
     return db.query(models.Track).first()
 

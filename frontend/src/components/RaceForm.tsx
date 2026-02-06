@@ -15,10 +15,11 @@ interface RaceFormProps {
     initialData?: Partial<RaceFormData>;
     onSubmit: (data: RaceFormData) => Promise<void>;
     onCancel: () => void;
+    onDelete?: () => void;
     submitLabel?: string;
 }
 
-export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel = 'Save' }: RaceFormProps) {
+export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save' }: RaceFormProps) {
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
         date_time: '',
@@ -155,18 +156,36 @@ export default function RaceForm({ initialData, onSubmit, onCancel, submitLabel 
                 </div>
             )}
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '1rem' }}>
-                <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1, padding: '12px' }}>
-                    {loading ? 'Saving...' : submitLabel}
-                </button>
-                <button 
-                    type="button" 
-                    onClick={onCancel} 
-                    className="secondary-btn"
-                    style={{ background: 'transparent', border: '1px solid #ddd', color: '#666' }}
-                >
-                    Cancel
-                </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '1rem', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
+                     <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1, padding: '12px' }}>
+                        {loading ? 'Saving...' : submitLabel}
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={onCancel} 
+                        className="secondary-btn"
+                        style={{ background: 'transparent', border: '1px solid #ddd', color: '#666' }}
+                    >
+                        Cancel
+                    </button>
+                </div>
+                
+                {onDelete && (
+                     <button
+                        type="button"
+                        onClick={onDelete}
+                        className="secondary-btn"
+                        style={{ 
+                            backgroundColor: '#ffebee', 
+                            color: '#c62828', 
+                            border: '1px solid #ffcdd2',
+                            marginLeft: 'auto'
+                        }}
+                    >
+                        Delete Race
+                    </button>
+                )}
             </div>
         </form>
     );

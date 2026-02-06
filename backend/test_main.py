@@ -122,3 +122,35 @@ def test_create_den_and_racer():
     assert racer_data["first_name"] == "Johnny"
     assert racer_data["den_id"] == den_id
 
+
+def test_delete_race():
+    # Setup: Create Group and Race
+    group_name = get_unique_name("Delete Test Group")
+    resp_group = client.post("/groups/", json={"name": group_name})
+    group_id = resp_group.json()["id"]
+
+    race_name = get_unique_name("Delete Test Race")
+    resp_race = client.post(
+        "/races/",
+        json={
+            "name": race_name,
+            "group_id": group_id,
+            "car_numbering_strategy": "MANUAL"
+        },
+    )
+    assert resp_race.status_code == 200
+    race_id = resp_race.json()["id"]
+
+    # Verify race exists
+    resp_get = client.get(f"/races/{race_id}")
+    assert resp_get.status_code == 200
+
+    # Delete Race
+    resp_delete = client.delete(f"/races/{race_id}")
+    assert resp_delete.status_code == 200
+    assert resp_delete.json()["message"] == "Race deleted successfully"
+
+    # Verify race is gone
+    resp_get_after = client.get(f"/races/{race_id}")
+    assert resp_get_after.status_code == 404
+
