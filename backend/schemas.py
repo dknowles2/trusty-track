@@ -144,10 +144,14 @@ class Group(GroupBase):
 
 class RoundBase(BaseModel):
     round_number: int
+    name: Optional[str] = None
     scheduling_strategy: SchedulingStrategy = SchedulingStrategy.LANE_ROTATION
 
 class RoundCreate(RoundBase):
     race_id: int
+
+class RoundUpdate(BaseModel):
+    name: Optional[str] = None
 
 class Round(RoundBase):
     id: int
@@ -168,6 +172,7 @@ class Heat(HeatBase):
     race_id: int
     round_id: int
     round_number: int  # Computed from related Round
+    round_name: Optional[str] = None # Computed from related Round
     
     model_config = ConfigDict(from_attributes=True)
 

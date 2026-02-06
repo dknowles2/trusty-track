@@ -68,6 +68,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
                 />
             </AlertProvider>
         );
@@ -86,6 +87,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
                 />
             </AlertProvider>
         );
@@ -106,6 +108,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
                 />
             </AlertProvider>
         );
@@ -126,6 +129,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
                 />
             </AlertProvider>
         );
@@ -147,6 +151,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
                 />
             </AlertProvider>
         );
@@ -174,6 +179,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
                 />
             </AlertProvider>
         );
@@ -201,11 +207,68 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
                 />
             </AlertProvider>
         );
 
         expect(screen.getByText('Round 1')).toBeInTheDocument();
         expect(screen.getByText('Round 2')).toBeInTheDocument();
+    });
+
+    it('calls onAddRound with name when provided', async () => {
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={[]} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
+                />
+            </AlertProvider>
+        );
+        
+        // Open modal
+        await user.click(screen.getByText('Add Round'));
+        
+        // Fill name
+        const nameInput = screen.getByLabelText(/Round Name/i);
+        await user.type(nameInput, 'Semi-Finals');
+        
+        // Submit
+        await user.click(screen.getByRole('button', { name: /Create Round/i }));
+        
+        expect(mockOnAddRound).toHaveBeenCalledWith('LANE_ROTATION', 'Semi-Finals');
+    });
+
+    it('displays custom round name', () => {
+        const namedRoundHeats = [
+            { id: 1, round_number: 1, round_name: 'Semi-Finals', round_id: 1, heat_number: 1, lane_results: '[]' },
+        ];
+
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={namedRoundHeats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
+                />
+            </AlertProvider>
+        );
+
+        expect(screen.getByText('Semi-Finals')).toBeInTheDocument();
+        expect(screen.queryByText('Round 1')).not.toBeInTheDocument();
     });
 });

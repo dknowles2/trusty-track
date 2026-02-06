@@ -295,7 +295,14 @@ def create_round(race_id: int, round_data: schemas.RoundCreate, db: Session = De
     existing_rounds = crud.get_rounds(db, race_id)
     next_round_number = len(existing_rounds) + 1
     
-    return crud.create_round(db, race_id, next_round_number, round_data.scheduling_strategy)
+    return crud.create_round(db, race_id, next_round_number, round_data.scheduling_strategy, round_data.name)
+
+@app.put("/rounds/{round_id}", response_model=schemas.Round)
+def update_round(round_id: int, round_update: schemas.RoundUpdate, db: Session = Depends(get_db)):
+    db_round = crud.update_round(db, round_id, round_update)
+    if not db_round:
+        raise HTTPException(status_code=404, detail="Round not found")
+    return db_round
 
 @app.post("/rounds/{round_id}/generate_heats", response_model=List[schemas.Heat])
 def generate_heats_for_round(round_id: int, db: Session = Depends(get_db)):

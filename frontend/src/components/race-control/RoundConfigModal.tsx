@@ -4,7 +4,7 @@ import Modal from '../Modal';
 interface RoundConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (schedulingStrategy: string) => Promise<void>;
+  onSubmit: (schedulingStrategy: string, name?: string) => Promise<void>;
   currentRoundCount: number;  // Number of existing rounds
 }
 
@@ -15,13 +15,14 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   currentRoundCount
 }) => {
   const [schedulingStrategy, setSchedulingStrategy] = useState('LANE_ROTATION');
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await onSubmit(schedulingStrategy);
+      await onSubmit(schedulingStrategy, name);
       onClose();
     } catch (error) {
       console.error('Failed to create round:', error);
@@ -37,10 +38,32 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     color: '#333'
   };
 
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: '4px',
+    border: '1px solid #ccc',
+    fontSize: '1rem',
+    marginBottom: '1rem'
+  };
+
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add Round">
       <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label htmlFor="roundName" style={labelStyle}>Round Name (Optional)</label>
+          <input
+            id="roundName"
+            type="text"
+            placeholder="e.g. Semi-Finals"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={inputStyle}
+            disabled={loading}
+          />
+        </div>
+
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={labelStyle}>Scheduling Strategy</label>
           

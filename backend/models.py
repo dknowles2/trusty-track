@@ -127,6 +127,7 @@ class Round(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
     round_number: Mapped[int] = mapped_column(Integer)
+    name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     scheduling_strategy: Mapped[SchedulingStrategy] = mapped_column(SAEnum(SchedulingStrategy), default=SchedulingStrategy.LANE_ROTATION)
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
@@ -148,3 +149,8 @@ class Heat(Base):
     def round_number(self) -> int:
         """Get the round number from the related Round."""
         return self.round.round_number if self.round else 0
+
+    @property
+    def round_name(self) -> str | None:
+        """Get the round name from the related Round."""
+        return self.round.name if self.round else None

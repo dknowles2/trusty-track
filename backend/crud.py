@@ -250,14 +250,27 @@ def get_rounds(db: Session, race_id: int) -> List[models.Round]:
     """Get all rounds for a specific race, ordered by round number."""
     return db.query(models.Round).filter(models.Round.race_id == race_id).order_by(models.Round.round_number).all()
 
-def create_round(db: Session, race_id: int, round_number: int, scheduling_strategy: models.SchedulingStrategy) -> models.Round:
+def create_round(db: Session, race_id: int, round_number: int, scheduling_strategy: models.SchedulingStrategy, name: str | None = None) -> models.Round:
     """Create a new round for a race."""
     round_obj = models.Round(
         race_id=race_id,
         round_number=round_number,
-        scheduling_strategy=scheduling_strategy
+        scheduling_strategy=scheduling_strategy,
+        name=name
     )
     db.add(round_obj)
+    db.commit()
+    db.refresh(round_obj)
+    return round_obj
+
+def update_round(db: Session, round_id: int, round_update: schemas.RoundUpdate) -> models.Round | None:
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if not round_obj:
+        return None
+    
+    if round_update.name is not None:
+        round_obj.name = round_update.name
+        
     db.commit()
     db.refresh(round_obj)
     return round_obj

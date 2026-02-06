@@ -88,7 +88,7 @@ export default function RaceControl() {
       }
   };
 
-  const handleAddRound = async (schedulingStrategy: string) => {
+  const handleAddRound = async (schedulingStrategy: string, name?: string) => {
     if (!activeRaceId) return;
     setGenerating(true);
     try {
@@ -96,7 +96,8 @@ export default function RaceControl() {
       const roundData = await apiClient.post(`/races/${activeRaceId}/rounds`, {
         race_id: activeRaceId,
         round_number: 1, // Will be auto-calculated by backend
-        scheduling_strategy: schedulingStrategy
+        scheduling_strategy: schedulingStrategy,
+        name: name
       });
       
       // Generate heats for the new round

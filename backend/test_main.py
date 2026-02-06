@@ -33,6 +33,41 @@ def teardown_module(module):
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
+def test_create_round_with_name():
+    # Setup
+    group_name = get_unique_name("Round Name Group")
+    resp_group = client.post("/groups/", json={"name": group_name})
+    group_id = resp_group.json()["id"]
+
+    race_name = get_unique_name("Round Name Race")
+    resp_race = client.post(
+        "/races/",
+        json={"name": race_name, "group_id": group_id, "car_numbering_strategy": "MANUAL"},
+    )
+    race_id = resp_race.json()["id"]
+
+    # Create Round without name
+    resp_round1 = client.post(
+        f"/races/{race_id}/rounds",
+        json={"race_id": race_id, "round_number": 1, "scheduling_strategy": "LANE_ROTATION"}
+    )
+    assert resp_round1.status_code == 200
+    assert resp_round1.json()["name"] is None
+
+    # Create Round with name
+    resp_round2 = client.post(
+        f"/races/{race_id}/rounds",
+        json={"race_id": race_id, "round_number": 2, "scheduling_strategy": "LANE_ROTATION", "name": "Semi-Finals"}
+    )
+    assert resp_round2.status_code == 200
+    assert resp_round2.json()["name"] == "Semi-Finals"
+
+    # Verify endpoint returns it
+    resp_get = client.get(f"/races/{race_id}/rounds")
+    rounds = resp_get.json()
+    assert len(rounds) == 2
+    assert rounds[1]["name"] == "Semi-Finals"
+
 def test_read_main():
     response = client.get("/")
     assert response.status_code == 200

@@ -25,6 +25,7 @@ import { useAlert } from '../../context/AlertContext';
 interface Heat {
   id: number;
   round_number: number;
+  round_name?: string;
   round_id: number;
   heat_number: number;
   lane_results: string; // JSON
@@ -35,7 +36,7 @@ interface ScheduleManagementProps {
   heats: Heat[];
   generating: boolean;
   activeHeatId: number | null;
-  onAddRound: (schedulingStrategy: string) => Promise<void>;
+  onAddRound: (schedulingStrategy: string, name?: string) => Promise<void>;
   onRegenerateRound: (roundNumber: number, silent?: boolean) => Promise<void>;
   onRefetchHeats: () => Promise<void>;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
@@ -172,8 +173,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
 
   const sortedRounds = Object.keys(rounds).map(Number).sort((a, b) => a - b);
 
-  const handleAddRound = async (schedulingStrategy: string) => {
-    await onAddRound(schedulingStrategy);
+  const handleAddRound = async (schedulingStrategy: string, name?: string) => {
+    await onAddRound(schedulingStrategy, name);
   };
 
   const handleDragEnd = async (event: DragEndEvent, roundNum: number) => {
@@ -305,7 +306,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: '15px' }}>
-                    <h3 style={{ margin: 0, color: 'var(--scouting-blue)' }}>Round {roundNum}</h3>
+                    <h3 style={{ margin: 0, color: 'var(--scouting-blue)' }}>
+                      {roundHeats[0]?.round_name || `Round ${roundNum}`}
+                    </h3>
                     {!isAnyStarted && roundId && (
                       <button
                         onClick={() => onRegenerateRound(roundId)}
