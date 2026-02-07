@@ -113,8 +113,8 @@ describe('ScheduleManagement', () => {
             </AlertProvider>
         );
         fireEvent.click(screen.getByText('Add Round'));
-        // Modal should open - check for modal content
-        expect(screen.getByText('Scheduling Strategy')).toBeInTheDocument();
+        // Modal should open - check for modal content (Round Name input is a good proxy)
+        expect(screen.getByLabelText(/Round Name/i)).toBeInTheDocument();
     });
 
     it('calls onRunHeat when run button is clicked', () => {
@@ -244,7 +244,7 @@ describe('ScheduleManagement', () => {
         // Submit
         await user.click(screen.getByRole('button', { name: /Create Round/i }));
         
-        expect(mockOnAddRound).toHaveBeenCalledWith('LANE_ROTATION', 'Semi-Finals');
+        expect(mockOnAddRound).toHaveBeenCalledWith('PPC', 'Semi-Finals');
     });
 
     it('displays custom round name', () => {

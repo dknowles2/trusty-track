@@ -145,7 +145,7 @@ class Group(GroupBase):
 class RoundBase(BaseModel):
     round_number: int
     name: Optional[str] = None
-    scheduling_strategy: SchedulingStrategy = SchedulingStrategy.LANE_ROTATION
+    scheduling_strategy: SchedulingStrategy = SchedulingStrategy.PPC
 
 class RoundCreate(RoundBase):
     race_id: int

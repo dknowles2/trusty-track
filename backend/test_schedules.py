@@ -82,7 +82,7 @@ def test_generate_schedule_not_enough_racers():
     round_response = client.post(f"/races/{race_id}/rounds", json={
         "race_id": race_id,
         "round_number": 1,
-        "scheduling_strategy": "LANE_ROTATION"
+        "scheduling_strategy": "PPC"
     })
     assert round_response.status_code == 200
     round_id = round_response.json()["id"]
@@ -111,7 +111,7 @@ def test_generate_schedule_success_with_min_racers():
     round_response = client.post(f"/races/{race_id}/rounds", json={
         "race_id": race_id,
         "round_number": 1,
-        "scheduling_strategy": "LANE_ROTATION"
+        "scheduling_strategy": "PPC"
     })
     assert round_response.status_code == 200
     round_id = round_response.json()["id"]

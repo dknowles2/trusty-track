@@ -81,7 +81,7 @@ def test_race(db):
     round_obj = models.Round(
         race_id=race.id,
         round_number=1,
-        scheduling_strategy=models.SchedulingStrategy.LANE_ROTATION
+        scheduling_strategy=models.SchedulingStrategy.PPC
     )
     db.add(round_obj)
     db.commit()
@@ -152,7 +152,7 @@ def test_reorder_heats_different_rounds_error(db, test_race):
     round2 = models.Round(
         race_id=race.id,
         round_number=2,
-        scheduling_strategy=models.SchedulingStrategy.LANE_ROTATION
+        scheduling_strategy=models.SchedulingStrategy.PPC
     )
     db.add(round2)
     db.commit()

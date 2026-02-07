@@ -46,18 +46,16 @@ def test_create_round_with_name():
     )
     race_id = resp_race.json()["id"]
 
-    # Create Round without name
     resp_round1 = client.post(
         f"/races/{race_id}/rounds",
-        json={"race_id": race_id, "round_number": 1, "scheduling_strategy": "LANE_ROTATION"}
+        json={"race_id": race_id, "round_number": 1, "scheduling_strategy": "PPC"}
     )
     assert resp_round1.status_code == 200
     assert resp_round1.json()["name"] is None
 
-    # Create Round with name
     resp_round2 = client.post(
         f"/races/{race_id}/rounds",
-        json={"race_id": race_id, "round_number": 2, "scheduling_strategy": "LANE_ROTATION", "name": "Semi-Finals"}
+        json={"race_id": race_id, "round_number": 2, "scheduling_strategy": "PPC", "name": "Semi-Finals"}
     )
     assert resp_round2.status_code == 200
     assert resp_round2.json()["name"] == "Semi-Finals"

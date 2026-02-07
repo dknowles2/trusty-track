@@ -39,11 +39,7 @@ class Den(Base):
 
 
 class SchedulingStrategy(str, enum.Enum):
-    LANE_ROTATION = "LANE_ROTATION"
     PPC = "PPC"
-    STEARNS = "STEARNS"
-    PERFECT_N = "PERFECT_N"
-    CHAOTIC = "CHAOTIC"
 
 class ScoringStrategy(str, enum.Enum):
     TIMED = "TIMED"
@@ -128,7 +124,7 @@ class Round(Base):
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
     round_number: Mapped[int] = mapped_column(Integer)
     name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    scheduling_strategy: Mapped[SchedulingStrategy] = mapped_column(SAEnum(SchedulingStrategy), default=SchedulingStrategy.LANE_ROTATION)
+    scheduling_strategy: Mapped[SchedulingStrategy] = mapped_column(SAEnum(SchedulingStrategy), default=SchedulingStrategy.PPC)
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[List["Heat"]] = relationship("Heat", back_populates="round", cascade="all, delete-orphan")

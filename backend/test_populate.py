@@ -30,7 +30,7 @@ def test_populate_respects_global_numbering(db):
         location="Test Location",
         car_numbering_strategy=models.CarNumberingStrategy.GLOBAL,
         global_start_number=100,
-        scheduling_strategy=models.SchedulingStrategy.LANE_ROTATION,
+        scheduling_strategy=models.SchedulingStrategy.PPC,
         scoring_strategy=models.ScoringStrategy.TIMED
     ))
     
@@ -56,7 +56,7 @@ def test_populate_respects_per_den_numbering(db):
         date_time="2024-01-01T10:00:00",
         location="Test Location",
         car_numbering_strategy=models.CarNumberingStrategy.PER_GROUP,
-        scheduling_strategy=models.SchedulingStrategy.LANE_ROTATION,
+        scheduling_strategy=models.SchedulingStrategy.PPC,
         scoring_strategy=models.ScoringStrategy.TIMED
     ))
     
@@ -105,7 +105,7 @@ def test_populate_with_manual_numbering(db):
         date_time="2024-01-01T10:00:00",
         location="Test Location",
         car_numbering_strategy=models.CarNumberingStrategy.MANUAL,
-        scheduling_strategy=models.SchedulingStrategy.LANE_ROTATION,
+        scheduling_strategy=models.SchedulingStrategy.PPC,
         scoring_strategy=models.ScoringStrategy.TIMED
     ))
     
