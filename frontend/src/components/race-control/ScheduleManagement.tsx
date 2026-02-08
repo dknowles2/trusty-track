@@ -23,14 +23,15 @@ import { CSS } from '@dnd-kit/utilities';
 import { apiClient } from '../../api/client';
 import { useAlert } from '../../context/AlertContext';
 
-interface Heat {
+export interface Heat {
   id: number;
   round_number: number;
-  round_name?: string;
+  round_name: string | null;
   round_id: number;
   heat_number: number;
   lane_results: string; // JSON
-  advancement_num_racers?: number;
+  advancement_num_racers: number | null;
+  advancement_source: string | null;
   total_participants: number;
 }
 
@@ -39,7 +40,7 @@ interface ScheduleManagementProps {
   heats: Heat[];
   generating: boolean;
   activeHeatId: number | null;
-  onAddRound: (schedulingStrategy: string, name?: string) => Promise<void>;
+  onAddRound: (config: any) => Promise<void>;
   onRegenerateRound: (roundNumber: number, silent?: boolean) => Promise<void>;
   onRefetchHeats: () => Promise<void>;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
@@ -242,9 +243,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   );
 
   const sortedRounds = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+  const hasGeneralRound = Object.values(rounds).some(roundHeats => roundHeats[0].advancement_num_racers === null || roundHeats[0].advancement_num_racers === undefined);
 
-  const handleAddRound = async (schedulingStrategy: string, name?: string) => {
-    await onAddRound(schedulingStrategy, name);
+  const handleAddRound = async (config: any) => {
+    await onAddRound(config);
   };
 
   const handleDragEnd = async (event: DragEndEvent, roundNum: number) => {
@@ -324,9 +326,17 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
-                disabled={generating || reordering || Object.values(rounds).some(r => r[0].total_participants === championshipTrophies)}
-                style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.1)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}
-                title={Object.values(rounds).some(r => r[0].total_participants === championshipTrophies) ? "Final round already scheduled" : "Add Round"}
+                disabled={generating || reordering || (sortedRounds.length > 0 && rounds[sortedRounds[sortedRounds.length - 1]][0].total_participants <= championshipTrophies && (rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source === 'PACK' || !rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source))}
+                style={{ 
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)', 
+                  whiteSpace: 'nowrap', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '5px',
+                  opacity: (generating || reordering || (sortedRounds.length > 0 && rounds[sortedRounds[sortedRounds.length - 1]][0].total_participants <= championshipTrophies && (rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source === 'PACK' || !rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source))) ? 0.5 : 1,
+                  cursor: (generating || reordering || (sortedRounds.length > 0 && rounds[sortedRounds[sortedRounds.length - 1]][0].total_participants <= championshipTrophies && (rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source === 'PACK' || !rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source))) ? 'not-allowed' : 'pointer'
+                }}
+                title={(sortedRounds.length > 0 && rounds[sortedRounds[sortedRounds.length - 1]][0].total_participants <= championshipTrophies && (rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source === 'PACK' || !rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source)) ? "Final round already reached" : "Add Round"}
             >
                 <Icon path={mdiPlus} size={0.8} /> Add Round
             </button>
@@ -350,6 +360,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleAddRound}
+          racerCount={racerCount}
+          denCount={denCount}
+          championshipTrophies={championshipTrophies}
+          hasGeneralRound={hasGeneralRound}
         />
 
         {sortedRounds.length === 0 ? (

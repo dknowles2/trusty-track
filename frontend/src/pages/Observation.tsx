@@ -13,9 +13,13 @@ interface Standing {
 // Duplicate Heat interface to avoid shared dependency issues for now
 interface Heat {
   id: number;
+  advancement_num_racers: number | null;
+  advancement_source: string | null;
+  total_participants: number;
   round_number: number;
   round_id: number;
   heat_number: number;
+  round_name: string | null;
   lane_results: string; // JSON
 }
 

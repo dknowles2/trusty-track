@@ -46,25 +46,62 @@ def test_create_round_with_name():
     )
     race_id = resp_race.json()["id"]
 
+    # Add racers so heat generation doesn't fail
+    for i in range(2):
+        client.post("/racers/", json={
+            "first_name": f"Racer{i}",
+            "last_name": "Test",
+            "car_number": 10 + i,
+            "race_id": race_id
+        })
+
     resp_round1 = client.post(
         f"/races/{race_id}/rounds",
         json={"race_id": race_id, "round_number": 1, "scheduling_strategy": "PPC"}
     )
     assert resp_round1.status_code == 200
-    assert resp_round1.json()["name"] is None
+    rounds1 = resp_round1.json()
+    assert isinstance(rounds1, list)
+    assert rounds1[0]["name"] == "All Pack" # Default name for PACK
 
     resp_round2 = client.post(
         f"/races/{race_id}/rounds",
         json={"race_id": race_id, "round_number": 2, "scheduling_strategy": "PPC", "name": "Semi-Finals"}
     )
     assert resp_round2.status_code == 200
-    assert resp_round2.json()["name"] == "Semi-Finals"
+    rounds2 = resp_round2.json()
+    assert rounds2[0]["name"] == "Semi-Finals"
 
     # Verify endpoint returns it
     resp_get = client.get(f"/races/{race_id}/rounds")
     rounds = resp_get.json()
     assert len(rounds) == 2
     assert rounds[1]["name"] == "Semi-Finals"
+
+def test_create_championship_round_fails_without_general():
+    # Setup
+    group_name = get_unique_name("Champ Fail Group")
+    resp_group = client.post("/groups/", json={"name": group_name})
+    group_id = resp_group.json()["id"]
+
+    race_name = get_unique_name("Champ Fail Race")
+    resp_race = client.post(
+        "/races/",
+        json={"name": race_name, "group_id": group_id, "car_numbering_strategy": "MANUAL"},
+    )
+    race_id = resp_race.json()["id"]
+
+    # Try to create championship round immediately
+    resp = client.post(
+        f"/races/{race_id}/rounds",
+        json={
+            "race_id": race_id,
+            "advancement_source": "PACK",
+            "advancement_num_racers": 3
+        }
+    )
+    assert resp.status_code == 400
+    assert "no general rounds exist" in resp.json()["detail"]
 
 def test_read_main():
     response = client.get("/")

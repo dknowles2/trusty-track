@@ -12,6 +12,9 @@ interface Heat {
   round_number: number;
   round_id: number;
   heat_number: number;
+  round_name: string | null;
+  advancement_num_racers: number | null;
+  advancement_source: string | null;
   lane_results: string; // JSON
   total_participants: number;
 }
@@ -97,20 +100,20 @@ export default function RaceControl() {
       }
   };
 
-  const handleAddRound = async (schedulingStrategy: string, name?: string) => {
+  const handleAddRound = async (config: any) => {
     if (!activeRaceId) return;
     setGenerating(true);
     try {
-      // Create a new round
-      const roundData = await apiClient.post(`/races/${activeRaceId}/rounds`, {
+      // Create new round(s) - backend now handles heat generation too
+      await apiClient.post(`/races/${activeRaceId}/rounds`, {
         race_id: activeRaceId,
-        round_number: 1, // Will be auto-calculated by backend
-        scheduling_strategy: schedulingStrategy,
-        name: name
+        scheduling_strategy: config.schedulingStrategy || 'PPC',
+        name: config.name,
+        advancement_source: config.advancementSource,
+        advancement_num_racers: config.advancementNumRacers,
+        runs_per_lane: config.runsPerLane || 1,
+        general_type: config.generalType || 'PACK'
       });
-      
-      // Generate heats for the new round
-      await apiClient.post(`/rounds/${roundData.id}/generate_heats`, {});
       
       // Fetch updated heats
       const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);

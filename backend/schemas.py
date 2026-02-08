@@ -143,7 +143,7 @@ class Group(GroupBase):
     model_config = ConfigDict(from_attributes=True)
 
 class RoundBase(BaseModel):
-    round_number: int
+    round_number: int = 1
     name: Optional[str] = None
     scheduling_strategy: SchedulingStrategy = SchedulingStrategy.PPC
 
@@ -151,6 +151,8 @@ class RoundCreate(RoundBase):
     race_id: int
     advancement_source: Optional[str] = None
     advancement_num_racers: Optional[int] = None
+    runs_per_lane: int = 1
+    general_type: str = "PACK" # Only used if advancement_source is None: "PACK" or "DEN"
 
 class RoundUpdate(BaseModel):
     name: Optional[str] = None
@@ -178,6 +180,7 @@ class Heat(HeatBase):
     round_number: int  # Computed from related Round
     round_name: Optional[str] = None # Computed from related Round
     advancement_num_racers: Optional[int] = None # Computed from related Round
+    advancement_source: Optional[str] = None # Computed from related Round
     total_participants: int = 0 # Computed from related Round
     
     model_config = ConfigDict(from_attributes=True)

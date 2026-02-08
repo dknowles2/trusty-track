@@ -485,13 +485,83 @@ def auto_number_racers(race_id: int, db: Session = Depends(get_db)):
 def get_rounds(race_id: int, db: Session = Depends(get_db)):
     return crud.get_rounds(db, race_id)
 
-@app.post("/races/{race_id}/rounds", response_model=schemas.Round)
+@app.post("/races/{race_id}/rounds", response_model=List[schemas.Round])
 def create_round(race_id: int, round_data: schemas.RoundCreate, db: Session = Depends(get_db)):
-    # Get the next round number
+    # 1. Verification: ensure race exists
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if not race:
+        raise HTTPException(status_code=404, detail="Race not found")
+        
+    created_rounds = []
     existing_rounds = crud.get_rounds(db, race_id)
     next_round_number = len(existing_rounds) + 1
     
-    return crud.create_round(db, race_id, next_round_number, round_data.scheduling_strategy, round_data.name)
+    try:
+        # 2. Case: Championship Round
+        if round_data.advancement_source:
+            # Check if any general rounds exist
+            general_exists = db.query(models.Round).filter(
+                models.Round.race_id == race_id,
+                models.Round.advancement_source == None
+            ).first() is not None
+            
+            if not general_exists:
+                raise ValueError("Cannot add championship round: no general rounds exist yet. Schedule at least one general round first.")
+
+            round_obj = crud.create_round(
+                db, race_id, next_round_number, 
+                round_data.scheduling_strategy, round_data.name,
+                advancement_source=round_data.advancement_source,
+                advancement_num_racers=round_data.advancement_num_racers
+            )
+            # Calculate placeholders
+            num_placeholders = round_data.advancement_num_racers or 0
+            if round_data.advancement_source == "DEN":
+                den_count = db.query(models.Den).filter(models.Den.race_id == race_id).count()
+                num_placeholders = (round_data.advancement_num_racers or 0) * den_count
+                
+            # Generate Heats with runs_per_lane
+            for i in range(round_data.runs_per_lane):
+                crud.generate_heats_for_round(db, round_obj.id, num_placeholders=num_placeholders, clear_existing=(i == 0))
+                
+            created_rounds.append(round_obj)
+            
+        # 3. Case: General Round (DEN)
+        elif round_data.general_type == "DEN":
+            dens = crud.get_dens(db, race_id)
+            for den in dens:
+                racer_ids = [r.id for r in db.query(models.Racer).filter(models.Racer.den_id == den.id).all()]
+                if not racer_ids:
+                    continue
+                    
+                round_obj = crud.create_round(
+                    db, race_id, next_round_number,
+                    round_data.scheduling_strategy, f"{den.name} - {round_data.name}" if round_data.name else den.name
+                )
+                
+                # Generate Heats with runs_per_lane
+                for i in range(round_data.runs_per_lane):
+                    crud.generate_heats_for_round(db, round_obj.id, racer_ids=racer_ids, clear_existing=(i == 0))
+                
+                created_rounds.append(round_obj)
+                next_round_number += 1
+                
+        # 4. Case: General Round (PACK)
+        else:
+            round_obj = crud.create_round(
+                db, race_id, next_round_number,
+                round_data.scheduling_strategy, round_data.name or "All Pack"
+            )
+            
+            # Generate Heats with runs_per_lane
+            for i in range(round_data.runs_per_lane):
+                crud.generate_heats_for_round(db, round_obj.id, clear_existing=(i == 0))
+                
+            created_rounds.append(round_obj)
+            
+        return created_rounds
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.put("/rounds/{round_id}", response_model=schemas.Round)
 def update_round(round_id: int, round_update: schemas.RoundUpdate, db: Session = Depends(get_db)):

@@ -6,10 +6,14 @@ import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight } from '@mdi/js';
 
 interface Heat {
   id: number;
+  advancement_num_racers: number | null;
+  advancement_source: string | null;
   round_number: number;
   round_id: number;
   heat_number: number;
+  round_name: string | null;
   lane_results: string; // JSON
+  total_participants: number;
 }
 
 interface RaceExecutionProps {
