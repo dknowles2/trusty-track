@@ -7,29 +7,9 @@ import uuid
 import json
 
 # Use in-memory SQLite for testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_main.db"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
-def setup_module(module):
-    models.Base.metadata.create_all(bind=engine)
-
-def teardown_module(module):
-    models.Base.metadata.drop_all(bind=engine)
 
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"

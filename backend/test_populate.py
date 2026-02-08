@@ -4,21 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from backend import models, schemas, crud, populate
 
-# Create test database
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-@pytest.fixture
-def db():
-    """Create a fresh database for each test."""
-    models.Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        models.Base.metadata.drop_all(bind=engine)
 
 def test_populate_respects_global_numbering(db):
     """Test that populate respects GLOBAL car numbering strategy."""

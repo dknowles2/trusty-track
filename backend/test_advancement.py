@@ -7,29 +7,9 @@ import json
 import pytest
 
 # Use separate SQLite for this test file
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_advancement.db"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
-@pytest.fixture(autouse=True)
-def setup_database():
-    models.Base.metadata.create_all(bind=engine)
-    yield
-    models.Base.metadata.drop_all(bind=engine)
 
 def test_full_advancement_flow():
     # 1. Setup: Create race, den, and racers

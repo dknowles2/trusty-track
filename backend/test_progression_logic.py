@@ -1,22 +1,7 @@
-
 import pytest
 from sqlalchemy.orm import Session
 from . import crud, models, schemas
-from .database import SessionLocal, engine
 import json
-
-# Create tables
-models.Base.metadata.create_all(bind=engine)
-
-@pytest.fixture
-def db():
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = SessionLocal(bind=connection)
-    yield session
-    session.close()
-    transaction.rollback()
-    connection.close()
 
 def test_championship_rounds_populate_sequentially(db: Session):
     # 1. Setup Race and Config
@@ -130,7 +115,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
     for h in r2_heats:
         res = json.loads(h.lane_results)
         for r in res:
-            if r['racer_id'] < 0:
+            if r['racer_id'] is not None and r['racer_id'] < 0:
                 r2_has_placeholders = True
     
     assert not r2_has_placeholders, "Round 2 (Semifinals) should be populated with real racers"
