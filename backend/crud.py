@@ -278,9 +278,30 @@ def update_round(db: Session, round_id: int, round_update: schemas.RoundUpdate) 
     return round_obj
 
 def delete_round(db: Session, round_id: int) -> bool:
-    """Delete a round and all its heats."""
+    """Delete a round and all its heats. Only if no heats have results."""
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
     if round_obj:
+        # Check if any heats have results
+        import json
+        for heat in round_obj.heats:
+            if heat.lane_results:
+                try:
+                    results = json.loads(heat.lane_results)
+                    if any(r.get("time") is not None for r in results):
+                        raise ValueError("Cannot delete round: it has heats with results.")
+                except json.JSONDecodeError:
+                    pass
+
+        # Rule 2: Cannot delete general round if championship rounds are scheduled
+        if not round_obj.advancement_source:
+            champ_rounds = db.query(models.Round).filter(
+                models.Round.race_id == round_obj.race_id,
+                models.Round.advancement_source.is_not(None),
+                models.Round.advancement_source != ""
+            ).first()
+            if champ_rounds:
+                raise ValueError("Cannot delete general round: championship rounds are already scheduled.")
+
         db.delete(round_obj)
         db.commit()
         return True

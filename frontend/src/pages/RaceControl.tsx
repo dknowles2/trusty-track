@@ -128,22 +128,34 @@ export default function RaceControl() {
   };
 
   const handleRegenerateRound = async (roundId: number, silent: boolean = false) => {
-    if (!activeRaceId) return;
-    setGenerating(true);
     try {
-      await apiClient.post(`/rounds/${roundId}/generate_heats`, {});
-      if (activeRaceId) {
-          const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
-          setHeats(updatedHeats);
-          if (!silent) {
-            showAlert("Schedule updated successfully.", "Success");
-          }
+      setGenerating(true);
+      await apiClient.post(`/rounds/${roundId}/regenerate`, {});
+      const fetchedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+      setHeats(fetchedHeats);
+      if (!silent) {
+        showToast("Schedule regenerated successfully.", "success");
       }
     } catch (e: any) {
       console.error("Failed to regenerate round", e);
-      if (!silent) {
-        showAlert(e.message || "Failed to regenerate round.", "Error");
-      }
+      const detail = e.response?.data?.detail || "Failed to regenerate the schedule.";
+      showAlert(detail, "Error");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDeleteRound = async (roundId: number) => {
+    try {
+      setGenerating(true);
+      await apiClient.delete(`/rounds/${roundId}`);
+      const fetchedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
+      setHeats(fetchedHeats);
+      showToast("Round deleted successfully.", "success");
+    } catch (e: any) {
+      console.error("Failed to delete round", e);
+      const detail = e.response?.data?.detail || "Failed to delete the round.";
+      showAlert(detail, "Error");
     } finally {
       setGenerating(false);
     }
@@ -390,6 +402,7 @@ export default function RaceControl() {
           activeHeatId={activeHeatId}
           onAddRound={handleAddRound}
           onRegenerateRound={handleRegenerateRound}
+          onDeleteRound={handleDeleteRound}
           onRefetchHeats={refetchHeats}
           onRunHeat={handleRunHeat}
           getRacerName={getRacerName}

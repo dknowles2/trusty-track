@@ -190,3 +190,8 @@ class Heat(Base):
     def advancement_num_racers(self) -> int | None:
         """Get the number of racers to advance to this round."""
         return self.round.advancement_num_racers if self.round else None
+
+    @property
+    def advancement_source(self) -> str | None:
+        """Get the advancement source from the related Round."""
+        return self.round.advancement_source if self.round else None

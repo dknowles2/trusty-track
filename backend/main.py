@@ -579,10 +579,13 @@ def generate_heats_for_round(round_id: int, db: Session = Depends(get_db)):
 
 @app.delete("/rounds/{round_id}")
 def delete_round(round_id: int, db: Session = Depends(get_db)):
-    success = crud.delete_round(db, round_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Round not found")
-    return {"message": "Round deleted"}
+    try:
+        success = crud.delete_round(db, round_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Round not found")
+        return {"message": "Round deleted"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/races/{race_id}/heats", response_model=List[schemas.Heat])
 def get_heats(race_id: int, db: Session = Depends(get_db)):

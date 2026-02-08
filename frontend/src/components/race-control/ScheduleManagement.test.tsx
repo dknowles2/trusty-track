@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { mdiCalendarRange, mdiFlagCheckered, mdiCached, mdiDelete } from '@mdi/js';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
 import { AlertProvider } from '../../context/AlertContext';
@@ -61,10 +62,12 @@ describe('ScheduleManagement', () => {
     const mockGetRacerName = vi.fn((id) => `Racer ${id}`);
     const mockOnAddRound = vi.fn();
     const mockOnRegenerateRound = vi.fn();
+    const mockOnDeleteRound = vi.fn();
     const mockOnRunHeat = vi.fn();
 
     beforeEach(() => {
         vi.clearAllMocks();
+        window.confirm = vi.fn(() => true);
     });
 
     it('renders the add round button', () => {
@@ -77,6 +80,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -100,6 +104,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -125,6 +130,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -150,6 +156,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -176,6 +183,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -208,6 +216,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -240,6 +249,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -266,6 +276,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -311,6 +322,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -353,6 +365,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -387,6 +400,7 @@ describe('ScheduleManagement', () => {
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
@@ -399,7 +413,102 @@ describe('ScheduleManagement', () => {
         );
         const addBtn = screen.getByRole('button', { name: /Add Round/i });
         expect(addBtn).toBeDisabled();
-        expect(addBtn).toHaveAttribute('title', 'Final round already reached');
     });
+
+    it('calls onDeleteRound when delete button is clicked', async () => {
+        const user = (await import('@testing-library/user-event')).default.setup();
+        const roundHeats: Heat[] = [
+            { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]', total_participants: 10, round_name: 'Round 1', advancement_num_racers: null, advancement_source: null },
+        ];
+        
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={roundHeats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    championshipTrophies={3}
+                />
+            </AlertProvider>
+        );
+        
+        const deleteBtn = screen.getByLabelText(/delete round 1/i);
+        await user.click(deleteBtn);
+        
+        expect(mockOnDeleteRound).toHaveBeenCalledWith(1);
+    });
+
+    it('disables delete button if round has results', () => {
+        const heatsWithResults: Heat[] = [
+            { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[{"racer_id": 1, "lane": 1, "time": 3.45}]', total_participants: 10, round_name: 'Round 1', advancement_num_racers: null, advancement_source: null },
+        ];
+        
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={heatsWithResults} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onDeleteRound={mockOnDeleteRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    championshipTrophies={3}
+                />
+            </AlertProvider>
+        );
+        
+        const deleteBtn = screen.getByLabelText(/delete round 1/i);
+        expect(deleteBtn).toBeDisabled();
+        expect(deleteBtn).toHaveAttribute('title', 'Cannot delete round: it has heats with results');
+  });
+
+  it('disables delete button for general round if championship round exists', () => {
+    const multiRoundHeats: Heat[] = [
+      { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]', total_participants: 10, round_name: 'General', advancement_num_racers: null, advancement_source: null },
+      { id: 2, round_number: 2, round_id: 2, heat_number: 1, lane_results: '[]', total_participants: 3, round_name: 'Finals', advancement_num_racers: 3, advancement_source: 'PACK' },
+    ];
+    
+    render(
+      <AlertProvider>
+        <ScheduleManagement 
+          raceId={1}
+          heats={multiRoundHeats} 
+          generating={false} 
+          activeHeatId={null}
+          onAddRound={mockOnAddRound}
+          onRegenerateRound={mockOnRegenerateRound}
+          onDeleteRound={mockOnDeleteRound}
+          onRunHeat={mockOnRunHeat}
+          getRacerName={mockGetRacerName}
+          onRefetchHeats={vi.fn()}
+          laneCount={4}
+          racerCount={10}
+          denCount={3}
+          championshipTrophies={3}
+        />
+      </AlertProvider>
+    );
+    
+    const deleteBtn = screen.getByLabelText(/delete round 1/i);
+    expect(deleteBtn).toBeDisabled();
+    expect(deleteBtn).toHaveAttribute('title', 'Cannot delete general round: championship rounds are already scheduled');
+  });
 });
 

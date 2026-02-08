@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from backend import models
 from backend.main import app, get_db
 import uuid
+import json
 
 # Use in-memory SQLite for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test_main.db"
@@ -102,6 +103,99 @@ def test_create_championship_round_fails_without_general():
     )
     assert resp.status_code == 400
     assert "no general rounds exist" in resp.json()["detail"]
+
+def test_delete_round_restriction_with_results():
+    """Test that a round cannot be deleted if it has heats with results."""
+    # 1. Create a group then a race
+    group_name = get_unique_name("Deletion Test Group")
+    group = client.post("/groups/", json={"name": group_name}).json()
+    group_id = group["id"]
+    
+    race_data = {"name": "Deletion Test Race", "lane_count": 4, "group_id": group_id}
+    race = client.post("/races/", json=race_data).json()
+    race_id = race["id"]
+    
+    # 2. Add racers
+    for i in range(1, 5):
+        resp = client.post("/racers/", json={
+            "first_name": f"Racer{i}",
+            "last_name": "Test",
+            "car_number": i,
+            "race_id": race_id,
+            "den_id": None
+        })
+        assert resp.status_code == 200, f"Racer creation failed: {resp.json()}"
+
+    # 3. Add a round
+    round_data = {"name": "Test Round", "runs_per_lane": 1, "general_type": "PACK", "race_id": race_id}
+    resp = client.post(f"/races/{race_id}/rounds", json=round_data)
+    round_list = resp.json()
+    assert resp.status_code == 200, f"Round creation failed: {round_list}"
+    round_id = round_list[0]["id"]
+    
+    # 4. Get heats and add result to one
+    heats = client.get(f"/races/{race_id}/heats").json()
+    heat_id = heats[0]["id"]
+    resp = client.put(f"/heats/{heat_id}", json={
+        "id": heat_id,
+        "race_id": race_id,
+        "round_id": round_id,
+        "heat_number": 1,
+        "round_number": 1,
+        "lane_results": json.dumps([{"lane": 1, "racer_id": 1, "time": 3.45}]),
+        "total_participants": len(heats) # Just for completeness
+    })
+    assert resp.status_code == 200, f"Heat update failed: {resp.json()}"
+    
+    # 5. Try to delete the round - should fail
+    resp = client.delete(f"/rounds/{round_id}")
+    assert resp.status_code == 400
+    assert "has heats with results" in resp.json()["detail"]
+    
+    # 6. Clear result and try again - should succeed
+    resp = client.put(f"/heats/{heat_id}", json={
+        "id": heat_id,
+        "race_id": race_id,
+        "round_id": round_id,
+        "heat_number": 1,
+        "round_number": 1,
+        "lane_results": json.dumps([{"lane": 1, "racer_id": 1, "time": None}]),
+        "total_participants": len(heats)
+    })
+    assert resp.status_code == 200, f"Heat clear failed: {resp.json()}"
+    
+    resp = client.delete(f"/rounds/{round_id}")
+    assert resp.status_code == 200
+    assert resp.json()["message"] == "Round deleted"
+
+def test_delete_round_restriction_with_championship():
+    """Test that a general round cannot be deleted if a championship round exists."""
+    # 1. Setup race and racers
+    group_name = get_unique_name("Champ Deletion Group")
+    group = client.post("/groups/", json={"name": group_name}).json()
+    race_id = client.post("/races/", json={"name": "Champ Race", "lane_count": 4, "group_id": group["id"]}).json()["id"]
+    for i in range(1, 5):
+        client.post("/racers/", json={"first_name": f"R{i}", "last_name": "T", "car_number": i, "race_id": race_id, "den_id": None})
+
+    # 2. Add General Round
+    round_data = {"name": "General", "runs_per_lane": 1, "general_type": "PACK", "race_id": race_id}
+    gen_round_id = client.post(f"/races/{race_id}/rounds", json=round_data).json()[0]["id"]
+    
+    # 3. Add Championship Round
+    champ_data = {
+        "name": "Finals", 
+        "runs_per_lane": 1, 
+        "advancement_source": "PACK", 
+        "advancement_num_racers": 3,
+        "race_id": race_id,
+        "scheduling_strategy": "PPC"
+    }
+    client.post(f"/races/{race_id}/rounds", json=champ_data)
+    
+    # 4. Try to delete general round - should fail
+    resp = client.delete(f"/rounds/{gen_round_id}")
+    assert resp.status_code == 400
+    assert "championship rounds are already scheduled" in resp.json()["detail"]
 
 def test_read_main():
     response = client.get("/")

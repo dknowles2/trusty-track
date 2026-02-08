@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { RoundConfigModal } from './RoundConfigModal';
 import { RoundWizard } from './RoundWizard';
 import Icon from '@mdi/react';
-import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix } from '@mdi/js';
+import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix, mdiDelete } from '@mdi/js';
 import {
   DndContext,
   closestCenter,
@@ -42,6 +42,7 @@ interface ScheduleManagementProps {
   activeHeatId: number | null;
   onAddRound: (config: any) => Promise<void>;
   onRegenerateRound: (roundNumber: number, silent?: boolean) => Promise<void>;
+  onDeleteRound: (roundId: number) => Promise<void>;
   onRefetchHeats: () => Promise<void>;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   getRacerName: (id: number) => string;
@@ -184,6 +185,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   activeHeatId,
   onAddRound,
   onRegenerateRound,
+  onDeleteRound,
   onRefetchHeats,
   onRunHeat,
   getRacerName,
@@ -406,6 +408,17 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                 return results.some((r: any) => r.time !== null);
               });
 
+              const hasChampionshipRounds = heats.some(h => 
+                h.round_id !== roundId && !!h.advancement_source
+              );
+              const isGeneralRound = !roundHeats[0]?.advancement_source;
+              
+              const cannotDeleteReason = isAnyStarted 
+                ? "Cannot delete round: it has heats with results" 
+                : (isGeneralRound && hasChampionshipRounds)
+                    ? "Cannot delete general round: championship rounds are already scheduled"
+                    : null;
+
               return (
                 <div key={roundNum} style={{
                   minWidth: '350px',
@@ -418,21 +431,44 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     <h3 style={{ margin: 0, color: 'var(--scouting-blue)' }}>
                       {roundHeats[0]?.round_name || `Round ${roundNum}`}
                     </h3>
-                    {/* Only show regenerate for non-championship rounds (rounds without advancement status) */
-                     !isAnyStarted && roundId && !advancementStatuses[roundId] && (
-                      <button
-                        onClick={() => onRegenerateRound(roundId)}
-                        className="secondary-btn"
-                        disabled={generating || reordering}
-                        style={{
-                          position: 'absolute', right: 0, padding: '2px 8px', fontSize: '0.7rem',
-                          display: 'flex', alignItems: 'center', gap: '3px'
-                        }}
-                        title="Refresh the schedule based on latest timing data"
-                      >
-                        <Icon path={mdiCached} size={0.6} /> Regenerate
-                      </button>
-                    )}
+                    <div style={{ display: 'flex', gap: '5px', position: 'absolute', right: 0 }}>
+                      {!isAnyStarted && roundId && !advancementStatuses[roundId] && (
+                        <button
+                          onClick={() => onRegenerateRound(roundId)}
+                          className="secondary-btn"
+                          disabled={generating || reordering}
+                          style={{
+                               padding: '2px 8px', fontSize: '0.7rem',
+                            display: 'flex', alignItems: 'center', gap: '3px'
+                          }}
+                          title="Refresh the schedule based on latest timing data"
+                        >
+                          <Icon path={mdiCached} size={0.6} /> Regenerate
+                        </button>
+                      )}
+                      {roundId && (
+                        <button
+                          onClick={async () => {
+                            if (window.confirm('Are you sure you want to delete this round and all its heats? This action cannot be undone.')) {
+                              await onDeleteRound(roundId);
+                            }
+                          }}
+                          className="secondary-btn"
+                          disabled={generating || reordering || !!cannotDeleteReason}
+                          aria-label={`Delete Round ${roundNum}`}
+                          style={{
+                            padding: '2px 8px', fontSize: '0.7rem',
+                            display: 'flex', alignItems: 'center', gap: '3px',
+                            color: '#d32f2f',
+                            opacity: (generating || reordering || !!cannotDeleteReason) ? 0.5 : 1,
+                            cursor: (generating || reordering || !!cannotDeleteReason) ? 'not-allowed' : 'pointer'
+                          }}
+                          title={cannotDeleteReason || "Delete this round"}
+                        >
+                          <Icon path={mdiDelete} size={0.6} /> Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {roundId && advancementStatuses[roundId] && (
