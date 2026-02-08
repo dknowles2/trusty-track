@@ -631,11 +631,52 @@ def reorder_heats(request: schemas.HeatReorderRequest, db: Session = Depends(get
 
 @app.put("/heats/{heat_id}", response_model=schemas.Heat)
 def update_heat(heat_id: int, heat: schemas.HeatCreate, db: Session = Depends(get_db)):
+    # Check if we are resetting a previously completed heat
+    existing_heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    is_resetting = False
+    if existing_heat and existing_heat.lane_results:
+        try:
+            old_results = json.loads(existing_heat.lane_results)
+            old_complete = any(r.get('time') is not None for r in old_results)
+            
+            # Check new results
+            new_results = json.loads(heat.lane_results)
+            new_complete = any(r.get('time') is not None for r in new_results)
+            
+            if old_complete and not new_complete:
+                is_resetting = True
+        except Exception:
+            pass
+
     db_heat = crud.update_heat(db, heat_id=heat_id, heat=heat)
     if db_heat is None:
         raise HTTPException(status_code=404, detail="Heat not found")
     
-    # Check for automatic advancement
+    if is_resetting:
+        # If this was the last heat of a General Round, we need to revert the Championship Round
+        try:
+            # Check if last heat
+            round_heats = db.query(models.Heat).filter(models.Heat.round_id == db_heat.round_id).all()
+            if round_heats:
+                max_heat_num = max(h.heat_number for h in round_heats)
+                if db_heat.heat_number == max_heat_num:
+                    # Check if General Round (no advancement source set on the round itself)
+                    round_obj = db.query(models.Round).filter(models.Round.id == db_heat.round_id).first()
+                    if round_obj and not round_obj.advancement_source:
+                        # Find next round that Might have been populated
+                        next_round = db.query(models.Round).filter(
+                             models.Round.race_id == db_heat.race_id,
+                             models.Round.round_number > round_obj.round_number,
+                             models.Round.advancement_source != None
+                        ).order_by(models.Round.round_number.asc()).first()
+                        
+                        if next_round:
+                            print(f"Heat reset detected on last heat of round {round_obj.id}. Reverting round {next_round.id}...")
+                            crud.revert_round_to_placeholders(db, next_round.id)
+        except Exception as e:
+            print(f"Error handling heat reset logic: {e}")
+
+    # Check for automatic advancement (forward direction)
     try:
         _check_and_advance_championship(db, db_heat.race_id)
     except Exception as e:

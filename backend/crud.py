@@ -629,3 +629,41 @@ def update_heat(db: Session, heat_id: int, heat: schemas.HeatCreate) -> models.H
     db.commit()
     db.refresh(db_heat)
     return db_heat
+
+def revert_round_to_placeholders(db: Session, round_id: int):
+    """
+    Revert a round to use placeholder racers.
+    Used when a previous round's results depend on this round and are reset.
+    """
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if not round_obj:
+        return
+
+    # Calculate number of placeholders
+    num_placeholders = round_obj.advancement_num_racers or 0
+    if round_obj.advancement_source == "DEN":
+        den_count = db.query(models.Den).filter(models.Den.race_id == round_obj.race_id).count()
+        num_placeholders = (round_obj.advancement_num_racers or 0) * den_count
+    
+    if num_placeholders <= 0:
+        return # Cannot revert if no placeholders defined
+
+    # Count existing heats to determine runs_per_lane
+    existing_heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    if not existing_heats:
+        return
+        
+    # Check if we can determine runs per lane
+    if len(existing_heats) % num_placeholders != 0:
+        # Fallback if mismatch
+        runs_per_lane = 1
+    else:
+        runs_per_lane = len(existing_heats) // num_placeholders
+        
+    # Regenerate
+    for i in range(runs_per_lane):
+        generate_heats_for_round(
+            db, round_id, 
+            num_placeholders=num_placeholders, 
+            clear_existing=(i == 0)
+        )
