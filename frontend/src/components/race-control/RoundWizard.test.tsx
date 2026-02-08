@@ -15,10 +15,6 @@ vi.mock('../../api/client', () => ({
 describe('RoundWizard Component', () => {
     const mockOnClose = vi.fn();
     const mockOnCreated = vi.fn();
-    const mockDens = [
-        { id: 1, name: 'Den A' },
-        { id: 2, name: 'Den B' }
-    ];
 
     const defaultProps = {
         isOpen: true,
@@ -27,7 +23,6 @@ describe('RoundWizard Component', () => {
         racerCount: 10,
         denCount: 2,
         laneCount: 4,
-        dens: mockDens,
         onCreated: mockOnCreated
     };
 

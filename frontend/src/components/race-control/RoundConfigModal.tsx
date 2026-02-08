@@ -5,7 +5,6 @@ interface RoundConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (schedulingStrategy: string, name?: string) => Promise<void>;
-  currentRoundCount: number;  // Number of existing rounds
 }
 
 export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({

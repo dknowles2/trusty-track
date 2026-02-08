@@ -11,7 +11,6 @@ interface RoundWizardProps {
   racerCount: number;
   denCount: number;
   laneCount: number;
-  dens: { id: number; name: string }[];
   onCreated: () => void;
 }
 

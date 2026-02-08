@@ -83,7 +83,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -106,7 +105,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -131,7 +129,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -156,7 +153,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -182,7 +178,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -214,7 +209,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -246,7 +240,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -272,7 +265,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -310,7 +302,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -352,7 +343,6 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
-                    dens={[]}
                 />
             </AlertProvider>
         );

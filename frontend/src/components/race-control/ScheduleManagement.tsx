@@ -45,7 +45,6 @@ interface ScheduleManagementProps {
   laneCount: number;
   racerCount: number;
   denCount: number;
-  dens: { id: number; name: string }[];
 }
 
 interface AdvancementRacer {
@@ -187,7 +186,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   laneCount,
   racerCount,
   denCount,
-  dens,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -337,7 +335,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           racerCount={racerCount}
           denCount={denCount}
           laneCount={laneCount}
-          dens={dens}
           onCreated={async () => {
               await onRefetchHeats();
           }}
@@ -347,7 +344,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleAddRound}
-          currentRoundCount={sortedRounds.length}
         />
 
         {sortedRounds.length === 0 ? (

@@ -389,7 +389,6 @@ export default function RaceControl() {
           laneCount={laneCount} 
           racerCount={Object.keys(racers).length}
           denCount={dens.length}
-          dens={dens}
         />
       )}
     </div>
