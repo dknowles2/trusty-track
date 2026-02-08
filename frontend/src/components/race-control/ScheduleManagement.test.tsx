@@ -42,6 +42,17 @@ vi.mock('@dnd-kit/utilities', () => ({
   },
 }));
 
+// Mock apiClient
+vi.mock('../../api/client', () => ({
+  apiClient: {
+    get: vi.fn(() => Promise.resolve({})), // Default empty response
+    post: vi.fn(),
+    put: vi.fn(),
+  }
+}));
+
+import { apiClient } from '../../api/client';
+
 describe('ScheduleManagement', () => {
     const mockHeats = [
         { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]' },
@@ -69,6 +80,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -88,6 +103,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -109,6 +128,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -130,6 +153,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -152,6 +179,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -180,6 +211,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -208,6 +243,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -230,6 +269,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -264,6 +307,10 @@ describe('ScheduleManagement', () => {
                     onRunHeat={mockOnRunHeat}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
                 />
             </AlertProvider>
         );
@@ -271,4 +318,53 @@ describe('ScheduleManagement', () => {
         expect(screen.getByText('Semi-Finals')).toBeInTheDocument();
         expect(screen.queryByText('Round 1')).not.toBeInTheDocument();
     });
+
+    it('hides regenerate button for championship rounds', async () => {
+        const roundId = 1;
+        const heats = [
+            { id: 1, round_number: 1, round_id: roundId, heat_number: 1, lane_results: '[{"racer_id": -1, "lane": 1}]' }, // Needs placeholder to trigger fetch
+        ];
+
+        // Mock apiClient to return advancement status for this round
+        (apiClient.get as any).mockImplementation((url: string) => {
+            if (url.endsWith('advancement_status')) {
+                return Promise.resolve({
+                    already_advanced: false,
+                    is_ready: true,
+                    advancing_racers: []
+                });
+            }
+            return Promise.resolve({});
+        });
+
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={heats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    dens={[]}
+                />
+            </AlertProvider>
+        );
+
+        // Verify API was called
+        // We know it might take a tick, so we wait or expect
+        
+        // Wait for usage of useEffect
+        await screen.findByText(/Auto-Advancement Pending/i);
+
+        // Check that regenerate button is NOT present
+        expect(screen.queryByText('Regenerate')).not.toBeInTheDocument();
+    });
 });
+

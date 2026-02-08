@@ -23,7 +23,13 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def override_dependency():
+    original = app.dependency_overrides.copy()
+    app.dependency_overrides[get_db] = override_get_db
+    yield
+    app.dependency_overrides = original
+
 client = TestClient(app)
 
 
@@ -129,6 +135,9 @@ def test_reorder_heats_success(db, test_race):
     
     response = client.put("/heats/reorder", json={"heat_updates": heat_updates})
     
+    if response.status_code != 200:
+        print(f"Reorder failed: {response.json()}")
+
     assert response.status_code == 200
     data = response.json()
     assert data["updated_count"] == 3

@@ -33,7 +33,9 @@ export default function RaceControl() {
   const [generating, setGenerating] = useState(false);
   const [activeHeatId, setActiveHeatId] = useState<number | null>(null);
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
+  const [dens, setDens] = useState<{ id: number, name: string }[]>([]);
   const [timerType, setTimerType] = useState<string | null>(null);
+  const [laneCount, setLaneCount] = useState<number>(4);
 
   useEffect(() => {
     if (raceId) {
@@ -67,13 +69,16 @@ export default function RaceControl() {
   const fetchData = async (id: number) => {
       setLoading(true);
       try {
-          const [heatsData, racersData, configData] = await Promise.all([
+          const [heatsData, racersData, configData, densData] = await Promise.all([
               apiClient.get(`/races/${id}/heats`),
               apiClient.get(`/racers/?race_id=${id}`),
-              apiClient.get('/config/initial')
+              apiClient.get('/config/initial'),
+              apiClient.get(`/races/${id}/dens/`)
           ]);
           setHeats(heatsData);
           setTimerType(configData.timer_type);
+          setLaneCount(configData.lane_count || 4);
+          setDens(densData);
           
           const racerMap: Record<number, Racer> = {};
           racersData.forEach((r: Racer) => {
@@ -115,13 +120,10 @@ export default function RaceControl() {
     }
   };
 
-  const handleRegenerateRound = async (roundNumber: number, silent: boolean = false) => {
+  const handleRegenerateRound = async (roundId: number, silent: boolean = false) => {
     if (!activeRaceId) return;
     setGenerating(true);
     try {
-      const roundId = heats.find(h => h.round_number === roundNumber)?.round_id;
-      if (!roundId) throw new Error('Round not found');
-      
       await apiClient.post(`/rounds/${roundId}/generate_heats`, {});
       if (activeRaceId) {
           const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
@@ -233,6 +235,9 @@ export default function RaceControl() {
   };
 
   const getRacerName = (id: number) => {
+      if (id < 0) {
+          return `Top ${Math.abs(id)}`;
+      }
       const r = racers[id];
       if (!r) return `Racer #${id}`;
       return `${r.first_name} ${r.last_name} (#${r.car_number})`;
@@ -381,6 +386,10 @@ export default function RaceControl() {
           onRefetchHeats={refetchHeats}
           onRunHeat={handleRunHeat}
           getRacerName={getRacerName}
+          laneCount={laneCount} 
+          racerCount={Object.keys(racers).length}
+          denCount={dens.length}
+          dens={dens}
         />
       )}
     </div>

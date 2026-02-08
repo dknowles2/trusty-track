@@ -9,6 +9,7 @@ import shutil
 import csv
 import io
 import random
+import json
 from . import crud, models, schemas, scoring
 from .database import SessionLocal, engine
 
@@ -279,6 +280,201 @@ async def import_racers_csv(race_id: int, file: UploadFile = File(...), db: Sess
         "errors": errors
     }
 
+@app.post("/races/{race_id}/wizard", response_model=List[schemas.Round])
+def create_race_wizard(race_id: int, config: schemas.WizardConfiguration, db: Session = Depends(get_db)):
+    # 1. Verification: ensure race exists
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if not race:
+        raise HTTPException(status_code=404, detail="Race not found")
+    
+    # Check if rounds already exist - we only allow wizard if no rounds exist
+    existing_rounds = crud.get_rounds(db, race_id)
+    if existing_rounds:
+        raise HTTPException(status_code=400, detail="Cannot use wizard: rounds already exist for this race.")
+
+    created_rounds = []
+    current_round_number = 1
+
+    try:
+        # 2. Create General Rounds
+        if config.general_round.type == "PACK":
+            # Single PACK round
+            round_obj = crud.create_round(
+                db, race_id, current_round_number, 
+                models.SchedulingStrategy.PPC, "All Pack"
+            )
+            
+            # Generate Heats (stacking if runs_per_lane > 1)
+            for i in range(config.general_round.runs_per_lane):
+                crud.generate_heats_for_round(db, round_obj.id, clear_existing=(i == 0))
+                
+            created_rounds.append(round_obj)
+            current_round_number += 1
+        
+        elif config.general_round.type == "DEN":
+            # Round per Den
+            dens = crud.get_dens(db, race_id)
+            for den in dens:
+                # Check if den has racers
+                racers = db.query(models.Racer).filter(models.Racer.den_id == den.id).all()
+                if not racers:
+                    continue
+                    
+                round_obj = crud.create_round(
+                    db, race_id, current_round_number,
+                    models.SchedulingStrategy.PPC, den.name
+                )
+                
+                p_ids = [r.id for r in racers]
+                # Generate Heats (stacking if runs_per_lane > 1)
+                for i in range(config.general_round.runs_per_lane):
+                    crud.generate_heats_for_round(db, round_obj.id, racer_ids=p_ids, clear_existing=(i == 0))
+                
+                created_rounds.append(round_obj)
+                current_round_number += 1
+    
+        # 3. Create Championship Rounds
+        for champ_cfg in config.championship_rounds:
+            round_obj = crud.create_round(
+                db, race_id, current_round_number,
+                models.SchedulingStrategy.PPC, champ_cfg.name,
+                advancement_source=champ_cfg.source,
+                advancement_num_racers=champ_cfg.num_top_racers
+            )
+            
+            # Calculate number of placeholders
+            num_placeholders = champ_cfg.num_top_racers
+            if champ_cfg.source == "DEN":
+                den_count = db.query(models.Den).filter(models.Den.race_id == race_id).count()
+                num_placeholders = champ_cfg.num_top_racers * den_count
+    
+            # Generate with placeholders (stacking if runs_per_lane > 1)
+            for i in range(champ_cfg.runs_per_lane):
+                crud.generate_heats_for_round(db, round_obj.id, num_placeholders=num_placeholders, clear_existing=(i == 0))
+                
+            created_rounds.append(round_obj)
+            current_round_number += 1
+
+    except ValueError as e:
+        # Rollback or clean up? 
+        # Since we are in a single transaction (implicitly via FastAPI dependency), raising HTTPException might rollback?
+        # Actually explicit rollback might be safer if we committed anything partial.
+        # But create_round commits? Yes crud.py usually commits.
+        # So we likely have partial rounds created.
+        # Ideally we should delete them.
+        for r in created_rounds:
+            crud.delete_round(db, r.id)
+        
+        raise HTTPException(status_code=400, detail=str(e))
+
+    db.commit()
+    return created_rounds
+
+
+# --- Advancement Endpoints ---
+
+@app.get("/races/{race_id}/rounds/{round_id}/advancement_status", response_model=schemas.AdvancementStatus)
+def get_round_advancement_status(race_id: int, round_id: int, db: Session = Depends(get_db)):
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if not round_obj:
+        raise HTTPException(status_code=404, detail="Round not found")
+    
+    requires_advancement = round_obj.advancement_source is not None
+    
+    # Check if already advanced (no placeholders left)
+    heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    already_advanced = True
+    any_placeholder = False
+    for heat in heats:
+        if heat.lane_results:
+            results = json.loads(heat.lane_results)
+            for res in results:
+                if res.get("racer_id") is not None and res.get("racer_id") < 0:
+                    any_placeholder = True
+                    already_advanced = False
+                    break
+        if not already_advanced:
+            break
+    
+    if not any_placeholder and requires_advancement:
+        # If no placeholders were even found, but it requires advancement, 
+        # it might mean it was already advanced or it's empty.
+        # Let's trust already_advanced logic.
+        pass
+
+    # Check if ready (previous rounds completed)
+    # Get all rounds for this race, sorted by round_number
+    all_rounds = db.query(models.Round).filter(models.Round.race_id == race_id).order_by(models.Round.round_number).all()
+    
+    is_ready = True
+    for r in all_rounds:
+        if r.round_number < round_obj.round_number:
+            # Check if all heats in this previous round are completed
+            previous_heats = db.query(models.Heat).filter(models.Heat.round_id == r.id).all()
+            for ph in previous_heats:
+                if not ph.lane_results:
+                    is_ready = False
+                    break
+                results = json.loads(ph.lane_results)
+                # Check if any lane result is missing a time/place (if not placeholder)
+                for res in results:
+                    if res.get("racer_id") is not None and res.get("racer_id") > 0:
+                        if res.get("time") is None and res.get("place") is None:
+                            is_ready = False
+                            break
+                if not is_ready:
+                    break
+        if not is_ready:
+            break
+
+    # Calculate advancing racers if ready/needed
+    advancing_racers = []
+    if requires_advancement:
+        winner_ids = scoring.get_advancing_racers(
+            db, race_id, round_obj.advancement_source, round_obj.advancement_num_racers
+        )
+        
+        # Get racer details for response
+        standings = scoring.get_leaderboard(db, race_id)
+        standings_map = {s["racer_id"]: s for s in standings}
+        
+        for rid in winner_ids:
+            s_data = standings_map.get(rid)
+            if s_data:
+                advancing_racers.append(schemas.AdvancementRacer(**s_data))
+
+    return schemas.AdvancementStatus(
+        is_ready=is_ready,
+        requires_advancement=requires_advancement,
+        already_advanced=already_advanced,
+        advancing_racers=advancing_racers,
+        source=round_obj.advancement_source,
+        num_racers=round_obj.advancement_num_racers
+    )
+
+
+@app.post("/races/{race_id}/rounds/{round_id}/advance")
+def advance_to_round(race_id: int, round_id: int, db: Session = Depends(get_db)):
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if not round_obj:
+        raise HTTPException(status_code=404, detail="Round not found")
+    
+    if not round_obj.advancement_source:
+        raise HTTPException(status_code=400, detail="This round is not configured for automatic advancement.")
+    
+    # Get winners
+    winner_ids = scoring.get_advancing_racers(
+        db, race_id, round_obj.advancement_source, round_obj.advancement_num_racers
+    )
+    
+    if not winner_ids:
+        raise HTTPException(status_code=400, detail="No racers found to advance. Are previous rounds finished?")
+    
+    # Resolve placeholders
+    crud.resolve_round_placeholders(db, round_id, winner_ids)
+    
+    return {"status": "success", "racers_advanced": len(winner_ids)}
+
 @app.post("/races/{race_id}/auto_number")
 def auto_number_racers(race_id: int, db: Session = Depends(get_db)):
     count = crud.auto_number_racers(db, race_id)
@@ -346,7 +542,93 @@ def update_heat(heat_id: int, heat: schemas.HeatCreate, db: Session = Depends(ge
     db_heat = crud.update_heat(db, heat_id=heat_id, heat=heat)
     if db_heat is None:
         raise HTTPException(status_code=404, detail="Heat not found")
+    
+    # Check for automatic advancement
+    try:
+        _check_and_advance_championship(db, db_heat.race_id)
+    except Exception as e:
+        # Log error but don't fail the heat update request
+        print(f"Auto-advancement error: {e}")
+        
     return db_heat
+
+def _check_and_advance_championship(db: Session, race_id: int):
+    """
+    Check if all general rounds are complete and trigger championship population if needed.
+    """
+    # 1. Identify General Rounds (advancement_source is NULL)
+    gen_rounds = db.query(models.Round).filter(
+        models.Round.race_id == race_id,
+        models.Round.advancement_source == None
+    ).all()
+    
+    if not gen_rounds:
+        return
+        
+    # 2. Check if ALL heats in these rounds are complete
+    gen_round_ids = [r.id for r in gen_rounds]
+    
+    # We must check completion by parsing JSON, because lane_results is rarely None.
+    gen_heats = db.query(models.Heat).filter(
+        models.Heat.round_id.in_(gen_round_ids)
+    ).all()
+    
+    for heat in gen_heats:
+        if not heat.lane_results:
+            return # Incomplete (no results structure at all)
+        try:
+            results = json.loads(heat.lane_results)
+            # Check if any assigned racer is missing a time
+            for r in results:
+                if r.get("racer_id") is not None and r.get("time") is None:
+                    return # Heat not finished
+        except:
+            return # Error or bad format, assume incomplete
+
+    # 3. Process Championship Rounds
+    champ_rounds = db.query(models.Round).filter(
+        models.Round.race_id == race_id,
+        models.Round.advancement_source != None
+    ).all()
+    
+    for round_obj in champ_rounds:
+        # Check if already started (has ANY results with times)
+        champ_heats = db.query(models.Heat).filter(
+            models.Heat.round_id == round_obj.id
+        ).all()
+        
+        round_started = False
+        for heat in champ_heats:
+            if heat.lane_results:
+                try:
+                    results = json.loads(heat.lane_results)
+                    for r in results:
+                        if r.get("time") is not None:
+                            round_started = True
+                            break
+                except:
+                    pass
+            if round_started:
+                break
+        
+        if round_started:
+            continue  # Skip already started rounds
+            
+        # Calculate winners
+        winner_ids = scoring.get_advancing_racers(
+            db, race_id, round_obj.advancement_source, round_obj.advancement_num_racers
+        )
+        
+        if not winner_ids:
+            continue
+            
+        # Re-generate heats with actual racers
+        try:
+            crud.generate_heats_for_round(
+                db, round_obj.id, racer_ids=winner_ids, clear_existing=True
+            )
+        except Exception as e:
+            print(f"Failed to populate round {round_obj.id}: {e}")
 
 @app.get("/races/{race_id}/scores")
 def get_race_scores(race_id: int, db: Session = Depends(get_db)):

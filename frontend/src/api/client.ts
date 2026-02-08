@@ -6,7 +6,14 @@ async function handleResponse(response: Response) {
     try {
       const errorBody = await response.json();
       if (errorBody && errorBody.detail) {
-        errorDetail = errorBody.detail;
+        if (Array.isArray(errorBody.detail)) {
+          // Handle Pydantic validation errors (array of objects)
+          errorDetail = errorBody.detail
+            .map((err: any) => err.msg || JSON.stringify(err))
+            .join('; ');
+        } else {
+          errorDetail = errorBody.detail;
+        }
       }
     } catch (e) {
       // Not a JSON error or other issue, use statusText
@@ -17,14 +24,14 @@ async function handleResponse(response: Response) {
 }
 
 export const apiClient = {
-  get: async (endpoint: string) => {
+  get: async <T = any>(endpoint: string): Promise<T> => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`);
     return handleResponse(response);
   },
-  post: async (endpoint: string, data: any) => {
+  post: async <T = any>(endpoint: string, data: any): Promise<T> => {
     const isFormData = data instanceof FormData;
     const headers: HeadersInit = isFormData ? {} : { 'Content-Type': 'application/json' };
-
+  
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: headers,
@@ -32,10 +39,10 @@ export const apiClient = {
     });
     return handleResponse(response);
   },
-  put: async (endpoint: string, data: any) => {
+  put: async <T = any>(endpoint: string, data: any): Promise<T> => {
     const isFormData = data instanceof FormData;
     const headers: HeadersInit = isFormData ? {} : { 'Content-Type': 'application/json' };
-
+  
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
       headers: headers,
@@ -43,7 +50,7 @@ export const apiClient = {
     });
     return handleResponse(response);
   },
-  delete: async (endpoint: string) => {
+  delete: async <T = any>(endpoint: string): Promise<T> => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',
     });

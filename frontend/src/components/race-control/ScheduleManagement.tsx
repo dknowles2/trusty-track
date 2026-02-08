@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { RoundConfigModal } from './RoundConfigModal';
+import { RoundWizard } from './RoundWizard';
 import Icon from '@mdi/react';
-import { mdiCached, mdiPlus, mdiDragVertical } from '@mdi/js';
+import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix } from '@mdi/js';
 import {
   DndContext,
   closestCenter,
@@ -41,6 +42,29 @@ interface ScheduleManagementProps {
   onRefetchHeats: () => Promise<void>;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   getRacerName: (id: number) => string;
+  laneCount: number;
+  racerCount: number;
+  denCount: number;
+  dens: { id: number; name: string }[];
+}
+
+interface AdvancementRacer {
+  racer_id: number;
+  first_name: string;
+  last_name: string;
+  car_number?: number;
+  den_name: string;
+  score: number;
+  rank: number;
+}
+
+interface AdvancementStatus {
+  is_ready: boolean;
+  requires_advancement: boolean;
+  already_advanced: boolean;
+  advancing_racers: AdvancementRacer[];
+  source?: string;
+  num_racers?: number;
 }
 
 interface SortableHeatCardProps {
@@ -50,6 +74,12 @@ interface SortableHeatCardProps {
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
 }
+
+const getDisplayName = (id: number, getRacerName: (id: number) => string) => {
+  if (id === null) return "Empty";
+  if (id < 0) return `Placeholder ${Math.abs(id)}`;
+  return getRacerName(id);
+};
 
 const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
   heat,
@@ -128,8 +158,10 @@ const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
           <div style={{ fontSize: '0.85rem' }}>
             {laneResults.map((r: any) => (
               <div key={r.lane} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
-                <span style={{ fontWeight: 'bold', width: '30px', color: '#666' }}>L{r.lane}</span>
-                <span style={{ flex: 1, paddingLeft: '5px' }}>{getRacerName(r.racer_id)}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', minWidth: '80px' }}>
+                  <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', marginBottom: '2px' }}>Lane {r.lane}</span>
+                  <span style={{ fontWeight: 500 }}>{getDisplayName(r.racer_id, getRacerName)}</span>
+                </div>
                 <span style={{ textAlign: 'right', minWidth: '50px', fontFamily: 'monospace' }}>
                   {r.time ? `${r.time}s` : ''}
                 </span>
@@ -143,7 +175,7 @@ const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
 };
 
 export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
-  raceId: _raceId,
+  raceId,
   heats,
   generating,
   activeHeatId,
@@ -152,10 +184,53 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onRefetchHeats,
   onRunHeat,
   getRacerName,
+  laneCount,
+  racerCount,
+  denCount,
+  dens,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [advancementStatuses, setAdvancementStatuses] = useState<Record<number, AdvancementStatus>>({});
   const { showToast } = useAlert();
+  const _raceId = raceId;
+
+  const rounds = heats.reduce((acc, heat) => {
+    if (!acc[heat.round_number]) {
+      acc[heat.round_number] = [];
+    }
+    acc[heat.round_number].push(heat);
+    return acc;
+  }, {} as Record<number, Heat[]>);
+
+  const fetchAdvancementStatus = async (roundId: number) => {
+    try {
+      const response = await apiClient.get<AdvancementStatus>(`/races/${_raceId}/rounds/${roundId}/advancement_status`);
+      setAdvancementStatuses(prev => ({ ...prev, [roundId]: response }));
+    } catch (error) {
+      console.error('Failed to fetch advancement status:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    // Determine which rounds need status (rounds with placeholders)
+    Object.values(rounds).forEach(roundHeats => {
+        const roundId = roundHeats[0]?.round_id;
+        if (!roundId) return;
+        
+        const hasPlaceholders = roundHeats.some(h => {
+            if (!h.lane_results) return false;
+            const res = JSON.parse(h.lane_results);
+            return res.some((r: any) => r.racer_id < 0);
+        });
+
+        if (hasPlaceholders && !advancementStatuses[roundId]) {
+            fetchAdvancementStatus(roundId);
+        }
+    });
+  }, [rounds, _raceId, advancementStatuses]); // Added dependencies for useEffect
+
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -163,13 +238,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  // Group Heats by Round for Schedule View
-  const rounds: Record<number, Heat[]> = {};
-  heats.forEach(h => {
-    if (!rounds[h.round_number]) rounds[h.round_number] = [];
-    rounds[h.round_number].push(h);
-  });
 
   const sortedRounds = Object.keys(rounds).map(Number).sort((a, b) => a - b);
 
@@ -250,15 +318,39 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               </span>
             </div>
           )}
-          <button
-            className="primary-btn"
-            onClick={() => setIsModalOpen(true)}
-            disabled={generating || reordering}
-            style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.1)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}
-          >
-            <Icon path={mdiPlus} size={0.8} /> Add Round
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+                className="secondary-btn"
+                onClick={() => setIsWizardOpen(true)}
+                disabled={generating || reordering || sortedRounds.length > 0}
+                style={{ boxShadow: '0 1px 2px rgba(0,0,0,1)', display: 'flex', alignItems: 'center', gap: '5px' }}
+                title={sortedRounds.length > 0 ? "Wizard only available for new races" : "Open Schedule Wizard"}
+            >
+                <Icon path={mdiAutoFix} size={0.7} /> Wizard
+            </button>
+            <button
+                className="primary-btn"
+                onClick={() => setIsModalOpen(true)}
+                disabled={generating || reordering}
+                style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.1)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}
+            >
+                <Icon path={mdiPlus} size={0.8} /> Add Round
+            </button>
+          </div>
         </div>
+
+        <RoundWizard
+          isOpen={isWizardOpen}
+          onClose={() => setIsWizardOpen(false)}
+          raceId={_raceId}
+          racerCount={racerCount}
+          denCount={denCount}
+          laneCount={laneCount}
+          dens={dens}
+          onCreated={async () => {
+              await onRefetchHeats();
+          }}
+        />
 
         <RoundConfigModal
           isOpen={isModalOpen}
@@ -277,7 +369,17 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             color: '#666'
           }}>
             <p style={{ fontSize: '1.1rem', margin: '0 0 10px 0' }}>No rounds yet</p>
-            <p style={{ fontSize: '0.9rem', margin: 0 }}>Click "Add Round" to create your first round and generate heats</p>
+            <p style={{ fontSize: '0.9rem', margin: '0 0 20px 0' }}>Creating your race schedule is easy. Use the wizard to generate all rounds in seconds.</p>
+            <button 
+                className="primary-btn"
+                onClick={() => setIsWizardOpen(true)}
+                style={{ background: '#4caf50', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
+            >
+                <Icon path={mdiAutoFix} size={0.9} /> Start Round Creation Wizard
+            </button>
+            <div style={{ marginTop: '15px', fontSize: '0.8rem' }}>
+                or <button onClick={() => setIsModalOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>manually add a single round</button>
+            </div>
           </div>
         ) : (
           <div style={{
@@ -309,7 +411,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     <h3 style={{ margin: 0, color: 'var(--scouting-blue)' }}>
                       {roundHeats[0]?.round_name || `Round ${roundNum}`}
                     </h3>
-                    {!isAnyStarted && roundId && (
+                    {/* Only show regenerate for non-championship rounds (rounds without advancement status) */
+                     !isAnyStarted && roundId && !advancementStatuses[roundId] && (
                       <button
                         onClick={() => onRegenerateRound(roundId)}
                         className="secondary-btn"
@@ -324,6 +427,37 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                       </button>
                     )}
                   </div>
+
+                  {roundId && advancementStatuses[roundId] && (
+                    <div style={{
+                        background: '#e3f2fd',
+                        border: '1px solid #bbdefb',
+                        borderRadius: '6px',
+                        padding: '10px',
+                        marginBottom: '15px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1565c0' }}>
+                                {advancementStatuses[roundId].already_advanced ? 'Advancement Complete' : 'Auto-Advancement Pending'}
+                            </span>
+                        </div>
+                        {!advancementStatuses[roundId].already_advanced && (
+                            <div style={{ fontSize: '0.75rem', color: '#555' }}>
+                                {advancementStatuses[roundId].is_ready 
+                                    ? `Ready to advance ${advancementStatuses[roundId].advancing_racers.length} racers. Will populate automatically when previous rounds finish.`
+                                    : 'Finish previous rounds to trigger auto-advancement.'}
+                            </div>
+                        )}
+                        {!advancementStatuses[roundId].already_advanced && advancementStatuses[roundId].is_ready && (
+                            <div style={{ fontSize: '0.7rem', color: '#666', fontStyle: 'italic' }}>
+                                Predicted: {advancementStatuses[roundId].advancing_racers.map(r => r.last_name).join(', ')}
+                            </div>
+                        )}
+                    </div>
+                  )}
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}

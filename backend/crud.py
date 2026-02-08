@@ -250,13 +250,15 @@ def get_rounds(db: Session, race_id: int) -> List[models.Round]:
     """Get all rounds for a specific race, ordered by round number."""
     return db.query(models.Round).filter(models.Round.race_id == race_id).order_by(models.Round.round_number).all()
 
-def create_round(db: Session, race_id: int, round_number: int, scheduling_strategy: models.SchedulingStrategy = models.SchedulingStrategy.PPC, name: str | None = None) -> models.Round:
+def create_round(db: Session, race_id: int, round_number: int, scheduling_strategy: models.SchedulingStrategy = models.SchedulingStrategy.PPC, name: str | None = None, advancement_source: str | None = None, advancement_num_racers: int | None = None) -> models.Round:
     """Create a new round for a race."""
     round_obj = models.Round(
         race_id=race_id,
         round_number=round_number,
         scheduling_strategy=scheduling_strategy,
-        name=name
+        name=name,
+        advancement_source=advancement_source,
+        advancement_num_racers=advancement_num_racers
     )
     db.add(round_obj)
     db.commit()
@@ -285,12 +287,11 @@ def delete_round(db: Session, round_id: int) -> bool:
     return False
 
 
-def _generate_ppc(db: Session, race_id: int, round_id: int, racers: List[models.Racer], lane_count: int) -> List[models.Heat]:
+def _generate_ppc(db: Session, race_id: int, round_id: int, p_ids: List[int], lane_count: int, start_heat_num: int = 1) -> List[models.Heat]:
     """
     Generate Partial Perfect Chart (PPC) heats.
     Uses greedy optimization to balance lane usage and maximize opponent variety.
     """
-    p_ids = [r.id for r in racers]
     random.shuffle(p_ids)
     P = len(p_ids)
     L = lane_count
@@ -356,7 +357,7 @@ def _generate_ppc(db: Session, race_id: int, round_id: int, racers: List[models.
         heat = models.Heat(
             race_id=race_id,
             round_id=round_id,
-            heat_number=i + 1,
+            heat_number=start_heat_num + i,
             lane_results=json.dumps(lane_assignment)
         )
         db.add(heat)
@@ -364,10 +365,18 @@ def _generate_ppc(db: Session, race_id: int, round_id: int, racers: List[models.
     return generated_heats
 
 
-def generate_heats_for_round(db: Session, round_id: int) -> List[models.Heat]:
+def generate_heats_for_round(db: Session, round_id: int, num_placeholders: int = 0, racer_ids: List[int] | None = None, clear_existing: bool = True) -> List[models.Heat]:
     """
     Generate heats for a specific round based on its scheduling strategy.
     Supports regeneration if no heats in the round have started.
+    
+    If num_placeholders is > 0, it generates heats for that many "placeholder"
+    racers (using negative IDs -1, -2, etc.).
+    
+    If racer_ids is provided, it uses those specific racers instead of all 
+    racers in the race.
+    
+    If clear_existing is True, it will delete existing heats in the round.
     """
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
     if not round_obj:
@@ -379,7 +388,7 @@ def generate_heats_for_round(db: Session, round_id: int) -> List[models.Heat]:
 
     # Check for existing heats
     existing_heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
-    if existing_heats:
+    if existing_heats and clear_existing:
         # Check if any have results
         for h in existing_heats:
             if h.lane_results:
@@ -395,15 +404,55 @@ def generate_heats_for_round(db: Session, round_id: int) -> List[models.Heat]:
             db.delete(h)
         db.flush() # Ensure deletions are reflected before new generation
 
-    racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
-    if not racers or len(racers) < 2:
-        raise ValueError("Not enough racers to generate a schedule (minimum 2 required)")
+    if num_placeholders > 0:
+        p_ids = [-(i + 1) for i in range(num_placeholders)]
+    elif racer_ids is not None:
+        p_ids = racer_ids
+    else:
+        racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
+        if not racers or len(racers) < 2:
+            raise ValueError("Not enough racers to generate a schedule (minimum 2 required)")
+        p_ids = [r.id for r in racers]
+    
+    # Check if we have existing heats to determine starting heat number
+    start_heat_num = len(existing_heats) + 1 if existing_heats else 1
     
     # Generate heats using PPC strategy
-    new_heats = _generate_ppc(db, race_id, round_id, racers, lane_count)
+    # Note: we need to update _generate_ppc to accept a starting heat number if we want to support stacking
+    new_heats = _generate_ppc(db, race_id, round_id, p_ids, lane_count, start_heat_num=start_heat_num)
     
     db.commit()
     return new_heats
+
+def resolve_round_placeholders(db: Session, round_id: int, racer_ids: List[int]):
+    """
+    Replace placeholders in a round's heats with actual racer IDs.
+    
+    Placeholder IDs are negative integers: -1, -2, ...
+    These will be replaced by racer_ids[0], racer_ids[1], ...
+    """
+    heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    
+    for heat in heats:
+        if not heat.lane_results:
+            continue
+            
+        results = json.loads(heat.lane_results)
+        modified = False
+        
+        for result in results:
+            placeholder_id = result.get("racer_id")
+            if placeholder_id is not None and placeholder_id < 0:
+                # Placeholder 1 is -1, maps to racer_ids[0]
+                idx = abs(placeholder_id) - 1
+                if idx < len(racer_ids):
+                    result["racer_id"] = racer_ids[idx]
+                    modified = True
+                    
+        if modified:
+            heat.lane_results = json.dumps(results)
+            
+    db.commit()
 
 def record_heat_result(db: Session, heat_id: int, results: str | None) -> models.Heat | None:
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()

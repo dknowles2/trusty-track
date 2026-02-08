@@ -149,6 +149,8 @@ class RoundBase(BaseModel):
 
 class RoundCreate(RoundBase):
     race_id: int
+    advancement_source: Optional[str] = None
+    advancement_num_racers: Optional[int] = None
 
 class RoundUpdate(BaseModel):
     name: Optional[str] = None
@@ -156,6 +158,8 @@ class RoundUpdate(BaseModel):
 class Round(RoundBase):
     id: int
     race_id: int
+    advancement_source: Optional[str] = None
+    advancement_num_racers: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -189,3 +193,34 @@ class HeatReorderResponse(BaseModel):
     """Response after reordering heats."""
     updated_count: int
     heats: List[Heat]
+
+class AdvancementRacer(BaseModel):
+    racer_id: int
+    first_name: str
+    last_name: str
+    car_number: Optional[int]
+    den_name: str
+    score: float
+    rank: int
+
+class AdvancementStatus(BaseModel):
+    is_ready: bool
+    requires_advancement: bool
+    already_advanced: bool
+    advancing_racers: List[AdvancementRacer] = []
+    source: Optional[str] = None
+    num_racers: Optional[int] = None
+
+class WizardGeneralRound(BaseModel):
+    type: str # "PACK" or "DEN"
+    runs_per_lane: int = 1
+
+class WizardChampionshipRound(BaseModel):
+    name: str = "Championship Round"
+    source: str = "PACK" # "PACK" (Overall) or "DEN" (Each Den)
+    num_top_racers: int = 3
+    runs_per_lane: int = 1
+
+class WizardConfiguration(BaseModel):
+    general_round: WizardGeneralRound
+    championship_rounds: List[WizardChampionshipRound] = []

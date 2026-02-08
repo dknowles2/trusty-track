@@ -6,9 +6,10 @@ interface ModalProps {
     onClose: () => void;
     title?: string;
     children: ReactNode;
+    maxWidth?: string;
 }
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, maxWidth = '500px' }: ModalProps) {
     const modalRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -52,7 +53,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
                     padding: '2rem', 
                     borderRadius: '12px', 
                     width: '100%', 
-                    maxWidth: '500px',
+                    maxWidth: maxWidth,
                     boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
                     maxHeight: '90vh',
                     overflowY: 'auto',

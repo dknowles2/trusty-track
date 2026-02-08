@@ -65,7 +65,10 @@ def calculate_racer_scores(db: Session, race_id: int) -> Dict[int, Dict[str, flo
             
             if scoring_strategy == models.ScoringStrategy.TIMED:
                 if time is not None:
-                    racer_scores[racer_id]["total_time"] += time
+                    try:
+                        racer_scores[racer_id]["total_time"] += float(time)
+                    except (ValueError, TypeError):
+                        pass # Ignore invalid times
                     racer_scores[racer_id]["heats_completed"] += 1
             elif scoring_strategy == models.ScoringStrategy.POINTS:
                 if place is not None:
@@ -116,7 +119,7 @@ def get_leaderboard(db: Session, race_id: int) -> List[Dict]:
     racer_scores = calculate_racer_scores(db, race_id)
     
     # Get racer details
-    racers = crud.get_racers(db, race_id)
+    racers = crud.get_racers(db, race_id=race_id)
     racer_map = {r.id: r for r in racers}
     
     # Get den details
@@ -137,6 +140,7 @@ def get_leaderboard(db: Session, race_id: int) -> List[Dict]:
             "first_name": racer.first_name,
             "last_name": racer.last_name,
             "car_number": racer.car_number,
+            "den_id": racer.den_id,
             "den_name": den.name if den else "Unknown",
             "score": score_data["score"],
             "heats_completed": score_data["heats_completed"]
@@ -150,3 +154,37 @@ def get_leaderboard(db: Session, race_id: int) -> List[Dict]:
         entry["rank"] = idx + 1
     
     return leaderboard
+
+
+def get_advancing_racers(db: Session, race_id: int, source: str, num_top: int) -> List[int]:
+    """
+    Get IDs of racers who should advance to a championship round.
+    
+    Args:
+        db: Database session
+        race_id: ID of the race
+        source: "PACK" (overall winners) or "DEN" (top performers per den)
+        num_top: Number of top racers to pick (if "DEN", it's per den)
+        
+    Returns:
+        List of racer IDs, sorted by rank.
+    """
+    standings = get_leaderboard(db, race_id)
+    
+    if source == "PACK":
+        # Simply pick the top N from the entire leaderboard
+        return [s["racer_id"] for s in standings[:num_top]]
+    
+    elif source == "DEN":
+        # Group by den and pick top N from each
+        advancing_ids = []
+        dens = db.query(models.Den).filter(models.Den.race_id == race_id).all()
+        
+        for den in dens:
+            den_standings = [s for s in standings if s["den_id"] == den.id]
+            # Since standings is already sorted overall, den_standings order is preserved
+            advancing_ids.extend([s["racer_id"] for s in den_standings[:num_top]])
+            
+        return advancing_ids
+    
+    return []

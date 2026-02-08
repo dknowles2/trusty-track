@@ -6,6 +6,20 @@ import RaceDetails from './RaceDetails';
 import { apiClient } from '../api/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
+import { AlertProvider } from '../context/AlertContext';
+
+const mockShowAlert = vi.fn();
+const mockShowToast = vi.fn();
+const mockShowConfirm = vi.fn();
+
+vi.mock('../context/AlertContext', () => ({
+    useAlert: () => ({
+        showAlert: mockShowAlert,
+        showToast: mockShowToast,
+        showConfirm: mockShowConfirm,
+    }),
+    AlertProvider: ({ children }: any) => <>{children}</>
+}));
 
 // Cleanup after each test
 afterEach(() => {
@@ -43,15 +57,19 @@ describe('RaceDetails Populate', () => {
             if (url === '/races/1') return Promise.resolve(mockRace);
             if (url.includes('/racers/')) return Promise.resolve([]);
             if (url.includes('/dens/')) return Promise.resolve([]);
+            if (url.includes('/scores')) return Promise.resolve({ race_id: 1, scoring_strategy: 'TIMED', leaderboard: [] });
+            if (url.includes('/config')) return Promise.resolve({ timer_type: 'FAKE' });
             return Promise.resolve({});
         });
 
         render(
-            <MemoryRouter initialEntries={['/races/1']}>
-                <Routes>
-                    <Route path="/races/:raceId" element={<RaceDetails />} />
-                </Routes>
-            </MemoryRouter>
+            <AlertProvider>
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
         );
 
         // Wait for race details to load
@@ -60,11 +78,11 @@ describe('RaceDetails Populate', () => {
         });
 
         // 1. Open dropdown
-        const arrowBtn = screen.getByText('▼');
+        const arrowBtn = document.querySelector('.split-btn-arrow')!;
         await user.click(arrowBtn);
 
         // 2. Click Populate button
-        const populateBtn = screen.getByText('⚡ Populate Test Data');
+        const populateBtn = screen.getByText(/Populate Test Data/i);
         await user.click(populateBtn);
 
         // 3. Verify Modal Open
@@ -93,24 +111,28 @@ describe('RaceDetails Populate', () => {
         // Mock race data
         (apiClient.get as any).mockImplementation((url: string) => {
             if (url === '/races/1') return Promise.resolve({ id: 1, name: 'Test Race' });
+            if (url.includes('/scores')) return Promise.resolve({ race_id: 1, scoring_strategy: 'TIMED', leaderboard: [] });
+            if (url.includes('/config')) return Promise.resolve({ timer_type: 'FAKE' });
             return Promise.resolve([]);
         });
 
-        const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-
         render(
-            <MemoryRouter initialEntries={['/races/1']}>
-                <Routes>
-                    <Route path="/races/:raceId" element={<RaceDetails />} />
-                </Routes>
-            </MemoryRouter>
+            <AlertProvider>
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
         );
 
         await waitFor(() => screen.getByText('Test Race'));
 
+        await waitFor(() => screen.getByText('Test Race'));
+
         // Open dropdown and click
-        await user.click(screen.getByText('▼'));
-        await user.click(screen.getByText('⚡ Populate Test Data'));
+        await user.click(document.querySelector('.split-btn-arrow')!);
+        await user.click(screen.getByText(/Populate Test Data/i));
 
         // Enter invalid input
         const input = screen.getByLabelText('Number of Racers:');
@@ -121,7 +143,7 @@ describe('RaceDetails Populate', () => {
         await user.click(screen.getByText('Generate'));
 
         // Verify alert
-        expect(alertSpy).toHaveBeenCalledWith("Please enter a valid count > 0");
+        expect(mockShowAlert).toHaveBeenCalledWith("Please enter a valid count > 0", "Invalid Input");
         expect(apiClient.post).not.toHaveBeenCalled();
     });
 });

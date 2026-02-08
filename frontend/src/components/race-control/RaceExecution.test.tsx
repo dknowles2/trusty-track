@@ -183,6 +183,7 @@ describe('RaceExecution', () => {
                 onNextHeat={mockOnNextHeat}
                 getRacerName={mockGetRacerName}
                 onUpdateResult={mockOnUpdateResult}
+                onStartTimer={mockOnStartTimer}
                 timerType="FAKE"
             />
         );
@@ -208,6 +209,7 @@ describe('RaceExecution', () => {
                 onNextHeat={mockOnNextHeat}
                 getRacerName={mockGetRacerName}
                 onUpdateResult={mockOnUpdateResult}
+                onStartTimer={mockOnStartTimer}
                 timerType="FAKE"
             />
         );
