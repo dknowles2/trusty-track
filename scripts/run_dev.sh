@@ -24,15 +24,10 @@ fi
 export CERT_FILE="$PROJECT_ROOT/certs/localhost.pem"
 export KEY_FILE="$PROJECT_ROOT/certs/localhost-key.pem"
 
-# Start Backend (HTTP :8000)
-echo "Starting Backend (HTTP :8000)..."
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000 &
-BACKEND_HTTP_PID=$!
-
-# Start Backend (HTTPS :8001)
-echo "Starting Backend (HTTPS :8001)..."
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8001 --ssl-keyfile "$KEY_FILE" --ssl-certfile "$CERT_FILE" &
-BACKEND_HTTPS_PID=$!
+# Start Backend (HTTPS :8000)
+echo "Starting Backend (HTTPS :8000)..."
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000 --ssl-keyfile "$KEY_FILE" --ssl-certfile "$CERT_FILE" &
+BACKEND_PID=$!
 
 # Start Frontend (HTTP :5173)
 echo "Starting Frontend (HTTP :5173)..."
@@ -46,4 +41,4 @@ HTTPS_SERVER=true npm run dev &
 FRONTEND_HTTPS_PID=$!
 
 # Wait for all processes
-wait $BACKEND_HTTP_PID $BACKEND_HTTPS_PID $FRONTEND_HTTP_PID $FRONTEND_HTTPS_PID
+wait $BACKEND_PID $FRONTEND_HTTP_PID $FRONTEND_HTTPS_PID
