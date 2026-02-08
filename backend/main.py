@@ -53,7 +53,7 @@ async def upload_file(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    return {"url": f"http://127.0.0.1:8000/static/{filename}"}
+    return {"url": f"/static/{filename}"}
 
 @app.post("/groups/", response_model=schemas.Group)
 def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):

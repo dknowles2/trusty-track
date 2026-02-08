@@ -33,14 +33,8 @@ export default function CheckInModal({ racer, onClose, onSave }: CheckInModalPro
         formData.append('file', file);
         
         try {
-            const response = await fetch('http://127.0.0.1:8000/upload/', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                const newUrl = result.url;
+            const result = await apiClient.post('/upload/', formData);
+            const newUrl = result.url;
                 
                 // Update local state for immediate feedback
                 if (type === 'racer') {
@@ -66,10 +60,6 @@ export default function CheckInModal({ racer, onClose, onSave }: CheckInModalPro
                 // No, onSave in RaceDetails just calls fetchRacers.
                 onSave(); 
 
-            } else {
-                console.error("Upload failed");
-                showAlert("Failed to upload image", "Error");
-            }
         } catch (error) {
             console.error("Upload error", error);
             showAlert("Error uploading image", "Error");

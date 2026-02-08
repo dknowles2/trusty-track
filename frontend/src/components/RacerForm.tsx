@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import CameraCapture from './CameraCapture';
+import { apiClient } from '../api/client';
 
 export interface RacerData {
   first_name: string;
@@ -56,8 +57,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
 
   useEffect(() => {
       if (raceId) {
-        fetch(`http://127.0.0.1:8000/races/${raceId}/dens/`)
-            .then(res => res.json())
+        apiClient.get(`/races/${raceId}/dens/`)
             .then(data => setDens(data))
             .catch(err => console.error("Failed to fetch dens", err));
       }
@@ -68,17 +68,11 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
       data.append('file', file);
       
       try {
-          const response = await fetch('http://127.0.0.1:8000/upload/', {
-              method: 'POST',
-              body: data
-          });
-          if (response.ok) {
-              const result = await response.json();
-              setFormData(prev => ({ 
-                  ...prev, 
-                  [type === 'racer' ? 'racer_image_url' : 'car_image_url']: result.url 
-              }));
-          }
+          const result = await apiClient.post('/upload/', data);
+          setFormData(prev => ({ 
+              ...prev, 
+              [type === 'racer' ? 'racer_image_url' : 'car_image_url']: result.url 
+          }));
       } catch (error) {
           console.error("Upload failed", error);
       }

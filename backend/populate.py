@@ -98,7 +98,7 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
             new_filename = f"{uuid.uuid4()}{ext}"
             dst_path = f"{uploads_dir}/{new_filename}"
             shutil.copy(src_path, dst_path)
-            racer_img_url = f"http://127.0.0.1:8000/static/{new_filename}"
+            racer_img_url = f"/static/{new_filename}"
             
         # Handle Car Images (Cycling)
         car_img_url = None
@@ -111,7 +111,7 @@ def generate_fake_racers(db: Session, race_id: int, count: int = 20):
             new_filename = f"{uuid.uuid4()}{ext}"
             dst_path = f"{uploads_dir}/{new_filename}"
             shutil.copy(src_path, dst_path)
-            car_img_url = f"http://127.0.0.1:8000/static/{new_filename}"
+            car_img_url = f"/static/{new_filename}"
             
         # Create Racer
         racer_in = schemas.RacerCreate(
