@@ -685,6 +685,26 @@ def update_heat(heat_id: int, heat: schemas.HeatCreate, db: Session = Depends(ge
         
     return db_heat
 
+
+
+def _is_round_complete(db: Session, round_id: int) -> bool:
+    """Check if a round is complete (all heats have results)."""
+    heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    if not heats:
+        return False
+        
+    for heat in heats:
+        if not heat.lane_results:
+            return False
+        try:
+            results = json.loads(heat.lane_results)
+            for r in results:
+                if r.get("racer_id") is not None and r.get("time") is None:
+                    return False
+        except:
+            return False
+    return True
+
 def _check_and_advance_championship(db: Session, race_id: int):
     """
     Check if all general rounds are complete and trigger championship population if needed.
@@ -699,30 +719,15 @@ def _check_and_advance_championship(db: Session, race_id: int):
         return
         
     # 2. Check if ALL heats in these rounds are complete
-    gen_round_ids = [r.id for r in gen_rounds]
-    
-    # We must check completion by parsing JSON, because lane_results is rarely None.
-    gen_heats = db.query(models.Heat).filter(
-        models.Heat.round_id.in_(gen_round_ids)
-    ).all()
-    
-    for heat in gen_heats:
-        if not heat.lane_results:
-            return # Incomplete (no results structure at all)
-        try:
-            results = json.loads(heat.lane_results)
-            # Check if any assigned racer is missing a time
-            for r in results:
-                if r.get("racer_id") is not None and r.get("time") is None:
-                    return # Heat not finished
-        except:
-            return # Error or bad format, assume incomplete
+    for r in gen_rounds:
+        if not _is_round_complete(db, r.id):
+            return
 
     # 3. Process Championship Rounds
     champ_rounds = db.query(models.Round).filter(
         models.Round.race_id == race_id,
         models.Round.advancement_source != None
-    ).all()
+    ).order_by(models.Round.round_number).all()
     
     for round_obj in champ_rounds:
         # Check if already started (has ANY results with times)
@@ -746,6 +751,15 @@ def _check_and_advance_championship(db: Session, race_id: int):
         
         if round_started:
             continue  # Skip already started rounds
+            
+        # Check if PREVIOUS round is complete
+        prev_round = db.query(models.Round).filter(
+            models.Round.race_id == race_id,
+            models.Round.round_number < round_obj.round_number
+        ).order_by(models.Round.round_number.desc()).first()
+        
+        if prev_round and not _is_round_complete(db, prev_round.id):
+            continue # Previous round not complete, wait.
             
         # Calculate winners
         winner_ids = scoring.get_advancing_racers(
