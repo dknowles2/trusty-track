@@ -10,7 +10,24 @@ export default defineConfig(({ mode }) => {
   const isHttps = env.HTTPS_SERVER === 'true';
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      // Redirect HTTP (5173) to HTTPS (5174)
+      !isHttps && {
+        name: 'redirect-to-https',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.headers.host?.includes(':5173')) {
+              const httpsHost = req.headers.host.replace(':5173', ':5174');
+              res.writeHead(301, { Location: `https://${httpsHost}${req.url}` });
+              res.end();
+            } else {
+              next();
+            }
+          });
+        }
+      }
+    ].filter(Boolean),
     server: {
       port: isHttps ? 5174 : 5173,
       https: isHttps ? {
