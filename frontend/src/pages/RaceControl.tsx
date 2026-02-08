@@ -13,6 +13,7 @@ interface Heat {
   round_id: number;
   heat_number: number;
   lane_results: string; // JSON
+  total_participants: number;
 }
 
 // Add Racer interface
@@ -36,6 +37,7 @@ export default function RaceControl() {
   const [dens, setDens] = useState<{ id: number, name: string }[]>([]);
   const [timerType, setTimerType] = useState<string | null>(null);
   const [laneCount, setLaneCount] = useState<number>(4);
+  const [championshipTrophies, setChampionshipTrophies] = useState<number>(3);
 
   useEffect(() => {
     if (raceId) {
@@ -69,16 +71,18 @@ export default function RaceControl() {
   const fetchData = async (id: number) => {
       setLoading(true);
       try {
-          const [heatsData, racersData, configData, densData] = await Promise.all([
+          const [heatsData, racersData, configData, densData, raceData] = await Promise.all([
               apiClient.get(`/races/${id}/heats`),
               apiClient.get(`/racers/?race_id=${id}`),
               apiClient.get('/config/initial'),
-              apiClient.get(`/races/${id}/dens/`)
+              apiClient.get(`/races/${id}/dens/`),
+              apiClient.get(`/races/${id}`)
           ]);
           setHeats(heatsData);
           setTimerType(configData.timer_type);
           setLaneCount(configData.lane_count || 4);
           setDens(densData);
+          setChampionshipTrophies(raceData.championship_trophies || 3);
           
           const racerMap: Record<number, Racer> = {};
           racersData.forEach((r: Racer) => {
@@ -389,6 +393,7 @@ export default function RaceControl() {
           laneCount={laneCount} 
           racerCount={Object.keys(racers).length}
           denCount={dens.length}
+          championshipTrophies={championshipTrophies}
         />
       )}
     </div>

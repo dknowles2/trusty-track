@@ -131,6 +131,34 @@ class Round(Base):
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[List["Heat"]] = relationship("Heat", back_populates="round", cascade="all, delete-orphan")
 
+    @property
+    def total_participants(self) -> int:
+        """Calculate the total number of participants in this round."""
+        if not self.advancement_source:
+             # For general rounds, count unique racers in heats
+             import json
+             racer_ids = set()
+             for heat in self.heats:
+                 if heat.lane_results:
+                     try:
+                         results = json.loads(heat.lane_results)
+                         for r in results:
+                             rid = r.get("racer_id")
+                             if rid is not None:
+                                 racer_ids.add(rid)
+                     except:
+                         pass
+             return len(racer_ids)
+        
+        # For championship rounds
+        if self.advancement_source == "PACK":
+            return self.advancement_num_racers or 0
+        elif self.advancement_source == "DEN":
+            # Count dens in this race
+            den_count = len(self.race.dens) if self.race else 0
+            return (self.advancement_num_racers or 0) * den_count
+        return self.advancement_num_racers or 0
+
 class Heat(Base):
     __tablename__ = "heats"
 
@@ -152,3 +180,13 @@ class Heat(Base):
     def round_name(self) -> str | None:
         """Get the round name from the related Round."""
         return self.round.name if self.round else None
+
+    @property
+    def total_participants(self) -> int:
+        """Get the total number of participants in this round."""
+        return self.round.total_participants if self.round else 0
+
+    @property
+    def advancement_num_racers(self) -> int | None:
+        """Get the number of racers to advance to this round."""
+        return self.round.advancement_num_racers if self.round else None

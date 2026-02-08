@@ -177,6 +177,8 @@ class Heat(HeatBase):
     round_id: int
     round_number: int  # Computed from related Round
     round_name: Optional[str] = None # Computed from related Round
+    advancement_num_racers: Optional[int] = None # Computed from related Round
+    total_participants: int = 0 # Computed from related Round
     
     model_config = ConfigDict(from_attributes=True)
 

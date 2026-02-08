@@ -30,6 +30,8 @@ interface Heat {
   round_id: number;
   heat_number: number;
   lane_results: string; // JSON
+  advancement_num_racers?: number;
+  total_participants: number;
 }
 
 interface ScheduleManagementProps {
@@ -45,6 +47,7 @@ interface ScheduleManagementProps {
   laneCount: number;
   racerCount: number;
   denCount: number;
+  championshipTrophies: number;
 }
 
 interface AdvancementRacer {
@@ -186,6 +189,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   laneCount,
   racerCount,
   denCount,
+  championshipTrophies,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -320,8 +324,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
-                disabled={generating || reordering}
+                disabled={generating || reordering || Object.values(rounds).some(r => r[0].total_participants === championshipTrophies)}
                 style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.1)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '5px' }}
+                title={Object.values(rounds).some(r => r[0].total_participants === championshipTrophies) ? "Final round already scheduled" : "Add Round"}
             >
                 <Icon path={mdiPlus} size={0.8} /> Add Round
             </button>
@@ -335,6 +340,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           racerCount={racerCount}
           denCount={denCount}
           laneCount={laneCount}
+          championshipTrophies={championshipTrophies}
           onCreated={async () => {
               await onRefetchHeats();
           }}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Modal from '../Modal';
 import Icon from '@mdi/react';
-import { mdiFlagCheckered, mdiAccountGroup, mdiPlus, mdiChevronRight, mdiChevronLeft, mdiCheck, mdiClockOutline, mdiAlertCircle } from '@mdi/js';
+import { mdiFlagCheckered, mdiAccountGroup, mdiPlus, mdiChevronRight, mdiChevronLeft, mdiCheck, mdiClockOutline, mdiAlertCircle, mdiInformation, mdiClose } from '@mdi/js';
 import { apiClient } from '../../api/client';
 
 interface RoundWizardProps {
@@ -11,6 +11,7 @@ interface RoundWizardProps {
   racerCount: number;
   denCount: number;
   laneCount: number;
+  championshipTrophies: number;
   onCreated: () => void;
 }
 
@@ -33,6 +34,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   racerCount,
   denCount,
   laneCount,
+  championshipTrophies,
   onCreated,
 }) => {
   const [step, setStep] = useState(1);
@@ -41,7 +43,6 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     runsPerLane: 1,
   });
   const [championshipRounds, setChampionshipRounds] = useState<ChampionshipConfig[]>([]);
-  const [includeChampionship, setIncludeChampionship] = useState(true);
   const [loading, setLoading] = useState(false);
 
   // Duration constants (in seconds)
@@ -58,12 +59,10 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     }
 
     let championshipHeats = 0;
-    if (includeChampionship) {
-      championshipRounds.forEach(round => {
-        const multiplier = round.source === 'DEN' ? denCount : 1;
-        championshipHeats += round.numTopRacers * multiplier * round.runsPerLane;
-      });
-    }
+    championshipRounds.forEach(round => {
+      const multiplier = round.source === 'DEN' ? denCount : 1;
+      championshipHeats += round.numTopRacers * multiplier * round.runsPerLane;
+    });
 
     return { generalHeats, championshipHeats, totalHeats: generalHeats + championshipHeats };
   };
@@ -88,14 +87,20 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       setChampionshipRounds([...championshipRounds, { 
         name: isFirst ? 'Championship Round' : 'Finals',
         source: 'PACK',
-        numTopRacers: isFirst ? baseTop : Math.max(2, baseTop - 1), 
+        numTopRacers: isFirst ? Math.max(baseTop, championshipTrophies) : Math.max(championshipTrophies, baseTop - 1), 
         runsPerLane: 1 
       }]);
     }
   };
 
   const handleRemoveChampionshipRound = (index: number) => {
-    setChampionshipRounds(championshipRounds.filter((_, i) => i !== index));
+    const nextRounds = championshipRounds.filter((_, i) => i !== index);
+    if (nextRounds.length > 0) {
+      // The new final round must respect the trophy count
+      const lastIdx = nextRounds.length - 1;
+      nextRounds[lastIdx].numTopRacers = Math.max(nextRounds[lastIdx].numTopRacers, championshipTrophies);
+    }
+    setChampionshipRounds(nextRounds);
   };
 
   const handleCreate = async () => {
@@ -106,12 +111,12 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           type: generalConfig.type,
           runs_per_lane: generalConfig.runsPerLane,
         },
-        championship_rounds: includeChampionship ? championshipRounds.map((r) => ({
+        championship_rounds: championshipRounds.map((r) => ({
           name: r.name,
           source: r.source,
           num_top_racers: r.numTopRacers,
           runs_per_lane: r.runsPerLane,
-        })) : [],
+        })),
       };
       await apiClient.post(`/races/${raceId}/wizard`, config);
       onCreated();
@@ -266,24 +271,9 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               <p style={{ color: '#666', fontSize: '0.9rem' }}>
                 Schedule final races for the top performers to determine overall winners.
               </p>
-              
-              <div style={{ marginTop: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  <input
-                    type="checkbox"
-                    checked={includeChampionship}
-                    onChange={(e) => setIncludeChampionship(e.target.checked)}
-                  />
-                  Include Championship Round(s)
-                </label>
-              </div>
             </div>
 
-            {!includeChampionship ? (
-               <div style={{ padding: '20px', background: '#f5f5f5', borderRadius: '8px', color: '#666', fontStyle: 'italic' }}>
-                 Championship rounds are disabled for this race configuration.
-               </div>
-            ) : championshipRounds.length === 0 ? (
+            {championshipRounds.length === 0 ? (
               <div style={{ padding: '30px', border: '2px dashed #eee', borderRadius: '12px', textAlign: 'center', background: '#fafafa' }}>
                 <p style={{ color: '#888', marginBottom: '15px' }}>No championship rounds added.</p>
                 <button
@@ -300,9 +290,26 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                   <div key={idx} style={{ padding: '15px', border: '1px solid #eee', borderRadius: '8px', background: '#fcfcfc', position: 'relative', marginBottom: '15px' }}>
                     <button
                       onClick={() => handleRemoveChampionshipRound(idx)}
-                      style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: '#f44336', cursor: 'pointer', fontSize: '0.8rem' }}
+                      style={{ 
+                        position: 'absolute', 
+                        top: '12px', 
+                        right: '12px', 
+                        background: 'none', 
+                        border: 'none', 
+                        color: '#f44336', 
+                        cursor: 'pointer', 
+                        padding: '0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0.7,
+                        transition: 'opacity 0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                      title="Remove Round"
                     >
-                      Remove
+                      <Icon path={mdiClose} size={0.9} />
                     </button>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -340,15 +347,18 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                           </select>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                          <label style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>Number to pick</label>
+                          <label htmlFor={`numTop-${idx}`} style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>Number to pick</label>
                           <input
+                            id={`numTop-${idx}`}
                             type="number"
-                            min="1"
+                            min={idx === championshipRounds.length - 1 ? championshipTrophies : 1}
                             max={racerCount}
                             value={round.numTopRacers}
                             onChange={(e) => {
+                              const value = parseInt(e.target.value) || 1;
+                              const minVal = idx === championshipRounds.length - 1 ? championshipTrophies : 1;
                               const newRounds = [...championshipRounds];
-                              newRounds[idx].numTopRacers = parseInt(e.target.value) || 1;
+                              newRounds[idx].numTopRacers = Math.max(minVal, value);
                               setChampionshipRounds(newRounds);
                             }}
                             style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
@@ -376,13 +386,22 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                 ))}
 
                 {championshipRounds.length < 2 && (
-                  <button
-                    onClick={handleAddChampionshipRound}
-                    className="secondary-btn"
-                    style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '5px' }}
-                  >
-                    <Icon path={mdiPlus} size={0.7} /> Add Follow-up Round
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {!championshipRounds.some(r => r.numTopRacers <= championshipTrophies) ? (
+                      <button
+                        onClick={handleAddChampionshipRound}
+                        className="secondary-btn"
+                        style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '5px' }}
+                      >
+                        <Icon path={mdiPlus} size={0.7} /> Add Follow-up Round
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Icon path={mdiInformation} size={0.6} color="#666" />
+                        Minimum participant count ({championshipTrophies}) reached. Further rounds cannot be added.
+                      </span>
+                    )}
+                  </div>
                 )}
               </>
             )}
@@ -415,7 +434,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
               <span>Championship Round(s):</span>
-              <span style={{ fontWeight: 'bold' }}>{includeChampionship ? championshipRounds.length : 'Disabled'}</span>
+              <span style={{ fontWeight: 'bold' }}>{championshipRounds.length}</span>
             </div>
 
               <div style={{ 

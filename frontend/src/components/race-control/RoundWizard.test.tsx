@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RoundWizard } from './RoundWizard';
@@ -23,6 +23,7 @@ describe('RoundWizard Component', () => {
         racerCount: 10,
         denCount: 2,
         laneCount: 4,
+        championshipTrophies: 3,
         onCreated: mockOnCreated
     };
 
@@ -96,37 +97,6 @@ describe('RoundWizard Component', () => {
         expect(screen.getByText(/\(20 min Gen \+ 12 min Champ\)/i)).toBeInTheDocument();
     });
 
-    it('can toggle championship rounds inclusion', async () => {
-        const user = userEvent.setup();
-        render(<RoundWizard {...defaultProps} />);
-        
-        await user.click(screen.getByText('Next')); // To Step 2
-        
-        // Add championship round
-        await user.click(screen.getByText(/Add Championship Round/i));
-        // 10 + 3 = 13 heats
-        expect(screen.getByText('13 Total Heats')).toBeInTheDocument();
-
-        // Toggle OFF
-        const includeToggle = screen.getByLabelText(/Include Championship/i);
-        await user.click(includeToggle);
-        
-        // Should reduce to 10 heats (General only)
-        expect(screen.getByText('10 Total Heats')).toBeInTheDocument();
-        expect(screen.getByText(/Championship rounds are disabled/i)).toBeInTheDocument();
-        
-        // Step 3 should show "Disabled"
-        await user.click(screen.getByText('Next'));
-        expect(screen.getByText('Disabled')).toBeInTheDocument();
-        
-        // Submitting should send empty championship rounds
-        (apiClient.post as any).mockResolvedValue({});
-        await user.click(screen.getByText('Create Rounds'));
-        
-        expect(apiClient.post).toHaveBeenCalledWith('/races/1/wizard', expect.objectContaining({
-            championship_rounds: []
-        }));
-    });
 
     it('shows warning when racer count is 0', () => {
         render(<RoundWizard {...defaultProps} racerCount={0} />);
@@ -231,5 +201,44 @@ describe('RoundWizard Component', () => {
         });
         
         alertMock.mockRestore();
+    });
+
+    it('enforces championshipTrophies minimum for final round', async () => {
+        const user = userEvent.setup();
+        // Set trophies to 5
+        render(<RoundWizard {...defaultProps} championshipTrophies={5} />);
+        
+        await user.click(screen.getByText('Next')); // To Step 2
+        await user.click(screen.getByText(/Add Championship Round/i));
+        
+        const numInput = screen.getByLabelText(/Number to pick/i);
+        expect(numInput).toHaveValue(5);
+        expect(numInput).toHaveAttribute('min', '5');
+        
+        // Try to set it to 3
+        fireEvent.change(numInput, { target: { value: '3' } });
+        // My implementation uses Math.max(minVal, value) in onChange, so it should snap to 5
+        expect(numInput).toHaveValue(5);
+    });
+
+    it('hides "Add Follow-up Round" if current round is at trophy minimum', async () => {
+        const user = userEvent.setup();
+        render(<RoundWizard {...defaultProps} championshipTrophies={3} />);
+        
+        await user.click(screen.getByText('Next')); // To Step 2
+        await user.click(screen.getByText(/Add Championship Round/i));
+        
+        // Default pick is 3 (matches championshipTrophies)
+        // Button should be REMOVED (hidden) according to latest requirement
+        expect(screen.queryByRole('button', { name: /Add Follow-up Round/i })).not.toBeInTheDocument();
+        expect(screen.getByText(/Minimum participant count \(3\) reached/i)).toBeInTheDocument();
+        
+        // Increase participants to 4
+        const numInput = screen.getByLabelText(/Number to pick/i);
+        fireEvent.change(numInput, { target: { value: '4' } });
+        
+        // Now it should be visible again
+        expect(screen.getByRole('button', { name: /Add Follow-up Round/i })).toBeInTheDocument();
+        expect(screen.queryByText(/Minimum participant count \(3\) reached/i)).not.toBeInTheDocument();
     });
 });

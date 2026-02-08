@@ -55,8 +55,8 @@ import { apiClient } from '../../api/client';
 
 describe('ScheduleManagement', () => {
     const mockHeats = [
-        { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]' },
-        { id: 2, round_number: 1, round_id: 1, heat_number: 2, lane_results: '[]' }
+        { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]', total_participants: 10 },
+        { id: 2, round_number: 1, round_id: 1, heat_number: 2, lane_results: '[]', total_participants: 10 }
     ];
     const mockGetRacerName = vi.fn((id) => `Racer ${id}`);
     const mockOnAddRound = vi.fn();
@@ -83,6 +83,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -105,6 +106,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -129,6 +131,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -153,6 +156,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -178,6 +182,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -189,9 +194,9 @@ describe('ScheduleManagement', () => {
 
     it('displays heats sorted by heat_number', () => {
         const unsortedHeats = [
-            { id: 3, round_number: 1, round_id: 1, heat_number: 3, lane_results: '[]' },
-            { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]' },
-            { id: 2, round_number: 1, round_id: 1, heat_number: 2, lane_results: '[]' },
+            { id: 3, round_number: 1, round_id: 1, heat_number: 3, lane_results: '[]', total_participants: 10 },
+            { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]', total_participants: 10 },
+            { id: 2, round_number: 1, round_id: 1, heat_number: 2, lane_results: '[]', total_participants: 10 },
         ];
 
         render(
@@ -209,6 +214,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -222,7 +228,7 @@ describe('ScheduleManagement', () => {
     it('groups heats by round correctly', () => {
         const multiRoundHeats = [
             ...mockHeats,
-            { id: 3, round_number: 2, round_id: 2, heat_number: 1, lane_results: '[]' },
+            { id: 3, round_number: 2, round_id: 2, heat_number: 1, lane_results: '[]', total_participants: 10 },
         ];
 
         render(
@@ -240,6 +246,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -265,6 +272,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -284,7 +292,7 @@ describe('ScheduleManagement', () => {
 
     it('displays custom round name', () => {
         const namedRoundHeats = [
-            { id: 1, round_number: 1, round_name: 'Semi-Finals', round_id: 1, heat_number: 1, lane_results: '[]' },
+            { id: 1, round_number: 1, round_name: 'Semi-Finals', round_id: 1, heat_number: 1, lane_results: '[]', total_participants: 10 },
         ];
 
         render(
@@ -302,6 +310,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -313,7 +322,7 @@ describe('ScheduleManagement', () => {
     it('hides regenerate button for championship rounds', async () => {
         const roundId = 1;
         const heats = [
-            { id: 1, round_number: 1, round_id: roundId, heat_number: 1, lane_results: '[{"racer_id": -1, "lane": 1}]' }, // Needs placeholder to trigger fetch
+            { id: 1, round_number: 1, round_id: roundId, heat_number: 1, lane_results: '[{"racer_id": -1, "lane": 1}]', total_participants: 3 }, // Needs placeholder to trigger fetch
         ];
 
         // Mock apiClient to return advancement status for this round
@@ -343,6 +352,7 @@ describe('ScheduleManagement', () => {
                     laneCount={4}
                     racerCount={10}
                     denCount={3}
+                    championshipTrophies={3}
                 />
             </AlertProvider>
         );
@@ -355,6 +365,34 @@ describe('ScheduleManagement', () => {
 
         // Check that regenerate button is NOT present
         expect(screen.queryByText('Regenerate')).not.toBeInTheDocument();
+    });
+
+    it('disables add round button if final round exists', () => {
+        const finalHeats = [
+            { id: 1, round_number: 1, round_id: 1, heat_number: 1, lane_results: '[]', total_participants: 3 },
+        ];
+        render(
+            <AlertProvider>
+                <ScheduleManagement 
+                    raceId={1}
+                    heats={finalHeats} 
+                    generating={false} 
+                    activeHeatId={null}
+                    onAddRound={mockOnAddRound}
+                    onRegenerateRound={mockOnRegenerateRound}
+                    onRunHeat={mockOnRunHeat}
+                    getRacerName={mockGetRacerName}
+                    onRefetchHeats={vi.fn()}
+                    laneCount={4}
+                    racerCount={10}
+                    denCount={3}
+                    championshipTrophies={3}
+                />
+            </AlertProvider>
+        );
+        const addBtn = screen.getByRole('button', { name: /Add Round/i });
+        expect(addBtn).toBeDisabled();
+        expect(addBtn).toHaveAttribute('title', 'Final round already scheduled');
     });
 });
 
