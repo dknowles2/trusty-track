@@ -13,7 +13,7 @@ vi.mock('../components/race-control/ScheduleManagement', () => ({
 }));
 
 vi.mock('../components/race-control/RaceExecution', () => ({
-    RaceExecution: ({ onRunHeat, activeExecutionHeat, timerType, onUpdateResult, onStartTimer }: any) => (
+    RaceExecution: ({ onRunHeat, activeExecutionHeat, timerType, onUpdateResult }: any) => (
         <div data-testid="race-execution">
             Race Execution
             {activeExecutionHeat && <div data-testid="active-heat-id">{activeExecutionHeat.id}</div>}

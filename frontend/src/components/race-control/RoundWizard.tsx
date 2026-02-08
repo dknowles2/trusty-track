@@ -34,7 +34,6 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   racerCount,
   denCount,
   laneCount,
-  dens,
   onCreated,
 }) => {
   const [step, setStep] = useState(1);

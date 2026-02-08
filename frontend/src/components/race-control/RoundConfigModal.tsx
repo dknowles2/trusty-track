@@ -11,8 +11,7 @@ interface RoundConfigModalProps {
 export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   isOpen,
   onClose,
-  onSubmit,
-  currentRoundCount
+  onSubmit
 }) => {
 
   const [name, setName] = useState('');
