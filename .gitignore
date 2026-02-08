@@ -219,3 +219,7 @@ frontend/node_modules/
 test-results/
 playwright-report/
 *.db
+
+# Certificates
+certs/
+*.pem
