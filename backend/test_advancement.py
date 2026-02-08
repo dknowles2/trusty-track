@@ -108,8 +108,12 @@ def test_full_advancement_flow():
     status_resp = client.get(f"/races/{race_id}/rounds/{round2_id}/advancement_status")
     status = status_resp.json()
     assert status["is_ready"] is True
-    assert len(status["advancing_racers"]) == 2
-    top_ids = [r["racer_id"] for r in status["advancing_racers"]]
+    
+    # Filter for those marked as advancing
+    advancing_list = [r for r in status["advancing_racers"] if r["is_advancing"]]
+    assert len(advancing_list) == 2
+    
+    top_ids = [r["racer_id"] for r in advancing_list]
     assert racer_ids[0] in top_ids
     assert racer_ids[1] in top_ids
 

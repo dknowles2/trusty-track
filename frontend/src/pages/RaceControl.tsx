@@ -25,6 +25,27 @@ interface Racer {
   first_name: string;
   last_name: string;
   car_number: number;
+  racer_image_url?: string;
+  car_image_url?: string;
+}
+
+interface AdvancementRacer {
+    racer_id: number;
+    first_name: string;
+    last_name: string;
+    car_number: number | null;
+    den_name: string;
+    score: number;
+    rank: number;
+}
+
+interface AdvancementStatus {
+    is_ready: boolean;
+    requires_advancement: boolean;
+    already_advanced: boolean;
+    advancing_racers: AdvancementRacer[];
+    source: string | null;
+    num_racers: number | null;
 }
 
 export default function RaceControl() {
@@ -41,6 +62,8 @@ export default function RaceControl() {
   const [timerType, setTimerType] = useState<string | null>(null);
   const [laneCount, setLaneCount] = useState<number>(4);
   const [championshipTrophies, setChampionshipTrophies] = useState<number>(3);
+  const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
+  const [currentRoundIdForSummary, setCurrentRoundIdForSummary] = useState<number | null>(null);
 
   useEffect(() => {
     if (raceId) {
@@ -172,6 +195,8 @@ export default function RaceControl() {
 
         // Update state immediately to reflect change in UI
         setHeats(prevHeats => prevHeats.map(h => h.id === heat.id ? updatedHeat : h));
+        setRoundSummary(null); // Clear any summary
+        setCurrentRoundIdForSummary(null);
         
         try {
             await apiClient.put(`/heats/${heat.id}`, updatedHeat);
@@ -241,6 +266,9 @@ export default function RaceControl() {
           if (activeRaceId) {
               const updatedHeats = await apiClient.get(`/races/${activeRaceId}/heats`);
               setHeats(updatedHeats);
+              
+              // Check for Round Completion
+              await checkRoundCompletion(heat, updatedHeats);
           }
            
           // Clear active heat ID to stop the timer and reset state
@@ -252,6 +280,43 @@ export default function RaceControl() {
           showAlert("Failed to update results.", "Error");
       }
   };
+
+  const checkRoundCompletion = async (currentHeat: Heat, currentHeats: Heat[]) => {
+      if (!activeRaceId) return;
+
+      // Find all heats for this round
+      const roundHeats = currentHeats.filter(h => h.round_id === currentHeat.round_id);
+      
+      // Check if this was the last heat of the round (based on heat number)
+      const maxHeatNumber = Math.max(...roundHeats.map(h => h.heat_number));
+      if (currentHeat.heat_number !== maxHeatNumber) {
+          // Not the last heat
+          setRoundSummary(null);
+          setCurrentRoundIdForSummary(null);
+          return;
+      }
+      
+      // Verify all heats in round are actually complete
+      const allComplete = roundHeats.every(h => {
+          if (!h.lane_results) return false;
+          try {
+              const res = JSON.parse(h.lane_results);
+              return res.some((r: any) => r.time !== null);
+          } catch { return false; }
+      });
+      
+      if (allComplete) {
+          // Fetch advancement status
+          try {
+             const status = await apiClient.get<AdvancementStatus>(`/races/${activeRaceId}/rounds/${currentHeat.round_id}/advancement_status`);
+             setRoundSummary(status);
+             setCurrentRoundIdForSummary(currentHeat.round_id);
+          } catch (error) {
+              console.error("Failed to fetch advancement status", error);
+          }
+      }
+  };
+
 
   const getRacerName = (id: number) => {
       if (id < 0) {
@@ -286,7 +351,14 @@ export default function RaceControl() {
       ? sortedHeatsEx[currentIndex + 1] 
       : null;
 
+  // Derive upcoming heats (next 4)
+  const upcomingHeats = currentIndex !== -1 
+      ? sortedHeatsEx.slice(currentIndex + 1, currentIndex + 5)
+      : [];
+
   const handleNextHeat = () => {
+      setRoundSummary(null);
+      setCurrentRoundIdForSummary(null);
       if (nextExecutionHeat) {
           setSelectedHeatId(nextExecutionHeat.id);
       }
@@ -385,6 +457,7 @@ export default function RaceControl() {
           <RaceExecution
             activeExecutionHeat={activeExecutionHeat || null}
             nextExecutionHeat={nextExecutionHeat}
+            upcomingHeats={upcomingHeats}
             activeHeatId={activeHeatId}
             onRunHeat={handleRunHeat}
             onStartTimer={handleStartTimer}
@@ -392,6 +465,8 @@ export default function RaceControl() {
             getRacerName={getRacerName}
             onUpdateResult={handleUpdateResult}
             timerType={timerType}
+            racers={racers}
+            roundSummary={roundSummary}
           />
         )
       ) : (

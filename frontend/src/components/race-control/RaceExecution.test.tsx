@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
@@ -6,9 +6,10 @@ import { RaceExecution } from './RaceExecution';
 
 // Mock Modal component
 vi.mock('../Modal', () => ({
-    default: ({ isOpen, children, title }: any) => isOpen ? (
+    default: ({ isOpen, onClose, children, title }: any) => isOpen ? (
         <div data-testid="mock-modal">
             <h1>{title}</h1>
+            <button onClick={onClose}>Close Mock</button>
             {children}
         </div>
     ) : null
@@ -19,71 +20,72 @@ describe('RaceExecution', () => {
         id: 1, 
         round_number: 1,
         round_id: 1,
-        heat_number: 1, 
+        heat_number: 1,
+        round_name: "Round 1",
+        advancement_num_racers: null,
+        advancement_source: null,
+        total_participants: 4, 
         lane_results: JSON.stringify([
             { lane: 1, racer_id: 101, time: '3.5', place: 1 },
             { lane: 2, racer_id: 102, time: '3.6', place: 2 }
         ]) 
     };
 
-    // const mockNextHeat = {
-    //     id: 2,
-    //     round_number: 1,
-    //     heat_number: 2,
-    //     lane_results: '[]'
-    // };
+    const mockRacers = {
+        101: { id: 101, first_name: 'John', last_name: 'Doe', car_number: 1, racer_image_url: 'http://example.com/racer101.jpg' },
+        102: { id: 102, first_name: 'Jane', last_name: 'Smith', car_number: 2 }
+    };
 
-    const mockGetRacerName = vi.fn((id) => `Racer ${id}`);
+    const mockGetRacerName = vi.fn((id) => mockRacers[id] ? `${mockRacers[id].first_name} ${mockRacers[id].last_name}` : `Racer ${id}`);
     const mockOnRunHeat = vi.fn();
     const mockOnStartTimer = vi.fn();
     const mockOnNextHeat = vi.fn();
     const mockOnUpdateResult = vi.fn();
 
+    const defaultProps = {
+        activeExecutionHeat: mockHeat,
+        nextExecutionHeat: null,
+        upcomingHeats: [],
+        activeHeatId: null,
+        onRunHeat: mockOnRunHeat,
+        onStartTimer: mockOnStartTimer,
+        onNextHeat: mockOnNextHeat,
+        getRacerName: mockGetRacerName,
+        onUpdateResult: mockOnUpdateResult,
+        racers: mockRacers,
+        roundSummary: null
+    };
+
     it('renders race complete message if no active heat', () => {
         render(
             <RaceExecution 
+                {...defaultProps}
                 activeExecutionHeat={null}
-                nextExecutionHeat={null}
-                activeHeatId={null}
-                onRunHeat={mockOnRunHeat}
-                onStartTimer={mockOnStartTimer}
-                onNextHeat={mockOnNextHeat}
-                getRacerName={mockGetRacerName}
-                onUpdateResult={mockOnUpdateResult}
             />
         );
         expect(screen.getByText('Race Complete!')).toBeInTheDocument();
     });
 
-    it('renders current heat details', () => {
+    it('renders current heat details and racer image', () => {
         render(
             <RaceExecution 
-                activeExecutionHeat={mockHeat}
-                nextExecutionHeat={null}
-                activeHeatId={null}
-                onRunHeat={mockOnRunHeat}
-                onStartTimer={mockOnStartTimer}
-                onNextHeat={mockOnNextHeat}
-                getRacerName={mockGetRacerName}
-                onUpdateResult={mockOnUpdateResult}
+                {...defaultProps}
             />
         );
         expect(screen.getByText('Heat 1')).toBeInTheDocument();
-        expect(screen.getByText('Racer 101')).toBeInTheDocument();
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
         expect(screen.getByText('3.5s')).toBeInTheDocument();
+        
+        // Check for image
+        const img = screen.getByAltText('Racer');
+        expect(img).toBeInTheDocument();
+        expect(img).toHaveAttribute('src', 'http://example.com/racer101.jpg');
     });
 
     it('shows Edit button when heat is completed', () => {
         render(
             <RaceExecution 
-                activeExecutionHeat={mockHeat}
-                nextExecutionHeat={null}
-                activeHeatId={null}
-                onRunHeat={mockOnRunHeat}
-                onStartTimer={mockOnStartTimer}
-                onNextHeat={mockOnNextHeat}
-                getRacerName={mockGetRacerName}
-                onUpdateResult={mockOnUpdateResult}
+                {...defaultProps}
             />
         );
         expect(screen.getByText('Edit')).toBeInTheDocument();
@@ -92,14 +94,7 @@ describe('RaceExecution', () => {
     it('opens modal when Edit button is clicked', () => {
         render(
             <RaceExecution 
-                activeExecutionHeat={mockHeat}
-                nextExecutionHeat={null}
-                activeHeatId={null}
-                onRunHeat={mockOnRunHeat}
-                onStartTimer={mockOnStartTimer}
-                onNextHeat={mockOnNextHeat}
-                getRacerName={mockGetRacerName}
-                onUpdateResult={mockOnUpdateResult}
+               {...defaultProps}
             />
         );
         fireEvent.click(screen.getByText('Edit'));
@@ -110,14 +105,7 @@ describe('RaceExecution', () => {
     it('calls onUpdateResult when saving edited results', async () => {
         render(
             <RaceExecution 
-                activeExecutionHeat={mockHeat}
-                nextExecutionHeat={null}
-                activeHeatId={null}
-                onRunHeat={mockOnRunHeat}
-                onStartTimer={mockOnStartTimer}
-                onNextHeat={mockOnNextHeat}
-                getRacerName={mockGetRacerName}
-                onUpdateResult={mockOnUpdateResult}
+                {...defaultProps}
             />
         );
         fireEvent.click(screen.getByText('Edit'));
@@ -136,30 +124,20 @@ describe('RaceExecution', () => {
         });
     });
 
-    const mockActiveHeat = { 
-        id: 1, 
-        round_number: 1,
-        round_id: 1,
-        heat_number: 1, 
+    const mockActiveHeatRunning = { 
+        ...mockHeat,
         lane_results: JSON.stringify([
             { lane: 1, racer_id: 101, time: null, place: null },
             { lane: 2, racer_id: 102, time: null, place: null }
         ]) 
     };
 
-    const mockNextHeat = null;
-
     it('renders FakeTimerMole when timerType is FAKE and active heat is running', async () => {
         render(
             <RaceExecution
-                activeExecutionHeat={mockActiveHeat}
-                nextExecutionHeat={mockNextHeat}
+                {...defaultProps}
+                activeExecutionHeat={mockActiveHeatRunning}
                 activeHeatId={1} // Running
-                onRunHeat={mockOnRunHeat}
-                onStartTimer={mockOnStartTimer}
-                onNextHeat={mockOnNextHeat}
-                getRacerName={mockGetRacerName}
-                onUpdateResult={mockOnUpdateResult}
                 timerType="FAKE"
             />
         );
@@ -176,19 +154,12 @@ describe('RaceExecution', () => {
         const user = userEvent.setup();
         render(
             <RaceExecution
-                activeExecutionHeat={mockActiveHeat}
-                nextExecutionHeat={mockNextHeat}
+                {...defaultProps}
+                activeExecutionHeat={mockActiveHeatRunning}
                 activeHeatId={1} // Running
-                onRunHeat={mockOnRunHeat}
-                onNextHeat={mockOnNextHeat}
-                getRacerName={mockGetRacerName}
-                onUpdateResult={mockOnUpdateResult}
-                onStartTimer={mockOnStartTimer}
                 timerType="FAKE"
             />
         );
-
-
         
         // Click "Finish Heat"
         await user.click(screen.getByText('Finish Heat'));
@@ -202,24 +173,124 @@ describe('RaceExecution', () => {
         const user = userEvent.setup();
         render(
             <RaceExecution
-                activeExecutionHeat={mockActiveHeat}
-                nextExecutionHeat={mockNextHeat}
+                {...defaultProps}
+                activeExecutionHeat={mockActiveHeatRunning}
                 activeHeatId={1} // Running
-                onRunHeat={mockOnRunHeat}
-                onNextHeat={mockOnNextHeat}
-                getRacerName={mockGetRacerName}
-                onUpdateResult={mockOnUpdateResult}
-                onStartTimer={mockOnStartTimer}
                 timerType="FAKE"
             />
         );
-
-
         
         // Click "Start Timer"
         await user.click(screen.getByText('Start Timer'));
         
         expect(consoleSpy).toHaveBeenCalledWith('Fake Timer Started via Mole');
         consoleSpy.mockRestore();
+    });
+
+    it('renders round summary when provided', () => {
+        const mockSummary = {
+            is_ready: true,
+            requires_advancement: true,
+            already_advanced: false,
+            advancing_racers: [
+                { racer_id: 101, first_name: 'John', last_name: 'Doe', car_number: 1, den_name: 'Lions', score: 3.5, rank: 1, is_advancing: true }
+            ],
+            source: 'PACK',
+            num_racers: 1
+        };
+
+        render(
+            <RaceExecution 
+                {...defaultProps}
+                roundSummary={mockSummary}
+            />
+        );
+        
+        const modal = screen.getByTestId('mock-modal');
+        expect(within(modal).getByText('Round Complete!')).toBeInTheDocument();
+        expect(within(modal).getByText(/Top 1 racers advance/)).toBeInTheDocument();
+        expect(within(modal).getByText('John Doe')).toBeInTheDocument();
+        expect(within(modal).getByText('Lions #1')).toBeInTheDocument();
+        expect(within(modal).getByText('3.500')).toBeInTheDocument();
+        expect(within(modal).getByText('Start Next Round')).toBeInTheDocument();
+    });
+
+    it('renders round summary results even if advancement not required', () => {
+        const mockSummaryNoAdvancement = {
+            is_ready: true,
+            requires_advancement: false,
+            already_advanced: false,
+            advancing_racers: [
+                { racer_id: 102, first_name: 'Jane', last_name: 'Smith', car_number: 2, den_name: 'Tigers', score: 3.6, rank: 2, is_advancing: false }
+            ],
+            source: null,
+            num_racers: null
+        };
+
+        render(
+            <RaceExecution 
+                {...defaultProps}
+                roundSummary={mockSummaryNoAdvancement}
+            />
+        );
+        
+        expect(screen.getByText('Round Complete!')).toBeInTheDocument();
+        expect(screen.getByText('This round is complete.')).toBeInTheDocument();
+        
+        // Scope to modal to avoid finding the active heat racer
+        const modal = screen.getByTestId('mock-modal');
+        expect(within(modal).getByText('Jane Smith')).toBeInTheDocument();
+        expect(within(modal).getByText('3.600')).toBeInTheDocument();
+    });
+
+    it('renders upcoming heats list', () => {
+        const upcoming = [
+            { 
+                id: 2, round_number: 1, round_id: 1, heat_number: 2, round_name: 'Round 1',
+                advancement_num_racers: null, advancement_source: null, total_participants: 4,
+                lane_results: JSON.stringify([{ lane: 1, racer_id: 103, time: null }])
+            }
+        ];
+        
+        render(
+            <RaceExecution 
+                 {...defaultProps}
+                 upcomingHeats={upcoming}
+            />
+        );
+        
+        expect(screen.getByText('Upcoming')).toBeInTheDocument();
+        expect(screen.getByText('Heat 2')).toBeInTheDocument();
+        expect(screen.getAllByText('Round 1')[1]).toBeInTheDocument(); // One in active, one in upcoming
+    });
+
+    it('closes modal when close button is clicked', async () => {
+        const mockSummary = {
+            is_ready: true,
+            requires_advancement: false,
+            already_advanced: false,
+            advancing_racers: [],
+            source: null,
+            num_racers: null
+        };
+
+        render(
+            <RaceExecution 
+                {...defaultProps}
+                roundSummary={mockSummary}
+            />
+        );
+        
+        // Modal should be open initially
+        expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
+        
+        // Find and click close button
+        const closeBtn = screen.getByText('Close Mock');
+        fireEvent.click(closeBtn);
+        
+        // Modal should be gone
+        await waitFor(() => {
+            expect(screen.queryByTestId('mock-modal')).not.toBeInTheDocument();
+        });
     });
 });

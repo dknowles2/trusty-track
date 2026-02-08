@@ -318,3 +318,75 @@ def test_delete_race():
     resp_get_after = client.get(f"/races/{race_id}")
     assert resp_get_after.status_code == 404
 
+
+def test_round_advancement_from_successor():
+    """
+    Test that a round with no advancement source (General) will show advancement info
+    if a subsequent round depends on it.
+    """
+    # 1. Setup Race
+    group_name = get_unique_name("Adv Group")
+    resp_group = client.post("/groups/", json={"name": group_name})
+    group = resp_group.json()
+    resp_race = client.post("/races/", json={"name": get_unique_name("Adv Race"), "group_id": group["id"]})
+    race = resp_race.json()
+    race_id = race["id"]
+    
+    # 2. Add Racers
+    r1 = client.post("/racers/", json={"first_name": "Fast", "last_name": "Racer", "car_number": 1, "race_id": race_id}).json()
+    r2 = client.post("/racers/", json={"first_name": "Slow", "last_name": "Racer", "car_number": 2, "race_id": race_id}).json()
+    
+    # 3. Create Rounds
+    # Round 1: General (source=None)
+    r1_resp = client.post(f"/races/{race_id}/rounds", json={"race_id": race_id, "round_number": 1, "name": "General"})
+    round1_id = r1_resp.json()[0]["id"]
+    
+    # Round 2: Championship (source="PACK", num=1)
+    r2_data = {
+        "race_id": race_id, 
+        "round_number": 2, 
+        "name": "Championship", 
+        "advancement_source": "PACK", 
+        "advancement_num_racers": 1
+    }
+    client.post(f"/races/{race_id}/rounds", json=r2_data)
+    
+    # 4. Create Heat & Results for Round 1
+    client.post(f"/rounds/{round1_id}/generate_heats")
+    heats = client.get(f"/races/{race_id}/heats").json()
+    # Filter for round 1
+    heat1 = next(h for h in heats if h["round_id"] == round1_id)
+    
+    # Update results: Racer 1 wins
+    lane_results = [
+        {"lane": 1, "racer_id": r1["id"], "time": 3.0},
+        {"lane": 2, "racer_id": r2["id"], "time": 4.0}
+    ]
+    client.put(f"/heats/{heat1['id']}", json={
+        "id": heat1["id"],
+        "race_id": race_id,
+        "round_id": round1_id,
+        "heat_number": heat1["heat_number"],
+        "round_number": 1,
+        "lane_results": json.dumps(lane_results),
+        "total_participants": 2
+    })
+    
+    # 5. Check Advancement Status
+    resp = client.get(f"/races/{race_id}/rounds/{round1_id}/advancement_status")
+    assert resp.status_code == 200
+    status = resp.json()
+    
+    # Verify that it picked up Round 2's rules
+    assert status["requires_advancement"] == True
+    assert status["source"] == "PACK"
+    assert status["num_racers"] == 1
+    
+    adv_racers = status["advancing_racers"]
+    # Find racer 1
+    winner = next(r for r in adv_racers if r["racer_id"] == r1["id"])
+    assert winner["is_advancing"] == True
+    
+    loser = next(r for r in adv_racers if r["racer_id"] == r2["id"])
+    assert loser["is_advancing"] == False
+

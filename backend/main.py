@@ -429,27 +429,46 @@ def get_round_advancement_status(race_id: int, round_id: int, db: Session = Depe
 
     # Calculate advancing racers if ready/needed
     advancing_racers = []
+    
+    # Always fetch standings to provide overall results
+    standings = scoring.get_leaderboard(db, race_id)
+    
+    # Determine advancement rules (current round OR next round)
+    adv_source = round_obj.advancement_source
+    adv_num = round_obj.advancement_num_racers
+    
+    if not requires_advancement:
+        # If this round doesn't specify advancement (e.g. General Round), check if the NEXT round does
+        next_round = db.query(models.Round).filter(
+            models.Round.race_id == race_id,
+            models.Round.round_number > round_obj.round_number,
+            models.Round.advancement_source != None
+        ).order_by(models.Round.round_number.asc()).first()
+        
+        if next_round:
+            requires_advancement = True
+            adv_source = next_round.advancement_source
+            adv_num = next_round.advancement_num_racers
+
+    winner_ids = set()
     if requires_advancement:
-        winner_ids = scoring.get_advancing_racers(
-            db, race_id, round_obj.advancement_source, round_obj.advancement_num_racers
-        )
+        winner_ids = set(scoring.get_advancing_racers(
+            db, race_id, adv_source, adv_num
+        ))
         
-        # Get racer details for response
-        standings = scoring.get_leaderboard(db, race_id)
-        standings_map = {s["racer_id"]: s for s in standings}
-        
-        for rid in winner_ids:
-            s_data = standings_map.get(rid)
-            if s_data:
-                advancing_racers.append(schemas.AdvancementRacer(**s_data))
+    for s_data in standings:
+        # Create a copy of dict to modify
+        r_data = s_data.copy()
+        r_data["is_advancing"] = r_data["racer_id"] in winner_ids
+        advancing_racers.append(schemas.AdvancementRacer(**r_data))
 
     return schemas.AdvancementStatus(
         is_ready=is_ready,
         requires_advancement=requires_advancement,
         already_advanced=already_advanced,
         advancing_racers=advancing_racers,
-        source=round_obj.advancement_source,
-        num_racers=round_obj.advancement_num_racers
+        source=adv_source,
+        num_racers=adv_num
     )
 
 

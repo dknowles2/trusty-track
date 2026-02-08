@@ -207,6 +207,7 @@ class AdvancementRacer(BaseModel):
     den_name: str
     score: float
     rank: int
+    is_advancing: bool = False
 
 class AdvancementStatus(BaseModel):
     is_ready: bool
