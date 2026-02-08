@@ -1,3 +1,0 @@
-# Objective
-
-Support tournament rounds.
