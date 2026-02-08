@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
       }
     ].filter(Boolean),
     server: {
+      host: true,
       port: isHttps ? 5174 : 5173,
       https: isHttps ? {
         key: '../certs/localhost-key.pem',
