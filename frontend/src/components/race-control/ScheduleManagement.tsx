@@ -319,17 +319,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             </div>
           )}
           <div style={{ display: 'flex', gap: '10px' }}>
-            {sortedRounds.length === 0 && (
-              <button
-                  className="secondary-btn"
-                  onClick={() => setIsWizardOpen(true)}
-                  disabled={generating || reordering}
-                  style={{ boxShadow: '0 1px 2px rgba(0,0,0,1)', display: 'flex', alignItems: 'center', gap: '5px' }}
-                  title="Open Schedule Wizard"
-              >
-                  <Icon path={mdiAutoFix} size={0.7} /> Wizard
-              </button>
-            )}
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}

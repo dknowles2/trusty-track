@@ -366,51 +366,5 @@ describe('ScheduleManagement', () => {
         // Check that regenerate button is NOT present
         expect(screen.queryByText('Regenerate')).not.toBeInTheDocument();
     });
-    it('shows wizard button only when no rounds exist', () => {
-        const { rerender } = render(
-            <AlertProvider>
-                <ScheduleManagement 
-                    raceId={1}
-                    heats={[]} 
-                    generating={false} 
-                    activeHeatId={null}
-                    onAddRound={mockOnAddRound}
-                    onRegenerateRound={mockOnRegenerateRound}
-                    onRunHeat={mockOnRunHeat}
-                    getRacerName={mockGetRacerName}
-                    onRefetchHeats={vi.fn()}
-                    laneCount={4}
-                    racerCount={10}
-                    denCount={3}
-                    dens={[]}
-                />
-            </AlertProvider>
-        );
-
-        expect(screen.getByText('Wizard')).toBeInTheDocument();
-
-        // Rerender with rounds
-        rerender(
-            <AlertProvider>
-                <ScheduleManagement 
-                    raceId={1}
-                    heats={mockHeats} 
-                    generating={false} 
-                    activeHeatId={null}
-                    onAddRound={mockOnAddRound}
-                    onRegenerateRound={mockOnRegenerateRound}
-                    onRunHeat={mockOnRunHeat}
-                    getRacerName={mockGetRacerName}
-                    onRefetchHeats={vi.fn()}
-                    laneCount={4}
-                    racerCount={10}
-                    denCount={3}
-                    dens={[]}
-                />
-            </AlertProvider>
-        );
-
-        expect(screen.queryByText('Wizard')).not.toBeInTheDocument();
-    });
 });
 
