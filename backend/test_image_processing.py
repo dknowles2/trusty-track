@@ -1,9 +1,11 @@
+import os
+from typing import Any
 import numpy as np
 from PIL import Image
-from .image_processing import remove_green_screen
+from .image_processing import remove_green_screen, crop_to_content, convert_to_favicon
 
 
-def test_remove_green_screen_pure_green():
+def test_remove_green_screen_pure_green() -> None:
     # Create a pure green image
     green_rgb = (0, 255, 0)
     image = Image.new("RGB", (100, 100), color=green_rgb)
@@ -16,7 +18,7 @@ def test_remove_green_screen_pure_green():
     assert np.all(alpha == 0), "Pure green image should be fully transparent"
 
 
-def test_remove_green_screen_no_green():
+def test_remove_green_screen_no_green() -> None:
     # Create a pure red image
     red_rgb = (255, 0, 0)
     image = Image.new("RGB", (100, 100), color=red_rgb)
@@ -29,7 +31,7 @@ def test_remove_green_screen_no_green():
     assert np.all(alpha == 255), "Pure red image should be fully opaque"
 
 
-def test_remove_green_screen_with_object():
+def test_remove_green_screen_with_object() -> None:
     # Create an image with a red square on a green background
     green_rgb = (0, 255, 0)
     red_rgb = (255, 0, 0)
@@ -54,7 +56,45 @@ def test_remove_green_screen_with_object():
     assert np.all(alpha[0:10, 0:10] == 0)
 
 
-def test_remove_green_screen_dilation():
+def test_crop_to_content() -> None:
+    """Tests the crop_to_content function."""
+    # Create an image with a small square in the middle
+    img = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+    # 20x20 square from (40, 40) to (60, 60)
+    for x in range(40, 60):
+        for y in range(40, 60):
+            img.putpixel((x, y), (255, 255, 255, 255))
+
+    # Crop with 5px padding
+    cropped = crop_to_content(img, padding=5)
+
+    # Expected size: 20 + 2*5 = 30
+    assert cropped.size == (30, 30)
+    
+    # Check that it's actually cropped to the right area
+    # Original (40,40) is now at (5,5) in the cropped image
+    assert cropped.getpixel((5, 5)) == (255, 255, 255, 255)
+    assert cropped.getpixel((0, 0)) == (0, 0, 0, 0)
+
+
+def test_convert_to_favicon(tmp_path: Any) -> None:
+    """Tests the convert_to_favicon function."""
+    img = Image.new("RGBA", (100, 100), (255, 0, 0, 255))
+    output_path = str(tmp_path / "test.ico")
+    
+    convert_to_favicon(img, output_path)
+    
+    assert os.path.exists(output_path)
+    # Check if it's a valid ICO by opening it
+    with Image.open(output_path) as ico:
+        assert ico.format == "ICO"
+        # ICO files can contain multiple sizes
+        # In PIL, when you open an ICO, the sizes are available in info['sizes']
+        assert "sizes" in ico.info
+        assert len(ico.info["sizes"]) > 0
+
+
+def test_remove_green_screen_dilation() -> None:
     # Create an image with a single green pixel in a red field
     red_rgb = (255, 0, 0)
     green_rgb = (0, 255, 0)

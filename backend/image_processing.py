@@ -85,3 +85,53 @@ def remove_green_screen(
     rgba_image.putalpha(alpha_channel)
 
     return rgba_image
+
+
+def crop_to_content(image: Image.Image, padding: int = 10) -> Image.Image:
+    """
+    Crops the image to contain only the primary subject based on transparency.
+
+    Args:
+        image: The input PIL Image (should be RGBA).
+        padding: Padding to add around the subject.
+
+    Returns:
+        The cropped PIL Image.
+    """
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
+
+    # Get the bounding box of non-transparent pixels
+    # getbbox() returns (left, top, right, bottom)
+    bbox = image.getbbox()
+
+    if not bbox:
+        return image
+
+    left, top, right, bottom = bbox
+
+    # Add padding
+    left = max(0, left - padding)
+    top = max(0, top - padding)
+    right = min(image.width, right + padding)
+    bottom = min(image.height, bottom + padding)
+
+    return image.crop((left, top, right, bottom))
+
+
+def convert_to_favicon(image: Image.Image, output_path: str) -> None:
+    """
+    Converts an image to a favicon format (.ico).
+
+    Args:
+        image: The input PIL Image.
+        output_path: Path where the .ico file will be saved.
+    """
+    # Standard favicon sizes
+    sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (180, 180), (192, 192), (512, 512)]
+
+    # We need to ensure the image is in a mode that supports transparency if we want the favicon to be transparent
+    if image.mode != "RGBA":
+        image = image.convert("RGBA")
+
+    image.save(output_path, format="ICO", sizes=sizes)
