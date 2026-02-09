@@ -341,6 +341,81 @@ export default function RaceDetails() {
       );
   });
 
+  const renderRacerCard = (racer: Racer) => {
+    const den = dens.find(d => d.id === racer.den_id);
+    const isSelected = selectedRacerIds.includes(racer.id);
+
+    return (
+      <div key={racer.id} className="racer-card" style={{ 
+          backgroundColor: isSelected ? '#f0f7ff' : 'white',
+          borderColor: isSelected ? '#3b82f6' : '#eee'
+      }}>
+          <div className="racer-card-header">
+              {racer.racer_image_url ? (
+                  <img src={racer.racer_image_url} alt={racer.first_name} className="racer-card-photo" />
+              ) : (
+                  <div className="racer-card-photo" style={{ background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.8rem' }}>
+                      No Photo
+                  </div>
+              )}
+              <div className="racer-card-name-group">
+                  <span className="racer-card-name">{racer.first_name} {racer.last_name}</span>
+                  <span className="racer-card-number">Car #{racer.car_number || '-'}</span>
+              </div>
+              <input 
+                  type="checkbox" 
+                  checked={isSelected}
+                  onChange={() => toggleSelectRacer(racer.id)}
+                  style={{ transform: 'scale(1.2)', marginLeft: '10px' }}
+              />
+          </div>
+
+          <div className="racer-card-row">
+              <span className="racer-card-label">Den</span>
+              <div className="racer-card-value">
+                  {racer.den_id ? (
+                      <span style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          backgroundColor: den?.color || '#eee',
+                          color: '#333',
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold'
+                      }}>
+                          {den?.name || 'Unknown'}
+                      </span>
+                  ) : '-'}
+              </div>
+          </div>
+
+          <div className="racer-card-actions">
+              <button 
+                  onClick={() => handleCheckInClick(racer)}
+                  className="secondary-btn"
+                  style={{ 
+                      background: racer.car_passed_inspection ? '#e8f5e9' : '#fafafa', 
+                      borderColor: racer.car_passed_inspection ? '#4caf50' : '#ddd',
+                      color: racer.car_passed_inspection ? '#2e7d32' : '#666',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                  }}
+              >
+                  {racer.car_passed_inspection ? <Icon path={mdiCheckDecagram} size={0.7} /> : null}
+                  {racer.car_passed_inspection ? 'Checked In' : 'Check In'}
+              </button>
+              <button
+                  onClick={() => handleEditRacerClick(racer)}
+                  className="secondary-btn"
+                  style={{ color: 'var(--scouting-blue)', display: 'flex', alignItems: 'center', gap: '5px' }}
+              >
+                  <Icon path={mdiPencil} size={0.7} /> Edit
+              </button>
+          </div>
+      </div>
+    );
+  };
+
   if (loading && !race) return <p>Loading...</p>;
 
   return (
@@ -477,10 +552,10 @@ export default function RaceDetails() {
       )}
 
       {/* Roster Section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+      <div className="roster-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h2>Racer Roster</h2>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginRight: '10px', position: 'relative' }}>
+        <div className="roster-controls" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div className="search-container" style={{ display: 'flex', alignItems: 'center', marginRight: '10px', position: 'relative' }}>
                 <Icon path={mdiMagnify} size={0.8} style={{ position: 'absolute', left: '10px', color: '#999' }} />
                 <input
                     type="text"
@@ -643,8 +718,8 @@ export default function RaceDetails() {
         </div>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+      <div style={{ overflowX: 'auto' }} className="desktop-only-table">
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden' }} className="responsive-table">
                 <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
                     <tr>
                         <th style={{ padding: '12px', textAlign: 'center', width: '40px' }}>
@@ -670,7 +745,7 @@ export default function RaceDetails() {
                 </thead>
                 <tbody>
                     {filteredRacers.length === 0 ? (
-                        <tr><td colSpan={8} style={{ padding: '20px', textAlign: 'center' }}>
+                        <tr><td data-label="Status" colSpan={8} style={{ padding: '20px', textAlign: 'center' }}>
                             {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
                         </td></tr>
                     ) : isGroupedByDen ? (
@@ -696,7 +771,7 @@ export default function RaceDetails() {
                             
                             return (
                                 <>
-                                    <tr key={`header-${group.denId}`} style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
+                                    <tr key={`header-${group.denId}`} className="group-row" style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
                                         <td colSpan={8} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{ 
                                                 display: 'inline-block', 
@@ -718,7 +793,7 @@ export default function RaceDetails() {
                                                 backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined 
                                             }}
                                          >
-                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                             <td data-label="Select" style={{ padding: '12px', textAlign: 'center' }}>
                                                 <input 
                                                     type="checkbox" 
                                                     className="row-checkbox"
@@ -731,8 +806,8 @@ export default function RaceDetails() {
                                                     }}
                                                 />
                                             </td>
-                                            <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
-                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <td data-label="Car #" style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
+                                            <td data-label="Photo" style={{ padding: '12px', textAlign: 'center' }}>
                                                 {racer.racer_image_url ? (
                                                     <img 
                                                         src={racer.racer_image_url} 
@@ -745,9 +820,9 @@ export default function RaceDetails() {
                                                     </div>
                                                 )}
                                             </td>
-                                            <td style={{ padding: '12px' }}>{racer.first_name}</td>
-                                            <td style={{ padding: '12px' }}>{racer.last_name}</td>
-                                            <td style={{ padding: '12px' }}>
+                                            <td data-label="First Name" style={{ padding: '12px' }}>{racer.first_name}</td>
+                                            <td data-label="Last Name" style={{ padding: '12px' }}>{racer.last_name}</td>
+                                            <td data-label="Den" style={{ padding: '12px' }}>
                                                 {racer.den_id ? (
                                                     <span style={{ 
                                                         padding: '4px 8px', 
@@ -761,7 +836,7 @@ export default function RaceDetails() {
                                                     </span>
                                                 ) : '-'}
                                             </td>
-                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                            <td data-label="Checked In" style={{ padding: '12px', textAlign: 'center' }}>
                                                 <button 
                                                     onClick={() => handleCheckInClick(racer)}
                                                     style={{ 
@@ -780,7 +855,7 @@ export default function RaceDetails() {
                                                      {racer.car_passed_inspection ? <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In</> : 'Check In'}
                                                  </button>
                                             </td>
-                                            <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            <td data-label="Actions" style={{ padding: '12px', textAlign: 'right' }}>
                                                 <button
                                                     onClick={() => handleEditRacerClick(racer)}
                                                     style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -805,82 +880,133 @@ export default function RaceDetails() {
                                     backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined
                                 }}
                             >
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <input 
-                                        type="checkbox" 
-                                        className="row-checkbox"
-                                        data-testid={`racer-select-${racer.id}`}
-                                        checked={selectedRacerIds.includes(racer.id)}
-                                        onChange={() => toggleSelectRacer(racer.id)}
-                                        style={{ 
-                                            transform: 'scale(1.1)',
-                                            opacity: selectedRacerIds.includes(racer.id) ? 1 : 0
-                                        }}
-                                    />
-                                </td>
-                                <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    {racer.racer_image_url ? (
-                                        <img 
-                                            src={racer.racer_image_url} 
-                                            alt={`${racer.first_name}`} 
-                                            style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                                <td data-label="Select" style={{ padding: '12px', textAlign: 'center' }}>
+                                    <span className="cell-value">
+                                        <input 
+                                            type="checkbox" 
+                                            className="row-checkbox"
+                                            data-testid={`racer-select-${racer.id}`}
+                                            checked={selectedRacerIds.includes(racer.id)}
+                                            onChange={() => toggleSelectRacer(racer.id)}
+                                            style={{ 
+                                                transform: 'scale(1.1)',
+                                                opacity: selectedRacerIds.includes(racer.id) ? 1 : 0
+                                            }}
                                         />
-                                    ) : (
-                                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#999', fontSize: '0.8rem' }}>
-                                            No
-                                        </div>
-                                    )}
+                                    </span>
                                 </td>
-                                <td style={{ padding: '12px' }}>{racer.first_name}</td>
-                                <td style={{ padding: '12px' }}>{racer.last_name}</td>
-                                <td style={{ padding: '12px' }}>
-                                    {racer.den_id ? (
-                                        <span style={{ 
-                                            padding: '4px 8px', 
-                                            borderRadius: '12px', 
-                                            backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
-                                            color: '#333',
-                                            fontSize: '0.85rem',
-                                            fontWeight: 'bold'
-                                        }}>
-                                            {dens.find(d => d.id === racer.den_id)?.name || 'Unknown'}
-                                        </span>
-                                    ) : '-'}
+                                <td data-label="Car #" style={{ padding: '12px' }}><span className="cell-value">{racer.car_number || '-'}</span></td>
+                                <td data-label="Photo" style={{ padding: '12px', textAlign: 'center' }}>
+                                    <span className="cell-value">
+                                        {racer.racer_image_url ? (
+                                            <img 
+                                                src={racer.racer_image_url} 
+                                                alt={`${racer.first_name}`} 
+                                                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                                            />
+                                        ) : (
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#999', fontSize: '0.8rem' }}>
+                                                No
+                                            </div>
+                                        )}
+                                    </span>
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <button 
-                                        onClick={() => handleCheckInClick(racer)}
-                                        style={{ 
-                                            background: racer.car_passed_inspection ? '#e8f5e9' : '#fafafa', 
-                                            border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`, 
-                                            borderRadius: '20px',
-                                            padding: '6px 12px',
-                                            cursor: 'pointer',
-                                            color: racer.car_passed_inspection ? '#2e7d32' : '#666',
-                                            fontSize: '0.85rem',
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '5px'
-                                        }}
-                                    >
-                                        {racer.car_passed_inspection ? <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In</> : 'Check In'}
-                                    </button>
+                                <td data-label="First Name" style={{ padding: '12px' }}><span className="cell-value">{racer.first_name}</span></td>
+                                <td data-label="Last Name" style={{ padding: '12px' }}><span className="cell-value">{racer.last_name}</span></td>
+                                <td data-label="Den" style={{ padding: '12px' }}>
+                                    <span className="cell-value">
+                                        {racer.den_id ? (
+                                            <span style={{ 
+                                                padding: '4px 8px', 
+                                                borderRadius: '12px', 
+                                                backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
+                                                color: '#333',
+                                                fontSize: '0.85rem',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {dens.find(d => d.id === racer.den_id)?.name || 'Unknown'}
+                                            </span>
+                                        ) : '-'}
+                                    </span>
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'right' }}>
-                                    <button
-                                        onClick={() => handleEditRacerClick(racer)}
-                                        style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                        title="Edit Racer"
-                                    >
-                                        <Icon path={mdiPencil} size={0.7} /> Edit
-                                    </button>
+                                <td data-label="Checked In" style={{ padding: '12px', textAlign: 'center' }}>
+                                    <span className="cell-value">
+                                        <button 
+                                            onClick={() => handleCheckInClick(racer)}
+                                            style={{ 
+                                                background: racer.car_passed_inspection ? '#e8f5e9' : '#fafafa', 
+                                                border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`, 
+                                                borderRadius: '20px',
+                                                padding: '6px 12px',
+                                                cursor: 'pointer',
+                                                color: racer.car_passed_inspection ? '#2e7d32' : '#666',
+                                                fontSize: '0.85rem',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '5px'
+                                            }}
+                                        >
+                                            {racer.car_passed_inspection ? <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In</> : 'Check In'}
+                                        </button>
+                                    </span>
+                                </td>
+                                <td data-label="Actions" style={{ padding: '12px', textAlign: 'right' }}>
+                                    <span className="cell-value">
+                                        <button
+                                            onClick={() => handleEditRacerClick(racer)}
+                                            style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                            title="Edit Racer"
+                                        >
+                                            <Icon path={mdiPencil} size={0.7} /> Edit
+                                        </button>
+                                    </span>
                                 </td>
                             </tr>
                         ))
                     )}
                 </tbody>
             </table>
+      </div>
+
+      {/* Mobile Card Layout */}
+      <div className="mobile-only-cards">
+          {filteredRacers.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px solid #eee' }}>
+                  {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
+              </div>
+          ) : isGroupedByDen ? (
+              // Mobile Grouped View
+              Object.values(filteredRacers.reduce((acc, racer) => {
+                  const denId = racer.den_id || -1;
+                  if (!acc[denId]) acc[denId] = { denId, items: [] };
+                  acc[denId].items.push(racer);
+                  return acc;
+              }, {} as Record<number, { denId: number, items: Racer[] }>))
+              .sort((a, b) => {
+                   if (a.denId === -1) return 1;
+                   if (b.denId === -1) return -1;
+                   const denA = dens.find(d => d.id === a.denId);
+                   const denB = dens.find(d => d.id === b.denId);
+                   return (denA?.name || '').localeCompare(denB?.name || '');
+              })
+              .map(group => {
+                  const den = dens.find(d => d.id === group.denId);
+                  const denName = group.denId === -1 ? "Unassigned" : (den?.name || 'Unknown Den');
+                  const denColor = group.denId === -1 ? "#eee" : (den?.color || '#eee');
+                  
+                  return (
+                      <div key={`mobile-group-${group.denId}`}>
+                          <div className="mobile-den-header" style={{ borderLeftColor: denColor }}>
+                              {denName} ({group.items.length})
+                          </div>
+                          {group.items.map(racer => renderRacerCard(racer))}
+                      </div>
+                  );
+              })
+          ) : (
+              // Mobile Standard View
+              filteredRacers.map(racer => renderRacerCard(racer))
+          )}
       </div>
 
       {/* Racer Form Modal */}
