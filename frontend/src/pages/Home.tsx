@@ -49,7 +49,7 @@ export default function Home() {
     return (
         <div className="container" style={{ padding: '2rem' }}>
             <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-                 <img src="/src/assets/logo_full.png" alt="Trusty Track Logo" style={{ maxWidth: '400px', marginBottom: '1rem' }} />
+                 <img src="/src/assets/logo_full_transparent.png" alt="Trusty Track Logo" style={{ maxWidth: '400px', marginBottom: '1rem' }} />
                  <h1>Welcome to Trusty Track</h1>
                  <p>Select a race to manage or create a new one.</p>
             </div>

@@ -55,7 +55,7 @@ export default function Navigation() {
           
           {/* Left: Logo & Home */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
-            <img src="/src/assets/logo.png" alt="Trusty Track Logo" style={{ height: '32px', width: 'auto' }} />
+            <img src="/src/assets/logo_transparent.png" alt="Trusty Track Logo" style={{ height: '32px', width: 'auto' }} />
             <span style={{ fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>Trusty Track</span>
           </Link>
 

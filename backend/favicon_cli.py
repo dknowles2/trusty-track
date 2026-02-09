@@ -20,8 +20,12 @@ def main() -> None:
             print(f"Cropping {args.input} with padding {args.padding}...")
             img = crop_to_content(img, padding=args.padding)
         
-        print(f"Converting to favicon: {args.output}...")
-        convert_to_favicon(img, args.output)
+        if args.output.lower().endswith(".ico"):
+            print(f"Converting to favicon: {args.output}...")
+            convert_to_favicon(img, args.output)
+        else:
+            print(f"Saving cropped image to: {args.output}...")
+            img.save(args.output)
         print("Done!")
 
     except Exception as e:
