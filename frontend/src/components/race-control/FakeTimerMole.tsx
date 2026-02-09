@@ -9,9 +9,10 @@ interface FakeTimerMoleProps {
     activeHeat: any;
     isOpen: boolean;
     isRunning?: boolean;
+    isCompleted?: boolean;
 }
 
-export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, onTriggerStart, activeHeat, isOpen, isRunning }) => {
+export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, onTriggerStart, activeHeat, isOpen, isRunning, isCompleted }) => {
     React.useEffect(() => {
         let timeout: NodeJS.Timeout;
         if (isOpen && isRunning) {
@@ -90,6 +91,16 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, o
             </button>
             
             <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#666' }}>
+                {isCompleted ? (
+                    <span style={{ color: '#4caf50', fontWeight: 'bold' }}>Heat Completed</span>
+                ) : isRunning ? (
+                    <span style={{ color: '#ff9800', fontWeight: 'bold' }}>Racing...</span>
+                ) : (
+                    "Ready to start"
+                )}
+            </div>
+            
+            <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#888' }}>
                 Simulates hardware timer events.
             </div>
         </div>

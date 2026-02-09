@@ -415,9 +415,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
       {/* Fake Timer Mole */}
       <FakeTimerMole 
-        isOpen={showFakeControls && !isCompleted}
+        isOpen={showFakeControls}
         activeHeat={activeExecutionHeat}
         isRunning={isRunning}
+        isCompleted={isCompleted}
         onTriggerFinish={handleMoleFinish}
         onTriggerStart={handleMoleStart}
       />

@@ -88,10 +88,24 @@ describe('FakeTimerMole', () => {
             />
         );
 
+        expect(screen.getByText('Racing...')).toBeInTheDocument();
+
         // Advance timers by 6 seconds (max delay is 5s)
         vi.advanceTimersByTime(6000);
 
         expect(mockOnTriggerFinish).toHaveBeenCalled();
+    });
+
+    it('shows completed status when isCompleted is true', () => {
+        render(
+            <FakeTimerMole 
+                isOpen={true}
+                activeHeat={mockHeat}
+                isCompleted={true}
+                onTriggerFinish={mockOnTriggerFinish}
+            />
+        );
+        expect(screen.getByText('Heat Completed')).toBeInTheDocument();
     });
 
     it('clears timeout on unmount', () => {
