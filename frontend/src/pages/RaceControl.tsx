@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAlert } from '../context/AlertContext';
 import { ScheduleManagement } from '../components/race-control/ScheduleManagement';
@@ -37,6 +37,7 @@ interface AdvancementRacer {
     den_name: string;
     score: number;
     rank: number;
+    is_advancing: boolean;
 }
 
 interface AdvancementStatus {
@@ -50,7 +51,8 @@ interface AdvancementStatus {
 
 export default function RaceControl() {
   const { showAlert, showToast } = useAlert();
-  const { raceId } = useParams<{ raceId: string }>();
+  const { raceId, tab } = useParams<{ raceId: string; tab?: string }>();
+  const navigate = useNavigate();
   const [activeRaceId, setActiveRaceId] = useState<number | null>(null);
   const [heats, setHeats] = useState<Heat[]>([]);
   const [racers, setRacers] = useState<Record<number, Racer>>({});
@@ -63,7 +65,6 @@ export default function RaceControl() {
   const [laneCount, setLaneCount] = useState<number>(4);
   const [championshipTrophies, setChampionshipTrophies] = useState<number>(3);
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
-  const [currentRoundIdForSummary, setCurrentRoundIdForSummary] = useState<number | null>(null);
 
   useEffect(() => {
     if (raceId) {
@@ -196,7 +197,6 @@ export default function RaceControl() {
         // Update state immediately to reflect change in UI
         setHeats(prevHeats => prevHeats.map(h => h.id === heat.id ? updatedHeat : h));
         setRoundSummary(null); // Clear any summary
-        setCurrentRoundIdForSummary(null);
         
         try {
             await apiClient.put(`/heats/${heat.id}`, updatedHeat);
@@ -222,7 +222,7 @@ export default function RaceControl() {
         // Just switch to execution view and select the heat
         // Don't set activeHeatId - timer will be started by FakeTimerMole "Start Timer" button
         setSelectedHeatId(heat.id);
-        setViewMode('EXECUTION');
+        navigate(`/race/${activeRaceId}/control/race`);
     } else {
         // If we are just clearing results, ensure we are NOT active
         if (activeHeatId === heat.id) {
@@ -292,7 +292,6 @@ export default function RaceControl() {
       if (currentHeat.heat_number !== maxHeatNumber) {
           // Not the last heat
           setRoundSummary(null);
-          setCurrentRoundIdForSummary(null);
           return;
       }
       
@@ -310,7 +309,6 @@ export default function RaceControl() {
           try {
              const status = await apiClient.get<AdvancementStatus>(`/races/${activeRaceId}/rounds/${currentHeat.round_id}/advancement_status`);
              setRoundSummary(status);
-             setCurrentRoundIdForSummary(currentHeat.round_id);
           } catch (error) {
               console.error("Failed to fetch advancement status", error);
           }
@@ -328,7 +326,7 @@ export default function RaceControl() {
   };
 
   // ... existing state ...
-  const [viewMode, setViewMode] = useState<'SCHEDULE' | 'EXECUTION'>('SCHEDULE');
+  const viewMode = (tab?.toUpperCase() === 'RACE') ? 'EXECUTION' : 'SCHEDULE';
 
   // ... (keep existing useEffects and handlers) ...
 
@@ -358,7 +356,6 @@ export default function RaceControl() {
 
   const handleNextHeat = () => {
       setRoundSummary(null);
-      setCurrentRoundIdForSummary(null);
       if (nextExecutionHeat) {
           setSelectedHeatId(nextExecutionHeat.id);
       }
@@ -399,7 +396,7 @@ export default function RaceControl() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', justifySelf: 'center' }}>
             <div style={{ display: 'flex', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
                 <button 
-                    onClick={() => setViewMode('SCHEDULE')}
+                    onClick={() => navigate(`/race/${activeRaceId}/control/schedule`)}
                      style={{ 
                         padding: '8px 20px', 
                         borderRadius: '20px', 
@@ -416,7 +413,7 @@ export default function RaceControl() {
                     <Icon path={mdiCalendarRange} size={0.8} /> Schedule
                 </button>
                 <button 
-                    onClick={() => setViewMode('EXECUTION')}
+                    onClick={() => navigate(`/race/${activeRaceId}/control/race`)}
                     style={{ 
                         padding: '8px 20px', 
                         borderRadius: '20px', 

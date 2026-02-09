@@ -1,6 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { mdiCalendarRange, mdiFlagCheckered, mdiCached, mdiDelete } from '@mdi/js';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
 import { AlertProvider } from '../../context/AlertContext';

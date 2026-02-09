@@ -80,7 +80,7 @@ describe('RaceControl Page', () => {
             <AlertProvider>
                 <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
                     <Routes>
-                        <Route path="/race/:raceId/control" element={<RaceControl />} />
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
                     </Routes>
                 </MemoryRouter>
             </AlertProvider>
@@ -107,7 +107,7 @@ describe('RaceControl Page', () => {
              <AlertProvider>
                 <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
                     <Routes>
-                        <Route path="/race/:raceId/control" element={<RaceControl />} />
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
                     </Routes>
                 </MemoryRouter>
             </AlertProvider>
@@ -149,7 +149,7 @@ describe('RaceControl Page', () => {
             <AlertProvider>
                 <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
                     <Routes>
-                        <Route path="/race/:raceId/control" element={<RaceControl />} />
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
                     </Routes>
                 </MemoryRouter>
             </AlertProvider>

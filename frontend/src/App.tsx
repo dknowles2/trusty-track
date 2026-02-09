@@ -57,7 +57,7 @@ function App() {
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
               <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
-              <Route path="/race/:raceId/control" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
+              <Route path="/race/:raceId/control/:tab?" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
               <Route path="/race/:raceId/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />
 
               {/* Legacy Redirects or Handle 404 */}

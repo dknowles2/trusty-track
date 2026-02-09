@@ -36,7 +36,7 @@ describe('RaceExecution', () => {
         102: { id: 102, first_name: 'Jane', last_name: 'Smith', car_number: 2 }
     };
 
-    const mockGetRacerName = vi.fn((id) => mockRacers[id] ? `${mockRacers[id].first_name} ${mockRacers[id].last_name}` : `Racer ${id}`);
+    const mockGetRacerName = vi.fn((id: number) => (mockRacers as any)[id] ? `${(mockRacers as any)[id].first_name} ${(mockRacers as any)[id].last_name}` : `Racer ${id}`);
     const mockOnRunHeat = vi.fn();
     const mockOnStartTimer = vi.fn();
     const mockOnNextHeat = vi.fn();
@@ -169,7 +169,6 @@ describe('RaceExecution', () => {
     });
 
     it('does not overwrite results if FakeTimerMole triggers finish on completed heat', async () => {
-        const user = userEvent.setup();
         // Reset mock
         mockOnUpdateResult.mockClear();
 
