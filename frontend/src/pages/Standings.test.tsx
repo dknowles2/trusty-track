@@ -65,4 +65,41 @@ describe('Standings', () => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
         expect(screen.getByText('Tigers')).toBeInTheDocument();
     });
+
+    it('shows no results message when leaderboard has no completed heats', async () => {
+        const mockRace = {
+            id: 1,
+            name: 'Test Race'
+        };
+
+        const mockLeaderboard = {
+            race_id: 1,
+            scoring_strategy: 'TIMED',
+            leaderboard: [
+                { racer_id: 1, first_name: 'Fast', last_name: 'Driver', car_number: 10, den_name: 'Tigers', score: 0, heats_completed: 0, rank: 1 },
+                { racer_id: 2, first_name: 'Slow', last_name: 'Driver', car_number: 20, den_name: 'Wolves', score: 0, heats_completed: 0, rank: 2 }
+            ]
+        };
+
+        (apiClient.get as any).mockImplementation((url: string) => {
+            if (url === '/races/1') return Promise.resolve(mockRace);
+            if (url === '/races/1/scores') return Promise.resolve(mockLeaderboard);
+            return Promise.resolve({});
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/standings']}>
+                <Routes>
+                    <Route path="/race/:raceId/standings" element={<Standings />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Test Race - Standings')).toBeInTheDocument();
+        });
+
+        expect(screen.getByText('No results yet. Complete some heats to see standings!')).toBeInTheDocument();
+        expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    });
 });

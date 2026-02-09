@@ -47,7 +47,9 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
     return <div style={{ textAlign: 'center', padding: '20px' }}>Loading standings...</div>;
   }
 
-  if (!data || data.leaderboard.length === 0) {
+  const hasResults = data && data.leaderboard.some(entry => entry.heats_completed > 0);
+
+  if (!data || data.leaderboard.length === 0 || !hasResults) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
         <p>No results yet. Complete some heats to see standings!</p>
