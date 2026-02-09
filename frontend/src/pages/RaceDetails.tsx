@@ -402,8 +402,8 @@ export default function RaceDetails() {
           )}
       </Modal>
 
-      {/* Standings Link */}
-      {race && (
+      {/* Standings Link - Only show if at least one heat has been run */}
+      {race && leaderboard && leaderboard.leaderboard.some(r => r.heats_completed > 0) && (
         <div style={{ marginBottom: '2rem' }}>
             <Link to={`/race/${race.id}/standings`} style={{ textDecoration: 'none' }}>
                 <div style={{ 

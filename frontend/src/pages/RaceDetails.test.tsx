@@ -258,4 +258,52 @@ describe('RaceDetails', () => {
         expect(link).toBeInTheDocument();
         expect(link).toHaveAttribute('href', '/race/1/standings');
     });
+
+    it('does not show standings banner if no heats run', async () => {
+        const mockRace = {
+            id: 1,
+            name: 'New Race',
+            date_time: '2024-03-15T10:00:00',
+            location: 'Test Location',
+            scheduling_strategy: 'LANE_ROTATION',
+            scoring_strategy: 'TIMED',
+            car_numbering_strategy: 'PER_GROUP',
+            group_id: 1,
+            global_start_number: 1,
+            track_id: 1,
+            championship_trophies: 3
+        };
+
+        const mockLeaderboard = {
+            race_id: 1,
+            scoring_strategy: 'TIMED',
+            leaderboard: [
+                { racer_id: 1, first_name: 'Fast', last_name: 'Driver', car_number: 10, den_name: 'Tigers', score: 0, heats_completed: 0, rank: 1 },
+                { racer_id: 2, first_name: 'Slow', last_name: 'Driver', car_number: 20, den_name: 'Wolves', score: 0, heats_completed: 0, rank: 2 }
+            ]
+        };
+
+        (apiClient.get as any).mockImplementation((url: string) => {
+            if (url === '/races/1') return Promise.resolve(mockRace);
+            if (url.includes('/racers/')) return Promise.resolve([]);
+            if (url.includes('/dens/')) return Promise.resolve([]);
+            if (url.includes('/scores')) return Promise.resolve(mockLeaderboard);
+            if (url === '/tracks/') return Promise.resolve([]);
+            return Promise.resolve({});
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes>
+                    <Route path="/races/:raceId" element={<RaceDetails />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('New Race')).toBeInTheDocument();
+        });
+
+        expect(screen.queryByText('Current Standings')).not.toBeInTheDocument();
+    });
 });
