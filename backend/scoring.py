@@ -143,7 +143,8 @@ def get_leaderboard(db: Session, race_id: int) -> List[Dict]:
             "den_id": racer.den_id,
             "den_name": den.name if den else "Unknown",
             "score": score_data["score"],
-            "heats_completed": score_data["heats_completed"]
+            "heats_completed": score_data["heats_completed"],
+            "racer_image_url": racer.racer_image_url
         })
     
     # Sort by score (ascending - lower is better for both strategies)

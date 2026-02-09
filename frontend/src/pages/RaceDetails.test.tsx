@@ -192,4 +192,70 @@ describe('RaceDetails', () => {
         // Verify redirect
         expect(window.location.href).toBe('/');
     });
+    
+    it('contains a link to the updated standings page and shows top 3 preview', async () => {
+        const mockRace = {
+            id: 1,
+            name: 'Test Race',
+            date_time: '2024-03-15T10:00:00',
+            location: 'Test Location',
+            scheduling_strategy: 'LANE_ROTATION',
+            scoring_strategy: 'TIMED',
+            car_numbering_strategy: 'PER_GROUP',
+            group_id: 1,
+            global_start_number: 1,
+            track_id: 1,
+            championship_trophies: 3
+        };
+
+        const mockLeaderboard = {
+            race_id: 1,
+            scoring_strategy: 'TIMED',
+            leaderboard: [
+                { racer_id: 1, first_name: 'Fast', last_name: 'Driver', car_number: 10, den_name: 'Tigers', score: 2.5, heats_completed: 1, rank: 1, racer_image_url: '/static/fast.jpg' },
+                { racer_id: 2, first_name: 'Slow', last_name: 'Driver', car_number: 20, den_name: 'Wolves', score: 3.0, heats_completed: 1, rank: 2 },
+                { racer_id: 3, first_name: 'Medium', last_name: 'Driver', car_number: 30, den_name: 'Bears', score: 2.8, heats_completed: 1, rank: 3 }
+            ]
+        };
+
+        (apiClient.get as any).mockImplementation((url: string) => {
+            if (url === '/races/1') return Promise.resolve(mockRace);
+            if (url.includes('/racers/')) return Promise.resolve([]);
+            if (url.includes('/dens/')) return Promise.resolve([]);
+            if (url.includes('/scores')) return Promise.resolve(mockLeaderboard);
+            if (url === '/tracks/') return Promise.resolve([]);
+            return Promise.resolve({});
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes>
+                    <Route path="/races/:raceId" element={<RaceDetails />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Current Standings')).toBeInTheDocument();
+        });
+        
+        // Assert Top 3 Preview
+        expect(screen.getByText('Fast Driver')).toBeInTheDocument();
+        expect(screen.getByText('Slow Driver')).toBeInTheDocument();
+        expect(screen.getByText('Medium Driver')).toBeInTheDocument();
+        expect(screen.getByText('🥇')).toBeInTheDocument();
+        expect(screen.getByText('🥈')).toBeInTheDocument();
+        expect(screen.getByText('🥉')).toBeInTheDocument();
+
+        // Verify image is rendered for Fast Driver
+        // images with alt="" are sometimes hard to select, let's try selector or verify by src presence in container
+        // Actually, let's query by src attribute since alt is empty
+        const images = document.querySelectorAll('img');
+        const profileImg = Array.from(images).find(i => i.src.includes('fast.jpg'));
+        expect(profileImg).toBeInTheDocument();
+        // check that the link points to the correct location
+        const link = screen.getByRole('link', { name: /current standings/i });
+        expect(link).toBeInTheDocument();
+        expect(link).toHaveAttribute('href', '/race/1/standings');
+    });
 });

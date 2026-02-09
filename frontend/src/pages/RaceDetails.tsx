@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAlert } from '../context/AlertContext';
 import RacerForm, { RacerData, Den } from '../components/RacerForm';
@@ -8,12 +8,12 @@ import Modal from '../components/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
 import CheckInModal from '../components/CheckInModal';
-import Leaderboard from '../components/Leaderboard';
+import { LeaderboardData } from '../components/Leaderboard';
 import Icon from '@mdi/react';
 import { 
   mdiCalendar, mdiMapMarker, mdiMagnify, mdiNumeric, 
-  mdiChevronDown, mdiLightningBolt, mdiFileUpload, 
-  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup
+  mdiChevronDown, mdiChevronRight, mdiLightningBolt, mdiFileUpload, 
+  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiTrophy
 } from '@mdi/js';
 
 interface Race extends RaceFormData {
@@ -39,6 +39,7 @@ export default function RaceDetails() {
   const [racers, setRacers] = useState<Racer[]>([]);
   const [dens, setDens] = useState<Den[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Racer Form State
@@ -101,6 +102,7 @@ export default function RaceDetails() {
         fetchRacers();
         fetchDens();
         fetchTracks();
+        fetchLeaderboard();
     }
   }, [raceId]);
 
@@ -111,6 +113,15 @@ export default function RaceDetails() {
       } catch (e) {
           console.error("Failed to fetch race details", e);
       }
+  };
+
+  const fetchLeaderboard = async () => {
+    try {
+        const data = await apiClient.get(`/races/${raceId}/scores`);
+        setLeaderboard(data);
+    } catch (e) {
+        console.error("Failed to fetch leaderboard", e);
+    }
   };
 
   const fetchRacers = async () => {
@@ -391,10 +402,77 @@ export default function RaceDetails() {
           )}
       </Modal>
 
-      {/* Standings Section */}
+      {/* Standings Link */}
       {race && (
         <div style={{ marginBottom: '2rem' }}>
-          <Leaderboard raceId={race.id} />
+            <Link to={`/race/${race.id}/standings`} style={{ textDecoration: 'none' }}>
+                <div style={{ 
+                    padding: '1.5rem', 
+                    background: 'linear-gradient(135deg, var(--scouting-blue), #1e2a78)', 
+                    borderRadius: '8px', 
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    cursor: 'pointer'
+                }}
+                onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.15)';
+                }}
+                onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <Icon path={mdiTrophy} size={2} />
+                            <div>
+                                <h2 style={{ margin: 0, color: 'white' }}>Current Standings</h2>
+                                {(!leaderboard || leaderboard.leaderboard.length === 0) && (
+                                     <p style={{ margin: 0, opacity: 0.9 }}>View the latest race results and rankings</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {leaderboard && leaderboard.leaderboard.length > 0 && (
+                            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                {leaderboard.leaderboard.slice(0, 3).map((racer) => (
+                                    <div key={racer.racer_id} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', position: 'relative', overflow: 'hidden' }}>
+                                        {racer.racer_image_url && (
+                                            <img 
+                                                src={racer.racer_image_url} 
+                                                alt="" 
+                                                style={{ 
+                                                    position: 'absolute', 
+                                                    top: 0, 
+                                                    left: 0, 
+                                                    width: '100%', 
+                                                    height: '100%', 
+                                                    objectFit: 'cover', 
+                                                    opacity: 0.15, 
+                                                    pointerEvents: 'none' 
+                                                }} 
+                                            />
+                                        )}
+                                        <span style={{ fontSize: '1.2rem', zIndex: 1 }}>
+                                            {racer.rank === 1 ? '🥇' : racer.rank === 2 ? '🥈' : '🥉'}
+                                        </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1, zIndex: 1 }}>
+                                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{racer.first_name} {racer.last_name}</span>
+                                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Car #{racer.car_number}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <Icon path={mdiChevronRight} size={1.5} />
+                </div>
+            </Link>
         </div>
       )}
 

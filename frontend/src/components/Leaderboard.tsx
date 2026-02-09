@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 
-interface LeaderboardEntry {
+export interface LeaderboardEntry {
   racer_id: number;
   first_name: string;
   last_name: string;
@@ -10,9 +10,10 @@ interface LeaderboardEntry {
   score: number;
   heats_completed: number;
   rank: number;
+  racer_image_url?: string;
 }
 
-interface LeaderboardData {
+export interface LeaderboardData {
   race_id: number;
   scoring_strategy: string;
   leaderboard: LeaderboardEntry[];

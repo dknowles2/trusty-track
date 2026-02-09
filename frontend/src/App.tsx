@@ -8,6 +8,7 @@ import { AlertProvider } from './context/AlertContext';
 import RaceDetails from './pages/RaceDetails';
 import RaceControl from './pages/RaceControl';
 import Observation from './pages/Observation';
+import Standings from './pages/Standings';
 
 import { useState, useEffect } from 'react';
 
@@ -58,6 +59,7 @@ function App() {
               <Route path="/system-config" element={<Navigate to="/system-settings" replace />} />
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
+              <Route path="/race/:raceId/standings" element={<ProtectedRoute><Standings /></ProtectedRoute>} />
               <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
               <Route path="/race/:raceId/control/:tab?" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
               <Route path="/race/:raceId/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />
