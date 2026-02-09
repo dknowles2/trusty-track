@@ -497,12 +497,16 @@ def record_heat_result(db: Session, heat_id: int, results: str | None) -> models
         db.refresh(heat)
     return heat
 
-def auto_number_racers(db: Session, race_id: int) -> int:
+def auto_number_racers(db: Session, race_id: int, racer_ids: Optional[List[int]] = None) -> int:
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
         return 0
         
-    racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
+    query = db.query(models.Racer).filter(models.Racer.race_id == race_id)
+    if racer_ids is not None:
+        query = query.filter(models.Racer.id.in_(racer_ids))
+    
+    racers = query.all()
     if not racers:
         return 0
         
@@ -681,3 +685,46 @@ def revert_round_to_placeholders(db: Session, round_id: int):
             num_placeholders=num_placeholders, 
             clear_existing=(i == 0)
         )
+
+def bulk_delete_racers(db: Session, racer_ids: List[int]):
+    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).delete(synchronize_session=False)
+    db.commit()
+
+def bulk_clear_car_numbers(db: Session, racer_ids: List[int]):
+    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update({models.Racer.car_number: None}, synchronize_session=False)
+    db.commit()
+
+def bulk_move_racers_to_den(db: Session, racer_ids: List[int], den_id: Optional[int]):
+    # Need to handle potential racing group updates if we were strict about it, 
+    # but create_racer handles it. For bulk move, let's just update den_id.
+    # If we want to be thorough, we should also update racing_group_id.
+    # However, the current logic seems to link them.
+    
+    update_data = {"den_id": den_id}
+    
+    # If den_id is provided, try to find a corresponding racing group
+    if den_id:
+        racer = db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).first()
+        if racer:
+            race_id = racer.race_id
+            den = db.query(models.Den).filter(models.Den.id == den_id).first()
+            if den:
+                racing_group = db.query(models.RacingGroup).filter(
+                    models.RacingGroup.race_id == race_id,
+                    models.RacingGroup.den_id == den_id
+                ).first()
+                if not racing_group:
+                    racing_group = models.RacingGroup(
+                        race_id=race_id,
+                        name=f"{den.name}s",
+                        den_id=den_id
+                    )
+                    db.add(racing_group)
+                    db.commit()
+                    db.refresh(racing_group)
+                update_data["racing_group_id"] = racing_group.id
+    else:
+        update_data["racing_group_id"] = None
+
+    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(update_data, synchronize_session=False)
+    db.commit()

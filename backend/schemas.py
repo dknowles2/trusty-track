@@ -229,3 +229,9 @@ class WizardChampionshipRound(BaseModel):
 class WizardConfiguration(BaseModel):
     general_round: WizardGeneralRound
     championship_rounds: List[WizardChampionshipRound] = []
+
+class BulkRacerActionRequest(BaseModel):
+    racer_ids: List[int]
+
+class BulkRacerMoveRequest(BulkRacerActionRequest):
+    den_id: Optional[int] = None

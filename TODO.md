@@ -14,7 +14,7 @@
 - [x] FEAT: When utilizing a fake timer, there should be a "mole" UI element that provides access to the fake timer controls.
 - [x] FEAT: We should improve the concepts of "Rounds" versus "Heats". A race consists of multiple rounds. Each round consists of multiple heats. Each round consists of a set number of racers, and the heats should be generated to fulfill the configured scheduling algorithm. Race control should have the ability to add additional rounds dynamically. But also when setting up a race initially, the type of round selection should be configurable, allowing for options such as "race entire roster together", "race per group", and "manual scheduling".
 - [x] FEAT: Allow configuring how champions are selected. Should we use the standard "top 3 advance" algorithm, or should we use a different algorithm? Should we allow for manual selection of champions?
-- [ ] FEAT: Allow for bulk-editing of roster items:
+- [x] FEAT: Allow for bulk-editing of roster items:
   1. Add a checkbox to each row that appears on hover
   2. Allow "select all" via the top header
   3. Add a new menu item that can be used for bulk-editing. Provide the following options to start:

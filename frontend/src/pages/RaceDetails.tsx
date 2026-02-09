@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAlert } from '../context/AlertContext';
@@ -61,11 +61,19 @@ export default function RaceDetails() {
   // Roster View State
   const [isGroupedByDen, setIsGroupedByDen] = useState(false);
   const [isAddRacerDropdownOpen, setIsAddRacerDropdownOpen] = useState(false);
+  const [isBulkMenuOpen, setIsBulkMenuOpen] = useState(false);
+  const [isMoveToDenOpen, setIsMoveToDenOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Handle click outside for dropdown
+  // Selection State
+  const [selectedRacerIds, setSelectedRacerIds] = useState<number[]>([]);
+  const moveDenTimeoutRef = useRef<any>(null);
+  const [denMenuSide, setDenMenuSide] = useState<'left' | 'right'>('left');
+  const denMenuContainerRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside for dropdowns
   useEffect(() => {
-    if (!isAddRacerDropdownOpen) return;
+    if (!isAddRacerDropdownOpen && !isBulkMenuOpen && !isMoveToDenOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -74,11 +82,13 @@ export default function RaceDetails() {
         return;
       }
       setIsAddRacerDropdownOpen(false);
+      setIsBulkMenuOpen(false);
+      setIsMoveToDenOpen(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isAddRacerDropdownOpen]);
+  }, [isAddRacerDropdownOpen, isBulkMenuOpen, isMoveToDenOpen]);
 
 
   useEffect(() => {
@@ -199,6 +209,111 @@ export default function RaceDetails() {
       }
   };
 
+  // Selection Handlers
+  const toggleSelectAll = () => {
+    if (selectedRacerIds.length === filteredRacers.length) {
+      setSelectedRacerIds([]);
+    } else {
+      setSelectedRacerIds(filteredRacers.map(r => r.id));
+    }
+  };
+
+  const toggleSelectRacer = (racerId: number) => {
+    setSelectedRacerIds(prev => 
+      prev.includes(racerId) 
+        ? prev.filter(id => id !== racerId) 
+        : [...prev, racerId]
+    );
+  };
+
+  // Bulk Handlers
+  const handleBulkAutoNumber = async () => {
+    try {
+      const res = await apiClient.post('/racers/bulk_auto_number', { racer_ids: selectedRacerIds });
+      await fetchRacers();
+      showAlert(res.message, "Bulk Auto-Number Result");
+      setSelectedRacerIds([]);
+    } catch (e) {
+      showAlert("Failed to bulk auto-number racers", "Error");
+    }
+  };
+
+  const handleBulkClearNumbers = async () => {
+    const confirmed = await showConfirm(
+      `Are you sure you want to clear car numbers for ${selectedRacerIds.length} racers?`,
+      "Clear Numbers",
+      "Clear",
+      "primary"
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiClient.post('/racers/bulk_clear_numbers', { racer_ids: selectedRacerIds });
+      await fetchRacers();
+      setSelectedRacerIds([]);
+    } catch (e) {
+      showAlert("Failed to clear racer numbers", "Error");
+    }
+  };
+
+  const handleBulkMoveToDen = async (denId: number | null) => {
+    try {
+      await apiClient.post('/racers/bulk_move_to_den', { racer_ids: selectedRacerIds, den_id: denId });
+      await fetchRacers();
+      setSelectedRacerIds([]);
+      setIsMoveToDenOpen(false);
+      setIsBulkMenuOpen(false);
+    } catch (e) {
+      showAlert("Failed to move racers to den", "Error");
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const confirmed = await showConfirm(
+      `Are you sure you want to delete ${selectedRacerIds.length} racers? This action cannot be undone.`,
+      "Delete Racers",
+      "Delete",
+      "danger"
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiClient.post('/racers/bulk_delete', { racer_ids: selectedRacerIds });
+      await fetchRacers();
+      setSelectedRacerIds([]);
+    } catch (e) {
+      showAlert("Failed to delete racers", "Error");
+    }
+  };
+  
+  const handleMoveDenMouseEnter = () => {
+    if (moveDenTimeoutRef.current) clearTimeout(moveDenTimeoutRef.current);
+    
+    // Calculate which side has more room, defaulting to right
+    if (denMenuContainerRef.current) {
+        const rect = denMenuContainerRef.current.getBoundingClientRect();
+        const spaceOnRight = window.innerWidth - rect.right;
+        
+        // Default to right, flip to left only if it doesn't fit on the right
+        if (spaceOnRight >= 190) {
+            setDenMenuSide('right');
+        } else {
+            setDenMenuSide('left');
+        }
+    }
+
+    moveDenTimeoutRef.current = setTimeout(() => {
+      setIsMoveToDenOpen(true);
+    }, 200); // Brief delay
+  };
+
+  const handleMoveDenMouseLeave = () => {
+    if (moveDenTimeoutRef.current) clearTimeout(moveDenTimeoutRef.current);
+    moveDenTimeoutRef.current = setTimeout(() => {
+      setIsMoveToDenOpen(false);
+    }, 300); // Slightly longer delay for leaving to be more forgiving
+  };
+
   const filteredRacers = racers.filter(racer => {
       const searchLower = searchTerm.toLowerCase();
       const denName = dens.find(d => d.id === racer.den_id)?.name || '';
@@ -314,32 +429,89 @@ export default function RaceDetails() {
                 <Icon path={mdiAccountGroup} size={0.8} /> Manage Dens
             </button>
             
-            <button 
-                className="secondary-btn" 
-                onClick={async () => {
-                     const btn = document.getElementById('auto-num-btn');
-                     if (btn) btn.textContent = '⏳ ...';
-                     try {
-                         const res = await apiClient.post(`/races/${raceId}/auto_number`, {});
-                         await fetchRacers();
-                         
-                         if (res.updated_count === 0) {
-                             showAlert(res.message + ".\n\nTip: If using 'Per Den', ensure Dens have number ranges configured.", "Auto-Number Result");
-                         } else {
-                             showAlert(res.message, "Auto-Number Result");
-                         }
-                     } catch(e) {
-                         showAlert("Failed to auto-number", "Error");
-                     } finally {
-                         if (btn) btn.textContent = '#️⃣ Auto #';
-                     }
-                }}
-                id="auto-num-btn"
-                title="Auto Number Racers"
-                style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
-            >
-                <Icon path={mdiNumeric} size={0.8} /> Auto #
-            </button>
+            <div className="dropdown" style={{ position: 'relative' }}>
+                <button 
+                    className="secondary-btn" 
+                    onClick={() => setIsBulkMenuOpen(!isBulkMenuOpen)}
+                    disabled={selectedRacerIds.length === 0}
+                    style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '5px',
+                        backgroundColor: selectedRacerIds.length > 0 ? 'var(--scouting-blue)' : undefined,
+                        color: selectedRacerIds.length > 0 ? 'white' : undefined,
+                        opacity: selectedRacerIds.length === 0 ? 0.5 : 1
+                    }}
+                >
+                    <Icon path={mdiNumeric} size={0.8} /> Bulk Actions {selectedRacerIds.length > 0 && `(${selectedRacerIds.length})`}
+                    <Icon path={mdiChevronDown} size={0.7} />
+                </button>
+                {isBulkMenuOpen && (
+                    <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '180px', overflow: 'visible' }}>
+                        <button 
+                            onClick={handleBulkAutoNumber} 
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            data-testid="bulk-auto-number-btn"
+                        >
+                            <Icon path={mdiNumeric} size={0.7} /> Auto number
+                        </button>
+                        <button 
+                            onClick={handleBulkClearNumbers} 
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            data-testid="bulk-clear-numbers-btn"
+                        >
+                            <Icon path={mdiPlus} size={0.7} style={{ transform: 'rotate(45deg)' }} /> Clear numbers
+                        </button>
+                        <div 
+                            ref={denMenuContainerRef}
+                            style={{ position: 'relative' }}
+                            onMouseEnter={handleMoveDenMouseEnter}
+                            onMouseLeave={handleMoveDenMouseLeave}
+                        >
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); }} 
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between', width: '100%' }}
+                                data-testid="bulk-move-to-den-expand-btn"
+                            >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Icon path={mdiAccountGroup} size={0.7} /> Move to den
+                                </span>
+                                <Icon path={mdiChevronDown} size={0.6} style={{ transform: 'rotate(-90deg)' }} />
+                            </button>
+                            {isMoveToDenOpen && (
+                                <div className="dropdown-content" style={{ 
+                                    display: 'block', 
+                                    position: 'absolute', 
+                                    [denMenuSide === 'left' ? 'right' : 'left']: '100%', 
+                                    top: 0, 
+                                    margin: 0,
+                                    boxShadow: denMenuSide === 'left' ? '-2px 2px 10px rgba(0,0,0,0.1)' : '2px 2px 10px rgba(0,0,0,0.1)'
+                                }}>
+                                    {dens.map(den => (
+                                        <button 
+                                            key={den.id} 
+                                            onClick={() => handleBulkMoveToDen(den.id)} 
+                                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                            data-testid={`bulk-move-to-den-${den.id}`}
+                                        >
+                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: den.color }}></span>
+                                            {den.name}
+                                        </button>
+                                    ))}
+                                    <button onClick={() => handleBulkMoveToDen(null)} data-testid="bulk-move-to-unassigned">Unassigned</button>
+                                </div>
+                            )}
+                        </div>
+                        <button 
+                            onClick={handleBulkDelete} 
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d32f2f' }}
+                            data-testid="bulk-delete-btn"
+                        >
+                             Delete
+                        </button>
+                    </div>
+                )}
+            </div>
 
 
             <div className="dropdown" style={{ position: 'relative' }}>
@@ -393,6 +565,18 @@ export default function RaceDetails() {
             <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                 <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
                     <tr>
+                        <th style={{ padding: '12px', textAlign: 'center', width: '40px' }}>
+                            <input 
+                                type="checkbox" 
+                                data-testid="select-all-header"
+                                checked={selectedRacerIds.length > 0 && selectedRacerIds.length === filteredRacers.length}
+                                ref={el => {
+                                    if (el) el.indeterminate = selectedRacerIds.length > 0 && selectedRacerIds.length < filteredRacers.length;
+                                }}
+                                onChange={toggleSelectAll}
+                                style={{ transform: 'scale(1.2)' }}
+                            />
+                        </th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>Car #</th>
                         <th style={{ padding: '12px', textAlign: 'center' }}>Photo</th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>First Name</th>
@@ -404,7 +588,7 @@ export default function RaceDetails() {
                 </thead>
                 <tbody>
                     {filteredRacers.length === 0 ? (
-                        <tr><td colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>
+                        <tr><td colSpan={8} style={{ padding: '20px', textAlign: 'center' }}>
                             {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
                         </td></tr>
                     ) : isGroupedByDen ? (
@@ -431,7 +615,7 @@ export default function RaceDetails() {
                             return (
                                 <>
                                     <tr key={`header-${group.denId}`} style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
-                                        <td colSpan={7} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                        <td colSpan={8} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{ 
                                                 display: 'inline-block', 
                                                 width: '12px', 
@@ -444,7 +628,27 @@ export default function RaceDetails() {
                                         </td>
                                     </tr>
                                     {group.items.map(racer => (
-                                         <tr key={racer.id} style={{ borderBottom: '1px solid #eee' }}>
+                                         <tr 
+                                            key={racer.id} 
+                                            className="racer-row"
+                                            style={{ 
+                                                borderBottom: '1px solid #eee',
+                                                backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined 
+                                            }}
+                                         >
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    className="row-checkbox"
+                                                    data-testid={`racer-select-${racer.id}`}
+                                                    checked={selectedRacerIds.includes(racer.id)}
+                                                    onChange={() => toggleSelectRacer(racer.id)}
+                                                    style={{ 
+                                                        transform: 'scale(1.1)',
+                                                        opacity: selectedRacerIds.includes(racer.id) ? 1 : 0
+                                                    }}
+                                                />
+                                            </td>
                                             <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
                                             <td style={{ padding: '12px', textAlign: 'center' }}>
                                                 {racer.racer_image_url ? (
@@ -510,8 +714,28 @@ export default function RaceDetails() {
                         })
                     ) : (
                         // Standard View
-                         filteredRacers.map(racer => (
-                            <tr key={racer.id} style={{ borderBottom: '1px solid #eee' }}>
+                          filteredRacers.map(racer => (
+                            <tr 
+                                key={racer.id} 
+                                className="racer-row"
+                                style={{ 
+                                    borderBottom: '1px solid #eee',
+                                    backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined
+                                }}
+                            >
+                                <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        className="row-checkbox"
+                                        data-testid={`racer-select-${racer.id}`}
+                                        checked={selectedRacerIds.includes(racer.id)}
+                                        onChange={() => toggleSelectRacer(racer.id)}
+                                        style={{ 
+                                            transform: 'scale(1.1)',
+                                            opacity: selectedRacerIds.includes(racer.id) ? 1 : 0
+                                        }}
+                                    />
+                                </td>
                                 <td style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>
                                     {racer.racer_image_url ? (

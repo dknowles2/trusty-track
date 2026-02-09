@@ -178,3 +178,26 @@ input:checked + .slider:before {
   padding-left: 10px;
   padding-right: 10px;
 }
+
+/* Racer Roster Table Styles */
+.racer-row:hover {
+    background-color: #f8f9fa;
+}
+
+.racer-row:hover .row-checkbox {
+    opacity: 0.5 !important;
+}
+
+.racer-row .row-checkbox:hover {
+    opacity: 1 !important;
+}
+
+.row-checkbox:checked {
+    opacity: 1 !important;
+}
+
+.secondary-btn:disabled {
+    cursor: not-allowed;
+    background-color: #eee;
+    color: #999;
+}

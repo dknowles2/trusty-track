@@ -525,6 +525,33 @@ def auto_number_racers(race_id: int, db: Session = Depends(get_db)):
     count = crud.auto_number_racers(db, race_id)
     return {"message": f"Auto-numbered {count} racers", "updated_count": count}
 
+@app.post("/racers/bulk_auto_number")
+def bulk_auto_number_racers(request: schemas.BulkRacerActionRequest, db: Session = Depends(get_db)):
+    # Note: We need race_id for auto_numbering logic. 
+    # Let's get it from the first racer.
+    if not request.racer_ids:
+        return {"message": "No racers selected", "updated_count": 0}
+    racer = db.query(models.Racer).filter(models.Racer.id == request.racer_ids[0]).first()
+    if not racer:
+        raise HTTPException(status_code=404, detail="Racer not found")
+    count = crud.auto_number_racers(db, racer.race_id, request.racer_ids)
+    return {"message": f"Bulk auto-numbered {count} racers", "updated_count": count}
+
+@app.post("/racers/bulk_clear_numbers")
+def bulk_clear_numbers(request: schemas.BulkRacerActionRequest, db: Session = Depends(get_db)):
+    crud.bulk_clear_car_numbers(db, request.racer_ids)
+    return {"message": f"Cleared numbers for {len(request.racer_ids)} racers"}
+
+@app.post("/racers/bulk_move_to_den")
+def bulk_move_to_den(request: schemas.BulkRacerMoveRequest, db: Session = Depends(get_db)):
+    crud.bulk_move_racers_to_den(db, request.racer_ids, request.den_id)
+    return {"message": f"Moved {len(request.racer_ids)} racers to den"}
+
+@app.post("/racers/bulk_delete")
+def bulk_delete_racers(request: schemas.BulkRacerActionRequest, db: Session = Depends(get_db)):
+    crud.bulk_delete_racers(db, request.racer_ids)
+    return {"message": f"Deleted {len(request.racer_ids)} racers"}
+
 # Round endpoints
 @app.get("/races/{race_id}/rounds", response_model=List[schemas.Round])
 def get_rounds(race_id: int, db: Session = Depends(get_db)):
