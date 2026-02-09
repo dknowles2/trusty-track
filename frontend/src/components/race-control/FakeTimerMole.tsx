@@ -77,17 +77,19 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, o
             <button 
                 className="secondary-btn"
                 onClick={handleStartTimer}
-                style={{ width: '100%', cursor: 'pointer', padding: '10px', background: '#e0e0e0', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                disabled={isCompleted || isRunning}
+                style={{ width: '100%', cursor: (isCompleted || isRunning) ? 'not-allowed' : 'pointer', padding: '10px', background: (isCompleted || isRunning) ? '#f0f0f0' : '#e0e0e0', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: (isCompleted || isRunning) ? '#999' : '#000' }}
             >
-                <Icon path={mdiPlay} size={0.7} color="#4caf50" /> Start Timer
+                <Icon path={mdiPlay} size={0.7} color={(isCompleted || isRunning) ? '#ccc' : "#4caf50"} /> Start Timer
             </button>
 
             <button 
                 className="primary-btn"
                 onClick={handleFinishHeat}
-                style={{ width: '100%', cursor: 'pointer', padding: '10px', background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                disabled={isCompleted || !isRunning}
+                style={{ width: '100%', cursor: (isCompleted || !isRunning) ? 'not-allowed' : 'pointer', padding: '10px', background: (isCompleted || !isRunning) ? '#f0f0f0' : '#d32f2f', color: (isCompleted || !isRunning) ? '#999' : 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-                <Icon path={mdiFlagCheckered} size={0.7} color="white" /> Finish Heat
+                <Icon path={mdiFlagCheckered} size={0.7} color={(isCompleted || !isRunning) ? '#ccc' : "white"} /> Finish Heat
             </button>
             
             <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#666' }}>

@@ -67,6 +67,7 @@ describe('FakeTimerMole', () => {
             <FakeTimerMole 
                 isOpen={true}
                 activeHeat={mockHeat}
+                isRunning={true}
                 onTriggerFinish={mockOnTriggerFinish}
             />
         );
@@ -96,7 +97,7 @@ describe('FakeTimerMole', () => {
         expect(mockOnTriggerFinish).toHaveBeenCalled();
     });
 
-    it('shows completed status when isCompleted is true', () => {
+    it('shows completed status and disables buttons when isCompleted is true', () => {
         render(
             <FakeTimerMole 
                 isOpen={true}
@@ -106,6 +107,8 @@ describe('FakeTimerMole', () => {
             />
         );
         expect(screen.getByText('Heat Completed')).toBeInTheDocument();
+        expect(screen.getByText('Start Timer')).toBeDisabled();
+        expect(screen.getByText('Finish Heat')).toBeDisabled();
     });
 
     it('clears timeout on unmount', () => {

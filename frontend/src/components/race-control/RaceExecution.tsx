@@ -132,6 +132,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   };
 
   const handleMoleFinish = async (newResults: any[]) => {
+      if (isCompleted) {
+          console.warn("Ignoring fake timer finish: results already recorded.");
+          return;
+      }
       await onUpdateResult(activeExecutionHeat.id, newResults);
   };
 

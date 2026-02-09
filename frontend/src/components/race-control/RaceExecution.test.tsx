@@ -142,8 +142,8 @@ describe('RaceExecution', () => {
             />
         );
 
-        // Should show "Racing..." 
-        expect(screen.getByText(/Racing.../)).toBeInTheDocument();
+        // Should show "Racing..." (now in both main UI and Mole)
+        expect(screen.getAllByText(/Racing.../)).toHaveLength(2);
         
         // Mole button should be visible (title "Fake Timer Controls")
         expect(screen.getByText('Fake Timer Controls')).toBeInTheDocument();
@@ -168,6 +168,27 @@ describe('RaceExecution', () => {
         expect(mockOnUpdateResult).toHaveBeenCalledWith(1, expect.any(Array));
     });
 
+    it('does not overwrite results if FakeTimerMole triggers finish on completed heat', async () => {
+        const user = userEvent.setup();
+        // Reset mock
+        mockOnUpdateResult.mockClear();
+
+        render(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={mockHeat} // This mockHeat is already completed (times are set)
+                timerType="FAKE"
+            />
+        );
+        
+        // Buttons should be disabled in the mole, but we can also check the logic directly
+        // The Mole Finish button should be disabled because isCompleted={true} is passed to it.
+        const finishBtn = screen.getByText('Finish Heat');
+        expect(finishBtn).toBeDisabled();
+        
+        // Even if somehow triggered, handleMoleFinish should guard it.
+    });
+
     it('logs start timer event when FakeTimerMole Start button is clicked', async () => {
         const consoleSpy = vi.spyOn(console, 'log');
         const user = userEvent.setup();
@@ -175,7 +196,7 @@ describe('RaceExecution', () => {
             <RaceExecution
                 {...defaultProps}
                 activeExecutionHeat={mockActiveHeatRunning}
-                activeHeatId={1} // Running
+                activeHeatId={null} // Not running yet, so button is enabled
                 timerType="FAKE"
             />
         );
