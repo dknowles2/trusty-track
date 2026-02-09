@@ -113,7 +113,7 @@ export default function Observation() {
 
    const renderHeatCard = (title: string, heat: Heat | null, isNext: boolean = false, iconPath?: string) => {
        if (!heat) return (
-         <div style={{ flex: 1, background: '#f5f5f5', borderRadius: '8px', padding: '20px', textAlign: 'center', opacity: 0.7 }}>
+         <div style={{ flex: 1, minWidth: '300px', background: '#f5f5f5', borderRadius: '8px', padding: '20px', textAlign: 'center', opacity: 0.7 }}>
              <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 {iconPath && <Icon path={iconPath} size={0.8} />}
                 {title}
@@ -125,7 +125,7 @@ export default function Observation() {
       const assignments = heat.lane_results ? JSON.parse(heat.lane_results) : [];
 
       return (
-          <div style={{ flex: 1, background: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderTop: `5px solid ${isNext ? '#999' : '#d32f2f'}` }}>
+          <div style={{ flex: 1, minWidth: '300px', background: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderTop: `5px solid ${isNext ? '#999' : '#d32f2f'}` }}>
               <h2 style={{ marginTop: 0, fontSize: '1.5rem', color: isNext ? '#666' : '#333', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {iconPath && <Icon path={iconPath} size={1} color={isNext ? '#666' : '#d32f2f'} />}
                   <span>{title}</span>
