@@ -8,9 +8,24 @@ interface FakeTimerMoleProps {
     onTriggerStart?: () => void;
     activeHeat: any;
     isOpen: boolean;
+    isRunning?: boolean;
 }
 
-export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, onTriggerStart, activeHeat, isOpen }) => {
+export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, onTriggerStart, activeHeat, isOpen, isRunning }) => {
+    React.useEffect(() => {
+        let timeout: NodeJS.Timeout;
+        if (isOpen && isRunning) {
+            // Auto finish after 3-5 seconds
+            const delay = 3000 + Math.random() * 2000;
+            timeout = setTimeout(() => {
+                handleFinishHeat();
+            }, delay);
+        }
+        return () => {
+            if (timeout) clearTimeout(timeout);
+        };
+    }, [isOpen, isRunning, activeHeat?.id]);
+
     if (!isOpen) return null;
 
     const handleStartTimer = () => {

@@ -45,6 +45,7 @@ interface AdvancementStatus {
     num_racers: number | null;
 }
 
+
 interface RaceExecutionProps {
   activeExecutionHeat: Heat | null;
   nextExecutionHeat: Heat | null;
@@ -416,6 +417,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
       <FakeTimerMole 
         isOpen={showFakeControls && !isCompleted}
         activeHeat={activeExecutionHeat}
+        isRunning={isRunning}
         onTriggerFinish={handleMoleFinish}
         onTriggerStart={handleMoleStart}
       />
