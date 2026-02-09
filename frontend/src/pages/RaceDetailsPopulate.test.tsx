@@ -99,7 +99,13 @@ describe('RaceDetails Populate', () => {
         await user.click(generateBtn);
 
         // 6. Verify API call
-        expect(apiClient.post).toHaveBeenCalledWith('/races/1/populate?count=15', {});
+        expect(apiClient.post).toHaveBeenCalledWith('/races/1/populate', {
+            count: 15,
+            add_racer_photos: true,
+            add_car_photos: true,
+            assign_dens: true,
+            check_in: false
+        });
 
         // 7. Verify roster is refreshed
         expect(apiClient.get).toHaveBeenCalledWith('/racers/?race_id=1');

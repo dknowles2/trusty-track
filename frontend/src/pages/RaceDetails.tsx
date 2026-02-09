@@ -54,6 +54,10 @@ export default function RaceDetails() {
   // Populate Modal
   const [showPopulateModal, setShowPopulateModal] = useState(false);
   const [populateCount, setPopulateCount] = useState(20);
+  const [popAddRacerPhotos, setPopAddRacerPhotos] = useState(true);
+  const [popAddCarPhotos, setPopAddCarPhotos] = useState(true);
+  const [popAssignDens, setPopAssignDens] = useState(true);
+  const [popCheckIn, setPopCheckIn] = useState(false);
 
   // Race Edit State
   const [isEditingRace, setIsEditingRace] = useState(false);
@@ -887,6 +891,41 @@ export default function RaceDetails() {
                   />
               </div>
 
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input 
+                          type="checkbox" 
+                          checked={popAddRacerPhotos} 
+                          onChange={(e) => setPopAddRacerPhotos(e.target.checked)} 
+                      />
+                      Add Racer Photos
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input 
+                          type="checkbox" 
+                          checked={popAddCarPhotos} 
+                          onChange={(e) => setPopAddCarPhotos(e.target.checked)} 
+                      />
+                      Add Car Photos
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input 
+                          type="checkbox" 
+                          checked={popAssignDens} 
+                          onChange={(e) => setPopAssignDens(e.target.checked)} 
+                      />
+                      Assign to Dens
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input 
+                          type="checkbox" 
+                          checked={popCheckIn} 
+                          onChange={(e) => setPopCheckIn(e.target.checked)} 
+                      />
+                      Check In Automatically
+                  </label>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
                   <button 
                     onClick={async () => {
@@ -901,7 +940,13 @@ export default function RaceDetails() {
                         if (btn) (btn as HTMLButtonElement).disabled = true;
 
                         try {
-                            await apiClient.post(`/races/${raceId}/populate?count=${populateCount}`, {});
+                            await apiClient.post(`/races/${raceId}/populate`, {
+                                count: populateCount,
+                                add_racer_photos: popAddRacerPhotos,
+                                add_car_photos: popAddCarPhotos,
+                                assign_dens: popAssignDens,
+                                check_in: popCheckIn
+                            });
                             await fetchRacers();
                             setShowPopulateModal(false);
                             // alert(`Successfully added ${populateCount} racers!`);

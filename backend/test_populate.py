@@ -8,6 +8,9 @@ from backend import models, schemas, crud, populate
 
 def test_populate_respects_global_numbering(db):
     """Test that populate respects GLOBAL car numbering strategy."""
+    # Create a track
+    track = crud.create_track(db, schemas.TrackCreate(name="Test Track", lane_count=4, timer_type="FAKE"))
+
     # Create a race with GLOBAL numbering strategy
     race = crud.create_race(db, schemas.RaceCreate(
         group_id=1,
@@ -16,6 +19,7 @@ def test_populate_respects_global_numbering(db):
         location="Test Location",
         car_numbering_strategy=models.CarNumberingStrategy.GLOBAL,
         global_start_number=100,
+        track_id=track.id,
         scheduling_strategy=models.SchedulingStrategy.PPC,
         scoring_strategy=models.ScoringStrategy.TIMED
     ))
@@ -35,6 +39,9 @@ def test_populate_respects_global_numbering(db):
 
 def test_populate_respects_per_den_numbering(db):
     """Test that populate respects PER_GROUP (Per Den) car numbering strategy."""
+    # Create a track
+    track = crud.create_track(db, schemas.TrackCreate(name="Test Track", lane_count=4, timer_type="FAKE"))
+
     # Create a race with PER_GROUP numbering strategy
     race = crud.create_race(db, schemas.RaceCreate(
         group_id=1,
@@ -42,6 +49,7 @@ def test_populate_respects_per_den_numbering(db):
         date_time="2024-01-01T10:00:00",
         location="Test Location",
         car_numbering_strategy=models.CarNumberingStrategy.PER_GROUP,
+        track_id=track.id,
         scheduling_strategy=models.SchedulingStrategy.PPC,
         scoring_strategy=models.ScoringStrategy.TIMED
     ))
@@ -84,6 +92,9 @@ def test_populate_respects_per_den_numbering(db):
 
 def test_populate_with_manual_numbering(db):
     """Test that populate with MANUAL strategy leaves car numbers as None."""
+    # Create a track
+    track = crud.create_track(db, schemas.TrackCreate(name="Test Track", lane_count=4, timer_type="FAKE"))
+
     # Create a race with MANUAL numbering strategy
     race = crud.create_race(db, schemas.RaceCreate(
         group_id=1,
@@ -91,6 +102,7 @@ def test_populate_with_manual_numbering(db):
         date_time="2024-01-01T10:00:00",
         location="Test Location",
         car_numbering_strategy=models.CarNumberingStrategy.MANUAL,
+        track_id=track.id,
         scheduling_strategy=models.SchedulingStrategy.PPC,
         scoring_strategy=models.ScoringStrategy.TIMED
     ))

@@ -11,6 +11,10 @@ class TrackBase(BaseModel):
 
 class PopulateTestDataRequest(BaseModel):
     count: int = 10
+    add_racer_photos: bool = True
+    add_car_photos: bool = True
+    assign_dens: bool = True
+    check_in: bool = False
 
 class DenBase(BaseModel):
     name: str

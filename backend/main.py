@@ -238,10 +238,18 @@ def delete_racer(racer_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 @app.post("/races/{race_id}/populate")
-def populate_race(race_id: int, count: int = 20, db: Session = Depends(get_db)):
+def populate_race(race_id: int, request: schemas.PopulateTestDataRequest, db: Session = Depends(get_db)):
     from . import populate
-    populate.generate_fake_racers(db, race_id, count)
-    return {"message": f"Populated race {race_id} with {count} racers"}
+    populate.generate_fake_racers(
+        db, 
+        race_id, 
+        count=request.count,
+        add_racer_photos=request.add_racer_photos,
+        add_car_photos=request.add_car_photos,
+        assign_dens=request.assign_dens,
+        check_in=request.check_in
+    )
+    return {"message": f"Populated race {race_id} with {request.count} racers"}
 
 @app.post("/races/{race_id}/import-racers")
 async def import_racers_csv(race_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
