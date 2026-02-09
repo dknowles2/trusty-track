@@ -138,15 +138,15 @@ export default function Observation() {
                           <div key={a.lane} style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
                               <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {a.lane}</div>
                               {racer?.racer_image_url ? (
-                                  <img 
-                                    src={racer.racer_image_url} 
-                                    alt="Racer" 
-                                    style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 5px', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
-                                  />
+                                       <img 
+                                      src={racer.racer_image_url} 
+                                      alt="Racer" 
+                                      style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 5px', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                                    />
                               ) : (
-                                  <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 5px', fontWeight: 'bold', color: '#999' }}>
-                                      #{a.racer_id}
-                                  </div>
+                                   <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 5px', fontWeight: 'bold', color: '#999', fontSize: '1.2rem' }}>
+                                       #{a.racer_id}
+                                   </div>
                               )}
                               <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
                                   {racer ? `${racer.first_name} ${racer.last_name}` : `#{a.racer_id}`}
@@ -194,15 +194,15 @@ export default function Observation() {
                           <td style={{ padding: '15px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                   {racer?.racer_image_url ? (
-                                      <img 
-                                        src={racer.racer_image_url} 
-                                        alt="Racer" 
-                                        style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '3px solid white', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }} 
-                                      />
+                                       <img 
+                                         src={racer.racer_image_url} 
+                                         alt="Racer" 
+                                         style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid white', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }} 
+                                       />
                                   ) : (
-                                       <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#888' }}>
-                                           #{s.racer_id}
-                                       </div>
+                                        <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#888', fontSize: '1.5rem' }}>
+                                            #{s.racer_id}
+                                        </div>
                                   )}
                                   <div>
                                       <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
