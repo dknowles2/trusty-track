@@ -1,0 +1,87 @@
+import numpy as np
+from PIL import Image, ImageFilter
+
+
+def remove_green_screen(
+    image: Image.Image,
+    hue_center: float = 120.0,
+    hue_range: float = 30.0,
+    min_saturation: float = 0.1,
+    min_value: float = 0.1,
+    dilation_radius: int = 1,
+    softness: float = 0.1,
+    blur_radius: float = 0.5,
+) -> Image.Image:
+    """
+    Removes the green screen from an image using soft-thresholding and morphological cleanup.
+
+    Args:
+        image: The input PIL Image (RGB).
+        hue_center: The center hue to target (default 120 for green).
+        hue_range: The range around the center hue to be fully transparent.
+        min_saturation: Minimum saturation threshold (0-1).
+        min_value: Minimum value (brightness) threshold (0-1).
+        dilation_radius: Radius for morphological dilation to remove edge halos.
+        softness: The width of the soft-thresholding transition (0-1).
+        blur_radius: Radius for Gaussian blur to smooth (feather) the alpha edges.
+
+    Returns:
+        A PIL Image in RGBA mode with the green screen replaced by transparency.
+    """
+    # Ensure image is RGB
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+
+    # Use PIL's built-in HSV conversion for robustness
+    hsv_image = image.convert("HSV")
+    h_img, s_img, v_img = hsv_image.split()
+    
+    # Convert to NumPy for vectorized thresholding
+    h = np.array(h_img).astype(np.float32) * 360.0 / 255.0
+    s = np.array(s_img).astype(np.float32) / 255.0
+    v = np.array(v_img).astype(np.float32) / 255.0
+
+    # Calculate distance from target hue
+    h_dist = np.abs(h - hue_center)
+    h_dist = np.minimum(h_dist, 360 - h_dist)
+    
+    # Soft Thresholding: Linear ramp for alpha transition
+    # 1.0 (fully green/transparent) to 0.0 (not green/opaque)
+    # softness_val defines the width of the transition zone in degrees
+    softness_val = 60.0 * softness
+    
+    # Calculate initial green mask with soft falloff
+    # 0 = not green, 1 = fully green
+    green_mask = 1.0 - np.clip((h_dist - hue_range) / softness_val, 0, 1)
+    
+    # Apply S and V thresholds (keep them binary-ish but could also be soft)
+    green_mask *= (s >= min_saturation) & (v >= min_value)
+
+    # Convert mask to PIL Image for morphological cleanup
+    # 0 = keep, 255 = remove
+    mask_image = Image.fromarray((green_mask * 255).astype(np.uint8), mode="L")
+
+    # 1. Noise reduction: median filter to remove "salt and pepper" noise
+    mask_image = mask_image.filter(ImageFilter.MedianFilter(size=3))
+
+    # 2. Morphological Edge Polish (Dilation)
+    if dilation_radius > 0:
+        mask_image = mask_image.filter(ImageFilter.MaxFilter(size=dilation_radius * 2 + 1))
+
+    # 3. Morphological Closing (Smoothing boundary shape)
+    # Dilation then Erosion helps smooth out small jagged protrusions
+    if dilation_radius > 0:
+        mask_image = mask_image.filter(ImageFilter.MinFilter(size=dilation_radius * 2 + 1))
+
+    # Invert mask (255 = keep, 0 = remove) for alpha channel
+    alpha_channel = Image.fromarray(255 - np.array(mask_image), mode="L")
+
+    # 4. Smoothing (Feathering): Gaussian blur to smooth jagged edges
+    if blur_radius > 0:
+        alpha_channel = alpha_channel.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+
+    # Combine with original image
+    rgba_image = image.copy().convert("RGBA")
+    rgba_image.putalpha(alpha_channel)
+
+    return rgba_image
