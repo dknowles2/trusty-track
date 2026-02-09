@@ -5,10 +5,16 @@ export interface RaceFormData {
     date_time: string;
     location: string;
     group_id?: number;
+    track_id: number;
     scoring_strategy: string;
     car_numbering_strategy: string;
     global_start_number: number;
     championship_trophies: number;
+}
+
+interface Track {
+    id: number;
+    name: string;
 }
 
 interface RaceFormProps {
@@ -19,19 +25,42 @@ interface RaceFormProps {
     submitLabel?: string;
 }
 
+import { apiClient } from '../api/client';
+
 export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save' }: RaceFormProps) {
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
         date_time: '',
         location: '',
         group_id: 1, // Default
+        track_id: 0,
         scoring_strategy: 'TIMED',
         car_numbering_strategy: 'MANUAL',
         global_start_number: 1,
         championship_trophies: 3,
         ...initialData
     });
+    const [tracks, setTracks] = useState<Track[]>([]);
     const [loading, setLoading] = useState(false);
+    const [fetchingTracks, setFetchingTracks] = useState(true);
+
+    useEffect(() => {
+        fetchTracks();
+    }, []);
+
+    const fetchTracks = async () => {
+        try {
+            const data = await apiClient.get('/tracks/');
+            setTracks(data);
+            if (data.length > 0 && !formData.track_id) {
+                setFormData(prev => ({ ...prev, track_id: data[0].id }));
+            }
+        } catch (e) {
+            console.error("Failed to fetch tracks", e);
+        } finally {
+            setFetchingTracks(false);
+        }
+    };
 
     useEffect(() => {
         if (initialData) {
@@ -131,6 +160,24 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     </p>
                 </div>
             </div>
+            <div>
+                <label style={labelStyle}>Track / Timer</label>
+                {fetchingTracks ? (
+                    <p style={{ fontSize: '0.8rem', color: '#666' }}>Loading tracks...</p>
+                ) : (
+                    <select 
+                        value={formData.track_id} 
+                        onChange={e => handleChange('track_id', parseInt(e.target.value))}
+                        style={inputStyle}
+                        required
+                    >
+                        {tracks.map(track => (
+                            <option key={track.id} value={track.id}>{track.name}</option>
+                        ))}
+                    </select>
+                )}
+            </div>
+
             <div>
                 <label style={labelStyle}>Car Numbering</label>
                 <select 

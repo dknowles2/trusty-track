@@ -128,65 +128,91 @@ def read_races(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 
 @app.get("/config/initial", response_model=schemas.InitialConfigStatus)
 def get_initial_config_status(db: Session = Depends(get_db)):
-    # Check if a group exists
-    track = crud.get_track(db)
-    if track:
+    # Check if any tracks exist
+    tracks = crud.get_tracks(db)
+    if tracks:
         group = db.query(models.Group).first()
         race = db.query(models.Race).first()
         
-        group_name = group.name if group else None
-        current_race_id = race.id if race else None
-        timer_type_val = track.timer_type.value if track.timer_type else None
-
         return schemas.InitialConfigStatus(
             initialized=True, 
-            group_name=group_name,
-            track_id=track.id,
-            current_race_id=current_race_id,
-            lane_count=track.lane_count,
-            length_feet=track.length_feet,
-            timer_type=timer_type_val
+            group_name=group.name if group else None,
+            tracks=tracks,
+            current_race_id=race.id if race else None
         )
     return schemas.InitialConfigStatus(initialized=False)
 
 @app.post("/config/initial", response_model=schemas.InitialConfigStatus)
 def create_initial_config(config: schemas.InitialConfigCreate, db: Session = Depends(get_db)):
     # Check if already initialized
-    if crud.get_track(db):
+    if crud.get_tracks(db):
         raise HTTPException(status_code=400, detail="System already initialized")
     
-    group, track = crud.create_initial_config(db, config)
+    group, tracks = crud.create_initial_config(db, config)
+    
+    # Simple migration: Associate any existing races (if any somehow exist) with the first track
+    if tracks:
+        db.query(models.Race).filter(models.Race.track_id == None).update({models.Race.track_id: tracks[0].id})
+        db.commit()
+
     return schemas.InitialConfigStatus(
         initialized=True,
         group_name=group.name,
-        track_id=track.id
+        tracks=tracks
     )
 
 @app.put("/config/initial", response_model=schemas.InitialConfigStatus)
 def update_initial_config(config: schemas.InitialConfigCreate, db: Session = Depends(get_db)):
-    track = crud.get_track(db)
-    if not track:
-        raise HTTPException(status_code=404, detail="System not initialized")
-    
+    # This endpoint is kept for compatibility but might need to be more complex if we want to update tracks here.
+    # For now, let's just update the group name and skip track updates (use /tracks/ endpoints instead).
     group = db.query(models.Group).first()
-    if group:
-        if group.name != config.group_name:
-            # Check if name is taken
-            existing = crud.get_group_by_name(db, config.group_name)
-            if existing:
-                raise HTTPException(status_code=400, detail=f"Group '{config.group_name}' already exists")
-            crud.update_group(db, group, config.group_name)
-            
-            # Refresh group after update to get new name
-            db.refresh(group)
+    if group and group.name != config.group_name:
+        existing = crud.get_group_by_name(db, config.group_name)
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Group '{config.group_name}' already exists")
+        crud.update_group(db, group, config.group_name)
+        db.refresh(group)
     
-    track = crud.update_track(db, track, config)
-    
+    tracks = crud.get_tracks(db)
     return schemas.InitialConfigStatus(
         initialized=True,
         group_name=group.name if group else None,
-        track_id=track.id
+        tracks=tracks
     )
+
+# --- Track Endpoints ---
+
+@app.get("/tracks/", response_model=List[schemas.Track])
+def read_tracks(db: Session = Depends(get_db)):
+    return crud.get_tracks(db)
+
+@app.post("/tracks/", response_model=schemas.Track)
+def create_track(track: schemas.TrackCreate, db: Session = Depends(get_db)):
+    return crud.create_track(db, track)
+
+@app.get("/tracks/{track_id}", response_model=schemas.Track)
+def read_track(track_id: int, db: Session = Depends(get_db)):
+    db_track = crud.get_track(db, track_id)
+    if not db_track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return db_track
+
+@app.put("/tracks/{track_id}", response_model=schemas.Track)
+def update_track(track_id: int, track_update: schemas.TrackBase, db: Session = Depends(get_db)):
+    db_track = crud.get_track(db, track_id)
+    if not db_track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return crud.update_track(db, db_track, track_update)
+
+@app.delete("/tracks/{track_id}")
+def delete_track(track_id: int, db: Session = Depends(get_db)):
+    try:
+        success = crud.delete_track(db, track_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Track not found")
+        return {"ok": True}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/racers/", response_model=List[schemas.Racer])
 def read_racers(skip: int = 0, limit: int = 100, race_id: Optional[int] = None, db: Session = Depends(get_db)):

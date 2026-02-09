@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict
 from .models import TimerType, CarNumberingStrategy, Rank, SchedulingStrategy, ScoringStrategy
 
 class TrackBase(BaseModel):
+    name: str = "Main Track"
     lane_count: int = 4
     length_feet: Optional[int] = None
     timer_type: TimerType = TimerType.FAKE
@@ -44,18 +45,13 @@ class Track(TrackBase):
 
 class InitialConfigCreate(BaseModel):
     group_name: str
-    lane_count: int
-    length_feet: Optional[int] = None
-    timer_type: TimerType = TimerType.FAKE
+    tracks: List[TrackCreate]
 
 class InitialConfigStatus(BaseModel):
     initialized: bool
     group_name: Optional[str] = None
-    track_id: Optional[int] = None
+    tracks: List[Track] = []
     current_race_id: Optional[int] = None
-    lane_count: Optional[int] = None
-    length_feet: Optional[int] = None
-    timer_type: Optional[str] = None
 
 class RacerBase(BaseModel):
     first_name: str
@@ -109,12 +105,14 @@ class RaceBase(BaseModel):
 
 class RaceCreate(RaceBase):
     group_id: int
+    track_id: int
     name: str
     date_time: Optional[str] = None
     location: Optional[str] = None
 
 class RaceUpdate(BaseModel):
     name: Optional[str] = None
+    track_id: Optional[int] = None
     date_time: Optional[str] = None
     location: Optional[str] = None
     scoring_strategy: Optional[ScoringStrategy] = None
@@ -124,7 +122,8 @@ class RaceUpdate(BaseModel):
 
 class Race(RaceBase):
     id: int
-    group_id: Optional[int] = None
+    group_id: int
+    track_id: int
     racing_groups: List[RacingGroup] = []
     racers: List[Racer] = []
 

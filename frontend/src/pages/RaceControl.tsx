@@ -98,16 +98,19 @@ export default function RaceControl() {
   const fetchData = async (id: number) => {
       setLoading(true);
       try {
-          const [heatsData, racersData, configData, densData, raceData] = await Promise.all([
+          const [heatsData, racersData, densData, raceData] = await Promise.all([
               apiClient.get(`/races/${id}/heats`),
               apiClient.get(`/racers/?race_id=${id}`),
-              apiClient.get('/config/initial'),
               apiClient.get(`/races/${id}/dens/`),
               apiClient.get(`/races/${id}`)
           ]);
+
+          // Fetch track details for the race
+          const trackData = await apiClient.get(`/tracks/${raceData.track_id}`);
+
           setHeats(heatsData);
-          setTimerType(configData.timer_type);
-          setLaneCount(configData.lane_count || 4);
+          setTimerType(trackData.timer_type);
+          setLaneCount(trackData.lane_count || 4);
           setDens(densData);
           setChampionshipTrophies(raceData.championship_trophies || 3);
           

@@ -10,7 +10,7 @@ import pytest
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
-def create_test_race_and_racers(client, num_racers: int = 10, dens: list = None):
+def create_test_race_and_racers(client, track_id: int, num_racers: int = 10, dens: list = None):
     # Setup group
     group_name = get_unique_name("Wizard Group")
     resp_group = client.post("/groups/", json={"name": group_name})
@@ -20,7 +20,7 @@ def create_test_race_and_racers(client, num_racers: int = 10, dens: list = None)
     race_name = get_unique_name("Wizard Race")
     resp_race = client.post(
         "/races/",
-        json={"name": race_name, "group_id": group_id, "car_numbering_strategy": "MANUAL", "lane_count": 4},
+        json={"name": race_name, "group_id": group_id, "car_numbering_strategy": "MANUAL", "lane_count": 4, "track_id": track_id},
     )
     race_id = resp_race.json()["id"]
 
@@ -53,8 +53,8 @@ def create_test_race_and_racers(client, num_racers: int = 10, dens: list = None)
     
     return race_id, den_ids, racer_ids
 
-def test_wizard_pack_round(client):
-    race_id, den_ids, racer_ids = create_test_race_and_racers(client, num_racers=8)
+def test_wizard_pack_round(client, default_track):
+    race_id, den_ids, racer_ids = create_test_race_and_racers(client, default_track, num_racers=8)
     
     wizard_config = {
         "general_round": {
@@ -76,8 +76,8 @@ def test_wizard_pack_round(client):
     heats = client.get(f"/races/{race_id}/heats").json()
     assert len(heats) == 8
 
-def test_wizard_den_rounds(client):
-    race_id, den_ids, racer_ids = create_test_race_and_racers(client, num_racers=8, dens=["Den A", "Den B"])
+def test_wizard_den_rounds(client, default_track):
+    race_id, den_ids, racer_ids = create_test_race_and_racers(client, default_track, num_racers=8, dens=["Den A", "Den B"])
     
     wizard_config = {
         "general_round": {
@@ -101,8 +101,8 @@ def test_wizard_den_rounds(client):
     heats = client.get(f"/races/{race_id}/heats").json()
     assert len(heats) == 8
 
-def test_wizard_championship_round(client):
-    race_id, den_ids, racer_ids = create_test_race_and_racers(client, num_racers=12)
+def test_wizard_championship_round(client, default_track):
+    race_id, den_ids, racer_ids = create_test_race_and_racers(client, default_track, num_racers=12)
     
     wizard_config = {
         "general_round": {
@@ -136,8 +136,8 @@ def test_wizard_championship_round(client):
     for result in lane_results:
         assert result["racer_id"] < 0
 
-def test_wizard_full_flow(client):
-    race_id, den_ids, racer_ids = create_test_race_and_racers(client, num_racers=8, dens=["Den A", "Den B"])
+def test_wizard_full_flow(client, default_track):
+    race_id, den_ids, racer_ids = create_test_race_and_racers(client, default_track, num_racers=8, dens=["Den A", "Den B"])
     
     wizard_config = {
         "general_round": {
@@ -162,8 +162,8 @@ def test_wizard_full_flow(client):
     heats = client.get(f"/races/{race_id}/heats").json()
     assert len(heats) == 12
 
-def test_wizard_championship_per_den(client):
-    race_id, den_ids, racer_ids = create_test_race_and_racers(client, num_racers=8, dens=["Den A", "Den B"])
+def test_wizard_championship_per_den(client, default_track):
+    race_id, den_ids, racer_ids = create_test_race_and_racers(client, default_track, num_racers=8, dens=["Den A", "Den B"])
     
     wizard_config = {
         "general_round": {

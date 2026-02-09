@@ -21,7 +21,9 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
     useEffect(() => {
         const checkStatus = async () => {
              try {
-                const status = await apiClient.get('/config/initial');
+                // Add timestamp to prevent caching of initialization status
+                const status = await apiClient.get(`/config/initial?t=${Date.now()}`);
+                console.log("Initialization Status Check:", status);
                 setInitialized(status.initialized);
              } catch (e) {
                  console.error("Failed to check init status", e);
@@ -30,7 +32,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
              }
         };
         checkStatus();
-    }, []);
+    }, [location.pathname]); // Re-run when switching routes
 
     if (loading) return <div>Loading...</div>;
 

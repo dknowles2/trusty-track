@@ -57,16 +57,20 @@ class Track(Base):
     __tablename__ = "tracks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, index=True, default="Main Track")
     lane_count: Mapped[int] = mapped_column(Integer, default=4)
     length_feet: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     timer_type: Mapped[TimerType] = mapped_column(SAEnum(TimerType), default=TimerType.FAKE)
     serial_port: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    races: Mapped[List["Race"]] = relationship("Race", back_populates="track")
 
 class Race(Base):
     __tablename__ = "races"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"))
+    track_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("tracks.id"), nullable=True)
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
     date_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -78,6 +82,7 @@ class Race(Base):
     rules_configuration: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     group: Mapped["Group"] = relationship("Group", back_populates="races")
+    track: Mapped[Optional["Track"]] = relationship("Track", back_populates="races")
     racing_groups: Mapped[List["RacingGroup"]] = relationship("RacingGroup", back_populates="race")
     racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="race")
     dens: Mapped[List["Den"]] = relationship("Den", back_populates="race", cascade="all, delete-orphan")

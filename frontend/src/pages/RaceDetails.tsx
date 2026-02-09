@@ -18,6 +18,14 @@ import {
 
 interface Race extends RaceFormData {
     id: number;
+    track_id: number;
+}
+
+interface Track {
+    id: number;
+    name: string;
+    lane_count: number;
+    timer_type: string;
 }
 
 interface Racer extends RacerData {
@@ -30,6 +38,7 @@ export default function RaceDetails() {
   const [race, setRace] = useState<Race | null>(null);
   const [racers, setRacers] = useState<Racer[]>([]);
   const [dens, setDens] = useState<Den[]>([]);
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Racer Form State
@@ -77,6 +86,7 @@ export default function RaceDetails() {
         fetchRaceDetails();
         fetchRacers();
         fetchDens();
+        fetchTracks();
     }
   }, [raceId]);
 
@@ -108,6 +118,15 @@ export default function RaceDetails() {
       } catch (e) {
           console.error("Failed to fetch dens", e);
       }
+  };
+
+  const fetchTracks = async () => {
+    try {
+        const data = await apiClient.get('/tracks/');
+        setTracks(data);
+    } catch (e) {
+        console.error("Failed to fetch tracks", e);
+    }
   };
 
   const handleUpdateRace = async (data: RaceFormData) => {
@@ -232,6 +251,7 @@ export default function RaceDetails() {
                   'GLOBAL': 'Global'
               }[race.car_numbering_strategy] || race.car_numbering_strategy) : '-'}</div>
               <div><strong>Championship Trophies:</strong> {race?.championship_trophies || 3}</div>
+              <div><strong>Track:</strong> {Array.isArray(tracks) && tracks.find(t => t.id === race?.track_id)?.name || 'Unknown'}</div>
           </div>
       </div>
 

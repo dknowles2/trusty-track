@@ -48,6 +48,7 @@ describe('RaceDetails', () => {
             scoring_strategy: 'TIMED',
             car_numbering_strategy: 'PER_GROUP',
             group_id: 1,
+            track_id: 1, // Added
             global_start_number: 1,
             championship_trophies: 3
         };
@@ -58,6 +59,9 @@ describe('RaceDetails', () => {
             if (url.includes('/racers/')) return Promise.resolve([]);
             if (url.includes('/dens/')) return Promise.resolve([]);
             if (url.includes('/scores')) return Promise.resolve({ leaderboard: [] });
+            if (url === '/tracks/') return Promise.resolve([
+                { id: 1, name: 'Main Track', lane_count: 4, timer_type: 'FAKE' }
+            ]);
             return Promise.resolve({});
         });
 
@@ -77,6 +81,7 @@ describe('RaceDetails', () => {
         // Verify human-readable settings are displayed
         expect(screen.getByText('Timed')).toBeInTheDocument();
         expect(screen.getByText('Per Den')).toBeInTheDocument();
+        expect(screen.getByText('Main Track')).toBeInTheDocument(); // Verified track display
     });
 
     it('filters racers by search term', async () => {
@@ -95,6 +100,7 @@ describe('RaceDetails', () => {
             if (url.includes('/racers/')) return Promise.resolve(mockRacers);
             if (url.includes('/dens/')) return Promise.resolve(mockDens);
             if (url.includes('/scores')) return Promise.resolve({ leaderboard: [] });
+            if (url.includes('/tracks/')) return Promise.resolve([]);
             return Promise.resolve({});
         });
 
@@ -146,6 +152,7 @@ describe('RaceDetails', () => {
             if (url.includes('/racers/')) return Promise.resolve([]);
             if (url.includes('/dens/')) return Promise.resolve([]);
             if (url.includes('/scores')) return Promise.resolve({ leaderboard: [] });
+            if (url.includes('/tracks/')) return Promise.resolve([]);
             return Promise.resolve({});
         });
 

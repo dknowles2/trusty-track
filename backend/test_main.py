@@ -1,20 +1,13 @@
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from backend import models
-from backend.main import app, get_db
 import uuid
 import json
 
-# Use in-memory SQLite for testing
-
-client = TestClient(app)
+# client = TestClient(app) # Removed global client
 
 
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
-def test_create_round_with_name():
+def test_create_round_with_name(client, default_track):
     # Setup
     group_name = get_unique_name("Round Name Group")
     resp_group = client.post("/groups/", json={"name": group_name})
@@ -23,7 +16,7 @@ def test_create_round_with_name():
     race_name = get_unique_name("Round Name Race")
     resp_race = client.post(
         "/races/",
-        json={"name": race_name, "group_id": group_id, "car_numbering_strategy": "MANUAL"},
+        json={"name": race_name, "group_id": group_id, "car_numbering_strategy": "MANUAL", "track_id": default_track},
     )
     race_id = resp_race.json()["id"]
 
@@ -59,7 +52,7 @@ def test_create_round_with_name():
     assert len(rounds) == 2
     assert rounds[1]["name"] == "Semi-Finals"
 
-def test_create_championship_round_fails_without_general():
+def test_create_championship_round_fails_without_general(client, default_track):
     # Setup
     group_name = get_unique_name("Champ Fail Group")
     resp_group = client.post("/groups/", json={"name": group_name})
@@ -68,7 +61,7 @@ def test_create_championship_round_fails_without_general():
     race_name = get_unique_name("Champ Fail Race")
     resp_race = client.post(
         "/races/",
-        json={"name": race_name, "group_id": group_id, "car_numbering_strategy": "MANUAL"},
+        json={"name": race_name, "group_id": group_id, "car_numbering_strategy": "MANUAL", "track_id": default_track},
     )
     race_id = resp_race.json()["id"]
 
@@ -84,14 +77,14 @@ def test_create_championship_round_fails_without_general():
     assert resp.status_code == 400
     assert "no general rounds exist" in resp.json()["detail"]
 
-def test_delete_round_restriction_with_results():
+def test_delete_round_restriction_with_results(client, default_track):
     """Test that a round cannot be deleted if it has heats with results."""
     # 1. Create a group then a race
     group_name = get_unique_name("Deletion Test Group")
     group = client.post("/groups/", json={"name": group_name}).json()
     group_id = group["id"]
     
-    race_data = {"name": "Deletion Test Race", "lane_count": 4, "group_id": group_id}
+    race_data = {"name": "Deletion Test Race", "lane_count": 4, "group_id": group_id, "track_id": default_track}
     race = client.post("/races/", json=race_data).json()
     race_id = race["id"]
     
@@ -148,12 +141,12 @@ def test_delete_round_restriction_with_results():
     assert resp.status_code == 200
     assert resp.json()["message"] == "Round deleted"
 
-def test_delete_round_restriction_with_championship():
+def test_delete_round_restriction_with_championship(client, default_track):
     """Test that a general round cannot be deleted if a championship round exists."""
     # 1. Setup race and racers
     group_name = get_unique_name("Champ Deletion Group")
     group = client.post("/groups/", json={"name": group_name}).json()
-    race_id = client.post("/races/", json={"name": "Champ Race", "lane_count": 4, "group_id": group["id"]}).json()["id"]
+    race_id = client.post("/races/", json={"name": "Champ Race", "lane_count": 4, "group_id": group["id"], "track_id": default_track}).json()["id"]
     for i in range(1, 5):
         client.post("/racers/", json={"first_name": f"R{i}", "last_name": "T", "car_number": i, "race_id": race_id, "den_id": None})
 
@@ -177,12 +170,12 @@ def test_delete_round_restriction_with_championship():
     assert resp.status_code == 400
     assert "championship rounds are already scheduled" in resp.json()["detail"]
 
-def test_read_main():
+def test_read_main(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"Hello": "World"}
 
-def test_create_group():
+def test_create_group(client):
     # Use unique name
     name = get_unique_name("Pack")
     response = client.post(
@@ -194,7 +187,7 @@ def test_create_group():
     assert data["name"] == name
     assert "id" in data
 
-def test_create_race():
+def test_create_race(client, default_track):
     # Create unique group
     group_name = get_unique_name("Pack Race Test")
     resp_group = client.post("/groups/", json={"name": group_name})
@@ -211,15 +204,17 @@ def test_create_race():
         json={
             "name": race_name,
             "group_id": group_id,
-            "car_numbering_strategy": "MANUAL"
+            "car_numbering_strategy": "MANUAL",
+            "track_id": default_track
         },
     )
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == race_name
     assert data["group_id"] == group_id
+    assert data["track_id"] == default_track
 
-def test_create_den_and_racer():
+def test_create_den_and_racer(client, default_track):
     # Create a Race first
     group_name = get_unique_name("Pack Racer Test")
     resp_group = client.post("/groups/", json={"name": group_name})
@@ -231,7 +226,8 @@ def test_create_den_and_racer():
         json={
             "name": race_name,
             "group_id": group_id,
-            "car_numbering_strategy": "MANUAL"
+            "car_numbering_strategy": "MANUAL",
+            "track_id": default_track
         },
     )
     race_id = resp_race.json()["id"]
@@ -267,7 +263,7 @@ def test_create_den_and_racer():
     assert racer_data["den_id"] == den_id
 
 
-def test_delete_race():
+def test_delete_race(client, default_track):
     # Setup: Create Group and Race
     group_name = get_unique_name("Delete Test Group")
     resp_group = client.post("/groups/", json={"name": group_name})
@@ -279,7 +275,8 @@ def test_delete_race():
         json={
             "name": race_name,
             "group_id": group_id,
-            "car_numbering_strategy": "MANUAL"
+            "car_numbering_strategy": "MANUAL",
+            "track_id": default_track
         },
     )
     assert resp_race.status_code == 200
@@ -299,7 +296,7 @@ def test_delete_race():
     assert resp_get_after.status_code == 404
 
 
-def test_round_advancement_from_successor():
+def test_round_advancement_from_successor(client, default_track):
     """
     Test that a round with no advancement source (General) will show advancement info
     if a subsequent round depends on it.
@@ -308,7 +305,7 @@ def test_round_advancement_from_successor():
     group_name = get_unique_name("Adv Group")
     resp_group = client.post("/groups/", json={"name": group_name})
     group = resp_group.json()
-    resp_race = client.post("/races/", json={"name": get_unique_name("Adv Race"), "group_id": group["id"]})
+    resp_race = client.post("/races/", json={"name": get_unique_name("Adv Race"), "group_id": group["id"], "track_id": default_track})
     race = resp_race.json()
     race_id = race["id"]
     

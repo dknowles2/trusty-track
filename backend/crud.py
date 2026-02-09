@@ -121,8 +121,11 @@ def delete_race(db: Session, race_id: int) -> bool:
     db.commit()
     return True
 
-def get_track(db: Session) -> models.Track | None:
-    return db.query(models.Track).first()
+def get_tracks(db: Session) -> List[models.Track]:
+    return db.query(models.Track).all()
+
+def get_track(db: Session, track_id: int) -> models.Track | None:
+    return db.query(models.Track).filter(models.Track.id == track_id).first()
 
 def create_track(db: Session, track: schemas.TrackCreate) -> models.Track:
     db_track = models.Track(**track.model_dump())
@@ -131,23 +134,23 @@ def create_track(db: Session, track: schemas.TrackCreate) -> models.Track:
     db.refresh(db_track)
     return db_track
 
-def create_initial_config(db: Session, config: schemas.InitialConfigCreate) -> tuple[models.Group, models.Track]:
+def create_initial_config(db: Session, config: schemas.InitialConfigCreate) -> tuple[models.Group, List[models.Track]]:
     # Create Group
     group = models.Group(name=config.group_name)
     db.add(group)
     
-    # Create Track
-    track = models.Track(
-        lane_count=config.lane_count,
-        length_feet=config.length_feet,
-        timer_type=config.timer_type
-    )
-    db.add(track)
+    # Create Tracks
+    created_tracks = []
+    for track_data in config.tracks:
+        track = models.Track(**track_data.model_dump())
+        db.add(track)
+        created_tracks.append(track)
     
     db.commit()
     db.refresh(group)
-    db.refresh(track)
-    return group, track
+    for t in created_tracks:
+        db.refresh(t)
+    return group, created_tracks
 
 def update_group(db: Session, group: models.Group, name: str) -> models.Group:
     group.name = name
@@ -155,13 +158,24 @@ def update_group(db: Session, group: models.Group, name: str) -> models.Group:
     db.refresh(group)
     return group
 
-def update_track(db: Session, track: models.Track, config: schemas.InitialConfigCreate) -> models.Track:
-    track.lane_count = config.lane_count
-    track.length_feet = config.length_feet
-    track.timer_type = config.timer_type
+def update_track(db: Session, track: models.Track, track_update: schemas.TrackBase) -> models.Track:
+    update_data = track_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(track, key, value)
     db.commit()
     db.refresh(track)
     return track
+
+def delete_track(db: Session, track_id: int) -> bool:
+    track = db.query(models.Track).filter(models.Track.id == track_id).first()
+    if track:
+        # Check if any races are associated
+        if track.races:
+            raise ValueError("Cannot delete track: it is associated with one or more races.")
+        db.delete(track)
+        db.commit()
+        return True
+    return False
 
 def get_racers(db: Session, skip: int = 0, limit: int = 100, race_id: int | None = None) -> List[models.Racer]:
     query = db.query(models.Racer)
@@ -404,8 +418,8 @@ def generate_heats_for_round(db: Session, round_id: int, num_placeholders: int =
         raise ValueError(f"Round {round_id} not found")
     
     race_id = round_obj.race_id
-    track = db.query(models.Track).first()
-    lane_count = track.lane_count if track else 4
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    lane_count = race.track.lane_count if race and race.track else 4
 
     # Check for existing heats
     existing_heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()

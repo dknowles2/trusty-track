@@ -53,9 +53,6 @@ describe('RaceControl Page', () => {
         
         // Mock initial data fetch
         (apiClient.get as any).mockImplementation((url: string) => {
-            if (url.includes('/config')) {
-                return Promise.resolve({ timer_type: 'FAKE', lane_count: 4 });
-            }
             if (url.includes(`/races/${mockRaceId}/heats`)) {
                 return Promise.resolve([
                     { id: 1, round_number: 1, heat_number: 1, lane_results: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]) }, // Completed heat
@@ -70,6 +67,15 @@ describe('RaceControl Page', () => {
             }
             if (url.includes(`/races/${mockRaceId}/dens`)) {
                 return Promise.resolve([]);
+            }
+            if (url === `/races/${mockRaceId}`) {
+                return Promise.resolve({ id: 1, name: 'Test Race', track_id: 1, championship_trophies: 3 });
+            }
+            if (url === '/tracks/1') {
+                return Promise.resolve({ id: 1, name: 'Main Track', lane_count: 4, timer_type: 'FAKE' });
+            }
+            if (url === '/tracks/6') {
+                return Promise.resolve({ id: 6, name: '6-Lane Track', lane_count: 6, timer_type: 'FAKE' });
             }
             return Promise.resolve({});
         });
@@ -128,19 +134,16 @@ describe('RaceControl Page', () => {
     });
 
     it('propagates laneCount from initial config', async () => {
-        // Mock 6 lanes
+        // Redefine mock for this specific test
         (apiClient.get as any).mockImplementation((url: string) => {
-            if (url.includes('/config')) {
-                return Promise.resolve({ timer_type: 'FAKE', lane_count: 6 });
+            if (url.includes(`/races/${mockRaceId}/heats`)) return Promise.resolve([]);
+            if (url.includes(`/races/${mockRaceId}/racers`)) return Promise.resolve([]);
+            if (url.includes(`/races/${mockRaceId}/dens`)) return Promise.resolve([]);
+            if (url === `/races/${mockRaceId}`) {
+                return Promise.resolve({ id: 1, name: 'Test Race', track_id: 6, championship_trophies: 3 });
             }
-            if (url.includes(`/races/${mockRaceId}/heats`)) {
-                return Promise.resolve([]);
-            }
-            if (url.includes(`/races/${mockRaceId}/racers`)) {
-                return Promise.resolve([]);
-            }
-            if (url.includes(`/races/${mockRaceId}/dens`)) {
-                return Promise.resolve([]);
+            if (url === '/tracks/6') {
+                return Promise.resolve({ id: 6, name: '6-Lane Track', lane_count: 6, timer_type: 'FAKE' });
             }
             return Promise.resolve({});
         });

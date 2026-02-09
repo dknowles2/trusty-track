@@ -54,11 +54,17 @@ def db(db_session):
     """Alias for db_session to support existing tests using 'db' argument."""
     return db_session
 
-@pytest.fixture(scope="module")
-def client():
+@pytest.fixture(scope="function")
+def client(db_session):
     """
     Exposes a TestClient that can be used by tests.
-    Note: dependency_overrides are applied to 'app', so this client 
-    will pick up the per-function overrides automatically.
     """
     return TestClient(app)
+
+@pytest.fixture(scope="function")
+def default_track(client):
+    """
+    Creates a default track for tests that require one.
+    """
+    resp = client.post("/tracks/", json={"name": "Default Track", "lane_count": 4, "timer_type": "FAKE"})
+    return resp.json()["id"]
