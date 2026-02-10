@@ -80,8 +80,8 @@ export default function Home() {
                         <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
                             <tr>
                                 <th style={{ padding: '15px', textAlign: 'left' }}>Event Name</th>
-                                <th style={{ padding: '15px', textAlign: 'left' }}>Date & Time</th>
-                                <th style={{ padding: '15px', textAlign: 'left' }}>Location</th>
+                                <th className="mobile-hide" style={{ padding: '15px', textAlign: 'left' }}>Date & Time</th>
+                                <th className="mobile-hide" style={{ padding: '15px', textAlign: 'left' }}>Location</th>
                                 <th style={{ padding: '15px', textAlign: 'right' }}>Quick Actions</th>
                             </tr>
                         </thead>
@@ -95,10 +95,10 @@ export default function Home() {
                                             {race.name}
                                         </Link>
                                     </td>
-                                    <td style={{ padding: '15px' }}>
+                                    <td className="mobile-hide" style={{ padding: '15px' }}>
                                         {race.date_time ? new Date(race.date_time).toLocaleString() : '-'}
                                     </td>
-                                    <td style={{ padding: '15px' }}>{race.location || '-'}</td>
+                                    <td className="mobile-hide" style={{ padding: '15px' }}>{race.location || '-'}</td>
                                      <td style={{ padding: '15px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                         <Link to={`/race/${race.id}/control`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <Icon path={mdiFlagCheckered} size={0.7} /> Control
