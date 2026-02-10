@@ -5,7 +5,7 @@ import Modal from './Modal';
 import RaceForm, { RaceFormData } from './RaceForm';
 import { useAlert } from '../context/AlertContext';
 import Icon from '@mdi/react';
-import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo } from '@mdi/js';
+import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo, mdiMenu, mdiClose } from '@mdi/js';
 
 export default function Navigation() {
   const { showAlert } = useAlert();
@@ -14,6 +14,18 @@ export default function Navigation() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchRaces = () => {
     apiClient.get('/races/').then(setRaces).catch(console.error);
@@ -59,8 +71,9 @@ export default function Navigation() {
             <span style={{ fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>Trusty Track</span>
           </Link>
 
-          {/* Center: Race Switcher */}
-          <div style={{ position: 'relative', flex: 1, display: 'flex', justifyContent: 'center' }}>
+          {/* Center: Race Switcher (Hidden on Mobile) */}
+          {!isMobile && (
+            <div style={{ position: 'relative', flex: 1, display: 'flex', justifyContent: 'center' }}>
             <button 
               onClick={() => setIsRaceDropdownOpen(!isRaceDropdownOpen)}
               style={{
@@ -165,35 +178,217 @@ export default function Navigation() {
                 </div>
               </>
             )}
-          </div>
+            </div>
+          )}
 
-          {/* Right: System Settings */}
-          <Link 
-            to="/system-settings" 
-            title="System Settings"
-            style={{
-              textDecoration: 'none',
-              color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'white',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              background: location.pathname === '/system-settings' ? 'rgba(255,255,255,0.15)' : 'transparent',
-              transition: 'all 0.2s ease',
-              flexShrink: 0
-            }}
-            onMouseEnter={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
-            onMouseLeave={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'transparent')}
-           >
-            <Icon path={mdiCog} size={0.9} />
-            <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Settings</span>
-          </Link>
+          {/* Right: System Settings (Hidden on Mobile) */}
+          {!isMobile && (
+            <Link 
+              to="/system-settings" 
+              title="System Settings"
+              style={{
+                textDecoration: 'none',
+                color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'white',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                background: location.pathname === '/system-settings' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
+              }}
+              onMouseEnter={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+              onMouseLeave={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'transparent')}
+            >
+              <Icon path={mdiCog} size={0.9} />
+              <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Settings</span>
+            </Link>
+          )}
+
+          {/* Mobile: Hamburger Menu Button */}
+          {isMobile && (
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open Menu"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                padding: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}
+            >
+              <Icon path={mdiMenu} size={1.2} />
+            </button>
+          )}
         </div>
+
+        {/* Mobile Menu Drawer */}
+        {isMobile && (
+          <>
+            {/* Backdrop */}
+            <div 
+              onClick={() => setIsMobileMenuOpen(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                zIndex: 2000,
+                opacity: isMobileMenuOpen ? 1 : 0,
+                visibility: isMobileMenuOpen ? 'visible' : 'hidden',
+                transition: 'all 0.3s ease',
+                backdropFilter: 'blur(4px)'
+              }}
+            />
+            {/* Drawer */}
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: '280px',
+              backgroundColor: 'white',
+              zIndex: 2001,
+              boxShadow: '-5px 0 25px rgba(0,0,0,0.1)',
+              transform: isMobileMenuOpen ? 'translateX(0)' : 'translateX(100%)',
+              transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              visibility: isMobileMenuOpen ? 'visible' : 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              {/* Drawer Header */}
+              <div style={{ 
+                padding: '1.5rem', 
+                borderBottom: '1px solid #eee', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                backgroundColor: 'var(--scouting-blue)',
+                color: 'white'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <img src="/src/assets/logo_transparent.png" alt="Logo" style={{ height: '24px' }} />
+                  <span style={{ fontWeight: 'bold' }}>Trusty Track</span>
+                </div>
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  aria-label="Close Menu"
+                  style={{ background: 'none', border: 'none', color: 'white', padding: '4px', cursor: 'pointer' }}
+                >
+                  <Icon path={mdiClose} size={1} />
+                </button>
+              </div>
+
+              {/* Drawer Content */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+                <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#999', margin: '1rem 0 0.5rem 0.5rem', letterSpacing: '1px' }}>Races</h3>
+                {races.map(r => (
+                  <div key={r.id}>
+                    <Link
+                      to={`/race/${r.id}`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '12px 16px',
+                        textDecoration: 'none',
+                        color: raceId === r.id.toString() ? 'var(--scouting-blue)' : '#444',
+                        backgroundColor: raceId === r.id.toString() ? '#f0f7ff' : 'transparent',
+                        fontWeight: raceId === r.id.toString() ? 'bold' : '500',
+                        borderRadius: '8px',
+                        marginBottom: '4px'
+                      }}
+                    >
+                      {r.name}
+                    </Link>
+                    {/* If this is the active race, show its sub-links */}
+                    {raceId === r.id.toString() && (
+                      <div style={{ marginLeft: '1rem', borderLeft: '2px solid #f0f7ff', paddingLeft: '0.5rem' }}>
+                        {links.map(link => (
+                          <Link
+                            key={link.to}
+                            to={link.to}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '10px 16px',
+                              textDecoration: 'none',
+                              color: location.pathname === link.to ? 'var(--scouting-blue)' : '#666',
+                              fontSize: '0.9rem',
+                              fontWeight: location.pathname === link.to ? 'bold' : '500'
+                            }}
+                          >
+                            <Icon path={link.icon} size={0.7} />
+                            {link.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    setShowCreateModal(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '12px 16px',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--scouting-blue)',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginTop: '0.5rem'
+                  }}
+                >
+                  <Icon path={mdiPlus} size={0.8} /> New Race...
+                </button>
+              </div>
+
+              {/* Drawer Footer - Pinned Settings */}
+              <div style={{ borderTop: '1px solid #eee', padding: '1rem' }}>
+                <Link
+                  to="/system-settings"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '14px 16px',
+                    textDecoration: 'none',
+                    color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'var(--scouting-blue)',
+                    backgroundColor: location.pathname === '/system-settings' ? 'rgba(0,63,135,0.05)' : 'transparent',
+                    fontWeight: 'bold',
+                    borderRadius: '8px'
+                  }}
+                >
+                  <Icon path={mdiCog} size={0.9} />
+                  System Settings
+                </Link>
+              </div>
+            </div>
+          </>
+        )}
       </nav>
 
-      {/* Secondary Header: Race Navigation */}
-      {raceId && (
+      {/* Secondary Header: Race Navigation (Hidden on Mobile) */}
+      {raceId && !isMobile && (
         <div style={{ 
           backgroundColor: 'white', 
           borderBottom: '1px solid #ddd', 
