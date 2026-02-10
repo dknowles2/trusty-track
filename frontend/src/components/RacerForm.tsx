@@ -8,6 +8,7 @@ export interface RacerData {
   car_number?: number;
   den_id?: number;
   car_passed_inspection: boolean;
+  car_weight?: number;
   racer_image_url?: string;
   car_image_url?: string;
 }
@@ -34,7 +35,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
     last_name: '',
     car_number: undefined,
     den_id: undefined,
-    car_passed_inspection: false
+    car_passed_inspection: false,
+    car_weight: undefined
   });
   const [dens, setDens] = useState<Den[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +53,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
-               name === 'car_number' || name === 'den_id' ? parseInt(value) || undefined : value
+               name === 'car_number' || name === 'den_id' ? parseInt(value) || undefined : 
+               name === 'car_weight' ? parseFloat(value) || undefined : value
     }));
   };
 
@@ -117,15 +120,29 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
           </div>
         </div>
 
-        <div style={{ marginBottom: '10px' }}>
-             <label style={{ display: 'block', marginBottom: '5px' }}>Car Number</label>
-             <input
-               type="number"
-               name="car_number"
-               value={formData.car_number || ''}
-               onChange={handleChange}
-               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-             />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div>
+                 <label style={{ display: 'block', marginBottom: '5px' }}>Car Number</label>
+                 <input
+                   type="number"
+                   name="car_number"
+                   value={formData.car_number || ''}
+                   onChange={handleChange}
+                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                 />
+            </div>
+            <div>
+                 <label style={{ display: 'block', marginBottom: '5px' }}>Car Weight (oz)</label>
+                 <input
+                   type="number"
+                   step="0.01"
+                   name="car_weight"
+                   value={formData.car_weight || ''}
+                   onChange={handleChange}
+                   placeholder="e.g. 5.0"
+                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                 />
+            </div>
         </div>
 
         <div style={{ marginBottom: '10px' }}>
