@@ -77,7 +77,7 @@ describe('RaceExecution', () => {
         expect(screen.getByText('3.5s')).toBeInTheDocument();
         
         // Check for image
-        const img = screen.getByAltText('Racer');
+        const img = screen.getByAltText('John Doe'); // RacerAvatar uses name as alt
         expect(img).toBeInTheDocument();
         expect(img).toHaveAttribute('src', 'http://example.com/racer101.jpg');
     });

@@ -9,6 +9,7 @@ import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
 import CheckInModal from '../components/CheckInModal';
 import { LeaderboardData } from '../components/Leaderboard';
+import RacerAvatar from '../components/RacerAvatar';
 import Icon from '@mdi/react';
 import { 
   mdiCalendar, mdiMapMarker, mdiMagnify, mdiNumeric, 
@@ -350,14 +351,13 @@ export default function RaceDetails() {
           backgroundColor: isSelected ? '#f0f7ff' : 'white',
           borderColor: isSelected ? '#3b82f6' : '#eee'
       }}>
-          <div className="racer-card-header">
-              {racer.racer_image_url ? (
-                  <img src={racer.racer_image_url} alt={racer.first_name} className="racer-card-photo" />
-              ) : (
-                  <div className="racer-card-photo" style={{ background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '0.8rem' }}>
-                      No Photo
-                  </div>
-              )}
+              <div className="racer-card-header">
+                  <RacerAvatar 
+                      racer={racer} 
+                      size="60px" 
+                      className="racer-card-photo" 
+                      style={{ marginRight: '15px' }}
+                  />
               <div className="racer-card-name-group">
                   <span className="racer-card-name">{racer.first_name} {racer.last_name}</span>
                   <span className="racer-card-number">Car #{racer.car_number || '-'}</span>
@@ -517,22 +517,23 @@ export default function RaceDetails() {
                             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                 {leaderboard.leaderboard.slice(0, 3).map((racer) => (
                                     <div key={racer.racer_id} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', position: 'relative', overflow: 'hidden' }}>
-                                        {racer.racer_image_url && (
-                                            <img 
-                                                src={racer.racer_image_url} 
-                                                alt="" 
-                                                style={{ 
-                                                    position: 'absolute', 
-                                                    top: 0, 
-                                                    left: 0, 
-                                                    width: '100%', 
-                                                    height: '100%', 
-                                                    objectFit: 'cover', 
-                                                    opacity: 0.15, 
-                                                    pointerEvents: 'none' 
-                                                }} 
-                                            />
-                                        )}
+                                        <RacerAvatar
+                                            racer={{
+                                                id: racer.racer_id,
+                                                first_name: racer.first_name,
+                                                last_name: racer.last_name,
+                                                racer_image_url: racer.racer_image_url
+                                            }}
+                                            size="100%"
+                                            style={{ 
+                                                position: 'absolute', 
+                                                top: 0, 
+                                                left: 0, 
+                                                opacity: 0.15, 
+                                                pointerEvents: 'none',
+                                                borderRadius: 0 
+                                            }} 
+                                        />
                                         <span style={{ fontSize: '1.2rem', zIndex: 1 }}>
                                             {racer.rank === 1 ? '🥇' : racer.rank === 2 ? '🥈' : '🥉'}
                                         </span>
@@ -808,17 +809,11 @@ export default function RaceDetails() {
                                             </td>
                                             <td data-label="Car #" style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
                                             <td data-label="Photo" style={{ padding: '12px', textAlign: 'center' }}>
-                                                {racer.racer_image_url ? (
-                                                    <img 
-                                                        src={racer.racer_image_url} 
-                                                        alt={`${racer.first_name}`} 
-                                                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
-                                                    />
-                                                ) : (
-                                                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#999', fontSize: '0.8rem' }}>
-                                                        No
-                                                    </div>
-                                                )}
+                                                <RacerAvatar 
+                                                    racer={racer} 
+                                                    size="40px" 
+                                                    style={{ margin: '0 auto', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                                />
                                             </td>
                                             <td data-label="First Name" style={{ padding: '12px' }}>{racer.first_name}</td>
                                             <td data-label="Last Name" style={{ padding: '12px' }}>{racer.last_name}</td>
@@ -898,17 +893,11 @@ export default function RaceDetails() {
                                 <td data-label="Car #" style={{ padding: '12px' }}><span className="cell-value">{racer.car_number || '-'}</span></td>
                                 <td data-label="Photo" style={{ padding: '12px', textAlign: 'center' }}>
                                     <span className="cell-value">
-                                        {racer.racer_image_url ? (
-                                            <img 
-                                                src={racer.racer_image_url} 
-                                                alt={`${racer.first_name}`} 
-                                                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
-                                            />
-                                        ) : (
-                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', color: '#999', fontSize: '0.8rem' }}>
-                                                No
-                                            </div>
-                                        )}
+                                        <RacerAvatar 
+                                            racer={racer} 
+                                            size="40px" 
+                                            style={{ margin: '0 auto', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                        />
                                     </span>
                                 </td>
                                 <td data-label="First Name" style={{ padding: '12px' }}><span className="cell-value">{racer.first_name}</span></td>

@@ -1,21 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Den } from './RacerForm';
 import { apiClient } from '../api/client';
+import { COMMON_COLORS } from '../utils/colors';
 import { useAlert } from '../context/AlertContext';
 import Icon from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 
-const DEN_COLORS = [
-    '#003F87', // Scouting Blue
-    '#FCD116', // Cub Scout Gold
-    '#D32F2F', // Red
-    '#388E3C', // Green
-    '#F57C00', // Orange
-    '#7B1FA2', // Purple
-    '#795548', // Brown
-    '#212121', // Black
-    '#009688', // Teal
-];
+const DEN_COLORS = COMMON_COLORS;
 
 interface DenManagerProps {
     raceId: number;

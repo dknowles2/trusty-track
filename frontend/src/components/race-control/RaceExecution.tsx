@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { FakeTimerMole } from './FakeTimerMole';
+import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
-import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiAccount, mdiChevronRight } from '@mdi/js';
+import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight } from '@mdi/js';
 
 interface Heat {
   id: number;
@@ -245,12 +246,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                               <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {r.lane}</div>
                               
                               {/* Racer Image */}
-                              <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: '#eee', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                  {racer?.racer_image_url ? (
-                                      <img src={racer.racer_image_url} alt="Racer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  ) : (
-                                      <Icon path={mdiAccount} size={1.5} color="#ccc" />
-                                  )}
+                              <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                  <RacerAvatar racer={racer} size="60px" />
                               </div>
 
                               <div style={{ flex: 1 }}>

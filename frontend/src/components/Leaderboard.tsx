@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import RacerAvatar from './RacerAvatar';
 
 export interface LeaderboardEntry {
   racer_id: number;
@@ -107,6 +108,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
           <thead>
             <tr style={{ background: 'var(--scouting-blue)', color: 'white' }}>
               <th style={{ padding: '12px', textAlign: 'left', width: '60px' }}>Rank</th>
+              <th style={{ padding: '12px', textAlign: 'center', width: '60px' }}>Avatar</th>
               <th style={{ padding: '12px', textAlign: 'left', width: '80px' }}>Car #</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Den</th>
@@ -125,6 +127,17 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
               >
                 <td style={{ padding: '12px', fontSize: '1.1rem' }}>
                   {getRankMedal(entry.rank)} {entry.rank}
+                </td>
+                <td style={{ padding: '12px', textAlign: 'center' }}>
+                  <RacerAvatar 
+                    racer={{
+                      id: entry.racer_id,
+                      first_name: entry.first_name,
+                      last_name: entry.last_name,
+                      racer_image_url: entry.racer_image_url
+                    }}
+                    size="40px"
+                  />
                 </td>
                 <td style={{ padding: '12px', fontWeight: 'bold' }}>
                   {entry.car_number}

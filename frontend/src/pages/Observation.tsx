@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import Icon from '@mdi/react';
+import RacerAvatar from '../components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight } from '@mdi/js';
 
 interface Standing {
@@ -137,17 +138,16 @@ export default function Observation() {
                       return (
                           <div key={a.lane} style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
                               <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {a.lane}</div>
-                              {racer?.racer_image_url ? (
-                                       <img 
-                                      src={racer.racer_image_url} 
-                                      alt="Racer" 
-                                      style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', margin: '0 auto 5px', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
-                                    />
-                              ) : (
-                                   <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 5px', fontWeight: 'bold', color: '#999', fontSize: '1.2rem' }}>
-                                       #{a.racer_id}
-                                   </div>
-                              )}
+                              <RacerAvatar 
+                                  racer={{
+                                      id: a.racer_id,
+                                      first_name: racer?.first_name || '',
+                                      last_name: racer?.last_name || '',
+                                      racer_image_url: racer?.racer_image_url
+                                  }}
+                                  size="80px"
+                                  style={{ margin: '0 auto 5px', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                              />
                               <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
                                   {racer ? `${racer.first_name} ${racer.last_name}` : `#{a.racer_id}`}
                               </div>
@@ -193,17 +193,16 @@ export default function Observation() {
                           </td>
                           <td style={{ padding: '15px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                                  {racer?.racer_image_url ? (
-                                       <img 
-                                         src={racer.racer_image_url} 
-                                         alt="Racer" 
-                                         style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid white', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }} 
-                                       />
-                                  ) : (
-                                        <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#888', fontSize: '1.5rem' }}>
-                                            #{s.racer_id}
-                                        </div>
-                                  )}
+                                  <RacerAvatar 
+                                      racer={{
+                                          id: s.racer_id,
+                                          first_name: racer?.first_name || '',
+                                          last_name: racer?.last_name || '',
+                                          racer_image_url: racer?.racer_image_url
+                                      }}
+                                      size="100px"
+                                      style={{ border: '3px solid white', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
+                                  />
                                   <div>
                                       <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
                                           {racer ? `${racer.first_name} ${racer.last_name}` : `Racer #${s.racer_id}`}
