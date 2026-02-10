@@ -427,12 +427,16 @@ export default function RaceDetails() {
                   <>
                     <h1 style={{ margin: 0, color: 'var(--scouting-blue)' }}>{race.name}</h1>
                     <div style={{ color: '#666', marginTop: '0.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <Icon path={mdiCalendar} size={0.7} /> {new Date(race.date_time).toLocaleString()}
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <Icon path={mdiMapMarker} size={0.7} /> {race.location || 'No Location Set'}
-                        </span>
+                        {race.date_time && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }} data-testid="race-date">
+                                <Icon path={mdiCalendar} size={0.7} /> {new Date(race.date_time).toLocaleString()}
+                            </span>
+                        )}
+                        {race.location && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }} data-testid="race-location">
+                                <Icon path={mdiMapMarker} size={0.7} /> {race.location}
+                            </span>
+                        )}
                     </div>
                   </>
               ) : <p>Race not found</p>}

@@ -306,4 +306,46 @@ describe('RaceDetails', () => {
 
         expect(screen.queryByText('Current Standings')).not.toBeInTheDocument();
     });
+
+    it('hides date and location when they are unset', async () => {
+        const mockRace = {
+            id: 1,
+            name: 'Unset Details Race',
+            date_time: null,
+            location: '',
+            scheduling_strategy: 'LANE_ROTATION',
+            scoring_strategy: 'TIMED',
+            car_numbering_strategy: 'PER_GROUP',
+            group_id: 1,
+            track_id: 1,
+            global_start_number: 1,
+            championship_trophies: 3
+        };
+
+        (apiClient.get as any).mockImplementation((url: string) => {
+            if (url === '/races/1') return Promise.resolve(mockRace);
+            if (url.includes('/racers/')) return Promise.resolve([]);
+            if (url.includes('/dens/')) return Promise.resolve([]);
+            if (url.includes('/scores')) return Promise.resolve({ leaderboard: [] });
+            if (url === '/tracks/') return Promise.resolve([]);
+            return Promise.resolve({});
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes>
+                    <Route path="/races/:raceId" element={<RaceDetails />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Unset Details Race')).toBeInTheDocument();
+        });
+
+        // Verify location and date are hidden
+        expect(screen.queryByTestId('race-date')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('race-location')).not.toBeInTheDocument();
+        expect(screen.queryByText('No Location Set')).not.toBeInTheDocument();
+    });
 });
