@@ -119,10 +119,6 @@ export default function Home() {
                     </table>
                 </div>
             )}
-             
-             <div style={{ marginTop: '3rem', borderTop: '1px solid #eee', paddingTop: '1rem', textAlign: 'center' }}>
-                <Link to="/system-settings" style={{ color: '#666', textDecoration: 'none' }}>System Settings</Link>
-             </div>
         </div>
     );
 }
