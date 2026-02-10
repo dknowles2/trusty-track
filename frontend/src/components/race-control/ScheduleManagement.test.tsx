@@ -444,6 +444,10 @@ describe('ScheduleManagement', () => {
         const deleteBtn = screen.getByLabelText(/delete round 1/i);
         await user.click(deleteBtn);
         
+        // Modal should appear, click Delete button inside it
+        const modalDeleteBtn = await screen.findByRole('button', { name: 'Delete' });
+        await user.click(modalDeleteBtn);
+        
         expect(mockOnDeleteRound).toHaveBeenCalledWith(1);
     });
 

@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RoundWizard } from './RoundWizard';
 import { apiClient } from '../../api/client';
 import userEvent from '@testing-library/user-event';
+import { AlertProvider } from '../../context/AlertContext';
 
 // Mock apiClient
 vi.mock('../../api/client', () => ({
@@ -32,14 +33,14 @@ describe('RoundWizard Component', () => {
     });
 
     it('renders Step 1 by default', () => {
-        render(<RoundWizard {...defaultProps} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         expect(screen.getByText('Step 1: General Rounds')).toBeInTheDocument();
         expect(screen.getByText('PACK (One big race)')).toBeInTheDocument();
         expect(screen.getByText('DEN (Round per den)')).toBeInTheDocument();
     });
 
     it('calculates estimation correctly in Step 1 (no championship)', () => {
-        render(<RoundWizard {...defaultProps} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         // 10 racers, 1 run per lane -> 10 heats for PACK
         // 10 heats * 120s = 1200s = 20 min
         expect(screen.getByText('10 Total Heats')).toBeInTheDocument();
@@ -48,7 +49,7 @@ describe('RoundWizard Component', () => {
 
     it('navigates through steps', async () => {
         const user = userEvent.setup();
-        render(<RoundWizard {...defaultProps} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         
         // Step 1 -> Step 2
         await user.click(screen.getByText('Next'));
@@ -66,7 +67,7 @@ describe('RoundWizard Component', () => {
     it('can add/remove championship rounds with source selection', async () => {
         const user = userEvent.setup();
         // Start in DEN mode to enable "Each Den" option
-        render(<RoundWizard {...defaultProps} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         const denRadio = screen.getByLabelText('DEN');
         await user.click(denRadio);
 
@@ -99,7 +100,7 @@ describe('RoundWizard Component', () => {
 
 
     it('shows warning when racer count is 0', () => {
-        render(<RoundWizard {...defaultProps} racerCount={0} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} racerCount={0} /></AlertProvider>);
         expect(screen.getByText(/Warning:/i)).toBeInTheDocument();
         expect(screen.getByText(/No racers found./i)).toBeInTheDocument();
         expect(screen.getByText(/Schedule generation will fail/i)).toBeInTheDocument();
@@ -109,7 +110,7 @@ describe('RoundWizard Component', () => {
     });
 
     it('shows warning when racer count is 1', () => {
-        render(<RoundWizard {...defaultProps} racerCount={1} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} racerCount={1} /></AlertProvider>);
         expect(screen.getByText(/Warning:/i)).toBeInTheDocument();
         expect(screen.getByText(/Not enough racers/i)).toBeInTheDocument();
         expect(screen.getByText(/Schedule generation will fail/i)).toBeInTheDocument();
@@ -118,7 +119,7 @@ describe('RoundWizard Component', () => {
     it('restricts "Each Den" option if general round is PACK', async () => {
         const user = userEvent.setup();
         // Default is PACK
-        render(<RoundWizard {...defaultProps} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         
         await user.click(screen.getByText('Next')); // To Step 2
         await user.click(screen.getByText(/Add Championship Round/i));
@@ -136,7 +137,7 @@ describe('RoundWizard Component', () => {
 
     it('resets "Each Den" source when switching back to PACK', async () => {
         const user = userEvent.setup();
-        render(<RoundWizard {...defaultProps} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         
         // 1. Set to DEN
         await user.click(screen.getByLabelText('DEN'));
@@ -164,7 +165,7 @@ describe('RoundWizard Component', () => {
         const user = userEvent.setup();
         (apiClient.post as any).mockResolvedValue({});
         
-        render(<RoundWizard {...defaultProps} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         
         // Step 2
         await user.click(screen.getByText('Next'));
@@ -185,10 +186,9 @@ describe('RoundWizard Component', () => {
 
     it('shows error alert on API failure', async () => {
         const user = userEvent.setup();
-        const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => {});
         (apiClient.post as any).mockRejectedValue(new Error('Not enough racers'));
         
-        render(<RoundWizard {...defaultProps} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         
         // Navigate to create step (Step 3)
         await user.click(screen.getByText('Next'));
@@ -196,17 +196,16 @@ describe('RoundWizard Component', () => {
         
         await user.click(screen.getByText('Create Rounds'));
         
+        // Wait for the custom modal to show error
         await waitFor(() => {
-            expect(alertMock).toHaveBeenCalledWith('Failed to create rounds: Not enough racers');
+            expect(screen.getByText('Failed to create rounds: Not enough racers')).toBeInTheDocument();
         });
-        
-        alertMock.mockRestore();
     });
 
     it('enforces championshipTrophies minimum for final round', async () => {
         const user = userEvent.setup();
         // Set trophies to 5
-        render(<RoundWizard {...defaultProps} championshipTrophies={5} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} championshipTrophies={5} /></AlertProvider>);
         
         await user.click(screen.getByText('Next')); // To Step 2
         await user.click(screen.getByText(/Add Championship Round/i));
@@ -223,7 +222,7 @@ describe('RoundWizard Component', () => {
 
     it('hides "Add Follow-up Round" if current round is at trophy minimum', async () => {
         const user = userEvent.setup();
-        render(<RoundWizard {...defaultProps} championshipTrophies={3} />);
+        render(<AlertProvider><RoundWizard {...defaultProps} championshipTrophies={3} /></AlertProvider>);
         
         await user.click(screen.getByText('Next')); // To Step 2
         await user.click(screen.getByText(/Add Championship Round/i));

@@ -198,7 +198,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [advancementStatuses, setAdvancementStatuses] = useState<Record<number, AdvancementStatus>>({});
-  const { showToast } = useAlert();
+  const { showToast, showConfirm } = useAlert();
   const _raceId = raceId;
 
   const rounds = heats.reduce((acc, heat) => {
@@ -449,7 +449,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                       {roundId && (
                         <button
                           onClick={async () => {
-                            if (window.confirm('Are you sure you want to delete this round and all its heats? This action cannot be undone.')) {
+                            if (await showConfirm('Are you sure you want to delete this round and all its heats? This action cannot be undone.', 'Delete Round', 'Delete', 'danger')) {
                               await onDeleteRound(roundId);
                             }
                           }}

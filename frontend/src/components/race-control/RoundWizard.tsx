@@ -3,6 +3,7 @@ import Modal from '../Modal';
 import Icon from '@mdi/react';
 import { mdiFlagCheckered, mdiAccountGroup, mdiPlus, mdiChevronRight, mdiChevronLeft, mdiCheck, mdiClockOutline, mdiAlertCircle, mdiInformation, mdiClose } from '@mdi/js';
 import { apiClient } from '../../api/client';
+import { useAlert } from '../../context/AlertContext';
 
 interface RoundWizardProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   });
   const [championshipRounds, setChampionshipRounds] = useState<ChampionshipConfig[]>([]);
   const [loading, setLoading] = useState(false);
+  const { showAlert } = useAlert();
 
   // Duration constants (in seconds)
   const SECONDS_PER_HEAT_RACE = 30;
@@ -124,7 +126,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     } catch (error) {
       console.error('Failed to create rounds via wizard:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Failed to create rounds: ${message}`);
+      showAlert(`Failed to create rounds: ${message}`, "Error");
     } finally {
       setLoading(false);
     }

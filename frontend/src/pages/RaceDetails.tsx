@@ -1142,7 +1142,6 @@ export default function RaceDetails() {
                             });
                             await fetchRacers();
                             setShowPopulateModal(false);
-                            // alert(`Successfully added ${populateCount} racers!`);
                         } catch (e) {
                             console.error("Failed", e);
                             showAlert("Failed to populate", "Error");
