@@ -12,6 +12,8 @@ interface Race {
     name: string;
     date_time: string;
     location: string;
+    registered_count: number;
+    checked_in_count: number;
 }
 
 export default function Home() {
@@ -82,12 +84,14 @@ export default function Home() {
                                 <th style={{ padding: '15px', textAlign: 'left' }}>Event Name</th>
                                 <th className="mobile-hide" style={{ padding: '15px', textAlign: 'left' }}>Date & Time</th>
                                 <th className="mobile-hide" style={{ padding: '15px', textAlign: 'left' }}>Location</th>
+                                <th className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>Registered</th>
+                                <th className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>Checked In</th>
                                 <th style={{ padding: '15px', textAlign: 'right' }}>Quick Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {races.length === 0 ? (
-                                <tr><td colSpan={4} style={{ padding: '20px', textAlign: 'center' }}>No races found. Create one to get started!</td></tr>
+                                <tr><td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>No races found. Create one to get started!</td></tr>
                             ) : races.map(race => (
                                 <tr key={race.id} style={{ borderBottom: '1px solid #eee' }}>
                                     <td style={{ padding: '15px' }}>
@@ -99,6 +103,8 @@ export default function Home() {
                                         {race.date_time ? new Date(race.date_time).toLocaleString() : '-'}
                                     </td>
                                     <td className="mobile-hide" style={{ padding: '15px' }}>{race.location || '-'}</td>
+                                    <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.registered_count || 0}</td>
+                                    <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.checked_in_count || 0}</td>
                                      <td style={{ padding: '15px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                         <Link to={`/race/${race.id}/control`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <Icon path={mdiFlagCheckered} size={0.7} /> Control
