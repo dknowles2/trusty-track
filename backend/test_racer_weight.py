@@ -2,8 +2,10 @@ from fastapi.testclient import TestClient
 from .main import app
 import uuid
 
+
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
+
 
 def test_update_racer_weight(client, default_track):
     # Setup: Create Group, Race, and Racer
@@ -18,7 +20,7 @@ def test_update_racer_weight(client, default_track):
             "name": race_name,
             "group_id": group_id,
             "car_numbering_strategy": "MANUAL",
-            "track_id": default_track
+            "track_id": default_track,
         },
     )
     race_id = resp_race.json()["id"]
@@ -30,8 +32,8 @@ def test_update_racer_weight(client, default_track):
             "last_name": "Tester",
             "race_id": race_id,
             "car_number": 99,
-            "car_weight": 4.5
-        }
+            "car_weight": 4.5,
+        },
     )
     assert resp_racer.status_code == 200
     racer = resp_racer.json()
@@ -41,11 +43,7 @@ def test_update_racer_weight(client, default_track):
     # Update Weight
     resp_update = client.put(
         f"/racers/{racer_id}",
-        json={
-            "first_name": "Weight",
-            "last_name": "Tester",
-            "car_weight": 5.0
-        }
+        json={"first_name": "Weight", "last_name": "Tester", "car_weight": 5.0},
     )
     assert resp_update.status_code == 200
     updated_racer = resp_update.json()

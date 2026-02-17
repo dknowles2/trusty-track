@@ -10,6 +10,7 @@ from backend.main import app, get_db
 # Use in-memory SQLite database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
+
 @pytest.fixture(scope="session")
 def engine():
     return create_engine(
@@ -17,6 +18,7 @@ def engine():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
 
 @pytest.fixture(scope="function")
 def db_session(engine):
@@ -33,26 +35,30 @@ def db_session(engine):
         db.close()
         Base.metadata.drop_all(bind=engine)
 
+
 @pytest.fixture(scope="function", autouse=True)
 def override_get_db(db_session):
     """
     Automatically overrides the 'get_db' dependency for all tests.
     """
+
     def _get_db_override():
         try:
             yield db_session
         finally:
             # We don't close here because db_session fixture handles it
             pass
-    
+
     app.dependency_overrides[get_db] = _get_db_override
     yield
     app.dependency_overrides.pop(get_db, None)
+
 
 @pytest.fixture(scope="function")
 def db(db_session):
     """Alias for db_session to support existing tests using 'db' argument."""
     return db_session
+
 
 @pytest.fixture(scope="function")
 def client(db_session):
@@ -61,10 +67,14 @@ def client(db_session):
     """
     return TestClient(app)
 
+
 @pytest.fixture(scope="function")
 def default_track(client):
     """
     Creates a default track for tests that require one.
     """
-    resp = client.post("/tracks/", json={"name": "Default Track", "lane_count": 4, "timer_type": "FAKE"})
+    resp = client.post(
+        "/tracks/",
+        json={"name": "Default Track", "lane_count": 4, "timer_type": "FAKE"},
+    )
     return resp.json()["id"]

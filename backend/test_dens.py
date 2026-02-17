@@ -4,8 +4,10 @@ import uuid
 
 client = TestClient(app)
 
+
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
+
 
 def create_race_context():
     # Helper to create a race and return its ID
@@ -16,12 +18,10 @@ def create_race_context():
     race_name = get_unique_name("Test Race")
     resp_race = client.post(
         "/races/",
-        json={
-            "name": race_name,
-            "group_id": group_id
-        },
+        json={"name": race_name, "group_id": group_id},
     )
     return resp_race.json()["id"]
+
 
 def test_delete_den_logic():
     race_id = create_race_context()
@@ -31,7 +31,7 @@ def test_delete_den_logic():
     den_name = get_unique_name("DeleteMe")
     response = client.post(
         f"/races/{race_id}/dens/",
-        json={"name": den_name, "color": "#000000", "rank": "LION"}
+        json={"name": den_name, "color": "#000000", "rank": "LION"},
     )
     assert response.status_code == 200
     den_id = response.json()["id"]
@@ -46,10 +46,10 @@ def test_delete_den_logic():
             "den_id": den_id,
             "race_id": race_id,
             "car_number": 999,
-            "car_passed_inspection": True
-        }
+            "car_passed_inspection": True,
+        },
     )
-                 
+
     assert response.status_code == 200
     racer_id = response.json()["id"]
     assert response.json()["den_id"] == den_id
@@ -58,7 +58,7 @@ def test_delete_den_logic():
     print("Deleting Den...")
     # Assuming delete is still /dens/{id} or /races/{race_id}/dens/{id}?
     # I need to check main.py. If I haven't changed it, it is likely /dens/{id}.
-    # But usually REST follows hierarchy. 
+    # But usually REST follows hierarchy.
     # Let's assume global for ID-based ops unless I verify otherwise.
     # The previous test used /dens/{id}.
     response = client.delete(f"/dens/{den_id}")
@@ -73,9 +73,10 @@ def test_delete_den_logic():
     response = client.get(f"/racers/?race_id={race_id}")
     racers = response.json()
     target_racer = next((r for r in racers if r["id"] == racer_id), None)
-    
+
     assert target_racer is not None
     assert target_racer["den_id"] is None
+
 
 def test_edit_den_logic():
     race_id = create_race_context()
@@ -84,7 +85,7 @@ def test_edit_den_logic():
     den_name = get_unique_name("EditMe")
     response = client.post(
         f"/races/{race_id}/dens/",
-        json={"name": den_name, "color": "#111111", "rank": "WOLF"}
+        json={"name": den_name, "color": "#111111", "rank": "WOLF"},
     )
     assert response.status_code == 200
     den_id = response.json()["id"]
@@ -95,12 +96,12 @@ def test_edit_den_logic():
     # Main.py check needed.
     response = client.put(
         f"/dens/{den_id}",
-        json={"name": new_name, "color": "#222222"} # Rank unchanged
+        json={"name": new_name, "color": "#222222"},  # Rank unchanged
     )
     if response.status_code == 404:
-         # Maybe it moved to /races/... ?
-         # Or I haven't implemented PUT properly for new schema?
-         pass
+        # Maybe it moved to /races/... ?
+        # Or I haven't implemented PUT properly for new schema?
+        pass
 
     assert response.status_code == 200
     updated_den = response.json()

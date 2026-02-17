@@ -35,7 +35,7 @@ def remove_green_screen(
     # Use PIL's built-in HSV conversion for robustness
     hsv_image = image.convert("HSV")
     h_img, s_img, v_img = hsv_image.split()
-    
+
     # Convert to NumPy for vectorized thresholding
     h = np.array(h_img).astype(np.float32) * 360.0 / 255.0
     s = np.array(s_img).astype(np.float32) / 255.0
@@ -44,16 +44,16 @@ def remove_green_screen(
     # Calculate distance from target hue
     h_dist = np.abs(h - hue_center)
     h_dist = np.minimum(h_dist, 360 - h_dist)
-    
+
     # Soft Thresholding: Linear ramp for alpha transition
     # 1.0 (fully green/transparent) to 0.0 (not green/opaque)
     # softness_val defines the width of the transition zone in degrees
     softness_val = 60.0 * softness
-    
+
     # Calculate initial green mask with soft falloff
     # 0 = not green, 1 = fully green
     green_mask = 1.0 - np.clip((h_dist - hue_range) / softness_val, 0, 1)
-    
+
     # Apply S and V thresholds (keep them binary-ish but could also be soft)
     green_mask *= (s >= min_saturation) & (v >= min_value)
 
@@ -66,19 +66,25 @@ def remove_green_screen(
 
     # 2. Morphological Edge Polish (Dilation)
     if dilation_radius > 0:
-        mask_image = mask_image.filter(ImageFilter.MaxFilter(size=dilation_radius * 2 + 1))
+        mask_image = mask_image.filter(
+            ImageFilter.MaxFilter(size=dilation_radius * 2 + 1)
+        )
 
     # 3. Morphological Closing (Smoothing boundary shape)
     # Dilation then Erosion helps smooth out small jagged protrusions
     if dilation_radius > 0:
-        mask_image = mask_image.filter(ImageFilter.MinFilter(size=dilation_radius * 2 + 1))
+        mask_image = mask_image.filter(
+            ImageFilter.MinFilter(size=dilation_radius * 2 + 1)
+        )
 
     # Invert mask (255 = keep, 0 = remove) for alpha channel
     alpha_channel = Image.fromarray(255 - np.array(mask_image), mode="L")
 
     # 4. Smoothing (Feathering): Gaussian blur to smooth jagged edges
     if blur_radius > 0:
-        alpha_channel = alpha_channel.filter(ImageFilter.GaussianBlur(radius=blur_radius))
+        alpha_channel = alpha_channel.filter(
+            ImageFilter.GaussianBlur(radius=blur_radius)
+        )
 
     # Combine with original image
     rgba_image = image.copy().convert("RGBA")
