@@ -1,4 +1,4 @@
-# Task 0: Infrastructure Setup
+# Task 0: Infrastructure Setup [COMPLETED]
 
 ## Goal
 
@@ -6,21 +6,21 @@ Set up the frontend infrastructure to support GraphQL operations using `urql` an
 
 ## Steps
 
-1.  **Install Dependencies**
+1.  **Install Dependencies** [DONE]
 
     ```npx
     npm install urql graphql
     ```
 
-2.  **Configure GraphQL Client**
+2.  **Configure GraphQL Client** [DONE]
     - Create `src/api/graphqlClient.ts`.
     - Configure the client to point to `/api/graphql` (proxied by Vite).
     - Ensure it handles errors gracefully.
 
-3.  **Wrap App Provider**
+3.  **Wrap App Provider** [DONE]
     - Update `src/App.tsx` (or `main.tsx`) to wrap the application with `Provider` from `urql`.
 
-## Verification
+## Verification [DONE]
 
 - Create a simple temporary component `src/components/GraphQLTest.tsx` that queries the server status or a simple list.
 - Run the app and verify the query succeeds.
