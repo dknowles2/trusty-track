@@ -6,6 +6,7 @@ import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { useAlert } from '../context/AlertContext';
 import Icon from '@mdi/react';
 import { mdiPlus, mdiFlagCheckered, mdiEye } from '@mdi/js';
+import { GraphQLTest } from '../components/GraphQLTest';
 
 interface Race {
     id: number;
@@ -56,6 +57,7 @@ export default function Home() {
                  <p>Select a race to manage or create a new one.</p>
             </div>
 
+            <GraphQLTest />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2>Your Races</h2>
                  <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

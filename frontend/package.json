@@ -16,9 +16,11 @@
         "@dnd-kit/utilities": "^3.2.2",
         "@mdi/js": "^7.4.47",
         "@mdi/react": "^1.6.1",
+        "graphql": "^16.12.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
-        "react-router-dom": "^7.13.0"
+        "react-router-dom": "^7.13.0",
+        "urql": "^5.0.1"
     },
     "devDependencies": {
         "@playwright/test": "^1.58.1",
