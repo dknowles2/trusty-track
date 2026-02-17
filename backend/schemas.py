@@ -1,11 +1,13 @@
 from typing import List, Optional
+
 from pydantic import BaseModel, ConfigDict
+
 from .models import (
-    TimerType,
     CarNumberingStrategy,
     Rank,
     SchedulingStrategy,
     ScoringStrategy,
+    TimerType,
 )
 
 
@@ -91,8 +93,17 @@ class RacerCreate(RacerBase):
     race_id: Optional[int] = None
 
 
-class RacerUpdate(RacerBase):
-    pass
+class RacerUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    car_number: Optional[int] = None
+    den_id: Optional[int] = None
+    car_name: Optional[str] = None
+    car_passed_inspection: Optional[bool] = None
+    car_weight: Optional[float] = None
+    racer_image_url: Optional[str] = None
+    car_image_url: Optional[str] = None
+    racing_group_id: Optional[int] = None
 
 
 class Racer(RacerBase):
