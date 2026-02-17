@@ -3,9 +3,19 @@ import '../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import Home from './Home';
-import { apiClient } from '../api/client';
 import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../context/AlertContext';
+import { useQuery, useMutation } from 'urql';
+
+// Mock urql hooks
+vi.mock('urql', async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+        ...actual,
+        useQuery: vi.fn(),
+        useMutation: vi.fn(),
+    };
+});
 
 // Cleanup after each test
 afterEach(() => {
@@ -13,28 +23,28 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
-// Mock apiClient
-vi.mock('../api/client', () => ({
-    apiClient: {
-        get: vi.fn(),
-        post: vi.fn(),
-    }
-}));
-
 describe('Home Page', () => {
+    // Helper to mock mutation (defaults to success)
+    const mockMutation = vi.fn().mockResolvedValue({ data: {} });
+    (useMutation as any).mockReturnValue([{}, mockMutation]);
+
     it('displays race registered and checked-in counts', async () => {
         const mockRaces = [
             {
                 id: 1,
                 name: 'Annual Derby',
-                date_time: '2026-05-01T10:00:00',
+                dateTime: '2026-05-01T10:00:00',
                 location: 'Main Gym',
-                registered_count: 24,
-                checked_in_count: 18
+                registeredCount: 24,
+                checkedInCount: 18
             }
         ];
 
-        (apiClient.get as any).mockResolvedValue(mockRaces);
+        (useQuery as any).mockReturnValue([{
+            data: { races: mockRaces },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
 
         render(
             <MemoryRouter>
@@ -65,7 +75,11 @@ describe('Home Page', () => {
     });
 
     it('shows empty state when no races found', async () => {
-        (apiClient.get as any).mockResolvedValue([]);
+        (useQuery as any).mockReturnValue([{
+            data: { races: [] },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
 
         render(
             <MemoryRouter>

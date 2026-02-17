@@ -139,6 +139,23 @@ class DenInput:
 
 
 @strawberry.input
+class RaceInput:
+    """
+    Input type for creating or updating a race event.
+    """
+
+    name: str
+    date_time: Optional[str] = None
+    location: Optional[str] = None
+    group_id: int = 1
+    track_id: int
+    scoring_strategy: str = "TIMED"
+    car_numbering_strategy: str = "MANUAL"
+    global_start_number: int = 1
+    championship_trophies: int = 3
+
+
+@strawberry.input
 class TrackInput:
     """
     Input type for creating or updating a physical track configuration.
@@ -255,6 +272,29 @@ class Race:
     global_start_number: int
     championship_trophies: int
     scoring_strategy: str
+
+    @strawberry.field
+    def registered_count(self, info: Info) -> int:
+        """Get the number of registered racers."""
+        return (
+            info.context["db"]
+            .query(models.Racer)
+            .filter(models.Racer.race_id == self.id)
+            .count()
+        )
+
+    @strawberry.field
+    def checked_in_count(self, info: Info) -> int:
+        """Get the number of checked-in racers."""
+        return (
+            info.context["db"]
+            .query(models.Racer)
+            .filter(
+                models.Racer.race_id == self.id,
+                models.Racer.car_passed_inspection,
+            )
+            .count()
+        )
 
     @strawberry.field
     def dens(self, info: Info) -> List[Den]:
@@ -523,9 +563,9 @@ class Mutation:
     """
 
     @strawberry.mutation
-    def create_race(self, info: Info, name: str, group_id: int, track_id: int) -> Race:
+    def create_race(self, info: Info, race: RaceInput) -> Race:
         """Create a new race."""
-        race_in = schemas.RaceCreate(name=name, group_id=group_id, track_id=track_id)
+        race_in = schemas.RaceCreate(**typing.cast(Any, strawberry.asdict(race)))
         return typing.cast(Any, crud.create_race(info.context["db"], race_in))
 
     # Racer Mutations

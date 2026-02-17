@@ -7,7 +7,7 @@ def test_racer_mutations(client):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(name: "Racer Race", groupId: {group_id}, trackId: {track_id}) {{
+        createRace(race: {{name: "Racer Race", groupId: {group_id}, trackId: {track_id}}}) {{
             id
         }}
     }}
@@ -88,7 +88,7 @@ def test_den_mutations(client):
     track_id = track_resp.json()["id"]
     mutation_create_race = f"""
     mutation {{
-        createRace(name: "Den Race", groupId: {group_id}, trackId: {track_id}) {{
+        createRace(race: {{name: "Den Race", groupId: {group_id}, trackId: {track_id}}}) {{
             id
         }}
     }}
@@ -197,7 +197,7 @@ def test_round_wizard_and_advance(client):
     track_id = track_resp.json()["id"]
     mutation_create_race = f"""
     mutation {{
-        createRace(name: "Wizard Race", groupId: {group_id}, trackId: {track_id}) {{
+        createRace(race: {{name: "Wizard Race", groupId: {group_id}, trackId: {track_id}}}) {{
             id
         }}
     }}
@@ -282,7 +282,7 @@ def test_bulk_mutations(client):
     track_id = track_resp.json()["id"]
     mutation_create_race = f"""
     mutation {{
-        createRace(name: "Bulk Race", groupId: {group_id}, trackId: {track_id}) {{
+        createRace(race: {{name: "Bulk Race", groupId: {group_id}, trackId: {track_id}}}) {{
             id
         }}
     }}

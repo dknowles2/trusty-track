@@ -1,53 +1,67 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { apiClient } from '../api/client';
+import { useQuery, useMutation, gql } from 'urql';
 import Modal from '../components/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { useAlert } from '../context/AlertContext';
 import Icon from '@mdi/react';
 import { mdiPlus, mdiFlagCheckered, mdiEye } from '@mdi/js';
-import { GraphQLTest } from '../components/GraphQLTest';
+
+const GET_RACES = gql`
+    query GetRaces {
+        races {
+            id
+            name
+            dateTime
+            location
+            registeredCount
+            checkedInCount
+        }
+    }
+`;
+
+const CREATE_RACE = gql`
+    mutation CreateRace($race: RaceInput!) {
+        createRace(race: $race) {
+            id
+        }
+    }
+`;
 
 interface Race {
     id: number;
     name: string;
-    date_time: string;
+    dateTime: string;
     location: string;
-    registered_count: number;
-    checked_in_count: number;
+    registeredCount: number;
+    checkedInCount: number;
 }
 
 export default function Home() {
     const { showAlert } = useAlert();
-    const [races, setRaces] = useState<Race[]>([]);
-    const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
 
-    useEffect(() => {
-        fetchRaces();
-    }, []);
+    const [{ data, fetching, error }, reexecuteRaces] = useQuery({
+        query: GET_RACES,
+    });
 
-    const fetchRaces = async () => {
-        try {
-            const data = await apiClient.get('/races/');
-            setRaces(data);
-        } catch (e) {
-            console.error("Failed to fetch races", e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [, createRace] = useMutation(CREATE_RACE);
 
-    const handleCreate = async (data: RaceFormData) => {
+    const handleCreate = async (formData: RaceFormData) => {
         try {
-            await apiClient.post('/races/', data);
+            const result = await createRace({ race: formData });
+            if (result.error) {
+                throw result.error;
+            }
             setShowCreate(false);
-            fetchRaces();
+            reexecuteRaces({ requestPolicy: 'network-only' });
         } catch (e) {
             console.error("Failed to create race", e);
             showAlert("Failed to create race", "Error");
         }
     };
+
+    const races: Race[] = data?.races || [];
 
     return (
         <div className="container" style={{ padding: '2rem' }}>
@@ -57,7 +71,6 @@ export default function Home() {
                  <p>Select a race to manage or create a new one.</p>
             </div>
 
-            <GraphQLTest />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2>Your Races</h2>
                  <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -78,7 +91,9 @@ export default function Home() {
                 />
             </Modal>
 
-            {loading ? <p>Loading races...</p> : (
+            {fetching && <p>Loading races...</p>}
+            {error && <p>Error loading races: {error.message}</p>}
+            {!fetching && !error && (
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                         <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
@@ -102,11 +117,11 @@ export default function Home() {
                                         </Link>
                                     </td>
                                     <td className="mobile-hide" style={{ padding: '15px' }}>
-                                        {race.date_time ? new Date(race.date_time).toLocaleString() : '-'}
+                                        {race.dateTime ? new Date(race.dateTime).toLocaleString() : '-'}
                                     </td>
                                     <td className="mobile-hide" style={{ padding: '15px' }}>{race.location || '-'}</td>
-                                    <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.registered_count || 0}</td>
-                                    <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.checked_in_count || 0}</td>
+                                    <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.registeredCount || 0}</td>
+                                    <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.checkedInCount || 0}</td>
                                      <td style={{ padding: '15px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                         <Link to={`/race/${race.id}/control`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <Icon path={mdiFlagCheckered} size={0.7} /> Control
