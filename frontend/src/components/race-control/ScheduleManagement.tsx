@@ -361,11 +361,25 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                   padding: '10px',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: '15px' }}>
-                    <h3 style={{ margin: 0, color: 'var(--scouting-blue)' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                    alignItems: 'center', 
+                    marginBottom: '15px',
+                    width: '100%',
+                    gap: '8px'
+                  }}>
+                    <h3 style={{ 
+                      margin: 0, 
+                      color: 'var(--scouting-blue)', 
+                      textAlign: 'center',
+                      wordBreak: 'break-word',
+                      lineHeight: '1.2'
+                    }}>
                       {roundHeats[0]?.roundName || `Round ${roundNum}`}
                     </h3>
-                    <div style={{ display: 'flex', gap: '5px', position: 'absolute', right: 0 }}>
+
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
                       {!isAnyStarted && roundId && (
                         <button
                           onClick={() => onRegenerateRound(roundId)}
@@ -373,8 +387,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           disabled={generating || reordering}
                           aria-label={`Regenerate ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           style={{
-                               padding: '2px 8px', fontSize: '0.7rem',
-                            display: 'flex', alignItems: 'center', gap: '3px'
+                            padding: '4px 12px', 
+                            fontSize: '0.75rem',
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '4px'
                           }}
                         >
                           <Icon path={mdiCached} size={0.6} /> Regenerate
@@ -394,8 +411,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                   : undefined
                           }
                           style={{
-                            padding: '2px 8px', fontSize: '0.7rem',
-                            display: 'flex', alignItems: 'center', gap: '3px',
+                            padding: '4px 12px', 
+                            fontSize: '0.75rem',
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '4px',
                             color: '#d32f2f',
                           }}
                         >
