@@ -3,8 +3,17 @@ import '../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import Standings from './Standings';
-import { apiClient } from '../api/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { useQuery } from 'urql';
+
+// Mock urql
+vi.mock('urql', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('urql')>();
+    return {
+        ...actual,
+        useQuery: vi.fn(),
+    };
+});
 
 // Cleanup after each test
 afterEach(() => {
@@ -12,42 +21,33 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
-// Mock apiClient
-vi.mock('../api/client', () => ({
-    apiClient: {
-        get: vi.fn(),
-    }
-}));
-
 describe('Standings', () => {
     it('displays race name and standings', async () => {
-        const mockRace = {
-            id: 1,
-            name: 'Test Race',
+        const mockData = {
+            race: {
+                id: 1,
+                name: 'Test Race',
+                scoringStrategy: 'TIMED',
+                leaderboard: [
+                    {
+                        racerId: 1,
+                        firstName: 'John',
+                        lastName: 'Doe',
+                        carNumber: 101,
+                        denName: 'Tigers',
+                        score: 3.5,
+                        heatsCompleted: 1,
+                        rank: 1
+                    }
+                ]
+            }
         };
 
-        const mockLeaderboard = {
-            race_id: 1,
-            scoring_strategy: 'TIMED',
-            leaderboard: [
-                {
-                    racer_id: 1,
-                    first_name: 'John',
-                    last_name: 'Doe',
-                    car_number: 101,
-                    den_name: 'Tigers',
-                    score: 3.5,
-                    heats_completed: 1,
-                    rank: 1
-                }
-            ]
-        };
-
-        (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/races/1') return Promise.resolve(mockRace);
-            if (url === '/races/1/scores') return Promise.resolve(mockLeaderboard);
-            return Promise.resolve({});
-        });
+        (useQuery as any).mockReturnValue([{
+            data: mockData,
+            fetching: false,
+            error: null
+        }, vi.fn()]);
 
         render(
             <MemoryRouter initialEntries={['/race/1/standings']}>
@@ -67,25 +67,23 @@ describe('Standings', () => {
     });
 
     it('shows no results message when leaderboard has no completed heats', async () => {
-        const mockRace = {
-            id: 1,
-            name: 'Test Race'
+        const mockData = {
+            race: {
+                id: 1,
+                name: 'Test Race',
+                scoringStrategy: 'TIMED',
+                leaderboard: [
+                    { racerId: 1, firstName: 'Fast', lastName: 'Driver', carNumber: 10, denName: 'Tigers', score: 0, heatsCompleted: 0, rank: 1 },
+                    { racerId: 2, firstName: 'Slow', lastName: 'Driver', carNumber: 20, denName: 'Wolves', score: 0, heatsCompleted: 0, rank: 2 }
+                ]
+            }
         };
 
-        const mockLeaderboard = {
-            race_id: 1,
-            scoring_strategy: 'TIMED',
-            leaderboard: [
-                { racer_id: 1, first_name: 'Fast', last_name: 'Driver', car_number: 10, den_name: 'Tigers', score: 0, heats_completed: 0, rank: 1 },
-                { racer_id: 2, first_name: 'Slow', last_name: 'Driver', car_number: 20, den_name: 'Wolves', score: 0, heats_completed: 0, rank: 2 }
-            ]
-        };
-
-        (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/races/1') return Promise.resolve(mockRace);
-            if (url === '/races/1/scores') return Promise.resolve(mockLeaderboard);
-            return Promise.resolve({});
-        });
+        (useQuery as any).mockReturnValue([{
+            data: mockData,
+            fetching: false,
+            error: null
+        }, vi.fn()]);
 
         render(
             <MemoryRouter initialEntries={['/race/1/standings']}>

@@ -20,19 +20,15 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { apiClient } from '../../api/client';
 import { useAlert } from '../../context/AlertContext';
 
 export interface Heat {
   id: number;
-  round_number: number;
-  round_name: string | null;
-  round_id: number;
-  heat_number: number;
-  lane_results: string; // JSON
-  advancement_num_racers: number | null;
-  advancement_source: string | null;
-  total_participants: number;
+  roundNumber: number;
+  roundName: string | null;
+  roundId: number;
+  heatNumber: number;
+  laneResults: string; // JSON
 }
 
 interface ScheduleManagementProps {
@@ -41,10 +37,11 @@ interface ScheduleManagementProps {
   generating: boolean;
   activeHeatId: number | null;
   onAddRound: (config: any) => Promise<void>;
-  onRegenerateRound: (roundNumber: number, silent?: boolean) => Promise<void>;
+  onRegenerateRound: (roundId: number, silent?: boolean) => Promise<void>;
   onDeleteRound: (roundId: number) => Promise<void>;
   onRefetchHeats: () => Promise<void>;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
+  onReorderHeats: (updates: { heat_id: number, new_heat_number: number }[]) => Promise<void>;
   getRacerName: (id: number) => string;
   laneCount: number;
   racerCount: number;
@@ -52,24 +49,7 @@ interface ScheduleManagementProps {
   championshipTrophies: number;
 }
 
-interface AdvancementRacer {
-  racer_id: number;
-  first_name: string;
-  last_name: string;
-  car_number?: number;
-  den_name: string;
-  score: number;
-  rank: number;
-}
 
-interface AdvancementStatus {
-  is_ready: boolean;
-  requires_advancement: boolean;
-  already_advanced: boolean;
-  advancing_racers: AdvancementRacer[];
-  source?: string;
-  num_racers?: number;
-}
 
 interface SortableHeatCardProps {
   heat: Heat;
@@ -92,7 +72,7 @@ const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
   getRacerName,
   onRunHeat,
 }) => {
-  const laneResults = heat.lane_results ? JSON.parse(heat.lane_results) : [];
+  const laneResults = heat.laneResults ? JSON.parse(heat.laneResults) : [];
   const hasResults = laneResults.length > 0 && laneResults.some((r: any) => r.time !== null);
   const isCompleted = hasResults;
 
@@ -149,7 +129,7 @@ const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
         {/* Heat Content */}
         <div style={{ flex: 1, padding: '15px', borderLeft: isRunning ? '5px solid orange' : isCompleted ? '5px solid green' : '5px solid #ccc' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <span style={{ fontWeight: 'bold' }}>Heat {heat.heat_number}</span>
+            <span style={{ fontWeight: 'bold' }}>Heat {heat.heatNumber}</span>
             <button
               className="primary-btn"
               onClick={() => onRunHeat(heat, !isCompleted)}
@@ -188,6 +168,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onDeleteRound,
   onRefetchHeats,
   onRunHeat,
+  onReorderHeats,
   getRacerName,
   laneCount,
   racerCount,
@@ -197,45 +178,18 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
-  const [advancementStatuses, setAdvancementStatuses] = useState<Record<number, AdvancementStatus>>({});
-  const { showToast, showConfirm } = useAlert();
-  const _raceId = raceId;
+  const { showToast } = useAlert();
 
   const rounds = heats.reduce((acc, heat) => {
-    if (!acc[heat.round_number]) {
-      acc[heat.round_number] = [];
+    if (!acc[heat.roundNumber]) {
+      acc[heat.roundNumber] = [];
     }
-    acc[heat.round_number].push(heat);
+    acc[heat.roundNumber].push(heat);
     return acc;
   }, {} as Record<number, Heat[]>);
 
-  const fetchAdvancementStatus = async (roundId: number) => {
-    try {
-      const response = await apiClient.get<AdvancementStatus>(`/races/${_raceId}/rounds/${roundId}/advancement_status`);
-      setAdvancementStatuses(prev => ({ ...prev, [roundId]: response }));
-    } catch (error) {
-      console.error('Failed to fetch advancement status:', error);
-    }
-  };
-
-  React.useEffect(() => {
-    // Determine which rounds need status (rounds with placeholders)
-    Object.values(rounds).forEach(roundHeats => {
-        const roundId = roundHeats[0]?.round_id;
-        if (!roundId) return;
-        
-        const hasPlaceholders = roundHeats.some(h => {
-            if (!h.lane_results) return false;
-            const res = JSON.parse(h.lane_results);
-            return res.some((r: any) => r.racer_id < 0);
-        });
-
-        if (hasPlaceholders && !advancementStatuses[roundId]) {
-            fetchAdvancementStatus(roundId);
-        }
-    });
-  }, [rounds, _raceId, advancementStatuses]); // Added dependencies for useEffect
-
+  // Note: We'll eventually want to move advancement status to GraphQL too if possible
+  // For now, we'll keep it as is or handle it via a manual fetch/prop
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -245,7 +199,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   );
 
   const sortedRounds = Object.keys(rounds).map(Number).sort((a, b) => a - b);
-  const hasGeneralRound = Object.values(rounds).some(roundHeats => roundHeats[0].advancement_num_racers === null || roundHeats[0].advancement_num_racers === undefined);
+  const hasGeneralRound = Object.values(rounds).some(roundHeats => {
+      // In GraphQL we might need a better way to identify general rounds
+      // but if roundNumber is small or name is 'All Pack'
+      return roundHeats[0].roundName === 'All Pack' || roundHeats[0].roundNumber === 1;
+  });
 
   const handleAddRound = async (config: any) => {
     await onAddRound(config);
@@ -258,7 +216,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
       return;
     }
 
-    const roundHeats = rounds[roundNum].sort((a, b) => a.heat_number - b.heat_number);
+    const roundHeats = rounds[roundNum].sort((a, b) => a.heatNumber - b.heatNumber);
     const oldIndex = roundHeats.findIndex(h => h.id === active.id);
     const newIndex = roundHeats.findIndex(h => h.id === over.id);
 
@@ -279,22 +237,15 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
       new_heat_number: index + 1,
     }));
 
-    // Optimistically update the UI by calling the parent's refetch
     setReordering(true);
     try {
-      // Call API to persist the change
-      await apiClient.put('/heats/reorder', { heat_updates: newHeatUpdates });
+      await onReorderHeats(newHeatUpdates);
       
-      // Refetch to update UI (just fetch, don't regenerate)
-      await onRefetchHeats();
-      
-      // Show success toast with undo option
       showToast('Heat order updated', 'success', {
         label: 'Undo',
         onClick: async () => {
           try {
-            await apiClient.put('/heats/reorder', { heat_updates: originalHeatUpdates });
-            await onRefetchHeats();
+            await onReorderHeats(originalHeatUpdates);
             showToast('Heat order restored', 'info');
           } catch (error) {
             console.error('Failed to undo reorder:', error);
@@ -305,8 +256,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     } catch (error: any) {
       console.error('Failed to reorder heats:', error);
       showToast(error.message || 'Failed to reorder heats', 'error');
-      // Revert UI by refetching
-      await onRefetchHeats();
     } finally {
       setReordering(false);
     }
@@ -315,7 +264,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ width: '100%', maxWidth: 'fit-content' }}>
-        {/* Actions Toolbar */}
         <div style={{ display: 'flex', justifyContent: sortedRounds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
           {sortedRounds.length > 0 && (
             <div style={{ textAlign: 'center', flex: 1, minWidth: '150px' }}>
@@ -328,17 +276,14 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
-                disabled={generating || reordering || (sortedRounds.length > 0 && rounds[sortedRounds[sortedRounds.length - 1]][0].total_participants <= championshipTrophies && (rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source === 'PACK' || !rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source))}
+                disabled={generating || reordering}
                 style={{ 
                   boxShadow: '0 2px 5px rgba(0,0,0,0.1)', 
                   whiteSpace: 'nowrap', 
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '5px',
-                  opacity: (generating || reordering || (sortedRounds.length > 0 && rounds[sortedRounds[sortedRounds.length - 1]][0].total_participants <= championshipTrophies && (rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source === 'PACK' || !rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source))) ? 0.5 : 1,
-                  cursor: (generating || reordering || (sortedRounds.length > 0 && rounds[sortedRounds[sortedRounds.length - 1]][0].total_participants <= championshipTrophies && (rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source === 'PACK' || !rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source))) ? 'not-allowed' : 'pointer'
                 }}
-                title={(sortedRounds.length > 0 && rounds[sortedRounds[sortedRounds.length - 1]][0].total_participants <= championshipTrophies && (rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source === 'PACK' || !rounds[sortedRounds[sortedRounds.length - 1]][0].advancement_source)) ? "Final round already reached" : "Add Round"}
             >
                 <Icon path={mdiPlus} size={0.8} /> Add Round
             </button>
@@ -348,7 +293,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
         <RoundWizard
           isOpen={isWizardOpen}
           onClose={() => setIsWizardOpen(false)}
-          raceId={_raceId}
+          raceId={raceId}
           racerCount={racerCount}
           denCount={denCount}
           laneCount={laneCount}
@@ -400,24 +345,13 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             justifyContent: 'center'
           }}>
             {sortedRounds.map(roundNum => {
-              const roundHeats = rounds[roundNum].sort((a, b) => a.heat_number - b.heat_number);
-              const roundId = roundHeats[0]?.round_id;
+              const roundHeats = rounds[roundNum].sort((a, b) => a.heatNumber - b.heatNumber);
+              const roundId = roundHeats[0]?.roundId;
               const isAnyStarted = roundHeats.some(h => {
-                if (!h.lane_results) return false;
-                const results = JSON.parse(h.lane_results);
-                return results.some((r: any) => r.time !== null);
+                if (!h.laneResults) return false;
+                const res = JSON.parse(h.laneResults);
+                return res.some((r: any) => r.time !== null);
               });
-
-              const hasChampionshipRounds = heats.some(h => 
-                h.round_id !== roundId && !!h.advancement_source
-              );
-              const isGeneralRound = !roundHeats[0]?.advancement_source;
-              
-              const cannotDeleteReason = isAnyStarted 
-                ? "Cannot delete round: it has heats with results" 
-                : (isGeneralRound && hasChampionshipRounds)
-                    ? "Cannot delete general round: championship rounds are already scheduled"
-                    : null;
 
               return (
                 <div key={roundNum} style={{
@@ -429,10 +363,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: '15px' }}>
                     <h3 style={{ margin: 0, color: 'var(--scouting-blue)' }}>
-                      {roundHeats[0]?.round_name || `Round ${roundNum}`}
+                      {roundHeats[0]?.roundName || `Round ${roundNum}`}
                     </h3>
                     <div style={{ display: 'flex', gap: '5px', position: 'absolute', right: 0 }}>
-                      {!isAnyStarted && roundId && !advancementStatuses[roundId] && (
+                      {!isAnyStarted && roundId && (
                         <button
                           onClick={() => onRegenerateRound(roundId)}
                           className="secondary-btn"
@@ -441,29 +375,20 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                padding: '2px 8px', fontSize: '0.7rem',
                             display: 'flex', alignItems: 'center', gap: '3px'
                           }}
-                          title="Refresh the schedule based on latest timing data"
                         >
                           <Icon path={mdiCached} size={0.6} /> Regenerate
                         </button>
                       )}
                       {roundId && (
                         <button
-                          onClick={async () => {
-                            if (await showConfirm('Are you sure you want to delete this round and all its heats? This action cannot be undone.', 'Delete Round', 'Delete', 'danger')) {
-                              await onDeleteRound(roundId);
-                            }
-                          }}
+                          onClick={() => onDeleteRound(roundId)}
                           className="secondary-btn"
-                          disabled={generating || reordering || !!cannotDeleteReason}
-                          aria-label={`Delete Round ${roundNum}`}
+                          disabled={generating || reordering || isAnyStarted}
                           style={{
                             padding: '2px 8px', fontSize: '0.7rem',
                             display: 'flex', alignItems: 'center', gap: '3px',
                             color: '#d32f2f',
-                            opacity: (generating || reordering || !!cannotDeleteReason) ? 0.5 : 1,
-                            cursor: (generating || reordering || !!cannotDeleteReason) ? 'not-allowed' : 'pointer'
                           }}
-                          title={cannotDeleteReason || "Delete this round"}
                         >
                           <Icon path={mdiDelete} size={0.6} /> Delete
                         </button>
@@ -471,36 +396,6 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     </div>
                   </div>
 
-                  {roundId && advancementStatuses[roundId] && (
-                    <div style={{
-                        background: '#e3f2fd',
-                        border: '1px solid #bbdefb',
-                        borderRadius: '6px',
-                        padding: '10px',
-                        marginBottom: '15px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1565c0' }}>
-                                {advancementStatuses[roundId].already_advanced ? 'Advancement Complete' : 'Auto-Advancement Pending'}
-                            </span>
-                        </div>
-                        {!advancementStatuses[roundId].already_advanced && (
-                            <div style={{ fontSize: '0.75rem', color: '#555' }}>
-                                {advancementStatuses[roundId].is_ready 
-                                    ? `Ready to advance ${advancementStatuses[roundId].advancing_racers.length} racers. Will populate automatically when previous rounds finish.`
-                                    : 'Finish previous rounds to trigger auto-advancement.'}
-                            </div>
-                        )}
-                        {!advancementStatuses[roundId].already_advanced && advancementStatuses[roundId].is_ready && (
-                            <div style={{ fontSize: '0.7rem', color: '#666', fontStyle: 'italic' }}>
-                                Predicted: {advancementStatuses[roundId].advancing_racers.map(r => r.last_name).join(', ')}
-                            </div>
-                        )}
-                    </div>
-                  )}
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}

@@ -2,32 +2,31 @@ import { useParams, Link } from 'react-router-dom';
 import Leaderboard from '../components/Leaderboard';
 import Icon from '@mdi/react';
 import { mdiArrowLeft } from '@mdi/js';
-import { useEffect, useState } from 'react';
-import { apiClient } from '../api/client';
+import { useQuery } from 'urql';
 
-interface Race {
-    id: number;
-    name: string;
-}
+const GET_RACE_NAME = `
+  query GetRaceName($id: Int!) {
+    race(raceId: $id) {
+      id
+      name
+    }
+  }
+`;
 
 export default function Standings() {
     const { raceId } = useParams<{ raceId: string }>();
-    const [race, setRace] = useState<Race | null>(null);
+    const id = parseInt(raceId || '0');
 
-    useEffect(() => {
-        const fetchRace = async () => {
-            if (!raceId) return;
-            try {
-                const data = await apiClient.get(`/races/${raceId}`);
-                setRace(data);
-            } catch (e) {
-                console.error("Failed to fetch race details", e);
-            }
-        };
-        fetchRace();
-    }, [raceId]);
+    const [result] = useQuery({
+        query: GET_RACE_NAME,
+        variables: { id },
+        pause: !id || isNaN(id)
+    });
 
-    if (!raceId) return <div>Invalid Race ID</div>;
+    const { data, fetching } = result;
+    const race = data?.race;
+
+    if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
     return (
         <div className="container" style={{ padding: '2rem' }}>
@@ -37,11 +36,11 @@ export default function Standings() {
                 </Link>
                 
                 <h1 style={{ margin: 0, color: 'var(--scouting-blue)' }}>
-                    {race ? `${race.name} - Standings` : 'Standings'}
+                    {fetching ? 'Standings' : (race ? `${race.name} - Standings` : 'Standings')}
                 </h1>
             </div>
 
-            <Leaderboard raceId={parseInt(raceId)} />
+            <Leaderboard raceId={id} />
         </div>
     );
 }

@@ -5,45 +5,42 @@ import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight } from '@mdi/js';
 
-interface Heat {
+export interface Heat {
   id: number;
-  advancement_num_racers: number | null;
-  advancement_source: string | null;
-  round_number: number;
-  round_id: number;
-  heat_number: number;
-  round_name: string | null;
-  lane_results: string; // JSON
-  total_participants: number;
+  roundNumber: number;
+  roundId: number;
+  heatNumber: number;
+  roundName: string | null;
+  laneResults: string; // JSON
 }
 
-interface Racer {
+export interface Racer {
   id: number;
-  first_name: string;
-  last_name: string;
-  car_number: number;
-  racer_image_url?: string;
-  car_image_url?: string;
+  firstName: string;
+  lastName: string;
+  carNumber: number;
+  racerImageUrl?: string;
+  carImageUrl?: string;
 }
 
-interface AdvancementRacer {
-    racer_id: number;
-    first_name: string;
-    last_name: string;
-    car_number: number | null;
-    den_name: string;
+export interface AdvancementRacer {
+    racerId: number;
+    firstName: string;
+    lastName: string;
+    carNumber: number | null;
+    denName: string;
     score: number;
     rank: number;
-    is_advancing: boolean;
+    isAdvancing: boolean;
 }
 
-interface AdvancementStatus {
-    is_ready: boolean;
-    requires_advancement: boolean;
-    already_advanced: boolean;
-    advancing_racers: AdvancementRacer[];
+export interface AdvancementStatus {
+    isReady: boolean;
+    requiresAdvancement: boolean;
+    alreadyAdvanced: boolean;
+    advancingRacers: AdvancementRacer[];
     source: string | null;
-    num_racers: number | null;
+    numRacers: number | null;
 }
 
 
@@ -81,7 +78,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
   const [isRoundSummaryOpen, setIsRoundSummaryOpen] = useState(!!roundSummary);
 
-  const results = activeExecutionHeat?.lane_results ? JSON.parse(activeExecutionHeat.lane_results) : [];
+  const results = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
   const isCompleted = results.length > 0 && results[0].time !== null;
   const isRunning = activeHeatId !== null && activeHeatId === activeExecutionHeat?.id;
 
@@ -160,9 +157,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                       <div>
-                          <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heat_number}</h2>
+                          <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heatNumber}</h2>
                           <div style={{ color: '#666', fontSize: '1.1rem' }}>
-                              {activeExecutionHeat.round_name || `Round ${activeExecutionHeat.round_number}`}
+                              {activeExecutionHeat.roundName || `Round ${activeExecutionHeat.roundNumber}`}
                           </div>
                       </div>
                       <div style={{ display: 'flex', gap: '10px' }}>
@@ -247,12 +244,20 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                               
                               {/* Racer Image */}
                               <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                  <RacerAvatar racer={racer} size="60px" />
+                                  <RacerAvatar 
+                                    racer={{
+                                        id: racer?.id || r.racer_id,
+                                        first_name: racer?.firstName || '',
+                                        last_name: racer?.lastName || '',
+                                        racer_image_url: racer?.racerImageUrl
+                                    }} 
+                                    size="60px" 
+                                  />
                               </div>
 
                               <div style={{ flex: 1 }}>
                                   <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{getRacerName(r.racer_id)}</div>
-                                  {racer && <div style={{ fontSize: '0.9rem', color: '#666' }}>{racer.car_number ? `#${racer.car_number}` : ''}</div>}
+                                  {racer && <div style={{ fontSize: '0.9rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
                               </div>
                               <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
                                   {r.time ? `${r.time}s` : '--'}
@@ -279,11 +284,11 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         {upcomingHeats.map(h => (
                             <div key={h.id} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #eee', background: '#fafafa' }}>
                                 <div style={{ fontWeight: 'bold', marginBottom: '5px', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span>Heat {h.heat_number}</span>
-                                    <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>Round {h.round_number}</span>
+                                    <span>Heat {h.heatNumber}</span>
+                                    <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>Round {h.roundNumber}</span>
                                 </div>
                                 <div style={{ fontSize: '0.85rem' }}>
-                                    {(h.lane_results ? JSON.parse(h.lane_results) : []).map((r: any) => (
+                                    {(h.laneResults ? JSON.parse(h.laneResults) : []).map((r: any) => (
                                         <div key={r.lane} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                                             <span style={{ color: '#666' }}>L{r.lane}:</span>
                                             <span style={{ fontWeight: '500' }}>{getRacerName(r.racer_id)}</span>
@@ -307,8 +312,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
           <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" />
               <p style={{ fontSize: '1.2rem', color: '#666', marginTop: '10px' }}>
-                  {roundSummary?.requires_advancement 
-                      ? `Top ${roundSummary.num_racers} racers advance to the next round.`
+                  {roundSummary?.requiresAdvancement 
+                      ? `Top ${roundSummary.numRacers} racers advance to the next round.`
                       : "This round is complete."
                   }
               </p>
@@ -330,8 +335,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                           </tr>
                       </thead>
                       <tbody>
-                          {roundSummary.advancing_racers.map((ar, idx) => (
-                              <tr key={ar.racer_id} style={{ borderBottom: '1px solid #eee', background: ar.is_advancing ? '#fff8e1' : 'white' }}>
+                          {roundSummary.advancingRacers.map((ar, idx) => (
+                              <tr key={ar.racerId} style={{ borderBottom: '1px solid #eee', background: ar.isAdvancing ? '#fff8e1' : 'white' }}>
                                   <td style={{ padding: '10px' }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                           {idx < 3 && <Icon path={mdiTrophy} size={0.7} color={idx === 0 ? 'gold' : idx === 1 ? 'silver' : '#cd7f32'} />}
@@ -339,8 +344,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                       </div>
                                   </td>
                                   <td style={{ padding: '10px' }}>
-                                      <div style={{ fontWeight: 'bold' }}>{ar.first_name} {ar.last_name}</div>
-                                      <div style={{ fontSize: '0.8rem', color: '#666' }}>{ar.den_name} #{ar.car_number}</div>
+                                      <div style={{ fontWeight: 'bold' }}>{ar.firstName} {ar.lastName}</div>
+                                      <div style={{ fontSize: '0.8rem', color: '#666' }}>{ar.denName} #{ar.carNumber}</div>
                                   </td>
                                   <td style={{ padding: '10px', textAlign: 'right', fontFamily: 'monospace' }}>
                                       {ar.score.toFixed(3)}
@@ -376,7 +381,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
       <Modal 
           isOpen={isEditModalOpen} 
           onClose={() => setIsEditModalOpen(false)} 
-          title={`Edit Results - Heat ${activeExecutionHeat.heat_number}`}
+          title={`Edit Results - Heat ${activeExecutionHeat.heatNumber}`}
       >
           <div className="form-group">
             <p className="form-help">Manually update times for this heat.</p>

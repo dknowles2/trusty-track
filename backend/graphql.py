@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import typing
 from typing import Any, List, Optional
@@ -281,6 +283,45 @@ class Den:
         )
 
 
+@strawberry.input
+class PopulateTestDataInput:
+    """Input for populating a race with test data."""
+
+    count: int = 10
+    add_racer_photos: bool = True
+    add_car_photos: bool = True
+    assign_dens: bool = True
+    check_in: bool = False
+
+
+@strawberry.input
+class RoundCreateInput:
+    """Input for creating a new race round."""
+
+    scheduling_strategy: str = "PPC"
+    name: Optional[str] = None
+    advancement_source: Optional[str] = None
+    advancement_num_racers: Optional[int] = None
+    runs_per_lane: int = 1
+    general_type: str = "PACK"
+
+
+@strawberry.input
+class HeatReorderItemInput:
+    """Input for a single heat reorder operation."""
+
+    heat_id: int
+    new_heat_number: int
+
+
+@strawberry.type
+class HeatReorderResponse:
+    """Response after reordering heats."""
+
+    updated_count: int
+    heats: List["Heat"]
+
+
 @strawberry.type
 class Racer:
     """
@@ -407,6 +448,18 @@ class Race:
             .query(models.Heat)
             .filter(models.Heat.race_id == self.id)
             .all()
+        )
+
+    @strawberry.field
+    def track(self, info: Info) -> Optional["Track"]:
+        """Get the track configuration for this race."""
+        if not self.track_id:
+            return None
+        return (
+            info.context["db"]
+            .query(models.Track)
+            .filter(models.Track.id == self.track_id)
+            .first()
         )
 
 
@@ -969,6 +1022,131 @@ class Mutation:
             initialized=True,
             group_name=group.name if group else None,
             tracks=typing.cast(Any, tracks),
+        )
+
+    @strawberry.mutation
+    def populate_race(
+        self, info: Info, race_id: int, config: PopulateTestDataInput
+    ) -> str:
+        """Populate a race with test data."""
+        from . import populate
+
+        db = info.context["db"]
+        populate.generate_fake_racers(
+            db,
+            race_id,
+            count=config.count,
+            add_racer_photos=config.add_racer_photos,
+            add_car_photos=config.add_car_photos,
+            assign_dens=config.assign_dens,
+            check_in=config.check_in,
+        )
+        return f"Populated race {race_id} with {config.count} racers"
+
+    @strawberry.mutation
+    def import_racers(self, info: Info, race_id: int, csv_data: str) -> int:
+        """Import racers from a CSV data string."""
+        db = info.context["db"]
+        # Verification: ensure race exists
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+
+        f = io.StringIO(csv_data)
+        reader = csv.DictReader(f)
+        count = 0
+        for row in reader:
+            # Replicate main.py logic
+            den_id = None
+            if row.get("den"):
+                den_name = row["den"].strip()
+                db_den = (
+                    db.query(models.Den)
+                    .filter(models.Den.race_id == race_id, models.Den.name == den_name)
+                    .first()
+                )
+                if not db_den:
+                    db_den = crud.create_den(
+                        db,
+                        schemas.DenCreate(name=den_name, color="#808080"),
+                        race_id,
+                    )
+                den_id = db_den.id
+
+            racer_in = schemas.RacerCreate(
+                first_name=row["first_name"].strip(),
+                last_name=row["last_name"].strip(),
+                car_number=int(row["car_number"]) if row.get("car_number") else None,
+                den_id=den_id,
+                race_id=race_id,
+            )
+            crud.create_racer(db, racer_in)
+            count += 1
+        return count
+
+    @strawberry.mutation
+    def create_round(
+        self, info: Info, race_id: int, round_data: RoundCreateInput
+    ) -> List[Round]:
+        """Create a new round and generate heats."""
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        if not race:
+            raise ValueError("Race not found")
+
+        try:
+            existing_rounds = crud.get_rounds(db, race_id)
+            next_round_number = len(existing_rounds) + 1
+
+            if not round_data.advancement_source:
+                # General Round
+                round_obj = crud.create_round(
+                    db,
+                    race_id,
+                    next_round_number,
+                    round_data.scheduling_strategy,
+                    round_data.name or "All Pack",
+                )
+                # Generate Heats
+                for i in range(round_data.runs_per_lane):
+                    crud.generate_heats_for_round(
+                        db, round_obj.id, clear_existing=(i == 0)
+                    )
+                return [typing.cast(Any, round_obj)]
+            else:
+                # Championship Round (Placeholder)
+                round_obj = crud.create_round_placeholder(
+                    db,
+                    race_id,
+                    next_round_number,
+                    round_data.scheduling_strategy,
+                    round_data.name or f"Finals ({round_data.advancement_source})",
+                    round_data.advancement_source,
+                    round_data.advancement_num_racers,
+                )
+
+                # Generate Placeholder Heats
+                for i in range(round_data.runs_per_lane):
+                    crud.generate_placeholder_heats(
+                        db, round_obj.id, clear_existing=(i == 0)
+                    )
+                return [typing.cast(Any, round_obj)]
+        except ValueError as e:
+            raise ValueError(str(e))
+
+    @strawberry.mutation
+    def reorder_heats(
+        self, info: Info, heat_updates: List[HeatReorderItemInput]
+    ) -> HeatReorderResponse:
+        """Reorder heats in a round."""
+        db = info.context["db"]
+        updates = [
+            {"heat_id": u.heat_id, "new_heat_number": u.new_heat_number}
+            for u in heat_updates
+        ]
+        updated_heats = crud.reorder_heats(db, updates)
+        return HeatReorderResponse(
+            updated_count=len(updated_heats), heats=typing.cast(Any, updated_heats)
         )
 
 

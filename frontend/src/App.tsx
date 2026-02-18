@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route,  Navigate, useLocation } from '
 import Navigation from './components/Navigation';
 import SystemSettings from './pages/SystemSettings';
 import Home from './pages/Home';
-import { apiClient } from './api/client';
+import { useQuery } from 'urql';
 import { AlertProvider } from './context/AlertContext';
 
 import RaceDetails from './pages/RaceDetails';
@@ -10,40 +10,40 @@ import RaceControl from './pages/RaceControl';
 import Observation from './pages/Observation';
 import Standings from './pages/Standings';
 
-import { useState, useEffect } from 'react';
+// No React hooks needed anymore in this file
+
+const INITIAL_CONFIG_QUERY = `
+  query GetInitialConfig {
+    initialConfig {
+      initialized
+    }
+  }
+`;
 
 
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
-    const [loading, setLoading] = useState(true);
-    const [initialized, setInitialized] = useState(false);
     const location = useLocation();
+    
+    const [result] = useQuery({ 
+        query: INITIAL_CONFIG_QUERY,
+        requestPolicy: 'network-only' // Fresh check on navigation
+    });
 
-    useEffect(() => {
-        const checkStatus = async () => {
-             try {
-                // Add timestamp to prevent caching of initialization status
-                const status = await apiClient.get(`/config/initial?t=${Date.now()}`);
-                console.log("Initialization Status Check:", status);
-                setInitialized(status.initialized);
-             } catch (e) {
-                 console.error("Failed to check init status", e);
-             } finally {
-                 setLoading(false);
-             }
-        };
-        checkStatus();
-    }, [location.pathname]); // Re-run when switching routes
+    const { data, fetching, error } = result;
 
-    if (loading) return <div>Loading...</div>;
+    if (fetching) return <div>Loading...</div>;
+
+    if (error) {
+        console.error("Failed to check init status", error);
+    }
+
+    const initialized = data?.initialConfig?.initialized ?? false;
 
     if (!initialized && location.pathname !== '/system-settings') {
         return <Navigate to="/system-settings" replace />;
     }
     
-    // Allow initialized users to visit system-settings (Edit Mode)
-    // Removed the redirect away from config page logic.
-
     return children;
 }
 
