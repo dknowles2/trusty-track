@@ -8,10 +8,13 @@ Create user-facing documentation for Trusty Track aimed at **race event organize
 
 | Task | File | Document | Audience |
 |------|------|----------|----------|
+| 0 | `05_github_pages_setup.md` | GitHub Pages / MkDocs infrastructure | Developer / repo maintainer |
 | 1 | `01_user_getting_started.md` | Getting Started Guide | First-time organizers |
 | 2 | `02_race_setup.md` | Race Setup Guide | Pack admins setting up a race |
 | 3 | `03_race_day.md` | Race Day Operations Guide | Check-in operators, race control operators |
 | 4 | `04_observation_displays.md` | Observation & Audience Displays | Display/kiosk operators |
+
+Task 0 (infrastructure) should be completed first; the content tasks (1–4) can proceed in parallel once the site skeleton exists.
 
 ## Guiding Principles
 
@@ -44,21 +47,33 @@ Examples:
 
 ## Delivery Format
 
-All documentation should be written in **Markdown** and placed under `docs/user/`:
+### Source files
+
+All documentation is written in **Markdown** and lives under `docs/`:
 
 ```
 docs/
-  user/
-    getting-started.md
-    race-setup.md
-    race-day.md
-    observation-displays.md
+  index.md                    # Site home page (welcome + navigation overview)
+  getting-started.md
+  race-setup.md
+  race-day.md
+  observation-displays.md
   assets/
     screenshots/
       getting-started/
       race-setup/
       race-day/
       observation/
+mkdocs.yml                    # MkDocs site configuration
+.github/
+  workflows/
+    docs.yml                  # GitHub Actions — auto-deploy on push to main
 ```
 
-The docs should be linkable from README.md.
+### Website
+
+The Markdown files are compiled into a user-friendly website by **MkDocs** (with the Material theme) and hosted on **GitHub Pages** at the repo's Pages URL. The website is rebuilt and re-deployed automatically whenever a commit touches the `docs/` directory on `main`.
+
+See `tasks/docs/05_github_pages_setup.md` for the full infrastructure setup task.
+
+The docs should also be linkable from README.md (point to the GitHub Pages URL, not the raw Markdown).
