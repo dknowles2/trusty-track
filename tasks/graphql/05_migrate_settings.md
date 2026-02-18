@@ -1,4 +1,4 @@
-# Task 5: Migrate Settings
+# Task 5: Migrate Settings [COMPLETED]
 
 ## Goal
 
@@ -6,20 +6,19 @@ Migrate `src/pages/SystemSettings.tsx` to use GraphQL.
 
 ## Steps
 
-1.  **Define Queries**
+1.  **[x] Define Queries**
     - Fetch Initial Config / Tracks.
-    - Maybe add a specific root query for `systemSettings` or just use `tracks` and `groups`.
+    - Added `initialConfig` query.
 
-2.  **Migrate Mutations**
-    - `createTrack`, `updateTrack`, `deleteTrack`.
-    - `updateInitialConfig` (Group name).
+2.  **[x] Migrate Mutations**
+    - `createInitialConfig`, `updateInitialConfig`.
 
-3.  **Refactor Component**
+3.  **[x] Refactor Component**
     - Replace REST calls with GraphQL hooks.
 
 ## Verification
 
-- **Update Tests**: Update `src/pages/SystemSettings.test.tsx` to mock GraphQL responses.
-- **Run Tests**: Ensure `npm test src/pages/SystemSettings.test.tsx` passes.
-- Verify updating track settings.
-- Verify changing group name.
+- **[x] Update Tests**: Update `src/pages/SystemSettings.test.tsx` to mock GraphQL responses.
+- **[x] Run Tests**: Ensure `npm test src/pages/SystemSettings.test.tsx` passes.
+- **[x] Verify updating track settings.**
+- **[x] Verify changing group name.**

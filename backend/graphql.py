@@ -107,6 +107,28 @@ class AdvancementStatus:
     num_racers: Optional[int]
 
 
+@strawberry.type
+class InitialConfigStatus:
+    """
+    Represents the system initialization state.
+    """
+
+    initialized: bool
+    group_name: Optional[str] = None
+    tracks: List["Track"] = strawberry.field(default_factory=list)
+    current_race_id: Optional[int] = None
+
+
+@strawberry.input
+class InitialConfigInput:
+    """
+    Input for initial system configuration.
+    """
+
+    group_name: str
+    tracks: List["TrackInput"]
+
+
 @strawberry.input
 class RacerInput:
     """
@@ -484,6 +506,22 @@ class Query:
     def groups(self, info: Info) -> List[Group]:
         """Get all registered groups."""
         return typing.cast(Any, info.context["db"].query(models.Group).all())
+
+    @strawberry.field
+    def initial_config(self, info: Info) -> InitialConfigStatus:
+        """Get the system initialization status."""
+        db = info.context["db"]
+        tracks = crud.get_tracks(db)
+        if tracks:
+            group = db.query(models.Group).first()
+            race = db.query(models.Race).first()
+            return InitialConfigStatus(
+                initialized=True,
+                group_name=group.name if group else None,
+                tracks=typing.cast(Any, tracks),
+                current_race_id=race.id if race else None,
+            )
+        return InitialConfigStatus(initialized=False)
 
     @strawberry.field
     def rounds(self, info: Info, race_id: int) -> List[Round]:
@@ -887,6 +925,51 @@ class Mutation:
         db = info.context["db"]
         crud.bulk_delete_racers(db, racer_ids)
         return True
+
+    @strawberry.mutation
+    def create_initial_config(
+        self, info: Info, config: InitialConfigInput
+    ) -> InitialConfigStatus:
+        """Initialize the system with group name and tracks."""
+        db = info.context["db"]
+        if crud.get_tracks(db):
+            raise ValueError("System already initialized")
+
+        config_dict = strawberry.asdict(config)
+        config_in = schemas.InitialConfigCreate(**config_dict)
+        group, tracks = crud.create_initial_config(db, config_in)
+
+        # Link existing races if any
+        if tracks:
+            db.query(models.Race).filter(models.Race.track_id.is_(None)).update(
+                {models.Race.track_id: tracks[0].id}
+            )
+            db.commit()
+
+        return InitialConfigStatus(
+            initialized=True, group_name=group.name, tracks=typing.cast(Any, tracks)
+        )
+
+    @strawberry.mutation
+    def update_initial_config(
+        self, info: Info, config: InitialConfigInput
+    ) -> InitialConfigStatus:
+        """Update system organization name."""
+        db = info.context["db"]
+        group = db.query(models.Group).first()
+        if group and group.name != config.group_name:
+            existing = crud.get_group_by_name(db, config.group_name)
+            if existing:
+                raise ValueError(f"Group '{config.group_name}' already exists")
+            crud.update_group(db, group, config.group_name)
+            db.refresh(group)
+
+        tracks = crud.get_tracks(db)
+        return InitialConfigStatus(
+            initialized=True,
+            group_name=group.name if group else None,
+            tracks=typing.cast(Any, tracks),
+        )
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

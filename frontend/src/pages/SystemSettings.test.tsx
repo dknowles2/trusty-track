@@ -3,24 +3,24 @@ import '../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import SystemSettings from './SystemSettings';
-import { apiClient } from '../api/client';
 import { MemoryRouter } from 'react-router-dom';
+import { useQuery, useMutation } from 'urql';
+
+// Mock urql
+vi.mock('urql', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('urql')>();
+    return {
+        ...actual,
+        useQuery: vi.fn(),
+        useMutation: vi.fn(),
+    };
+});
 
 // Cleanup after each test
 afterEach(() => {
     cleanup();
     vi.clearAllMocks();
 });
-
-// Mock apiClient
-vi.mock('../api/client', () => ({
-    apiClient: {
-        get: vi.fn(),
-        post: vi.fn(),
-        put: vi.fn(),
-        delete: vi.fn()
-    }
-}));
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -33,7 +33,12 @@ vi.mock('react-router-dom', async () => {
 
 describe('SystemSettings', () => {
     it('allows adding and removing tracks', async () => {
-        (apiClient.get as any).mockResolvedValue({ initialized: false });
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { initialized: false, groupName: '', tracks: [] } },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
 
         render(
             <MemoryRouter>
@@ -61,7 +66,12 @@ describe('SystemSettings', () => {
     });
 
     it('enforces at least one track', async () => {
-        (apiClient.get as any).mockResolvedValue({ initialized: false });
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { initialized: false, groupName: '', tracks: [] } },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
 
         render(
             <MemoryRouter>
@@ -84,8 +94,19 @@ describe('SystemSettings', () => {
     });
 
     it('submits correctly with multiple tracks', async () => {
-        (apiClient.get as any).mockResolvedValue({ initialized: false });
-        (apiClient.post as any).mockResolvedValue({ initialized: true });
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { initialized: false, groupName: '', tracks: [] } },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        const mockCreateMutation = vi.fn().mockResolvedValue({ data: { createInitialConfig: { initialized: true } } });
+        (useMutation as any).mockImplementation((query: any) => {
+            if (query.includes('mutation CreateInitialConfig')) {
+                return [{ fetching: false }, mockCreateMutation];
+            }
+            return [{ fetching: false }, vi.fn()];
+        });
 
         const user = (await import('@testing-library/user-event')).default.setup();
 
@@ -113,12 +134,14 @@ describe('SystemSettings', () => {
 
         await user.click(screen.getByText('Save Settings'));
 
-        expect(apiClient.post).toHaveBeenCalledWith('/config/initial', {
-            group_name: 'Test Pack',
-            tracks: [
-                { name: 'Fast Track', lane_count: 4, length_feet: 40, timer_type: 'FAKE' },
-                { name: 'Slow Track', lane_count: 4, length_feet: 40, timer_type: 'FAKE' }
-            ]
+        expect(mockCreateMutation).toHaveBeenCalledWith({
+            config: {
+                groupName: 'Test Pack',
+                tracks: [
+                    { name: 'Fast Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE' },
+                    { name: 'Slow Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE' }
+                ]
+            }
         });
         
         expect(mockNavigate).toHaveBeenCalledWith('/');

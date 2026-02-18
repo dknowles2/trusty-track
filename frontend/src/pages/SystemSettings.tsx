@@ -1,36 +1,76 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiClient } from '../api/client';
+import { useQuery, useMutation } from 'urql';
+
+const GET_INITIAL_CONFIG = `
+  query GetInitialConfig {
+    initialConfig {
+      initialized
+      groupName
+      tracks {
+        id
+        name
+        laneCount
+        lengthFeet
+        timerType
+      }
+    }
+  }
+`;
+
+const CREATE_INITIAL_CONFIG = `
+  mutation CreateInitialConfig($config: InitialConfigInput!) {
+    createInitialConfig(config: $config) {
+      initialized
+      groupName
+      tracks {
+        id
+        name
+      }
+    }
+  }
+`;
+
+const UPDATE_INITIAL_CONFIG = `
+  mutation UpdateInitialConfig($config: InitialConfigInput!) {
+    updateInitialConfig(config: $config) {
+      initialized
+      groupName
+    }
+  }
+`;
 
 export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
-  const [tracks, setTracks] = useState([{ name: 'Main Track', lane_count: 4, length_feet: 40, timer_type: 'FAKE' }]);
+  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE' }]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
+
+  const [configResult] = useQuery({ query: GET_INITIAL_CONFIG, requestPolicy: 'network-only' });
+  const { data, fetching, error: queryError } = configResult;
+
+  const [, createInitialConfig] = useMutation(CREATE_INITIAL_CONFIG);
+  const [, updateInitialConfig] = useMutation(UPDATE_INITIAL_CONFIG);
 
   useEffect(() => {
-    fetchConfig();
-  }, []);
-
-  const fetchConfig = async () => {
-    try {
-      const config = await apiClient.get(`/config/initial?t=${Date.now()}`);
-      if (config.initialized) {
+    if (data?.initialConfig) {
+      const { initialized, groupName: savedGroupName, tracks: savedTracks } = data.initialConfig;
+      if (initialized) {
         setIsEditing(true);
-        setGroupName(config.group_name || '');
-        if (config.tracks && config.tracks.length > 0) {
-          setTracks(config.tracks);
+        setGroupName(savedGroupName || '');
+        if (savedTracks && savedTracks.length > 0) {
+          setTracks(savedTracks.map((t: any) => ({
+            name: t.name,
+            laneCount: t.laneCount,
+            lengthFeet: t.lengthFeet,
+            timerType: t.timerType
+          })));
         }
       }
-    } catch (e) {
-      console.error("Failed to load config", e);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [data]);
 
   const handleTrackChange = (index: number, field: string, value: any) => {
     const newTracks = [...tracks];
@@ -39,7 +79,7 @@ export default function SystemConfig() {
   };
 
   const addTrack = () => {
-    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, lane_count: 4, length_feet: 40, timer_type: 'FAKE' }]);
+    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 4, lengthFeet: 40, timerType: 'FAKE' }]);
   };
 
   const removeTrack = (index: number) => {
@@ -62,16 +102,29 @@ export default function SystemConfig() {
     }
 
     try {
-      const payload = {
-        group_name: groupName,
-        tracks: tracks
+      const variables = {
+        config: {
+          groupName: groupName,
+          tracks: tracks.map(({ name, laneCount, lengthFeet, timerType }) => ({
+            name,
+            laneCount,
+            lengthFeet: lengthFeet || 40,
+            timerType
+          }))
+        }
       };
 
+      let result;
       if (isEditing) {
-        await apiClient.put('/config/initial', payload);
+        result = await updateInitialConfig(variables);
       } else {
-        await apiClient.post('/config/initial', payload);
+        result = await createInitialConfig(variables);
       }
+      
+      if (result.error) {
+        throw result.error;
+      }
+      
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Failed to apply settings');
@@ -80,7 +133,8 @@ export default function SystemConfig() {
     }
   };
 
-  if (loading) return <div>Loading Settings...</div>;
+  if (fetching && !data) return <div>Loading Settings...</div>;
+  if (queryError) return <div>Error loading settings: {queryError.message}</div>;
 
   return (
     <div className="container">
@@ -134,8 +188,8 @@ export default function SystemConfig() {
                 <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Lanes</label>
                 <input
                   type="number"
-                  value={track.lane_count}
-                  onChange={(e) => handleTrackChange(index, 'lane_count', parseInt(e.target.value) || 0)}
+                  value={track.laneCount}
+                  onChange={(e) => handleTrackChange(index, 'laneCount', parseInt(e.target.value) || 0)}
                   min="1"
                   max="8"
                   required
@@ -146,8 +200,8 @@ export default function SystemConfig() {
                 <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Length (Feet)</label>
                 <input
                   type="number"
-                  value={track.length_feet}
-                  onChange={(e) => handleTrackChange(index, 'length_feet', parseInt(e.target.value) || 0)}
+                  value={track.lengthFeet}
+                  onChange={(e) => handleTrackChange(index, 'lengthFeet', parseInt(e.target.value) || 0)}
                   min="10"
                   required
                   style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
@@ -158,8 +212,8 @@ export default function SystemConfig() {
             <div>
               <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Timer Type</label>
               <select
-                value={track.timer_type}
-                onChange={(e) => handleTrackChange(index, 'timer_type', e.target.value)}
+                value={track.timerType}
+                onChange={(e) => handleTrackChange(index, 'timerType', e.target.value)}
                 style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
               >
                 <option value="FAKE">Fake Timer (Manual Control)</option>
