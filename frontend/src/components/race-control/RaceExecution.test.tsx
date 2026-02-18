@@ -55,15 +55,14 @@ describe('RaceExecution', () => {
         racers: mockRacers,
         roundSummary: null
     };
-
-    it('renders race complete message if no active heat', () => {
+    it('renders race execution message if no active heat', () => {
         render(
             <RaceExecution 
                 {...defaultProps}
                 activeExecutionHeat={null}
             />
         );
-        expect(screen.getByText('Race Complete!')).toBeInTheDocument();
+        expect(screen.getByText('Race Execution')).toBeInTheDocument();
     });
 
     it('renders current heat details and racer image', () => {

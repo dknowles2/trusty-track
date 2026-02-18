@@ -131,6 +131,13 @@ export default function RaceControl() {
   const [generating, setGenerating] = useState(false);
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
 
+  // Reset state when raceId changes
+  useEffect(() => {
+      setActiveHeatId(null);
+      setSelectedHeatId(null);
+      setRoundSummary(null);
+  }, [id]);
+
   const [result, reExecute] = useQuery({
     query: GET_RACE_CONTROL_DATA,
     variables: { id },
@@ -155,22 +162,28 @@ export default function RaceControl() {
   }, [race?.racers]);
 
   useEffect(() => {
-      if (heats.length > 0 && selectedHeatId === null) {
+      if (heats.length > 0) {
           const sorted = [...heats].sort((a, b) => {
             if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
             return a.heatNumber - b.heatNumber;
           });
           
-          const firstUncompleted = sorted.find((h: Heat) => {
-              const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-              return !(results.length > 0 && results[0].time !== null);
-          });
-          
-          if (firstUncompleted) {
-              setSelectedHeatId(firstUncompleted.id);
-          } else if (sorted.length > 0) {
-              setSelectedHeatId(sorted[sorted.length - 1].id);
+          const currentHeatExists = selectedHeatId !== null && heats.some((h: Heat) => h.id === selectedHeatId);
+
+          if (!currentHeatExists) {
+              const firstUncompleted = sorted.find((h: Heat) => {
+                  const results = h.laneResults ? JSON.parse(h.laneResults) : [];
+                  return !(results.length > 0 && results[0].time !== null);
+              });
+              
+              if (firstUncompleted) {
+                  setSelectedHeatId(firstUncompleted.id);
+              } else if (sorted.length > 0) {
+                  setSelectedHeatId(sorted[sorted.length - 1].id);
+              }
           }
+      } else if (selectedHeatId !== null) {
+          setSelectedHeatId(null);
       }
   }, [heats, selectedHeatId]);
 

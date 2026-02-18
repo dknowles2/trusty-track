@@ -107,8 +107,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
       return (
           <div style={{ textAlign: 'center', padding: '50px' }}>
               <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" style={{ marginBottom: '20px' }} />
-              <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Race Complete!</h2>
-              <p style={{ fontSize: '1.2rem', color: '#666' }}>All heats have been run.</p>
+              <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Race Execution</h2>
+              <p style={{ fontSize: '1.2rem', color: '#666' }}>
+                  {upcomingHeats.length > 0 ? "Select a heat to begin." : "All heats have been run."}
+              </p>
           </div>
       );
   }
