@@ -12,10 +12,6 @@ export interface RaceFormData {
     championship_trophies: number;
 }
 
-interface Track {
-    id: number;
-    name: string;
-}
 
 interface RaceFormProps {
     initialData?: Partial<RaceFormData>;
@@ -66,7 +62,10 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         e.preventDefault();
         setLoading(true);
         try {
-            await onSubmit(formData);
+            await onSubmit({
+                ...formData,
+                name: formData.name.trim()
+            });
         } finally {
             setLoading(false);
         }

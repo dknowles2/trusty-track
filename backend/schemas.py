@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from .models import (
     CarNumberingStrategy,
@@ -141,6 +141,13 @@ class RaceBase(BaseModel):
     championship_trophies: int = 3
     scoring_strategy: ScoringStrategy = ScoringStrategy.TIMED
     rules_configuration: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def name_must_not_be_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Race name cannot be empty or only whitespace")
+        return v.strip()
 
 
 class RaceCreate(RaceBase):

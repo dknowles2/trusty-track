@@ -1,6 +1,5 @@
-from fastapi.testclient import TestClient
 
-from backend import crud, models, schemas
+from backend import crud, schemas
 
 
 def create_test_race(db):

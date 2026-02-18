@@ -6,7 +6,7 @@ based on different scoring strategies (TIMED or POINTS).
 """
 
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from sqlalchemy.orm import Session
 

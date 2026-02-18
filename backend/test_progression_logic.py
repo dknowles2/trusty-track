@@ -1,6 +1,5 @@
 import json
 
-import pytest
 from sqlalchemy.orm import Session
 
 from backend import crud, models, schemas, scoring

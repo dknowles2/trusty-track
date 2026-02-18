@@ -1,7 +1,10 @@
 import enum
 from typing import List, Optional
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Float, Enum as SAEnum
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .database import Base
 
 
@@ -87,7 +90,7 @@ class Race(Base):
     track_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("tracks.id"), nullable=True
     )
-    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     date_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     car_numbering_strategy: Mapped[CarNumberingStrategy] = mapped_column(
@@ -200,7 +203,7 @@ class Round(Base):
                             rid = r.get("racer_id")
                             if rid is not None:
                                 racer_ids.add(rid)
-                    except:
+                    except Exception:
                         pass
             return len(racer_ids)
 

@@ -946,9 +946,7 @@ def update_free_race_heat_result(
 ) -> models.FreeRaceHeat | None:
     """Record results for a FreeRaceHeat."""
     heat = (
-        db.query(models.FreeRaceHeat)
-        .filter(models.FreeRaceHeat.id == heat_id)
-        .first()
+        db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
     )
     if heat is None:
         return None

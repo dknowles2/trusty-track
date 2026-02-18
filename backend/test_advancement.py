@@ -1,8 +1,7 @@
 import json
 
-import pytest
 
-from backend import crud, models, schemas, scoring
+from backend import crud, schemas
 
 
 def test_full_advancement_flow(client, db):
@@ -27,7 +26,7 @@ def test_full_advancement_flow(client, db):
     racer_ids = []
     for i in range(4):
         r_in = schemas.RacerCreate(
-            first_name=f"Racer",
+            first_name="Racer",
             last_name=str(i),
             car_number=100 + i,
             den_id=den_id,

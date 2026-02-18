@@ -1,7 +1,5 @@
-import pytest
-from fastapi.testclient import TestClient
 
-from backend import crud, models, schemas
+from backend import models
 
 
 def test_wizard_crash_repro(db, client):

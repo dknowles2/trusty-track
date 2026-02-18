@@ -1,9 +1,8 @@
 import json
 import uuid
 
-import pytest
 
-from backend import crud, models, schemas
+from backend import crud, schemas
 
 
 def get_unique_name(prefix: str) -> str:

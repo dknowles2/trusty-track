@@ -39,12 +39,22 @@ class Heat:
 
     @strawberry.field
     def round_number(self, info: Info) -> int:
-        round_obj = info.context["db"].query(models.Round).filter(models.Round.id == self.round_id).first()
+        round_obj = (
+            info.context["db"]
+            .query(models.Round)
+            .filter(models.Round.id == self.round_id)
+            .first()
+        )
         return round_obj.round_number if round_obj else 0
 
     @strawberry.field
     def round_name(self, info: Info) -> Optional[str]:
-        round_obj = info.context["db"].query(models.Round).filter(models.Round.id == self.round_id).first()
+        round_obj = (
+            info.context["db"]
+            .query(models.Round)
+            .filter(models.Round.id == self.round_id)
+            .first()
+        )
         return round_obj.name if round_obj else None
 
     @strawberry.field

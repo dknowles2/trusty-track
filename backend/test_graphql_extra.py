@@ -1,4 +1,3 @@
-import pytest
 
 from backend import crud, schemas
 

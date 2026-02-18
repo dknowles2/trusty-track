@@ -1,8 +1,7 @@
 import json
 
-import pytest
 
-from backend import crud, models, schemas
+from backend import crud, schemas
 
 
 def test_auto_advancement_with_placeholders(client, db):

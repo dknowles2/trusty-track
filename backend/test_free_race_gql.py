@@ -59,7 +59,9 @@ def test_random_free_race_lanes_query(db: Session):
         }
     }
     """
-    resp = client.post("/graphql", json={"query": query, "variables": {"raceId": race_id}})
+    resp = client.post(
+        "/graphql", json={"query": query, "variables": {"raceId": race_id}}
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "errors" not in data, data.get("errors")
@@ -115,10 +117,12 @@ def test_record_free_race_result_mutation(db: Session):
         db, race_id, [{"lane": 1, "racer_id": r1}, {"lane": 2, "racer_id": None}]
     )
 
-    results = json.dumps([
-        {"lane": 1, "racer_id": r1, "time": 3.1415, "place": 1},
-        {"lane": 2, "racer_id": None, "time": None, "place": None},
-    ])
+    results = json.dumps(
+        [
+            {"lane": 1, "racer_id": r1, "time": 3.1415, "place": 1},
+            {"lane": 2, "racer_id": None, "time": None, "place": None},
+        ]
+    )
 
     mutation = """
     mutation($heatId: Int!, $results: String!) {
@@ -178,7 +182,9 @@ def test_free_race_heats_query_newest_first(db: Session):
         }
     }
     """
-    resp = client.post("/graphql", json={"query": query, "variables": {"raceId": race_id}})
+    resp = client.post(
+        "/graphql", json={"query": query, "variables": {"raceId": race_id}}
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "errors" not in data, data.get("errors")
@@ -202,7 +208,9 @@ def test_active_free_race_heat_returns_running_heat(db: Session):
         }
     }
     """
-    resp = client.post("/graphql", json={"query": query, "variables": {"raceId": race_id}})
+    resp = client.post(
+        "/graphql", json={"query": query, "variables": {"raceId": race_id}}
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "errors" not in data, data.get("errors")
@@ -226,7 +234,9 @@ def test_active_free_race_heat_returns_none_when_completed(db: Session):
         }
     }
     """
-    resp = client.post("/graphql", json={"query": query, "variables": {"raceId": race_id}})
+    resp = client.post(
+        "/graphql", json={"query": query, "variables": {"raceId": race_id}}
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["data"]["activeFreeRaceHeat"] is None
