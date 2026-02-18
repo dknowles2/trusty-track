@@ -38,6 +38,16 @@ class Heat:
     lane_results: Optional[str]
 
     @strawberry.field
+    def round_number(self, info: Info) -> int:
+        round_obj = info.context["db"].query(models.Round).filter(models.Round.id == self.round_id).first()
+        return round_obj.round_number if round_obj else 0
+
+    @strawberry.field
+    def round_name(self, info: Info) -> Optional[str]:
+        round_obj = info.context["db"].query(models.Round).filter(models.Round.id == self.round_id).first()
+        return round_obj.name if round_obj else None
+
+    @strawberry.field
     def parsed_results(self) -> List[LaneResult]:
         if not self.lane_results:
             return []
@@ -857,16 +867,22 @@ class Mutation:
 
     @strawberry.mutation
     def check_in_racer(
-        self, info: Info, id: int, passed_inspection: bool, weight: Optional[float]
+        self,
+        info: Info,
+        id: int,
+        passed_inspection: bool,
+        weight: Optional[float],
+        racer_image_url: Optional[str] = None,
+        car_image_url: Optional[str] = None,
     ) -> Optional[Racer]:
         """Check in a racer."""
         db = info.context["db"]
         racer_update = schemas.RacerUpdate(
-            car_passed_inspection=passed_inspection, car_weight=weight
+            car_passed_inspection=passed_inspection,
+            car_weight=weight,
+            racer_image_url=racer_image_url,
+            car_image_url=car_image_url,
         )
-        # We need a partial update here, but schemas.RacerUpdate might require all fields.
-        # Actually pydantic models with Optional usually allow partials if exclude_blank is used in crud.
-        # Let's check crud.update_racer again.
         return typing.cast(
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
