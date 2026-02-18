@@ -27,12 +27,12 @@
 
 ## User Documentation
 
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](docs/user/getting-started.md) | First-time setup: system settings and creating your first race |
-| [Race Setup Guide](docs/user/race-setup.md) | Managing dens, registering racers, and preparing the roster |
-| [Race Day Operations](docs/user/race-day.md) | Check-in, scheduling heats, running the race, and final standings |
-| [Observation Displays](docs/user/observation-displays.md) | Setting up audience screens and projectors |
+| Guide                                                     | Description                                                       |
+| --------------------------------------------------------- | ----------------------------------------------------------------- |
+| [Getting Started](docs/user/getting-started.md)           | First-time setup: system settings and creating your first race    |
+| [Race Setup Guide](docs/user/race-setup.md)               | Managing dens, registering racers, and preparing the roster       |
+| [Race Day Operations](docs/user/race-day.md)              | Check-in, scheduling heats, running the race, and final standings |
+| [Observation Displays](docs/user/observation-displays.md) | Setting up audience screens and projectors                        |
 
 ---
 
@@ -40,25 +40,21 @@
 
 Trusty Track runs a local server on your computer. You access it through a web browser, and anyone on the same network can open it on their own device (tablet, laptop, phone).
 
-**Quick start:**
+### Quick Start (From Source)
+
+The easiest way to run Trusty Track from source is using the convenience scripts:
 
 ```bash
-# Terminal 1 — start the backend
-cd backend
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload
+# Install dependencies and build the frontend
+./scripts/install.sh
 
-# Terminal 2 — start the frontend
-cd frontend
-npm install
-npm run dev
+# Start the server
+./scripts/serve.sh
 ```
 
-Then open `http://localhost:5173` in your browser.
+Then open `http://localhost:8000` in your browser.
 
-For detailed setup instructions, troubleshooting, and deployment options, see the [Development Guide](docs/development.md).
+For a two-terminal development workflow with live reload, or for other deployment options like Docker, see the [Development Guide](docs/development.md).
 
 ---
 

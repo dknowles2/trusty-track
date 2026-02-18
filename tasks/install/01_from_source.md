@@ -54,6 +54,7 @@ needed — `npm run build` produces `frontend/dist/` which the backend will
 serve.
 
 **Acceptance criteria:**
+
 - `npm run build` in `frontend/` produces `frontend/dist/`.
 - Running `uvicorn main:app` from `backend/` serves the full app on
   a single port.
@@ -70,10 +71,10 @@ a configurable location.
 
 **Environment variables:**
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TRUSTYTRACK_DATA_DIR` | `~/.trustytrack` | Root for DB and uploads |
-| `TRUSTYTRACK_DB_URL` | `sqlite:///<data_dir>/trusty-track.db` | Full DB URL (overrides dir) |
+| Variable               | Default                                | Description                 |
+| ---------------------- | -------------------------------------- | --------------------------- |
+| `TRUSTYTRACK_DATA_DIR` | `~/.trustytrack`                       | Root for DB and uploads     |
+| `TRUSTYTRACK_DB_URL`   | `sqlite:///<data_dir>/trusty-track.db` | Full DB URL (overrides dir) |
 
 **Backend changes:**
 
@@ -83,6 +84,7 @@ a configurable location.
   `<data_dir>/uploads/` instead of the hardcoded `backend/backend/` path.
 
 **Acceptance criteria:**
+
 - Fresh `git clone` + `uvicorn main:app` stores data in `~/.trustytrack/`.
 - `TRUSTYTRACK_DATA_DIR=/tmp/test uvicorn main:app` stores data in `/tmp/test/`.
 - Existing tests still pass (conftest.py should use a temp directory).
@@ -112,6 +114,7 @@ scripts/install.sh
 ```
 
 Steps performed by the script:
+
 1. Check for Python ≥ 3.10 and Node.js ≥ 18; print friendly errors if missing.
 2. Create `backend/venv/` and install Python dependencies.
 3. Run `npm ci` in `frontend/`.
@@ -149,10 +152,10 @@ See `06_user_documentation.md` for details.
 
 ## Definition of Done
 
-- [ ] Unified server mode implemented and tested.
-- [ ] Data directory is configurable via environment variable.
-- [ ] `GET /health` endpoint exists.
-- [ ] `scripts/install.sh` works on macOS (Homebrew Python + Node) and
-  Ubuntu/Debian.
-- [ ] `scripts/serve.sh` starts the full app with a single command.
-- [ ] `docs/development.md` updated to reflect new scripts.
+- [x] Unified server mode implemented and tested.
+- [x] Data directory is configurable via environment variable.
+- [x] `GET /health` endpoint exists.
+- [x] `scripts/install.sh` works on macOS (Homebrew Python + Node) and
+      Ubuntu/Debian.
+- [x] `scripts/serve.sh` starts the full app with a single command.
+- [x] `docs/development.md` updated to reflect new scripts.

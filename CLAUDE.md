@@ -4,31 +4,29 @@ Trusty Track is a race management system for Cub Scout Pinewood Derby events. It
 
 ## Quick orientation
 
-| Layer | Tech | Entry point |
-|---|---|---|
-| Backend | Python, FastAPI, SQLAlchemy, Strawberry GraphQL | `backend/main.py` |
-| Frontend | TypeScript, React 18, Vite, urql | `frontend/src/App.tsx` |
-| Database | SQLite (dev), auto-created on first run | `trusty-track.db` |
+| Layer    | Tech                                            | Entry point            |
+| -------- | ----------------------------------------------- | ---------------------- |
+| Backend  | Python, FastAPI, SQLAlchemy, Strawberry GraphQL | `backend/main.py`      |
+| Frontend | TypeScript, React 18, Vite, urql                | `frontend/src/App.tsx` |
+| Database | SQLite, auto-created in `~/.trustytrack`        | `trusty-track.db`      |
 
 The GraphQL endpoint at `/graphql` is the primary interface between frontend and backend. There is also a small REST endpoint (`POST /upload/`) for file uploads.
 
-## How to run
+**Full Stack (Production/Single Process)**:
 
-**Backend** (from repo root):
 ```bash
-cd backend
-source venv/bin/activate   # create with: python -m venv venv && pip install -r requirements.txt
-uvicorn main:app --reload  # serves on http://localhost:8000
+./scripts/install.sh   # Installs dependencies & builds frontend
+./scripts/serve.sh     # Starts unified server on http://localhost:8000
 ```
 
-**Frontend** (from repo root):
-```bash
-cd frontend
-npm install                # first time only
-npm run dev               # serves on http://localhost:5173
-```
+**Development (Two processes)**:
+
+- **Backend**: `cd backend && uvicorn main:app --reload`
+- **Frontend**: `cd frontend && npm run dev`
+- **One-command Dev**: `./scripts/run_dev.sh`
 
 **Tests:**
+
 ```bash
 cd backend && pytest          # backend unit/integration tests
 cd frontend && npm test       # frontend unit tests (vitest)
@@ -129,19 +127,20 @@ Heat            id, race_id, round_id, heat_number,
 ```
 
 `lane_results` format (stored as JSON string in Heat.lane_results):
+
 ```json
 [{"lane": 1, "racer_id": 10, "time": 3.452, "place": 2}, ...]
 ```
 
 ### Enums (defined in `backend/models.py`)
 
-| Enum | Values |
-|---|---|
-| `CarNumberingStrategy` | `PER_GROUP`, `GLOBAL`, `MANUAL` |
-| `Rank` | `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER` |
-| `SchedulingStrategy` | `PPC` (Perfect-N rotation) |
-| `ScoringStrategy` | `TIMED` (avg time, lower=better), `POINTS` (sum of placements, lower=better) |
-| `TimerType` | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY` |
+| Enum                   | Values                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| `CarNumberingStrategy` | `PER_GROUP`, `GLOBAL`, `MANUAL`                                              |
+| `Rank`                 | `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER`        |
+| `SchedulingStrategy`   | `PPC` (Perfect-N rotation)                                                   |
+| `ScoringStrategy`      | `TIMED` (avg time, lower=better), `POINTS` (sum of placements, lower=better) |
+| `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`                           |
 
 ---
 
@@ -151,17 +150,17 @@ All queries and mutations are defined in `backend/schema.py`. The frontend calls
 
 ### Queries
 
-| Query | Description |
-|---|---|
-| `races(skip, limit)` | List all races |
-| `race(raceId)` | Full race with nested dens, racers, rounds, heats |
-| `racers(raceId?, skip, limit)` | Racer list, optionally filtered by race |
-| `racer(racerId)` | Single racer |
-| `tracks()` | All track configurations |
-| `groups()` | All organizations |
-| `initialConfig()` | Whether system has been configured (used by router guard) |
-| `rounds(raceId)` | Rounds for a race |
-| `advancementStatus(raceId, roundId)` | Whether round has enough results to advance |
+| Query                                | Description                                               |
+| ------------------------------------ | --------------------------------------------------------- |
+| `races(skip, limit)`                 | List all races                                            |
+| `race(raceId)`                       | Full race with nested dens, racers, rounds, heats         |
+| `racers(raceId?, skip, limit)`       | Racer list, optionally filtered by race                   |
+| `racer(racerId)`                     | Single racer                                              |
+| `tracks()`                           | All track configurations                                  |
+| `groups()`                           | All organizations                                         |
+| `initialConfig()`                    | Whether system has been configured (used by router guard) |
+| `rounds(raceId)`                     | Rounds for a race                                         |
+| `advancementStatus(raceId, roundId)` | Whether round has enough results to advance               |
 
 ### Mutations
 
@@ -209,7 +208,9 @@ All queries and mutations are defined in `backend/schema.py`. The frontend calls
 - **Pydantic schemas** (`schemas.py`) are for input validation and REST responses. GraphQL types are Strawberry types defined directly in `schema.py`.
 - **Cascade deletes**: deleting a `Race` cascades to its `Den`, `Round`, `Heat` records. Deleting a `Round` cascades to its `Heat` records.
 - **Scoring** is always computed on-demand in `scoring.py`; there is no cached/stored leaderboard column.
-- **Images**: the frontend sends base64-encoded image data to `uploadImage` mutation or `POST /upload/`. Files land in `backend/uploads/`. URLs of the form `/static/<filename>` are stored in `racer_image_url` / `car_image_url`.
+- **Unified Server**: The backend serves `frontend/dist` static files and uses a catch-all route for SPA fallback. Health check is at `/health`.
+- **Data Directory**: Default storage is `~/.trustytrack`. Override with `TRUSTYTRACK_DATA_DIR` env var.
+- **Images**: The frontend sends base64-encoded image data to `uploadImage` mutation or `POST /upload/`. Files land in the `uploads/` subdirectory of the data dir. URLs of the form `/static/<filename>` are stored in `racer_image_url` / `car_image_url`.
 
 ### Frontend
 
@@ -230,6 +231,7 @@ Described in `docs/scheduling-algorithms.md`. Each racer races in every lane exa
 ### Scoring strategies
 
 Defined in `backend/scoring.py`:
+
 - **TIMED**: average of all heat times. Racers with no recorded time are ranked last.
 - **POINTS**: sum of placement values across heats (1st = 1 point). Lower total = better rank.
 
@@ -238,8 +240,9 @@ Defined in `backend/scoring.py`:
 ### Championship advancement
 
 `advanceRound` mutation and `get_advancing_racers()` in `scoring.py`:
+
 - `advancement_source = "PACK"`: top N racers overall advance.
-- `advancement_source = "DEN"`: top N racers from *each* den advance.
+- `advancement_source = "DEN"`: top N racers from _each_ den advance.
 
 ### Car numbering strategies
 
@@ -256,6 +259,7 @@ Defined in `backend/scoring.py`:
 ## Common task guidance
 
 **Add a new field to an existing model:**
+
 1. Add column to the SQLAlchemy model in `backend/models.py`
 2. Add field to the Strawberry type and/or Pydantic schema in `backend/schema.py` / `backend/schemas.py`
 3. Update relevant `create`/`update` mutations in `backend/schema.py` and CRUD helpers in `backend/crud.py`
@@ -263,16 +267,19 @@ Defined in `backend/scoring.py`:
 5. Update the UI component to display/edit the new field
 
 **Add a new page:**
+
 1. Create component in `frontend/src/pages/`
 2. Add route in `frontend/src/App.tsx`
 3. Add navigation link in `frontend/src/components/Navigation.tsx` if appropriate
 
 **Add a new backend test:**
+
 - Follow the pattern in `backend/test_*.py`
 - Tests use a fresh in-memory SQLite database per test (see conftest / setup in existing test files)
 - Use the FastAPI `TestClient` for HTTP/GraphQL requests
 
 **Working with heat results:**
+
 - `Heat.lane_results` is stored as a JSON string — parse with `json.loads()` / serialize with `json.dumps()`
 - The `updateHeatResult` mutation accepts the full lane results array and overwrites the field
 
@@ -281,10 +288,11 @@ Defined in `backend/scoring.py`:
 ## Not yet implemented (see `tasks/`)
 
 The `tasks/` directory contains implementation plans for features that do not exist yet:
+
 - **Observation subscriptions** (`tasks/observation/`) — real-time WebSocket updates; currently the observation page polls or uses static data
 - **Printables** (`tasks/printables/`) — QR codes, pit passes, driver's licenses
 - **Free racing** (`tasks/free-race/`) — casual practice heats outside the main competition
 - **Timer integration** (`tasks/timers/`) — DerbyNet serial protocol for hardware timers
-- **Installation packaging** (`tasks/install/`) — Docker, Raspberry Pi, desktop app distribution
+- **Installation packaging** (`tasks/install/`) — Raspberry Pi, Docker, desktop app distribution (from source is complete)
 
 Do not assume these features exist when modifying related code.

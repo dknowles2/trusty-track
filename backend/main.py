@@ -7,15 +7,17 @@ Mounts the GraphQL router and static file serving.
 import os
 import shutil
 import uuid
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
 from . import models
-from .database import SessionLocal, engine
+from .database import DATA_DIR, SessionLocal, engine
 from .schema import schema
 
 models.Base.metadata.create_all(bind=engine)
@@ -42,8 +44,10 @@ def get_db():
 
 
 # Create uploads directory if not exists
-UPLOAD_DIR = "backend/uploads"
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
@@ -56,6 +60,23 @@ async def get_graphql_context(db: Session = Depends(get_db)) -> dict:
 
 graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)
 app.include_router(graphql_app, prefix="/graphql")
+
+
+@app.get("/health")
+async def health() -> dict:
+    """Return application health status."""
+    return {"status": "ok"}
+
+
+# Mount static assets if the built frontend exists
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str) -> FileResponse:
+        """Serve index.html for all unknown paths (React Router)."""
+        index = FRONTEND_DIST / "index.html"
+        return FileResponse(index)
 
 
 @app.post("/upload/")

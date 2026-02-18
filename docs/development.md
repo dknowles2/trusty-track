@@ -99,15 +99,27 @@ npm run lint
 
 ## 🚀 Running the Full Stack
 
-### Option 1: Convenience Script (Recommended)
+### Option 1: Convenience Scripts (Recommended for Production/Stand-alone)
 
-You can start both the backend and frontend simultaneously using the provided helper script:
+To install and run the application as a single process:
+
+```bash
+# Install everything (prerequisites: Python 3.10+, Node.js 18+)
+./scripts/install.sh
+
+# Start the server (serves both backend and frontend on port 8000)
+./scripts/serve.sh
+```
+
+### Option 2: Convenience Script (Recommended for Development)
+
+You can start both the backend and frontend simultaneously with live reload using:
 
 ```bash
 ./scripts/run_dev.sh
 ```
 
-### Option 2: Manual Start
+### Option 3: Manual Start (Development)
 
 To run the full application manually, you need two terminal windows:
 
