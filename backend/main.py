@@ -1,11 +1,12 @@
-import csv
-import io
-import json
+"""
+FastAPI application entry point.
+
+Mounts the GraphQL router and static file serving.
+"""
+
 import os
-import random
 import shutil
 import uuid
-from typing import List, Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,9 +14,9 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
-from . import crud, models, schemas, scoring
+from . import models
 from .database import SessionLocal, engine
-from .graphql import schema
+from .schema import schema
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -32,6 +33,7 @@ app.add_middleware(
 
 # Dependency
 def get_db():
+    """Yield a database session and ensure it's closed after use."""
     db = SessionLocal()
     try:
         yield db
@@ -46,11 +48,9 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Mount static files
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
-# import schema only
-from .graphql import schema
 
-
-async def get_graphql_context(db: Session = Depends(get_db)):
+async def get_graphql_context(db: Session = Depends(get_db)) -> dict:
+    """Provide the database session as GraphQL context."""
     return {"db": db}
 
 
@@ -59,7 +59,8 @@ app.include_router(graphql_app, prefix="/graphql")
 
 
 @app.post("/upload/")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...)) -> dict:
+    """Upload a file and return its static URL."""
     # Create unique filename
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is missing")

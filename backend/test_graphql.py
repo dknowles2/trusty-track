@@ -1,4 +1,27 @@
+"""Tests for GraphQL endpoint functionality and import integrity."""
+
+import importlib
+
 from backend import crud, schemas
+
+
+def test_graphql_package_not_shadowed() -> None:
+    """Regression test: ensure no local file named 'graphql.py' shadows the graphql PyPI package.
+
+    If a file named 'graphql.py' exists in the backend package, it will shadow
+    the 'graphql' PyPI package that strawberry depends on, causing a circular
+    import error and breaking the entire application.
+    """
+    # The graphql package should be importable and have a 'version' module
+    graphql_version = importlib.import_module("graphql.version")
+    assert hasattr(graphql_version, "version_info"), (
+        "graphql.version.version_info not found — "
+        "a local 'graphql.py' may be shadowing the graphql PyPI package"
+    )
+    # Also verify strawberry can import from graphql without circular import errors
+    import strawberry  # noqa: F401 — just checking the import succeeds
+
+    assert strawberry is not None
 
 
 def test_graphql_introspection(client):
