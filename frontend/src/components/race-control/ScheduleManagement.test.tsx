@@ -53,17 +53,6 @@ vi.mock('@dnd-kit/utilities', () => ({
   },
 }));
 
-// Mock apiClient
-vi.mock('../../api/client', () => ({
-  apiClient: {
-    get: vi.fn(() => Promise.resolve({})), // Default empty response
-    post: vi.fn(),
-    put: vi.fn(),
-  }
-}));
-
-import { apiClient } from '../../api/client';
-
 describe('ScheduleManagement', () => {
     const mockHeats: Heat[] = [
         { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
@@ -118,6 +107,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -144,6 +134,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -170,6 +161,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -197,6 +189,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -214,9 +207,9 @@ describe('ScheduleManagement', () => {
 
     it('displays heats sorted by heat_number', () => {
         const unsortedHeats: Heat[] = [
-            { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, laneResults: '[]', totalParticipants: 10, roundName: 'Round 1', advancementNumRacers: null, advancementSource: null },
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', totalParticipants: 10, roundName: 'Round 1', advancementNumRacers: null, advancementSource: null },
-            { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, laneResults: '[]', totalParticipants: 10, roundName: 'Round 1', advancementNumRacers: null, advancementSource: null },
+            { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, laneResults: '[]', roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
+            { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, laneResults: '[]', roundName: 'Round 1' },
         ];
 
         render(
@@ -230,6 +223,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -248,8 +242,8 @@ describe('ScheduleManagement', () => {
 
     it('groups heats by round correctly', () => {
         const multiRoundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', totalParticipants: 10, roundName: 'Round 1', advancementNumRacers: null, advancementSource: null },
-            { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', totalParticipants: 10, roundName: 'Round 2', advancementNumRacers: null, advancementSource: null },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
+            { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', roundName: 'Round 2' },
         ];
 
         render(
@@ -263,6 +257,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -290,6 +285,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -322,7 +318,7 @@ describe('ScheduleManagement', () => {
 
     it('displays custom round name', () => {
         const namedRoundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundName: 'Semi-Finals', roundId: 1, heatNumber: 1, laneResults: '[]', totalParticipants: 10, advancementNumRacers: null, advancementSource: null },
+            { id: 1, roundNumber: 1, roundName: 'Semi-Finals', roundId: 1, heatNumber: 1, laneResults: '[]' },
         ];
 
         render(
@@ -336,6 +332,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -350,58 +347,10 @@ describe('ScheduleManagement', () => {
         expect(screen.queryByText('Round 1')).not.toBeInTheDocument();
     });
 
-    it.skip('hides regenerate button for championship rounds', async () => {
-        const roundId = 1;
-        const heats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: roundId, heatNumber: 1, laneResults: '[{"racer_id": -1, "lane": 1}]', totalParticipants: 3, roundName: 'Round 1', advancementNumRacers: 3, advancementSource: 'PACK' },
-        ];
-
-        // Mock apiClient to return advancement status for this round
-        (apiClient.get as any).mockImplementation((url: string) => {
-            if (url.endsWith('advancement_status')) {
-                return Promise.resolve({
-                    already_advanced: false,
-                    is_ready: true,
-                    advancing_racers: []
-                });
-            }
-            return Promise.resolve({});
-        });
-
-        render(
-            <AlertProvider>
-                <ScheduleManagement 
-                    raceId={1}
-                    heats={heats} 
-                    generating={false} 
-                    activeHeatId={null}
-                    onAddRound={mockOnAddRound}
-                    onRegenerateRound={mockOnRegenerateRound}
-                    onDeleteRound={mockOnDeleteRound}
-                    onRunHeat={mockOnRunHeat}
-                    getRacerName={mockGetRacerName}
-                    onRefetchHeats={vi.fn()}
-                    laneCount={4}
-                    racerCount={10}
-                    denCount={3}
-                    championshipTrophies={3}
-                />
-            </AlertProvider>
-        );
-
-        // Verify API was called
-        // We know it might take a tick, so we wait or expect
-        
-        // Wait for usage of useEffect
-        await screen.findByText(/Auto-Advancement Pending/i);
-
-        // Check that regenerate button is NOT present
-        expect(screen.queryByText('Regenerate')).not.toBeInTheDocument();
-    });
-
     it('disables add round button if final round exists', () => {
+        // The check for "final" in name is simple string match as per component logic
         const finalHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', totalParticipants: 3, roundName: 'Final Round', advancementNumRacers: 3, advancementSource: 'PACK' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Final Round' },
         ];
         render(
             <AlertProvider>
@@ -414,6 +363,7 @@ describe('ScheduleManagement', () => {
                     onRegenerateRound={mockOnRegenerateRound}
                     onDeleteRound={mockOnDeleteRound}
                     onRunHeat={mockOnRunHeat}
+                    onReorderHeats={mockOnReorderHeats}
                     getRacerName={mockGetRacerName}
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
@@ -430,7 +380,7 @@ describe('ScheduleManagement', () => {
     it('calls onDeleteRound when delete button is clicked', async () => {
         const user = (await import('@testing-library/user-event')).default.setup();
         const roundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1', advancementNumRacers: null, advancementSource: null },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
         ];
         
         render(
@@ -463,7 +413,7 @@ describe('ScheduleManagement', () => {
 
     it('disables delete button if round has results', () => {
         const heatsWithResults: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": 1, "lane": 1, "time": 3.45}]', roundName: 'Round 1', advancementNumRacers: null, advancementSource: null },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": 1, "lane": 1, "time": 3.45}]', roundName: 'Round 1' },
         ];
         
         render(
@@ -490,15 +440,13 @@ describe('ScheduleManagement', () => {
         
         const deleteBtn = screen.getByLabelText(/delete round 1/i);
         expect(deleteBtn).toBeDisabled();
-        // Since we changed the ScheduleManagement to add aria-label, the title logic might have stayed the same?
-        // Let's check ScheduleManagement.tsx title logic.
         expect(deleteBtn).toHaveAttribute('title', 'Cannot delete round: it has heats with results');
   });
 
   it('disables delete button for general round if championship round exists', () => {
     const multiRoundHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'General', advancementNumRacers: null, advancementSource: null },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', roundName: 'Finals', advancementNumRacers: 3, advancementSource: 'PACK' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'General' },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', roundName: 'Finals' },
     ];
     
     render(
@@ -528,4 +476,3 @@ describe('ScheduleManagement', () => {
     expect(deleteBtn).toHaveAttribute('title', 'Cannot delete general round: championship rounds are already scheduled');
   });
 });
-

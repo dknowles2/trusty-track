@@ -25,7 +25,8 @@ interface RaceFormProps {
     submitLabel?: string;
 }
 
-import { apiClient } from '../api/client';
+import { useQuery } from 'urql';
+import { GET_TRACKS } from '../graphql/raceDetails';
 
 export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save' }: RaceFormProps) {
     const [formData, setFormData] = useState<RaceFormData>({
@@ -40,27 +41,16 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         championship_trophies: 3,
         ...initialData
     });
-    const [tracks, setTracks] = useState<Track[]>([]);
     const [loading, setLoading] = useState(false);
-    const [fetchingTracks, setFetchingTracks] = useState(true);
+    const [tracksResult] = useQuery({ query: GET_TRACKS });
+    const tracks = tracksResult.data?.tracks || [];
+    const fetchingTracks = tracksResult.fetching;
 
     useEffect(() => {
-        fetchTracks();
-    }, []);
-
-    const fetchTracks = async () => {
-        try {
-            const data = await apiClient.get('/tracks/');
-            setTracks(data);
-            if (data.length > 0 && !formData.track_id) {
-                setFormData(prev => ({ ...prev, track_id: data[0].id }));
-            }
-        } catch (e) {
-            console.error("Failed to fetch tracks", e);
-        } finally {
-            setFetchingTracks(false);
+        if (tracks.length > 0 && !formData.track_id) {
+            setFormData(prev => ({ ...prev, track_id: tracks[0].id }));
         }
-    };
+    }, [tracks]);
 
     useEffect(() => {
         if (initialData) {
