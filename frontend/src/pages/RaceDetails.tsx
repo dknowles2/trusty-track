@@ -905,7 +905,7 @@ export default function RaceDetails() {
                                                         padding: '4px 8px', 
                                                         borderRadius: '12px', 
                                                         backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
-                                                        color: '#333',
+                                                        color: getContrastColor(dens.find(d => d.id === racer.den_id)?.color || '#eee'),
                                                         fontSize: '0.85rem',
                                                         fontWeight: 'bold'
                                                     }}>
@@ -991,7 +991,7 @@ export default function RaceDetails() {
                                                 padding: '4px 8px', 
                                                 borderRadius: '12px', 
                                                 backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
-                                                color: '#333',
+                                                color: getContrastColor(dens.find(d => d.id === racer.den_id)?.color || '#eee'),
                                                 fontSize: '0.85rem',
                                                 fontWeight: 'bold'
                                             }}>
