@@ -7,6 +7,17 @@ import { apiClient } from '../api/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { AlertProvider } from '../context/AlertContext';
+import { useQuery, useMutation } from 'urql';
+
+// Mock urql
+vi.mock('urql', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('urql')>();
+    return {
+        ...actual,
+        useQuery: vi.fn(),
+        useMutation: vi.fn(),
+    };
+});
 
 const mockShowAlert = vi.fn();
 const mockShowToast = vi.fn();
@@ -52,13 +63,30 @@ describe('RaceDetails Populate', () => {
             car_numbering_strategy: 'PER_GROUP'
         };
 
-        // Setup mock return values
+        (useQuery as any).mockReturnValue([{
+            data: {
+                race: {
+                    id: mockRace.id,
+                    name: mockRace.name,
+                    dateTime: mockRace.date_time,
+                    scoringStrategy: 'TIMED',
+                    carNumberingStrategy: 'PER_GROUP',
+                    track: { name: 'Main Track' },
+                    racers: [],
+                    dens: [],
+                    leaderboard: []
+                },
+                tracks: [{ id: 1, name: 'Main Track' }]
+            },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+        // Mock tracks fetch for RaceForm
         (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/races/1') return Promise.resolve(mockRace);
-            if (url.includes('/racers/')) return Promise.resolve([]);
-            if (url.includes('/dens/')) return Promise.resolve([]);
-            if (url.includes('/scores')) return Promise.resolve({ race_id: 1, scoring_strategy: 'TIMED', leaderboard: [] });
-            if (url.includes('/config')) return Promise.resolve({ timer_type: 'FAKE' });
+            if (url === '/tracks/') return Promise.resolve([{ id: 1, name: 'Default Track' }]);
             return Promise.resolve({});
         });
 
@@ -86,7 +114,6 @@ describe('RaceDetails Populate', () => {
         await user.click(populateBtn);
 
         // 3. Verify Modal Open
-        // Check for the modal title (might be multiple if button has same text, so use GetAll or look for input)
         expect(screen.getByLabelText('Number of Racers:')).toBeInTheDocument();
 
         // 4. Change input to 15
@@ -106,20 +133,33 @@ describe('RaceDetails Populate', () => {
             assign_dens: true,
             check_in: false
         });
-
-        // 7. Verify roster is refreshed
-        expect(apiClient.get).toHaveBeenCalledWith('/racers/?race_id=1');
     });
 
     it('validates input in modal', async () => {
         const user = userEvent.setup();
         
-        // Mock race data
+        (useQuery as any).mockReturnValue([{
+            data: {
+                race: {
+                    id: 1, 
+                    name: 'Test Race',
+                    scoringStrategy: 'TIMED',
+                    carNumberingStrategy: 'PER_GROUP',
+                    racers: [],
+                    dens: [],
+                    leaderboard: []
+                },
+                tracks: []
+            },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+        // Mock tracks fetch for RaceForm
         (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/races/1') return Promise.resolve({ id: 1, name: 'Test Race' });
-            if (url.includes('/scores')) return Promise.resolve({ race_id: 1, scoring_strategy: 'TIMED', leaderboard: [] });
-            if (url.includes('/config')) return Promise.resolve({ timer_type: 'FAKE' });
-            return Promise.resolve([]);
+            if (url === '/tracks/') return Promise.resolve([{ id: 1, name: 'Default Track' }]);
+            return Promise.resolve({});
         });
 
         render(
@@ -131,8 +171,6 @@ describe('RaceDetails Populate', () => {
                 </MemoryRouter>
             </AlertProvider>
         );
-
-        await waitFor(() => screen.getByText('Test Race'));
 
         await waitFor(() => screen.getByText('Test Race'));
 

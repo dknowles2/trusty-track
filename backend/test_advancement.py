@@ -1,17 +1,19 @@
+import json
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from backend import models, scoring
 from backend.main import app, get_db
-import json
-import pytest
 
 # Use separate SQLite for this test file
 
-client = TestClient(app)
+# client = TestClient(app) # Remove global client to use fixture
 
 
-def test_full_advancement_flow():
+def test_full_advancement_flow(client, default_track):
     # 1. Setup: Create race, den, and racers
     group_resp = client.post("/groups/", json={"name": "Pack 123"})
     group_id = group_resp.json()["id"]
@@ -21,7 +23,7 @@ def test_full_advancement_flow():
         json={
             "name": "Championship Test",
             "group_id": group_id,
-            "lane_count": 2,
+            "track_id": default_track,
             "car_numbering_strategy": "MANUAL",
         },
     )

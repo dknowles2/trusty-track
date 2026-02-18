@@ -5,6 +5,18 @@ import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/re
 import RaceDetails from './RaceDetails';
 import { apiClient } from '../api/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { useQuery, useMutation } from 'urql';
+import * as GQL from '../graphql/raceDetails';
+
+// Mock urql
+vi.mock('urql', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('urql')>();
+    return {
+        ...actual,
+        useQuery: vi.fn(),
+        useMutation: vi.fn(),
+    };
+});
 
 // Cleanup after each test
 afterEach(() => {
@@ -44,12 +56,45 @@ describe('RaceDetails Bulk Actions', () => {
     ];
     const mockDens = [{ id: 1, name: 'Tigers', color: 'orange' }];
 
+    // Prepare mutation mocks
+    const mockBulkAutoNumber = vi.fn().mockResolvedValue({ data: { bulkAutoNumber: 2 } });
+    const mockBulkDelete = vi.fn().mockResolvedValue({ data: { bulkDeleteRacers: true } });
+    const mockBulkMoveToDen = vi.fn().mockResolvedValue({ data: { bulkMoveToDen: true } });
+
     const setupMocks = () => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                race: {
+                    id: mockRace.id,
+                    name: mockRace.name,
+                    dateTime: mockRace.date_time,
+                    scoringStrategy: 'TIMED',
+                    carNumberingStrategy: 'PER_GROUP',
+                    racers: mockRacers.map(r => ({ 
+                        id: r.id,
+                        firstName: r.first_name,
+                        lastName: r.last_name,
+                        carNumber: r.car_number,
+                        den: (mockDens.find(d => d.id === r.den_id) || { name: 'Unknown', color: 'gray' })
+                    })),
+                    dens: mockDens.map(d => ({ ...d, racerCount: 0 })),
+                    leaderboard: []
+                },
+                tracks: []
+            },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        (useMutation as any).mockImplementation((query: any) => {
+            if (query === GQL.BULK_AUTO_NUMBER) return [{ fetching: false }, mockBulkAutoNumber];
+            if (query === GQL.BULK_DELETE_RACERS) return [{ fetching: false }, mockBulkDelete];
+            if (query === GQL.BULK_MOVE_TO_DEN) return [{ fetching: false }, mockBulkMoveToDen];
+            return [{ fetching: false }, vi.fn()];
+        });
+
+        // Mock tracks fetch for RaceForm
         (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/races/1') return Promise.resolve(mockRace);
-            if (url.includes('/racers/')) return Promise.resolve(mockRacers);
-            if (url.includes('/dens/')) return Promise.resolve(mockDens);
-            if (url.includes('/scores')) return Promise.resolve({ leaderboard: [] });
             if (url === '/tracks/') return Promise.resolve([]);
             return Promise.resolve({});
         });
@@ -68,7 +113,6 @@ describe('RaceDetails Bulk Actions', () => {
         const bulkMenuBtn = screen.getByRole('button', { name: /Bulk Actions/i });
         expect(bulkMenuBtn).toBeDisabled();
 
-        // Select first racer using data-testid
         const alphaCheckbox = screen.getByTestId('racer-select-1');
         fireEvent.click(alphaCheckbox);
 
@@ -98,7 +142,6 @@ describe('RaceDetails Bulk Actions', () => {
 
     it('triggers bulk auto-number action', async () => {
         setupMocks();
-        (apiClient.post as any).mockResolvedValue({ message: 'Success', updated_count: 2 });
         
         const user = (await import('@testing-library/user-event')).default.setup();
         
@@ -110,28 +153,24 @@ describe('RaceDetails Bulk Actions', () => {
 
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
 
-        // Select All
         const selectAllCheckbox = screen.getByTestId('select-all-header');
         await user.click(selectAllCheckbox);
 
-        // Open Bulk Menu
         const bulkMenuBtn = screen.getByRole('button', { name: /Bulk Actions/i });
         await user.click(bulkMenuBtn);
 
-        // Click Auto Number - use data-testid and findBy
         const autoNumBtn = await screen.findByTestId('bulk-auto-number-btn');
         await user.click(autoNumBtn);
 
-        expect(apiClient.post).toHaveBeenCalledWith('/racers/bulk_auto_number', {
-            racer_ids: [1, 2]
+        expect(mockBulkAutoNumber).toHaveBeenCalledWith({
+            racerIds: [1, 2]
         });
-        await waitFor(() => expect(mockShowAlert).toHaveBeenCalledWith('Success', 'Bulk Auto-Number Result'));
+        await waitFor(() => expect(mockShowAlert).toHaveBeenCalledWith('Successfully auto-numbered 2 racers', 'Bulk Auto-Number Result'));
     });
 
     it('triggers bulk delete action after confirmation', async () => {
         setupMocks();
         mockShowConfirm.mockResolvedValue(true);
-        (apiClient.post as any).mockResolvedValue({ message: 'Deleted' });
         
         const user = (await import('@testing-library/user-event')).default.setup();
         
@@ -143,7 +182,6 @@ describe('RaceDetails Bulk Actions', () => {
 
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
 
-        // Select ONLY Alpha
         const alphaCheckbox = screen.getByTestId('racer-select-1');
         await user.click(alphaCheckbox);
 
@@ -154,8 +192,8 @@ describe('RaceDetails Bulk Actions', () => {
         await user.click(deleteBtn);
 
         expect(mockShowConfirm).toHaveBeenCalled();
-        expect(apiClient.post).toHaveBeenCalledWith('/racers/bulk_delete', {
-            racer_ids: [1]
+        expect(mockBulkDelete).toHaveBeenCalledWith({
+            racerIds: [1]
         });
     });
 
@@ -174,15 +212,11 @@ describe('RaceDetails Bulk Actions', () => {
         await user.click(screen.getByTestId('racer-select-1'));
         await user.click(screen.getByRole('button', { name: /Bulk Actions/i }));
 
-        // Hover to expand "Move to den"
         const expandBtn = await screen.findByTestId('bulk-move-to-den-expand-btn');
         await user.hover(expandBtn);
 
-        // Check if den "Tigers" is visible in the submenu - need to wait for the timeout
         const tigerOption = await screen.findByTestId('bulk-move-to-den-1');
         expect(tigerOption).toHaveTextContent('Tigers');
-        
-        // Check if "Unassigned" is visible
         expect(screen.getByTestId('bulk-move-to-unassigned')).toBeInTheDocument();
     });
 });
