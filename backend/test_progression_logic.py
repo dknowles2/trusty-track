@@ -1,16 +1,23 @@
+import json
+
 import pytest
 from sqlalchemy.orm import Session
+
 from . import crud, models, schemas
-import json
 
 
 def test_championship_rounds_populate_sequentially(db: Session):
     # 1. Setup Race and Config
     config = schemas.InitialConfigCreate(
         group_name="Progression Test Group",
-        lane_count=4,
-        length_feet=40,
-        timer_type="FAKE",
+        tracks=[
+            schemas.TrackCreate(
+                name="Progressive Track",
+                lane_count=4,
+                length_feet=40,
+                timer_type=models.TimerType.FAKE,
+            )
+        ],
     )
     # Clear existing if any (simplification for test env)
     db.query(models.Heat).delete()
@@ -24,8 +31,10 @@ def test_championship_rounds_populate_sequentially(db: Session):
     crud.create_initial_config(db, config)
 
     # Create the race explicitly
+    group = db.query(models.Group).first()
+    track = db.query(models.Track).first()
     race_in = schemas.RaceCreate(
-        name="Progression Test Race", group_id=db.query(models.Group).first().id
+        name="Progression Test Race", group_id=group.id, track_id=track.id
     )
     crud.create_race(db, race_in)
 
@@ -88,7 +97,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
     # We need to assign times such that we have clear winners
     # Racers 0-7 get fast times (1.0s), others get slow (2.0s)
 
-    from .main import update_heat, _check_and_advance_championship
+    from .main import _check_and_advance_championship, update_heat
 
     for heat in r1_heats:
         results = json.loads(heat.lane_results)

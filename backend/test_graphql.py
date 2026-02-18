@@ -31,7 +31,7 @@ def test_create_and_query_race(client):
     # 2. Create a race via GraphQL
     mutation = f"""
     mutation {{
-        createRace(name: "GraphQL Race", groupId: {group_id}, trackId: {track_id}) {{
+        createRace(race: {{ name: "GraphQL Race", groupId: {group_id}, trackId: {track_id} }}) {{
             id
             name
             groupId

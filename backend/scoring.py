@@ -5,10 +5,12 @@ This module provides functions to calculate scores and generate leaderboards
 based on different scoring strategies (TIMED or POINTS).
 """
 
-from typing import Dict, List, Optional
-from sqlalchemy.orm import Session
-from . import models, crud
 import json
+from typing import Dict, List, Optional
+
+from sqlalchemy.orm import Session
+
+from . import crud, models
 
 
 def calculate_racer_scores(db: Session, race_id: int) -> Dict[int, Dict[str, float]]:
@@ -152,7 +154,7 @@ def get_leaderboard(db: Session, race_id: int) -> List[Dict]:
     # Sort by score (ascending - lower is better for both strategies)
     leaderboard.sort(
         key=lambda x: (
-            x["score"] if x["heats_completed"] > 0 else float("inf"),
+            float(x["score"]) if x["heats_completed"] > 0 else float("inf"),
             x["racer_id"],
         )
     )

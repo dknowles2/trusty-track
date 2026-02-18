@@ -1,11 +1,12 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from . import models
 from .main import app, get_db
 
 
-def create_test_race(client):
+def create_test_race(client, track_id: int):
     resp = client.post("/groups/", json={"name": "Schedule Group"})
     assert resp.status_code == 200, f"Create group failed: {resp.text}"
     group = resp.json()
@@ -16,6 +17,7 @@ def create_test_race(client):
         json={
             "name": "Schedule Race",
             "group_id": group_id,
+            "track_id": track_id,
             "car_numbering_strategy": "MANUAL",
         },
     )
@@ -28,8 +30,8 @@ def create_test_race(client):
     return races[0]["id"]
 
 
-def test_generate_schedule_not_enough_racers(client):
-    race_id = create_test_race(client)
+def test_generate_schedule_not_enough_racers(client, default_track):
+    race_id = create_test_race(client, default_track)
 
     # 2. Add 1 Racer
     racer_data = {
@@ -49,8 +51,8 @@ def test_generate_schedule_not_enough_racers(client):
     assert "not enough racers" in round_response.json()["detail"].lower()
 
 
-def test_generate_schedule_success_with_min_racers(client):
-    race_id = create_test_race(client)
+def test_generate_schedule_success_with_min_racers(client, default_track):
+    race_id = create_test_race(client, default_track)
 
     # Ensure 2 racers
     for i in range(2):
@@ -82,8 +84,8 @@ def test_generate_schedule_success_with_min_racers(client):
     assert len(round_heats) == 2
 
 
-def test_generate_ppc_schedule(client):
-    race_id = create_test_race(client)
+def test_generate_ppc_schedule(client, default_track):
+    race_id = create_test_race(client, default_track)
 
     # Ensure 2 racers
     for i in range(2):

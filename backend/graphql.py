@@ -156,6 +156,22 @@ class RaceInput:
 
 
 @strawberry.input
+class RaceUpdateInput:
+    """
+    Input type for updating an existing race event.
+    """
+
+    name: Optional[str] = None
+    date_time: Optional[str] = None
+    location: Optional[str] = None
+    track_id: Optional[int] = None
+    scoring_strategy: Optional[str] = None
+    car_numbering_strategy: Optional[str] = None
+    global_start_number: Optional[int] = None
+    championship_trophies: Optional[int] = None
+
+
+@strawberry.input
 class TrackInput:
     """
     Input type for creating or updating a physical track configuration.
@@ -198,6 +214,24 @@ class WizardConfigurationInput:
 
     general_round: WizardGeneralRoundInput
     championship_rounds: List[WizardChampionshipRoundInput]
+
+
+@strawberry.type
+class LeaderboardEntry:
+    """
+    Represents a single entry in the race leaderboard.
+    """
+
+    racer_id: int
+    first_name: str
+    last_name: str
+    car_number: Optional[int]
+    den_id: Optional[int]
+    den_name: str
+    score: float
+    heats_completed: int
+    racer_image_url: Optional[str]
+    rank: int
 
 
 @strawberry.type
@@ -272,6 +306,12 @@ class Race:
     global_start_number: int
     championship_trophies: int
     scoring_strategy: str
+
+    @strawberry.field
+    def leaderboard(self, info: Info) -> List[LeaderboardEntry]:
+        """Get the current leaderboard for this race."""
+        standings = scoring.get_leaderboard(info.context["db"], self.id)
+        return [LeaderboardEntry(**s) for s in standings]
 
     @strawberry.field
     def registered_count(self, info: Info) -> int:
@@ -568,6 +608,23 @@ class Mutation:
         race_in = schemas.RaceCreate(**typing.cast(Any, strawberry.asdict(race)))
         return typing.cast(Any, crud.create_race(info.context["db"], race_in))
 
+    @strawberry.mutation
+    def update_race(self, info: Info, id: int, race: RaceUpdateInput) -> Optional[Race]:
+        """Update an existing race."""
+        db = info.context["db"]
+        data = strawberry.asdict(race)
+        filtered_data = {k: v for k, v in data.items() if v is not None}
+        race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
+        return typing.cast(
+            Any, crud.update_race(db, race_id=id, race_update=race_update)
+        )
+
+    @strawberry.mutation
+    def delete_race(self, info: Info, id: int) -> bool:
+        """Delete a race."""
+        db = info.context["db"]
+        return crud.delete_race(db, race_id=id)
+
     # Racer Mutations
     @strawberry.mutation
     def create_racer(self, info: Info, racer: RacerInput) -> Racer:
@@ -580,7 +637,9 @@ class Mutation:
     def update_racer(self, info: Info, id: int, racer: RacerInput) -> Optional[Racer]:
         """Update an existing racer."""
         db = info.context["db"]
-        racer_update = schemas.RacerUpdate(**typing.cast(Any, strawberry.asdict(racer)))
+        data = strawberry.asdict(racer)
+        filtered_data = {k: v for k, v in data.items() if v is not None}
+        racer_update = schemas.RacerUpdate(**typing.cast(Any, filtered_data))
         return typing.cast(
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
@@ -814,7 +873,9 @@ class Mutation:
         return True
 
     @strawberry.mutation
-    def bulk_move_to_den(self, info: Info, racer_ids: List[int], den_id: int) -> bool:
+    def bulk_move_to_den(
+        self, info: Info, racer_ids: List[int], den_id: Optional[int]
+    ) -> bool:
         """Bulk move racers to a den."""
         db = info.context["db"]
         crud.bulk_move_racers_to_den(db, racer_ids, den_id)

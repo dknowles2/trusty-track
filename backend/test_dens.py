@@ -1,15 +1,17 @@
-from fastapi.testclient import TestClient
-from backend.main import app
 import uuid
 
-client = TestClient(app)
+from fastapi.testclient import TestClient
+
+from backend.main import app
+
+# client = TestClient(app) # Remove global client to use fixture
 
 
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
 
-def create_race_context():
+def create_race_context(client, track_id: int):
     # Helper to create a race and return its ID
     group_name = get_unique_name("Test Group")
     resp_group = client.post("/groups/", json={"name": group_name})
@@ -18,13 +20,13 @@ def create_race_context():
     race_name = get_unique_name("Test Race")
     resp_race = client.post(
         "/races/",
-        json={"name": race_name, "group_id": group_id},
+        json={"name": race_name, "group_id": group_id, "track_id": track_id},
     )
     return resp_race.json()["id"]
 
 
-def test_delete_den_logic():
-    race_id = create_race_context()
+def test_delete_den_logic(client, default_track):
+    race_id = create_race_context(client, default_track)
 
     # 1. Create a Den
     print("Creating Den...")
@@ -78,8 +80,8 @@ def test_delete_den_logic():
     assert target_racer["den_id"] is None
 
 
-def test_edit_den_logic():
-    race_id = create_race_context()
+def test_edit_den_logic(client, default_track):
+    race_id = create_race_context(client, default_track)
 
     # 1. Create a Den
     den_name = get_unique_name("EditMe")

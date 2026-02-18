@@ -1,28 +1,32 @@
+import json
+import uuid
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from backend import models
 from backend.main import app, get_db
-import uuid
-import json
-import pytest
 
-
-client = TestClient(app)
+# client = TestClient(app) # Remove global client to use fixture
 
 
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
 
-def test_rerun_last_heat_clears_next_round():
+def test_rerun_last_heat_clears_next_round(client, default_track):
     # 1. Setup Race
     group_name = get_unique_name("Rerun Group")
     resp_group = client.post("/groups/", json={"name": group_name})
     group_id = resp_group.json()["id"]
 
     race_name = get_unique_name("Rerun Race")
-    resp_race = client.post("/races/", json={"name": race_name, "group_id": group_id})
+    resp_race = client.post(
+        "/races/",
+        json={"name": race_name, "group_id": group_id, "track_id": default_track},
+    )
     race_id = resp_race.json()["id"]
 
     # 2. Add Racers
