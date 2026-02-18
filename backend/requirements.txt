@@ -4,3 +4,5 @@ pytest
 sqlalchemy
 httpx
 strawberry-graphql
+numpy
+Pillow

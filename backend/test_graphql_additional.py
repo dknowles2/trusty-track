@@ -1,24 +1,25 @@
 import json
 
-from backend.main import app
+from backend import crud, models, schemas
 
 
-def test_populate_race(client, default_track):
+def test_populate_race(client, db):
     """Test the populateRace mutation."""
     # Setup
-    group_resp = client.post("/groups/", json={"name": "Populate Group"})
-    group_id = group_resp.json()["id"]
+    group = crud.create_group(db, schemas.GroupCreate(name="Populate Group"))
+    track = crud.create_track(
+        db, schemas.TrackCreate(name="Populate Track", lane_count=4)
+    )
 
-    mutation_create_race = f"""
+    mutation_create = f"""
     mutation {{
-        createRace(race: {{name: "Populate Race", groupId: {group_id}, trackId: {default_track}}}) {{
+        createRace(race: {{name: "Populate Race", groupId: {group.id}, trackId: {track.id}}}) {{
             id
         }}
     }}
     """
-    race_id = client.post("/graphql", json={"query": mutation_create_race}).json()[
-        "data"
-    ]["createRace"]["id"]
+    resp = client.post("/graphql", json={"query": mutation_create})
+    race_id = resp.json()["data"]["createRace"]["id"]
 
     # 1. Populate Race
     mutation_populate = f"""
@@ -37,37 +38,22 @@ def test_populate_race(client, default_track):
     assert "Populated race" in response.json()["data"]["populateRace"]
 
     # Verify racers created
-    query_racers = f"""
-    query {{
-        racers(raceId: {race_id}) {{
-            id
-            carPassedInspection
-        }}
-    }}
-    """
-    racers = client.post("/graphql", json={"query": query_racers}).json()["data"][
-        "racers"
-    ]
+    racers = crud.get_racers(db, race_id=race_id)
     assert len(racers) == 5
-    assert racers[0]["carPassedInspection"] is True
+    assert racers[0].car_passed_inspection is True
 
 
-def test_import_racers(client, default_track):
+def test_import_racers(client, db):
     """Test the importRacers mutation."""
     # Setup
-    group_resp = client.post("/groups/", json={"name": "Import Group"})
-    group_id = group_resp.json()["id"]
-
-    mutation_create_race = f"""
-    mutation {{
-        createRace(race: {{name: "Import Race", groupId: {group_id}, trackId: {default_track}}}) {{
-            id
-        }}
-    }}
-    """
-    race_id = client.post("/graphql", json={"query": mutation_create_race}).json()[
-        "data"
-    ]["createRace"]["id"]
+    group = crud.create_group(db, schemas.GroupCreate(name="Import Group"))
+    track = crud.create_track(
+        db, schemas.TrackCreate(name="Import Track", lane_count=4)
+    )
+    race = crud.create_race(
+        db, schemas.RaceCreate(name="Import Race", group_id=group.id, track_id=track.id)
+    )
+    race_id = race.id
 
     csv_content = "first_name,last_name,car_number,den\nAlice,Smith,101,Lions\nBob,Jones,102,Tigers"
 
@@ -82,50 +68,32 @@ def test_import_racers(client, default_track):
     assert response.json()["data"]["importRacers"] == 2
 
     # Verify racers and dens
-    query_race = f"""
-    query {{
-        race(raceId: {race_id}) {{
-            racers {{ id firstName denId }}
-            dens {{ id name }}
-        }}
-    }}
-    """
-    data = client.post("/graphql", json={"query": query_race}).json()["data"]["race"]
-    assert len(data["racers"]) == 2
-    assert len(data["dens"]) == 2
-    names = [d["name"] for d in data["dens"]]
+    racers = crud.get_racers(db, race_id=race_id)
+    assert len(racers) == 2
+    dens = db.query(models.Den).filter(models.Den.race_id == race_id).all()
+    assert len(dens) == 2
+    names = [d.name for d in dens]
     assert "Lions" in names
     assert "Tigers" in names
 
 
-def test_create_round_regular(client, default_track):
+def test_create_round_regular(client, db):
     """Test the createRound mutation."""
     # Setup
-    group_resp = client.post("/groups/", json={"name": "Round Group"})
-    group_id = group_resp.json()["id"]
+    group = crud.create_group(db, schemas.GroupCreate(name="Round Group"))
+    track = crud.create_track(db, schemas.TrackCreate(name="Round Track", lane_count=4))
+    race = crud.create_race(
+        db, schemas.RaceCreate(name="Round Race", group_id=group.id, track_id=track.id)
+    )
+    race_id = race.id
 
-    race_id = client.post(
-        "/graphql",
-        json={
-            "query": f"""
-    mutation {{
-        createRace(race: {{name: "Round Race", groupId: {group_id}, trackId: {default_track}}}) {{ id }}
-    }}
-    """
-        },
-    ).json()["data"]["createRace"]["id"]
-
-    # Populate some racers
-    client.post(
-        "/graphql",
-        json={
-            "query": f"""
+    # Populate
+    mutation_populate = f"""
     mutation {{
         populateRace(raceId: {race_id}, config: {{count: 4}})
     }}
     """
-        },
-    )
+    client.post("/graphql", json={"query": mutation_populate})
 
     # 1. Create General Round
     mutation_round = f"""
@@ -133,7 +101,8 @@ def test_create_round_regular(client, default_track):
         createRound(raceId: {race_id}, roundData: {{
             schedulingStrategy: "PPC",
             name: "Qualifying",
-            runsPerLane: 1
+            runsPerLane: 1,
+            generalType: "PACK"
         }}) {{
             id
             name
@@ -148,14 +117,5 @@ def test_create_round_regular(client, default_track):
     assert rounds[0]["name"] == "Qualifying"
 
     # Verify heats generated
-    query_heats = f"""
-    query {{
-        race(raceId: {race_id}) {{
-            heats {{ id }}
-        }}
-    }}
-    """
-    heats = client.post("/graphql", json={"query": query_heats}).json()["data"]["race"][
-        "heats"
-    ]
+    heats = crud.get_heats(db, race_id)
     assert len(heats) > 0

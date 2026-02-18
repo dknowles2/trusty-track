@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
-import { apiClient } from '../api/client';
+
 import { useAlert } from '../context/AlertContext';
+import { apiClient } from '../api/client';
 import RacerForm, { RacerData, Den } from '../components/RacerForm';
 import DenManager from '../components/DenManager';
 import Modal from '../components/Modal';

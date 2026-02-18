@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
-import { apiClient } from '../api/client';
+import { useState } from 'react';
 import Modal from './Modal';
+import { useMutation } from 'urql';
+import { IMPORT_RACERS } from '../graphql/raceDetails';
 
 interface ImportRacersModalProps {
     isOpen: boolean;
@@ -13,10 +14,10 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
     const [file, setFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [status, setStatus] = useState<{ type: 'success' | 'error', message: string, errors?: string[] } | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [, importRacersMutation] = useMutation(IMPORT_RACERS);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
+        if (e.target.files && e.target.files.length > 0) {
             setFile(e.target.files[0]);
             setStatus(null);
         }
@@ -31,37 +32,47 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
         setUploading(true);
         setStatus(null);
 
-        const formData = new FormData();
-        formData.append('file', file);
+        const reader = new FileReader();
 
-        try {
-            const response = await apiClient.post(`/races/${raceId}/import-racers`, formData);
+        reader.onload = async (e) => {
+            const csvData = e.target?.result as string;
             
-            // Axios response.data might be the object returned from backend
-            const result = response; 
+            try {
+                const result = await importRacersMutation({ raceId, csvData });
+                
+                if (result.error) {
+                    throw result.error;
+                }
 
-            if (result.errors && result.errors.length > 0) {
-                 setStatus({ 
-                    type: 'success', // Partial success is still success-ish but with warnings
-                    message: result.message,
-                    errors: result.errors
+                const importedCount = result.data.importRacers;
+                setStatus({ type: 'success', message: `Successfully imported ${importedCount} racers.` });
+                onImportSuccess();
+
+            } catch (error: any) {
+                console.error("Import failed", error);
+                
+                let message = "Failed to import racers. Please try again.";
+                if (error.graphQLErrors && error.graphQLErrors.length > 0) {
+                    message = error.graphQLErrors[0].message;
+                } else if (error.message) {
+                    message = error.message;
+                }
+                
+                setStatus({ 
+                    type: 'error', 
+                    message: message
                 });
-            } else {
-                 setStatus({ type: 'success', message: result.message });
-                 onImportSuccess();
-                 // Close after a brief delay if perfect success? Or let user close.
-                 // let's let user see the outcome.
+            } finally {
+                setUploading(false);
             }
+        };
 
-        } catch (e: any) {
-            console.error("Upload failed", e);
-            setStatus({ 
-                type: 'error', 
-                message: e.response?.data?.detail || "Failed to upload file. Please try again." 
-            });
-        } finally {
+        reader.onerror = () => {
+            setStatus({ type: 'error', message: "Failed to read file." });
             setUploading(false);
-        }
+        };
+
+        reader.readAsText(file);
     };
 
     const handleClose = () => {
@@ -70,58 +81,65 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
         onClose();
     };
 
-    return (
-        <Modal isOpen={isOpen} onClose={handleClose} title="Import Racers from CSV">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div style={{ backgroundColor: '#f0f7ff', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', color: '#003F87' }}>
-                    <p style={{ marginTop: 0, fontWeight: 'bold' }}>Instructions:</p>
-                    <p style={{ marginBottom: '0.5rem' }}>Upload a CSV file with the following headers:</p>
-                    <code style={{ background: 'white', padding: '4px', borderRadius: '4px', display: 'block', marginBottom: '0.5rem' }}>First Name, Last Name, Car Number, Den</code>
-                    <p style={{ marginBottom: 0 }}>The 'Den' column is optional. It will attempt to match existing Dens by name.</p>
-                </div>
+    if (!isOpen) return null;
 
-                <div>
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={handleClose}
+            title="Import Racers from CSV"
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <p style={{ color: '#666', lineHeight: '1.5' }}>
+                    Upload a CSV file with the following headers: 
+                    <code>First Name, Last Name, Car Number, Den</code>.
+                </p>
+
+                <div style={{ border: '2px dashed #ccc', padding: '2rem', borderRadius: '8px', textAlign: 'center' }}>
                     <input 
                         type="file" 
-                        accept=".csv"
-                        onChange={handleFileChange}
-                        ref={fileInputRef}
-                        style={{ display: 'block', width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
+                        accept=".csv" 
+                        onChange={handleFileChange} 
+                        style={{ display: 'none' }} 
+                        id="csv-upload-input"
                     />
+                    <label htmlFor="csv-upload-input" className="secondary-btn" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                        {file ? file.name : "Select CSV File"}
+                    </label>
                 </div>
 
                 {status && (
                     <div style={{ 
-                        padding: '1rem', 
-                        borderRadius: '8px', 
-                        backgroundColor: status.type === 'success' ? '#e6fffa' : '#fff5f5',
-                        color: status.type === 'success' ? '#006064' : '#c53030',
-                        border: `1px solid ${status.type === 'success' ? '#b2f5ea' : '#feb2b2'}`
+                        padding: '10px', 
+                        borderRadius: '4px', 
+                        backgroundColor: status.type === 'success' ? '#e8f5e9' : '#ffebee',
+                        color: status.type === 'success' ? '#2e7d32' : '#c62828'
                     }}>
                         <p style={{ margin: 0, fontWeight: 'bold' }}>{status.message}</p>
                         {status.errors && status.errors.length > 0 && (
-                            <ul style={{ marginTop: '0.5rem', marginBottom: 0, paddingLeft: '1.5rem' }}>
-                                {status.errors.map((err, i) => <li key={i}>{err}</li>)}
+                            <ul style={{ margin: '5px 0 0 20px', padding: 0 }}>
+                                {status.errors.map((err, idx) => (
+                                    <li key={idx}>{err}</li>
+                                ))}
                             </ul>
                         )}
                     </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button 
-                        onClick={handleUpload} 
-                        disabled={!file || uploading} 
-                        className="primary-btn" 
-                        style={{ flex: 1 }}
-                    >
-                        {uploading ? 'Uploading...' : 'Upload CSV'}
-                    </button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
                     <button 
                         onClick={handleClose} 
                         className="secondary-btn"
-                        style={{ background: 'transparent', border: '1px solid #ddd' }}
+                        disabled={uploading}
                     >
                         Close
+                    </button>
+                    <button 
+                        onClick={handleUpload} 
+                        className="primary-btn" 
+                        disabled={!file || uploading}
+                    >
+                        {uploading ? 'Importing...' : 'Import Racers'}
                     </button>
                 </div>
             </div>

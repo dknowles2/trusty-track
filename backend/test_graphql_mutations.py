@@ -1,13 +1,17 @@
-def test_racer_mutations(client):
+from backend import crud, schemas
+
+
+def test_racer_mutations(client, db):
     # Setup: Group, Track, Race
-    group_resp = client.post("/groups/", json={"name": "Racer Test Group"})
-    group_id = group_resp.json()["id"]
-    track_resp = client.post("/tracks/", json={"name": "Racer Track", "lane_count": 4})
-    track_id = track_resp.json()["id"]
+    group_in = schemas.GroupCreate(name="Racer Test Group")
+    group = crud.create_group(db, group_in)
+
+    track_in = schemas.TrackCreate(name="Racer Track", lane_count=4)
+    track = crud.create_track(db, track_in)
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Racer Race", groupId: {group_id}, trackId: {track_id}}}) {{
+        createRace(race: {{name: "Racer Race", groupId: {group.id}, trackId: {track.id}}}) {{
             id
         }}
     }}
@@ -80,15 +84,17 @@ def test_racer_mutations(client):
     assert response.json()["data"]["deleteRacer"] is True
 
 
-def test_den_mutations(client):
+def test_den_mutations(client, db):
     # Setup
-    group_resp = client.post("/groups/", json={"name": "Den Test Group"})
-    group_id = group_resp.json()["id"]
-    track_resp = client.post("/tracks/", json={"name": "Den Track", "lane_count": 4})
-    track_id = track_resp.json()["id"]
+    group_in = schemas.GroupCreate(name="Den Test Group")
+    group = crud.create_group(db, group_in)
+
+    track_in = schemas.TrackCreate(name="Den Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Den Race", groupId: {group_id}, trackId: {track_id}}}) {{
+        createRace(race: {{name: "Den Race", groupId: {group.id}, trackId: {track.id}}}) {{
             id
         }}
     }}
@@ -189,15 +195,17 @@ def test_track_mutations(client):
     assert response.json()["data"]["deleteTrack"] is True
 
 
-def test_round_wizard_and_advance(client):
+def test_round_wizard_and_advance(client, db):
     # Setup
-    group_resp = client.post("/groups/", json={"name": "Wizard Test Group"})
-    group_id = group_resp.json()["id"]
-    track_resp = client.post("/tracks/", json={"name": "Wizard Track", "lane_count": 4})
-    track_id = track_resp.json()["id"]
+    group_in = schemas.GroupCreate(name="Wizard Test Group")
+    group = crud.create_group(db, group_in)
+
+    track_in = schemas.TrackCreate(name="Wizard Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Wizard Race", groupId: {group_id}, trackId: {track_id}}}) {{
+        createRace(race: {{name: "Wizard Race", groupId: {group.id}, trackId: {track.id}}}) {{
             id
         }}
     }}
@@ -274,15 +282,17 @@ def test_round_wizard_and_advance(client):
     assert response.json()["data"]["deleteRound"] is True
 
 
-def test_bulk_mutations(client):
+def test_bulk_mutations(client, db):
     # Setup
-    group_resp = client.post("/groups/", json={"name": "Bulk Test Group"})
-    group_id = group_resp.json()["id"]
-    track_resp = client.post("/tracks/", json={"name": "Bulk Track", "lane_count": 4})
-    track_id = track_resp.json()["id"]
+    group_in = schemas.GroupCreate(name="Bulk Test Group")
+    group = crud.create_group(db, group_in)
+
+    track_in = schemas.TrackCreate(name="Bulk Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Bulk Race", groupId: {group_id}, trackId: {track_id}}}) {{
+        createRace(race: {{name: "Bulk Race", groupId: {group.id}, trackId: {track.id}}}) {{
             id
         }}
     }}
@@ -310,7 +320,15 @@ def test_bulk_mutations(client):
         racer_ids.append(resp.json()["data"]["createRacer"]["id"])
 
     # 1. Bulk Auto-Number (Need to set strategy first)
-    client.put(f"/races/{race_id}", json={"car_numbering_strategy": "GLOBAL"})
+    # Use GraphQL updateRace instead of REST PUT
+    mutation_update_race = f"""
+    mutation {{
+        updateRace(id: {race_id}, race: {{carNumberingStrategy: "GLOBAL"}}) {{
+            id
+        }}
+    }}
+    """
+    client.post("/graphql", json={"query": mutation_update_race})
 
     mutation_auto_number = f"""
     mutation {{

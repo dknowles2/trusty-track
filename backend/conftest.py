@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from backend import crud, schemas
 from backend.database import Base
 from backend.main import app, get_db
 
@@ -69,12 +70,12 @@ def client(db_session):
 
 
 @pytest.fixture(scope="function")
-def default_track(client):
+def default_track(db):
     """
     Creates a default track for tests that require one.
     """
-    resp = client.post(
-        "/tracks/",
-        json={"name": "Default Track", "lane_count": 4, "timer_type": "FAKE"},
+    track_in = schemas.TrackCreate(
+        name="Default Track", lane_count=4, timer_type="FAKE"
     )
-    return resp.json()["id"]
+    track = crud.create_track(db, track_in)
+    return track.id

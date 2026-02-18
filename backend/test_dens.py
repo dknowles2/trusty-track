@@ -1,118 +1,114 @@
 import uuid
 
-from fastapi.testclient import TestClient
-
-from backend.main import app
-
-# client = TestClient(app) # Remove global client to use fixture
+from backend import crud, schemas
 
 
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
 
-def create_race_context(client, track_id: int):
+def create_race_context(db):
     # Helper to create a race and return its ID
-    group_name = get_unique_name("Test Group")
-    resp_group = client.post("/groups/", json={"name": group_name})
-    group_id = resp_group.json()["id"]
+    group_in = schemas.GroupCreate(name=get_unique_name("Test Group"))
+    group = crud.create_group(db, group_in)
 
-    race_name = get_unique_name("Test Race")
-    resp_race = client.post(
-        "/races/",
-        json={"name": race_name, "group_id": group_id, "track_id": track_id},
+    track_in = schemas.TrackCreate(name="Den Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+
+    race_in = schemas.RaceCreate(
+        name=get_unique_name("Test Race"), group_id=group.id, track_id=track.id
     )
-    return resp_race.json()["id"]
+    race = crud.create_race(db, race_in)
+    return race.id
 
 
-def test_delete_den_logic(client, default_track):
-    race_id = create_race_context(client, default_track)
+def test_delete_den_logic(client, db):
+    race_id = create_race_context(db)
 
     # 1. Create a Den
     print("Creating Den...")
     den_name = get_unique_name("DeleteMe")
-    response = client.post(
-        f"/races/{race_id}/dens/",
-        json={"name": den_name, "color": "#000000", "rank": "LION"},
-    )
-    assert response.status_code == 200
-    den_id = response.json()["id"]
+    mutation_create = f"""
+    mutation {{
+        createDen(den: {{name: "{den_name}", color: "#000000", rank: "LION"}}, raceId: {race_id}) {{
+            id
+            name
+            raceId
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_create})
+    assert resp.status_code == 200
+    den_data = resp.json()["data"]["createDen"]
+    den_id = den_data["id"]
 
     # 2. Create a Racer in that Den
     print("Creating Racer...")
-    response = client.post(
-        "/racers/",
-        json={
-            "first_name": "Gone",
-            "last_name": "Soon",
-            "den_id": den_id,
-            "race_id": race_id,
-            "car_number": 999,
-            "car_passed_inspection": True,
-        },
+    r_in = schemas.RacerCreate(
+        first_name="Gone",
+        last_name="Soon",
+        den_id=den_id,
+        race_id=race_id,
+        car_number=999,
     )
+    racer = crud.create_racer(db, r_in)
+    racer_id = racer.id
+    assert racer.den_id == int(den_id)
 
-    assert response.status_code == 200
-    racer_id = response.json()["id"]
-    assert response.json()["den_id"] == den_id
-
-    # 3. Delete the Den (Global endpoint based on main.py check)
+    # 3. Delete the Den
     print("Deleting Den...")
-    # Assuming delete is still /dens/{id} or /races/{race_id}/dens/{id}?
-    # I need to check main.py. If I haven't changed it, it is likely /dens/{id}.
-    # But usually REST follows hierarchy.
-    # Let's assume global for ID-based ops unless I verify otherwise.
-    # The previous test used /dens/{id}.
-    response = client.delete(f"/dens/{den_id}")
-    assert response.status_code == 200
+    mutation_delete = f"""
+    mutation {{
+        deleteDen(id: {den_id})
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_delete})
+    assert resp.json()["data"]["deleteDen"] is True
 
     # 4. Verify Den is gone from the list
-    response = client.get(f"/races/{race_id}/dens/")
-    dens = response.json()
-    assert not any(d["id"] == den_id for d in dens)
+    den = crud.get_den(db, den_id)
+    assert den is None
 
     # 5. Verify Racer is still there but den_id is None
-    response = client.get(f"/racers/?race_id={race_id}")
-    racers = response.json()
-    target_racer = next((r for r in racers if r["id"] == racer_id), None)
-
-    assert target_racer is not None
-    assert target_racer["den_id"] is None
+    db.expire_all()
+    racer = db.query(crud.models.Racer).get(racer_id)
+    assert racer is not None
+    assert racer.den_id is None
 
 
-def test_edit_den_logic(client, default_track):
-    race_id = create_race_context(client, default_track)
+def test_edit_den_logic(client, db):
+    race_id = create_race_context(db)
 
     # 1. Create a Den
     den_name = get_unique_name("EditMe")
-    response = client.post(
-        f"/races/{race_id}/dens/",
-        json={"name": den_name, "color": "#111111", "rank": "WOLF"},
-    )
-    assert response.status_code == 200
-    den_id = response.json()["id"]
+    mutation_create = f"""
+    mutation {{
+        createDen(den: {{name: "{den_name}", color: "#111111", rank: "WOLF"}}, raceId: {race_id}) {{
+            id
+            name
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_create})
+    den_id = resp.json()["data"]["createDen"]["id"]
 
-    # 2. Update Den (Global endpoint?)
+    # 2. Update Den
     new_name = get_unique_name("EditedDen")
-    # Assuming PUT is /dens/{id} or /races/{race_id}/dens/{id}
-    # Main.py check needed.
-    response = client.put(
-        f"/dens/{den_id}",
-        json={"name": new_name, "color": "#222222"},  # Rank unchanged
-    )
-    if response.status_code == 404:
-        # Maybe it moved to /races/... ?
-        # Or I haven't implemented PUT properly for new schema?
-        pass
-
-    assert response.status_code == 200
-    updated_den = response.json()
+    mutation_update = f"""
+    mutation {{
+        updateDen(id: {den_id}, den: {{name: "{new_name}", color: "#222222", rank: "WOLF"}}) {{
+            name
+            color
+            rank
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_update})
+    updated_den = resp.json()["data"]["updateDen"]
     assert updated_den["name"] == new_name
     assert updated_den["color"] == "#222222"
     assert updated_den["rank"] == "WOLF"
 
     # 3. Verify changes persist
-    response = client.get(f"/races/{race_id}/dens/")
-    dens = response.json()
-    target_den = next((d for d in dens if d["id"] == den_id), None)
-    assert target_den["name"] == new_name
+    den = crud.get_den(db, den_id)
+    assert den.name == new_name

@@ -1,3 +1,6 @@
+from backend import crud, schemas
+
+
 def test_graphql_introspection(client):
     query = """
     query {
@@ -15,18 +18,16 @@ def test_graphql_introspection(client):
     assert "__schema" in data["data"]
 
 
-def test_create_and_query_race(client):
+def test_create_and_query_race(client, db):
     # 1. Create a group first
-    group_resp = client.post("/groups/", json={"name": "GraphQL Group"})
-    assert group_resp.status_code == 200
-    group_id = group_resp.json()["id"]
+    group_in = schemas.GroupCreate(name="GraphQL Group")
+    group = crud.create_group(db, group_in)
+    group_id = group.id
 
     # 1.5 Create a track
-    track_resp = client.post(
-        "/tracks/", json={"name": "GraphQL Track", "lane_count": 4}
-    )
-    assert track_resp.status_code == 200
-    track_id = track_resp.json()["id"]
+    track_in = schemas.TrackCreate(name="GraphQL Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+    track_id = track.id
 
     # 2. Create a race via GraphQL
     mutation = f"""

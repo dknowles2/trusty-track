@@ -18,25 +18,25 @@ vi.mock('../Modal', () => ({
 describe('RaceExecution', () => {
     const mockHeat = { 
         id: 1, 
-        round_number: 1,
-        round_id: 1,
-        heat_number: 1,
-        round_name: "Round 1",
-        advancement_num_racers: null,
-        advancement_source: null,
-        total_participants: 4, 
-        lane_results: JSON.stringify([
-            { lane: 1, racer_id: 101, time: '3.5', place: 1 },
-            { lane: 2, racer_id: 102, time: '3.6', place: 2 }
+        roundNumber: 1,
+        roundId: 1,
+        heatNumber: 1,
+        roundName: "Round 1",
+        advancementNumRacers: null,
+        advancementSource: null,
+        totalParticipants: 4, 
+        laneResults: JSON.stringify([
+            { lane: 1, racerId: 101, racer_id: 101, time: '3.5', place: 1 },
+            { lane: 2, racerId: 102, racer_id: 102, time: '3.6', place: 2 }
         ]) 
     };
 
     const mockRacers = {
-        101: { id: 101, first_name: 'John', last_name: 'Doe', car_number: 1, racer_image_url: 'http://example.com/racer101.jpg' },
-        102: { id: 102, first_name: 'Jane', last_name: 'Smith', car_number: 2 }
+        101: { id: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racerImageUrl: 'http://example.com/racer101.jpg' },
+        102: { id: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2 }
     };
 
-    const mockGetRacerName = vi.fn((id: number) => (mockRacers as any)[id] ? `${(mockRacers as any)[id].first_name} ${(mockRacers as any)[id].last_name}` : `Racer ${id}`);
+    const mockGetRacerName = vi.fn((id: number) => (mockRacers as any)[id] ? `${(mockRacers as any)[id].firstName} ${(mockRacers as any)[id].lastName}` : `Racer ${id}`);
     const mockOnRunHeat = vi.fn();
     const mockOnStartTimer = vi.fn();
     const mockOnNextHeat = vi.fn();
@@ -74,7 +74,7 @@ describe('RaceExecution', () => {
         );
         expect(screen.getByText('Heat 1')).toBeInTheDocument();
         expect(screen.getByText('John Doe')).toBeInTheDocument();
-        expect(screen.getByText('3.5s')).toBeInTheDocument();
+         expect(screen.getByText('3.5s')).toBeInTheDocument();
         
         // Check for image
         const img = screen.getByAltText('John Doe'); // RacerAvatar uses name as alt
@@ -126,9 +126,9 @@ describe('RaceExecution', () => {
 
     const mockActiveHeatRunning = { 
         ...mockHeat,
-        lane_results: JSON.stringify([
-            { lane: 1, racer_id: 101, time: null, place: null },
-            { lane: 2, racer_id: 102, time: null, place: null }
+        laneResults: JSON.stringify([
+            { lane: 1, racerId: 101, racer_id: 101, time: null, place: null },
+            { lane: 2, racerId: 102, racer_id: 102, time: null, place: null }
         ]) 
     };
 
@@ -209,14 +209,14 @@ describe('RaceExecution', () => {
 
     it('renders round summary when provided', () => {
         const mockSummary = {
-            is_ready: true,
-            requires_advancement: true,
-            already_advanced: false,
-            advancing_racers: [
-                { racer_id: 101, first_name: 'John', last_name: 'Doe', car_number: 1, den_name: 'Lions', score: 3.5, rank: 1, is_advancing: true }
+            isReady: true,
+            requiresAdvancement: true,
+            alreadyAdvanced: false,
+            advancingRacers: [
+                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
             ],
             source: 'PACK',
-            num_racers: 1
+            numRacers: 1
         };
 
         render(
@@ -237,14 +237,14 @@ describe('RaceExecution', () => {
 
     it('renders round summary results even if advancement not required', () => {
         const mockSummaryNoAdvancement = {
-            is_ready: true,
-            requires_advancement: false,
-            already_advanced: false,
-            advancing_racers: [
-                { racer_id: 102, first_name: 'Jane', last_name: 'Smith', car_number: 2, den_name: 'Tigers', score: 3.6, rank: 2, is_advancing: false }
+            isReady: true,
+            requiresAdvancement: false,
+            alreadyAdvanced: false,
+            advancingRacers: [
+                { racerId: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2, denName: 'Tigers', score: 3.6, rank: 2, isAdvancing: false }
             ],
             source: null,
-            num_racers: null
+            numRacers: null
         };
 
         render(
@@ -266,9 +266,9 @@ describe('RaceExecution', () => {
     it('renders upcoming heats list', () => {
         const upcoming = [
             { 
-                id: 2, round_number: 1, round_id: 1, heat_number: 2, round_name: 'Round 1',
-                advancement_num_racers: null, advancement_source: null, total_participants: 4,
-                lane_results: JSON.stringify([{ lane: 1, racer_id: 103, time: null }])
+                id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, roundName: 'Round 1',
+                advancementNumRacers: null, advancementSource: null, totalParticipants: 4,
+                laneResults: JSON.stringify([{ lane: 1, racerId: 103, racer_id: 103, time: null }])
             }
         ];
         
@@ -286,12 +286,12 @@ describe('RaceExecution', () => {
 
     it('closes modal when close button is clicked', async () => {
         const mockSummary = {
-            is_ready: true,
-            requires_advancement: false,
-            already_advanced: false,
-            advancing_racers: [],
+            isReady: true,
+            requiresAdvancement: false,
+            alreadyAdvanced: false,
+            advancingRacers: [],
             source: null,
-            num_racers: null
+            numRacers: null
         };
 
         render(

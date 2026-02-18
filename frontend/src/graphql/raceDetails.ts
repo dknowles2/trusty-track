@@ -53,6 +53,22 @@ export const GET_RACE_DETAILS = gql`
   }
 `;
 
+export const GET_RACE_DENS = gql`
+  query GetRaceDens($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      dens {
+        id
+        name
+        color
+        rank
+        carNumberRangeStart
+        carNumberRangeEnd
+      }
+    }
+  }
+`;
+
 export const UPDATE_RACE = gql`
   mutation UpdateRace($id: Int!, $race: RaceUpdateInput!) {
     updateRace(id: $id, race: $race) {
@@ -102,6 +118,22 @@ export const CHECK_IN_RACER = gql`
       id
       carPassedInspection
       carWeight
+    }
+  }
+`;
+
+export const IMPORT_RACERS = gql`
+  mutation ImportRacers($raceId: Int!, $csvData: String!) {
+    importRacers(raceId: $raceId, csvData: $csvData)
+  }
+`;
+
+export const CREATE_ROUND_WIZARD = gql`
+  mutation CreateRoundWizard($raceId: Int!, $config: WizardConfigurationInput!) {
+    createRoundWizard(raceId: $raceId, config: $config) {
+      id
+      roundNumber
+      name
     }
   }
 `;

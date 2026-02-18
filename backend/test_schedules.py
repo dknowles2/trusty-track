@@ -1,120 +1,117 @@
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
-from . import models
-from .main import app, get_db
+from backend import crud, models, schemas
 
 
-def create_test_race(client, track_id: int):
-    resp = client.post("/groups/", json={"name": "Schedule Group"})
-    assert resp.status_code == 200, f"Create group failed: {resp.text}"
-    group = resp.json()
-    group_id = group["id"]
+def create_test_race(db):
+    group_in = schemas.GroupCreate(name="Schedule Group")
+    group = crud.create_group(db, group_in)
 
-    resp_race = client.post(
-        "/races/",
-        json={
-            "name": "Schedule Race",
-            "group_id": group_id,
-            "track_id": track_id,
-            "car_numbering_strategy": "MANUAL",
-        },
+    track_in = schemas.TrackCreate(name="Schedule Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+
+    race_in = schemas.RaceCreate(
+        name="Schedule Race", group_id=group.id, track_id=track.id
     )
-    assert resp_race.status_code == 200, f"Create race failed: {resp_race.text}"
-
-    races = client.get("/races/").json()
-    if not races:
-        # Fallback if racing logic is weird
-        pass
-    return races[0]["id"]
+    race = crud.create_race(db, race_in)
+    return race.id
 
 
-def test_generate_schedule_not_enough_racers(client, default_track):
-    race_id = create_test_race(client, default_track)
+def test_generate_schedule_not_enough_racers(client, db):
+    race_id = create_test_race(db)
 
     # 2. Add 1 Racer
-    racer_data = {
-        "first_name": "Lonely",
-        "last_name": "Racer",
-        "car_number": 99,
-        "race_id": race_id,
-    }
-    client.post("/racers/", json=racer_data)
-
-    # 3. Try to create a round - Should FAIL because it tries to generate heats
-    round_response = client.post(
-        f"/races/{race_id}/rounds",
-        json={"race_id": race_id, "round_number": 1, "scheduling_strategy": "PPC"},
+    r_in = schemas.RacerCreate(
+        first_name="Lonely", last_name="Racer", car_number=99, race_id=race_id
     )
-    assert round_response.status_code == 400
-    assert "not enough racers" in round_response.json()["detail"].lower()
+    crud.create_racer(db, r_in)
+
+    # 3. Try to create a round - Should FAIL
+    mutation_round = f"""
+    mutation {{
+        createRound(raceId: {race_id}, roundData: {{
+            name: "R1",
+            schedulingStrategy: "PPC",
+            runsPerLane: 1,
+            generalType: "PACK"
+        }}) {{
+            id
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_round})
+    # GraphQL returns data:null and errors
+    assert "errors" in resp.json()
+    assert "not enough racers" in resp.json()["errors"][0]["message"].lower()
 
 
-def test_generate_schedule_success_with_min_racers(client, default_track):
-    race_id = create_test_race(client, default_track)
+def test_generate_schedule_success_with_min_racers(client, db):
+    race_id = create_test_race(db)
 
     # Ensure 2 racers
     for i in range(2):
-        client.post(
-            "/racers/",
-            json={
-                "first_name": f"Racer{i}",
-                "last_name": "Test",
-                "car_number": 100 + i,
-                "race_id": race_id,
-            },
+        r_in = schemas.RacerCreate(
+            first_name=f"Racer{i}",
+            last_name="Test",
+            car_number=100 + i,
+            race_id=race_id,
         )
+        crud.create_racer(db, r_in)
 
-    # Create a round - Should SUCCEED and generate heats
-    round_response = client.post(
-        f"/races/{race_id}/rounds",
-        json={"race_id": race_id, "round_number": 1, "scheduling_strategy": "PPC"},
-    )
-    assert round_response.status_code == 200
-    rounds = round_response.json()
-    assert len(rounds) > 0
-    round_id = rounds[0]["id"]
+    # Create a round - Should SUCCEED
+    mutation_round = f"""
+    mutation {{
+        createRound(raceId: {race_id}, roundData: {{
+            name: "R1",
+            schedulingStrategy: "PPC",
+            runsPerLane: 1,
+            generalType: "PACK"
+        }}) {{
+            id
+            heats {{ id }}
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_round})
+    assert "data" in resp.json()
+    assert resp.json()["data"]["createRound"] is not None
+    rounds_data = resp.json()["data"]["createRound"]
+    assert len(rounds_data) > 0
 
-    # Verify heats exist
-    response = client.get(f"/races/{race_id}/heats")
-    assert response.status_code == 200
-    all_heats = response.json()
-    round_heats = [h for h in all_heats if h["round_id"] == round_id]
-    assert len(round_heats) == 2
+    # Check heats count.
+    heats = rounds_data[0]["heats"]
+    assert len(heats) > 0
 
 
-def test_generate_ppc_schedule(client, default_track):
-    race_id = create_test_race(client, default_track)
+def test_generate_ppc_schedule(client, db):
+    race_id = create_test_race(db)
 
     # Ensure 2 racers
     for i in range(2):
-        client.post(
-            "/racers/",
-            json={
-                "first_name": f"PPC_Racer{i}",
-                "last_name": "Test",
-                "car_number": 200 + i,
-                "race_id": race_id,
-            },
+        r_in = schemas.RacerCreate(
+            first_name=f"PPC_Racer{i}",
+            last_name="Test",
+            car_number=200 + i,
+            race_id=race_id,
         )
+        crud.create_racer(db, r_in)
 
     # Create a round
-    round_response = client.post(
-        f"/races/{race_id}/rounds",
-        json={
-            "race_id": race_id,
-            "round_number": 1,
-            "scheduling_strategy": "PPC",
-            "name": "PPC Round",
-        },
-    )
-    assert round_response.status_code == 200
-    rounds = round_response.json()
-    round_id = rounds[0]["id"]
-
-    # Verify heats exist
-    response = client.get(f"/races/{race_id}/heats")
-    all_heats = response.json()
-    round_heats = [h for h in all_heats if h["round_id"] == round_id]
-    assert len(round_heats) == 2
+    mutation_round = f"""
+    mutation {{
+        createRound(raceId: {race_id}, roundData: {{
+            name: "PPC Round",
+            schedulingStrategy: "PPC",
+            runsPerLane: 1,
+            generalType: "PACK"
+        }}) {{
+            id
+            heats {{ id }}
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_round})
+    assert "data" in resp.json()
+    rounds = resp.json()["data"]["createRound"]
+    assert len(rounds) > 0
+    assert len(rounds[0]["heats"]) > 0

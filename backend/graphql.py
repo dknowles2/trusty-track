@@ -1115,20 +1115,23 @@ class Mutation:
                 return [typing.cast(Any, round_obj)]
             else:
                 # Championship Round (Placeholder)
-                round_obj = crud.create_round_placeholder(
+                round_obj = crud.create_round(
                     db,
                     race_id,
                     next_round_number,
                     round_data.scheduling_strategy,
                     round_data.name or f"Finals ({round_data.advancement_source})",
-                    round_data.advancement_source,
-                    round_data.advancement_num_racers,
+                    advancement_source=round_data.advancement_source,
+                    advancement_num_racers=round_data.advancement_num_racers,
                 )
 
                 # Generate Placeholder Heats
                 for i in range(round_data.runs_per_lane):
-                    crud.generate_placeholder_heats(
-                        db, round_obj.id, clear_existing=(i == 0)
+                    crud.generate_heats_for_round(
+                        db,
+                        round_obj.id,
+                        num_placeholders=round_data.advancement_num_racers,
+                        clear_existing=(i == 0),
                     )
                 return [typing.cast(Any, round_obj)]
         except ValueError as e:

@@ -276,7 +276,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
-                disabled={generating || reordering}
+                disabled={generating || reordering || sortedRounds.some(r => (rounds[r][0]?.roundName || '').toLowerCase().includes('final'))}
                 style={{ 
                   boxShadow: '0 2px 5px rgba(0,0,0,0.1)', 
                   whiteSpace: 'nowrap', 
@@ -345,7 +345,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             justifyContent: 'center'
           }}>
             {sortedRounds.map(roundNum => {
-              const roundHeats = rounds[roundNum].sort((a, b) => a.heatNumber - b.heatNumber);
+              const roundHeats = (rounds[roundNum] || []).sort((a, b) => a.heatNumber - b.heatNumber);
               const roundId = roundHeats[0]?.roundId;
               const isAnyStarted = roundHeats.some(h => {
                 if (!h.laneResults) return false;
@@ -371,6 +371,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           onClick={() => onRegenerateRound(roundId)}
                           className="secondary-btn"
                           disabled={generating || reordering}
+                          aria-label={`Regenerate ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           style={{
                                padding: '2px 8px', fontSize: '0.7rem',
                             display: 'flex', alignItems: 'center', gap: '3px'
@@ -383,7 +384,15 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                         <button
                           onClick={() => onDeleteRound(roundId)}
                           className="secondary-btn"
-                          disabled={generating || reordering || isAnyStarted}
+                          disabled={generating || reordering || isAnyStarted || roundNum < Math.max(...sortedRounds)}
+                          aria-label={`Delete ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
+                          title={
+                              isAnyStarted 
+                                ? "Cannot delete round: it has heats with results" 
+                                : roundNum < Math.max(...sortedRounds)
+                                  ? "Cannot delete general round: championship rounds are already scheduled"
+                                  : undefined
+                          }
                           style={{
                             padding: '2px 8px', fontSize: '0.7rem',
                             display: 'flex', alignItems: 'center', gap: '3px',

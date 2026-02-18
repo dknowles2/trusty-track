@@ -1,16 +1,20 @@
-def test_race_mutations_and_leaderboard(client):
+import json
+
+from backend import crud, schemas
+
+
+def test_race_mutations_and_leaderboard(client, db):
     # 1. Setup: Group and Track
-    group_resp = client.post("/groups/", json={"name": "Race Mutation Group"})
-    group_id = group_resp.json()["id"]
-    track_resp = client.post(
-        "/tracks/", json={"name": "Mutation Track", "lane_count": 4}
-    )
-    track_id = track_resp.json()["id"]
+    group_in = schemas.GroupCreate(name="Race Mutation Group")
+    group = crud.create_group(db, group_in)
+
+    track_in = schemas.TrackCreate(name="Mutation Track", lane_count=4)
+    track = crud.create_track(db, track_in)
 
     # 2. Create Race
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Original Race", groupId: {group_id}, trackId: {track_id}}}) {{
+        createRace(race: {{name: "Original Race", groupId: {group.id}, trackId: {track.id}}}) {{
             id
             name
         }}
@@ -81,16 +85,17 @@ def test_race_mutations_and_leaderboard(client):
     ]["heats"][0]["id"]
 
     # Record results (TIMED strategy by default)
-    import json
-
     results_data = [
         {"lane": 1, "racer_id": racer_ids[0], "time": 3.45, "place": 1},
         {"lane": 2, "racer_id": racer_ids[1], "time": 3.50, "place": 2},
     ]
-    results_json = json.dumps(results_data)
+    results_str = json.dumps(results_data).replace(
+        '"', '\\"'
+    )  # Escape quotes for GQL string
+
     mutation_result = f"""
     mutation {{
-        updateHeatResult(heatId: {heat_id}, results: {json.dumps(results_json)}) {{
+        updateHeatResult(heatId: {heat_id}, results: "{results_str}") {{
             id
         }}
     }}
@@ -114,9 +119,10 @@ def test_race_mutations_and_leaderboard(client):
     assert response.status_code == 200
     lb = response.json()["data"]["race"]["leaderboard"]
     assert len(lb) == 2
-    assert lb[0]["racerId"] == racer_ids[0]
-    assert lb[0]["rank"] == 1
-    assert lb[0]["score"] == 3.45
+    # Sort or find
+    r1 = next(r for r in lb if r["racerId"] == racer_ids[0])
+    assert r1["rank"] == 1
+    assert r1["score"] == 3.45
 
     # 6. Delete Race
     mutation_delete = f"""
@@ -137,17 +143,17 @@ def test_race_mutations_and_leaderboard(client):
     assert response.json()["data"]["race"] is None
 
 
-def test_bulk_move_to_den_null(client):
+def test_bulk_move_to_den_null(client, db):
     # Setup
-    group_resp = client.post("/groups/", json={"name": "Bulk Den Group"})
-    group_id = group_resp.json()["id"]
-    track_resp = client.post(
-        "/tracks/", json={"name": "Bulk Den Track", "lane_count": 4}
-    )
-    track_id = track_resp.json()["id"]
+    group_in = schemas.GroupCreate(name="Bulk Den Group")
+    group = crud.create_group(db, group_in)
+
+    track_in = schemas.TrackCreate(name="Bulk Den Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Bulk Den Race", groupId: {group_id}, trackId: {track_id}}}) {{
+        createRace(race: {{name: "Bulk Den Race", groupId: {group.id}, trackId: {track.id}}}) {{
             id
         }}
     }}
@@ -182,6 +188,7 @@ def test_bulk_move_to_den_null(client):
     ]["createRacer"]["id"]
 
     # Bulk Move to Unassigned (null)
+    # GraphQL null is null, no quotes
     mutation_move_null = f"""
     mutation {{
         bulkMoveToDen(racerIds: [{racer_id}], denId: null)

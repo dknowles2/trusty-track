@@ -1,80 +1,64 @@
 import uuid
 
-from fastapi.testclient import TestClient
-
-from backend.main import app
-
-client = TestClient(app)
+from backend import crud, schemas
 
 
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
 
-def test_verification_scenario():
+def test_verification_scenario(client, db):
     """
     Replicates setup_verification.py logic in a test.
     1. Initialize config
     2. Create two races
     """
     # 1. Initialize system
-    # This might fail if already initialized, so we catch or inspect status
-    # But for a test running against a fresh DB (if setup properly), it should work.
-    # However, since we are running against the dev DB potentially, we should check status first.
+    if not crud.get_tracks(db):
+        config = schemas.InitialConfigCreate(
+            group_name="Scouts Test Verification",
+            tracks=[
+                schemas.TrackCreate(name="Main Track", lane_count=4, timer_type="FAKE")
+            ],
+        )
+        crud.create_initial_config(db, config)
 
-    # Just try to init, ignore 400 if already done
-    resp_init = client.post(
-        "/config/initial",
-        json={
-            "group_name": "Scouts Test Verification",
-            "tracks": [{"name": "Main Track", "lane_count": 4, "timer_type": "FAKE"}],
-        },
-    )
+    tracks = crud.get_tracks(db)
+    track_id = tracks[0].id
 
-    if resp_init.status_code == 200:
-        track_id = resp_init.json()["tracks"][0]["id"]
-    else:
-        # System already initialized, get existing track
-        status_resp = client.get("/config/initial")
-        track_id = status_resp.json()["tracks"][0]["id"]
-
-    # Ensure we can get a group ID (assuming id=1 exists or we make one)
-    # Let's clean up by creating a fresh group for this test run to be safe
+    # Ensure we can get a group ID
     group_name = get_unique_name("Verification Group")
-    resp_group = client.post("/groups/", json={"name": group_name})
-    assert resp_group.status_code == 200
-    group_id = resp_group.json()["id"]
+    group = crud.create_group(db, schemas.GroupCreate(name=group_name))
+    group_id = group.id
 
     # 2. Create Race A
     race_a_name = get_unique_name("Race A")
-    resp_a = client.post(
-        "/races/",
-        json={
-            "name": race_a_name,
-            "group_id": group_id,
-            "track_id": track_id,
-            "date_time": "2023-10-27T10:00",
-            "location": "Test Location A",
-        },
+    race_a = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name=race_a_name,
+            group_id=group_id,
+            track_id=track_id,
+            date_time="2023-10-27T10:00",
+            location="Test Location A",
+        ),
     )
-    assert resp_a.status_code == 200
-    race_a_id = resp_a.json()["id"]
-    print(f"Created Race A: {race_a_id}")
+    assert race_a.id is not None
+    print(f"Created Race A: {race_a.id}")
 
     # 3. Create Race B
     race_b_name = get_unique_name("Race B")
-    resp_b = client.post(
-        "/races/",
-        json={
-            "name": race_b_name,
-            "group_id": group_id,
-            "track_id": track_id,
-            "date_time": "2023-10-28T10:00",
-            "location": "Test Location B",
-        },
+    race_b = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name=race_b_name,
+            group_id=group_id,
+            track_id=track_id,
+            date_time="2023-10-28T10:00",
+            location="Test Location B",
+        ),
     )
-    assert resp_b.status_code == 200
-    race_b_id = resp_b.json()["id"]
-    print(f"Created Race B: {race_b_id}")
+    assert race_b.id is not None
+    print(f"Created Race B: {race_b.id}")
 
-    assert race_a_id != race_b_id
+    assert race_a.id != race_b.id

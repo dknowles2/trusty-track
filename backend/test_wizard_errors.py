@@ -1,36 +1,11 @@
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from .database import Base
-from .main import app, get_db
-from . import models
 import pytest
+from fastapi.testclient import TestClient
+
+from backend import crud, models, schemas
 
 
 def test_wizard_crash_repro(db, client):
     # 1. Create a Race
-    race_data = {
-        "name": "Test Race",
-        "group_id": 1,  # Assuming this isn't strictly checked for existence in this minimal repro
-    }
-    # We might need a group first if foreign keys are enforced?
-    # Let's check models.py... yes, ForeginKey("racing_groups.id")
-    # Create a dummy group associated with a race?
-    # Actually models.RacingGroup has race_id which is NOT NULL.
-    # But models.Race has group_id? Circular dependency or I'm misremembering.
-    # Let's check models.py
-
-    # Checking models.py logic from memory:
-    # Race has group_id (ForeignKey("racing_groups.id"))
-    # RacingGroup has race_id (ForeignKey("races.id"))
-    # This circular dependency makes creation hard.
-    # Usually we create race first with group_id=None, then group, then update race.
-
-    # Correct dependency order:
-    # 1. Group
-    # 2. Race (needs group_id)
-    # 3. RacingGroup (needs race_id)
-
     group_obj = models.Group(name="Test Group")
     db.add(group_obj)
     db.commit()
@@ -41,10 +16,14 @@ def test_wizard_crash_repro(db, client):
     db.commit()
     db.refresh(race)
 
-    racing_group = models.RacingGroup(name="Test Racing Group", race_id=race.id)
-    db.add(racing_group)
+    # Needs a track? Race creation via model doesn't enforce it but GraphQL might?
+    # Logic in wizard might require track? Defaults to something.
+    # Let's add a track just in case.
+    track = models.Track(name="Test Track", lane_count=4)
+    db.add(track)
     db.commit()
-    db.refresh(racing_group)
+    race.track_id = track.id
+    db.commit()
 
     # 2. Add some racers (just in case logic depends on them)
     # create den
@@ -61,26 +40,27 @@ def test_wizard_crash_repro(db, client):
 
     # 3. Call Wizard with NO championship rounds (just general)
     # This should fail if we only have 1 racer (ValueError from crud.py)
-    payload_no_champ = {
-        "general_round": {"type": "PACK", "runs_per_lane": 1},
-        "championship_rounds": [],
-    }
+    # GraphQL will return error in data or errors
+    mutation_no_champ = f"""
+    mutation {{
+        createRoundWizard(raceId: {race.id}, config: {{
+            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            championshipRounds: []
+        }}) {{
+            id
+        }}
+    }}
+    """
 
-    # We expect this to raise a 400 Bad Request now
-    try:
-        response = client.post(f"/races/{race.id}/wizard", json=payload_no_champ)
-        print(
-            f"\nResponse (No Champ, 1 racer): {response.status_code} - {response.text}"
-        )
-        assert response.status_code == 400
-        assert "Not enough racers" in response.text
-    except Exception as e:
-        print(f"caught exception: {e}")
-        # If the client raises an exception for 400, catch it.
-        # But TestClient usually returns response for 400.
+    # We expect this to raise a generic error or handle it.
+    # In GraphQL, exceptions in resolvers usually return {"errors": [...], "data": null}
+    response = client.post("/graphql", json={"query": mutation_no_champ})
+    assert response.status_code == 200  # GraphQL always 200
+    assert "errors" in response.json()
+    assert "Not enough racers" in response.json()["errors"][0]["message"]
 
-    # Reset for next attempt (rounds exist now, so wizard would block)
-    race2 = models.Race(name="Test Race 2", group_id=group_obj.id)
+    # Reset for next attempt (rounds exist now? No, previous failed)
+    race2 = models.Race(name="Test Race 2", group_id=group_obj.id, track_id=track.id)
     db.add(race2)
     db.commit()
     db.refresh(race2)
@@ -102,32 +82,42 @@ def test_wizard_crash_repro(db, client):
     db.commit()
 
     # 4. Call Wizard WITH championship rounds
-    payload_with_champ = {
-        "general_round": {"type": "PACK", "runs_per_lane": 1},
-        "championship_rounds": [
-            {
-                "name": "Finals",
-                "source": "PACK",
-                "num_top_racers": 3,
-                "runs_per_lane": 1,
-            }
-        ],
-    }
+    mutation_with_champ = f"""
+    mutation {{
+        createRoundWizard(raceId: {race2.id}, config: {{
+            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            championshipRounds: [{{
+                name: "Finals",
+                source: "PACK",
+                numTopRacers: 3,
+                runsPerLane: 1
+            }}]
+        }}) {{
+            id
+        }}
+    }}
+    """
 
-    response = client.post(f"/races/{race2.id}/wizard", json=payload_with_champ)
-    print(f"\nResponse (With Champ): {response.status_code} - {response.text}")
+    response = client.post("/graphql", json={"query": mutation_with_champ})
     assert response.status_code == 200
+    assert "data" in response.json()
+    assert response.json()["data"]["createRoundWizard"] is not None
 
-    # 5. Call Wizard with BAD PAYLOAD (e.g. missing fields)
-    race3 = models.Race(name="Test Race 3", group_id=group_obj.id)
-    db.add(race3)
-    db.commit()
-
-    payload_bad = {
-        "general_round": {"type": "PACK", "runs_per_lane": "not_an_integer"},
-        "championship_rounds": [],
-    }
-    # This should fail 422 validation, not 500
-    response = client.post(f"/races/{race3.id}/wizard", json=payload_bad)
-    print(f"\nResponse (Bad Payload): {response.status_code} - {response.text}")
-    assert response.status_code == 422
+    # 5. Call Wizard with BAD PAYLOAD
+    # GraphQL validation handles type mismatches before execution
+    # runsPerLane: "not_an_integer" -> GraphQL will parse error
+    mutation_bad = f"""
+    mutation {{
+        createRoundWizard(raceId: {race2.id}, config: {{
+            generalRound: {{ type: "PACK", runsPerLane: "five" }},
+            championshipRounds: []
+        }}) {{
+            id
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation_bad})
+    # GraphQL returns 200 but with errors for syntax/validation
+    assert response.status_code == 200
+    assert "errors" in response.json()
+    # It might say something like "Expected value of type Int"

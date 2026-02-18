@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import CameraCapture from './CameraCapture';
 import { apiClient } from '../api/client';
+import { useQuery } from 'urql';
+import { GET_RACE_DENS } from '../graphql/raceDetails';
 
 export interface RacerData {
   first_name: string;
@@ -40,7 +42,16 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
     car_weight: undefined,
     car_name: ''
   });
-  const [dens, setDens] = useState<Den[]>([]);
+  
+  // Use GraphQL to fetch dens
+  const [densResult] = useQuery({
+      query: GET_RACE_DENS,
+      variables: { raceId: raceId || 0 },
+      pause: !raceId
+  });
+
+  const dens: Den[] = densResult.data?.race?.dens || [];
+  
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
 
@@ -60,19 +71,12 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
     }));
   };
 
-  useEffect(() => {
-      if (raceId) {
-        apiClient.get(`/races/${raceId}/dens/`)
-            .then(data => setDens(data))
-            .catch(err => console.error("Failed to fetch dens", err));
-      }
-  }, [raceId]);
-
   const uploadFile = async (file: File, type: 'racer' | 'car') => {
       const data = new FormData();
       data.append('file', file);
       
       try {
+          // Keep using REST for file upload for now as per plan
           const result = await apiClient.post('/upload/', data);
           setFormData(prev => ({ 
               ...prev, 
@@ -168,7 +172,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
              >
                 <option value="">Select a Den...</option>
-                {dens.map(den => (
+                {dens.map((den: Den) => (
                     <option key={den.id} value={den.id}>{den.name}</option>
                 ))}
              </select>

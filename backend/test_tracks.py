@@ -1,134 +1,153 @@
-from fastapi.testclient import TestClient
-from backend.main import app
 import uuid
 
-client = TestClient(app)
+from backend import crud, schemas
 
 
 def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
 
-def test_track_crud():
-    # 1. Initial Setup with multiple tracks
-    group_name = get_unique_name("Track Test Group")
-    init_data = {
-        "group_name": group_name,
-        "tracks": [
-            {
-                "name": "Track A",
-                "lane_count": 4,
-                "length_feet": 40,
-                "timer_type": "FAKE",
-            },
-            {
-                "name": "Track B",
-                "lane_count": 6,
-                "length_feet": 50,
-                "timer_type": "FAKE",
-            },
-        ],
+def test_track_crud(client, db):
+    # 1. Create a track
+    mutation_create = """
+    mutation {
+        createTrack(track: {
+            name: "Track A",
+            laneCount: 4,
+            timerType: "FAKE"
+        }) {
+            id
+            name
+            laneCount
+        }
     }
-    resp = client.post("/config/initial", json=init_data)
+    """
+    resp = client.post("/graphql", json={"query": mutation_create})
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["initialized"] == True
-    assert len(data["tracks"]) == 2
-    assert data["tracks"][0]["name"] == "Track A"
-    assert data["tracks"][1]["name"] == "Track B"
-
-    track_a_id = data["tracks"][0]["id"]
-    track_b_id = data["tracks"][1]["id"]
+    track_a = resp.json()["data"]["createTrack"]
+    track_a_id = track_a["id"]
+    assert track_a["name"] == "Track A"
 
     # 2. Add another track
-    resp = client.post(
-        "/tracks/", json={"name": "Track C", "lane_count": 8, "timer_type": "FAKE"}
-    )
-    assert resp.status_code == 200
-    track_c = resp.json()
-    assert track_c["name"] == "Track C"
-    track_c_id = track_c["id"]
+    mutation_create_b = """
+    mutation {
+        createTrack(track: {
+            name: "Track B",
+            laneCount: 6,
+            timerType: "FAKE"
+        }) {
+            id
+            name
+        }
+    }
+    """
+    resp = client.post("/graphql", json={"query": mutation_create_b})
+    track_b = resp.json()["data"]["createTrack"]
+    track_b_id = track_b["id"]
 
     # 3. List tracks
-    resp = client.get("/tracks/")
-    assert resp.status_code == 200
-    tracks = resp.json()
-    assert len(tracks) == 3
+    query_tracks = """
+    query {
+        tracks {
+            id
+            name
+        }
+    }
+    """
+    resp = client.post("/graphql", json={"query": query_tracks})
+    tracks = resp.json()["data"]["tracks"]
+    # There might be default tracks from other tests if DB persists (it shouldn't in memory)
+    # But just let's check our tracks are there
+    t_ids = [int(t["id"]) for t in tracks]
+    assert int(track_a_id) in t_ids
+    assert int(track_b_id) in t_ids
 
     # 4. Update track
-    resp = client.put(
-        f"/tracks/{track_c_id}", json={"name": "Updated Track C", "lane_count": 2}
-    )
-    assert resp.status_code == 200
-    assert resp.json()["name"] == "Updated Track C"
+    mutation_update = f"""
+    mutation {{
+        updateTrack(id: {track_a_id}, track: {{name: "Updated Track A", laneCount: 2}}) {{
+            name
+            laneCount
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_update})
+    assert resp.json()["data"]["updateTrack"]["name"] == "Updated Track A"
 
-    # 5. Create races on different tracks
-    resp_group = client.post("/groups/", json={"name": get_unique_name("Race Group")})
-    group_id = resp_group.json()["id"]
+    # 5. Create race on Track B
+    group_in = schemas.GroupCreate(name=get_unique_name("Race Group"))
+    group = crud.create_group(db, group_in)
 
-    race_a_resp = client.post(
-        "/races/",
-        json={
-            "name": get_unique_name("Race A"),
-            "group_id": group_id,
-            "track_id": track_a_id,
-        },
-    )
-    assert race_a_resp.status_code == 200
-    race_a = race_a_resp.json()
-    assert race_a["track_id"] == track_a_id
+    mutation_create_race = f"""
+    mutation {{
+        createRace(race: {{name: "Race on Track B", groupId: {group.id}, trackId: {track_b_id}}}) {{
+            id
+            trackId
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_create_race})
+    race_b = resp.json()["data"]["createRace"]
+    assert race_b["trackId"] == int(track_b_id)
 
-    race_b_resp = client.post(
-        "/races/",
-        json={
-            "name": get_unique_name("Race B"),
-            "group_id": group_id,
-            "track_id": track_b_id,
-        },
-    )
-    assert race_b_resp.status_code == 200
-    race_b = race_b_resp.json()
-    assert race_b["track_id"] == track_b_id
+    # 6. Delete track B (should fail if race associated)
+    mutation_delete = f"""
+    mutation {{
+        deleteTrack(id: {track_b_id})
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_delete})
+    # The mutation returns boolean, but might raise error if handled by strawberry?
+    # Or return error in "errors" field.
+    # CRUD raises HTTPException(400) which Strawberry converts to error.
+    assert resp.json()["data"]["deleteTrack"] is False
 
-    # 6. Delete track (should fail if race associated)
-    resp = client.delete(f"/tracks/{track_a_id}")
-    assert resp.status_code == 400
-    assert "associated with one or more races" in resp.json()["detail"]
+    # Delete unused track A
+    mutation_delete_a = f"""
+    mutation {{
+        deleteTrack(id: {track_a_id})
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_delete_a})
+    assert "data" in resp.json()
+    assert resp.json()["data"]["deleteTrack"] is True
 
-    # Delete unused track
-    resp = client.delete(f"/tracks/{track_c_id}")
-    assert resp.status_code == 200
-    assert resp.json()["ok"] == True
 
-
-def test_race_track_association_update():
+def test_race_track_association_update(client, db):
     # Setup
-    group_name = get_unique_name("Update Test Group")
-    init_data = {
-        "group_name": group_name,
-        "tracks": [{"name": "T1", "lane_count": 4}, {"name": "T2", "lane_count": 6}],
-    }
-    client.post("/config/initial", json=init_data)
+    track_in_1 = schemas.TrackCreate(name="T1", lane_count=4)
+    t1 = crud.create_track(db, track_in_1)
 
-    resp_tracks = client.get("/tracks/")
-    t1_id = resp_tracks.json()[0]["id"]
-    t2_id = resp_tracks.json()[1]["id"]
+    track_in_2 = schemas.TrackCreate(name="T2", lane_count=6)
+    t2 = crud.create_track(db, track_in_2)
 
-    resp_group = client.post("/groups/", json={"name": get_unique_name("Update Group")})
-    group_id = resp_group.json()["id"]
+    group_in = schemas.GroupCreate(name=get_unique_name("Update Group"))
+    group = crud.create_group(db, group_in)
 
-    race_resp = client.post(
-        "/races/",
-        json={
-            "name": get_unique_name("Update Race"),
-            "group_id": group_id,
-            "track_id": t1_id,
-        },
-    )
-    race = race_resp.json()
-    race_id = race["id"]
+    mutation_create_race = f"""
+    mutation {{
+        createRace(race: {{name: "Update Race", groupId: {group.id}, trackId: {t1.id}}}) {{
+            id
+            trackId
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_create_race})
+    race_id = resp.json()["data"]["createRace"]["id"]
 
-    # Update track_id
-    resp = client.put(f"/races/{race_id}", json={"track_id": t2_id})
+    # Update track_id via updateRace
+    mutation_update = f"""
+    mutation {{
+        updateRace(id: {race_id}, race: {{trackId: {t2.id}}}) {{
+            trackId
+            track {{
+                name
+            }}
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_update})
     assert resp.status_code == 200
-    assert resp.json()["track_id"] == t2_id
+    data = resp.json()["data"]["updateRace"]
+    assert data["trackId"] == int(t2.id)
+    assert data["track"]["name"] == "T2"
