@@ -223,3 +223,5 @@ playwright-report/
 # Certificates
 certs/
 *.pem
+
+.claude/settings.local.json
