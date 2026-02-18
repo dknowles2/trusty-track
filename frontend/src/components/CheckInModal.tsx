@@ -3,6 +3,8 @@ import { RacerData } from './RacerForm';
 import { apiClient } from '../api/client';
 import CameraCapture from './CameraCapture';
 import { useAlert } from '../context/AlertContext';
+import { useMutation } from 'urql';
+import { CHECK_IN_RACER } from '../graphql/raceDetails';
 
 interface Racer extends RacerData {
     id: number;
@@ -25,6 +27,7 @@ export default function CheckInModal({ racer, onClose, onSave }: CheckInModalPro
     const [racerImageUrl, setRacerImageUrl] = useState<string | undefined>(racer.racer_image_url);
     const [carImageUrl, setCarImageUrl] = useState<string | undefined>(racer.car_image_url);
     
+    const [, checkInMutation] = useMutation(CHECK_IN_RACER);
     const [loading, setLoading] = useState(false);
     const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
 
@@ -36,29 +39,24 @@ export default function CheckInModal({ racer, onClose, onSave }: CheckInModalPro
             const result = await apiClient.post('/upload/', formData);
             const newUrl = result.url;
                 
-                // Update local state for immediate feedback
-                if (type === 'racer') {
-                    setRacerImageUrl(newUrl);
-                } else {
-                    setCarImageUrl(newUrl);
-                }
+            // Update local state for immediate feedback
+            if (type === 'racer') {
+                setRacerImageUrl(newUrl);
+            } else {
+                setCarImageUrl(newUrl);
+            }
 
-                // Auto-save to backend
-                const updateData = {
-                    ...racer,
-                    car_passed_inspection: passedInspection,
-                    car_weight: weight ? parseFloat(weight) : null,
-                    // Use new URL for the type being updated, current state (or prop) for the other
-                    racer_image_url: type === 'racer' ? newUrl : racerImageUrl,
-                    car_image_url: type === 'car' ? newUrl : carImageUrl
-                };
-                
-                await apiClient.put(`/racers/${racer.id}`, updateData);
-                // Trigger parent refresh if needed? onSave currently just fetches racers.
-                // We should probably call onSave here to refresh parent state, 
-                // BUT onSave usually closes the modal in other contexts? 
-                // No, onSave in RaceDetails just calls fetchRacers.
-                onSave(); 
+            // Auto-save to backend using GraphQL
+            const mutationResult = await checkInMutation({
+                id: racer.id,
+                passedInspection: passedInspection,
+                weight: weight ? parseFloat(weight) : 0,
+                racerImageUrl: type === 'racer' ? newUrl : racerImageUrl,
+                carImageUrl: type === 'car' ? newUrl : carImageUrl
+            });
+            
+            if (mutationResult.error) throw mutationResult.error;
+            onSave(); 
 
         } catch (error) {
             console.error("Upload error", error);
@@ -81,16 +79,16 @@ export default function CheckInModal({ racer, onClose, onSave }: CheckInModalPro
         e.preventDefault();
         setLoading(true);
         try {
-            // Update Racer
-            const updateData = {
-                ...racer,
-                car_passed_inspection: passedInspection,
-                car_weight: weight ? parseFloat(weight) : null,
-                racer_image_url: racerImageUrl,
-                car_image_url: carImageUrl
-            };
+            const mutationResult = await checkInMutation({
+                id: racer.id,
+                passedInspection: passedInspection,
+                weight: weight ? parseFloat(weight) : 0,
+                racerImageUrl: racerImageUrl,
+                carImageUrl: carImageUrl
+            });
 
-            await apiClient.put(`/racers/${racer.id}`, updateData);
+            if (mutationResult.error) throw mutationResult.error;
+            
             onSave();
             onClose();
 

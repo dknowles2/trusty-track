@@ -7,6 +7,7 @@ export interface RacerData {
   last_name: string;
   car_number?: number;
   den_id?: number;
+  car_name?: string;
   car_passed_inspection: boolean;
   car_weight?: number;
   racer_image_url?: string;
@@ -36,7 +37,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
     car_number: undefined,
     den_id: undefined,
     car_passed_inspection: false,
-    car_weight: undefined
+    car_weight: undefined,
+    car_name: ''
   });
   const [dens, setDens] = useState<Den[]>([]);
   const [loading, setLoading] = useState(false);
@@ -143,6 +145,18 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                  />
             </div>
+        </div>
+
+        <div style={{ marginBottom: '10px' }}>
+             <label style={{ display: 'block', marginBottom: '5px' }}>Car Name</label>
+             <input
+               type="text"
+               name="car_name"
+               value={formData.car_name || ''}
+               onChange={handleChange}
+               placeholder="e.g. Blue Streak"
+               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+             />
         </div>
 
         <div style={{ marginBottom: '10px' }}>

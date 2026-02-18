@@ -165,16 +165,16 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 {fetchingTracks ? (
                     <p style={{ fontSize: '0.8rem', color: '#666' }}>Loading tracks...</p>
                 ) : (
-                    <select 
-                        value={formData.track_id} 
-                        onChange={e => handleChange('track_id', parseInt(e.target.value))}
-                        style={inputStyle}
-                        required
-                    >
-                        {tracks.map(track => (
-                            <option key={track.id} value={track.id}>{track.name}</option>
-                        ))}
-                    </select>
+                <select 
+                    value={formData.track_id} 
+                    onChange={e => handleChange('track_id', parseInt(e.target.value))}
+                    style={inputStyle}
+                    required
+                >
+                    {Array.isArray(tracks) && tracks.map(track => (
+                        <option key={track.id} value={track.id}>{track.name}</option>
+                    ))}
+                </select>
                 )}
             </div>
 

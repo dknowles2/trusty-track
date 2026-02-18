@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery, useMutation } from 'urql';
 import { apiClient } from '../api/client';
 import { useAlert } from '../context/AlertContext';
 import RacerForm, { RacerData, Den } from '../components/RacerForm';
@@ -16,17 +17,33 @@ import {
   mdiChevronDown, mdiChevronRight, mdiLightningBolt, mdiFileUpload, 
   mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiTrophy
 } from '@mdi/js';
+import * as GQL from '../graphql/raceDetails';
+
+interface GQLDen {
+    id: number;
+    name: string;
+    color: string;
+    rank?: string;
+    carNumberRangeStart?: number;
+    carNumberRangeEnd?: number;
+}
+
+interface GQLRacer {
+    id: number;
+    firstName: string;
+    lastName: string;
+    carNumber?: number | string;
+    denId?: number;
+    carName?: string;
+    carPassedInspection: boolean;
+    carWeight?: number;
+    racerImageUrl?: string;
+    carImageUrl?: string;
+}
 
 interface Race extends RaceFormData {
     id: number;
     track_id: number;
-}
-
-interface Track {
-    id: number;
-    name: string;
-    lane_count: number;
-    timer_type: string;
 }
 
 interface Racer extends RacerData {
@@ -35,13 +52,94 @@ interface Racer extends RacerData {
 
 export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
+  const parsedRaceId = useMemo(() => raceId ? parseInt(raceId) : 0, [raceId]);
   const { showAlert, showConfirm } = useAlert();
-  const [race, setRace] = useState<Race | null>(null);
-  const [racers, setRacers] = useState<Racer[]>([]);
-  const [dens, setDens] = useState<Den[]>([]);
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // GraphQL Queries
+  const [raceDetailsResult, reexecuteRaceDetails] = useQuery({
+    query: GQL.GET_RACE_DETAILS,
+    variables: { raceId: parsedRaceId },
+    pause: !parsedRaceId,
+  });
+
+  const { data, fetching } = raceDetailsResult;
+
+  // GraphQL Mutations
+  const [, updateRaceMutation] = useMutation(GQL.UPDATE_RACE);
+  const [, deleteRaceMutation] = useMutation(GQL.DELETE_RACE);
+  const [, bulkAutoNumberMutation] = useMutation(GQL.BULK_AUTO_NUMBER);
+  const [, bulkClearNumbersMutation] = useMutation(GQL.BULK_CLEAR_NUMBERS);
+  const [, bulkMoveToDenMutation] = useMutation(GQL.BULK_MOVE_TO_DEN);
+  const [, bulkDeleteRacersMutation] = useMutation(GQL.BULK_DELETE_RACERS);
+
+  // Mapped Data from Query
+  const race = useMemo(() => {
+    if (!data?.race) return null;
+    return {
+      id: data.race.id,
+      name: data.race.name,
+      date_time: data.race.dateTime,
+      location: data.race.location,
+      track_id: data.race.trackId,
+      scoring_strategy: data.race.scoringStrategy,
+      car_numbering_strategy: data.race.carNumberingStrategy,
+      global_start_number: data.race.globalStartNumber,
+      championship_trophies: data.race.championshipTrophies,
+      registeredCount: data.race.registeredCount,
+      checkedInCount: data.race.checkedInCount,
+    } as Race & { registeredCount: number; checkedInCount: number };
+  }, [data]);
+
+  const racers = useMemo<Racer[]>(() => {
+    if (!data?.race?.racers) return [];
+    return data.race.racers.map((r: GQLRacer) => ({
+      id: r.id,
+      first_name: r.firstName,
+      last_name: r.lastName,
+      car_number: r.carNumber,
+      den_id: r.denId,
+      car_name: r.carName,
+      car_passed_inspection: r.carPassedInspection,
+      car_weight: r.carWeight,
+      racer_image_url: r.racerImageUrl,
+      car_image_url: r.carImageUrl,
+    }));
+  }, [data]);
+
+  const dens = useMemo<Den[]>(() => {
+    if (!data?.race?.dens) return [];
+    return data.race.dens.map((d: GQLDen) => ({
+      id: d.id,
+      name: d.name,
+      color: d.color,
+      rank: d.rank,
+      car_number_range_start: d.carNumberRangeStart,
+      car_number_range_end: d.carNumberRangeEnd,
+    }));
+  }, [data]);
+
+  const tracks = useMemo(() => data?.tracks || [], [data]);
+  
+  const leaderboard = useMemo<LeaderboardData | null>(() => {
+    if (!data?.race?.leaderboard) return null;
+    return {
+      race_id: data.race.id,
+      scoring_strategy: data.race.scoringStrategy,
+      leaderboard: data.race.leaderboard.map((l: any) => ({
+        racer_id: l.racerId,
+        first_name: l.firstName,
+        last_name: l.lastName,
+        car_number: l.carNumber,
+        den_name: l.denName,
+        score: l.score,
+        heats_completed: l.heatsCompleted,
+        racer_image_url: l.racerImageUrl,
+        rank: l.rank,
+      }))
+    } as LeaderboardData;
+  }, [data]);
+
+  const loading = fetching && !data;
   
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
@@ -97,69 +195,28 @@ export default function RaceDetails() {
   }, [isAddRacerDropdownOpen, isBulkMenuOpen, isMoveToDenOpen]);
 
 
-  useEffect(() => {
-    if (raceId) {
-        fetchRaceDetails();
-        fetchRacers();
-        fetchDens();
-        fetchTracks();
-        fetchLeaderboard();
-    }
-  }, [raceId]);
+  const refreshData = () => {
+    reexecuteRaceDetails({ requestPolicy: 'network-only' });
+  };
 
-  const fetchRaceDetails = async () => {
+  const handleUpdateRace = async (formData: RaceFormData) => {
       try {
-          const data = await apiClient.get(`/races/${raceId}`);
-          setRace(data);
-      } catch (e) {
-          console.error("Failed to fetch race details", e);
-      }
-  };
-
-  const fetchLeaderboard = async () => {
-    try {
-        const data = await apiClient.get(`/races/${raceId}/scores`);
-        setLeaderboard(data);
-    } catch (e) {
-        console.error("Failed to fetch leaderboard", e);
-    }
-  };
-
-  const fetchRacers = async () => {
-    try {
-      const data = await apiClient.get(`/racers/?race_id=${raceId}`);
-      setRacers(data);
-    } catch (error) {
-      console.error('Failed to fetch racers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchDens = async () => {
-      try {
-          if (!raceId) return;
-          const data = await apiClient.get(`/races/${raceId}/dens/`);
-          setDens(data);
-      } catch (e) {
-          console.error("Failed to fetch dens", e);
-      }
-  };
-
-  const fetchTracks = async () => {
-    try {
-        const data = await apiClient.get('/tracks/');
-        setTracks(data);
-    } catch (e) {
-        console.error("Failed to fetch tracks", e);
-    }
-  };
-
-  const handleUpdateRace = async (data: RaceFormData) => {
-      try {
-          await apiClient.put(`/races/${raceId}`, data);
+          const { registeredCount, checkedInCount, ...updateInput } = formData as any;
+          // Map snake_case to camelCase for GQL input
+          const raceInput = {
+              name: updateInput.name,
+              dateTime: updateInput.date_time,
+              location: updateInput.location,
+              trackId: updateInput.track_id,
+              scoringStrategy: updateInput.scoring_strategy,
+              carNumberingStrategy: updateInput.car_numbering_strategy,
+              globalStartNumber: updateInput.global_start_number,
+              championshipTrophies: updateInput.championship_trophies,
+          };
+          const result = await updateRaceMutation({ id: parsedRaceId, race: raceInput });
+          if (result.error) throw result.error;
           setIsEditingRace(false);
-          fetchRaceDetails();
+          refreshData();
       } catch (e) {
           console.error("Failed to update race", e);
           showAlert("Failed to update race details", "Error");
@@ -179,7 +236,8 @@ export default function RaceDetails() {
     }
 
     try {
-        await apiClient.delete(`/races/${raceId}`);
+        const result = await deleteRaceMutation({ id: parsedRaceId });
+        if (result.error) throw result.error;
         // Redirect to home
         window.location.href = '/'; 
     } catch (e) {
@@ -204,21 +262,34 @@ export default function RaceDetails() {
       setShowCheckInModal(true);
   };
   
-  const handleRacerFormSubmit = async (data: RacerData) => {
+  const [, createRacerMutation] = useMutation(GQL.CREATE_RACER);
+  const [, updateRacerMutation] = useMutation(GQL.UPDATE_RACER);
+
+  const handleRacerFormSubmit = async (formData: RacerData) => {
       try {
+          // Map snake_case to camelCase for GQL input
+          const racerInput = {
+              firstName: formData.first_name,
+              lastName: formData.last_name,
+              carNumber: formData.car_number,
+              denId: formData.den_id,
+              carName: formData.car_name,
+              carPassedInspection: formData.car_passed_inspection,
+              carWeight: formData.car_weight,
+              racerImageUrl: formData.racer_image_url,
+              carImageUrl: formData.car_image_url,
+              raceId: parsedRaceId
+          };
+
           if (editingRacer) {
-              await fetch(`/api/racers/${editingRacer.id}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(data)
-              });
+              const result = await updateRacerMutation({ id: editingRacer.id, racer: racerInput });
+              if (result.error) throw result.error;
           } else {
-              if (raceId) {
-                  await apiClient.post('/racers/', { ...data, race_id: parseInt(raceId) });
-              }
+              const result = await createRacerMutation({ racer: racerInput });
+              if (result.error) throw result.error;
           }
            setShowRacerForm(false);
-           fetchRacers();
+           refreshData();
       } catch (e) {
           console.error("Failed to save", e);
           showAlert("Failed to save racer", "Error");
@@ -245,9 +316,10 @@ export default function RaceDetails() {
   // Bulk Handlers
   const handleBulkAutoNumber = async () => {
     try {
-      const res = await apiClient.post('/racers/bulk_auto_number', { racer_ids: selectedRacerIds });
-      await fetchRacers();
-      showAlert(res.message, "Bulk Auto-Number Result");
+      const result = await bulkAutoNumberMutation({ racerIds: selectedRacerIds });
+      if (result.error) throw result.error;
+      refreshData();
+      showAlert(`Successfully auto-numbered ${result.data.bulkAutoNumber} racers`, "Bulk Auto-Number Result");
       setSelectedRacerIds([]);
     } catch (e) {
       showAlert("Failed to bulk auto-number racers", "Error");
@@ -264,8 +336,9 @@ export default function RaceDetails() {
     if (!confirmed) return;
 
     try {
-      await apiClient.post('/racers/bulk_clear_numbers', { racer_ids: selectedRacerIds });
-      await fetchRacers();
+      const result = await bulkClearNumbersMutation({ racerIds: selectedRacerIds });
+      if (result.error) throw result.error;
+      refreshData();
       setSelectedRacerIds([]);
     } catch (e) {
       showAlert("Failed to clear racer numbers", "Error");
@@ -274,8 +347,9 @@ export default function RaceDetails() {
 
   const handleBulkMoveToDen = async (denId: number | null) => {
     try {
-      await apiClient.post('/racers/bulk_move_to_den', { racer_ids: selectedRacerIds, den_id: denId });
-      await fetchRacers();
+      const result = await bulkMoveToDenMutation({ racerIds: selectedRacerIds, denId });
+      if (result.error) throw result.error;
+      refreshData();
       setSelectedRacerIds([]);
       setIsMoveToDenOpen(false);
       setIsBulkMenuOpen(false);
@@ -294,8 +368,9 @@ export default function RaceDetails() {
     if (!confirmed) return;
 
     try {
-      await apiClient.post('/racers/bulk_delete', { racer_ids: selectedRacerIds });
-      await fetchRacers();
+      const result = await bulkDeleteRacersMutation({ racerIds: selectedRacerIds });
+      if (result.error) throw result.error;
+      refreshData();
       setSelectedRacerIds([]);
     } catch (e) {
       showAlert("Failed to delete racers", "Error");
@@ -765,8 +840,8 @@ export default function RaceDetails() {
                              // Sort groups logic
                              if (a.denId === -1) return 1; // Unassigned last
                              if (b.denId === -1) return -1;
-                             const denA = dens.find(d => d.id === a.denId);
-                             const denB = dens.find(d => d.id === b.denId);
+                             const denA = dens.find((d: Den) => d.id === a.denId);
+                             const denB = dens.find((d: Den) => d.id === b.denId);
                              return (denA?.name || '').localeCompare(denB?.name || '');
                         })
                         .map(group => {
@@ -1026,10 +1101,7 @@ export default function RaceDetails() {
              <DenManager 
                 raceId={race.id}
                 onClose={() => setShowDenManager(false)}
-                onUpdate={() => {
-                    fetchDens();
-                    fetchRacers();
-                }}
+                onUpdate={refreshData}
               />
           ) : <p>Loading race details...</p>}
       </Modal>
@@ -1040,11 +1112,7 @@ export default function RaceDetails() {
             isOpen={showImportModal}
             onClose={() => setShowImportModal(false)}
             raceId={race.id}
-            onImportSuccess={() => {
-                fetchRacers();
-                // Optional: close modal automatically or let user close
-                // setShowImportModal(false); 
-            }}
+            onImportSuccess={refreshData}
           />
       )}
 
@@ -1058,7 +1126,7 @@ export default function RaceDetails() {
               <CheckInModal 
                 racer={checkingInRacer}
                 onClose={() => setShowCheckInModal(false)}
-                onSave={fetchRacers}
+                onSave={refreshData}
               />
           )}
       </Modal>
@@ -1131,10 +1199,11 @@ export default function RaceDetails() {
                             return;
                         }
                         
-                        setLoading(true); // Re-use main loading or local state if preferred? Let's assume passed in prop or handled by async
                         const btn = document.getElementById('do-populate-btn');
-                        if (btn) btn.textContent = '⏳ Generating...';
-                        if (btn) (btn as HTMLButtonElement).disabled = true;
+                        if (btn) {
+                            btn.textContent = '⏳ Generating...';
+                            (btn as HTMLButtonElement).disabled = true;
+                        }
 
                         try {
                             await apiClient.post(`/races/${raceId}/populate`, {
@@ -1144,15 +1213,16 @@ export default function RaceDetails() {
                                 assign_dens: popAssignDens,
                                 check_in: popCheckIn
                             });
-                            await fetchRacers();
+                            refreshData();
                             setShowPopulateModal(false);
                         } catch (e) {
-                            console.error("Failed", e);
-                            showAlert("Failed to populate", "Error");
+                            console.error("Failed to populate racers", e);
+                            showAlert("Failed to populate test racers", "Error");
                         } finally {
-                            if (btn) btn.textContent = 'Generate';
-                            if (btn) (btn as HTMLButtonElement).disabled = false;
-                            setLoading(false);
+                            if (btn) {
+                                btn.textContent = 'Generate';
+                                (btn as HTMLButtonElement).disabled = false;
+                            }
                         }
                     }}
                     id="do-populate-btn"

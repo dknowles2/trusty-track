@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Den } from './RacerForm';
-import { apiClient } from '../api/client';
 import { COMMON_COLORS } from '../utils/colors';
 import { useAlert } from '../context/AlertContext';
 import Icon from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
+import { useMutation, useQuery } from 'urql';
+import { CREATE_DEN, UPDATE_DEN, DELETE_DEN, GET_RACE_DETAILS } from '../graphql/raceDetails';
 
 const DEN_COLORS = COMMON_COLORS;
 
@@ -16,7 +17,25 @@ interface DenManagerProps {
 
 export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenManagerProps) {
     const { showAlert, showConfirm } = useAlert();
-    const [dens, setDens] = useState<Den[]>([]);
+    
+    const [{ data, fetching: _fetching }, reexecuteQuery] = useQuery({
+        query: GET_RACE_DETAILS,
+        variables: { raceId }
+    });
+
+    const dens: Den[] = (data?.race?.dens || []).map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        color: d.color,
+        rank: d.rank,
+        car_number_range_start: d.carNumberRangeStart,
+        car_number_range_end: d.carNumberRangeEnd
+    }));
+
+    const [, createDenMutation] = useMutation(CREATE_DEN);
+    const [, updateDenMutation] = useMutation(UPDATE_DEN);
+    const [, deleteDenMutation] = useMutation(DELETE_DEN);
+    
     const [loading, setLoading] = useState(false);
     
     // New Den Form
@@ -35,38 +54,34 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
     const [editDenStart, setEditDenStart] = useState<number | undefined>(undefined);
     const [editDenEnd, setEditDenEnd] = useState<number | undefined>(undefined);
 
-    useEffect(() => {
-        fetchDens();
-    }, []);
-
-    const fetchDens = async () => {
-        try {
-            const data = await apiClient.get(`/races/${raceId}/dens/`);
-            setDens(data);
-        } catch (e) {
-            console.error("Failed to fetch dens", e);
-        }
+    const refreshDens = () => {
+        reexecuteQuery({ requestPolicy: 'network-only' });
+        onUpdate();
     };
 
     const handleAddDen = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await apiClient.post(`/races/${raceId}/dens/`, {
-                name: newDenName,
-                color: newDenColor,
-                rank: newDenRank,
-                car_number_range_start: newDenStart,
-                car_number_range_end: newDenEnd
+            const result = await createDenMutation({
+                raceId,
+                den: {
+                    name: newDenName,
+                    color: newDenColor,
+                    rank: newDenRank,
+                    car_number_range_start: newDenStart,
+                    car_number_range_end: newDenEnd
+                }
             });
+            if (result.error) throw result.error;
+
             setNewDenName('');
-            setNewDenColor('#000000');
+            setNewDenColor(DEN_COLORS[0]);
             setNewDenRank(undefined);
             setNewDenStart(undefined);
             setNewDenEnd(undefined);
-            setIsAddingDen(false); // Close form after adding
-            await fetchDens();
-            onUpdate();
+            setIsAddingDen(false);
+            refreshDens();
         } catch (e) {
             console.error("Failed to add den", e);
             showAlert("Failed to add den", "Error");
@@ -80,9 +95,9 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
         if (!confirmed) return;
         
         try {
-            await apiClient.delete(`/dens/${denId}`);
-            await fetchDens();
-            onUpdate();
+            const result = await deleteDenMutation({ id: denId });
+            if (result.error) throw result.error;
+            refreshDens();
         } catch (e) {
             console.error("Failed to delete den", e);
             showAlert("Failed to delete den", "Error");
@@ -102,16 +117,20 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
         e.preventDefault();
         setLoading(true);
         try {
-            await apiClient.put(`/dens/${editingDenId}`, {
-                name: editDenName,
-                color: editDenColor,
-                rank: editDenRank,
-                car_number_range_start: editDenStart,
-                car_number_range_end: editDenEnd
+            const result = await updateDenMutation({
+                id: editingDenId,
+                den: {
+                    name: editDenName,
+                    color: editDenColor,
+                    rank: editDenRank,
+                    car_number_range_start: editDenStart,
+                    car_number_range_end: editDenEnd
+                }
             });
+            if (result.error) throw result.error;
+
             setEditingDenId(null);
-            await fetchDens();
-            onUpdate();
+            refreshDens();
         } catch (e) {
             console.error("Failed to update den", e);
             showAlert("Failed to update den", "Error");
