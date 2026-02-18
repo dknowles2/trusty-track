@@ -4,22 +4,36 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../context/AlertContext';
 import Navigation from './Navigation';
-import { apiClient } from '../api/client';
+import * as Urql from 'urql';
 
-vi.mock('../api/client', () => ({
-    apiClient: {
-        get: vi.fn(),
-        post: vi.fn(),
-    }
-}));
+vi.mock('urql', async () => {
+    const actual = await vi.importActual('urql');
+    return {
+        ...actual,
+        useQuery: vi.fn(),
+        useMutation: vi.fn(),
+    };
+});
 
 describe('Navigation Component', () => {
+    const mockUseQuery = Urql.useQuery as any;
+    const mockUseMutation = Urql.useMutation as any;
+
     beforeEach(() => {
         vi.clearAllMocks();
-        (apiClient.get as any).mockResolvedValue([
-            { id: 1, name: 'Race 1' },
-            { id: 2, name: 'Race 2' }
-        ]);
+        mockUseQuery.mockReturnValue([{
+            data: {
+                races: [
+                    { id: 1, name: 'Race 1' },
+                    { id: 2, name: 'Race 2' }
+                ]
+            },
+            fetching: false,
+            error: undefined
+        }]);
+
+        mockUseMutation.mockReturnValue([{}, vi.fn()]);
+
         // Reset innerWidth
         Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
     });
@@ -34,7 +48,8 @@ describe('Navigation Component', () => {
         );
 
         expect(screen.getByText('Trusty Track')).toBeInTheDocument();
-        expect(screen.getByText('Select a Race')).toBeInTheDocument();
+        // Race selector might show "Select a Race" or the active race name depending on logic
+        expect(screen.getByText('Select a Race')).toBeInTheDocument(); 
         expect(screen.getByText('Settings')).toBeInTheDocument();
         expect(screen.queryByLabelText('Open Menu')).not.toBeInTheDocument();
     });

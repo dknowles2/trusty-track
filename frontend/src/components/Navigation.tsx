@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { apiClient } from '../api/client';
+import { useQuery, useMutation } from 'urql';
+import { GET_RACES_NAV, CREATE_RACE } from '../graphql/raceDetails';
 import Modal from './Modal';
 import RaceForm, { RaceFormData } from './RaceForm';
 import { useAlert } from '../context/AlertContext';
@@ -9,7 +10,11 @@ import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCar
 
 export default function Navigation() {
   const { showAlert } = useAlert();
-  const [races, setRaces] = useState<any[]>([]);
+  const [{ data, fetching }] = useQuery({ query: GET_RACES_NAV });
+  const races = data?.races || [];
+  
+  const [, createRaceMutation] = useMutation(CREATE_RACE);
+
   const [isRaceDropdownOpen, setIsRaceDropdownOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const location = useLocation();
@@ -27,14 +32,6 @@ export default function Navigation() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const fetchRaces = () => {
-    apiClient.get('/races/').then(setRaces).catch(console.error);
-  };
-
-  useEffect(() => {
-    fetchRaces();
-  }, []);
-
   const match = location.pathname.match(/\/race\/(\d+)/);
   const raceId = match ? match[1] : null;
   const activeRace = raceId ? races.find(r => r.id === parseInt(raceId)) : null;
@@ -50,9 +47,11 @@ export default function Navigation() {
 
   const handleCreateRace = async (data: RaceFormData) => {
     try {
-      const newRace = await apiClient.post('/races/', data);
+      const result = await createRaceMutation({ race: data });
+      if (result.error) throw result.error;
+      
+      const newRace = result.data.createRace;
       setShowCreateModal(false);
-      fetchRaces();
       navigate(`/race/${newRace.id}`);
     } catch (e) {
       console.error("Failed to create race", e);
