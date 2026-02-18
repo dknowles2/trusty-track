@@ -1,4 +1,4 @@
-# Task 5: Frontend — Integrate Free Race into Race Control
+# Task 5: Frontend — Integrate Free Race into Race Control [COMPLETED]
 
 ## Goal
 

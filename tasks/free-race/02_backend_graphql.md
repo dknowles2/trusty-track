@@ -1,4 +1,4 @@
-# Task 2: Backend — GraphQL Types, Queries & Mutations
+# Task 2: Backend — GraphQL Types, Queries & Mutations [COMPLETED]
 
 ## Goal
 

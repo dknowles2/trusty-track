@@ -1,4 +1,4 @@
-# Task 4: Frontend — FreeRaceExecution Component
+# Task 4: Frontend — FreeRaceExecution Component [COMPLETED]
 
 ## Goal
 

@@ -19,16 +19,27 @@ vi.mock('../components/race-control/RaceExecution', () => ({
         <div data-testid="race-execution">
             Race Execution
             {activeExecutionHeat && <div data-testid="active-heat-id">{activeExecutionHeat.id}</div>}
-            <button onClick={() => onRunHeat({ 
-                id: 1, 
-                heatNumber: 1, 
-                laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]) 
+            <button onClick={() => onRunHeat({
+                id: 1,
+                heatNumber: 1,
+                laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }])
             }, true)}>Run Heat 1</button>
             <button onClick={() => {
                 // Simulate finishing heat
                 onUpdateResult(1, [{ lane: 1, time: 4.5, place: 1 }]);
             }}>Finish Heat 1</button>
             <div data-testid="timer-type">{timerType}</div>
+        </div>
+    )
+}));
+
+vi.mock('../components/race-control/FreeRaceTab', () => ({
+    FreeRaceTab: ({ raceId, laneCount, timerType }: any) => (
+        <div data-testid="free-race-tab">
+            Free Race Tab
+            <div data-testid="free-race-race-id">{raceId}</div>
+            <div data-testid="free-race-lane-count">{laneCount}</div>
+            <div data-testid="free-race-timer-type">{timerType}</div>
         </div>
     )
 }));
@@ -107,7 +118,8 @@ describe('RaceControl Page', () => {
         );
 
         await waitFor(() => expect(screen.getByRole('button', { name: /Schedule/i })).toBeInTheDocument());
-        fireEvent.click(screen.getByRole('button', { name: /Race/i }));
+        // Use exact name to avoid matching "Free Race"
+        fireEvent.click(screen.getByRole('button', { name: /^\s*Race\s*$/i }));
 
         await waitFor(() => {
             expect(screen.getByTestId('race-execution')).toBeInTheDocument();
@@ -121,7 +133,7 @@ describe('RaceControl Page', () => {
 
         expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith(expect.objectContaining({
             heatId: 1,
-            results: expect.stringMatching(/\[.*"time":null.*\]|\[\]/) 
+            results: expect.stringMatching(/\[.*"time":null.*\]|\[\]/)
         }));
     });
 
@@ -142,8 +154,8 @@ describe('RaceControl Page', () => {
         );
         
         await waitFor(() => expect(screen.getByRole('button', { name: /Schedule/i })).toBeInTheDocument());
-        fireEvent.click(screen.getByRole('button', { name: /Race/i }));
-        
+        fireEvent.click(screen.getByRole('button', { name: /^\s*Race\s*$/i }));
+
         await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
 
         fireEvent.click(screen.getByText('Finish Heat 1'));
@@ -189,5 +201,61 @@ describe('RaceControl Page', () => {
         await waitFor(() => {
             expect(screen.getByTestId('lane-count-prop')).toHaveTextContent('6');
         });
+    });
+
+    it('"Free Race" tab is rendered in the tab bar', async () => {
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /Free Race/i })).toBeInTheDocument();
+        });
+    });
+
+    it('clicking "Free Race" tab renders FreeRaceTab', async () => {
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /Free Race/i })).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Free Race/i }));
+        await waitFor(() => {
+            expect(screen.getByTestId('free-race-tab')).toBeInTheDocument();
+        });
+        expect(screen.queryByTestId('schedule-management')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('race-execution')).not.toBeInTheDocument();
+    });
+
+    it('switching from "Free Race" back to "Schedule" renders ScheduleManagement', async () => {
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control/free-race`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId('free-race-tab')).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Schedule/i }));
+        await waitFor(() => {
+            expect(screen.getByTestId('schedule-management')).toBeInTheDocument();
+        });
+        expect(screen.queryByTestId('free-race-tab')).not.toBeInTheDocument();
     });
 });

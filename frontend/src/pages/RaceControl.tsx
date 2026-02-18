@@ -4,8 +4,9 @@ import { useQuery, useMutation } from 'urql';
 import { useAlert } from '../context/AlertContext';
 import { ScheduleManagement } from '../components/race-control/ScheduleManagement';
 import { RaceExecution } from '../components/race-control/RaceExecution';
+import { FreeRaceTab } from '../components/race-control/FreeRaceTab';
 import Icon from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet } from '@mdi/js';
 
 const GET_RACE_CONTROL_DATA = `
   query GetRaceControlData($id: Int!) {
@@ -328,7 +329,11 @@ export default function RaceControl() {
   };
 
   const location = useLocation();
-  const viewMode = (location.pathname.includes('/control/race')) ? 'EXECUTION' : 'SCHEDULE';
+  const viewMode = location.pathname.includes('/control/race')
+    ? 'EXECUTION'
+    : location.pathname.includes('/control/free-race')
+    ? 'FREE_RACE'
+    : 'SCHEDULE';
 
   const sortedHeatsEx = [...heats].sort((a, b) => {
       if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
@@ -395,12 +400,12 @@ export default function RaceControl() {
                 >
                     <Icon path={mdiCalendarRange} size={0.8} /> Schedule
                 </button>
-                <button 
+                <button
                     onClick={() => navigate(`/race/${id}/control/race`)}
-                    style={{ 
-                        padding: '8px 20px', 
-                        borderRadius: '20px', 
-                        border: 'none', 
+                    style={{
+                        padding: '8px 20px',
+                        borderRadius: '20px',
+                        border: 'none',
                         background: viewMode === 'EXECUTION' ? 'white' : 'transparent',
                         boxShadow: viewMode === 'EXECUTION' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                         fontWeight: viewMode === 'EXECUTION' ? 'bold' : 'normal',
@@ -412,6 +417,23 @@ export default function RaceControl() {
                 >
                     <Icon path={mdiFlagCheckered} size={0.8} /> Race
                 </button>
+                <button
+                    onClick={() => navigate(`/race/${id}/control/free-race`)}
+                    style={{
+                        padding: '8px 20px',
+                        borderRadius: '20px',
+                        border: 'none',
+                        background: viewMode === 'FREE_RACE' ? 'white' : 'transparent',
+                        boxShadow: viewMode === 'FREE_RACE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                        fontWeight: viewMode === 'FREE_RACE' ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <Icon path={mdiRacingHelmet} size={0.8} /> Free Race
+                </button>
             </div>
         </div>
 
@@ -419,7 +441,14 @@ export default function RaceControl() {
         </div>
       </div>
 
-      {viewMode === 'EXECUTION' ? (
+      {viewMode === 'FREE_RACE' ? (
+        <FreeRaceTab
+          raceId={id}
+          laneCount={race?.track?.laneCount ?? 4}
+          timerType={race?.track?.timerType ?? null}
+          racers={racers}
+        />
+      ) : viewMode === 'EXECUTION' ? (
         heats.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '8px' }}>
             <p>No heats available. Please add a round in the Schedule view first.</p>
@@ -453,7 +482,7 @@ export default function RaceControl() {
           onRunHeat={handleRunHeat}
           onReorderHeats={handleReorderHeats}
           getRacerName={getRacerName}
-          laneCount={race?.track?.laneCount || 4} 
+          laneCount={race?.track?.laneCount || 4}
           racerCount={race?.racers?.length || 0}
           denCount={race?.dens?.length || 0}
           championshipTrophies={race?.championshipTrophies || 3}

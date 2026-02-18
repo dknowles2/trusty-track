@@ -1,4 +1,4 @@
-# Task 1: Backend — FreeRaceHeat Model & Migration
+# Task 1: Backend — FreeRaceHeat Model & Migration [COMPLETED]
 
 ## Goal
 

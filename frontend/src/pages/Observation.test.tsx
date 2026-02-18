@@ -65,9 +65,15 @@ describe('Observation Page', () => {
         }
     };
 
+    // Extend base mock data to include activeFreeRaceHeat: null (no exhibition)
+    const mockRaceDataWithFreeRace = {
+        ...mockRaceData,
+        activeFreeRaceHeat: null,
+    };
+
     it('displays Now Racing and On Deck heats correctly', async () => {
         (useQuery as any).mockReturnValue([{
-            data: mockRaceData,
+            data: mockRaceDataWithFreeRace,
             fetching: false,
             error: null
         }, vi.fn()]);
@@ -102,14 +108,15 @@ describe('Observation Page', () => {
             race: {
                 ...mockRaceData.race,
                 heats: [
-                    { 
-                        id: 1, roundNumber: 1, heatNumber: 1, 
+                    {
+                        id: 1, roundNumber: 1, heatNumber: 1,
                         laneResults: JSON.stringify([
                             { lane: 1, racer_id: 1, time: "3.5000" }
                         ])
                     }
                 ]
-            }
+            },
+            activeFreeRaceHeat: null,
         };
 
         (useQuery as any).mockReturnValue([{
@@ -130,5 +137,174 @@ describe('Observation Page', () => {
             expect(screen.getByText('Now Racing')).toBeInTheDocument();
             expect(screen.getAllByText('No heat scheduled')).toHaveLength(2);
         });
+    });
+
+    // ---- Free Race / Exhibition tests ----
+
+    const activeFreeRaceHeat = {
+        id: 99,
+        laneAssignments: JSON.stringify([
+            { lane: 1, racer_id: 1, time: null, place: null },
+            { lane: 2, racer_id: 2, time: null, place: null },
+        ]),
+        laneResults: null,
+        createdAt: '2024-01-01T00:00:00Z',
+    };
+
+    // A data set where all official heats are completed
+    const allCompletedRaceData = {
+        race: {
+            ...mockRaceData.race,
+            heats: [
+                {
+                    id: 1, roundNumber: 1, heatNumber: 1,
+                    laneResults: JSON.stringify([{ lane: 1, racer_id: 1, time: '3.5000' }]),
+                },
+            ],
+            leaderboard: [],
+        },
+        activeFreeRaceHeat,
+    };
+
+    it('shows active free race heat in Now Racing when no official heat is running', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: allCompletedRaceData,
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        render(
+            <MemoryRouter initialEntries={['/races/1/observation']}>
+                <Routes>
+                    <Route path="/races/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
+        });
+        // Lane 1 racer (Speedy McQueen, id=1) should appear in the Now Racing panel
+        expect(screen.getAllByText('Speedy McQueen').length).toBeGreaterThan(0);
+    });
+
+    it('shows Exhibition badge when free race heat is displayed in Now Racing', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: allCompletedRaceData,
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        render(
+            <MemoryRouter initialEntries={['/races/1/observation']}>
+                <Routes>
+                    <Route path="/races/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Exhibition')).toBeInTheDocument();
+        });
+    });
+
+    it('official heat takes priority over free race heat and Exhibition badge is NOT shown', async () => {
+        // Has an uncompleted official heat (heat 2) AND an active free race heat
+        const mixedData = {
+            race: mockRaceData.race,
+            activeFreeRaceHeat,
+        };
+
+        (useQuery as any).mockReturnValue([{
+            data: mixedData,
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        render(
+            <MemoryRouter initialEntries={['/races/1/observation']}>
+                <Routes>
+                    <Route path="/races/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('(Round 1, Heat 2)')).toBeInTheDocument();
+        });
+        expect(screen.queryByText('Exhibition')).not.toBeInTheDocument();
+    });
+
+    it('completed free race heat (laneResults non-null) is NOT shown in Now Racing', async () => {
+        const completedFreeRaceData = {
+            race: {
+                ...mockRaceData.race,
+                heats: [
+                    {
+                        id: 1, roundNumber: 1, heatNumber: 1,
+                        laneResults: JSON.stringify([{ lane: 1, racer_id: 1, time: '3.5000' }]),
+                    },
+                ],
+                leaderboard: [],
+            },
+            activeFreeRaceHeat: {
+                ...activeFreeRaceHeat,
+                laneResults: JSON.stringify([
+                    { lane: 1, racer_id: 1, time: 3.142, place: 1 },
+                ]),
+            },
+        };
+
+        (useQuery as any).mockReturnValue([{
+            data: completedFreeRaceData,
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        render(
+            <MemoryRouter initialEntries={['/races/1/observation']}>
+                <Routes>
+                    <Route path="/races/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
+        });
+        // No official heat running, no active free race heat → "No heat scheduled" in Now Racing
+        expect(screen.getAllByText('No heat scheduled').length).toBeGreaterThan(0);
+        expect(screen.queryByText('Exhibition')).not.toBeInTheDocument();
+    });
+
+    it('Live Standings table is unaffected when a free race heat is active', async () => {
+        const dataWithStandings = {
+            race: {
+                ...allCompletedRaceData.race,
+                leaderboard: [
+                    { racerId: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, score: 3.5, heatsCompleted: 2, rank: 1 },
+                ],
+            },
+            activeFreeRaceHeat,
+        };
+
+        (useQuery as any).mockReturnValue([{
+            data: dataWithStandings,
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        render(
+            <MemoryRouter initialEntries={['/races/1/observation']}>
+                <Routes>
+                    <Route path="/races/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Live Standings')).toBeInTheDocument();
+        });
+        expect(screen.getByText('3.5000s')).toBeInTheDocument();
     });
 });

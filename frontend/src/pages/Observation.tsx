@@ -33,6 +33,12 @@ const GET_OBSERVATION_DATA = `
         rank
       }
     }
+    activeFreeRaceHeat(raceId: $id) {
+      id
+      laneAssignments
+      laneResults
+      createdAt
+    }
   }
 `;
 
@@ -102,12 +108,29 @@ export default function Observation() {
     return !(results.length > 0 && results[0].time !== null);
   });
 
-  const currentHeat = uncompleted.length > 0 ? uncompleted[0] : null;
+  const officialCurrentHeat = uncompleted.length > 0 ? uncompleted[0] : null;
   const nextHeat = uncompleted.length > 1 ? uncompleted[1] : null;
+
+  const activeFreeRaceHeat = data?.activeFreeRaceHeat ?? null;
+  const freeRaceIsActive = activeFreeRaceHeat && !activeFreeRaceHeat.laneResults;
+  const nowRacingIsExhibition = !officialCurrentHeat && freeRaceIsActive;
+
+  // Build a synthetic Heat-like object from the free race heat for renderHeatCard
+  const freeRaceAsHeat = freeRaceIsActive
+    ? {
+        id: activeFreeRaceHeat.id,
+        roundNumber: 0,
+        heatNumber: 0,
+        roundName: 'Exhibition',
+        laneResults: activeFreeRaceHeat.laneAssignments,
+      }
+    : null;
+
+  const currentHeat = officialCurrentHeat ?? (nowRacingIsExhibition ? freeRaceAsHeat : null);
 
   const standings = (race?.leaderboard || []) as Standing[];
 
-  const renderHeatCard = (title: string, heat: Heat | null, isNext: boolean = false, iconPath?: string) => {
+  const renderHeatCard = (title: string, heat: Heat | null, isNext: boolean = false, iconPath?: string, isExhibition: boolean = false) => {
     if (!heat) return (
       <div style={{ flex: 1, minWidth: '300px', background: '#f5f5f5', borderRadius: '8px', padding: '20px', textAlign: 'center', opacity: 0.7 }}>
         <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -125,7 +148,24 @@ export default function Observation() {
         <h2 style={{ marginTop: 0, fontSize: '1.5rem', color: isNext ? '#666' : '#333', display: 'flex', alignItems: 'center', gap: '10px' }}>
           {iconPath && <Icon path={iconPath} size={1} color={isNext ? '#666' : '#d32f2f'} />}
           <span>{title}</span>
-          <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#666', marginLeft: 'auto' }}>(Round {heat.roundNumber}, Heat {heat.heatNumber})</span>
+          {isExhibition && (
+            <span style={{
+              background: 'var(--cub-scouting-gold)',
+              color: '#333',
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              marginLeft: '10px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}>
+              Exhibition
+            </span>
+          )}
+          {!isExhibition && (
+            <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#666', marginLeft: 'auto' }}>(Round {heat.roundNumber}, Heat {heat.heatNumber})</span>
+          )}
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
           {assignments.map((a: any) => {
@@ -158,7 +198,7 @@ export default function Observation() {
   return (
     <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
       <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
-        {renderHeatCard("Now Racing", currentHeat, false, mdiFire)}
+        {renderHeatCard("Now Racing", currentHeat, false, mdiFire, !!nowRacingIsExhibition)}
         {renderHeatCard("On Deck", nextHeat, true, mdiChevronDoubleRight)}
       </div>
 

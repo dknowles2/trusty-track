@@ -1,4 +1,4 @@
-# Task 3: Frontend — FreeRaceLaneSetup Component
+# Task 3: Frontend — FreeRaceLaneSetup Component [COMPLETED]
 
 ## Goal
 

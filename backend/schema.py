@@ -511,6 +511,71 @@ class Group:
 
 
 @strawberry.type
+class FreeRaceHeat:
+    """A heat run in Free Race mode. Results do not affect standings."""
+
+    id: int
+    race_id: int
+    lane_assignments: str  # JSON
+    lane_results: Optional[str]  # JSON, null until completed
+    created_at: str
+
+    @strawberry.field
+    def parsed_assignments(self) -> List[LaneResult]:
+        """Parse lane_assignments JSON into LaneResult objects."""
+        if not self.lane_assignments:
+            return []
+        try:
+            data = json.loads(self.lane_assignments)
+            return [
+                LaneResult(
+                    lane=r.get("lane"),
+                    racer_id=r.get("racer_id"),
+                    time=r.get("time"),
+                    place=r.get("place"),
+                )
+                for r in data
+            ]
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @strawberry.field
+    def parsed_results(self) -> List[LaneResult]:
+        """Parse lane_results JSON into LaneResult objects."""
+        if not self.lane_results:
+            return []
+        try:
+            data = json.loads(self.lane_results)
+            return [
+                LaneResult(
+                    lane=r.get("lane"),
+                    racer_id=r.get("racer_id"),
+                    time=r.get("time"),
+                    place=r.get("place"),
+                )
+                for r in data
+            ]
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+
+@strawberry.type
+class FreeRaceLaneAssignment:
+    """A single lane assignment returned from a query."""
+
+    lane: int
+    racer_id: Optional[int]
+
+
+@strawberry.input
+class FreeRaceLaneAssignmentInput:
+    """A single lane assignment for a free race heat."""
+
+    lane: int
+    racer_id: Optional[int] = None  # None = empty lane
+
+
+@strawberry.type
 class Query:
     """
     Root query type for fetching data.
@@ -688,6 +753,54 @@ class Query:
             source=adv_source,
             num_racers=adv_num,
         )
+
+    @strawberry.field
+    def free_race_heats(
+        self, info: Info, race_id: int, limit: int = 10
+    ) -> List[FreeRaceHeat]:
+        """Get the most recent free race heats for a race."""
+        return typing.cast(
+            Any, crud.get_free_race_heats(info.context["db"], race_id, limit)
+        )
+
+    @strawberry.field
+    def active_free_race_heat(
+        self, info: Info, race_id: int
+    ) -> Optional[FreeRaceHeat]:
+        """
+        Return the most recently started FreeRaceHeat whose results have not yet
+        been recorded (lane_results is null). Returns None if no heat is in
+        progress. Used by the Observation page to show exhibition heats.
+        """
+        return typing.cast(
+            Any,
+            info.context["db"]
+            .query(models.FreeRaceHeat)
+            .filter(
+                models.FreeRaceHeat.race_id == race_id,
+                models.FreeRaceHeat.lane_results.is_(None),
+            )
+            .order_by(models.FreeRaceHeat.id.desc())
+            .first(),
+        )
+
+    @strawberry.field
+    def random_free_race_lanes(
+        self, info: Info, race_id: int
+    ) -> List[FreeRaceLaneAssignment]:
+        """
+        Return a random lane assignment for the race's track lane count,
+        using only checked-in racers. Frontend can display this as a preview
+        before the operator commits to starting the heat.
+        """
+        db = info.context["db"]
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        lane_count = race.track.lane_count if race and race.track else 4
+        assignments = crud.get_random_lane_assignments(db, race_id, lane_count)
+        return [
+            FreeRaceLaneAssignment(lane=a["lane"], racer_id=a["racer_id"])
+            for a in assignments
+        ]
 
 
 @strawberry.type
@@ -1153,6 +1266,43 @@ class Mutation:
         updated_heats = crud.reorder_heats(db, updates)
         return HeatReorderResponse(
             updated_count=len(updated_heats), heats=typing.cast(Any, updated_heats)
+        )
+
+    # Free Race Mutations
+    @strawberry.mutation
+    def start_free_race_heat(
+        self,
+        info: Info,
+        race_id: int,
+        lane_assignments: List[FreeRaceLaneAssignmentInput],
+    ) -> FreeRaceHeat:
+        """
+        Persist a free race heat with the given lane assignments.
+        Returns the created FreeRaceHeat (results will be null until recorded).
+        """
+        db = info.context["db"]
+        assignments = [
+            {"lane": a.lane, "racer_id": a.racer_id} for a in lane_assignments
+        ]
+        return typing.cast(
+            Any, crud.create_free_race_heat(db, race_id, assignments)
+        )
+
+    @strawberry.mutation
+    def record_free_race_result(
+        self,
+        info: Info,
+        heat_id: int,
+        results: str,  # JSON string, same shape as lane_assignments + time/place
+    ) -> Optional[FreeRaceHeat]:
+        """Record timing results for a free race heat."""
+        db = info.context["db"]
+        try:
+            lane_results = json.loads(results)
+        except (json.JSONDecodeError, TypeError):
+            return None
+        return typing.cast(
+            Any, crud.update_free_race_heat_result(db, heat_id, lane_results)
         )
 
     @strawberry.mutation

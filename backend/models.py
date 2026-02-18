@@ -114,6 +114,9 @@ class Race(Base):
         "Round", back_populates="race", cascade="all, delete-orphan"
     )
     heats: Mapped[List["Heat"]] = relationship("Heat", back_populates="race")
+    free_race_heats: Mapped[List["FreeRaceHeat"]] = relationship(
+        "FreeRaceHeat", back_populates="race", cascade="all, delete-orphan"
+    )
 
 
 class RacingGroup(Base):
@@ -222,6 +225,24 @@ class Heat(Base):
 
     race: Mapped["Race"] = relationship("Race", back_populates="heats")
     round: Mapped["Round"] = relationship("Round", back_populates="heats")
+
+
+class FreeRaceHeat(Base):
+    """A single heat run in Free Race mode. Never affects official standings."""
+
+    __tablename__ = "free_race_heats"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
+    # JSON array: [{"lane": 1, "racer_id": 42, "time": 3.141, "place": 1}, ...]
+    # racer_id may be None for empty lanes.
+    lane_assignments: Mapped[str] = mapped_column(String)
+    # JSON array of results, same shape as lane_assignments but with time/place filled in.
+    # Null until the heat is completed.
+    lane_results: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[str] = mapped_column(String)  # ISO-8601 timestamp
+
+    race: Mapped["Race"] = relationship("Race", back_populates="free_race_heats")
 
     @property
     def round_number(self) -> int:

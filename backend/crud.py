@@ -177,6 +177,11 @@ def delete_race(db: Session, race_id: int) -> bool:
     # Heat model has race_id.
     db.query(models.Heat).filter(models.Heat.race_id == race_id).delete()
 
+    # Free race heats
+    db.query(models.FreeRaceHeat).filter(
+        models.FreeRaceHeat.race_id == race_id
+    ).delete()
+
     db.delete(race)
     db.commit()
     return True
@@ -913,6 +918,88 @@ def bulk_clear_car_numbers(db: Session, racer_ids: List[int]):
         {models.Racer.car_number: None}, synchronize_session=False
     )
     db.commit()
+
+
+def create_free_race_heat(
+    db: Session,
+    race_id: int,
+    lane_assignments: list[dict],
+) -> models.FreeRaceHeat:
+    """Create a new FreeRaceHeat with the given lane assignments."""
+    from datetime import datetime, timezone
+
+    heat = models.FreeRaceHeat(
+        race_id=race_id,
+        lane_assignments=json.dumps(lane_assignments),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+    db.add(heat)
+    db.commit()
+    db.refresh(heat)
+    return heat
+
+
+def update_free_race_heat_result(
+    db: Session,
+    heat_id: int,
+    lane_results: list[dict],
+) -> models.FreeRaceHeat | None:
+    """Record results for a FreeRaceHeat."""
+    heat = (
+        db.query(models.FreeRaceHeat)
+        .filter(models.FreeRaceHeat.id == heat_id)
+        .first()
+    )
+    if heat is None:
+        return None
+    heat.lane_results = json.dumps(lane_results)
+    db.commit()
+    db.refresh(heat)
+    return heat
+
+
+def get_free_race_heats(
+    db: Session,
+    race_id: int,
+    limit: int = 10,
+) -> list[models.FreeRaceHeat]:
+    """Get the most recent FreeRaceHeats for a race, newest first."""
+    return (
+        db.query(models.FreeRaceHeat)
+        .filter(models.FreeRaceHeat.race_id == race_id)
+        .order_by(models.FreeRaceHeat.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def get_random_lane_assignments(
+    db: Session,
+    race_id: int,
+    lane_count: int,
+) -> list[dict]:
+    """
+    Randomly select `lane_count` checked-in racers and return lane assignments.
+    If fewer than `lane_count` racers are checked in, fill remaining lanes with
+    empty slots (racer_id=None).
+    """
+    checked_in = (
+        db.query(models.Racer)
+        .filter(
+            models.Racer.race_id == race_id,
+            models.Racer.car_passed_inspection == True,  # noqa: E712
+        )
+        .all()
+    )
+    pool = list(checked_in)
+    random.shuffle(pool)
+    selected = pool[:lane_count]
+
+    assignments = []
+    for i in range(lane_count):
+        racer_id = selected[i].id if i < len(selected) else None
+        assignments.append({"lane": i + 1, "racer_id": racer_id})
+    return assignments
 
 
 def bulk_move_racers_to_den(db: Session, racer_ids: List[int], den_id: Optional[int]):
