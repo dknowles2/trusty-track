@@ -1,0 +1,41 @@
+site_name: Trusty Track Help
+site_description: User guide for Trusty Track Pinewood Derby race management
+site_url: https://dknowles2.github.io/trusty-track/
+repo_url: https://github.com/dknowles2/trusty-track
+repo_name: trusty-track
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    primary: custom          # --scouting-blue (#003F87)
+    accent: custom           # --gold (#FCD116)
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.action.edit    # "edit this page" link
+  # logo: assets/logo.png    # add later
+
+extra_css:
+  - assets/extra.css         # custom color overrides
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Race Setup: race-setup.md
+  - Race Day: race-day.md
+  - Observation Displays: observation-displays.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition              # tip/note/warning boxes
+  - attr_list               # image sizing via { width=... }
+  - md_in_html
+  - pymdownx.details        # collapsible sections
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true

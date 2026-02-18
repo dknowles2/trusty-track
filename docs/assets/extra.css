@@ -1,0 +1,6 @@
+:root {
+  --md-primary-fg-color: #003F87;   /* scouting blue */
+  --md-primary-fg-color--light: #1a5faa;
+  --md-primary-fg-color--dark: #002d63;
+  --md-accent-fg-color: #FCD116;    /* gold */
+}
