@@ -1,4 +1,4 @@
-# Task 1: Backend Parity
+# Task 1: Backend Parity [DONE]
 
 ## Goal
 
