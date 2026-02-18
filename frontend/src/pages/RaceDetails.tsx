@@ -4,6 +4,7 @@ import { useQuery, useMutation } from 'urql';
 
 import { useAlert } from '../context/AlertContext';
 
+import { getContrastColor } from '../utils/colors';
 import RacerForm, { RacerData, Den } from '../components/RacerForm';
 import DenManager from '../components/DenManager';
 import Modal from '../components/Modal';
@@ -455,7 +456,7 @@ export default function RaceDetails() {
                           padding: '2px 8px', 
                           borderRadius: '12px', 
                           backgroundColor: den?.color || '#eee',
-                          color: '#333',
+                          color: getContrastColor(den?.color || '#eee'),
                           fontSize: '0.75rem',
                           fontWeight: 'bold'
                       }}>
