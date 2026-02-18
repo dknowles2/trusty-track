@@ -1,13 +1,13 @@
-# Documentation Task: Race Setup Guide
+# Documentation Task: Race Setup Guide [DONE]
 
 ## Document Details
 
-| Field | Value |
-|-------|-------|
-| **Output file** | `docs/user/race-setup.md` |
-| **Audience** | Pack admin setting up a race before race day |
-| **Goal** | Explain how to manage dens, register racers (manually and via CSV), assign car numbers, and review the roster before race day |
-| **Prerequisite** | A race has been created (see [Getting Started Guide](getting-started.md)) |
+| Field            | Value                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Output file**  | `docs/user/race-setup.md`                                                                                                     |
+| **Audience**     | Pack admin setting up a race before race day                                                                                  |
+| **Goal**         | Explain how to manage dens, register racers (manually and via CSV), assign car numbers, and review the roster before race day |
+| **Prerequisite** | A race has been created (see [Getting Started Guide](getting-started.md))                                                     |
 
 ---
 
@@ -16,6 +16,7 @@
 ### 1. Overview: The Race Details Page
 
 Explain that this is the main hub for managing who is in the race. Summarize what you can do here:
+
 - Add and edit dens/groups
 - Register individual racers
 - Bulk-import racers from a CSV file
