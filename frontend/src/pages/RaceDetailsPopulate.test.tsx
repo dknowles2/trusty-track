@@ -3,7 +3,6 @@ import '../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import RaceDetails from './RaceDetails';
-import { apiClient } from '../api/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { AlertProvider } from '../context/AlertContext';
@@ -38,18 +37,8 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
-// Mock apiClient
-vi.mock('../api/client', () => ({
-    apiClient: {
-        get: vi.fn(),
-        post: vi.fn(),
-        put: vi.fn(),
-        delete: vi.fn()
-    }
-}));
-
 describe('RaceDetails Populate', () => {
-    it('opens modal and calls populate API when confirmed', async () => {
+    it('opens modal and calls populate mutation when confirmed', async () => {
         const user = userEvent.setup();
         
         // Mock race data
@@ -82,13 +71,8 @@ describe('RaceDetails Populate', () => {
             error: null
         }, vi.fn()]);
 
-        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
-
-        // Mock tracks fetch for RaceForm
-        (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/tracks/') return Promise.resolve([{ id: 1, name: 'Default Track' }]);
-            return Promise.resolve({});
-        });
+        const genericMutationMock = vi.fn().mockResolvedValue({ data: {} });
+        (useMutation as any).mockReturnValue([{ fetching: false }, genericMutationMock]);
 
         render(
             <AlertProvider>
@@ -125,14 +109,17 @@ describe('RaceDetails Populate', () => {
         const generateBtn = screen.getByText('Generate');
         await user.click(generateBtn);
 
-        // 6. Verify API call
-        expect(apiClient.post).toHaveBeenCalledWith('/races/1/populate', {
-            count: 15,
-            add_racer_photos: true,
-            add_car_photos: true,
-            assign_dens: true,
-            check_in: false
-        });
+        // 6. Verify Mutation call
+        expect(genericMutationMock).toHaveBeenCalledWith(expect.objectContaining({
+            raceId: 1,
+            config: expect.objectContaining({
+                count: 15,
+                addRacerPhotos: true,
+                addCarPhotos: true,
+                assignDens: true,
+                checkIn: false
+            })
+        }));
     });
 
     it('validates input in modal', async () => {
@@ -154,13 +141,9 @@ describe('RaceDetails Populate', () => {
             fetching: false,
             error: null
         }, vi.fn()]);
-        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
-
-        // Mock tracks fetch for RaceForm
-        (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/tracks/') return Promise.resolve([{ id: 1, name: 'Default Track' }]);
-            return Promise.resolve({});
-        });
+        
+        const genericMutationMock = vi.fn().mockResolvedValue({ data: {} });
+        (useMutation as any).mockReturnValue([{ fetching: false }, genericMutationMock]);
 
         render(
             <AlertProvider>
@@ -188,6 +171,6 @@ describe('RaceDetails Populate', () => {
 
         // Verify alert
         expect(mockShowAlert).toHaveBeenCalledWith("Please enter a valid count > 0", "Invalid Input");
-        expect(apiClient.post).not.toHaveBeenCalled();
+        expect(genericMutationMock).not.toHaveBeenCalled();
     });
 });

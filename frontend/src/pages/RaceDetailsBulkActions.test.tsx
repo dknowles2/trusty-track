@@ -3,7 +3,7 @@ import '../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import RaceDetails from './RaceDetails';
-import { apiClient } from '../api/client';
+
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import * as GQL from '../graphql/raceDetails';
@@ -38,15 +38,7 @@ vi.mock('../context/AlertContext', () => ({
     }),
 }))
 
-// Mock apiClient
-vi.mock('../api/client', () => ({
-    apiClient: {
-        get: vi.fn(),
-        post: vi.fn(),
-        put: vi.fn(),
-        delete: vi.fn()
-    }
-}));
+
 
 describe('RaceDetails Bulk Actions', () => {
     const mockRace = { id: 1, name: 'Test Race', date_time: '2024-03-15T10:00:00' };
@@ -94,10 +86,7 @@ describe('RaceDetails Bulk Actions', () => {
         });
 
         // Mock tracks fetch for RaceForm
-        (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/tracks/') return Promise.resolve([]);
-            return Promise.resolve({});
-        });
+
     };
 
     it('enables bulk actions menu after selecting racers', async () => {

@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 
 import { useAlert } from '../context/AlertContext';
-import { apiClient } from '../api/client';
+
 import RacerForm, { RacerData, Den } from '../components/RacerForm';
 import DenManager from '../components/DenManager';
 import Modal from '../components/Modal';
@@ -72,6 +72,7 @@ export default function RaceDetails() {
   const [, bulkClearNumbersMutation] = useMutation(GQL.BULK_CLEAR_NUMBERS);
   const [, bulkMoveToDenMutation] = useMutation(GQL.BULK_MOVE_TO_DEN);
   const [, bulkDeleteRacersMutation] = useMutation(GQL.BULK_DELETE_RACERS);
+  const [, populateRaceMutation] = useMutation(GQL.POPULATE_RACE);
 
   // Mapped Data from Query
   const race = useMemo(() => {
@@ -1207,13 +1208,17 @@ export default function RaceDetails() {
                         }
 
                         try {
-                            await apiClient.post(`/races/${raceId}/populate`, {
-                                count: populateCount,
-                                add_racer_photos: popAddRacerPhotos,
-                                add_car_photos: popAddCarPhotos,
-                                assign_dens: popAssignDens,
-                                check_in: popCheckIn
+                            const result = await populateRaceMutation({
+                                raceId: parsedRaceId,
+                                config: {
+                                    count: populateCount,
+                                    addRacerPhotos: popAddRacerPhotos,
+                                    addCarPhotos: popAddCarPhotos,
+                                    assignDens: popAssignDens,
+                                    checkIn: popCheckIn
+                                }
                             });
+                            if (result.error) throw result.error;
                             refreshData();
                             setShowPopulateModal(false);
                         } catch (e) {

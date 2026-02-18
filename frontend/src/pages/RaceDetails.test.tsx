@@ -3,7 +3,7 @@ import '../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import RaceDetails from './RaceDetails';
-import { apiClient } from '../api/client';
+
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 
@@ -38,14 +38,7 @@ vi.mock('../context/AlertContext', () => ({
 }))
 
 // Mock apiClient
-vi.mock('../api/client', () => ({
-    apiClient: {
-        get: vi.fn(),
-        post: vi.fn(),
-        put: vi.fn(),
-        delete: vi.fn()
-    }
-}));
+
 
 describe('RaceDetails', () => {
     it('displays human-readable race settings', async () => {
@@ -145,6 +138,8 @@ describe('RaceDetails', () => {
             error: null
         }, vi.fn()]);
 
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
         render(
             <MemoryRouter initialEntries={['/races/1']}>
                 <Routes>
@@ -211,10 +206,7 @@ describe('RaceDetails', () => {
         (useMutation as any).mockReturnValue([{ fetching: false }, mockDeleteRace]);
 
         // Mock tracks fetch for RaceForm
-        (apiClient.get as any).mockImplementation((url: string) => {
-            if (url === '/tracks/') return Promise.resolve([{ id: 1, name: 'Default Track' }]);
-            return Promise.resolve({});
-        });
+
 
         render(
             <MemoryRouter initialEntries={['/races/1']}>
