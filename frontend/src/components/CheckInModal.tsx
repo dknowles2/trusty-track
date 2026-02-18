@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { RacerData } from './RacerForm';
-import { apiClient } from '../api/client';
+import { useMutation } from 'urql';
 import CameraCapture from './CameraCapture';
 import { useAlert } from '../context/AlertContext';
-import { useMutation } from 'urql';
-import { CHECK_IN_RACER } from '../graphql/raceDetails';
+import { CHECK_IN_RACER, UPLOAD_IMAGE } from '../graphql/raceDetails';
 
 interface Racer extends RacerData {
     id: number;
@@ -28,40 +27,43 @@ export default function CheckInModal({ racer, onClose, onSave }: CheckInModalPro
     const [carImageUrl, setCarImageUrl] = useState<string | undefined>(racer.car_image_url);
     
     const [, checkInMutation] = useMutation(CHECK_IN_RACER);
+    const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
     const [loading, setLoading] = useState(false);
     const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
 
     const uploadFile = async (file: File, type: 'racer' | 'car') => {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        try {
-            const result = await apiClient.post('/upload/', formData);
-            const newUrl = result.url;
-                
-            // Update local state for immediate feedback
-            if (type === 'racer') {
-                setRacerImageUrl(newUrl);
-            } else {
-                setCarImageUrl(newUrl);
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const dataUrl = e.target?.result as string;
+            try {
+                const uploadResult = await uploadImageMutation({ dataUrl });
+                if (uploadResult.error) throw uploadResult.error;
+                const newUrl = uploadResult.data?.uploadImage;
+
+                // Update local state for immediate feedback
+                if (type === 'racer') {
+                    setRacerImageUrl(newUrl);
+                } else {
+                    setCarImageUrl(newUrl);
+                }
+
+                // Auto-save to backend using GraphQL
+                const mutationResult = await checkInMutation({
+                    id: racer.id,
+                    passedInspection: passedInspection,
+                    weight: weight ? parseFloat(weight) : 0,
+                    racerImageUrl: type === 'racer' ? newUrl : racerImageUrl,
+                    carImageUrl: type === 'car' ? newUrl : carImageUrl
+                });
+
+                if (mutationResult.error) throw mutationResult.error;
+                onSave();
+            } catch (error) {
+                console.error('Upload error', error);
+                showAlert('Error uploading image', 'Error');
             }
-
-            // Auto-save to backend using GraphQL
-            const mutationResult = await checkInMutation({
-                id: racer.id,
-                passedInspection: passedInspection,
-                weight: weight ? parseFloat(weight) : 0,
-                racerImageUrl: type === 'racer' ? newUrl : racerImageUrl,
-                carImageUrl: type === 'car' ? newUrl : carImageUrl
-            });
-            
-            if (mutationResult.error) throw mutationResult.error;
-            onSave(); 
-
-        } catch (error) {
-            console.error("Upload error", error);
-            showAlert("Error uploading image", "Error");
-        }
+        };
+        reader.readAsDataURL(file);
     };
     
     const handleCapture = (file: File, type: 'racer' | 'car') => {

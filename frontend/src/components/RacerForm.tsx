@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import CameraCapture from './CameraCapture';
-import { apiClient } from '../api/client';
-import { useQuery } from 'urql';
-import { GET_RACE_DENS } from '../graphql/raceDetails';
+import { useQuery, useMutation } from 'urql';
+import { GET_RACE_DENS, UPLOAD_IMAGE } from '../graphql/raceDetails';
 
 export interface RacerData {
   first_name: string;
@@ -54,6 +53,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
   
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
+  const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
 
   useEffect(() => {
     if (initialData) {
@@ -72,19 +72,22 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
   };
 
   const uploadFile = async (file: File, type: 'racer' | 'car') => {
-      const data = new FormData();
-      data.append('file', file);
-      
-      try {
-          // Keep using REST for file upload for now as per plan
-          const result = await apiClient.post('/upload/', data);
-          setFormData(prev => ({ 
-              ...prev, 
-              [type === 'racer' ? 'racer_image_url' : 'car_image_url']: result.url 
-          }));
-      } catch (error) {
-          console.error("Upload failed", error);
-      }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+          const dataUrl = e.target?.result as string;
+          try {
+              const result = await uploadImageMutation({ dataUrl });
+              if (result.error) throw result.error;
+              const url = result.data?.uploadImage;
+              setFormData(prev => ({
+                  ...prev,
+                  [type === 'racer' ? 'racer_image_url' : 'car_image_url']: url
+              }));
+          } catch (error) {
+              console.error('Upload failed', error);
+          }
+      };
+      reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

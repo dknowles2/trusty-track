@@ -185,3 +185,41 @@ export const BULK_DELETE_RACERS = gql`
     bulkDeleteRacers(racerIds: $racerIds)
   }
 `;
+
+export const GET_TRACKS = gql`
+  query GetTracks {
+    tracks {
+      id
+      name
+    }
+  }
+`;
+
+export const GET_RACES_NAV = gql`
+  query GetRacesNav {
+    races {
+      id
+      name
+    }
+  }
+`;
+
+export const CREATE_RACE = gql`
+  mutation CreateRace($race: RaceInput!) {
+    createRace(race: $race) {
+      id
+    }
+  }
+`;
+
+export const POPULATE_RACE = gql`
+  mutation PopulateRace($raceId: Int!, $config: PopulateTestDataInput!) {
+    populateRace(raceId: $raceId, input: $config)
+  }
+`;
+
+export const UPLOAD_IMAGE = gql`
+  mutation UploadImage($dataUrl: String!) {
+    uploadImage(dataUrl: $dataUrl)
+  }
+`;
