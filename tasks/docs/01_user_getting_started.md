@@ -1,4 +1,4 @@
-# Documentation Task: Getting Started Guide [IN PROGRESS]
+# Documentation Task: Getting Started Guide [DONE]
 
 ## Document Details
 

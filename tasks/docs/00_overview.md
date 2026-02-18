@@ -9,7 +9,7 @@ Create user-facing documentation for Trusty Track aimed at **race event organize
 | Task     | File                         | Document                             | Audience                                   |
 | -------- | ---------------------------- | ------------------------------------ | ------------------------------------------ |
 | 0 [DONE] | `05_github_pages_setup.md`   | GitHub Pages / MkDocs infrastructure | Developer / repo maintainer                |
-| 1        | `01_user_getting_started.md` | Getting Started Guide                | First-time organizers                      |
+| 1 [DONE] | `01_user_getting_started.md` | Getting Started Guide                | First-time organizers                      |
 | 2        | `02_race_setup.md`           | Race Setup Guide                     | Pack admins setting up a race              |
 | 3        | `03_race_day.md`             | Race Day Operations Guide            | Check-in operators, race control operators |
 | 4        | `04_observation_displays.md` | Observation & Audience Displays      | Display/kiosk operators                    |
