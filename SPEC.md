@@ -33,12 +33,11 @@ Well-lit path: User installs the software and navigates to the main view of the 
   - What is the track length? (free-form numeric input, in feet)
   - What kind of timer is attached to the track?
     - We should provide a few options:
-      - Skip (manually configure later)
       - Fake timer (for testing purposes; make it clear that you can change this later)
       - Auto-detect, with two options:
         - Timer is connected to the backend
         - Timer is connected to the current device (the "proxy" option outlined above)
-    - Implementation detail: out-of-the-box, we should support the devices that "DerbyTimer" (the java program from https://github.com/jeffpiazza/derbynet) supports. Later we should consider porting this to python to better integrate natively with our application
+    - Implementation detail: out-of-the-box, we should support the devices that "DerbyTimer" (the java program from https://github.com/jeffpiazza/derbynet) supports. The DerbyNet timer protocol is documented in `tasks/timers/derbynet-protocol-spec.md`.
 
 
 This initial setup specifies paramaters that we expect to not change in most cases. But we also want to allow modifying them in the future. Imagine that you buy an updated track, swap out the timer, or move to a new location where you want to utilize your existing software. These settings should be accessible later via a global settings such as "Global Settings", "System Settings", or similar option.
@@ -92,17 +91,19 @@ We need to allow multiple modes of racer import:
 
 #### Printables
 
+*Not yet implemented — see `tasks/printables/` for the full implementation plan.*
+
 Once all racers are input into the system, we should also provide the option to physically print some documents:
 
 -  Check-in barcode - a basic barcode or QR-Code that allows a check-in operator (see below) to scan the code and immediately be presented with the final check-in process for the racer.
--  Drivers License - A Cute business-card sized printout about the participant that "allows" them to race.
--  Pit Pass - A printable that is sutable for hanging on a lanyard, containing the event name, date, time, location, participant name, and participant picture. 
+-  Drivers License - A cute business-card sized printout about the participant that "allows" them to race.
+-  Pit Pass - A printable that is suitable for hanging on a lanyard, containing the event name, date, time, location, participant name, and participant picture.
 
 ### Race Check-In
 
-On "race day" (or sometimes before), operators need to verify which participants are eligible for racing. If the racers have been previously imported, this means verifying that each car is suitable for racing ("passed inspection") and then collecting any additional information (car name, racer picture, car picture)
+On "race day" (or sometimes before), operators need to verify which participants are eligible for racing. If the racers have been previously imported, this means verifying that each car is suitable for racing ("passed inspection") and then collecting any additional information (car name, racer picture, car picture). ✅ *Implemented via `CheckInModal` in `RaceDetails.tsx`.*
 
-If "Printables" were previously utilized, we want a race "check-in" operator to be able to scan the barcode or QR-code to look up the participant. This should not require additional hardware--if using a laptop or physical computer, the attached USB camera should be able to convert a barcode into a participant record; if using a mobile phone or tablet, the onboard camera should be able to do the same.
+If "Printables" were previously utilized, we want a race "check-in" operator to be able to scan the barcode or QR-code to look up the participant. This should not require additional hardware--if using a laptop or physical computer, the attached USB camera should be able to convert a barcode into a participant record; if using a mobile phone or tablet, the onboard camera should be able to do the same. *Not yet implemented — see `tasks/printables/03_frontend_check_in_scan.md`.*
 
 ### Race Operation
 
@@ -119,7 +120,7 @@ First, this operator needs to first determine a few things about the race:
 
 No we can schedule heats...
 
-  - Output an initial "Race Schedule" - this should be both a "bracket" style visualization, as well as an order of racers
+  - Output an initial "Race Schedule" - this should show the proposed heats as an ordered list of racers per heat
   - The operator is then provided two options:
     1. Start Racing
       - This officially schedules the proposed heats, and starts the race schedule
@@ -131,25 +132,25 @@ No we can schedule heats...
 
 We want to allow various bystandards to view the state of the race. This list is not exhaustive, and the API we provide should allow easily extending this.
 
-#### On Deck
+#### On Deck ✅
 
-A simple view of what racers are next to race. Can utilize all the data previously colllected.
+A simple view of what racers are next to race. Can utilize all the data previously collected.
 
-#### Currently Racing
+#### Currently Racing ✅
 
 The current racers. Let the user decide which pictures are shown (racer or car or both)
 
 #### Timing Stats
 
-THe exact timing of the last / current heat. Basic details about the racers or their cars.
+The exact timing of the last / current heat. Basic details about the racers or their cars. *Not yet implemented — see `tasks/observation/03_timing_stats_view.md`.*
 
-#### Leaderboard
+#### Leaderboard ✅
 
-The current standings according to racing rules
+The current standings according to racing rules.
 
 #### Heats
 
-A bracket-view of who is expected to be racing. Probably annotated by racer names & car names, but could include picures if it makes sense in the visual representation.
+A view of who is expected to be racing, annotated with racer names & car names. Could include pictures if it makes sense in the visual representation.
 
 ## UI & Branding (Official BSA Guidelines)
 

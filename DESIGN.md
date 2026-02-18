@@ -15,11 +15,11 @@ Trusty Track will follow a client-server architecture, comprising a Python-based
 ```mermaid
 graph LR
     A[Timing Device] -- Serial/USB --> RP((Remote Proxy))
-    RP -- WebSocket/HTTP --> B[Backend API (Python)]
-    F1[Frontend (React) - Admin] -- HTTP/WebSocket --> B
-    F2[Frontend (React) - Observer] -- HTTP/WebSocket --> B
-    B -- Data Storage --> DB[(Database)]
-    F3[Frontend (React) - Kiosk/Display] -- HTTP/WebSocket --> B
+    RP -- WebSocket/HTTP --> B[Backend API (Python/FastAPI)]
+    F1[Frontend (React) - Admin] -- GraphQL/WebSocket --> B
+    F2[Frontend (React) - Observer] -- GraphQL/WebSocket --> B
+    B -- SQLAlchemy ORM --> DB[(SQLite / PostgreSQL)]
+    F3[Frontend (React) - Kiosk/Display] -- WebSocket --> B
 ```
 
 ## 3. Backend Design (Python)
@@ -46,26 +46,31 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `id` (PK)
     -   `lane_count`
     -   `length_feet`
-    -   `timer_type` (Enum: `SKIP`, `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`)
+    -   `timer_type` (Enum: `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`)
     -   `serial_port` (for direct backend connection)
 -   **`Race`**: Specific race event instance.
     -   `id` (PK)
     -   `group_id` (FK to Group)
+    -   `track_id` (FK to Track, optional)
     -   `name` (unique)
     -   `date_time` (optional)
     -   `location` (optional)
     -   `car_numbering_strategy` (Enum: `PER_GROUP`, `GLOBAL`, `MANUAL`)
-    - `global_start_number` (if GLOBAL)
-    - `scheduling_strategy` (Enum: `LANE_ROTATION`, `PERFECT_N`, `CHAOTIC` - default `LANE_ROTATION`)
-    - `scoring_strategy` (Enum: `TIMED`, `POINTS` - default `TIMED`)
-    - `rules_configuration` (JSON, optional parameters for the chosen strategies)
--   **`RacingGroup`**: Sub-divisions within a race (e.g., Den).
+    -   `global_start_number` (if GLOBAL, default 1)
+    -   `championship_trophies` (int, number of top finishers for championship, default 3)
+    -   `scoring_strategy` (Enum: `TIMED`, `POINTS` - default `TIMED`)
+    -   `rules_configuration` (JSON string, optional)
+    -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
+-   **`Den`**: Sub-divisions within a race (e.g., Den). Previously referred to as `RacingGroup` in early design — the implementation uses `Den` as the primary grouping concept.
     -   `id` (PK)
     -   `race_id` (FK to Race)
     -   `name`
-    -   `rank` (Enum: `LION`, `TIGER`, etc., if Cub Scouts)
+    -   `color` (hex color for branding)
+    -   `rank` (Enum: `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER`, optional)
     -   `car_number_range_start` (if PER_GROUP)
     -   `car_number_range_end` (if PER_GROUP)
+
+-   **`RacingGroup`**: Retained as a secondary grouping concept in the data model for round-level scheduling (e.g., grouping dens into a round). Most frontend interactions use `Den` directly.
 -   **`Racer`**: Participant details.
     -   `id` (PK)
     -   `race_id` (FK to Race)
@@ -77,12 +82,21 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `racer_image_url` (optional)
     -   `car_image_url` (optional)
     -   `racing_group_id` (FK to RacingGroup, optional)
--   **`Heat`**: Individual race instances within a round.
+-   **`Round`**: A collection of heats within a race (e.g., "Den Round", "Championship").
     -   `id` (PK)
     -   `race_id` (FK to Race)
     -   `round_number`
+    -   `name` (optional display name)
+    -   `scheduling_strategy` (Enum: `PPC`)
+    -   `advancement_source` (optional: `PACK` or `DEN`, for championship rounds)
+    -   `advancement_num_racers` (optional: how many racers advance per source)
+
+-   **`Heat`**: Individual race instances within a round.
+    -   `id` (PK)
+    -   `race_id` (FK to Race)
+    -   `round_id` (FK to Round)
     -   `heat_number`
-    -   `lane_results` (JSON or separate table, containing `racer_id`, `lane_number`, `time`, `place`)
+    -   `lane_results` (JSON string containing array of `{racer_id, lane_number, time, place}`)
 -   **`User`**: (Implicit requirement for authentication/authorization if multi-user)
     -   `id` (PK)
     -   `username`
@@ -91,48 +105,48 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
 
 ### 3.3. API Design
 
-The API will be RESTful over HTTP, with WebSocket support for real-time updates (e.g., race observation).
+The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all data operations and mutations. A small set of REST endpoints handle binary/file responses that GraphQL is unsuitable for.
 
-**Key Endpoints:**
+**GraphQL Queries:**
 
--   `/api/config`:
-    -   `GET /api/config/initial`: Retrieve initial configuration status.
-    -   `POST /api/config/initial`: Submit initial setup (Group, Track details).
-    -   `GET /api/config/global`: Retrieve global settings.
-    -   `PUT /api/config/global`: Update global settings.
--   `/api/races`:
-    -   `GET /api/races`: List all races.
-    -   `POST /api/races`: Create a new race.
-    -   `GET /api/races/{race_id}`: Retrieve race details.
-    -   `PUT /api/races/{race_id}`: Update race details.
-    -   `DELETE /api/races/{race_id}`: Delete a race.
--   `/api/races/{race_id}/groups`:
-    -   `GET /api/races/{race_id}/groups`: List racing groups for a race.
-    -   `POST /api/races/{race_id}/groups`: Add racing groups.
-    -   `PUT /api/races/{race_id}/groups/{group_id}`: Update a racing group.
--   `/api/races/{race_id}/racers`:
-    -   `GET /api/races/{race_id}/racers`: List racers for a race.
-    -   `POST /api/races/{race_id}/racers/bulk`: Bulk import racers (CSV upload).
-    -   `POST /api/races/{race_id}/racers`: Add a single racer.
-    -   `GET /api/races/{race_id}/racers/{racer_id}`: Retrieve racer details.
-    -   `PUT /api/races/{race_id}/racers/{racer_id}`: Update racer details (e.g., `car_passed_inspection`).
-    -   `DELETE /api/races/{race_id}/racers/{racer_id}`: Delete a racer.
--   `/api/races/{race_id}/checkin`:
-    -   `POST /api/races/{race_id}/checkin/scan`: Scan barcode/QR for racer lookup.
--   `/api/races/{race_id}/operation`:
-    -   `POST /api/races/{race_id}/operation/schedule`: Generate and confirm race schedule.
-    -   `POST /api/races/{race_id}/operation/start_heat`: Trigger a heat start.
-    -   `GET /api/races/{race_id}/operation/status`: Get current race status.
--   `/api/races/{race_id}/observation`: (WebSocket endpoints for real-time updates)
-    -   `/ws/races/{race_id}/on_deck`: Real-time updates for next racers.
-    -   `/ws/races/{race_id}/currently_racing`: Real-time updates for current heat.
-    -   `/ws/races/{race_id}/timing_stats`: Real-time timing data.
-    -   `/ws/races/{race_id}/leaderboard`: Real-time standings.
-    -   `/ws/races/{race_id}/heats`: Real-time heat progression.
--   `/api/printables`:
-    -   `GET /api/printables/barcode/{racer_id}`: Generate barcode/QR for racer.
-    -   `GET /api/printables/drivers_license/{racer_id}`: Generate driver's license.
-    -   `GET /api/printables/pit_pass/{racer_id}`: Generate pit pass.
+-   `races(skip, limit)` — List all races.
+-   `race(raceId)` — Get a single race with nested `racers`, `dens`, `rounds`, `heats`, `leaderboard`.
+-   `racers(raceId, skip, limit)` — List racers.
+-   `racer(racerId)` — Get a single racer.
+-   `tracks()` — List configured tracks.
+-   `groups()` — List organization groups.
+-   `initialConfig()` — Initial configuration status (group + track).
+-   `rounds(raceId)` — List rounds for a race.
+-   `advancementStatus(raceId, roundId)` — Check round advancement eligibility.
+
+**GraphQL Mutations:**
+
+-   Race: `createRace`, `updateRace`, `deleteRace`
+-   Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
+-   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`
+-   Den: `createDen`, `updateDen`, `deleteDen`
+-   Track: `createTrack`, `updateTrack`, `deleteTrack`
+-   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `advanceRound`, `reorderHeats`
+-   Heat: `updateHeatResult`
+-   Config: `createInitialConfig`, `updateInitialConfig`
+-   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data)
+
+**REST Endpoints (binary responses):**
+
+-   `POST /upload/` — File upload, returns URL.
+-   `GET /api/printables/barcode/{racer_id}` — QR code PNG for check-in scanning. *(not yet implemented)*
+-   `GET /api/printables/drivers_license/{racer_id}` — Driver's license PDF. *(not yet implemented)*
+-   `GET /api/printables/pit_pass/{racer_id}` — Pit pass PDF. *(not yet implemented)*
+
+**GraphQL Subscriptions (real-time observation):** *(not yet implemented — see `tasks/observation/`)*
+
+Delivered over the existing `/graphql` endpoint using the `graphql-ws` subprotocol. Clients use urql's `useSubscription` hook; no separate WebSocket URL is needed.
+
+-   `subscription leaderboard(raceId)` — Current standings, pushed on every heat result.
+-   `subscription onDeck(raceId)` — Next-up racers.
+-   `subscription currentlyRacing(raceId)` — Current heat racers and lane assignments.
+-   `subscription timingStats(raceId)` — Per-lane timing for the last completed heat.
+-   `subscription heats(raceId)` — Full round/heat list with completion status.
 
 ## 4. Frontend Design (React)
 
@@ -140,12 +154,14 @@ The frontend will be built using React, providing a dynamic and responsive user 
 
 ### 4.1. Technology Stack
 
--   **Framework:** React
--   **Language:** TypeScript (for type safety and better maintainability)
--   **Styling:** CSS-in-JS (e.g., Styled Components or Emotion) or utility-first CSS (e.g., Tailwind CSS) to ensure consistent branding and responsive design.
--   **State Management:** React Context API or a library like Zustand/Jotai for managing global and race-specific state.
--   **Routing:** React Router for navigation between different views.
--   **API Client:** `fetch` API or Axios for HTTP requests, WebSocket API for real-time data.
+-   **Framework:** React 18
+-   **Language:** TypeScript
+-   **Build Tool:** Vite
+-   **Styling:** Plain CSS with CSS custom properties (BSA color palette defined as variables).
+-   **State Management:** React Context API (`AlertContext` for notifications); component-local state via hooks.
+-   **Routing:** React Router for navigation between pages.
+-   **API Client:** `urql` GraphQL client for all data operations; native `fetch` for file uploads.
+-   **Testing:** Jest + React Testing Library for unit/component tests; Playwright for end-to-end tests.
 
 ### 4.2. User Interfaces
 
