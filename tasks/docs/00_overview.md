@@ -6,13 +6,13 @@ Create user-facing documentation for Trusty Track aimed at **race event organize
 
 ## Documentation Set
 
-| Task | File | Document | Audience |
-|------|------|----------|----------|
-| 0 | `05_github_pages_setup.md` | GitHub Pages / MkDocs infrastructure | Developer / repo maintainer |
-| 1 | `01_user_getting_started.md` | Getting Started Guide | First-time organizers |
-| 2 | `02_race_setup.md` | Race Setup Guide | Pack admins setting up a race |
-| 3 | `03_race_day.md` | Race Day Operations Guide | Check-in operators, race control operators |
-| 4 | `04_observation_displays.md` | Observation & Audience Displays | Display/kiosk operators |
+| Task     | File                         | Document                             | Audience                                   |
+| -------- | ---------------------------- | ------------------------------------ | ------------------------------------------ |
+| 0 [DONE] | `05_github_pages_setup.md`   | GitHub Pages / MkDocs infrastructure | Developer / repo maintainer                |
+| 1        | `01_user_getting_started.md` | Getting Started Guide                | First-time organizers                      |
+| 2        | `02_race_setup.md`           | Race Setup Guide                     | Pack admins setting up a race              |
+| 3        | `03_race_day.md`             | Race Day Operations Guide            | Check-in operators, race control operators |
+| 4        | `04_observation_displays.md` | Observation & Audience Displays      | Display/kiosk operators                    |
 
 Task 0 (infrastructure) should be completed first; the content tasks (1–4) can proceed in parallel once the site skeleton exists.
 
@@ -41,6 +41,7 @@ docs/assets/screenshots/<guide-slug>/<step-number>-<short-description>.png
 ```
 
 Examples:
+
 - `docs/assets/screenshots/race-setup/01-new-race-form.png`
 - `docs/assets/screenshots/race-day/05-check-in-modal.png`
 - `docs/assets/screenshots/observation/02-leaderboard-view.png`

@@ -1,12 +1,12 @@
-# Documentation Task: Getting Started Guide
+# Documentation Task: Getting Started Guide [IN PROGRESS]
 
 ## Document Details
 
-| Field | Value |
-|-------|-------|
-| **Output file** | `docs/user/getting-started.md` |
-| **Audience** | A pack admin or organizer running Trusty Track for the first time |
-| **Goal** | Walk the user from "software is installed" to "ready to add racers" |
+| Field            | Value                                                                            |
+| ---------------- | -------------------------------------------------------------------------------- |
+| **Output file**  | `docs/user/getting-started.md`                                                   |
+| **Audience**     | A pack admin or organizer running Trusty Track for the first time                |
+| **Goal**         | Walk the user from "software is installed" to "ready to add racers"              |
 | **Prerequisite** | Trusty Track is already installed and running (covered in `docs/development.md`) |
 
 ---
@@ -33,8 +33,8 @@ Explain that the first time you open the app, you'll be asked to provide some ba
 - **Track: Number of Lanes** — how many lanes the physical track has.
 - **Track: Length** — track length in feet.
 - **Timer Type** — what device is timing the race. Options:
-  - *Fake Timer* — good for testing; generates simulated times.
-  - *Auto-detect* — for a real timer connected to the computer.
+  - _Fake Timer_ — good for testing; generates simulated times.
+  - _Auto-detect_ — for a real timer connected to the computer.
 
 **Screenshot required:** System Settings form, filled in with sample data. Annotate the timer selection field.
 
@@ -60,6 +60,7 @@ After system settings are saved, show how to create a new race:
 ### 5. What's Next
 
 Brief summary with links to:
+
 - [Race Setup Guide](race-setup.md) — adding racers and managing dens
 - [Race Day Operations Guide](race-day.md) — check-in and running the race
 - [Observation & Audience Displays Guide](observation-displays.md) — setting up kiosks and displays

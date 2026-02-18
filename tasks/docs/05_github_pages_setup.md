@@ -1,4 +1,4 @@
-# Documentation Task: GitHub Pages & MkDocs Infrastructure Setup
+# Documentation Task: GitHub Pages & MkDocs Infrastructure Setup [DONE]
 
 ## Goal
 
@@ -6,13 +6,14 @@ Set up a GitHub Pages–hosted documentation website that is generated from Mark
 
 ## Technology choice
 
-| Tool | Reason |
-|------|--------|
-| **MkDocs** | Python-based (consistent with backend stack); minimal config; first-class GitHub Pages support |
+| Tool                          | Reason                                                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **MkDocs**                    | Python-based (consistent with backend stack); minimal config; first-class GitHub Pages support       |
 | **Material for MkDocs** theme | Polished, mobile-friendly, accessible; built-in search, navigation tabs, admonitions, image lightbox |
-| **GitHub Actions** | Free CI/CD; official MkDocs action keeps deployment simple |
+| **GitHub Actions**            | Free CI/CD; official MkDocs action keeps deployment simple                                           |
 
 Alternatives considered and rejected:
+
 - **Docusaurus** — React/Node; heavier; better for versioned API docs than narrative user guides.
 - **Jekyll** — natively supported by GitHub Pages, but less control over layout; Material theme not available.
 - **VitePress** — Vue-based; would add another frontend framework to maintain.
@@ -26,7 +27,7 @@ Alternatives considered and rejected:
 ```yaml
 site_name: Trusty Track Help
 site_description: User guide for Trusty Track Pinewood Derby race management
-site_url: https://<org>.github.io/trusty-track/   # update to real URL
+site_url: https://<org>.github.io/trusty-track/ # update to real URL
 repo_url: https://github.com/<org>/trusty-track
 repo_name: trusty-track
 edit_uri: edit/main/docs/
@@ -34,18 +35,18 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   palette:
-    primary: custom          # --scouting-blue (#003F87)
-    accent: custom           # --gold (#FCD116)
+    primary: custom # --scouting-blue (#003F87)
+    accent: custom # --gold (#FCD116)
   features:
     - navigation.tabs
     - navigation.sections
     - navigation.top
     - search.highlight
-    - content.action.edit    # "edit this page" link
-  logo: assets/logo.png      # placeholder; add later
+    - content.action.edit # "edit this page" link
+  logo: assets/logo.png # placeholder; add later
 
 extra_css:
-  - assets/extra.css         # custom color overrides
+  - assets/extra.css # custom color overrides
 
 nav:
   - Home: index.md
@@ -58,10 +59,10 @@ plugins:
   - search
 
 markdown_extensions:
-  - admonition              # tip/note/warning boxes
-  - attr_list               # image sizing via { width=... }
+  - admonition # tip/note/warning boxes
+  - attr_list # image sizing via { width=... }
   - md_in_html
-  - pymdownx.details        # collapsible sections
+  - pymdownx.details # collapsible sections
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
@@ -75,7 +76,7 @@ The site home page. Should include:
 
 - A brief tagline ("Trusty Track helps Cub Scout packs run Pinewood Derby events without spreadsheets.")
 - A "Where do I start?" section with cards or bullet links to each guide.
-- A note about what the app does *not* require (no technical knowledge, no server administration for the operator).
+- A note about what the app does _not_ require (no technical knowledge, no server administration for the operator).
 
 ### 3. `docs/assets/extra.css`
 
@@ -83,10 +84,10 @@ Custom color overrides so the site uses scouting brand colors instead of MkDocs 
 
 ```css
 :root {
-  --md-primary-fg-color: #003F87;   /* scouting blue */
+  --md-primary-fg-color: #003f87; /* scouting blue */
   --md-primary-fg-color--light: #1a5faa;
   --md-primary-fg-color--dark: #002d63;
-  --md-accent-fg-color: #FCD116;    /* gold */
+  --md-accent-fg-color: #fcd116; /* gold */
 }
 ```
 
@@ -101,12 +102,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-  workflow_dispatch:          # allow manual trigger
+      - "docs/**"
+      - "mkdocs.yml"
+  workflow_dispatch: # allow manual trigger
 
 permissions:
-  contents: write             # needed to push to gh-pages branch
+  contents: write # needed to push to gh-pages branch
 
 jobs:
   deploy:
@@ -114,11 +115,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0      # full history for git-dates plugin (optional)
+          fetch-depth: 0 # full history for git-dates plugin (optional)
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install MkDocs
         run: pip install mkdocs-material
@@ -132,6 +133,7 @@ This pushes the built site to the `gh-pages` branch. Configure GitHub Pages in t
 ### 5. GitHub Pages repo setting
 
 In **Settings → Pages**:
+
 - Source: **Deploy from a branch**
 - Branch: `gh-pages`, folder: `/ (root)`
 
