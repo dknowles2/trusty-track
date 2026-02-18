@@ -69,8 +69,8 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
                     name: newDenName,
                     color: newDenColor,
                     rank: newDenRank,
-                    car_number_range_start: newDenStart,
-                    car_number_range_end: newDenEnd
+                    carNumberRangeStart: newDenStart,
+                    carNumberRangeEnd: newDenEnd
                 }
             });
             if (result.error) throw result.error;
@@ -123,8 +123,8 @@ export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenM
                     name: editDenName,
                     color: editDenColor,
                     rank: editDenRank,
-                    car_number_range_start: editDenStart,
-                    car_number_range_end: editDenEnd
+                    carNumberRangeStart: editDenStart,
+                    carNumberRangeEnd: editDenEnd
                 }
             });
             if (result.error) throw result.error;

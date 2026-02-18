@@ -49,7 +49,18 @@ export default function Home() {
 
     const handleCreate = async (formData: RaceFormData) => {
         try {
-            const result = await createRace({ race: formData });
+            // Map snake_case to camelCase for GQL input
+            const raceInput = {
+                name: formData.name,
+                dateTime: formData.date_time,
+                location: formData.location,
+                trackId: formData.track_id,
+                scoringStrategy: formData.scoring_strategy,
+                carNumberingStrategy: formData.car_numbering_strategy,
+                globalStartNumber: formData.global_start_number,
+                championshipTrophies: formData.championship_trophies,
+            };
+            const result = await createRace({ race: raceInput });
             if (result.error) {
                 throw result.error;
             }

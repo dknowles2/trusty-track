@@ -764,9 +764,7 @@ class Query:
         )
 
     @strawberry.field
-    def active_free_race_heat(
-        self, info: Info, race_id: int
-    ) -> Optional[FreeRaceHeat]:
+    def active_free_race_heat(self, info: Info, race_id: int) -> Optional[FreeRaceHeat]:
         """
         Return the most recently started FreeRaceHeat whose results have not yet
         been recorded (lane_results is null). Returns None if no heat is in
@@ -1171,11 +1169,26 @@ class Mutation:
         f = io.StringIO(csv_data)
         reader = csv.DictReader(f)
         count = 0
+
+        # Helper to get value from row with case-insensitive and space-insensitive key search
+        def get_val(row, *aliases):
+            for alias in aliases:
+                # Direct match
+                if alias in row:
+                    return row[alias]
+                # Normalized match
+                norm_alias = alias.lower().replace(" ", "_")
+                for key in row.keys():
+                    norm_key = key.lower().replace(" ", "_")
+                    if norm_key == norm_alias:
+                        return row[key]
+            return None
+
         for row in reader:
-            # Replicate main.py logic
             den_id = None
-            if row.get("den"):
-                den_name = row["den"].strip()
+            den_val = get_val(row, "den")
+            if den_val:
+                den_name = den_val.strip()
                 db_den = (
                     db.query(models.Den)
                     .filter(models.Den.race_id == race_id, models.Den.name == den_name)
@@ -1189,10 +1202,19 @@ class Mutation:
                     )
                 den_id = db_den.id
 
+            first_name = get_val(row, "first_name", "first")
+            last_name = get_val(row, "last_name", "last")
+            car_number = get_val(row, "car_number", "car_#", "number")
+
+            if not first_name or not last_name:
+                continue
+
             racer_in = schemas.RacerCreate(
-                first_name=row["first_name"].strip(),
-                last_name=row["last_name"].strip(),
-                car_number=int(row["car_number"]) if row.get("car_number") else None,
+                first_name=first_name.strip(),
+                last_name=last_name.strip(),
+                car_number=int(car_number)
+                if car_number and car_number.isdigit()
+                else None,
                 den_id=den_id,
                 race_id=race_id,
             )
@@ -1284,9 +1306,7 @@ class Mutation:
         assignments = [
             {"lane": a.lane, "racer_id": a.racer_id} for a in lane_assignments
         ]
-        return typing.cast(
-            Any, crud.create_free_race_heat(db, race_id, assignments)
-        )
+        return typing.cast(Any, crud.create_free_race_heat(db, race_id, assignments))
 
     @strawberry.mutation
     def record_free_race_result(
