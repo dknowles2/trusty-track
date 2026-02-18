@@ -11,26 +11,26 @@ needed to support each distribution channel.
 
 ## Audience Personas
 
-| Persona | Technical Level | Goal |
-|---------|----------------|------|
-| **Developer** | High — comfortable with Python, Node.js, Git | Run from source; hack on the code |
-| **Self-hoster** | Medium — comfortable with Docker and a terminal | Run a stable instance on their own hardware |
-| **Raspberry Pi user** | Low–medium — wants an appliance that boots and works | Plug in a Pi, open a browser, done |
-| **Mac user** | Low — downloads apps from the internet | Double-click a `.dmg` installer |
-| **Windows user** | Low — downloads apps from the internet | Run a `.exe` installer |
+| Persona               | Technical Level                                      | Goal                                        |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------- |
+| **Developer**         | High — comfortable with Python, Node.js, Git         | Run from source; hack on the code           |
+| **Self-hoster**       | Medium — comfortable with Docker and a terminal      | Run a stable instance on their own hardware |
+| **Raspberry Pi user** | Low–medium — wants an appliance that boots and works | Plug in a Pi, open a browser, done          |
+| **Mac user**          | Low — downloads apps from the internet               | Double-click a `.dmg` installer             |
+| **Windows user**      | Low — downloads apps from the internet               | Run a `.exe` installer                      |
 
 ---
 
 ## Distribution Channels
 
-| # | Channel | Task File | Audience |
-|---|---------|-----------|----------|
-| 1 | From source | `01_from_source.md` | Developers |
-| 2 | Docker / Docker Compose | `02_docker.md` | Self-hosters, technically inclined |
-| 3 | Raspberry Pi | `03_raspberry_pi.md` | "Appliance" users, embedded installs |
-| 4 | Desktop app (macOS + Windows) | `04_desktop_app.md` | Non-technical end users |
-| 5 | Release pipeline (CI/CD) | `05_release_pipeline.md` | Maintainers — builds all artifacts |
-| 6 | User-facing install docs | `06_user_documentation.md` | Writers / doc maintainers |
+| #        | Channel                       | Task File                  | Audience                             |
+| -------- | ----------------------------- | -------------------------- | ------------------------------------ |
+| 1 [DONE] | From source                   | `01_from_source.md`        | Developers                           |
+| 2        | Docker / Docker Compose       | `02_docker.md`             | Self-hosters, technically inclined   |
+| 3        | Raspberry Pi                  | `03_raspberry_pi.md`       | "Appliance" users, embedded installs |
+| 4        | Desktop app (macOS + Windows) | `04_desktop_app.md`        | Non-technical end users              |
+| 5        | Release pipeline (CI/CD)      | `05_release_pipeline.md`   | Maintainers — builds all artifacts   |
+| 6        | User-facing install docs      | `06_user_documentation.md` | Writers / doc maintainers            |
 
 ---
 
