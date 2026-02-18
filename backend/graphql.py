@@ -1,7 +1,10 @@
+import base64
 import csv
 import io
 import json
+import os
 import typing
+import uuid
 from typing import Any, List, Optional
 
 import strawberry
@@ -1151,6 +1154,43 @@ class Mutation:
         return HeatReorderResponse(
             updated_count=len(updated_heats), heats=typing.cast(Any, updated_heats)
         )
+
+    @strawberry.mutation
+    def upload_image(self, info: Info, data_url: str) -> str:
+        """Upload an image from a Base64 data URL and return the static URL.
+
+        Args:
+            info: GraphQL context info.
+            data_url: A data URL string (e.g. 'data:image/png;base64,...').
+
+        Returns:
+            The static URL path to the saved image.
+        """
+        upload_dir = "backend/uploads"
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Parse data URL: data:<mime>;base64,<data>
+        if "," not in data_url:
+            raise ValueError("Invalid data URL format")
+        header, encoded = data_url.split(",", 1)
+
+        # Determine file extension from mime type
+        ext = ".jpg"
+        if "image/png" in header:
+            ext = ".png"
+        elif "image/gif" in header:
+            ext = ".gif"
+        elif "image/webp" in header:
+            ext = ".webp"
+
+        filename = f"{uuid.uuid4()}{ext}"
+        file_path = os.path.join(upload_dir, filename)
+
+        image_data = base64.b64decode(encoded)
+        with open(file_path, "wb") as f:
+            f.write(image_data)
+
+        return f"/static/{filename}"
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

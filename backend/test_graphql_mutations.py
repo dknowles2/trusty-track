@@ -355,3 +355,39 @@ def test_bulk_mutations(client, db):
     """
     response = client.post("/graphql", json={"query": mutation_delete})
     assert response.json()["data"]["bulkDeleteRacers"] is True
+
+
+def test_upload_image_mutation(client):
+    """Test that uploadImage mutation saves a Base64 image and returns a static URL."""
+    import base64
+    import os
+
+    # Create a minimal 1x1 PNG as Base64
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00"
+        b"\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    encoded = base64.b64encode(png_bytes).decode()
+    data_url = f"data:image/png;base64,{encoded}"
+
+    mutation = f"""
+    mutation {{
+        uploadImage(dataUrl: "{data_url}")
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation})
+    assert response.status_code == 200
+    result = response.json()
+    assert "errors" not in result
+    url = result["data"]["uploadImage"]
+    assert url.startswith("/static/")
+    assert url.endswith(".png")
+
+    # Verify the file was actually saved
+    filename = url.split("/static/")[1]
+    file_path = os.path.join("backend/uploads", filename)
+    assert os.path.exists(file_path)
+
+    # Cleanup
+    os.remove(file_path)
