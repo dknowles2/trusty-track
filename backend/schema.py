@@ -847,10 +847,12 @@ class Mutation:
     """
 
     @strawberry.mutation
-    def create_race(self, info: Info, race: RaceInput) -> Race:
+    async def create_race(self, info: Info, race: RaceInput) -> Race:
         """Create a new race."""
         race_in = schemas.RaceCreate(**typing.cast(Any, strawberry.asdict(race)))
-        return typing.cast(Any, crud.create_race(info.context["db"], race_in))
+        new_race = typing.cast(Any, crud.create_race(info.context["db"], race_in))
+        await _publish_race_state(new_race.id)
+        return new_race
 
     @strawberry.mutation
     def update_race(self, info: Info, id: int, race: RaceUpdateInput) -> Optional[Race]:
@@ -1213,7 +1215,7 @@ class Mutation:
         )
 
     @strawberry.mutation
-    def update_initial_config(
+    async def update_initial_config(
         self, info: Info, config: InitialConfigInput
     ) -> InitialConfigStatus:
         """Update system organization name."""
@@ -1227,6 +1229,12 @@ class Mutation:
             db.refresh(group)
 
         tracks = crud.get_tracks(db)
+        
+        # If there's an active race, notify it of potential name changes
+        race = db.query(models.Race).first()
+        if race:
+            await _publish_race_state(race.id)
+            
         return InitialConfigStatus(
             initialized=True,
             group_name=group.name if group else None,
@@ -1234,7 +1242,7 @@ class Mutation:
         )
 
     @strawberry.mutation
-    def populate_race(
+    async def populate_race(
         self, info: Info, race_id: int, config: PopulateTestDataInput
     ) -> str:
         """Populate a race with test data."""
@@ -1250,10 +1258,11 @@ class Mutation:
             assign_dens=config.assign_dens,
             check_in=config.check_in,
         )
+        await _publish_race_state(race_id)
         return f"Populated race {race_id} with {config.count} racers"
 
     @strawberry.mutation
-    def import_racers(self, info: Info, race_id: int, csv_data: str) -> int:
+    async def import_racers(self, info: Info, race_id: int, csv_data: str) -> int:
         """Import racers from a CSV data string."""
         db = info.context["db"]
         # Verification: ensure race exists
@@ -1315,6 +1324,8 @@ class Mutation:
             )
             crud.create_racer(db, racer_in)
             count += 1
+            
+        await _publish_race_state(race_id)
         return count
 
     @strawberry.mutation
@@ -1409,7 +1420,7 @@ class Mutation:
         return typing.cast(Any, crud.create_free_race_heat(db, race_id, assignments))
 
     @strawberry.mutation
-    def record_free_race_result(
+    async def record_free_race_result(
         self,
         info: Info,
         heat_id: int,
@@ -1421,9 +1432,12 @@ class Mutation:
             lane_results = json.loads(results)
         except (json.JSONDecodeError, TypeError):
             return None
-        return typing.cast(
+        updated = typing.cast(
             Any, crud.update_free_race_heat_result(db, heat_id, lane_results)
         )
+        if updated:
+            await _publish_race_state(updated.race_id)
+        return updated
 
     @strawberry.mutation
     def upload_image(self, info: Info, data_url: str) -> str:
