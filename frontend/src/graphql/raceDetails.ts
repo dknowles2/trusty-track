@@ -224,3 +224,12 @@ export const UPLOAD_IMAGE = gql`
     uploadImage(dataUrl: $dataUrl)
   }
 `;
+
+export const RACE_STATE_CHANGED_SUBSCRIPTION = `
+  subscription RaceStateChanged($raceId: Int!) {
+    raceStateChanged(raceId: $raceId) {
+      raceId
+      changedAt
+    }
+  }
+`;

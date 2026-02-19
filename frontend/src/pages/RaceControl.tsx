@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery, useMutation } from 'urql';
+import { useQuery, useMutation, useSubscription } from 'urql';
+import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../graphql/raceDetails';
 import { useAlert } from '../context/AlertContext';
 import { ScheduleManagement } from '../components/race-control/ScheduleManagement';
 import { RaceExecution } from '../components/race-control/RaceExecution';
@@ -149,6 +150,16 @@ export default function RaceControl() {
   const [, deleteRoundMutation] = useMutation(DELETE_ROUND_MUTATION);
   const [, reorderHeatsMutation] = useMutation(REORDER_HEATS_MUTATION);
   const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
+
+  // Subscribe to race state changes so all tabs stay in sync.
+  // Any mutation — from this tab or another — triggers a fresh fetch.
+  useSubscription(
+    { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId: id }, pause: !id || isNaN(id) },
+    (_prev, _data) => {
+      reExecute({ requestPolicy: 'network-only' });
+      return _data;
+    }
+  );
 
   const { data, fetching } = result;
   const race = data?.race;

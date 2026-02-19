@@ -1,8 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useQuery, useMutation } from 'urql';
-import { useLocation } from 'react-router-dom';
+import { useQuery, useMutation, useSubscription } from 'urql';
 
 // Mock child components to isolate RaceControl logic
 vi.mock('../components/race-control/ScheduleManagement', () => ({
@@ -51,6 +50,7 @@ vi.mock('urql', async (importOriginal) => {
         ...actual,
         useQuery: vi.fn(),
         useMutation: vi.fn(),
+        useSubscription: vi.fn(),
     };
 });
 
@@ -98,6 +98,9 @@ describe('RaceControl Page', () => {
 
         // Default mock for useMutation
         (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+        // Default mock for useSubscription — does nothing by default
+        (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
     });
 
     it('clears previous results when re-running a completed heat', async () => {
@@ -257,5 +260,45 @@ describe('RaceControl Page', () => {
             expect(screen.getByTestId('schedule-management')).toBeInTheDocument();
         });
         expect(screen.queryByTestId('free-race-tab')).not.toBeInTheDocument();
+    });
+
+    it('calls reExecute when the raceStateChanged subscription fires', async () => {
+        const mockReExecute = vi.fn();
+        // Capture the subscription handler so we can invoke it later
+        let capturedHandler: ((prev: any, data: any) => any) | undefined;
+
+        (useQuery as any).mockReturnValue([{
+            data: mockRaceData,
+            fetching: false,
+            error: null
+        }, mockReExecute]);
+
+        (useSubscription as any).mockImplementation(
+            (_opts: any, handler: (prev: any, data: any) => any) => {
+                capturedHandler = handler;
+                return [{ data: undefined }, vi.fn()];
+            }
+        );
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => {
+            expect(capturedHandler).toBeDefined();
+        });
+
+        // Simulate a subscription event arriving
+        act(() => {
+            capturedHandler!(undefined, { raceStateChanged: { raceId: 1, changedAt: '2024-01-01T00:00:00Z' } });
+        });
+
+        expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
     });
 });
