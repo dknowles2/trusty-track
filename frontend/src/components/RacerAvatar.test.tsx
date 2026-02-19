@@ -44,4 +44,15 @@ describe('RacerAvatar', () => {
         const avatar = screen.getByTitle('Cher');
         expect(avatar).toHaveTextContent('C');
     });
+
+    it('does not crash when id is null', () => {
+        const racer = {
+            id: null as any,
+            first_name: 'Null',
+            last_name: 'ID'
+        };
+        // This should not throw Uncaught TypeError: Cannot read properties of null (reading 'length')
+        render(<RacerAvatar racer={racer} />);
+        expect(screen.getByTitle('Null ID')).toBeInTheDocument();
+    });
 });

@@ -7,7 +7,11 @@ import { COMMON_COLORS } from './colors';
  * @param idOrString A number (ID) or string (e.g. name) to seed the color selection
  * @returns A hex color string from COMMON_COLORS
  */
-export const getDeterministicColor = (idOrString: number | string): string => {
+export const getDeterministicColor = (idOrString: number | string | null | undefined): string => {
+    if (idOrString === null || idOrString === undefined || idOrString === '') {
+        return COMMON_COLORS[0];
+    }
+    
     let hash = 0;
     
     if (typeof idOrString === 'number') {
