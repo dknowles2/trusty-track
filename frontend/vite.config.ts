@@ -40,12 +40,8 @@ export default defineConfig(({ mode }) => {
           target: 'https://127.0.0.1:8000',
           changeOrigin: true,
           secure: false, 
+          ws: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
-        },
-        '/ws': {
-            target: 'wss://127.0.0.1:8000',
-            ws: true,
-            secure: false,
         },
         '/static': {
           target: 'https://127.0.0.1:8000',
