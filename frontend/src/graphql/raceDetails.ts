@@ -214,7 +214,7 @@ export const CREATE_RACE = gql`
 
 export const POPULATE_RACE = gql`
   mutation PopulateRace($raceId: Int!, $config: PopulateTestDataInput!) {
-    populateRace(raceId: $raceId, input: $config)
+    populateRace(raceId: $raceId, config: $config)
   }
 `;
 
