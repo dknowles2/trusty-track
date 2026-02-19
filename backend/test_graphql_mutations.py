@@ -357,6 +357,112 @@ def test_bulk_mutations(client, db):
     assert response.json()["data"]["bulkDeleteRacers"] is True
 
 
+def test_bulk_mutations_with_variables(client, db):
+    """
+    Verify that all bulk racer mutations accept GraphQL named variables with the
+    correct type declarations ([Int!]!).  The frontend sends variables this way,
+    so a mismatch between the client-declared type and the schema type produces a
+    GraphQL validation error that only surfaces at runtime — not in the inline-
+    value tests above.
+    """
+    group_in = schemas.GroupCreate(name="Bulk Vars Test Group")
+    group = crud.create_group(db, group_in)
+    track_in = schemas.TrackCreate(name="Bulk Vars Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+
+    race_resp = client.post(
+        "/graphql",
+        json={
+            "query": """
+            mutation CreateRace($race: RaceInput!) { createRace(race: $race) { id } }
+            """,
+            "variables": {
+                "race": {"name": "Bulk Vars Race", "groupId": group.id, "trackId": track.id}
+            },
+        },
+    )
+    race_id = race_resp.json()["data"]["createRace"]["id"]
+
+    racer_ids = []
+    for i in range(3):
+        r = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation CreateRacer($racer: RacerInput!) { createRacer(racer: $racer) { id } }
+                """,
+                "variables": {"racer": {"firstName": "Racer", "lastName": str(i), "raceId": race_id}},
+            },
+        )
+        racer_ids.append(r.json()["data"]["createRacer"]["id"])
+
+    # Update race to GLOBAL numbering so auto-number works
+    client.post(
+        "/graphql",
+        json={
+            "query": """
+            mutation UpdateRace($id: Int!, $race: RaceUpdateInput!) { updateRace(id: $id, race: $race) { id } }
+            """,
+            "variables": {"id": race_id, "race": {"carNumberingStrategy": "GLOBAL"}},
+        },
+    )
+
+    # -- bulkAutoNumber --
+    resp = client.post(
+        "/graphql",
+        json={
+            "query": "mutation BulkAutoNumber($racerIds: [Int!]!) { bulkAutoNumber(racerIds: $racerIds) }",
+            "variables": {"racerIds": racer_ids},
+        },
+    )
+    assert "errors" not in resp.json(), f"bulkAutoNumber failed: {resp.json()}"
+    assert resp.json()["data"]["bulkAutoNumber"] == len(racer_ids)
+
+    # -- bulkClearNumbers --
+    resp = client.post(
+        "/graphql",
+        json={
+            "query": "mutation BulkClearNumbers($racerIds: [Int!]!) { bulkClearNumbers(racerIds: $racerIds) }",
+            "variables": {"racerIds": racer_ids},
+        },
+    )
+    assert "errors" not in resp.json(), f"bulkClearNumbers failed: {resp.json()}"
+    assert resp.json()["data"]["bulkClearNumbers"] is True
+
+    # -- bulkMoveToDen --
+    den_resp = client.post(
+        "/graphql",
+        json={
+            "query": """
+            mutation CreateDen($raceId: Int!, $den: DenInput!) { createDen(raceId: $raceId, den: $den) { id } }
+            """,
+            "variables": {"raceId": race_id, "den": {"name": "Test Den", "color": "#ff0000"}},
+        },
+    )
+    den_id = den_resp.json()["data"]["createDen"]["id"]
+
+    resp = client.post(
+        "/graphql",
+        json={
+            "query": "mutation BulkMoveToDen($racerIds: [Int!]!, $denId: Int) { bulkMoveToDen(racerIds: $racerIds, denId: $denId) }",
+            "variables": {"racerIds": racer_ids, "denId": den_id},
+        },
+    )
+    assert "errors" not in resp.json(), f"bulkMoveToDen failed: {resp.json()}"
+    assert resp.json()["data"]["bulkMoveToDen"] is True
+
+    # -- bulkDeleteRacers --
+    resp = client.post(
+        "/graphql",
+        json={
+            "query": "mutation BulkDeleteRacers($racerIds: [Int!]!) { bulkDeleteRacers(racerIds: $racerIds) }",
+            "variables": {"racerIds": racer_ids},
+        },
+    )
+    assert "errors" not in resp.json(), f"bulkDeleteRacers failed: {resp.json()}"
+    assert resp.json()["data"]["bulkDeleteRacers"] is True
+
+
 def test_upload_image_mutation(client):
     """Test that uploadImage mutation saves a Base64 image and returns a static URL."""
     import base64

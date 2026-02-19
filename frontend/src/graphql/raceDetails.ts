@@ -163,25 +163,25 @@ export const DELETE_DEN = gql`
 `;
 
 export const BULK_AUTO_NUMBER = gql`
-  mutation BulkAutoNumber($racerIds: [Int]!) {
+  mutation BulkAutoNumber($racerIds: [Int!]!) {
     bulkAutoNumber(racerIds: $racerIds)
   }
 `;
 
 export const BULK_CLEAR_NUMBERS = gql`
-  mutation BulkClearNumbers($racerIds: [Int]!) {
+  mutation BulkClearNumbers($racerIds: [Int!]!) {
     bulkClearNumbers(racerIds: $racerIds)
   }
 `;
 
 export const BULK_MOVE_TO_DEN = gql`
-  mutation BulkMoveToDen($racerIds: [Int]!, $denId: Int) {
+  mutation BulkMoveToDen($racerIds: [Int!]!, $denId: Int) {
     bulkMoveToDen(racerIds: $racerIds, denId: $denId)
   }
 `;
 
 export const BULK_DELETE_RACERS = gql`
-  mutation BulkDeleteRacers($racerIds: [Int]!) {
+  mutation BulkDeleteRacers($racerIds: [Int!]!) {
     bulkDeleteRacers(racerIds: $racerIds)
   }
 `;
