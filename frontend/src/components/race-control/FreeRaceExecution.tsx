@@ -72,7 +72,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   // Build the "fake heat" object that FakeTimerMole expects
   const fakeHeat = {
     id: heatId,
-    lane_results: JSON.stringify(
+    laneResults: JSON.stringify(
       laneAssignments.map((a) => ({
         lane: a.lane,
         racer_id: a.racerId,

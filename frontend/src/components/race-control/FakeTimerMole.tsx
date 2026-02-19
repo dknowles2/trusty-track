@@ -37,7 +37,8 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, o
 
     const handleFinishHeat = () => {
         // Generate random results locally for the fake timer
-        const currentResults = activeHeat.lane_results ? JSON.parse(activeHeat.lane_results) : [];
+        const resultsRaw = activeHeat.laneResults || activeHeat.lane_results;
+        const currentResults = resultsRaw ? JSON.parse(resultsRaw) : [];
         
         const newResults = currentResults.map((r: any) => ({
             ...r,

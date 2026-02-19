@@ -6,9 +6,9 @@ import { FakeTimerMole } from './FakeTimerMole';
 describe('FakeTimerMole', () => {
     const mockHeat = { 
         id: 1, 
-        heat_number: 1,
+        heatNumber: 1,
         total_participants: 2, 
-        lane_results: JSON.stringify([
+        laneResults: JSON.stringify([
             { lane: 1, racer_id: 101, time: null, place: null },
             { lane: 2, racer_id: 102, time: null, place: null }
         ]) 
