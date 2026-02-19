@@ -5,12 +5,14 @@ import json
 import os
 import typing
 import uuid
-from typing import Any, List, Optional
+from datetime import datetime, timezone
+from typing import Any, AsyncGenerator, List, Optional
 
 import strawberry
 from strawberry.types import Info
 
 from . import crud, models, schemas, scoring
+from .pubsub import pubsub
 
 
 @strawberry.type
@@ -869,31 +871,41 @@ class Mutation:
 
     # Racer Mutations
     @strawberry.mutation
-    def create_racer(self, info: Info, racer: RacerInput) -> Racer:
+    async def create_racer(self, info: Info, racer: RacerInput) -> Racer:
         """Create a new racer."""
         db = info.context["db"]
         racer_in = schemas.RacerCreate(**typing.cast(Any, strawberry.asdict(racer)))
-        return typing.cast(Any, crud.create_racer(db, racer_in))
+        new_racer = typing.cast(Any, crud.create_racer(db, racer_in))
+        await _publish_race_state(new_racer.race_id)
+        return new_racer
 
     @strawberry.mutation
-    def update_racer(self, info: Info, id: int, racer: RacerInput) -> Optional[Racer]:
+    async def update_racer(self, info: Info, id: int, racer: RacerInput) -> Optional[Racer]:
         """Update an existing racer."""
         db = info.context["db"]
         data = strawberry.asdict(racer)
         filtered_data = {k: v for k, v in data.items() if v is not None}
         racer_update = schemas.RacerUpdate(**typing.cast(Any, filtered_data))
-        return typing.cast(
+        updated = typing.cast(
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
+        if updated:
+            await _publish_race_state(updated.race_id)
+        return updated
 
     @strawberry.mutation
-    def delete_racer(self, info: Info, id: int) -> bool:
+    async def delete_racer(self, info: Info, id: int) -> bool:
         """Delete a racer."""
         db = info.context["db"]
-        return crud.delete_racer(db, racer_id=id) is not None
+        racer = db.query(models.Racer).filter(models.Racer.id == id).first()
+        race_id = racer.race_id if racer else None
+        result = crud.delete_racer(db, racer_id=id) is not None
+        if race_id:
+            await _publish_race_state(race_id)
+        return result
 
     @strawberry.mutation
-    def check_in_racer(
+    async def check_in_racer(
         self,
         info: Info,
         id: int,
@@ -910,30 +922,43 @@ class Mutation:
             racer_image_url=racer_image_url,
             car_image_url=car_image_url,
         )
-        return typing.cast(
+        updated = typing.cast(
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
+        if updated:
+            await _publish_race_state(updated.race_id)
+        return updated
 
     # Den Mutations
     @strawberry.mutation
-    def create_den(self, info: Info, race_id: int, den: DenInput) -> Den:
+    async def create_den(self, info: Info, race_id: int, den: DenInput) -> Den:
         """Create a new den."""
         db = info.context["db"]
         den_in = schemas.DenCreate(**typing.cast(Any, strawberry.asdict(den)))
-        return typing.cast(Any, crud.create_den(db, den_in, race_id=race_id))
+        new_den = typing.cast(Any, crud.create_den(db, den_in, race_id=race_id))
+        await _publish_race_state(race_id)
+        return new_den
 
     @strawberry.mutation
-    def update_den(self, info: Info, id: int, den: DenInput) -> Optional[Den]:
+    async def update_den(self, info: Info, id: int, den: DenInput) -> Optional[Den]:
         """Update an existing den."""
         db = info.context["db"]
         den_update = schemas.DenUpdate(**typing.cast(Any, strawberry.asdict(den)))
-        return typing.cast(Any, crud.update_den(db, den_id=id, den_update=den_update))
+        updated = typing.cast(Any, crud.update_den(db, den_id=id, den_update=den_update))
+        if updated:
+            await _publish_race_state(updated.race_id)
+        return updated
 
     @strawberry.mutation
-    def delete_den(self, info: Info, id: int) -> bool:
+    async def delete_den(self, info: Info, id: int) -> bool:
         """Delete a den."""
         db = info.context["db"]
-        return crud.delete_den(db, den_id=id) is not None
+        den = db.query(models.Den).filter(models.Den.id == id).first()
+        race_id = den.race_id if den else None
+        result = crud.delete_den(db, den_id=id) is not None
+        if race_id:
+            await _publish_race_state(race_id)
+        return result
 
     # Track Mutations
     @strawberry.mutation
@@ -964,7 +989,7 @@ class Mutation:
 
     # Round / Schedule Mutations
     @strawberry.mutation
-    def create_round_wizard(
+    async def create_round_wizard(
         self, info: Info, race_id: int, config: WizardConfigurationInput
     ) -> List[Round]:
         """Create rounds using the wizard logic."""
@@ -1057,29 +1082,39 @@ class Mutation:
             raise e
 
         db.commit()
+        await _publish_race_state(race_id)
         return typing.cast(Any, created_rounds)
 
     @strawberry.mutation
-    def regenerate_round(self, info: Info, round_id: int) -> List[Heat]:
+    async def regenerate_round(self, info: Info, round_id: int) -> List[Heat]:
         """Regenerate heats for a round."""
         db = info.context["db"]
         # We need to know if it's a placeholder round or racer round.
         # crud.generate_heats_for_round handles this if we pass the right params,
         # but it defaults to all racers if none provided.
         # For simplicity, let's just call it.
-        return typing.cast(Any, crud.generate_heats_for_round(db, round_id))
+        heats = typing.cast(Any, crud.generate_heats_for_round(db, round_id))
+        round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+        if round_obj:
+            await _publish_race_state(round_obj.race_id)
+        return heats
 
     @strawberry.mutation
-    def delete_round(self, info: Info, round_id: int) -> bool:
+    async def delete_round(self, info: Info, round_id: int) -> bool:
         """Delete a round."""
         db = info.context["db"]
+        round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+        race_id = round_obj.race_id if round_obj else None
         try:
-            return crud.delete_round(db, round_id)
+            result = crud.delete_round(db, round_id)
         except ValueError:
             return False
+        if race_id:
+            await _publish_race_state(race_id)
+        return result
 
     @strawberry.mutation
-    def advance_round(self, info: Info, race_id: int, round_id: int) -> int:
+    async def advance_round(self, info: Info, race_id: int, round_id: int) -> int:
         """Advance racers to a round."""
         db = info.context["db"]
         round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
@@ -1091,20 +1126,24 @@ class Mutation:
         if not winner_ids:
             return 0
         crud.resolve_round_placeholders(db, round_id, winner_ids)
+        await _publish_race_state(race_id)
         return len(winner_ids)
 
     # Heat Mutations
     @strawberry.mutation
-    def update_heat_result(
+    async def update_heat_result(
         self, info: Info, heat_id: int, results: str
     ) -> Optional[Heat]:
         """Update results for a heat."""
         db = info.context["db"]
-        return typing.cast(Any, crud.record_heat_result(db, heat_id, results))
+        updated_heat = typing.cast(Any, crud.record_heat_result(db, heat_id, results))
+        if updated_heat:
+            await _publish_race_state(updated_heat.race_id)
+        return updated_heat
 
     # Bulk Mutations
     @strawberry.mutation
-    def bulk_auto_number(self, info: Info, racer_ids: List[int]) -> int:
+    async def bulk_auto_number(self, info: Info, racer_ids: List[int]) -> int:
         """Bulk auto-number racers."""
         db = info.context["db"]
         if not racer_ids:
@@ -1112,29 +1151,41 @@ class Mutation:
         racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
         if not racer:
             return 0
-        return crud.auto_number_racers(db, racer.race_id, racer_ids)
+        count = crud.auto_number_racers(db, racer.race_id, racer_ids)
+        await _publish_race_state(racer.race_id)
+        return count
 
     @strawberry.mutation
-    def bulk_clear_numbers(self, info: Info, racer_ids: List[int]) -> bool:
+    async def bulk_clear_numbers(self, info: Info, racer_ids: List[int]) -> bool:
         """Bulk clear car numbers."""
         db = info.context["db"]
+        racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first() if racer_ids else None
         crud.bulk_clear_car_numbers(db, racer_ids)
+        if racer:
+            await _publish_race_state(racer.race_id)
         return True
 
     @strawberry.mutation
-    def bulk_move_to_den(
+    async def bulk_move_to_den(
         self, info: Info, racer_ids: List[int], den_id: Optional[int]
     ) -> bool:
         """Bulk move racers to a den."""
         db = info.context["db"]
+        racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first() if racer_ids else None
         crud.bulk_move_racers_to_den(db, racer_ids, den_id)
+        if racer:
+            await _publish_race_state(racer.race_id)
         return True
 
     @strawberry.mutation
-    def bulk_delete_racers(self, info: Info, racer_ids: List[int]) -> bool:
+    async def bulk_delete_racers(self, info: Info, racer_ids: List[int]) -> bool:
         """Bulk delete racers."""
         db = info.context["db"]
+        racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first() if racer_ids else None
+        race_id = racer.race_id if racer else None
         crud.bulk_delete_racers(db, racer_ids)
+        if race_id:
+            await _publish_race_state(race_id)
         return True
 
     @strawberry.mutation
@@ -1267,7 +1318,7 @@ class Mutation:
         return count
 
     @strawberry.mutation
-    def create_round(
+    async def create_round(
         self, info: Info, race_id: int, round_data: RoundCreateInput
     ) -> List[Round]:
         """Create a new round and generate heats."""
@@ -1294,6 +1345,7 @@ class Mutation:
                     crud.generate_heats_for_round(
                         db, round_obj.id, clear_existing=(i == 0)
                     )
+                await _publish_race_state(race_id)
                 return [typing.cast(Any, round_obj)]
             else:
                 # Championship Round (Placeholder)
@@ -1315,12 +1367,13 @@ class Mutation:
                         num_placeholders=round_data.advancement_num_racers or 0,
                         clear_existing=(i == 0),
                     )
+                await _publish_race_state(race_id)
                 return [typing.cast(Any, round_obj)]
         except ValueError as e:
             raise ValueError(str(e))
 
     @strawberry.mutation
-    def reorder_heats(
+    async def reorder_heats(
         self, info: Info, heat_updates: List[HeatReorderItemInput]
     ) -> HeatReorderResponse:
         """Reorder heats in a round."""
@@ -1330,6 +1383,9 @@ class Mutation:
             for u in heat_updates
         ]
         updated_heats = crud.reorder_heats(db, updates)
+        # Determine race_id from the first updated heat
+        if updated_heats:
+            await _publish_race_state(updated_heats[0].race_id)
         return HeatReorderResponse(
             updated_count=len(updated_heats), heats=typing.cast(Any, updated_heats)
         )
@@ -1407,4 +1463,52 @@ class Mutation:
         return f"/static/{filename}"
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+@strawberry.type
+class RaceStateChangedEvent:
+    """Event emitted whenever a race's state is modified by a mutation."""
+
+    race_id: int
+    changed_at: str  # ISO 8601 UTC timestamp
+
+
+async def _publish_race_state(race_id: int) -> None:
+    """Publish a RaceStateChangedEvent for *race_id* on the pub/sub bus.
+
+    Args:
+        race_id: ID of the race whose state changed.
+    """
+    await pubsub.publish(
+        f"race_state:{race_id}",
+        RaceStateChangedEvent(
+            race_id=race_id,
+            changed_at=datetime.now(timezone.utc).isoformat(),
+        ),
+    )
+
+
+@strawberry.type
+class Subscription:
+    """Root subscription type for real-time race state updates."""
+
+    @strawberry.subscription
+    async def race_state_changed(
+        self, info: Info, race_id: int
+    ) -> AsyncGenerator[RaceStateChangedEvent, None]:
+        """Subscribe to state changes for a specific race.
+
+        Emits a RaceStateChangedEvent whenever any mutation that modifies
+        race data is executed for *race_id*.
+
+        Args:
+            info: GraphQL context info.
+            race_id: The race to subscribe to.
+
+        Yields:
+            RaceStateChangedEvent payloads.
+        """
+        async with pubsub.subscribe(f"race_state:{race_id}") as stream:
+            async for event in stream:
+                yield event
+
+
+schema = strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)
