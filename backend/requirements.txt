@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 pytest
+pytest-asyncio
 sqlalchemy
 httpx
 strawberry-graphql
