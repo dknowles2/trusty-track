@@ -102,15 +102,15 @@ Deferred to `tasks/observation/02_subscription_frontend.md`. The polling `setInt
 
 ## Pages and components affected
 
-| File                         | Current behavior                            | Status       | Notes                                                                      |
-| ---------------------------- | ------------------------------------------- | ------------ | -------------------------------------------------------------------------- |
-| `pages/RaceControl.tsx`      | Manual `reExecute` after own mutations only | ✅ Done      | Auto-refetch via `raceStateChanged` subscription                           |
-| `pages/Observation.tsx`      | 5-second `setInterval` polling              | ⏳ Deferred  | Replaced by dedicated subscriptions (observation tasks)                    |
-| `components/Leaderboard.tsx` | `cache-and-network` + manual re-execute     | ✅ Done      | Refetched via `raceStateChanged` from parent `RaceDetails` and `Standings` |
-| `pages/RaceDetails.tsx`      | Manual `reExecute` after own mutations      | ✅ Done      | Auto-refetch via `raceStateChanged` subscription                           |
-| `pages/Standings.tsx`        | Static fetch on mount                       | ✅ Done      | Auto-refetch via `raceStateChanged` subscription                           |
-| `components/Navigation.tsx`  | Static fetch on mount                       | ⬜ Low prio  | See below                                                                  |
-| `pages/Home.tsx`             | Manual `reExecute` after own mutations      | ⬜ No change | Single-tab workflow; race creation is always the initiating tab            |
+| File                         | Current behavior                            | Status       | Notes                                                           |
+| ---------------------------- | ------------------------------------------- | ------------ | --------------------------------------------------------------- |
+| `pages/RaceControl.tsx`      | Manual `reExecute` after own mutations only | ✅ Done      | Auto-refetch via `raceStateChanged` subscription                |
+| `pages/Observation.tsx`      | 5-second `setInterval` polling              | ⏳ Deferred  | Replaced by dedicated subscriptions (observation tasks)         |
+| `components/Leaderboard.tsx` | `cache-and-network` + manual re-execute     | ✅ Done      | Auto-refetched via `raceStateChanged` subscription              |
+| `pages/RaceDetails.tsx`      | Manual `reExecute` after own mutations      | ✅ Done      | Auto-refetch via `raceStateChanged` subscription                |
+| `pages/Standings.tsx`        | Static fetch on mount                       | ✅ Done      | Auto-refetch via `raceStateChanged` via `Leaderboard` child     |
+| `components/Navigation.tsx`  | Static fetch on mount                       | ⬜ Low prio  | Unchanged (minor race list stale case)                          |
+| `pages/Home.tsx`             | Manual `reExecute` after own mutations      | ⬜ No change | Single-tab workflow; race creation is always the initiating tab |
 
 ### `pages/RaceDetails.tsx` — multi-operator gap
 
