@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import '../setupTests';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import RaceDetails from './RaceDetails';
 
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { useQuery, useMutation } from 'urql';
+import { useQuery, useMutation, useSubscription } from 'urql';
 import * as GQL from '../graphql/raceDetails';
 
 // Mock urql
@@ -15,6 +15,7 @@ vi.mock('urql', async (importOriginal) => {
         ...actual,
         useQuery: vi.fn(),
         useMutation: vi.fn(),
+        useSubscription: vi.fn(),
     };
 });
 
@@ -22,6 +23,10 @@ vi.mock('urql', async (importOriginal) => {
 afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+});
+
+beforeEach(() => {
+    (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
 });
 
 const { mockShowAlert, mockShowConfirm } = vi.hoisted(() => {

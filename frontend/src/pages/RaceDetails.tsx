@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery, useMutation } from 'urql';
+import { useQuery, useMutation, useSubscription } from 'urql';
 
 import { useAlert } from '../context/AlertContext';
 
@@ -63,6 +63,15 @@ export default function RaceDetails() {
     variables: { raceId: parsedRaceId },
     pause: !parsedRaceId,
   });
+
+  // Subscribe to race state changes so all tabs stay in sync.
+  useSubscription(
+    { query: GQL.RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId: parsedRaceId }, pause: !parsedRaceId },
+    (_prev, _data) => {
+      reexecuteRaceDetails({ requestPolicy: 'network-only' });
+      return _data;
+    }
+  );
 
   const { data, fetching } = raceDetailsResult;
 

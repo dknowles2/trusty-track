@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import '../setupTests';
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import RaceDetails from './RaceDetails';
 
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { useQuery, useMutation } from 'urql';
+import { useQuery, useMutation, useSubscription } from 'urql';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -14,6 +14,7 @@ vi.mock('urql', async (importOriginal) => {
         ...actual,
         useQuery: vi.fn(),
         useMutation: vi.fn(),
+        useSubscription: vi.fn(),
     };
 });
 
@@ -21,6 +22,11 @@ vi.mock('urql', async (importOriginal) => {
 afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+});
+
+// Default no-op subscription mock (overridden in individual tests as needed)
+beforeEach(() => {
+    (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
 });
 
 const { mockShowAlert, mockShowConfirm } = vi.hoisted(() => {
@@ -401,5 +407,56 @@ describe('RaceDetails', () => {
         expect(screen.queryByTestId('race-date')).not.toBeInTheDocument();
         expect(screen.queryByTestId('race-location')).not.toBeInTheDocument();
         expect(screen.queryByText('No Location Set')).not.toBeInTheDocument();
+    });
+
+    it('calls reexecuteRaceDetails when raceStateChanged subscription fires', async () => {
+        const mockReExecute = vi.fn();
+        let capturedHandler: ((prev: any, data: any) => any) | undefined;
+
+        (useQuery as any).mockReturnValue([{
+            data: {
+                race: {
+                    id: 1,
+                    name: 'Subscription Test Race',
+                    dateTime: null,
+                    location: '',
+                    scoringStrategy: 'TIMED',
+                    carNumberingStrategy: 'PER_GROUP',
+                    racers: [],
+                    dens: [],
+                    leaderboard: []
+                },
+                tracks: []
+            },
+            fetching: false,
+            error: null
+        }, mockReExecute]);
+
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+        (useSubscription as any).mockImplementation(
+            (_opts: any, handler: (prev: any, data: any) => any) => {
+                capturedHandler = handler;
+                return [{ data: undefined }, vi.fn()];
+            }
+        );
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes>
+                    <Route path="/races/:raceId" element={<RaceDetails />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(capturedHandler).toBeDefined();
+        });
+
+        act(() => {
+            capturedHandler!(undefined, { raceStateChanged: { raceId: 1, changedAt: '2026-01-01T00:00:00Z' } });
+        });
+
+        expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
     });
 });

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import '../setupTests';
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import Standings from './Standings';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { useQuery } from 'urql';
+import { useQuery, useSubscription } from 'urql';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -12,6 +12,7 @@ vi.mock('urql', async (importOriginal) => {
     return {
         ...actual,
         useQuery: vi.fn(),
+        useSubscription: vi.fn(),
     };
 });
 
@@ -19,6 +20,11 @@ vi.mock('urql', async (importOriginal) => {
 afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+});
+
+// Default no-op subscription mock
+beforeEach(() => {
+    (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
 });
 
 describe('Standings', () => {
@@ -99,5 +105,41 @@ describe('Standings', () => {
 
         expect(screen.getByText('No results yet. Complete some heats to see standings!')).toBeInTheDocument();
         expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    });
+
+    it('calls reExecute when raceStateChanged subscription fires', async () => {
+        const mockReExecute = vi.fn();
+        let capturedHandler: ((prev: any, data: any) => any) | undefined;
+
+        (useQuery as any).mockReturnValue([{
+            data: { race: { id: 1, name: 'Standings Race' } },
+            fetching: false,
+            error: null
+        }, mockReExecute]);
+
+        (useSubscription as any).mockImplementation(
+            (_opts: any, handler: (prev: any, data: any) => any) => {
+                capturedHandler = handler;
+                return [{ data: undefined }, vi.fn()];
+            }
+        );
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/standings']}>
+                <Routes>
+                    <Route path="/race/:raceId/standings" element={<Standings />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(capturedHandler).toBeDefined();
+        });
+
+        act(() => {
+            capturedHandler!(undefined, { raceStateChanged: { raceId: 1, changedAt: '2026-01-01T00:00:00Z' } });
+        });
+
+        expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
     });
 });

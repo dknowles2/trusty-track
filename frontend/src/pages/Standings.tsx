@@ -2,7 +2,8 @@ import { useParams, Link } from 'react-router-dom';
 import Leaderboard from '../components/Leaderboard';
 import Icon from '@mdi/react';
 import { mdiArrowLeft } from '@mdi/js';
-import { useQuery } from 'urql';
+import { useQuery, useSubscription } from 'urql';
+import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../graphql/raceDetails';
 
 const GET_RACE_NAME = `
   query GetRaceName($id: Int!) {
@@ -17,11 +18,20 @@ export default function Standings() {
     const { raceId } = useParams<{ raceId: string }>();
     const id = parseInt(raceId || '0');
 
-    const [result] = useQuery({
+    const [result, reExecute] = useQuery({
         query: GET_RACE_NAME,
         variables: { id },
         pause: !id || isNaN(id)
     });
+
+    // Subscribe to race state changes so this page auto-refetches.
+    useSubscription(
+        { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId: id }, pause: !id || isNaN(id) },
+        (_prev, _data) => {
+            reExecute({ requestPolicy: 'network-only' });
+            return _data;
+        }
+    );
 
     const { data, fetching } = result;
     const race = data?.race;
