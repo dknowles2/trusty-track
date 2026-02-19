@@ -339,6 +339,7 @@ def update_racer(
 
 def _remove_racer_from_heats(db: Session, racer_ids: set[int], race_id: int):
     """Nullify lane entries for deleted racers in all heats of the given race."""
+    # Handle regular Heats
     heats = db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
     for heat in heats:
         if not heat.lane_results:
@@ -353,6 +354,36 @@ def _remove_racer_from_heats(db: Session, racer_ids: set[int], race_id: int):
                 modified = True
         if modified:
             heat.lane_results = json.dumps(results)
+
+    # Handle FreeRaceHeats
+    free_heats = (
+        db.query(models.FreeRaceHeat)
+        .filter(models.FreeRaceHeat.race_id == race_id)
+        .all()
+    )
+    for fh in free_heats:
+        modified = False
+        # Update assignments
+        assignments = json.loads(fh.lane_assignments)
+        for lane in assignments:
+            if lane.get("racer_id") in racer_ids:
+                lane["racer_id"] = None
+                modified = True
+        if modified:
+            fh.lane_assignments = json.dumps(assignments)
+
+        # Update results if they exist
+        if fh.lane_results:
+            results = json.loads(fh.lane_results)
+            results_modified = False
+            for lane in results:
+                if lane.get("racer_id") in racer_ids:
+                    lane["racer_id"] = None
+                    lane["time"] = None
+                    lane["place"] = None
+                    results_modified = True
+            if results_modified:
+                fh.lane_results = json.dumps(results)
 
 
 def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
@@ -701,7 +732,10 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
 
         try:
             generate_heats_for_round(
-                db, r.id, num_placeholders=r.advancement_num_racers, clear_existing=True
+                db,
+                r.id,
+                num_placeholders=r.advancement_num_racers or 0,
+                clear_existing=True,
             )
         except ValueError:
             # If we can't regenerate (e.g. because results exist), we silently skip
