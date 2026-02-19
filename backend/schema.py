@@ -443,6 +443,23 @@ class Race:
         )
 
     @strawberry.field
+    def scheduled_racer_ids(self, info: Info) -> List[int]:
+        """Get IDs of all racers scheduled in any official heats of this race."""
+        db = info.context["db"]
+        heats = db.query(models.Heat).filter(models.Heat.race_id == self.id).all()
+        ids = set()
+        for h in heats:
+            if h.lane_results:
+                try:
+                    results = json.loads(h.lane_results)
+                    for r in results:
+                        if r.get("racer_id") is not None:
+                            ids.add(r["racer_id"])
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        return sorted(list(ids))
+
+    @strawberry.field
     def group(self, info: Info) -> "Group":
         """Get the organization group that owns this race."""
         return (
@@ -996,6 +1013,7 @@ class Mutation:
                         current_round_number,
                         models.SchedulingStrategy.PPC,
                         den.name,
+                        den_id=den.id,
                     )
                     p_ids = [r.id for r in racers]
                     for i in range(config.general_round.runs_per_lane):
@@ -1268,7 +1286,7 @@ class Mutation:
                     db,
                     race_id,
                     next_round_number,
-                    round_data.scheduling_strategy,
+                    models.SchedulingStrategy(round_data.scheduling_strategy),
                     round_data.name or "All Pack",
                 )
                 # Generate Heats
@@ -1283,7 +1301,7 @@ class Mutation:
                     db,
                     race_id,
                     next_round_number,
-                    round_data.scheduling_strategy,
+                    models.SchedulingStrategy(round_data.scheduling_strategy),
                     round_data.name or f"Finals ({round_data.advancement_source})",
                     advancement_source=round_data.advancement_source,
                     advancement_num_racers=round_data.advancement_num_racers,
@@ -1294,7 +1312,7 @@ class Mutation:
                     crud.generate_heats_for_round(
                         db,
                         round_obj.id,
-                        num_placeholders=round_data.advancement_num_racers,
+                        num_placeholders=round_data.advancement_num_racers or 0,
                         clear_existing=(i == 0),
                     )
                 return [typing.cast(Any, round_obj)]

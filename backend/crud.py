@@ -337,10 +337,12 @@ def update_racer(
     return db_racer
 
 
-def _remove_racer_from_heats(db: Session, racer_ids: set[int], race_id: int):
-    """Nullify lane entries for deleted racers in all heats of the given race."""
-    # Handle regular Heats
-    heats = db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
+
+
+
+def _remove_racer_from_regular_heats(db: Session, racer_ids: set[int], round_id: int):
+    """Nullify lane entries for deleted racers in heats of a specific round."""
+    heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
     for heat in heats:
         if not heat.lane_results:
             continue
@@ -355,7 +357,9 @@ def _remove_racer_from_heats(db: Session, racer_ids: set[int], race_id: int):
         if modified:
             heat.lane_results = json.dumps(results)
 
-    # Handle FreeRaceHeats
+
+def _remove_racer_from_free_heats(db: Session, racer_ids: set[int], race_id: int):
+    """Nullify lane entries for deleted racers in free race heats of a race."""
     free_heats = (
         db.query(models.FreeRaceHeat)
         .filter(models.FreeRaceHeat.race_id == race_id)
@@ -389,9 +393,7 @@ def _remove_racer_from_heats(db: Session, racer_ids: set[int], race_id: int):
 def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
     db_racer = db.query(models.Racer).filter(models.Racer.id == racer_id).first()
     if db_racer:
-        _remove_racer_from_heats(db, {racer_id}, db_racer.race_id)
-        db.delete(db_racer)
-        db.commit()
+        bulk_delete_racers(db, [racer_id])
     return db_racer
 
 
@@ -424,6 +426,7 @@ def create_round(
     name: str | None = None,
     advancement_source: str | None = None,
     advancement_num_racers: int | None = None,
+    den_id: int | None = None,
 ) -> models.Round:
     """Create a new round for a race."""
     round_obj = models.Round(
@@ -433,6 +436,7 @@ def create_round(
         name=name,
         advancement_source=advancement_source,
         advancement_num_racers=advancement_num_racers,
+        den_id=den_id,
     )
     db.add(round_obj)
     db.commit()
@@ -650,7 +654,10 @@ def generate_heats_for_round(
     elif racer_ids is not None:
         p_ids = racer_ids
     else:
-        racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
+        query = db.query(models.Racer).filter(models.Racer.race_id == race_id)
+        if round_obj.den_id:
+            query = query.filter(models.Racer.den_id == round_obj.den_id)
+        racers = query.all()
         if not racers or len(racers) < 2:
             raise ValueError(
                 "Not enough racers to generate a schedule (minimum 2 required)"
@@ -966,12 +973,26 @@ def bulk_delete_racers(db: Session, racer_ids: List[int]):
     by_race: dict[int, set[int]] = defaultdict(set)
     for r in racers:
         by_race[r.race_id].add(r.id)
-    for race_id, ids in by_race.items():
-        _remove_racer_from_heats(db, ids, race_id)
 
+    # Delete racers first so regeneration uses the correct pool
     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).delete(
         synchronize_session=False
     )
+    db.commit()
+
+    for race_id, ids in by_race.items():
+        # Handle regular rounds
+        rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
+        for r in rounds:
+            try:
+                # Try to regenerate
+                generate_heats_for_round(db, r.id, clear_existing=True)
+            except ValueError:
+                # Fallback to nullifying if round has started
+                _remove_racer_from_regular_heats(db, ids, r.id)
+
+        # Handle free race heats
+        _remove_racer_from_free_heats(db, ids, race_id)
     db.commit()
 
 
