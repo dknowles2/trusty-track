@@ -200,6 +200,7 @@ class RoundBase(BaseModel):
     round_number: int = 1
     name: Optional[str] = None
     scheduling_strategy: SchedulingStrategy = SchedulingStrategy.PPC
+    den_id: Optional[int] = None
 
 
 class RoundCreate(RoundBase):

@@ -181,11 +181,15 @@ class Round(Base):
     advancement_num_racers: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True
     )
+    den_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("dens.id"), nullable=True
+    )
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[List["Heat"]] = relationship(
         "Heat", back_populates="round", cascade="all, delete-orphan"
     )
+    den: Mapped[Optional["Den"]] = relationship("Den")
 
     @property
     def total_participants(self) -> int:
