@@ -29,9 +29,12 @@ echo "Starting Backend (HTTPS :8000)..."
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000 --ssl-keyfile "$KEY_FILE" --ssl-certfile "$CERT_FILE" &
 BACKEND_PID=$!
 
+
 # Start Frontend (HTTP :5173)
 echo "Starting Frontend (HTTP :5173)..."
 cd "$PROJECT_ROOT/frontend"
+# Clear Vite cache to avoid outdated optimize dep errors
+rm -rf node_modules/.vite
 npm run dev &
 FRONTEND_HTTP_PID=$!
 
