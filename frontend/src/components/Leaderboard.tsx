@@ -40,7 +40,8 @@ interface LeaderboardProps {
 export default function Leaderboard({ raceId }: LeaderboardProps) {
   const [result, reExecute] = useQuery({
     query: GET_LEADERBOARD,
-    variables: { raceId }
+    variables: { raceId },
+    requestPolicy: 'cache-and-network',
   });
 
   const { data, fetching, error } = result;
