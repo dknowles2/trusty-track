@@ -1,5 +1,9 @@
 # Task 6: GraphQL Subscriptions for Real-Time Updates
 
+## Status
+
+> **✅ Complete** (Steps 1–4, 6 implemented and committed; Step 5 deferred to observation tasks)
+
 ## Goal
 
 Add GraphQL subscription support so that all active browser tabs and windows reflect the current race state automatically, without requiring manual page refresh or polling.
@@ -15,11 +19,11 @@ Currently the app updates its view of the database in two ways:
 
 Both approaches work when a single operator uses a single browser tab. They break down in common real-world multi-tab setups, for example:
 
-| Tab A | Tab B | Problem |
-|---|---|---|
-| Race Director (RaceControl) | Scorekeeper (RaceControl) | Scorekeeper records a heat result; Race Director's tab shows stale data |
-| Observation (projected on screen) | RaceControl | Already addressed by polling, but 5-second lag is visible to audience |
-| Race Details (check-in) | RaceControl | Racer checks in; RaceControl's "on deck" list is stale |
+| Tab A                             | Tab B                     | Problem                                                                 |
+| --------------------------------- | ------------------------- | ----------------------------------------------------------------------- |
+| Race Director (RaceControl)       | Scorekeeper (RaceControl) | Scorekeeper records a heat result; Race Director's tab shows stale data |
+| Observation (projected on screen) | RaceControl               | Already addressed by polling, but 5-second lag is visible to audience   |
+| Race Details (check-in)           | RaceControl               | Racer checks in; RaceControl's "on deck" list is stale                  |
 
 ### Why subscriptions (not SSE or shorter polling)
 
@@ -40,17 +44,17 @@ GraphQL subscriptions over WebSocket are the right fit because:
 
 ## Implementation Plan
 
-### Step 1 — Prerequisite: Observation subscription infrastructure
+### ✅ Step 1 — Prerequisite: Observation subscription infrastructure
 
-Complete `tasks/observation/01_subscription_backend.md` and `tasks/observation/02_subscription_frontend.md` first. They establish:
+Implemented as part of this task rather than as a separate prerequisite:
 
-- `backend/pubsub.py` — in-process async pub/sub broadcaster
-- `Subscription` root type in `backend/schema.py`
-- `subscriptionExchange` + `graphql-ws` client in `frontend/src/api/graphqlClient.ts`
+- `backend/pubsub.py` — in-process async pub/sub broadcaster (`_PubSub`, module-level `pubsub` singleton)
+- `Subscription` root type registered in `backend/schema.py`
+- `subscriptionExchange` + `graphql-ws` client added to `frontend/src/api/graphqlClient.ts`
 
-### Step 2 — Add a `raceStateChanged` invalidation subscription (backend)
+### ✅ Step 2 — Add a `raceStateChanged` invalidation subscription (backend)
 
-Add a single, lightweight subscription to `backend/schema.py` alongside the richer observation subscriptions. It fires whenever any significant mutation modifies a race's data:
+Added to `backend/schema.py`:
 
 ```python
 @strawberry.type
@@ -67,92 +71,44 @@ async def race_state_changed(
             yield payload
 ```
 
-Publish to `race_state:{race_id}` at the end of every mutation that modifies race data:
+All mutations in the table below converted to `async def` and wired to `_publish_race_state(race_id)`:
 
-| Mutation | Publish? |
-|---|---|
-| `updateHeatResult` | Yes |
-| `createRound`, `regenerateRound`, `deleteRound`, `advanceRound` | Yes |
-| `reorderHeats` | Yes |
-| `createRacer`, `updateRacer`, `deleteRacer` | Yes |
-| `checkInRacer` | Yes |
-| `createDen`, `updateDen`, `deleteDen` | Yes |
-| `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers` | Yes |
+| Mutation                                                                  | Published |
+| ------------------------------------------------------------------------- | --------- |
+| `updateHeatResult`                                                        | ✅        |
+| `createRound`, `regenerateRound`, `deleteRound`, `advanceRound`           | ✅        |
+| `reorderHeats`                                                            | ✅        |
+| `createRacer`, `updateRacer`, `deleteRacer`                               | ✅        |
+| `checkInRacer`                                                            | ✅        |
+| `createDen`, `updateDen`, `deleteDen`                                     | ✅        |
+| `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers` | ✅        |
 
-Helper to publish from a mutation resolver (call after the DB commit):
+### ✅ Step 3 — Add the subscription document (frontend)
 
-```python
-async def _publish_race_state(race_id: int):
-    from datetime import datetime, timezone
-    await pubsub.publish(
-        f"race_state:{race_id}",
-        RaceStateChangedEvent(
-            race_id=race_id,
-            changed_at=datetime.now(timezone.utc).isoformat(),
-        ),
-    )
-```
+Added `RACE_STATE_CHANGED_SUBSCRIPTION` to `frontend/src/graphql/raceDetails.ts`.
 
-### Step 3 — Add the subscription document (frontend)
+### ✅ Step 4 — Wire RaceControl to the invalidation subscription
 
-Add to `frontend/src/graphql/raceDetails.ts`:
+`frontend/src/pages/RaceControl.tsx` now calls `useSubscription` and triggers `reExecute({ requestPolicy: 'network-only' })` on every received event.
 
-```ts
-export const RACE_STATE_CHANGED_SUBSCRIPTION = `
-  subscription RaceStateChanged($raceId: Int!) {
-    raceStateChanged(raceId: $raceId) {
-      raceId
-      changedAt
-    }
-  }
-`;
-```
+### ⏳ Step 5 — Replace Observation.tsx polling
 
-### Step 4 — Wire RaceControl to the invalidation subscription
+Deferred to `tasks/observation/02_subscription_frontend.md`. The polling `setInterval` remains until the dedicated observation subscriptions are implemented.
 
-In `frontend/src/pages/RaceControl.tsx`, replace the scattered `reExecute({ requestPolicy: 'network-only' })` calls (triggered only after *this tab's* own mutations) with an automatic refetch driven by the subscription:
+### ✅ Step 6 — Tests
 
-```ts
-import { useSubscription } from 'urql';
-import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../graphql/raceDetails';
-
-// Inside the component:
-useSubscription(
-  { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId } },
-  (_prev, data) => {
-    // Any change from any tab triggers a fresh fetch.
-    reExecute({ requestPolicy: 'network-only' });
-    return data;
-  }
-);
-```
-
-The existing `reExecute` calls after this tab's own mutations can be removed — the subscription will handle the refetch for all tabs, including the one that originated the mutation.
-
-### Step 5 — Replace Observation.tsx polling
-
-Once `tasks/observation/02_subscription_frontend.md` is complete, delete the `setInterval` in `Observation.tsx`. The dedicated leaderboard/onDeck/currentlyRacing subscriptions provide sub-second updates with no polling overhead.
-
-### Step 6 — Tests
-
-**Backend** (`backend/test_subscriptions.py`):
-- Subscribe to `raceStateChanged(raceId)`.
-- Call `updateHeatResult` mutation.
-- Assert the subscription emits a `RaceStateChangedEvent` with the correct `raceId`.
-
-**Frontend** (`frontend/src/pages/RaceControl.test.tsx`):
-- Mock `useSubscription` to emit a `raceStateChanged` event.
-- Assert the component calls `reExecute` in response.
+- **Backend** (`backend/test_subscriptions.py`): 3 tests — pubsub fan-out, channel routing, event delivery. All pass (69/69 total backend tests pass).
+- **Frontend** (`frontend/src/pages/RaceControl.test.tsx`): `useSubscription` mocked; new test asserts `reExecute` is called when event fires. All pass (111/111 frontend tests pass).
 
 ## Pages and components affected
 
-| File | Current behavior | After this task |
-|---|---|---|
-| `pages/RaceControl.tsx` | Manual `reExecute` after own mutations only | Auto-refetch via `raceStateChanged` subscription |
-| `pages/Observation.tsx` | 5-second `setInterval` polling | Replaced by dedicated subscriptions (observation tasks) |
-| `components/Leaderboard.tsx` | `cache-and-network` + manual re-execute | Driven by `raceStateChanged` from parent, or its own subscription |
-| `pages/RaceDetails.tsx` | Manual `reExecute` after own mutations | No change needed (edits here are the source of truth) |
-| `pages/Home.tsx` | Manual `reExecute` after own mutations | No change needed (single-tab workflow) |
+| File                         | Current behavior                            | After this task                                                   |
+| ---------------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
+| `pages/RaceControl.tsx`      | Manual `reExecute` after own mutations only | Auto-refetch via `raceStateChanged` subscription                  |
+| `pages/Observation.tsx`      | 5-second `setInterval` polling              | Replaced by dedicated subscriptions (observation tasks)           |
+| `components/Leaderboard.tsx` | `cache-and-network` + manual re-execute     | Driven by `raceStateChanged` from parent, or its own subscription |
+| `pages/RaceDetails.tsx`      | Manual `reExecute` after own mutations      | No change needed (edits here are the source of truth)             |
+| `pages/Home.tsx`             | Manual `reExecute` after own mutations      | No change needed (single-tab workflow)                            |
 
 ## What this task does NOT cover
 
