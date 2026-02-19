@@ -126,4 +126,56 @@ describe('Navigation Component', () => {
             expect(screen.getByText('Live')).toBeInTheDocument();
         });
     });
+
+    it('maps RaceFormData snake_case to camelCase when creating a race', async () => {
+        const mockExecuteMutation = vi.fn().mockResolvedValue({
+            data: { createRace: { id: 3 } },
+            error: undefined,
+        });
+        mockUseMutation.mockReturnValue([{}, mockExecuteMutation]);
+        mockUseQuery
+            .mockReturnValueOnce([{ data: { races: [{ id: 1, name: 'Race 1' }] }, fetching: false, error: undefined }])
+            .mockReturnValue([{ data: { tracks: [{ id: 1, name: 'Track A' }] }, fetching: false, error: undefined }]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter>
+                    <Navigation />
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        // Open the create race dropdown and click "New Race..."
+        fireEvent.click(screen.getByText('Select a Race'));
+        await waitFor(() => expect(screen.getByText('New Race...')).toBeInTheDocument());
+        fireEvent.click(screen.getByText('New Race...'));
+
+        await waitFor(() => expect(screen.getByText('Create New Race Event')).toBeInTheDocument());
+
+        // Fill in the required name field and submit
+        fireEvent.change(screen.getByPlaceholderText('e.g. 2024 Pinewood Derby'), { target: { value: 'Test Race' } });
+        fireEvent.click(screen.getByText('Create Race'));
+
+        await waitFor(() => {
+            expect(mockExecuteMutation).toHaveBeenCalledWith({
+                race: expect.objectContaining({
+                    name: 'Test Race',
+                    trackId: expect.any(Number),
+                    dateTime: expect.any(String),
+                    scoringStrategy: expect.any(String),
+                    carNumberingStrategy: expect.any(String),
+                    globalStartNumber: expect.any(Number),
+                    championshipTrophies: expect.any(Number),
+                }),
+            });
+            // Ensure no snake_case keys are passed
+            const callArg = mockExecuteMutation.mock.calls[0][0].race;
+            expect(callArg).not.toHaveProperty('track_id');
+            expect(callArg).not.toHaveProperty('date_time');
+            expect(callArg).not.toHaveProperty('scoring_strategy');
+            expect(callArg).not.toHaveProperty('car_numbering_strategy');
+            expect(callArg).not.toHaveProperty('global_start_number');
+            expect(callArg).not.toHaveProperty('championship_trophies');
+        });
+    });
 });

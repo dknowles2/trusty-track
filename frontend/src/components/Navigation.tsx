@@ -47,7 +47,17 @@ export default function Navigation() {
 
   const handleCreateRace = async (data: RaceFormData) => {
     try {
-      const result = await createRaceMutation({ race: data });
+      const raceInput = {
+        name: data.name,
+        dateTime: data.date_time,
+        location: data.location,
+        trackId: data.track_id,
+        scoringStrategy: data.scoring_strategy,
+        carNumberingStrategy: data.car_numbering_strategy,
+        globalStartNumber: data.global_start_number,
+        championshipTrophies: data.championship_trophies,
+      };
+      const result = await createRaceMutation({ race: raceInput });
       if (result.error) throw result.error;
       
       const newRace = result.data.createRace;
