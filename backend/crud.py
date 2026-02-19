@@ -1066,15 +1066,11 @@ def get_random_lane_assignments(
     If fewer than `lane_count` racers are checked in, fill remaining lanes with
     empty slots (racer_id=None).
     """
-    checked_in = (
+    pool = (
         db.query(models.Racer)
-        .filter(
-            models.Racer.race_id == race_id,
-            models.Racer.car_passed_inspection == True,  # noqa: E712
-        )
+        .filter(models.Racer.race_id == race_id)
         .all()
     )
-    pool = list(checked_in)
     random.shuffle(pool)
     selected = pool[:lane_count]
 

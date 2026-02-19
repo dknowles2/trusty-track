@@ -90,6 +90,7 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
           raceId={raceId}
           laneCount={laneCount}
           onStart={handleStart}
+          racers={racers}
         />
       ) : (
         <FreeRaceExecution

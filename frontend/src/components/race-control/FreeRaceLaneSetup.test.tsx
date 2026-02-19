@@ -29,10 +29,14 @@ describe('FreeRaceLaneSetup', () => {
   const mockOnStart = vi.fn();
   const mockReExecute = vi.fn();
 
+  const racersMap: Record<number, any> = {};
+  mockRacers.forEach(r => { racersMap[r.id] = r; });
+
   const defaultProps = {
     raceId: 1,
     laneCount: 4,
     onStart: mockOnStart,
+    racers: racersMap,
   };
 
   beforeEach(() => {
@@ -40,9 +44,6 @@ describe('FreeRaceLaneSetup', () => {
     (useQuery as any).mockImplementation(({ query }: any) => {
       if (query.includes('randomFreeRaceLanes')) {
         return [{ data: { randomFreeRaceLanes: mockRandomLanes }, fetching: false }, mockReExecute];
-      }
-      if (query.includes('GetCheckedInRacers')) {
-        return [{ data: { racers: mockRacers }, fetching: false }, vi.fn()];
       }
       return [{ data: null, fetching: false }, vi.fn()];
     });
@@ -63,9 +64,9 @@ describe('FreeRaceLaneSetup', () => {
       expect(screen.getByText('Lane 3')).toBeInTheDocument();
       expect(screen.getByText('Lane 4')).toBeInTheDocument();
     });
-    // Racer IDs are shown in random mode
-    expect(screen.getByText('Racer #101')).toBeInTheDocument();
-    expect(screen.getByText('Racer #102')).toBeInTheDocument();
+    // Racer Names are shown in random mode
+    expect(screen.getByText(/Alice Smith/)).toBeInTheDocument();
+    expect(screen.getByText(/Bob Jones/)).toBeInTheDocument();
   });
 
   it('Re-shuffle button triggers a new query with network-only policy', async () => {
@@ -111,8 +112,8 @@ describe('FreeRaceLaneSetup', () => {
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(4);
     });
-    // Carol is not checked in, should not appear in options
-    expect(screen.queryByText(/Carol White/)).not.toBeInTheDocument();
+    // Carol is NOT checked in, but we now show all racers in Manual mode
+    expect(screen.getAllByText(/Carol White/)).toHaveLength(4);
   });
 
   it('Start Free Race Heat is disabled when all lanes are empty in random mode', async () => {
@@ -136,7 +137,7 @@ describe('FreeRaceLaneSetup', () => {
   it('Start Free Race Heat calls onStart with correct LaneAssignment array in random mode', async () => {
     render(<FreeRaceLaneSetup {...defaultProps} />);
     await waitFor(() => {
-      expect(screen.getByText('Racer #101')).toBeInTheDocument();
+      expect(screen.getByText(/Alice Smith/)).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: /Start Free Race Heat/i }));
     expect(mockOnStart).toHaveBeenCalledWith([

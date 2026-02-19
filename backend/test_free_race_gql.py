@@ -71,6 +71,40 @@ def test_random_free_race_lanes_query(db: Session):
     assert sorted(lane_numbers) == [1, 2, 3, 4]
 
 
+
+def test_random_free_race_lanes_query_includes_all_racers(db: Session):
+    race_id, _ = _create_race_with_track(db)
+    # Add one checked-in and one NOT checked-in racer
+    _add_checked_in_racer(db, race_id, "Alice", "CheckedIn")
+    crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Bob",
+            last_name="NotCheckedIn",
+            race_id=race_id,
+            car_passed_inspection=False,
+        ),
+    )
+
+    query = """
+    query($raceId: Int!) {
+        randomFreeRaceLanes(raceId: $raceId) {
+            lane
+            racerId
+        }
+    }
+    """
+    resp = client.post(
+        "/graphql", json={"query": query, "variables": {"raceId": race_id}}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    lanes = data["data"]["randomFreeRaceLanes"]
+    # Should find BOTH racers now
+    racer_ids = [l["racerId"] for l in lanes if l["racerId"] is not None]
+    assert len(racer_ids) == 2
+
+
 def test_start_free_race_heat_mutation(db: Session):
     race_id, _ = _create_race_with_track(db)
     r1 = _add_checked_in_racer(db, race_id, "Alice", "Smith")

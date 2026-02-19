@@ -23,32 +23,22 @@ const GET_RANDOM_FREE_RACE_LANES = `
   }
 `;
 
-const GET_CHECKED_IN_RACERS = `
-  query GetCheckedInRacers($raceId: Int!) {
-    racers(raceId: $raceId) {
-      id
-      firstName
-      lastName
-      carNumber
-      carPassedInspection
-    }
-  }
-`;
+// No longer using internal racers query, using prop instead
 
 interface Racer {
   id: number;
   firstName: string;
   lastName: string;
   carNumber: number | null;
-  carPassedInspection: boolean;
 }
 
 type Mode = 'random' | 'manual';
 
-export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps> = ({
+export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Record<number, Racer> }> = ({
   raceId,
   laneCount,
   onStart,
+  racers,
 }) => {
   const [mode, setMode] = useState<Mode>('random');
   const [manualAssignments, setManualAssignments] = useState<LaneAssignment[]>(
@@ -61,11 +51,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps> = ({
     requestPolicy: 'network-only',
   });
 
-  const [racersResult] = useQuery({
-    query: GET_CHECKED_IN_RACERS,
-    variables: { raceId },
-    pause: mode !== 'manual',
-  });
+  // No internal query for racers, using prop
 
   const randomLanes: LaneAssignment[] = (
     randomResult.data?.randomFreeRaceLanes || []
@@ -74,9 +60,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps> = ({
     racerId: l.racerId,
   }));
 
-  const checkedInRacers: Racer[] = (racersResult.data?.racers || []).filter(
-    (r: Racer) => r.carPassedInspection
-  );
+  const allRacersList = Object.values(racers);
 
   const handleReshuffle = () => {
     reExecuteRandom({ requestPolicy: 'network-only' });
@@ -89,10 +73,14 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps> = ({
   };
 
   const currentAssignments = mode === 'random' ? randomLanes : manualAssignments;
-  const hasAnyRacer = currentAssignments.some((a) => a.racerId !== null);
+  const hasAnyRacer = currentAssignments.some((a) => a.racerId != null);
 
-  const racersById: Record<number, Racer> = {};
-  checkedInRacers.forEach((r) => { racersById[r.id] = r; });
+  const getRacerDisplay = (racerId: number | null) => {
+    if (racerId == null) return null;
+    const r = racers[racerId];
+    if (!r) return `Racer #${racerId}`;
+    return `${r.firstName} ${r.lastName}${r.carNumber != null ? ` #${r.carNumber}` : ''}`;
+  };
 
   return (
     <div style={{ background: 'white', borderRadius: '8px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -157,10 +145,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps> = ({
               {randomLanes.map((a) => (
                 <div key={a.lane} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: '#f9f9f9', borderRadius: '6px' }}>
                   <span style={{ fontWeight: 'bold', minWidth: '60px', color: '#666' }}>Lane {a.lane}</span>
-                  <span>{a.racerId === null ? <em style={{ color: '#999' }}>(empty)</em> : (() => {
-                    // We don't have racers data in random mode, just show the ID
-                    return `Racer #${a.racerId}`;
-                  })()}</span>
+                  <span>{a.racerId === null ? <em style={{ color: '#999' }}>(empty)</em> : getRacerDisplay(a.racerId)}</span>
                 </div>
               ))}
             </div>
@@ -204,17 +189,14 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps> = ({
         </div>
       ) : (
         <div>
-          {racersResult.fetching ? (
-            <p>Loading racers...</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
               {manualAssignments.map((a) => {
                 const takenIds = new Set(
                   manualAssignments
                     .filter((x) => x.lane !== a.lane && x.racerId !== null)
                     .map((x) => x.racerId)
                 );
-                const available = checkedInRacers.filter((r) => !takenIds.has(r.id));
+                const available = allRacersList.filter((r) => !takenIds.has(r.id));
                 return (
                   <div key={a.lane} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: '#f9f9f9', borderRadius: '6px' }}>
                     <span style={{ fontWeight: 'bold', minWidth: '60px', color: '#666' }}>Lane {a.lane}</span>
@@ -233,9 +215,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps> = ({
                         </option>
                       ))}
                       {/* If the current selection is not in available, still show it */}
-                      {a.racerId !== null && !available.find((r) => r.id === a.racerId) && racersById[a.racerId] && (
+                      {a.racerId !== null && !available.find((r) => r.id === a.racerId) && racers[a.racerId] && (
                         <option key={a.racerId} value={a.racerId}>
-                          {racersById[a.racerId].firstName} {racersById[a.racerId].lastName}
+                          {racers[a.racerId].firstName} {racers[a.racerId].lastName}
                         </option>
                       )}
                     </select>
@@ -243,8 +225,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps> = ({
                 );
               })}
             </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={() => onStart(manualAssignments)}
               disabled={!hasAnyRacer}
