@@ -16,13 +16,36 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
+import contextlib
+import logging
+from contextlib import asynccontextmanager
+
 from . import models
 from .database import DATA_DIR, SessionLocal, engine
 from .schema import schema
 
-models.Base.metadata.create_all(bind=engine)
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Handle application lifespan events.
+    Ensures the database is initialized before the app starts serving requests.
+    """
+    logger.info("Initializing database...")
+    try:
+        models.Base.metadata.create_all(bind=engine)
+        logger.info("Database initialization complete.")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        # In a real production app, you might want to exit here
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
