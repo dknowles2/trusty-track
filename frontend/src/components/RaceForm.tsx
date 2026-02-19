@@ -32,7 +32,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         group_id: 1, // Default
         track_id: 0,
         scoring_strategy: 'TIMED',
-        car_numbering_strategy: 'MANUAL',
+        car_numbering_strategy: 'GLOBAL',
         global_start_number: 1,
         championship_trophies: 3,
         ...initialData
