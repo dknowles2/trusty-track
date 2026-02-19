@@ -1,4 +1,5 @@
-import { useQuery } from 'urql';
+import { useQuery, useSubscription } from 'urql';
+import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../graphql/raceDetails';
 import RacerAvatar from './RacerAvatar';
 
 export interface LeaderboardEntry {
@@ -43,6 +44,15 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
     variables: { raceId },
     requestPolicy: 'cache-and-network',
   });
+
+  // Subscribe to race state changes so the leaderboard auto-refetches.
+  useSubscription(
+    { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId }, pause: !raceId || isNaN(raceId) },
+    (_prev, data) => {
+      reExecute({ requestPolicy: 'network-only' });
+      return data;
+    }
+  );
 
   const { data, fetching, error } = result;
 
