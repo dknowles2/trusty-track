@@ -43,7 +43,7 @@ const UPDATE_INITIAL_CONFIG = `
 export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
-  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE' }]);
+  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE' }]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -79,7 +79,7 @@ export default function SystemConfig() {
   };
 
   const addTrack = () => {
-    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 4, lengthFeet: 40, timerType: 'FAKE' }]);
+    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: 40, timerType: 'FAKE' }]);
   };
 
   const removeTrack = (index: number) => {
