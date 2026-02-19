@@ -40,6 +40,7 @@ interface Race {
 export default function Home() {
     const { showAlert } = useAlert();
     const [showCreate, setShowCreate] = useState(false);
+    // Location state check removed as per user request
 
     const [{ data, fetching, error }, reexecuteRaces] = useQuery({
         query: GET_RACES,

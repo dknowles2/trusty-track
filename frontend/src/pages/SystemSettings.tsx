@@ -124,6 +124,13 @@ export default function SystemConfig() {
       if (result.error) {
         throw result.error;
       }
+
+      
+      // We can't easily use useClient() here unless we change the component to use it,
+      // but we can trust that the mutation result being successful means the backend is ready.
+      // but we can trust that the mutation result being successful means the backend is ready.
+      // To be absolutely safe against race conditions, we'll wait a brief moment.
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       navigate('/');
     } catch (err: any) {

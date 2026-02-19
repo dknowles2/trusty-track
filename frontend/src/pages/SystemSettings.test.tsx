@@ -144,6 +144,8 @@ describe('SystemSettings', () => {
             }
         });
         
-        expect(mockNavigate).toHaveBeenCalledWith('/');
+        await waitFor(() => {
+            expect(mockNavigate).toHaveBeenCalledWith('/');
+        });
     });
 });
