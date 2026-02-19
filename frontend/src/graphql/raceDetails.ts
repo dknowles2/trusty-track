@@ -44,6 +44,7 @@ export const GET_RACE_DETAILS = gql`
         racerImageUrl
         rank
       }
+      scheduledRacerIds
     }
     tracks {
       id

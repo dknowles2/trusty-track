@@ -362,8 +362,16 @@ export default function RaceDetails() {
   };
 
   const handleBulkDelete = async () => {
+    const scheduledRacerIds = data?.race?.scheduledRacerIds || [];
+    const scheduledSelected = selectedRacerIds.filter(id => scheduledRacerIds.includes(id));
+
+    let message = `Are you sure you want to delete ${selectedRacerIds.length} racers? This action cannot be undone.`;
+    if (scheduledSelected.length > 0) {
+      message += "\n\nWARNING: Some selected racers are scheduled in heats. Affected unstarted rounds will be regenerated, and started heats will have empty lanes.";
+    }
+
     const confirmed = await showConfirm(
-      `Are you sure you want to delete ${selectedRacerIds.length} racers? This action cannot be undone.`,
+      message,
       "Delete Racers",
       "Delete",
       "danger"
