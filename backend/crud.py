@@ -337,9 +337,28 @@ def update_racer(
     return db_racer
 
 
+def _remove_racer_from_heats(db: Session, racer_ids: set[int], race_id: int):
+    """Nullify lane entries for deleted racers in all heats of the given race."""
+    heats = db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
+    for heat in heats:
+        if not heat.lane_results:
+            continue
+        results = json.loads(heat.lane_results)
+        modified = False
+        for lane in results:
+            if lane.get("racer_id") in racer_ids:
+                lane["racer_id"] = None
+                lane["time"] = None
+                lane["place"] = None
+                modified = True
+        if modified:
+            heat.lane_results = json.dumps(results)
+
+
 def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
     db_racer = db.query(models.Racer).filter(models.Racer.id == racer_id).first()
     if db_racer:
+        _remove_racer_from_heats(db, {racer_id}, db_racer.race_id)
         db.delete(db_racer)
         db.commit()
     return db_racer
@@ -907,6 +926,15 @@ def revert_round_to_placeholders(db: Session, round_id: int):
 
 
 def bulk_delete_racers(db: Session, racer_ids: List[int]):
+    from collections import defaultdict
+
+    racers = db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).all()
+    by_race: dict[int, set[int]] = defaultdict(set)
+    for r in racers:
+        by_race[r.race_id].add(r.id)
+    for race_id, ids in by_race.items():
+        _remove_racer_from_heats(db, ids, race_id)
+
     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).delete(
         synchronize_session=False
     )

@@ -1,4 +1,6 @@
-from backend import crud, schemas
+import json
+
+from backend import crud, models, schemas
 
 
 def test_racer_mutations(client, db):
@@ -82,6 +84,70 @@ def test_racer_mutations(client, db):
     """
     response = client.post("/graphql", json={"query": mutation_delete})
     assert response.json()["data"]["deleteRacer"] is True
+
+
+def _setup_race_with_heat(db, lane_count=4):
+    """Create a race with two racers and a heat whose lane_results reference them."""
+    group = crud.create_group(db, schemas.GroupCreate(name="Heat Test Group"))
+    track = crud.create_track(db, schemas.TrackCreate(name="Heat Track", lane_count=lane_count))
+    race = crud.create_race(db, schemas.RaceCreate(name="Heat Race", group_id=group.id, track_id=track.id))
+
+    racer_a = crud.create_racer(db, schemas.RacerCreate(first_name="Alice", last_name="A", car_number=1, race_id=race.id))
+    racer_b = crud.create_racer(db, schemas.RacerCreate(first_name="Bob", last_name="B", car_number=2, race_id=race.id))
+
+    round_ = models.Round(race_id=race.id, round_number=1, name="Round 1", scheduling_strategy="PPC")
+    db.add(round_)
+    db.flush()
+
+    lane_results = [
+        {"lane": 1, "racer_id": racer_a.id, "time": 3.1, "place": 1},
+        {"lane": 2, "racer_id": racer_b.id, "time": 3.5, "place": 2},
+    ]
+    heat = models.Heat(race_id=race.id, round_id=round_.id, heat_number=1, lane_results=json.dumps(lane_results))
+    db.add(heat)
+    db.commit()
+
+    return race.id, racer_a.id, racer_b.id, heat.id
+
+
+def test_delete_racer_clears_from_heats(client, db):
+    race_id, racer_a_id, racer_b_id, heat_id = _setup_race_with_heat(db)
+
+    mutation = f"mutation {{ deleteRacer(id: {racer_a_id}) }}"
+    resp = client.post("/graphql", json={"query": mutation})
+    assert resp.json()["data"]["deleteRacer"] is True
+
+    db.expire_all()
+    heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    results = json.loads(heat.lane_results)
+
+    lane1 = next(r for r in results if r["lane"] == 1)
+    assert lane1["racer_id"] is None
+    assert lane1["time"] is None
+    assert lane1["place"] is None
+
+    # Racer B's lane must be untouched
+    lane2 = next(r for r in results if r["lane"] == 2)
+    assert lane2["racer_id"] == racer_b_id
+    assert lane2["time"] == 3.5
+    assert lane2["place"] == 2
+
+
+def test_bulk_delete_racers_clears_from_heats(client, db):
+    race_id, racer_a_id, racer_b_id, heat_id = _setup_race_with_heat(db)
+
+    mutation = f"mutation {{ bulkDeleteRacers(racerIds: [{racer_a_id}, {racer_b_id}]) }}"
+    resp = client.post("/graphql", json={"query": mutation})
+    assert resp.json()["data"]["bulkDeleteRacers"] is True
+
+    db.expire_all()
+    heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    results = json.loads(heat.lane_results)
+
+    for lane in results:
+        assert lane["racer_id"] is None
+        assert lane["time"] is None
+        assert lane["place"] is None
 
 
 def test_den_mutations(client, db):
