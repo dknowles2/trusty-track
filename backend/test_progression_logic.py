@@ -48,6 +48,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
                 last_name="Test",
                 car_number=i + 1,
                 race_id=race.id,
+                car_passed_inspection=True,
             ),
         )
 

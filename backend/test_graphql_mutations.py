@@ -92,8 +92,8 @@ def _setup_race_with_heat(db, lane_count=4):
     track = crud.create_track(db, schemas.TrackCreate(name="Heat Track", lane_count=lane_count))
     race = crud.create_race(db, schemas.RaceCreate(name="Heat Race", group_id=group.id, track_id=track.id))
 
-    racer_a = crud.create_racer(db, schemas.RacerCreate(first_name="Alice", last_name="A", car_number=1, race_id=race.id))
-    racer_b = crud.create_racer(db, schemas.RacerCreate(first_name="Bob", last_name="B", car_number=2, race_id=race.id))
+    racer_a = crud.create_racer(db, schemas.RacerCreate(first_name="Alice", last_name="A", car_number=1, race_id=race.id, car_passed_inspection=True))
+    racer_b = crud.create_racer(db, schemas.RacerCreate(first_name="Bob", last_name="B", car_number=2, race_id=race.id, car_passed_inspection=True))
 
     round_ = models.Round(race_id=race.id, round_number=1, name="Round 1", scheduling_strategy="PPC")
     db.add(round_)
@@ -290,7 +290,8 @@ def test_round_wizard_and_advance(client, db):
             createRacer(racer: {{
                 firstName: "Racer",
                 lastName: "{i}",
-                raceId: {race_id}
+                raceId: {race_id},
+                carPassedInspection: true
             }}) {{ id }}
         }}
         """
@@ -377,7 +378,8 @@ def test_bulk_mutations(client, db):
             createRacer(racer: {{
                 firstName: "Racer",
                 lastName: "{i}",
-                raceId: {race_id}
+                raceId: {race_id},
+                carPassedInspection: true
             }}) {{ id }}
         }}
         """
@@ -457,7 +459,7 @@ def test_bulk_mutations_with_variables(client, db):
                 "query": """
                 mutation CreateRacer($racer: RacerInput!) { createRacer(racer: $racer) { id } }
                 """,
-                "variables": {"racer": {"firstName": "Racer", "lastName": str(i), "raceId": race_id}},
+                "variables": {"racer": {"firstName": "Racer", "lastName": str(i), "raceId": race_id, "carPassedInspection": True}},
             },
         )
         racer_ids.append(r.json()["data"]["createRacer"]["id"])

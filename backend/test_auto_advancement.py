@@ -26,7 +26,11 @@ def test_auto_advancement_with_placeholders(client, db):
         crud.create_racer(
             db,
             schemas.RacerCreate(
-                first_name=f"R{i}", last_name=f"D{i}", race_id=race.id, den_id=den.id
+                first_name=f"R{i}",
+                last_name=f"D{i}",
+                race_id=race.id,
+                den_id=den.id,
+                car_passed_inspection=True,
             ),
         )
 

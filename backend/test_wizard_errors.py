@@ -70,10 +70,18 @@ def test_wizard_crash_repro(db, client):
     db.refresh(den2)
 
     racer2a = models.Racer(
-        first_name="Jane", last_name="Doe", race_id=race2.id, den_id=den2.id
+        first_name="Jane",
+        last_name="Doe",
+        race_id=race2.id,
+        den_id=den2.id,
+        car_passed_inspection=True,
     )
     racer2b = models.Racer(
-        first_name="Jack", last_name="Smith", race_id=race2.id, den_id=den2.id
+        first_name="Jack",
+        last_name="Smith",
+        race_id=race2.id,
+        den_id=den2.id,
+        car_passed_inspection=True,
     )
     db.add(racer2a)
     db.add(racer2b)

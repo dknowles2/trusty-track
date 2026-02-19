@@ -26,7 +26,11 @@ def test_rerun_last_heat_clears_next_round(client, db):
     # 2. Add Racers
     for i in range(4):
         r_in = schemas.RacerCreate(
-            first_name=f"R{i}", last_name="T", car_number=i, race_id=race_id
+            first_name=f"R{i}",
+            last_name="T",
+            car_number=i,
+            race_id=race_id,
+            car_passed_inspection=True,
         )
         crud.create_racer(db, r_in)
 

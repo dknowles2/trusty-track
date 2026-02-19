@@ -93,7 +93,7 @@ def test_reorder_heats(client, db):
             "/graphql",
             json={
                 "query": f"""
-            mutation {{ createRacer(racer: {{firstName: "R{{i}}", lastName: "T", carNumber: {100 + i}, raceId: {race_id}}}) {{ id }} }}
+            mutation {{ createRacer(racer: {{firstName: "R{{i}}", lastName: "T", carNumber: {100 + i}, raceId: {race_id}, carPassedInspection: true}}) {{ id }} }}
         """
             },
         )
@@ -165,7 +165,7 @@ def test_wizard_graphql_flow(client, db):
             "/graphql",
             json={
                 "query": f"""
-            mutation {{ createRacer(racer: {{firstName: "R{{i}}", lastName: "T", carNumber: {100 + i}, raceId: {race_id}}}) {{ id }} }}
+            mutation {{ createRacer(racer: {{firstName: "R{{i}}", lastName: "T", carNumber: {100 + i}, raceId: {race_id}, carPassedInspection: true}}) {{ id }} }}
         """
             },
         )

@@ -1,6 +1,5 @@
 """Tests to validate the GraphQL schema contract."""
 
-import pytest
 from backend import schema
 
 def test_populate_race_mutation_sdl():

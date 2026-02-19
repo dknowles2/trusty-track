@@ -48,7 +48,8 @@ def test_race_mutations_and_leaderboard(client, db):
             createRacer(racer: {{
                 firstName: "Racer",
                 lastName: "{i}",
-                raceId: {race_id}
+                raceId: {race_id},
+                carPassedInspection: true
             }}) {{ id }}
         }}
         """

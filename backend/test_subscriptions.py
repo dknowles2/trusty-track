@@ -113,7 +113,7 @@ def _seed_race(db_session: Any) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_race_state_changed_subscription_emits_event(
     db_session, test_schema
 ) -> None:
@@ -162,7 +162,7 @@ async def test_race_state_changed_subscription_emits_event(
     assert collected[0].changed_at  # non-empty ISO timestamp
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_publish_race_state_delivers_to_subscriber(db_session) -> None:
     """_publish_race_state broadcasts to pubsub subscribers on the correct channel."""
     from .schema import _publish_race_state
@@ -194,7 +194,7 @@ async def test_publish_race_state_delivers_to_subscriber(db_session) -> None:
     assert collected[0].race_id == 42
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_pubsub_multiple_subscribers() -> None:
     """All subscribers on a channel receive the published payload."""
     local = _PubSub()

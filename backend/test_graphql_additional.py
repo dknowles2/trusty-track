@@ -90,7 +90,7 @@ def test_create_round_regular(client, db):
     # Populate
     mutation_populate = f"""
     mutation {{
-        populateRace(raceId: {race_id}, config: {{count: 4}})
+        populateRace(raceId: {race_id}, config: {{count: 4, checkIn: true}})
     }}
     """
     client.post("/graphql", json={"query": mutation_populate})

@@ -31,6 +31,7 @@ def test_full_advancement_flow(client, db):
             car_number=100 + i,
             den_id=den_id,
             race_id=race_id,
+            car_passed_inspection=True,
         )
         r = crud.create_racer(db, r_in)
         racer_ids.append(r.id)

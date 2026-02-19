@@ -16,7 +16,6 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
-import contextlib
 import logging
 from contextlib import asynccontextmanager
 

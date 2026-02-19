@@ -1,5 +1,4 @@
 import json
-import pytest
 import uuid
 from backend import crud, models, schemas
 
@@ -16,7 +15,8 @@ def _setup_race_with_heats(db, num_racers=3):
             first_name=f"Racer {i}", 
             last_name=suffix, 
             car_number=100+i, 
-            race_id=race.id
+            race_id=race.id,
+            car_passed_inspection=True
         ))
         racers.append(r)
     

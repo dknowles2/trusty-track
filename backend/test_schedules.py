@@ -54,6 +54,7 @@ def test_generate_schedule_success_with_min_racers(client, db):
             last_name="Test",
             car_number=100 + i,
             race_id=race_id,
+            car_passed_inspection=True,
         )
         crud.create_racer(db, r_in)
 
@@ -92,6 +93,7 @@ def test_generate_ppc_schedule(client, db):
             last_name="Test",
             car_number=200 + i,
             race_id=race_id,
+            car_passed_inspection=True,
         )
         crud.create_racer(db, r_in)
 

@@ -654,7 +654,9 @@ def generate_heats_for_round(
     elif racer_ids is not None:
         p_ids = racer_ids
     else:
-        query = db.query(models.Racer).filter(models.Racer.race_id == race_id)
+        query = db.query(models.Racer).filter(
+            models.Racer.race_id == race_id, models.Racer.car_passed_inspection
+        )
         if round_obj.den_id:
             query = query.filter(models.Racer.den_id == round_obj.den_id)
         racers = query.all()

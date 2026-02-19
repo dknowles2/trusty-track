@@ -1,5 +1,4 @@
 import os
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect
 from pathlib import Path
@@ -9,7 +8,7 @@ os.environ["TRUSTYTRACK_DATA_DIR"] = "/tmp/trustytrack_test"
 
 # Import app after setting env var
 from backend.main import app
-from backend.database import engine, Base
+from backend.database import engine
 
 client = TestClient(app)
 
