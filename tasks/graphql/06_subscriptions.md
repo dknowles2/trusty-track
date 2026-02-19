@@ -102,13 +102,36 @@ Deferred to `tasks/observation/02_subscription_frontend.md`. The polling `setInt
 
 ## Pages and components affected
 
-| File                         | Current behavior                            | After this task                                                   |
-| ---------------------------- | ------------------------------------------- | ----------------------------------------------------------------- |
-| `pages/RaceControl.tsx`      | Manual `reExecute` after own mutations only | Auto-refetch via `raceStateChanged` subscription                  |
-| `pages/Observation.tsx`      | 5-second `setInterval` polling              | Replaced by dedicated subscriptions (observation tasks)           |
-| `components/Leaderboard.tsx` | `cache-and-network` + manual re-execute     | Driven by `raceStateChanged` from parent, or its own subscription |
-| `pages/RaceDetails.tsx`      | Manual `reExecute` after own mutations      | No change needed (edits here are the source of truth)             |
-| `pages/Home.tsx`             | Manual `reExecute` after own mutations      | No change needed (single-tab workflow)                            |
+| File                         | Current behavior                            | Status       | Notes                                                             |
+| ---------------------------- | ------------------------------------------- | ------------ | ----------------------------------------------------------------- |
+| `pages/RaceControl.tsx`      | Manual `reExecute` after own mutations only | ✅ Done      | Auto-refetch via `raceStateChanged` subscription                  |
+| `pages/Observation.tsx`      | 5-second `setInterval` polling              | ⏳ Deferred  | Replaced by dedicated subscriptions (observation tasks)           |
+| `components/Leaderboard.tsx` | `cache-and-network` + manual re-execute     | ⏳ Pending   | Driven by `raceStateChanged` from parent (see RaceDetails below)  |
+| `pages/RaceDetails.tsx`      | Manual `reExecute` after own mutations      | ⏳ Pending   | See below                                                         |
+| `pages/Standings.tsx`        | Static fetch on mount                       | ⏳ Pending   | See below                                                         |
+| `components/Navigation.tsx`  | Static fetch on mount                       | ⬜ Low prio  | See below                                                         |
+| `pages/Home.tsx`             | Manual `reExecute` after own mutations      | ⬜ No change | Single-tab workflow; race creation is always the initiating tab   |
+
+### `pages/RaceDetails.tsx` — multi-operator gap
+
+The current reasoning ("no change needed; edits here are the source of truth") holds for the _primary_ check-in/roster operator. It breaks down in two realistic scenarios:
+
+1. **Two operators sharing the page.** A pack coordinator manages dens from a laptop while a separate volunteer does check-ins on a tablet. Den changes from the laptop won't appear on the tablet and vice-versa.
+2. **Heat results flowing back.** The leaderboard widget embedded in RaceDetails (`components/Leaderboard.tsx`) never refreshes when a race director in another tab records heat results. The leaderboard shows stale scores until the page is reloaded.
+
+**Recommended fix**: wire `useSubscription(RACE_STATE_CHANGED_SUBSCRIPTION, { variables: { raceId } })` and call `reExecuteRaceDetails({ requestPolicy: 'network-only' })` on every event, the same pattern already used in `RaceControl.tsx`. Because `Leaderboard` is a child component that fetches independently, it also needs to receive the refetch trigger — either via a `key` prop bump or by passing the subscription event as a prop and calling its own `reExecute` in a `useEffect`.
+
+### `pages/Standings.tsx` — live audience leaderboard
+
+Standings is intended to be projected for the audience while heats are still running. At present it fetches once on mount and never updates. A race director recording results in `RaceControl` will not be reflected here.
+
+**Recommended fix**: add `useSubscription(RACE_STATE_CHANGED_SUBSCRIPTION, …)` and trigger a refetch of the `Leaderboard` child on each event. The `Leaderboard` component already accepts a `raceId` prop and has its own `useQuery`; the cleanest approach is to pass a changing `key` when an event arrives to force a remount, or to forward a callback so `Leaderboard` re-executes its own query.
+
+### `components/Navigation.tsx` — race list freshness
+
+The nav race-selector dropdown fetches the race list once on mount. If a second tab creates or deletes a race (`Home.tsx` mutations) the navigation in all other tabs becomes stale. This is low priority because it is rare to create races in multiple tabs simultaneously, but it is a latent inconsistency.
+
+**Recommended fix**: subscribe to a coarse `racesChanged` invalidation event (or reuse `raceStateChanged` with `raceId = 0` as a convention for race-list-level changes) and call `reExecuteRacesNav`. Alternatively, add a `raceListChanged` pub/sub channel published from `createRace`, `updateRace`, and `deleteRace`.
 
 ## What this task does NOT cover
 
