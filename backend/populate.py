@@ -2,8 +2,10 @@ import random
 import os
 import shutil
 import uuid
+from pathlib import Path
 from sqlalchemy.orm import Session
 from . import crud, schemas, models
+from .database import DATA_DIR
 
 FIRST_NAMES = [
     "Ace",
@@ -115,8 +117,8 @@ def generate_fake_racers(
     check_in: bool = False,
 ):
     # Ensure assets exist
-    assets_base = "backend/assets/defaults"
-    uploads_dir = "backend/uploads"
+    assets_base = str(Path(__file__).parent / "assets" / "defaults")
+    uploads_dir = os.path.join(DATA_DIR, "uploads")
 
     racer_assets = []
     if add_racer_photos and os.path.exists(f"{assets_base}/racers"):
