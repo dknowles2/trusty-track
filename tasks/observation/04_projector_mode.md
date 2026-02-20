@@ -1,4 +1,4 @@
-# Task: Projector Mode (High-Contrast Observation Display)
+# [COMPLETED] Task: Projector Mode (High-Contrast Observation Display)
 
 ## Goal
 

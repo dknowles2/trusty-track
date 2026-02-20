@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useSubscription, useQuery } from 'urql';
 import Icon from '@mdi/react';
 import RacerAvatar from '../components/RacerAvatar';
-import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline } from '@mdi/js';
+import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import { 
   LeaderboardSubscription, 
   OnDeckSubscription, 
@@ -37,8 +37,34 @@ interface Standing {
 
 export default function Observation() {
   const { raceId } = useParams<{ raceId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const id = parseInt(raceId || '0');
-  const [activeTab, setActiveTab] = useState<'standings' | 'timing'>('standings');
+  
+  const isProjectorMode = searchParams.get('projector') === 'true';
+  const shouldCycle = searchParams.get('cycle') === 'true';
+  const cycleInterval = parseInt(searchParams.get('cycle_interval') || '10000');
+  
+  const initialView = (searchParams.get('view') as 'standings' | 'timing') || 'standings';
+  const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(initialView);
+
+  // Auto-cycling logic
+  useEffect(() => {
+    if (!shouldCycle) return;
+
+    const interval = setInterval(() => {
+      setActiveTab(prev => prev === 'standings' ? 'timing' : 'standings');
+    }, cycleInterval);
+
+    return () => clearInterval(interval);
+  }, [shouldCycle, cycleInterval]);
+
+  // Sync tab with URL if view param changes externally
+  useEffect(() => {
+    const view = searchParams.get('view');
+    if (view === 'standings' || view === 'timing') {
+      setActiveTab(view);
+    }
+  }, [searchParams]);
 
   // Initial query for static-ish data (racers)
   const [initialResult] = useQuery({
@@ -192,7 +218,30 @@ export default function Observation() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
+    <div className={`container ${isProjectorMode ? 'projector-mode' : ''}`} style={{ maxWidth: '100%', padding: isProjectorMode ? '40px' : '20px' }}>
+      {!isProjectorMode && (
+        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button 
+            onClick={() => window.open(`${window.location.pathname}?projector=true&view=${activeTab}`, '_blank')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '20px',
+              border: '2px solid var(--scouting-blue)',
+              background: 'transparent',
+              color: 'var(--scouting-blue)',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <Icon path={mdiVideo} size={0.8} />
+            Launch Projector Mode
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
         {renderHeatCard(
           "Now Racing", 
@@ -210,43 +259,51 @@ export default function Observation() {
         )}
       </div>
 
-      <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
-        <button 
-          onClick={() => setActiveTab('standings')}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '20px',
-            border: 'none',
-            background: activeTab === 'standings' ? 'var(--cub-scouting-gold)' : '#eee',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontWeight: 'bold'
-          }}
-        >
-          <Icon path={mdiTrophy} size={0.8} />
-          Standings
-        </button>
-        <button 
-          onClick={() => setActiveTab('timing')}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '20px',
-            border: 'none',
-            background: activeTab === 'timing' ? 'var(--cub-scouting-gold)' : '#eee',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontWeight: 'bold'
-          }}
-        >
-          <Icon path={mdiTimerOutline} size={0.8} />
-          Timing Stats
-        </button>
-      </div>
+      {!isProjectorMode && (
+        <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
+          <button 
+            onClick={() => setActiveTab('standings')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '20px',
+              border: 'none',
+              background: activeTab === 'standings' ? 'var(--cub-scouting-gold)' : '#eee',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontWeight: 'bold'
+            }}
+          >
+            <Icon path={mdiTrophy} size={0.8} />
+            Standings
+          </button>
+          <button 
+            onClick={() => setActiveTab('timing')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '20px',
+              border: 'none',
+              background: activeTab === 'timing' ? 'var(--cub-scouting-gold)' : '#eee',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontWeight: 'bold'
+            }}
+          >
+            <Icon path={mdiTimerOutline} size={0.8} />
+            Timing Stats
+          </button>
+        </div>
+      )}
       
+      {isProjectorMode && (
+        <h1 style={{ textAlign: 'center', fontSize: '4rem', marginBottom: '40px' }}>
+          {activeTab === 'standings' ? 'Current Standings' : 'Last Heat Results'}
+        </h1>
+      )}
+
       {activeTab === 'standings' ? (
         <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

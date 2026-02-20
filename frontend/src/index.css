@@ -346,3 +346,98 @@ input:checked + .slider:before {
         display: none !important;
     }
 }
+
+/* Projector Mode Styling */
+.projector-mode {
+  background-color: #0A0A0A !important;
+  color: #FFFFFF !important;
+  min-height: 100vh;
+}
+
+.projector-mode h1, 
+.projector-mode h2, 
+.projector-mode h3 {
+  color: var(--cub-scouting-gold) !important;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.projector-mode .container {
+  max-width: 100% !important;
+}
+
+/* Heat Cards in Projector Mode */
+.projector-mode div[style*="background: white"],
+.projector-mode div[style*="background: white"] div {
+  background-color: #1a1a1a !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+}
+
+.projector-mode h2 {
+  font-size: 3rem !important;
+}
+
+.projector-mode div[style*="font-weight: bold; font-size: 0.9rem"] {
+  font-size: 1.5rem !important;
+}
+
+.projector-mode div[style*="font-size: 0.8rem"] {
+  font-size: 1.2rem !important;
+}
+
+/* Standings Table in Projector Mode */
+.projector-mode table {
+  background-color: #111 !important;
+}
+
+.projector-mode thead {
+  background-color: var(--cub-scouting-gold) !important;
+  color: #000 !important;
+}
+
+.projector-mode thead th {
+  font-size: 1.5rem !important;
+  padding: 20px !important;
+}
+
+.projector-mode tbody td {
+  padding: 25px !important;
+  border-bottom: 1px solid #333 !important;
+}
+
+.projector-mode td div[style*="font-weight: bold; font-size: 1.2rem"] {
+  font-size: 2.5rem !important;
+}
+
+.projector-mode td[style*="font-size: 1.4rem"] {
+  font-size: 3rem !important;
+}
+
+.projector-mode td[style*="font-size: 1.1rem"] {
+  font-size: 1.8rem !important;
+}
+
+/* Timing Stats in Projector Mode */
+.projector-mode div[style*="font-size: 1.5rem"],
+.projector-mode div[style*="font-size: 1.5rem"] div {
+  font-size: 2.5rem !important;
+}
+
+.projector-mode div[style*="font-size: 2.5rem"] {
+  font-size: 4rem !important;
+}
+
+.projector-mode div[style*="font-size: 2rem"] {
+  font-size: 3.5rem !important;
+}
+
+.projector-mode div[style*="background: rgb(212, 175, 55, 0.1)"] {
+  background-color: rgba(252, 209, 22, 0.15) !important;
+  border-left-width: 20px !important;
+}
+
+.projector-mode div[style*="background: #f9f9f9"] {
+  background-color: #222 !important;
+}

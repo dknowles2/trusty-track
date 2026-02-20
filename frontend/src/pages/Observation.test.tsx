@@ -190,4 +190,31 @@ describe('Observation Page', () => {
             expect(screen.getByText('3.500s')).toBeInTheDocument();
         });
     });
+    it('renders in Projector Mode correctly', async () => {
+        setupMocks({
+            leaderboard: [
+                { racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1 }
+            ]
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation?projector=true']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Current Standings')).toBeInTheDocument();
+            // In projector mode, buttons and tabs are hidden
+            expect(screen.queryByText('Launch Projector Mode')).not.toBeInTheDocument();
+            // Table should be visible
+            expect(screen.getByText('Speedy McQueen')).toBeInTheDocument();
+        });
+
+        // The container should have the projector-mode class
+        const container = screen.getByText('Now Racing').closest('.container');
+        expect(container).toHaveClass('projector-mode');
+    });
 });

@@ -69,6 +69,10 @@ export default function Navigation() {
     }
   };
 
+  const isProjectorMode = new URLSearchParams(location.search).get('projector') === 'true';
+
+  if (isProjectorMode) return null;
+
   return (
     <>
       <nav style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', position: 'relative', zIndex: 1000, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
