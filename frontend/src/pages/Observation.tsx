@@ -37,7 +37,7 @@ interface Standing {
 
 export default function Observation() {
   const { raceId } = useParams<{ raceId: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const id = parseInt(raceId || '0');
   
   const isProjectorMode = searchParams.get('projector') === 'true';
@@ -46,6 +46,10 @@ export default function Observation() {
   
   const initialView = (searchParams.get('view') as 'standings' | 'timing') || 'standings';
   const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(initialView);
+  
+  const [showResultsOverlay, setShowResultsOverlay] = useState(false);
+  const [overlayData, setOverlayData] = useState<any>(null);
+  const [lastProcessedHeatId, setLastProcessedHeatId] = useState<string | null>(null);
 
   // Auto-cycling logic
   useEffect(() => {
@@ -105,6 +109,30 @@ export default function Observation() {
     variables: { raceId: id },
     pause: !id || isNaN(id),
   });
+
+  // Effect to trigger heat result overlay
+  useEffect(() => {
+    if (!isProjectorMode || !timingStatsData?.timingStats) return;
+
+    const stats = timingStatsData.timingStats;
+    const heatId = `${stats.roundName}-${stats.heatNumber}`;
+
+    if (heatId !== lastProcessedHeatId) {
+      setOverlayData(stats);
+      setShowResultsOverlay(true);
+      setLastProcessedHeatId(heatId);
+    }
+  }, [timingStatsData, isProjectorMode, lastProcessedHeatId]);
+
+  // Effect to handle overlay timeout
+  useEffect(() => {
+    if (showResultsOverlay) {
+      const timer = setTimeout(() => {
+        setShowResultsOverlay(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showResultsOverlay, lastProcessedHeatId]);
 
   const racersMap = useMemo(() => {
     const map: Record<number, any> = {};
@@ -217,8 +245,56 @@ export default function Observation() {
     );
   };
 
+  const renderResultsOverlay = () => {
+    if (!showResultsOverlay || !overlayData) return null;
+
+    const sortedLanes = [...overlayData.lanes].sort((a, b) => (a.place || 99) - (b.place || 99));
+
+    return (
+      <div className="results-overlay">
+        <h1 className="overlay-title">Heat Results</h1>
+        <div className="overlay-results-list">
+          {sortedLanes.map((lane, idx) => (
+            <div 
+              key={lane.laneNumber} 
+              className={`overlay-result-item ${lane.place === 1 ? 'first-place' : lane.place === 2 ? 'second-place' : lane.place === 3 ? 'third-place' : ''}`}
+              style={{ animationDelay: `${idx * 0.1}s` }}
+            >
+              <div className="overlay-rank" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', minWidth: '300px', width: 'auto' }}>
+                {lane.place === 1 && <Icon path={mdiTrophy} size={6} color="#FFD700" />}
+                {lane.place === 2 && <Icon path={mdiTrophy} size={5} color="#C0C0C0" />}
+                {lane.place === 3 && <Icon path={mdiTrophy} size={4} color="#CD7F32" />}
+                <span style={{ fontSize: '5rem', lineHeight: 1 }}>
+                  {lane.place === 1 ? '1st' : lane.place === 2 ? '2nd' : lane.place === 3 ? '3rd' : (lane.place || '-')}
+                </span>
+              </div>
+              <RacerAvatar 
+                racer={{
+                  id: 0,
+                  first_name: lane.racerName,
+                  last_name: '',
+                  racer_image_url: lane.racerImageUrl
+                }}
+                size="120px"
+                style={{ margin: '0 40px', border: '4px solid white', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}
+              />
+              <div className="overlay-racer-info">
+                <div className="overlay-racer-name">{lane.racerName}</div>
+                <div className="overlay-car-name">{lane.carName || `Lane ${lane.laneNumber}`}</div>
+              </div>
+              <div className="overlay-time">
+                {lane.time?.toFixed(3)}s
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`container ${isProjectorMode ? 'projector-mode' : ''}`} style={{ maxWidth: '100%', padding: isProjectorMode ? '40px' : '20px' }}>
+      {renderResultsOverlay()}
       {!isProjectorMode && (
         <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-end' }}>
           <button 

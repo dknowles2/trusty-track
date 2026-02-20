@@ -1494,6 +1494,7 @@ class TimingStatsLane:
     car_name: Optional[str]
     time: Optional[float]
     place: Optional[int]
+    racer_image_url: Optional[str]
 
 
 @strawberry.type
@@ -1684,7 +1685,8 @@ class Subscription:
                         racer_name=f"{racer.first_name} {racer.last_name}" if racer else "Unknown",
                         car_name=racer.car_name if racer else None,
                         time=r.get("time"),
-                        place=r.get("place")
+                        place=r.get("place"),
+                        racer_image_url=racer.racer_image_url if racer else None,
                     ))
                 
                 return TimingStats(

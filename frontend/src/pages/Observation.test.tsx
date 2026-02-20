@@ -217,4 +217,57 @@ describe('Observation Page', () => {
         const container = screen.getByText('Now Racing').closest('.container');
         expect(container).toHaveClass('projector-mode');
     });
+
+    it('shows and hides the heat result overlay in projector mode', async () => {
+        const timingStats = {
+            heatId: 1,
+            roundName: 'Round 1',
+            heatNumber: 1,
+            lanes: [
+                { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.5, place: 1, racerImageUrl: 'http://example.com/speedy.jpg' },
+                { laneNumber: 2, racerName: 'Doc Hudson', carName: '51', time: 3.6, place: 2, racerImageUrl: null },
+            ]
+        };
+
+        setupMocks({ timingStats });
+
+        vi.useFakeTimers();
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation?projector=true']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        // Overlay should be visible
+        expect(screen.getByText('Heat Results')).toBeInTheDocument();
+        expect(screen.getByText('Speedy McQueen')).toBeInTheDocument();
+        
+        // Check for trophy icons (by checking if the Icon component renders an SVG, implicitly)
+        // Or better, check for the color style which distinguishes the trophies
+        const firstPlaceRow = screen.getByText('Speedy McQueen').closest('.overlay-result-item');
+        expect(firstPlaceRow).toHaveClass('first-place');
+        // The trophy icon is inside .overlay-rank. We can check if it exists.
+        // Since we can't easily check for the specific SVG path without more setup, we'll assume class presence and structure implies it.
+        
+        // We can check if the image is passed to RacerAvatar
+        // RacerAvatar renders an img tag if racerImageUrl is present.
+        const avatarImg = screen.getByAltText('Speedy McQueen');
+        expect(avatarImg).toBeInTheDocument();
+        expect(avatarImg).toHaveAttribute('src', 'http://example.com/speedy.jpg');
+
+
+        // Fast-forward time
+        vi.advanceTimersByTime(6000);
+
+        // Overlay should be gone
+        // Overlay should be gone
+        await waitFor(() => {
+            expect(screen.queryByText('Heat Results')).not.toBeInTheDocument();
+        });
+
+        vi.useRealTimers();
+    });
 });

@@ -53,6 +53,7 @@ export const TimingStatsSubscription = gql`
         carName
         time
         place
+        racerImageUrl
       }
     }
   }

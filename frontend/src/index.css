@@ -441,3 +441,100 @@ input:checked + .slider:before {
 .projector-mode div[style*="background: #f9f9f9"] {
   background-color: #222 !important;
 }
+
+/* Heat Result Overlay Animations */
+@keyframes overlay-fade-in {
+  from { opacity: 0; transform: scale(1.1); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes result-slide-up {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.results-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.95);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px;
+  animation: overlay-fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.overlay-title {
+  font-size: 5rem !important;
+  color: var(--cub-scouting-gold) !important;
+  margin-bottom: 60px !important;
+  text-shadow: 0 0 30px rgba(252, 209, 22, 0.3);
+  text-align: center;
+}
+
+.overlay-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.overlay-result-item {
+  display: flex;
+  align-items: center;
+  background: #1a1a1a;
+  border-radius: 20px;
+  padding: 30px 50px;
+  border-left: 20px solid #ddd;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  animation: result-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.overlay-result-item.first-place {
+  border-left-color: var(--cub-scouting-gold);
+  background: linear-gradient(90deg, rgba(252, 209, 22, 0.1) 0%, #1a1a1a 100%);
+  transform: scale(1.05);
+}
+
+.overlay-result-item.second-place {
+  border-left-color: #c0c0c0;
+}
+
+.overlay-result-item.third-place {
+  border-left-color: #cd7f32;
+}
+
+.overlay-rank {
+  font-size: 4rem;
+  font-weight: 900;
+  width: 120px;
+  color: #fff;
+}
+
+.overlay-racer-info {
+  flex: 1;
+}
+
+.overlay-racer-name {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.overlay-car-name {
+  font-size: 1.8rem;
+  color: #aaa;
+}
+
+.overlay-time {
+  font-size: 5rem;
+  font-weight: 900;
+  font-family: monospace;
+  color: var(--cub-scouting-gold);
+}
