@@ -73,7 +73,8 @@ describe('RaceExecution', () => {
         );
         expect(screen.getByText('Heat 1')).toBeInTheDocument();
         expect(screen.getByText('John Doe')).toBeInTheDocument();
-         expect(screen.getByText('3.5s')).toBeInTheDocument();
+        expect(screen.getByText('3.5000s')).toBeInTheDocument();
+        expect(screen.getByText('1st')).toBeInTheDocument();
         
         // Check for image
         const img = screen.getByAltText('John Doe'); // RacerAvatar uses name as alt

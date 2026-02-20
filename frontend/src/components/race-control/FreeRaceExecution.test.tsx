@@ -104,7 +104,7 @@ describe('FreeRaceExecution', () => {
 
   it('shows "Waiting for timer..." before results are recorded', () => {
     render(<FreeRaceExecution {...defaultProps} />);
-    expect(screen.getByText('Waiting for timer...')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for Timer...')).toBeInTheDocument();
   });
 
   it('shows the FakeTimerMole when timerType is FAKE', () => {
@@ -139,8 +139,8 @@ describe('FreeRaceExecution', () => {
 
     await waitFor(() => {
       expect(screen.getByText('3.1420s')).toBeInTheDocument();
-      expect(screen.getByText('🥇')).toBeInTheDocument();
-      expect(screen.getByText('🥈')).toBeInTheDocument();
+      expect(screen.getByText('1st')).toBeInTheDocument();
+      expect(screen.getByText('2nd')).toBeInTheDocument();
     });
   });
 

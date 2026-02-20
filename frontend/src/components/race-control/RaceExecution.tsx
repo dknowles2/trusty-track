@@ -244,26 +244,67 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                           <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: '#f9f9f9', borderRadius: '8px', borderLeft: '5px solid #ddd' }}>
                               <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {r.lane}</div>
                               
-                              {/* Racer Image */}
-                              <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                  <RacerAvatar 
-                                    racer={{
-                                        id: racer?.id || r.racer_id,
-                                        first_name: racer?.firstName || '',
-                                        last_name: racer?.lastName || '',
-                                        racer_image_url: racer?.racerImageUrl
-                                    }} 
-                                    size="60px" 
-                                  />
-                              </div>
+                                <div style={{ 
+                                    flex: 1,
+                                    padding: '10px 15px',
+                                    background: r.place === 1 ? 'rgba(252, 209, 22, 0.1)' : 'transparent',
+                                    border: r.place === 1 ? '1px solid var(--cub-scouting-gold)' : '1px solid transparent',
+                                    borderRadius: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}>
+                                    <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                        <RacerAvatar 
+                                            racer={{
+                                                id: racer?.id || r.racer_id,
+                                                first_name: racer?.firstName || '',
+                                                last_name: racer?.lastName || '',
+                                                racer_image_url: racer?.racerImageUrl
+                                            }} 
+                                            size="60px" 
+                                        />
+                                    </div>
 
-                              <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{getRacerName(r.racer_id)}</div>
-                                  {racer && <div style={{ fontSize: '0.9rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
-                              </div>
-                              <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                  {r.time ? `${r.time}s` : '--'}
-                              </div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{getRacerName(r.racer_id)}</div>
+                                        {racer && <div style={{ fontSize: '0.9rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                        <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                            {r.time ? `${Number(r.time).toFixed(4)}s` : '--'}
+                                        </div>
+                                        {r.place && (
+                                            <div style={{ 
+                                                display: 'flex', 
+                                                flexDirection: 'column', 
+                                                alignItems: 'center', 
+                                                width: '60px',
+                                                padding: '5px',
+                                                borderRadius: '8px',
+                                                background: r.place === 1 ? 'var(--cub-scouting-gold)' : 
+                                                           r.place === 2 ? '#e0e0e0' : 
+                                                           r.place === 3 ? '#d7a48d' : 'transparent',
+                                                color: r.place === 1 ? 'var(--scouting-blue)' : 'inherit',
+                                                boxShadow: r.place <= 3 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+                                            }}>
+                                                {r.place <= 3 ? (
+                                                    <Icon 
+                                                        path={mdiTrophy} 
+                                                        size={1} 
+                                                        color={r.place === 1 ? 'var(--scouting-blue)' : 
+                                                               r.place === 2 ? '#757575' : '#8d6e63'} 
+                                                    />
+                                                ) : (
+                                                    <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{r.place}th</span>
+                                                )}
+                                                {r.place <= 3 && <span style={{ fontSize: '0.7rem', fontWeight: 'bold', lineHeight: 1 }}>
+                                                    {r.place === 1 ? '1st' : r.place === 2 ? '2nd' : '3rd'}
+                                                </span>}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                           </div>
                         );
                     })}
