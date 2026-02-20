@@ -42,7 +42,7 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ onTriggerFinish, o
         
         const newResults = currentResults.map((r: any) => ({
             ...r,
-            time: (3.0 + Math.random()).toFixed(4),
+            time: 3.0 + Math.random(),
             place: 0 
         }));
         

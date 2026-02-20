@@ -194,7 +194,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   {isEmpty ? <em style={{ color: '#999' }}>(empty)</em> : name}
                 </td>
                 <td style={{ padding: '12px 10px', textAlign: 'right', fontFamily: 'monospace', fontSize: '1.1rem' }}>
-                  {r?.time != null ? `${r.time.toFixed(4)}s` : <span style={{ color: '#bbb' }}>—</span>}
+                  {r?.time != null ? `${Number(r.time).toFixed(4)}s` : <span style={{ color: '#bbb' }}>—</span>}
                 </td>
                 <td style={{ padding: '12px 10px', textAlign: 'right', fontSize: '1.3rem' }}>
                   {r?.place != null ? (PLACE_MEDAL[r.place] ?? `${r.place}th`) : ''}
