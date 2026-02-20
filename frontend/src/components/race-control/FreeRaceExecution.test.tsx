@@ -93,8 +93,8 @@ describe('FreeRaceExecution', () => {
 
   it('renders lane assignments with racer names', () => {
     render(<FreeRaceExecution {...defaultProps} />);
-    expect(screen.getByText('Alice Smith #7')).toBeInTheDocument();
-    expect(screen.getByText('Bob Jones #12')).toBeInTheDocument();
+    expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+    expect(screen.getByText('Bob Jones')).toBeInTheDocument();
   });
 
   it('renders empty lanes as (empty)', () => {
@@ -144,16 +144,16 @@ describe('FreeRaceExecution', () => {
     });
   });
 
-  it('"Run Another Free Race Heat" button appears after results are saved and calls onRunAnother', async () => {
+  it('"Run Another" button appears after results are saved and calls onRunAnother', async () => {
     render(<FreeRaceExecution {...defaultProps} />);
     fireEvent.click(screen.getByTestId('start-timer-btn'));
     fireEvent.click(screen.getByTestId('finish-heat-btn'));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Run Another Free Race Heat/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Run Another/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Run Another Free Race Heat/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Run Another/i }));
     expect(mockOnRunAnother).toHaveBeenCalledOnce();
   });
 
@@ -163,9 +163,9 @@ describe('FreeRaceExecution', () => {
     fireEvent.click(screen.getByTestId('finish-heat-btn'));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Edit Results/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Edit/i })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: /Edit Results/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
     expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
   });
 
@@ -175,9 +175,9 @@ describe('FreeRaceExecution', () => {
     fireEvent.click(screen.getByTestId('finish-heat-btn'));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Edit Results/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Edit/i })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: /Edit Results/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
 
     // Change lane 1 time
     const inputs = screen.getAllByRole('spinbutton');

@@ -3,8 +3,9 @@ import { useMutation } from 'urql';
 import { FakeTimerMole } from './FakeTimerMole';
 import Modal from '../Modal';
 import Icon from '@mdi/react';
-import { mdiRefresh, mdiPencil } from '@mdi/js';
+import { mdiRefresh, mdiPencil, mdiRacingHelmet } from '@mdi/js';
 import { LaneAssignment } from './FreeRaceLaneSetup';
+import RacerAvatar from '../RacerAvatar';
 
 interface RacerSummary {
   id: number;
@@ -156,101 +157,140 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   }
 
   return (
-    <div style={{ background: 'white', borderRadius: '8px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <h2 style={{ margin: 0 }}>Free Race Heat</h2>
-        <span style={{
-          background: '#fff3cd',
-          border: '1px solid #ffc107',
-          borderRadius: '12px',
-          padding: '3px 12px',
-          fontSize: '0.8rem',
-          fontWeight: 'bold',
-          color: '#856404',
-        }}>
-          Results do not affect standings
-        </span>
-      </div>
+    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scouting-blue)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '2rem' }}>Free Race Heat</h2>
+              <Icon path={mdiRacingHelmet} size={1.2} color="var(--scouting-blue)" />
+            </div>
+            <div style={{
+              background: '#e3f2fd',
+              borderRadius: '12px',
+              padding: '4px 12px',
+              fontSize: '0.85rem',
+              fontWeight: 'bold',
+              color: 'var(--scouting-blue)',
+              marginTop: '5px',
+              display: 'inline-block'
+            }}>
+              Results do not affect standings
+            </div>
+          </div>
 
-      {/* Lane results table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid #eee' }}>
-            <th style={{ padding: '10px', textAlign: 'left', color: '#666' }}>Lane</th>
-            <th style={{ padding: '10px', textAlign: 'left', color: '#666' }}>Racer</th>
-            <th style={{ padding: '10px', textAlign: 'right', color: '#666' }}>Time</th>
-            <th style={{ padding: '10px', textAlign: 'right', color: '#666' }}>Place</th>
-          </tr>
-        </thead>
-        <tbody>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {isCompleted ? (
+              <>
+                <button
+                  onClick={openEditModal}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '1rem',
+                    background: '#f0f0f0',
+                    color: 'black',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <Icon path={mdiPencil} size={0.7} /> Edit
+                </button>
+                <button
+                  onClick={onRunAnother}
+                  className="primary-btn"
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '1rem',
+                    background: 'var(--scouting-blue)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <Icon path={mdiRefresh} size={0.7} /> Run Another
+                </button>
+              </>
+            ) : (
+              <div style={{
+                padding: '15px 30px',
+                fontSize: '1.3rem',
+                background: isRunning ? '#ff9800' : '#e0e0e0',
+                color: isRunning ? 'white' : '#666',
+                borderRadius: '4px',
+                fontWeight: 'bold'
+              }}>
+                {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gap: '15px' }}>
           {laneAssignments.map((a) => {
             const r = laneResultMap[a.lane];
-            const name = getRacerDisplay(a.racerId);
+            const racer = a.racerId ? racers[a.racerId] : null;
             const isEmpty = a.racerId === null;
+
             return (
-              <tr key={a.lane} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '12px 10px', fontWeight: 'bold', color: '#666' }}>Lane {a.lane}</td>
-                <td style={{ padding: '12px 10px' }}>
-                  {isEmpty ? <em style={{ color: '#999' }}>(empty)</em> : name}
-                </td>
-                <td style={{ padding: '12px 10px', textAlign: 'right', fontFamily: 'monospace', fontSize: '1.1rem' }}>
-                  {r?.time != null ? `${Number(r.time).toFixed(4)}s` : <span style={{ color: '#bbb' }}>—</span>}
-                </td>
-                <td style={{ padding: '12px 10px', textAlign: 'right', fontSize: '1.3rem' }}>
-                  {r?.place != null ? (PLACE_MEDAL[r.place] ?? `${r.place}th`) : ''}
-                </td>
-              </tr>
+              <div key={a.lane} style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '15px',
+                background: '#f9f9f9',
+                borderRadius: '8px',
+                borderLeft: '5px solid var(--scouting-blue)',
+                opacity: isEmpty ? 0.6 : 1
+              }}>
+                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {a.lane}</div>
+
+                {/* Racer Image */}
+                <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <RacerAvatar
+                    racer={{
+                      id: a.racerId || 0,
+                      first_name: racer?.firstName || '',
+                      last_name: racer?.lastName || '',
+                      racer_image_url: racer?.racerImageUrl
+                    }}
+                    size="60px"
+                  />
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  {isEmpty ? (
+                    <em style={{ color: '#999', fontSize: '1.3rem' }}>(empty)</em>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{racer?.firstName} {racer?.lastName}</div>
+                      {racer?.carNumber != null && <div style={{ fontSize: '0.9rem', color: '#666' }}>#{racer.carNumber}</div>}
+                    </>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                    {r?.time != null ? `${Number(r.time).toFixed(4)}s` : '--'}
+                  </div>
+                  {r?.place != null && (
+                    <div style={{ fontSize: '1.8rem', width: '40px', textAlign: 'center' }}>
+                      {PLACE_MEDAL[r.place] ?? <span style={{ fontSize: '1.2rem', color: '#666' }}>{r.place}th</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
             );
           })}
-        </tbody>
-      </table>
-
-      {/* Status / actions */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-        {!isCompleted && !isRunning && (
-          <span style={{ color: '#888' }}>Waiting for timer...</span>
-        )}
-        {isRunning && (
-          <span style={{ color: '#ff9800', fontWeight: 'bold' }}>
-            Racing... {elapsedSeconds.toFixed(1)}s
-          </span>
-        )}
-        {isCompleted && (
-          <>
-            <button
-              onClick={openEditModal}
-              style={{
-                padding: '10px 18px',
-                border: '1px solid #ccc',
-                borderRadius: '6px',
-                background: 'white',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <Icon path={mdiPencil} size={0.8} /> Edit Results
-            </button>
-            <button
-              onClick={onRunAnother}
-              style={{
-                padding: '10px 18px',
-                border: 'none',
-                borderRadius: '6px',
-                background: '#1976d2',
-                color: 'white',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <Icon path={mdiRefresh} size={0.8} /> Run Another Free Race Heat
-            </button>
-          </>
-        )}
+        </div>
       </div>
 
       {/* Fake timer mole */}

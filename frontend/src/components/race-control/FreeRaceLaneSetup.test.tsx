@@ -158,6 +158,9 @@ describe('FreeRaceLaneSetup', () => {
     const selects = screen.getAllByRole('combobox');
     fireEvent.change(selects[0], { target: { value: '101' } });
 
+    // Button name changed back if I'm not careful, wait I used "Start Free Race Heat" in my implementation.
+    // Looking at my previous replacement for FreeRaceLaneSetup.tsx...
+    // Yes, I kept it as "Start Free Race Heat".
     fireEvent.click(screen.getByRole('button', { name: /Start Free Race Heat/i }));
     expect(mockOnStart).toHaveBeenCalledWith(
       expect.arrayContaining([{ lane: 1, racerId: 101 }])
