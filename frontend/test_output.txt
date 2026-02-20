@@ -1,0 +1,623 @@
+
+> frontend@0.0.0 test
+> vitest src/pages/Observation.test.tsx --run --no-color
+
+
+ RUN  v1.6.1 /home/dknowles/src/trusty-track/frontend
+
+WebSocket server error: Port is already in use
+stderr | src/pages/Observation.test.tsx > Observation Page > displays Timing Stats correctly
+Warning: An update to Observation inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at Observation (/home/dknowles/src/trusty-track/frontend/src/pages/Observation.tsx:33:44)
+    at RenderedRoute (file:///home/dknowles/src/trusty-track/frontend/node_modules/react-router/dist/development/chunk-JZWAC4HX.mjs:5853:26)
+    at Routes (file:///home/dknowles/src/trusty-track/frontend/node_modules/react-router/dist/development/chunk-JZWAC4HX.mjs:6653:3)
+    at Router (file:///home/dknowles/src/trusty-track/frontend/node_modules/react-router/dist/development/chunk-JZWAC4HX.mjs:6594:13)
+    at MemoryRouter (file:///home/dknowles/src/trusty-track/frontend/node_modules/react-router/dist/development/chunk-JZWAC4HX.mjs:6510:3)
+
+ ❯ src/pages/Observation.test.tsx  (5 tests | 1 failed) 1367ms
+   ❯ src/pages/Observation.test.tsx > Observation Page > displays Timing Stats correctly
+     → Unable to find an element with the text: Speedy McQueen. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"container"[39m
+      [33mstyle[39m=[32m"max-width: 100%; padding: 20px;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"flex: 1 1 0%; min-width: 300px; background: rgb(245, 245, 245); border-radius: 8px; padding: 20px; box-shadow: none; border-top: 5px solid rgb(211, 47, 47); opacity: 0.7; text-align: center;"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mstyle[39m=[32m"margin-top: 0px; font-size: 1.5rem; color: rgb(51, 51, 51); display: flex; align-items: center; gap: 10px; justify-content: center;"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mrole[39m=[32m"presentation"[39m
+              [33mstyle[39m=[32m"width: 1.5rem; height: 1.5rem;"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13 3.23 12.17 3.75 11.46 4.32C8.87 6.4 7.85 10.07 9.07 13.22C9.11 13.32 9.15 13.42 9.15 13.55C9.15 13.77 9 13.97 8.8 14.05C8.57 14.15 8.33 14.09 8.14 13.93C8.08 13.88 8.04 13.83 8 13.76C6.87 12.33 6.69 10.28 7.45 8.64C5.78 10 4.87 12.3 5 14.47C5.06 14.97 5.12 15.47 5.29 15.97C5.43 16.57 5.7 17.17 6 17.7C7.08 19.43 8.95 20.67 10.96 20.92C13.1 21.19 15.39 20.8 17.03 19.32C18.86 17.66 19.5 15 18.56 12.72L18.43 12.46C18.22 12 17.66 11.2 17.66 11.2M14.5 17.5C14.22 17.74 13.76 18 13.4 18.1C12.28 18.5 11.16 17.94 10.5 17.28C11.69 17 12.4 16.12 12.61 15.23C12.78 14.43 12.46 13.77 12.33 13C12.21 12.26 12.23 11.63 12.5 10.94C12.69 11.32 12.89 11.7 13.13 12C13.9 13 15.11 13.44 15.37 14.8C15.41 14.94 15.43 15.08 15.43 15.23C15.46 16.05 15.1 16.95 14.5 17.5H14.5Z"[39m
+                [33mstyle[39m=[32m"fill: #d32f2f;"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span>[39m
+              [0mNow Racing[0m
+            [36m</span>[39m
+          [36m</h2>[39m
+          [36m<p>[39m
+            [0mNo heat scheduled[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"flex: 1 1 0%; min-width: 300px; background: rgb(245, 245, 245); border-radius: 8px; padding: 20px; box-shadow: none; border-top: 5px solid rgb(153, 153, 153); opacity: 0.7; text-align: center;"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mstyle[39m=[32m"margin-top: 0px; font-size: 1.5rem; color: rgb(102, 102, 102); display: flex; align-items: center; gap: 10px; justify-content: center;"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mrole[39m=[32m"presentation"[39m
+              [33mstyle[39m=[32m"width: 1.5rem; height: 1.5rem;"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5.59,7.41L7,6L13,12L7,18L5.59,16.59L10.17,12L5.59,7.41M11.59,7.41L13,6L19,12L13,18L11.59,16.59L16.17,12L11.59,7.41Z"[39m
+                [33mstyle[39m=[32m"fill: #666;"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span>[39m
+              [0mOn Deck[0m
+            [36m</span>[39m
+          [36m</h2>[39m
+          [36m<p>[39m
+            [0mNo heat scheduled[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"margin-bottom: 20px; display: flex; gap: 10px;"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"padding: 10px 20px; border-radius: 20px; border: medium; background: rgb(238, 238, 238); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; background-image: none; background-position: 0% 0%; background-size: auto; background-repeat: repeat; background-origin: padding-box; background-clip: border-box; background-attachment: scroll; background-color: rgb(238, 238, 238);"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33mrole[39m=[32m"presentation"[39m
+            [33mstyle[39m=[32m"width: 1.2000000000000002rem; height: 1.2000000000000002rem;"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M18 2C17.1 2 16 3 16 4H8C8 3 6.9 2 6 2H2V11C2 12 3 13 4 13H6.2C6.6 15 7.9 16.7 11 17V19.08C8 19.54 8 22 8 22H16C16 22 16 19.54 13 19.08V17C16.1 16.7 17.4 15 17.8 13H20C21 13 22 12 22 11V2H18M6 11H4V4H6V11M20 11H18V4H20V11Z"[39m
+              [33mstyle[39m=[32m"fill: currentcolor;"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mStandings[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"padding: 10px 20px; border-radius: 20px; border: medium; background: var(--cub-scouting-gold); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold;"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33mrole[39m=[32m"presentation"[39m
+            [33mstyle[39m=[32m"width: 1.2000000000000002rem; height: 1.2000000000000002rem;"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M11,14H13V8H11M15,1H9V3H15V1Z"[39m
+              [33mstyle[39m=[32m"fill: currentcolor;"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mTiming Stats[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"background: rgb(255, 255, 255); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 30px;"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<h2[39m
+            [33mstyle[39m=[32m"text-align: center; margin-bottom: 30px;"[39m
+          [36m>[39m
+            [0mLast Completed: [0m
+            [0mRound 1[0m
+            [0m / Heat [0m
+            [0m1[0m
+          [36m</h2>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; flex-direction: column; gap: 15px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; padding: 20px; background: rgba(212, 175, 55, 0.1); border-radius: 12px; border-left: 10px solid rgb(212, 175, 55);"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"font-size: 2rem; font-weight: bold; width: 60px; text-align: center;"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"flex: 1 1 0%;"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"font-size: 1.5rem; font-weight: bold;"[39m
+                [36m/>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"color: rgb(102, 102, 102);"[39m
+                [36m>[39m
+                  [0mLane 1[0m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"font-size: 2.5rem; font-weight: bold; font-family: monospace;"[39m
+              [36m>[39m
+                [0m3.500[0m
+                [0ms[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"container"[39m
+        [33mstyle[39m=[32m"max-width: 100%; padding: 20px;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"flex: 1 1 0%; min-width: 300px; background: rgb(245, 245, 245); border-radius: 8px; padding: 20px; box-shadow: none; border-top: 5px solid rgb(211, 47, 47); opacity: 0.7; text-align: center;"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mstyle[39m=[32m"margin-top: 0px; font-size: 1.5rem; color: rgb(51, 51, 51); display: flex; align-items: center; gap: 10px; justify-content: center;"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mrole[39m=[32m"presentation"[39m
+                [33mstyle[39m=[32m"width: 1.5rem; height: 1.5rem;"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13 3.23 12.17 3.75 11.46 4.32C8.87 6.4 7.85 10.07 9.07 13.22C9.11 13.32 9.15 13.42 9.15 13.55C9.15 13.77 9 13.97 8.8 14.05C8.57 14.15 8.33 14.09 8.14 13.93C8.08 13.88 8.04 13.83 8 13.76C6.87 12.33 6.69 10.28 7.45 8.64C5.78 10 4.87 12.3 5 14.47C5.06 14.97 5.12 15.47 5.29 15.97C5.43 16.57 5.7 17.17 6 17.7C7.08 19.43 8.95 20.67 10.96 20.92C13.1 21.19 15.39 20.8 17.03 19.32C18.86 17.66 19.5 15 18.56 12.72L18.43 12.46C18.22 12 17.66 11.2 17.66 11.2M14.5 17.5C14.22 17.74 13.76 18 13.4 18.1C12.28 18.5 11.16 17.94 10.5 17.28C11.69 17 12.4 16.12 12.61 15.23C12.78 14.43 12.46 13.77 12.33 13C12.21 12.26 12.23 11.63 12.5 10.94C12.69 11.32 12.89 11.7 13.13 12C13.9 13 15.11 13.44 15.37 14.8C15.41 14.94 15.43 15.08 15.43 15.23C15.46 16.05 15.1 16.95 14.5 17.5H14.5Z"[39m
+                  [33mstyle[39m=[32m"fill: #d32f2f;"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span>[39m
+                [0mNow Racing[0m
+              [36m</span>[39m
+            [36m</h2>[39m
+            [36m<p>[39m
+              [0mNo heat scheduled[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"flex: 1 1 0%; min-width: 300px; background: rgb(245, 245, 245); border-radius: 8px; padding: 20px; box-shadow: none; border-top: 5px solid rgb(153, 153, 153); opacity: 0.7; text-align: center;"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mstyle[39m=[32m"margin-top: 0px; font-size: 1.5rem; color: rgb(102, 102, 102); display: flex; align-items: center; gap: 10px; justify-content: center;"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mrole[39m=[32m"presentation"[39m
+                [33mstyle[39m=[32m"width: 1.5rem; height: 1.5rem;"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5.59,7.41L7,6L13,12L7,18L5.59,16.59L10.17,12L5.59,7.41M11.59,7.41L13,6L19,12L13,18L11.59,16.59L16.17,12L11.59,7.41Z"[39m
+                  [33mstyle[39m=[32m"fill: #666;"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span>[39m
+                [0mOn Deck[0m
+              [36m</span>[39m
+            [36m</h2>[39m
+            [36m<p>[39m
+              [0mNo heat scheduled[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"margin-bottom: 20px; display: flex; gap: 10px;"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"padding: 10px 20px; border-radius: 20px; border: medium; background: rgb(238, 238, 238); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; background-image: none; background-position: 0% 0%; background-size: auto; background-repeat: repeat; background-origin: padding-box; background-clip: border-box; background-attachment: scroll; background-color: rgb(238, 238, 238);"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mrole[39m=[32m"presentation"[39m
+              [33mstyle[39m=[32m"width: 1.2000000000000002rem; height: 1.2000000000000002rem;"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 2C17.1 2 16 3 16 4H8C8 3 6.9 2 6 2H2V11C2 12 3 13 4 13H6.2C6.6 15 7.9 16.7 11 17V19.08C8 19.54 8 22 8 22H16C16 22 16 19.54 13 19.08V17C16.1 16.7 17.4 15 17.8 13H20C21 13 22 12 22 11V2H18M6 11H4V4H6V11M20 11H18V4H20V11Z"[39m
+                [33mstyle[39m=[32m"fill: currentcolor;"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0mStandings[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"padding: 10px 20px; border-radius: 20px; border: medium; background: var(--cub-scouting-gold); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold;"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mrole[39m=[32m"presentation"[39m
+              [33mstyle[39m=[32m"width: 1.2000000000000002rem; height: 1.2000000000000002rem;"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M11,14H13V8H11M15,1H9V3H15V1Z"[39m
+                [33mstyle[39m=[32m"fill: currentcolor;"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0mTiming Stats[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"background: rgb(255, 255, 255); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 30px;"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<h2[39m
+              [33mstyle[39m=[32m"text-align: center; margin-bottom: 30px;"[39m
+            [36m>[39m
+              [0mLast Completed: [0m
+              [0mRound 1[0m
+              [0m / Heat [0m
+              [0m1[0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; flex-direction: column; gap: 15px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"display: flex; align-items: center; padding: 20px; background: rgba(212, 175, 55, 0.1); border-radius: 12px; border-left: 10px solid rgb(212, 175, 55);"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"font-size: 2rem; font-weight: bold; width: 60px; text-align: center;"[39m
+                [36m>[39m
+                  [0m1[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"flex: 1 1 0%;"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mstyle[39m=[32m"font-size: 1.5rem; font-weight: bold;"[39m
+                  [36m/>[39m
+                  [36m<div[39m
+                    [33mstyle[39m=[32m"color: rgb(102, 102, 102);"[39m
+                  [36m>[39m
+                    [0mLane 1[0m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"font-size: 2.5rem; font-weight: bold; font-family: monospace;"[39m
+                [36m>[39m
+                  [0m3.500[0m
+                  [0ms[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/Observation.test.tsx > Observation Page > displays Timing Stats correctly
+TestingLibraryElementError: Unable to find an element with the text: Speedy McQueen. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"container"[39m
+      [33mstyle[39m=[32m"max-width: 100%; padding: 20px;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"flex: 1 1 0%; min-width: 300px; background: rgb(245, 245, 245); border-radius: 8px; padding: 20px; box-shadow: none; border-top: 5px solid rgb(211, 47, 47); opacity: 0.7; text-align: center;"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mstyle[39m=[32m"margin-top: 0px; font-size: 1.5rem; color: rgb(51, 51, 51); display: flex; align-items: center; gap: 10px; justify-content: center;"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mrole[39m=[32m"presentation"[39m
+              [33mstyle[39m=[32m"width: 1.5rem; height: 1.5rem;"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13 3.23 12.17 3.75 11.46 4.32C8.87 6.4 7.85 10.07 9.07 13.22C9.11 13.32 9.15 13.42 9.15 13.55C9.15 13.77 9 13.97 8.8 14.05C8.57 14.15 8.33 14.09 8.14 13.93C8.08 13.88 8.04 13.83 8 13.76C6.87 12.33 6.69 10.28 7.45 8.64C5.78 10 4.87 12.3 5 14.47C5.06 14.97 5.12 15.47 5.29 15.97C5.43 16.57 5.7 17.17 6 17.7C7.08 19.43 8.95 20.67 10.96 20.92C13.1 21.19 15.39 20.8 17.03 19.32C18.86 17.66 19.5 15 18.56 12.72L18.43 12.46C18.22 12 17.66 11.2 17.66 11.2M14.5 17.5C14.22 17.74 13.76 18 13.4 18.1C12.28 18.5 11.16 17.94 10.5 17.28C11.69 17 12.4 16.12 12.61 15.23C12.78 14.43 12.46 13.77 12.33 13C12.21 12.26 12.23 11.63 12.5 10.94C12.69 11.32 12.89 11.7 13.13 12C13.9 13 15.11 13.44 15.37 14.8C15.41 14.94 15.43 15.08 15.43 15.23C15.46 16.05 15.1 16.95 14.5 17.5H14.5Z"[39m
+                [33mstyle[39m=[32m"fill: #d32f2f;"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span>[39m
+              [0mNow Racing[0m
+            [36m</span>[39m
+          [36m</h2>[39m
+          [36m<p>[39m
+            [0mNo heat scheduled[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"flex: 1 1 0%; min-width: 300px; background: rgb(245, 245, 245); border-radius: 8px; padding: 20px; box-shadow: none; border-top: 5px solid rgb(153, 153, 153); opacity: 0.7; text-align: center;"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mstyle[39m=[32m"margin-top: 0px; font-size: 1.5rem; color: rgb(102, 102, 102); display: flex; align-items: center; gap: 10px; justify-content: center;"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mrole[39m=[32m"presentation"[39m
+              [33mstyle[39m=[32m"width: 1.5rem; height: 1.5rem;"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5.59,7.41L7,6L13,12L7,18L5.59,16.59L10.17,12L5.59,7.41M11.59,7.41L13,6L19,12L13,18L11.59,16.59L16.17,12L11.59,7.41Z"[39m
+                [33mstyle[39m=[32m"fill: #666;"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span>[39m
+              [0mOn Deck[0m
+            [36m</span>[39m
+          [36m</h2>[39m
+          [36m<p>[39m
+            [0mNo heat scheduled[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"margin-bottom: 20px; display: flex; gap: 10px;"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"padding: 10px 20px; border-radius: 20px; border: medium; background: rgb(238, 238, 238); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; background-image: none; background-position: 0% 0%; background-size: auto; background-repeat: repeat; background-origin: padding-box; background-clip: border-box; background-attachment: scroll; background-color: rgb(238, 238, 238);"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33mrole[39m=[32m"presentation"[39m
+            [33mstyle[39m=[32m"width: 1.2000000000000002rem; height: 1.2000000000000002rem;"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M18 2C17.1 2 16 3 16 4H8C8 3 6.9 2 6 2H2V11C2 12 3 13 4 13H6.2C6.6 15 7.9 16.7 11 17V19.08C8 19.54 8 22 8 22H16C16 22 16 19.54 13 19.08V17C16.1 16.7 17.4 15 17.8 13H20C21 13 22 12 22 11V2H18M6 11H4V4H6V11M20 11H18V4H20V11Z"[39m
+              [33mstyle[39m=[32m"fill: currentcolor;"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mStandings[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"padding: 10px 20px; border-radius: 20px; border: medium; background: var(--cub-scouting-gold); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold;"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33mrole[39m=[32m"presentation"[39m
+            [33mstyle[39m=[32m"width: 1.2000000000000002rem; height: 1.2000000000000002rem;"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M11,14H13V8H11M15,1H9V3H15V1Z"[39m
+              [33mstyle[39m=[32m"fill: currentcolor;"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0mTiming Stats[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"background: rgb(255, 255, 255); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 30px;"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<h2[39m
+            [33mstyle[39m=[32m"text-align: center; margin-bottom: 30px;"[39m
+          [36m>[39m
+            [0mLast Completed: [0m
+            [0mRound 1[0m
+            [0m / Heat [0m
+            [0m1[0m
+          [36m</h2>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"display: flex; flex-direction: column; gap: 15px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; align-items: center; padding: 20px; background: rgba(212, 175, 55, 0.1); border-radius: 12px; border-left: 10px solid rgb(212, 175, 55);"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"font-size: 2rem; font-weight: bold; width: 60px; text-align: center;"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"flex: 1 1 0%;"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"font-size: 1.5rem; font-weight: bold;"[39m
+                [36m/>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"color: rgb(102, 102, 102);"[39m
+                [36m>[39m
+                  [0mLane 1[0m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"font-size: 2.5rem; font-weight: bold; font-family: monospace;"[39m
+              [36m>[39m
+                [0m3.500[0m
+                [0ms[0m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"container"[39m
+        [33mstyle[39m=[32m"max-width: 100%; padding: 20px;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"flex: 1 1 0%; min-width: 300px; background: rgb(245, 245, 245); border-radius: 8px; padding: 20px; box-shadow: none; border-top: 5px solid rgb(211, 47, 47); opacity: 0.7; text-align: center;"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mstyle[39m=[32m"margin-top: 0px; font-size: 1.5rem; color: rgb(51, 51, 51); display: flex; align-items: center; gap: 10px; justify-content: center;"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mrole[39m=[32m"presentation"[39m
+                [33mstyle[39m=[32m"width: 1.5rem; height: 1.5rem;"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M17.66 11.2C17.43 10.9 17.15 10.64 16.89 10.38C16.22 9.78 15.46 9.35 14.82 8.72C13.33 7.26 13 4.85 13.95 3C13 3.23 12.17 3.75 11.46 4.32C8.87 6.4 7.85 10.07 9.07 13.22C9.11 13.32 9.15 13.42 9.15 13.55C9.15 13.77 9 13.97 8.8 14.05C8.57 14.15 8.33 14.09 8.14 13.93C8.08 13.88 8.04 13.83 8 13.76C6.87 12.33 6.69 10.28 7.45 8.64C5.78 10 4.87 12.3 5 14.47C5.06 14.97 5.12 15.47 5.29 15.97C5.43 16.57 5.7 17.17 6 17.7C7.08 19.43 8.95 20.67 10.96 20.92C13.1 21.19 15.39 20.8 17.03 19.32C18.86 17.66 19.5 15 18.56 12.72L18.43 12.46C18.22 12 17.66 11.2 17.66 11.2M14.5 17.5C14.22 17.74 13.76 18 13.4 18.1C12.28 18.5 11.16 17.94 10.5 17.28C11.69 17 12.4 16.12 12.61 15.23C12.78 14.43 12.46 13.77 12.33 13C12.21 12.26 12.23 11.63 12.5 10.94C12.69 11.32 12.89 11.7 13.13 12C13.9 13 15.11 13.44 15.37 14.8C15.41 14.94 15.43 15.08 15.43 15.23C15.46 16.05 15.1 16.95 14.5 17.5H14.5Z"[39m
+                  [33mstyle[39m=[32m"fill: #d32f2f;"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span>[39m
+                [0mNow Racing[0m
+              [36m</span>[39m
+            [36m</h2>[39m
+            [36m<p>[39m
+              [0mNo heat scheduled[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mstyle[39m=[32m"flex: 1 1 0%; min-width: 300px; background: rgb(245, 245, 245); border-radius: 8px; padding: 20px; box-shadow: none; border-top: 5px solid rgb(153, 153, 153); opacity: 0.7; text-align: center;"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mstyle[39m=[32m"margin-top: 0px; font-size: 1.5rem; color: rgb(102, 102, 102); display: flex; align-items: center; gap: 10px; justify-content: center;"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33mrole[39m=[32m"presentation"[39m
+                [33mstyle[39m=[32m"width: 1.5rem; height: 1.5rem;"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M5.59,7.41L7,6L13,12L7,18L5.59,16.59L10.17,12L5.59,7.41M11.59,7.41L13,6L19,12L13,18L11.59,16.59L16.17,12L11.59,7.41Z"[39m
+                  [33mstyle[39m=[32m"fill: #666;"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+              [36m<span>[39m
+                [0mOn Deck[0m
+              [36m</span>[39m
+            [36m</h2>[39m
+            [36m<p>[39m
+              [0mNo heat scheduled[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"margin-bottom: 20px; display: flex; gap: 10px;"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"padding: 10px 20px; border-radius: 20px; border: medium; background: rgb(238, 238, 238); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; background-image: none; background-position: 0% 0%; background-size: auto; background-repeat: repeat; background-origin: padding-box; background-clip: border-box; background-attachment: scroll; background-color: rgb(238, 238, 238);"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mrole[39m=[32m"presentation"[39m
+              [33mstyle[39m=[32m"width: 1.2000000000000002rem; height: 1.2000000000000002rem;"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M18 2C17.1 2 16 3 16 4H8C8 3 6.9 2 6 2H2V11C2 12 3 13 4 13H6.2C6.6 15 7.9 16.7 11 17V19.08C8 19.54 8 22 8 22H16C16 22 16 19.54 13 19.08V17C16.1 16.7 17.4 15 17.8 13H20C21 13 22 12 22 11V2H18M6 11H4V4H6V11M20 11H18V4H20V11Z"[39m
+                [33mstyle[39m=[32m"fill: currentcolor;"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0mStandings[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"padding: 10px 20px; border-radius: 20px; border: medium; background: var(--cub-scouting-gold); cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold;"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mrole[39m=[32m"presentation"[39m
+              [33mstyle[39m=[32m"width: 1.2000000000000002rem; height: 1.2000000000000002rem;"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20M19.03,7.39L20.45,5.97C20,5.46 19.55,5 19.04,4.56L17.62,6C16.07,4.74 14.12,4 12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22C17,22 21,17.97 21,13C21,10.88 20.26,8.93 19.03,7.39M11,14H13V8H11M15,1H9V3H15V1Z"[39m
+                [33mstyle[39m=[32m"fill: currentcolor;"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0mTiming Stats[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"background: rgb(255, 255, 255); border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 30px;"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<h2[39m
+              [33mstyle[39m=[32m"text-align: center; margin-bottom: 30px;"[39m
+            [36m>[39m
+              [0mLast Completed: [0m
+              [0mRound 1[0m
+              [0m / Heat [0m
+              [0m1[0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mstyle[39m=[32m"display: flex; flex-direction: column; gap: 15px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mstyle[39m=[32m"display: flex; align-items: center; padding: 20px; background: rgba(212, 175, 55, 0.1); border-radius: 12px; border-left: 10px solid rgb(212, 175, 55);"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"font-size: 2rem; font-weight: bold; width: 60px; text-align: center;"[39m
+                [36m>[39m
+                  [0m1[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"flex: 1 1 0%;"[39m
+                [36m>[39m
+                  [36m<div[39m
+                    [33mstyle[39m=[32m"font-size: 1.5rem; font-weight: bold;"[39m
+                  [36m/>[39m
+                  [36m<div[39m
+                    [33mstyle[39m=[32m"color: rgb(102, 102, 102);"[39m
+                  [36m>[39m
+                    [0mLane 1[0m
+                  [36m</div>[39m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33mstyle[39m=[32m"font-size: 2.5rem; font-weight: bold; font-family: monospace;"[39m
+                [36m>[39m
+                  [0m3.500[0m
+                  [0ms[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ Proxy.waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ src/pages/Observation.test.tsx:187:15
+    185|         timingTab.click();
+    186| 
+    187|         await waitFor(() => {
+       |               ^
+    188|             expect(screen.getByText('Last Completed: Round 1 / Heat 1'…
+    189|             expect(screen.getByText('Speedy McQueen')).toBeInTheDocume…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  21:38:25
+   Duration  4.54s (transform 401ms, setup 147ms, collect 898ms, tests 1.37s, environment 1.11s, prepare 259ms)
+

@@ -1485,6 +1485,27 @@ class RaceStateChangedEvent:
     changed_at: str  # ISO 8601 UTC timestamp
 
 
+@strawberry.type
+class TimingStatsLane:
+    """Represents a single lane's result for the Timing Stats observation view."""
+
+    lane_number: int
+    racer_name: str
+    car_name: Optional[str]
+    time: Optional[float]
+    place: Optional[int]
+
+
+@strawberry.type
+class TimingStats:
+    """Represents the results of a completed heat for the Timing Stats observation view."""
+
+    heat_id: int
+    round_name: str
+    heat_number: int
+    lanes: List[TimingStatsLane]
+
+
 async def _publish_race_state(race_id: int) -> None:
     """Publish a RaceStateChangedEvent for *race_id* on the pub/sub bus.
 
@@ -1523,6 +1544,202 @@ class Subscription:
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             async for event in stream:
                 yield event
+
+    @strawberry.subscription
+    async def leaderboard(
+        self, info: Info, race_id: int
+    ) -> AsyncGenerator[List[LeaderboardEntry], None]:
+        """Subscribe to the leaderboard for a specific race."""
+        async with pubsub.subscribe(f"race_state:{race_id}") as stream:
+            db = info.context["db"]
+            yield [LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)]
+            async for _ in stream:
+                yield [
+                    LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)
+                ]
+
+    @strawberry.subscription
+    async def on_deck(
+        self, info: Info, race_id: int
+    ) -> AsyncGenerator[List[Racer], None]:
+        """Subscribe to the 'on deck' racers (next heat) for a specific race."""
+        async with pubsub.subscribe(f"race_state:{race_id}") as stream:
+            db = info.context["db"]
+
+            def _get_on_deck():
+                heats = db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
+                # Sort by round number and heat number
+                sorted_heats = sorted(
+                    heats, key=lambda h: (h.round.round_number, h.heat_number)
+                )
+                uncompleted = [
+                    h for h in sorted_heats if not h.lane_results or not json.loads(h.lane_results) or json.loads(h.lane_results)[0].get("time") is None
+                ]
+                if len(uncompleted) > 1:
+                    next_heat = uncompleted[1]
+                    racer_ids = []
+                    results = json.loads(next_heat.lane_results)
+                    for r in results:
+                        if r.get("racer_id"):
+                            racer_ids.append(r["racer_id"])
+                    racers = (
+                        db.query(models.Racer)
+                        .filter(models.Racer.id.in_(racer_ids))
+                        .all()
+                    )
+                    # Maintain order from racer_ids
+                    racer_map = {r.id: r for r in racers}
+                    return [racer_map[rid] for rid in racer_ids if rid in racer_map]
+                return []
+
+            yield _get_on_deck()
+            async for _ in stream:
+                yield _get_on_deck()
+
+    @strawberry.subscription
+    async def currently_racing(
+        self, info: Info, race_id: int
+    ) -> AsyncGenerator[Optional[Heat], None]:
+        """Subscribe to the current heat for a specific race."""
+        async with pubsub.subscribe(f"race_state:{race_id}") as stream:
+            db = info.context["db"]
+
+            def _get_current():
+                heats = db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
+                sorted_heats = sorted(
+                    heats, key=lambda h: (h.round.round_number, h.heat_number)
+                )
+                uncompleted = [
+                    h for h in sorted_heats if not h.lane_results or not json.loads(h.lane_results) or json.loads(h.lane_results)[0].get("time") is None
+                ]
+                return uncompleted[0] if uncompleted else None
+
+            yield _get_current()
+            async for _ in stream:
+                yield _get_current()
+
+    @strawberry.subscription
+    async def timing_stats(
+        self, info: Info, race_id: int
+    ) -> AsyncGenerator[Optional[TimingStats], None]:
+        """Subscribe to the most recently completed heat's timing results."""
+        async with pubsub.subscribe(f"race_state:{race_id}") as stream:
+            db = info.context["db"]
+
+            def _get_timing_stats():
+                # Official heats
+                heats = (
+                    db.query(models.Heat)
+                    .filter(models.Heat.race_id == race_id)
+                    .join(models.Round)
+                    .all()
+                )
+                completed_official = [
+                    h
+                    for h in heats
+                    if h.lane_results and json.loads(h.lane_results) and json.loads(h.lane_results)[0].get("time") is not None
+                ]
+                # Sort by round number and heat number, desc
+                completed_official.sort(
+                    key=lambda h: (h.round.round_number, h.heat_number), reverse=True
+                )
+
+                # Free race heats
+                free_heats = (
+                    db.query(models.FreeRaceHeat)
+                    .filter(models.FreeRaceHeat.race_id == race_id)
+                    .filter(models.FreeRaceHeat.lane_results.is_not(None))
+                    .order_by(models.FreeRaceHeat.id.desc())
+                    .all()
+                )
+
+                # Pick the most recent one.
+                # Since we don't have a reliable cross-table timestamp for all, 
+                # we'll just check which one exists or is "later" in some sense.
+                # For now, prioritize official if both exist, as it's the more common case.
+                # Ideally Heat would have an 'updated_at' field.
+                
+                target_heat = None
+                is_free = False
+                
+                if completed_official:
+                    target_heat = completed_official[0]
+                elif free_heats:
+                    target_heat = free_heats[0]
+                    is_free = True
+                
+                if not target_heat:
+                    return None
+                
+                results = json.loads(target_heat.lane_results)
+                racer_ids = [r.get("racer_id") for r in results if r.get("racer_id")]
+                racers = db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).all()
+                racer_map = {r.id: r for r in racers}
+                
+                lane_stats = []
+                for r in results:
+                    racer = racer_map.get(r.get("racer_id"))
+                    lane_stats.append(TimingStatsLane(
+                        lane_number=r.get("lane") or r.get("laneNumber"),
+                        racer_name=f"{racer.first_name} {racer.last_name}" if racer else "Unknown",
+                        car_name=racer.car_name if racer else None,
+                        time=r.get("time"),
+                        place=r.get("place")
+                    ))
+                
+                return TimingStats(
+                    heat_id=target_heat.id,
+                    round_name="Exhibition" if is_free else target_heat.round.name,
+                    heat_number=0 if is_free else target_heat.heat_number,
+                    lanes=lane_stats
+                )
+
+            yield _get_timing_stats()
+            async for _ in stream:
+                yield _get_timing_stats()
+
+    @strawberry.subscription
+    async def heats(
+        self, info: Info, race_id: int
+    ) -> AsyncGenerator[List[Round], None]:
+        """Subscribe to all rounds and heats for a specific race."""
+        async with pubsub.subscribe(f"race_state:{race_id}") as stream:
+            db = info.context["db"]
+
+            def _get_rounds():
+                return (
+                    db.query(models.Round)
+                    .filter(models.Round.race_id == race_id)
+                    .order_by(models.Round.round_number)
+                    .all()
+                )
+
+            yield _get_rounds()
+            async for _ in stream:
+                yield _get_rounds()
+
+    @strawberry.subscription
+    async def active_free_race_heat(
+        self, info: Info, race_id: int
+    ) -> AsyncGenerator[Optional[FreeRaceHeat], None]:
+        """Subscribe to the active (uncompleted) free race heat for a specific race."""
+        async with pubsub.subscribe(f"race_state:{race_id}") as stream:
+            db = info.context["db"]
+
+            def _get_active_free():
+                return (
+                    db.query(models.FreeRaceHeat)
+                    .filter(
+                        models.FreeRaceHeat.race_id == race_id,
+                        models.FreeRaceHeat.lane_results.is_(None),
+                    )
+                    .order_by(models.FreeRaceHeat.id.desc())
+                    .first()
+                )
+
+            yield _get_active_free()
+            async for _ in stream:
+                yield _get_active_free()
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)

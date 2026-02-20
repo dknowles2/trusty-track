@@ -1,4 +1,4 @@
-# Task: Frontend GraphQL Subscriptions for Observation
+# [COMPLETED] Task: Frontend GraphQL Subscriptions for Observation
 
 ## Goal
 
@@ -15,32 +15,42 @@ On the wire, urql subscriptions use the `graphql-ws` protocol (WebSocket under t
 1. **Add `graphql-ws` and Configure urql**
    - Install `graphql-ws` as a dependency: `npm install graphql-ws`
    - In `src/api/graphqlClient.ts`, add a `subscriptionExchange` to the urql client:
-     ```ts
-     import { createClient as createWsClient } from 'graphql-ws'
-     import { subscriptionExchange } from 'urql'
 
-     const wsClient = createWsClient({ url: 'ws://localhost:8000/graphql' })
+     ```ts
+     import { createClient as createWsClient } from "graphql-ws";
+     import { subscriptionExchange } from "urql";
+
+     const wsClient = createWsClient({ url: "ws://localhost:8000/graphql" });
 
      const client = createClient({
-       url: '/graphql',
+       url: "/graphql",
        exchanges: [
          // ...existing exchanges...
          subscriptionExchange({
            forwardSubscription: (request) => ({
-             subscribe: (sink) => ({ unsubscribe: wsClient.subscribe(request, sink) }),
+             subscribe: (sink) => ({
+               unsubscribe: wsClient.subscribe(request, sink),
+             }),
            }),
          }),
        ],
-     })
+     });
      ```
 
 2. **Define Subscription Operations**
    - Add subscription documents to `src/graphql/raceDetails.ts` (or a new `src/graphql/observation.ts`):
+
      ```graphql
      subscription LeaderboardSubscription($raceId: Int!) {
        leaderboard(raceId: $raceId) {
          rank
-         racer { id firstName lastName carNumber denId }
+         racer {
+           id
+           firstName
+           lastName
+           carNumber
+           denId
+         }
          avgTime
          bestTime
          heatsCompleted
@@ -48,20 +58,39 @@ On the wire, urql subscriptions use the `graphql-ws` protocol (WebSocket under t
      }
 
      subscription OnDeckSubscription($raceId: Int!) {
-       onDeck(raceId: $raceId) { id firstName lastName carNumber }
+       onDeck(raceId: $raceId) {
+         id
+         firstName
+         lastName
+         carNumber
+       }
      }
 
      subscription CurrentlyRacingSubscription($raceId: Int!) {
        currentlyRacing(raceId: $raceId) {
-         id heatNumber
-         laneResults { racerId laneNumber time place }
+         id
+         heatNumber
+         laneResults {
+           racerId
+           laneNumber
+           time
+           place
+         }
        }
      }
 
      subscription TimingStatsSubscription($raceId: Int!) {
        timingStats(raceId: $raceId) {
-         heatId roundName heatNumber
-         lanes { laneNumber racerName carName time place }
+         heatId
+         roundName
+         heatNumber
+         lanes {
+           laneNumber
+           racerName
+           carName
+           time
+           place
+         }
        }
      }
      ```
@@ -73,7 +102,7 @@ On the wire, urql subscriptions use the `graphql-ws` protocol (WebSocket under t
      const [{ data: leaderboardData }] = useSubscription({
        query: LeaderboardSubscriptionDocument,
        variables: { raceId },
-     })
+     });
      ```
    - Show a "Connecting..." indicator while the subscription is establishing.
 

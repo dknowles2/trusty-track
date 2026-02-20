@@ -1,4 +1,4 @@
-# Task: Backend GraphQL Subscriptions for Observation
+# [COMPLETED] Task: Backend GraphQL Subscriptions for Observation
 
 ## Goal
 
@@ -23,6 +23,7 @@ Strawberry supports subscriptions via the `@strawberry.subscription` decorator u
 
 3. **Define Subscription Types**
    - In `backend/graphql.py`, add a `Subscription` root type with these fields:
+
      ```python
      @strawberry.subscription
      async def leaderboard(self, race_id: int) -> AsyncGenerator[list[LeaderboardEntryType], None]:
@@ -44,6 +45,7 @@ Strawberry supports subscriptions via the `@strawberry.subscription` decorator u
      @strawberry.subscription
      async def heats(self, race_id: int) -> AsyncGenerator[list[RoundType], None]: ...
      ```
+
    - Each subscription emits the current state immediately on connect, then emits on every relevant state change.
 
 4. **Trigger Publishes from Mutations**

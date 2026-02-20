@@ -1,4 +1,4 @@
-# Task: Timing Stats Observation View
+# [COMPLETED] Task: Timing Stats Observation View
 
 ## Goal
 
