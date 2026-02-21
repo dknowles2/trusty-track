@@ -55,6 +55,14 @@ class TimerDevice(ABC):
     def abort_commands(self) -> List[bytes]:
         """Commands sent to put the device back into an idle/reset state."""
 
+    def force_results_commands(self) -> List[bytes]:
+        """Commands to demand result reporting from the device.
+
+        Sent when the operator triggers 'Force Results' (e.g. in RESULTS_OVERDUE).
+        Returns an empty list for devices that do not support this command.
+        """
+        return []
+
     @abstractmethod
     def parse_line(self, line: bytes) -> "TimerEvent | None":
         """Parse a complete message. Return a TimerEvent or None."""

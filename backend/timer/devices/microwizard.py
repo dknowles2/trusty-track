@@ -42,6 +42,10 @@ class MicroWizardDevice(TimerDevice):
     def abort_commands(self) -> List[bytes]:
         return [b'LR\n']
 
+    def force_results_commands(self) -> List[bytes]:
+        # RA forces the device to report results for all lanes immediately
+        return [b'RA\n']
+
     def parse_line(self, line: bytes) -> Optional[TimerEvent]:
         # Strip leading @ and > characters
         line = line.lstrip(_STRIP_CHARS).strip()

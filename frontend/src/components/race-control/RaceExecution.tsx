@@ -4,7 +4,7 @@ import Modal from '../Modal';
 import { FakeTimerMole } from './FakeTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
-import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT } from '../../graphql/raceDetails';
+import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../../graphql/raceDetails';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
@@ -90,6 +90,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
   const [, prepareHeat] = useMutation(PREPARE_HEAT);
   const [, abortHeat] = useMutation(ABORT_HEAT);
+  const [, forceResults] = useMutation(FORCE_RESULTS);
 
   const results = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
   const isCompleted = results.length > 0 && results[0].time !== null;
@@ -284,6 +285,40 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
                                     `}</style>
                                 </div>
+                          ) : timerState === 'RESULTS_OVERDUE' ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                                  <div style={{
+                                      padding: '8px 20px',
+                                      fontSize: '1.1rem',
+                                      background: '#d32f2f',
+                                      color: 'white',
+                                      borderRadius: '4px',
+                                      fontWeight: 'bold',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                  }}>
+                                      <Icon path={mdiAlertCircleOutline} size={0.8} color="white" /> Results Overdue
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px' }}>
+                                      {timerType !== 'FAKE' && trackId != null && (
+                                          <button
+                                              onClick={() => forceResults({ trackId })}
+                                              className="secondary-btn"
+                                              style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                          >
+                                              <Icon path={mdiAlertCircleOutline} size={0.6} /> Force Results
+                                          </button>
+                                      )}
+                                      <button
+                                          onClick={handleSkipHeat}
+                                          className="secondary-btn"
+                                          style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                      >
+                                          <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
+                                      </button>
+                                  </div>
+                              </div>
                           ) : timerState === 'IDLE' && trackId != null ? (
                               <div style={{ padding: '15px', color: '#666', fontStyle: 'italic' }}>
                                   Waiting for Timer...

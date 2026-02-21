@@ -271,3 +271,9 @@ export const ABORT_HEAT = gql`
     abortHeat(trackId: $trackId)
   }
 `;
+
+export const FORCE_RESULTS = gql`
+  mutation ForceResults($trackId: Int!) {
+    forceResults(trackId: $trackId)
+  }
+`;

@@ -1264,6 +1264,20 @@ class Mutation:
         return True
 
     @strawberry.mutation
+    async def force_results(self, info: Info, track_id: int) -> bool:
+        """Send the force-results command to the timer device (e.g. RA for MicroWizard).
+
+        No-op for timer types that do not support this command (e.g. FAKE).
+        Returns False if no manager exists for the track.
+        """
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(track_id)
+        if mgr is None:
+            return False
+        await mgr._send_commands(mgr._device.force_results_commands())
+        return True
+
+    @strawberry.mutation
     async def fake_timer_start(self, info: Info, heat_id: int) -> bool:
         """Signal race start for the fake timer (ARMED → RUNNING).
 

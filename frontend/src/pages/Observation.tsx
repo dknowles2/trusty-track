@@ -556,6 +556,9 @@ export default function Observation() {
               Now Racing
               {nowRacingHeatInfo && <span style={{ color: '#888', fontSize: '2.5vmin', marginLeft: 'auto', fontWeight: 'normal' }}>({nowRacingHeatInfo})</span>}
               {isExhibition && <span style={{ background: 'var(--cub-scouting-gold)', color: '#000', fontSize: '2vmin', padding: '0.5vmin 1.5vmin', borderRadius: '2vmin', marginLeft: 'auto' }}>EXHIBITION</span>}
+              {initialData?.race?.track?.id && (
+                <TimerStatusBadge trackId={initialData.race.track.id} />
+              )}
             </h2>
             <div style={{ flex: 1 }}>
               {renderProjectorRacers(currentHeatRacers, true)}
