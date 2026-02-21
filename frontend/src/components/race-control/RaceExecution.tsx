@@ -7,7 +7,13 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT } from '../../graphql/raceDetails';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
-import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight } from '@mdi/js';
+import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
+
+const RESET_TIMER = `
+  mutation ResetTimer($trackId: Int!) {
+    resetTimer(trackId: $trackId)
+  }
+`;
 
 export interface Heat {
   id: number;
@@ -89,6 +95,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   const timerState: string = subResult.data?.timerStatus?.state ?? 'IDLE';
 
   const [, prepareHeat] = useMutation(PREPARE_HEAT);
+  const [, resetTimer] = useMutation(RESET_TIMER);
 
   const results = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
   const isCompleted = results.length > 0 && results[0].time !== null;
@@ -141,6 +148,19 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   const handleSaveResults = async () => {
     await onUpdateResult(activeExecutionHeat.id, editingResults);
     setIsEditModalOpen(false);
+  };
+
+  const handleSkipHeat = async () => {
+    if (window.confirm("Are you sure you want to skip this heat? No results will be recorded.")) {
+      const skippedResults = results.map((r: any) => ({
+        ...r,
+        time: null,
+        place: null
+      }));
+      await onUpdateResult(activeExecutionHeat.id, skippedResults);
+      if (trackId) await resetTimer({ trackId });
+      onNextHeat();
+    }
   };
 
   const showFakeControls = timerType === 'FAKE';
@@ -227,16 +247,42 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                   )}
                               </>
                           ) : isRunning ? (
-                              <div style={{
-                                  padding: '15px 30px',
-                                  fontSize: '1.3rem',
-                                  background: 'orange',
-                                  color: 'white',
-                                  borderRadius: '4px',
-                                  fontWeight: 'bold'
-                              }}>
-                                  Racing... {elapsedSeconds.toFixed(1)}s
-                              </div>
+                               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                                    <div style={{
+                                        padding: '10px 30px',
+                                        fontSize: '1.3rem',
+                                        background: 'orange',
+                                        color: 'white',
+                                        borderRadius: '4px',
+                                        fontWeight: 'bold',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px'
+                                    }}>
+                                        <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />
+                                        Racing... {elapsedSeconds.toFixed(1)}s
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button 
+                                            onClick={handleEditOpen}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            <Icon path={mdiAlertCircleOutline} size={0.6} /> Force Results
+                                        </button>
+                                        <button 
+                                            onClick={handleSkipHeat}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
+                                        </button>
+                                    </div>
+                                    <style>{`
+                                        .pulse-dot { animation: pulse 1s infinite; }
+                                        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+                                    `}</style>
+                                </div>
                           ) : timerState === 'IDLE' && trackId != null ? (
                               <button
                                   onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
@@ -254,16 +300,35 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                   Prepare Heat
                               </button>
                           ) : (
-                              <div style={{
-                                  padding: '15px 30px',
-                                  fontSize: '1.3rem',
-                                  background: '#e0e0e0',
-                                  color: '#666',
-                                  borderRadius: '4px',
-                                  fontWeight: 'bold'
-                              }}>
-                                  Waiting for Timer...
-                              </div>
+                               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                                    <div style={{
+                                        padding: '10px 30px',
+                                        fontSize: '1.3rem',
+                                        background: '#f5f5f5',
+                                        color: '#666',
+                                        borderRadius: '4px',
+                                        fontWeight: 'bold',
+                                        border: '1px solid #ddd'
+                                    }}>
+                                        Waiting for Timer...
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button 
+                                            onClick={handleEditOpen}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            <Icon path={mdiPencil} size={0.6} /> Override
+                                        </button>
+                                        <button 
+                                            onClick={handleSkipHeat}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
+                                        </button>
+                                    </div>
+                                </div>
                           )}
                       </div>
                 </div>

@@ -5,9 +5,16 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../graphql/raceDetails';
 import Modal from '../Modal';
 import Icon from '@mdi/react';
-import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy } from '@mdi/js';
+import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../RacerAvatar';
+import { TimerStatusBadge } from './TimerStatusBadge';
+
+const RESET_TIMER = `
+  mutation ResetTimer($trackId: Int!) {
+    resetTimer(trackId: $trackId)
+  }
+`;
 
 interface RacerSummary {
   id: number;
@@ -56,6 +63,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
 
   const [, recordResult] = useMutation(RECORD_FREE_RACE_RESULT);
+  const [, resetTimer] = useMutation(RESET_TIMER);
   const [, prepareHeat] = useMutation(`
     mutation PrepareHeat($heatId: Int!) {
       prepareHeat(heatId: $heatId)
@@ -160,6 +168,23 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     setIsEditModalOpen(false);
   };
 
+  const handleSkipHeat = async () => {
+    if (window.confirm("Are you sure you want to skip this heat? No results will be recorded.")) {
+      const skippedResults = laneAssignments.map((a) => ({
+        lane: a.lane,
+        racer_id: a.racerId,
+        time: null,
+        place: null,
+      }));
+      await recordResult({
+        heatId,
+        results: JSON.stringify(skippedResults),
+      });
+      if (trackId) await resetTimer({ trackId });
+      onRunAnother();
+    }
+  };
+
   const getRacerDisplay = (racerId: number | null) => {
     if (racerId === null) return null;
     const r = racers[racerId];
@@ -182,8 +207,9 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, fontSize: '2rem' }}>Free Race Heat</h2>
+              {trackId != null && <TimerStatusBadge trackId={trackId} />}
               <Icon path={mdiRacingHelmet} size={1.2} color="var(--scouting-blue)" />
             </div>
             <div style={{
@@ -242,15 +268,43 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                 </button>
               </>
             ) : (
-              <div style={{
-                padding: '15px 30px',
-                fontSize: '1.3rem',
-                background: isRunning ? '#ff9800' : '#e0e0e0',
-                color: isRunning ? 'white' : '#666',
-                borderRadius: '4px',
-                fontWeight: 'bold'
-              }}>
-                {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                  <div style={{
+                    padding: '10px 30px',
+                    fontSize: '1.3rem',
+                    background: isRunning ? '#ff9800' : '#f5f5f5',
+                    color: isRunning ? 'white' : '#666',
+                    borderRadius: '4px',
+                    fontWeight: 'bold',
+                    border: isRunning ? 'none' : '1px solid #ddd',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}>
+                    {isRunning && <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />}
+                    {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={openEditModal}
+                      className="secondary-btn"
+                      style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Icon path={isRunning ? mdiAlertCircleOutline : mdiPencil} size={0.6} /> 
+                      {isRunning ? 'Force Results' : 'Override'}
+                    </button>
+                    <button 
+                      onClick={handleSkipHeat}
+                      className="secondary-btn"
+                      style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
+                    </button>
+                  </div>
+                  <style>{`
+                      .pulse-dot { animation: pulse 1s infinite; }
+                      @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+                  `}</style>
               </div>
             )}
           </div>

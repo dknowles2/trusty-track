@@ -68,10 +68,16 @@ def calculate_racer_scores(db: Session, race_id: int) -> Dict[int, Dict[str, flo
             if scoring_strategy == models.ScoringStrategy.TIMED:
                 if time is not None:
                     try:
-                        racer_scores[racer_id]["total_time"] += float(time)
+                        t_val = float(time)
+                        # Handle DNF: 0.0s is often sent by timers when a racer
+                        # fails to finish. We treat this as a 9.999s penalty.
+                        if t_val <= 0.0:
+                            t_val = 9.999
+                        r_data = racer_scores[racer_id]
+                        r_data["total_time"] += t_val
+                        r_data["heats_completed"] += 1
                     except (ValueError, TypeError):
                         pass  # Ignore invalid times
-                    racer_scores[racer_id]["heats_completed"] += 1
             elif scoring_strategy == models.ScoringStrategy.POINTS:
                 if place is not None:
                     racer_scores[racer_id]["total_points"] += place
