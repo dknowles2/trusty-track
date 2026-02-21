@@ -147,7 +147,7 @@ const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
                   <span style={{ fontWeight: 500 }}>{getDisplayName(r.racer_id, getRacerName)}</span>
                 </div>
                 <span style={{ textAlign: 'right', minWidth: '50px', fontFamily: 'monospace' }}>
-                  {r.time ? `${r.time}s` : ''}
+                  {r.time != null ? `${Number(r.time).toFixed(4)}s` : ''}
                 </span>
               </div>
             ))}
