@@ -72,7 +72,7 @@ describe('FreeRaceExecution', () => {
     (useSubscription as any).mockImplementation(({ query }: any) => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('TimerStatus')) {
-        return [{ data: { timerStatus: { state: 'IDLE' } } }];
+        return [{ data: { timerStatus: { status: { state: 'IDLE' } } } }];
       }
       if (qStr.includes('FreeRaceHeat')) {
         return [{ data: { freeRaceHeat: null } }];
@@ -101,7 +101,7 @@ describe('FreeRaceExecution', () => {
     (useSubscription as any).mockImplementation(({ query }: any) => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('TimerStatus')) {
-        return [{ data: { timerStatus: { state: 'RUNNING' } } }];
+        return [{ data: { timerStatus: { status: { state: 'RUNNING' } } } }];
       }
       return [{ data: null }];
     });
@@ -113,7 +113,7 @@ describe('FreeRaceExecution', () => {
     (useSubscription as any).mockImplementation(({ query }: any) => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('TimerStatus')) {
-        return [{ data: { timerStatus: { state: 'IDLE' } } }];
+        return [{ data: { timerStatus: { status: { state: 'IDLE' } } } }];
       }
       if (qStr.includes('FreeRaceHeat')) {
         return [{ data: { freeRaceHeat: {

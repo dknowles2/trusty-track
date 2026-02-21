@@ -24,7 +24,7 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
         pause: !isOpen || !trackId,
     });
 
-    const timerState: string = subResult.data?.timerStatus?.state ?? 'IDLE';
+    const timerState: string = subResult.data?.timerStatus?.status?.state ?? 'IDLE';
 
     // Auto-finish after 3-5 seconds when timer transitions to RUNNING
     React.useEffect(() => {
