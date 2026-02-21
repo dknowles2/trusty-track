@@ -387,10 +387,6 @@ export default function RaceControl() {
       }
   };
 
-  const handleStartTimer = (heatId: number) => {
-    setActiveHeatId(heatId);
-  };
-
   if (fetching && !data) return <div>Loading Race Control...</div>;
 
   if (!race && !fetching) return (
@@ -470,6 +466,7 @@ export default function RaceControl() {
           raceId={id}
           laneCount={race?.track?.laneCount ?? 4}
           timerType={race?.track?.timerType ?? null}
+          trackId={race?.track?.id ?? null}
           racers={racers}
         />
       ) : viewMode === 'EXECUTION' ? (
@@ -484,11 +481,11 @@ export default function RaceControl() {
             upcomingHeats={upcomingHeats}
             activeHeatId={activeHeatId}
             onRunHeat={handleRunHeat}
-            onStartTimer={handleStartTimer}
             onNextHeat={handleNextHeat}
             getRacerName={getRacerName}
             onUpdateResult={handleUpdateResult}
             timerType={race?.track?.timerType}
+            trackId={race?.track?.id ?? null}
             racers={racers}
             roundSummary={roundSummary}
           />

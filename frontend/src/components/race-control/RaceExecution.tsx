@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../Modal';
 import { FakeTimerMole } from './FakeTimerMole';
+import { TimerStatusBadge } from './TimerStatusBadge';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight } from '@mdi/js';
@@ -50,11 +51,11 @@ interface RaceExecutionProps {
   upcomingHeats: Heat[];
   activeHeatId: number | null;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
-  onStartTimer: (heatId: number) => void;
   onNextHeat: () => void;
   getRacerName: (id: number) => string;
   onUpdateResult: (heatId: number, results: any[]) => Promise<void>;
   timerType?: string | null;
+  trackId?: number | null;
   racers: Record<number, Racer>;
   roundSummary: AdvancementStatus | null;
 }
@@ -65,11 +66,11 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   upcomingHeats,
   activeHeatId,
   onRunHeat,
-  onStartTimer,
   onNextHeat,
   getRacerName,
   onUpdateResult,
   timerType,
+  trackId,
   racers,
   roundSummary
 }) => {
@@ -131,21 +132,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     setIsEditModalOpen(false);
   };
 
-  const handleMoleFinish = async (newResults: any[]) => {
-      if (isCompleted) {
-          console.warn("Ignoring fake timer finish: results already recorded.");
-          return;
-      }
-      await onUpdateResult(activeExecutionHeat.id, newResults);
-  };
-
-  const handleMoleStart = () => {
-      console.log("Fake Timer Started via Mole");
-      if (activeExecutionHeat) {
-          onStartTimer(activeExecutionHeat.id);
-      }
-  };
-
   const showFakeControls = timerType === 'FAKE';
 
   return (
@@ -159,7 +145,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                       <div>
-                          <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heatNumber}</h2>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                              <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heatNumber}</h2>
+                              {trackId != null && <TimerStatusBadge trackId={trackId} />}
+                          </div>
                           <div style={{ color: '#666', fontSize: '1.1rem' }}>
                               {activeExecutionHeat.roundName || `Round ${activeExecutionHeat.roundNumber}`}
                           </div>
@@ -463,13 +452,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
       </Modal>
 
       {/* Fake Timer Mole */}
-      <FakeTimerMole 
+      <FakeTimerMole
         isOpen={showFakeControls}
-        activeHeat={activeExecutionHeat}
-        isRunning={isRunning}
-        isCompleted={isCompleted}
-        onTriggerFinish={handleMoleFinish}
-        onTriggerStart={handleMoleStart}
+        heatId={activeExecutionHeat.id}
+        trackId={trackId ?? 0}
       />
     </>
   );

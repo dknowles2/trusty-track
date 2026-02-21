@@ -1,26 +1,27 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { FakeTimerMole } from './FakeTimerMole';
+import { Provider } from 'urql';
+import { fromValue, never } from 'wonka';
+
+// Helper to create a minimal urql client mock
+function makeClient(overrides: Record<string, unknown> = {}) {
+    return {
+        executeQuery: () => never,
+        executeMutation: () => fromValue({ data: { fakeTimerStart: true, fakeTimerFinish: true }, stale: false, hasNext: false }),
+        executeSubscription: () => fromValue({
+            data: { timerStatus: { state: 'IDLE', deviceName: null, activeHeatId: null, lastError: null } },
+            stale: false,
+            hasNext: false,
+        }),
+        ...overrides,
+    } as any;
+}
 
 describe('FakeTimerMole', () => {
-    const mockHeat = { 
-        id: 1, 
-        heatNumber: 1,
-        total_participants: 2, 
-        laneResults: JSON.stringify([
-            { lane: 1, racer_id: 101, time: null, place: null },
-            { lane: 2, racer_id: 102, time: null, place: null }
-        ]) 
-    };
-
-    const mockOnTriggerFinish = vi.fn();
-    const mockOnTriggerStart = vi.fn();
-
     beforeEach(() => {
         vi.useFakeTimers();
-        mockOnTriggerFinish.mockClear();
-        mockOnTriggerStart.mockClear();
     });
 
     afterEach(() => {
@@ -29,99 +30,87 @@ describe('FakeTimerMole', () => {
 
     it('renders nothing when isOpen is false', () => {
         const { container } = render(
-            <FakeTimerMole 
-                isOpen={false}
-                activeHeat={mockHeat}
-                onTriggerFinish={mockOnTriggerFinish}
-            />
+            <Provider value={makeClient()}>
+                <FakeTimerMole isOpen={false} heatId={1} trackId={1} />
+            </Provider>
         );
         expect(container.firstChild).toBeNull();
     });
 
     it('renders when isOpen is true', () => {
         render(
-            <FakeTimerMole 
-                isOpen={true}
-                activeHeat={mockHeat}
-                onTriggerFinish={mockOnTriggerFinish}
-            />
+            <Provider value={makeClient()}>
+                <FakeTimerMole isOpen={true} heatId={1} trackId={1} />
+            </Provider>
         );
         expect(screen.getByText('Fake Timer Controls')).toBeInTheDocument();
     });
 
-    it('calls onTriggerStart when Start Timer is clicked', () => {
+    it('shows Start Timer and Finish Heat buttons', () => {
         render(
-            <FakeTimerMole 
-                isOpen={true}
-                activeHeat={mockHeat}
-                onTriggerFinish={mockOnTriggerFinish}
-                onTriggerStart={mockOnTriggerStart}
-            />
+            <Provider value={makeClient()}>
+                <FakeTimerMole isOpen={true} heatId={1} trackId={1} />
+            </Provider>
         );
-        fireEvent.click(screen.getByText('Start Timer'));
-        expect(mockOnTriggerStart).toHaveBeenCalled();
+        expect(screen.getByText('Start Timer')).toBeInTheDocument();
+        expect(screen.getByText('Finish Heat')).toBeInTheDocument();
     });
 
-    it('calls onTriggerFinish when Finish Heat is clicked', () => {
+    it('disables Start Timer when timerState is not ARMED (IDLE)', () => {
+        const client = makeClient({
+            executeSubscription: () => fromValue({
+                data: { timerStatus: { state: 'IDLE', deviceName: null, activeHeatId: null, lastError: null } },
+                stale: false,
+                hasNext: false,
+            }),
+        });
         render(
-            <FakeTimerMole 
-                isOpen={true}
-                activeHeat={mockHeat}
-                isRunning={true}
-                onTriggerFinish={mockOnTriggerFinish}
-            />
+            <Provider value={client}>
+                <FakeTimerMole isOpen={true} heatId={1} trackId={1} />
+            </Provider>
         );
-        fireEvent.click(screen.getByText('Finish Heat'));
-        expect(mockOnTriggerFinish).toHaveBeenCalledWith(expect.any(Array));
-        const results = mockOnTriggerFinish.mock.calls[0][0];
-        expect(results).toHaveLength(2);
-        expect(results[0].time).toBeDefined();
-        expect(results[0].place).toBeDefined();
+        expect(screen.getByText('Start Timer')).toBeDisabled();
     });
 
-    it('automatically triggers finish after delay when isRunning is true', async () => {
+    it('enables Start Timer when timerState is ARMED', () => {
+        const client = makeClient({
+            executeSubscription: () => fromValue({
+                data: { timerStatus: { state: 'ARMED', deviceName: null, activeHeatId: null, lastError: null } },
+                stale: false,
+                hasNext: false,
+            }),
+        });
         render(
-            <FakeTimerMole 
-                isOpen={true}
-                activeHeat={mockHeat}
-                isRunning={true}
-                onTriggerFinish={mockOnTriggerFinish}
-            />
+            <Provider value={client}>
+                <FakeTimerMole isOpen={true} heatId={1} trackId={1} />
+            </Provider>
         );
+        expect(screen.getByText('Start Timer')).not.toBeDisabled();
+    });
 
+    it('enables Finish Heat and shows Racing... when timerState is RUNNING', () => {
+        const client = makeClient({
+            executeSubscription: () => fromValue({
+                data: { timerStatus: { state: 'RUNNING', deviceName: null, activeHeatId: null, lastError: null } },
+                stale: false,
+                hasNext: false,
+            }),
+        });
+        render(
+            <Provider value={client}>
+                <FakeTimerMole isOpen={true} heatId={1} trackId={1} />
+            </Provider>
+        );
         expect(screen.getByText('Racing...')).toBeInTheDocument();
-
-        // Advance timers by 6 seconds (max delay is 5s)
-        vi.advanceTimersByTime(6000);
-
-        expect(mockOnTriggerFinish).toHaveBeenCalled();
+        expect(screen.getByText('Finish Heat')).not.toBeDisabled();
     });
 
-    it('shows completed status and disables buttons when isCompleted is true', () => {
+    it('shows Heat Completed status when timerState is IDLE', () => {
         render(
-            <FakeTimerMole 
-                isOpen={true}
-                activeHeat={mockHeat}
-                isCompleted={true}
-                onTriggerFinish={mockOnTriggerFinish}
-            />
+            <Provider value={makeClient()}>
+                <FakeTimerMole isOpen={true} heatId={1} trackId={1} />
+            </Provider>
         );
         expect(screen.getByText('Heat Completed')).toBeInTheDocument();
-        expect(screen.getByText('Start Timer')).toBeDisabled();
-        expect(screen.getByText('Finish Heat')).toBeDisabled();
-    });
-
-    it('clears timeout on unmount', () => {
-        const { unmount } = render(
-            <FakeTimerMole 
-                isOpen={true}
-                activeHeat={mockHeat}
-                isRunning={true}
-                onTriggerFinish={mockOnTriggerFinish}
-            />
-        );
-        unmount();
-        vi.advanceTimersByTime(6000);
-        expect(mockOnTriggerFinish).not.toHaveBeenCalled();
     });
 });

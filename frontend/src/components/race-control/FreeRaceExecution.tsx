@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useMutation } from 'urql';
+import React, { useState, useEffect, useRef } from 'react';
+import { useMutation, useSubscription } from 'urql';
 import { FakeTimerMole } from './FakeTimerMole';
+import { TIMER_STATUS_SUBSCRIPTION } from '../../graphql/raceDetails';
 import Modal from '../Modal';
 import Icon from '@mdi/react';
 import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy } from '@mdi/js';
@@ -20,6 +21,7 @@ interface FreeRaceExecutionProps {
   laneAssignments: LaneAssignment[];
   racers: Record<number, RacerSummary>;
   timerType: string | null;
+  trackId?: number | null;
   onRunAnother: () => void;
 }
 
@@ -44,16 +46,62 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   laneAssignments,
   racers,
   timerType,
+  trackId,
   onRunAnother,
 }) => {
   const [results, setResults] = useState<LaneResult[] | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
 
   const [, recordResult] = useMutation(RECORD_FREE_RACE_RESULT);
+
+  // Subscribe to timer status to drive isRunning/isCompleted
+  const [subResult] = useSubscription({
+    query: TIMER_STATUS_SUBSCRIPTION,
+    variables: { trackId: trackId ?? 0 },
+    pause: !trackId || timerType !== 'FAKE',
+  });
+
+  const timerState: string = subResult.data?.timerStatus?.state ?? 'IDLE';
+  const isRunning = timerState === 'RUNNING';
+  // isCompleted once we have recorded results
+  const isCompleted = results !== null;
+
+  // Track previous timerState to detect RUNNING -> IDLE transition
+  const prevTimerStateRef = useRef<string>(timerState);
+
+  // When timer transitions from RUNNING to IDLE, generate and record results
+  useEffect(() => {
+    const prevState = prevTimerStateRef.current;
+    prevTimerStateRef.current = timerState;
+
+    if (prevState === 'RUNNING' && timerState === 'IDLE' && !isCompleted) {
+      // Generate random times for each lane (same logic as old FakeTimerMole)
+      const generatedResults: LaneResult[] = laneAssignments.map((a) => ({
+        lane: a.lane,
+        racer_id: a.racerId,
+        time: a.racerId !== null ? 3.0 + Math.random() : null,
+        place: null,
+      }));
+
+      // Sort and assign places (only for non-empty lanes)
+      const filled = generatedResults.filter((r) => r.racer_id !== null && r.time !== null);
+      filled.sort((a, b) => (a.time ?? 9999) - (b.time ?? 9999));
+      filled.forEach((r, idx) => { r.place = idx + 1; });
+
+      recordResult({
+        heatId,
+        results: JSON.stringify(generatedResults),
+      }).then((res) => {
+        if (res.data?.recordFreeRaceResult?.laneResults) {
+          setResults(JSON.parse(res.data.recordFreeRaceResult.laneResults));
+        } else {
+          setResults(generatedResults);
+        }
+      });
+    }
+  }, [timerState]);
 
   // Timer for elapsed display
   useEffect(() => {
@@ -67,39 +115,6 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     }, 100);
     return () => clearInterval(interval);
   }, [isRunning]);
-
-  // Build the "fake heat" object that FakeTimerMole expects
-  const fakeHeat = {
-    id: heatId,
-    laneResults: JSON.stringify(
-      laneAssignments.map((a) => ({
-        lane: a.lane,
-        racer_id: a.racerId,
-        time: null,
-        place: null,
-      }))
-    ),
-  };
-
-  const handleTimerStart = () => {
-    setIsRunning(true);
-  };
-
-  const handleTimerFinish = async (generatedResults: LaneResult[]) => {
-    setIsRunning(false);
-    setIsCompleted(true);
-
-    const res = await recordResult({
-      heatId,
-      results: JSON.stringify(generatedResults),
-    });
-
-    if (res.data?.recordFreeRaceResult?.laneResults) {
-      setResults(JSON.parse(res.data.recordFreeRaceResult.laneResults));
-    } else {
-      setResults(generatedResults);
-    }
-  };
 
   const openEditModal = () => {
     const base = results
@@ -138,7 +153,6 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
       setResults(finalResults);
     }
 
-    setIsCompleted(true);
     setIsEditModalOpen(false);
   };
 
@@ -251,7 +265,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
               }}>
                 <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {a.lane}</div>
 
-                <div style={{ 
+                <div style={{
                   flex: 1,
                   padding: '10px 15px',
                   background: r?.place === 1 ? 'rgba(0, 63, 135, 0.05)' : 'transparent',
@@ -288,25 +302,25 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                       {r?.time != null ? `${Number(r.time).toFixed(4)}s` : '--'}
                     </div>
                     {r?.place != null && (
-                      <div style={{ 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        alignItems: 'center', 
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
                         width: '60px',
                         padding: '5px',
                         borderRadius: '8px',
-                        background: r.place === 1 ? 'var(--scouting-blue)' : 
-                                   r.place === 2 ? '#e0e0e0' : 
+                        background: r.place === 1 ? 'var(--scouting-blue)' :
+                                   r.place === 2 ? '#e0e0e0' :
                                    r.place === 3 ? '#d7a48d' : 'transparent',
                         color: r.place === 1 ? 'white' : 'inherit',
                         boxShadow: r.place <= 3 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
                       }}>
                         {r.place <= 3 ? (
-                          <Icon 
-                            path={mdiTrophy} 
-                            size={1} 
-                            color={r.place === 1 ? 'white' : 
-                                   r.place === 2 ? '#757575' : '#8d6e63'} 
+                          <Icon
+                            path={mdiTrophy}
+                            size={1}
+                            color={r.place === 1 ? 'white' :
+                                   r.place === 2 ? '#757575' : '#8d6e63'}
                           />
                         ) : (
                           <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{r.place}th</span>
@@ -327,12 +341,9 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
       {/* Fake timer mole */}
       {timerType === 'FAKE' && (
         <FakeTimerMole
-          onTriggerFinish={handleTimerFinish}
-          onTriggerStart={handleTimerStart}
-          activeHeat={fakeHeat}
           isOpen={!isCompleted}
-          isRunning={isRunning}
-          isCompleted={isCompleted}
+          heatId={heatId}
+          trackId={trackId ?? 0}
         />
       )}
 

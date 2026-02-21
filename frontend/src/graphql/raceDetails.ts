@@ -233,3 +233,26 @@ export const RACE_STATE_CHANGED_SUBSCRIPTION = `
     }
   }
 `;
+
+export const FAKE_TIMER_START = gql`
+  mutation FakeTimerStart($heatId: Int!) {
+    fakeTimerStart(heatId: $heatId)
+  }
+`;
+
+export const FAKE_TIMER_FINISH = gql`
+  mutation FakeTimerFinish($heatId: Int!) {
+    fakeTimerFinish(heatId: $heatId)
+  }
+`;
+
+export const TIMER_STATUS_SUBSCRIPTION = gql`
+  subscription TimerStatus($trackId: Int!) {
+    timerStatus(trackId: $trackId) {
+      state
+      deviceName
+      activeHeatId
+      lastError
+    }
+  }
+`;
