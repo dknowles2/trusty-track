@@ -57,6 +57,23 @@ class TimerManager:
             self._state = TimerState.DISCONNECTED
 
     # ------------------------------------------------------------------ #
+    # Configuration                                                        #
+    # ------------------------------------------------------------------ #
+
+    async def set_device(self, device: TimerDevice) -> None:
+        """Update the device and reset state. Stops any active connections."""
+        await self.stop()
+        self._device = device
+        self._buf = b''
+        self._pending_results = {}
+        self._last_error = None
+        
+        if not device.requires_serial:
+            await self._transition(TimerState.IDLE)
+        else:
+            await self._transition(TimerState.DISCONNECTED)
+
+    # ------------------------------------------------------------------ #
     # Write-path configuration                                             #
     # ------------------------------------------------------------------ #
 
@@ -92,6 +109,13 @@ class TimerManager:
     # ------------------------------------------------------------------ #
     # Race control                                                         #
     # ------------------------------------------------------------------ #
+
+    async def reset(self) -> None:
+        """Manually reset the timer to IDLE state, clearing buffers and active heat."""
+        self._active_heat_id = None
+        self._buf = b''
+        self._pending_results = {}
+        await self._transition(TimerState.IDLE)
 
     async def prepare_heat(self, heat_id: int, lane_mask: int) -> None:
         """Arm the timer for a heat. Sends device commands and transitions to ARMED."""

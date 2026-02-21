@@ -65,3 +65,21 @@ async def test_timer_manager_read_loop_exception():
         assert manager._state == TimerState.FAULT
         assert "Serial error" in manager._last_error
         await manager.stop()
+
+@pytest.mark.anyio
+async def test_timer_manager_reset():
+    """Verifies that reset clears buffers and transitions to IDLE."""
+    from .timer.devices.base import LaneResult
+    device = MicroWizardDevice()
+    manager = TimerManager(track_id=1, device=device)
+    manager._state = TimerState.FAULT
+    manager._active_heat_id = 99
+    manager._buf = b"some garbage"
+    manager._pending_results = {1: LaneResult(lane=1, time_seconds=1.23, place=1)}
+    
+    await manager.reset()
+    
+    assert manager._state == TimerState.IDLE
+    assert manager._active_heat_id is None
+    assert manager._buf == b""
+    assert manager._pending_results == {}
