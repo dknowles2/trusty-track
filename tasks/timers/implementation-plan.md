@@ -622,18 +622,19 @@ see the updated heat immediately. This is the same code path for both fake and r
    integration, and result recording. Fake timer managers start in IDLE immediately.
 5. ✅ Add `timerStatus` GraphQL query + subscription.
 6. ✅ Add `prepareHeat`, `abortHeat`, `fakeTimerStart`, `fakeTimerFinish` mutations.
-7. Refactor `FakeTimerMole.tsx`: remove client-side result generation, call mutations, read state
-   from `timerStatus` subscription.
-8. Add `TimerStatusBadge.tsx` and render it in `RaceExecution` for all timer types.
-9. Write unit tests for:
+7. ✅ Refactor `FakeTimerMole.tsx`: removed client-side result generation, calls mutations, reads
+   state from `timerStatus` subscription. `FreeRaceExecution.tsx` and `FreeRaceTab.tsx` updated.
+8. ✅ Add `TimerStatusBadge.tsx` and render it in `RaceExecution` for all timer types.
+9. ✅ Write unit tests for:
    - `MicroWizardDevice.parse_line` with real sample output strings
    - `TimerManager` byte-framing and state transitions (in-memory byte feed, no hardware)
    - `fakeTimerFinish` result generation (lane count, placement ordering)
+   - 26 tests total, all passing
 10. ✅ Add `pyserial` to `backend/requirements.txt`.
+11. ✅ Initialize TimerManagers in `main.py` at startup and inject into GraphQL context.
 
-Also needed before Phase 1 is complete:
-- Initialize TimerManagers in `main.py` at startup and inject into GraphQL context (task 6)
-- Wire `RaceExecution.tsx` to call `prepareHeat` and derive state from subscription (task 10)
+**Remaining before Phase 1 is complete:**
+- Wire `RaceExecution.tsx` to call `prepareHeat` and derive heat state from subscription (task 10)
 
 After Phase 1 the fake timer should behave identically to before from the user's perspective,
 but the implementation now shares the backend state machine with real timers.
