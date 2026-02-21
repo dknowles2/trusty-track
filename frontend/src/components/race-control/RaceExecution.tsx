@@ -101,6 +101,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   const isCompleted = results.length > 0 && results[0].time !== null;
   const isRunning = timerState === 'RUNNING';
 
+  // Auto-prepare heat on mount if not already completed and timer is IDLE
+  useEffect(() => {
+    if (timerState === 'IDLE' && !isCompleted && activeExecutionHeat?.id) {
+      prepareHeat({ heatId: activeExecutionHeat.id });
+    }
+  }, [activeExecutionHeat?.id, isCompleted, timerState, prepareHeat]);
+
   useEffect(() => {
     setIsRoundSummaryOpen(!!roundSummary);
   }, [roundSummary]);
@@ -284,21 +291,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     `}</style>
                                 </div>
                           ) : timerState === 'IDLE' && trackId != null ? (
-                              <button
-                                  onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
-                                  style={{
-                                      padding: '15px 30px',
-                                      fontSize: '1.3rem',
-                                      background: 'var(--scouting-blue)',
-                                      color: 'white',
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      cursor: 'pointer',
-                                      fontWeight: 'bold',
-                                  }}
-                              >
-                                  Prepare Heat
-                              </button>
+                              <div style={{ padding: '15px', color: '#666', fontStyle: 'italic' }}>
+                                  Waiting for Timer...
+                              </div>
                           ) : (
                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                                     <div style={{

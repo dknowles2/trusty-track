@@ -173,7 +173,7 @@ describe('RaceExecution', () => {
         expect(screen.getByText(/Racing.../)).toBeInTheDocument();
     });
 
-    it('shows "Prepare Heat" button when IDLE and not completed', () => {
+    it('shows "Waiting for Timer..." message when IDLE and not completed', () => {
         render(
             <RaceExecution
                 {...defaultProps}
@@ -184,10 +184,10 @@ describe('RaceExecution', () => {
             />
         );
 
-        expect(screen.getByText('Prepare Heat')).toBeInTheDocument();
+        expect(screen.getByText('Waiting for Timer...')).toBeInTheDocument();
     });
 
-    it('calls prepareHeat mutation when Prepare Heat button is clicked', () => {
+    it('calls prepareHeat mutation automatically when IDLE and not completed', () => {
         render(
             <RaceExecution
                 {...defaultProps}
@@ -198,7 +198,6 @@ describe('RaceExecution', () => {
             />
         );
 
-        fireEvent.click(screen.getByText('Prepare Heat'));
         expect(mockMutationFn).toHaveBeenCalledWith({ heatId: 1 });
     });
 
