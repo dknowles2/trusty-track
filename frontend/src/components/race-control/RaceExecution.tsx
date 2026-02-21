@@ -3,6 +3,7 @@ import { useSubscription, useMutation } from 'urql';
 import Modal from '../Modal';
 import { FakeTimerMole } from './FakeTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
+import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT } from '../../graphql/raceDetails';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
@@ -143,6 +144,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   };
 
   const showFakeControls = timerType === 'FAKE';
+  const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
 
   return (
     <>
@@ -153,6 +155,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             
             {/* Active Heat Card */}
             <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
+                {showProxyControls && trackId != null && (
+                    <SerialProxyConnector trackId={trackId} />
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                       <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>

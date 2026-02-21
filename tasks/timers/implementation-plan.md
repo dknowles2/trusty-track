@@ -655,10 +655,12 @@ see the updated heat immediately. This is the same code path for both fake and r
 
 ### Phase 3 — Frontend-Proxy Mode
 
-1. Add `/ws/timer/{track_id}` WebSocket endpoint to `main.py`.
-2. Implement `SerialProxyConnector.tsx`.
-3. Integrate into `RaceExecution.tsx` (render for `AUTO_DETECT_PROXY`).
-4. Test end-to-end: browser Web Serial → WebSocket → backend → state machine → results.
+1. ✅ Add `/ws/timer/{track_id}` WebSocket endpoint to `main.py`.
+2. ✅ Implement `SerialProxyConnector.tsx`.
+3. ✅ Integrate into `RaceExecution.tsx` (render for `AUTO_DETECT_PROXY`).
+4. ✅ Test end-to-end: browser Web Serial → WebSocket → backend → state machine → results.
+
+**Phase 3 is now fully complete.**
 
 ### Phase 4 — Polish
 

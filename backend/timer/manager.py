@@ -101,6 +101,20 @@ class TimerManager:
         await self._send_commands(self._device.abort_commands())
         await self._transition(TimerState.IDLE)
 
+    async def handle_connect(self) -> None:
+        """Called when a serial connection (direct or proxy) is established."""
+        if self._state == TimerState.DISCONNECTED:
+            await self._transition(TimerState.CONNECTED)
+            # Send identification probe
+            await self._send_commands(self._device.identification_commands())
+
+    async def handle_disconnect(self) -> None:
+        """Called when a serial connection is lost."""
+        self._buf = b''
+        self._write_fn = self._noop_write
+        if self._device.requires_serial:
+            await self._transition(TimerState.DISCONNECTED)
+
     # ------------------------------------------------------------------ #
     # Byte framing (proxy and direct modes)                                #
     # ------------------------------------------------------------------ #
@@ -122,6 +136,13 @@ class TimerManager:
         line = line.lstrip(_STRIP_CHARS).strip()
         if not line:
             return
+
+        if self._state == TimerState.CONNECTED:
+            if self._device.is_identified_by(line):
+                await self._transition(TimerState.IDLE)
+                await self._send_commands(self._device.initialization_commands())
+                return
+
         event = self._device.parse_line(line)
         if event is not None:
             await self._handle_event(event)
@@ -164,6 +185,9 @@ class TimerManager:
                 await self._transition(TimerState.READY)
 
         elif isinstance(event, LaneResult):
+            if self._state in (TimerState.ARMED, TimerState.READY):
+                await self._transition(TimerState.RUNNING)
+
             if self._state != TimerState.RUNNING:
                 logger.warning(
                     "Timer %d: LaneResult received in state %s, ignoring",

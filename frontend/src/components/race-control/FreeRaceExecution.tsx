@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useSubscription } from 'urql';
 import { FakeTimerMole } from './FakeTimerMole';
+import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../graphql/raceDetails';
 import Modal from '../Modal';
 import Icon from '@mdi/react';
@@ -171,9 +172,14 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     results.forEach((r) => { laneResultMap[r.lane] = r; });
   }
 
+  const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
+
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
       <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scouting-blue)' }}>
+        {showProxyControls && trackId != null && (
+          <SerialProxyConnector trackId={trackId} />
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

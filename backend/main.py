@@ -9,9 +9,10 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+import base64
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
@@ -136,6 +137,66 @@ if FRONTEND_DIST.exists():
         """Serve index.html for all unknown paths (React Router)."""
         index = FRONTEND_DIST / "index.html"
         return FileResponse(index)
+
+
+
+@app.websocket("/ws/timer/{track_id}")
+async def timer_websocket(websocket: WebSocket, track_id: int):
+    """WebSocket endpoint for frontend-proxy timer mode."""
+    if track_id not in TIMER_MANAGERS:
+        await websocket.accept()
+        await websocket.close(code=4000, reason="Track not found")
+        return
+
+    manager = TIMER_MANAGERS[track_id]
+
+    # Check database to ensure proxy mode is intended for this track
+    db = SessionLocal()
+    try:
+        track = db.query(models.Track).filter(models.Track.id == track_id).first()
+        if not track or track.timer_type != models.TimerType.AUTO_DETECT_PROXY:
+            await websocket.accept()
+            await websocket.close(code=4000, reason="Proxy mode not enabled for this track")
+            return
+    finally:
+        db.close()
+
+    await websocket.accept()
+
+    # Define how to send bytes back to the frontend
+    async def send_to_ws(data: bytes) -> None:
+        try:
+            await websocket.send_json({
+                "type": "serial_tx",
+                "data": base64.b64encode(data).decode("utf-8"),
+            })
+        except Exception as e:
+            logger.error("Failed to send serial_tx to track %d: %s", track_id, e)
+
+    # Tell the frontend to configure its serial port
+    await websocket.send_json({
+        "type": "configure",
+        "baud_rate": manager._device.baud_rate,
+    })
+
+    manager.set_write_fn(send_to_ws)
+    await manager.handle_connect()
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            if data.get("type") == "serial_rx":
+                rx_bytes = base64.b64decode(data["data"])
+                await manager.receive_bytes(rx_bytes)
+            elif data.get("type") == "pong":
+                # Heartbeat handled by FastAPI/Starlette usually, but we can log if needed
+                pass
+    except WebSocketDisconnect:
+        logger.info("Proxy WebSocket disconnected for track %d", track_id)
+    except Exception as e:
+        logger.error("WebSocket error for track %d: %s", track_id, e)
+    finally:
+        await manager.handle_disconnect()
 
 
 @app.post("/upload/")
