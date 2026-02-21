@@ -7,3 +7,4 @@ httpx
 strawberry-graphql
 numpy
 Pillow
+pyserial
