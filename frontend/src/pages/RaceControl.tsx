@@ -398,15 +398,17 @@ export default function RaceControl() {
 
   return (
     <div className="container" style={{ padding: '20px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Race Control</h1>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', justifySelf: 'center' }}>
-            <div style={{ display: 'flex', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
                 <button 
                     onClick={() => navigate(`/race/${id}/control/schedule`)}
                      style={{ 
-                        padding: '8px 20px', 
+                        padding: '6px 16px', 
+                        fontSize: '0.95rem',
+                        whiteSpace: 'nowrap',
                         borderRadius: '20px', 
                         border: 'none', 
                         background: viewMode === 'SCHEDULE' ? 'white' : 'transparent',
@@ -423,7 +425,9 @@ export default function RaceControl() {
                 <button
                     onClick={() => navigate(`/race/${id}/control/race`)}
                     style={{
-                        padding: '8px 20px',
+                        padding: '6px 16px',
+                        fontSize: '0.95rem',
+                        whiteSpace: 'nowrap',
                         borderRadius: '20px',
                         border: 'none',
                         background: viewMode === 'EXECUTION' ? 'white' : 'transparent',
@@ -440,7 +444,9 @@ export default function RaceControl() {
                 <button
                     onClick={() => navigate(`/race/${id}/control/free-race`)}
                     style={{
-                        padding: '8px 20px',
+                        padding: '6px 16px',
+                        fontSize: '0.95rem',
+                        whiteSpace: 'nowrap',
                         borderRadius: '20px',
                         border: 'none',
                         background: viewMode === 'FREE_RACE' ? 'white' : 'transparent',
@@ -457,8 +463,7 @@ export default function RaceControl() {
             </div>
         </div>
 
-        <div style={{ justifySelf: 'end' }}>
-        </div>
+        <div></div>
       </div>
 
       {viewMode === 'FREE_RACE' ? (

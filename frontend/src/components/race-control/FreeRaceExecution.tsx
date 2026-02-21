@@ -232,8 +232,8 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                 <button
                   onClick={openEditModal}
                   style={{
-                    padding: '10px 20px',
-                    fontSize: '1rem',
+                    padding: '4px 12px',
+                    fontSize: '0.9rem',
                     background: '#f0f0f0',
                     color: 'black',
                     border: '1px solid #ccc',
@@ -251,8 +251,8 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   onClick={onRunAnother}
                   className="primary-btn"
                   style={{
-                    padding: '10px 20px',
-                    fontSize: '1rem',
+                    padding: '4px 12px',
+                    fontSize: '0.9rem',
                     background: 'var(--scouting-blue)',
                     color: 'white',
                     border: 'none',
@@ -270,8 +270,8 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                   <div style={{
-                    padding: '10px 30px',
-                    fontSize: '1.3rem',
+                    padding: '8px 20px',
+                    fontSize: '1.15rem',
                     background: isRunning ? '#ff9800' : '#f5f5f5',
                     color: isRunning ? 'white' : '#666',
                     borderRadius: '4px',

@@ -201,8 +201,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                   <button
                                       onClick={handleEditOpen}
                                       style={{
-                                          padding: '10px 20px',
-                                          fontSize: '1rem',
+                                          padding: '4px 12px',
+                                          fontSize: '0.9rem',
                                           background: '#f0f0f0',
                                           color: 'black',
                                           border: '1px solid #ccc',
@@ -219,8 +219,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                   <button
                                       onClick={() => onRunHeat(activeExecutionHeat, false)}
                                       style={{
-                                          padding: '10px 20px',
-                                          fontSize: '1rem',
+                                          padding: '4px 12px',
+                                          fontSize: '0.9rem',
                                           background: 'var(--cub-scouting-gold)', // Caution color
                                           color: 'black',
                                           border: 'none',
@@ -239,8 +239,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                           className="primary-btn"
                                           onClick={onNextHeat}
                                           style={{
-                                              padding: '15px 30px',
-                                              fontSize: '1.3rem',
+                                              padding: '6px 16px',
+                                              fontSize: '1rem',
                                               background: '#2e7d32', // Green for Go
                                               color: 'white',
                                               marginLeft: '10px',
@@ -256,8 +256,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                           ) : isRunning ? (
                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                                     <div style={{
-                                        padding: '10px 30px',
-                                        fontSize: '1.3rem',
+                                        padding: '8px 20px',
+                                        fontSize: '1.15rem',
                                         background: 'orange',
                                         color: 'white',
                                         borderRadius: '4px',
@@ -297,8 +297,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                           ) : (
                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                                     <div style={{
-                                        padding: '10px 30px',
-                                        fontSize: '1.3rem',
+                                        padding: '8px 20px',
+                                        fontSize: '1.15rem',
                                         background: '#f5f5f5',
                                         color: '#666',
                                         borderRadius: '4px',
@@ -496,8 +496,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     className="primary-btn"
                     onClick={onNextHeat}
                     style={{
-                        padding: '15px 40px',
-                        fontSize: '1.2rem',
+                        padding: '10px 24px',
+                        fontSize: '1.1rem',
                         background: '#2e7d32',
                         color: 'white',
                         display: 'inline-flex',
