@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import csv
 import io
@@ -14,6 +15,8 @@ from strawberry.types import Info
 
 from . import crud, models, schemas, scoring
 from .pubsub import pubsub
+from .timer.devices.fake import FakeTimerDevice
+from .timer.devices.microwizard import MicroWizardDevice
 
 
 @strawberry.type
@@ -1013,14 +1016,42 @@ class Mutation:
         return typing.cast(Any, crud.create_track(db, track_in))
 
     @strawberry.mutation
-    def update_track(self, info: Info, id: int, track: TrackInput) -> Optional[Track]:
+    async def update_track(self, info: Info, id: int, track: TrackInput) -> Optional[Track]:
         """Update an existing track."""
         db = info.context["db"]
         db_track = crud.get_track(db, id)
         if not db_track:
             return None
+        
+        old_timer_type = db_track.timer_type
+        old_serial_port = db_track.serial_port
+
         track_update = schemas.TrackBase(**typing.cast(Any, strawberry.asdict(track)))
-        return typing.cast(Any, crud.update_track(db, db_track, track_update))
+        updated_track = typing.cast(Any, crud.update_track(db, db_track, track_update))
+        
+        # Handle TimerManager updates
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(id)
+        if mgr:
+            # If timer type changed, swap device
+            if track.timer_type != old_timer_type:
+                if track.timer_type == models.TimerType.FAKE:
+                    await mgr.set_device(FakeTimerDevice())
+                else:
+                    # Everything else currently maps to MicroWizard
+                    await mgr.set_device(MicroWizardDevice())
+            
+            # If backend-direct mode, handle connection
+            if track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+                if track.serial_port != old_serial_port or track.timer_type != old_timer_type:
+                    if track.serial_port:
+                        # Start connection in background
+                        asyncio.create_task(mgr.connect_direct(track.serial_port))
+            elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+                # Stopped being backend-direct, ensure it's closed
+                await mgr.stop()
+
+        return updated_track
 
     @strawberry.mutation
     def delete_track(self, info: Info, id: int) -> bool:
@@ -1400,10 +1431,20 @@ class Mutation:
         )
 
     @strawberry.mutation
+    async def reset_timer(self, info: Info, track_id: int) -> bool:
+        """Manually reset the timer to IDLE state."""
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(track_id)
+        if mgr:
+            await mgr.reset()
+            return True
+        return False
+
+    @strawberry.mutation
     async def update_initial_config(
         self, info: Info, config: InitialConfigInput
     ) -> InitialConfigStatus:
-        """Update system organization name."""
+        """Update system organization name and tracks."""
         db = info.context["db"]
         group = db.query(models.Group).first()
         if group and group.name != config.group_name:
@@ -1413,9 +1454,50 @@ class Mutation:
             crud.update_group(db, group, config.group_name)
             db.refresh(group)
 
+        # Update Tracks by index (setup wizard style)
+        db_tracks = crud.get_tracks(db)
+        input_tracks = config.tracks
+        timer_managers = info.context.get("timer_managers", {})
+
+        for i, input_track in enumerate(input_tracks):
+            if i < len(db_tracks):
+                # Update existing track via existing mutation logic
+                await self.update_track(info, db_tracks[i].id, input_track)
+            else:
+                # Add new track
+                track_in = schemas.TrackCreate(**typing.cast(Any, strawberry.asdict(input_track)))
+                new_track = crud.create_track(db, track_in)
+                
+                # Register TimerManager
+                if new_track.timer_type == models.TimerType.FAKE:
+                    device = FakeTimerDevice()
+                else:
+                    device = MicroWizardDevice()
+                
+                mgr = TimerManager(new_track.id, device)
+                timer_managers[new_track.id] = mgr
+                if new_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND and new_track.serial_port:
+                    asyncio.create_task(mgr.connect_direct(new_track.serial_port))
+
+        # Delete extra tracks
+        if len(db_tracks) > len(input_tracks):
+            for i in range(len(input_tracks), len(db_tracks)):
+                track_id = db_tracks[i].id
+                mgr = timer_managers.get(track_id)
+                if mgr:
+                    await mgr.stop()
+                    if track_id in timer_managers:
+                        del timer_managers[track_id]
+                try:
+                    crud.delete_track(db, track_id)
+                except ValueError:
+                    # Might be in use by a race
+                    pass
+
+        db.commit()
         tracks = crud.get_tracks(db)
         
-        # If there's an active race, notify it of potential name changes
+        # Notify active races
         race = db.query(models.Race).first()
         if race:
             await _publish_race_state(race.id)

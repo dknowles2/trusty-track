@@ -151,3 +151,36 @@ def test_race_track_association_update(client, db):
     data = resp.json()["data"]["updateRace"]
     assert data["trackId"] == int(t2.id)
     assert data["track"]["name"] == "T2"
+
+def test_update_track_serial_port(client, db):
+    # 1. Create a track
+    mutation_create = """
+    mutation {
+        createTrack(track: {
+            name: "Direct Track",
+            laneCount: 4,
+            timerType: "FAKE"
+        }) {
+            id
+        }
+    }
+    """
+    resp = client.post("/graphql", json={"query": mutation_create})
+    track_id = resp.json()["data"]["createTrack"]["id"]
+
+    # 2. Update to AUTO_DETECT_BACKEND with serial port
+    mutation_update = f"""
+    mutation {{
+        updateTrack(id: {track_id}, track: {{
+            timerType: "AUTO_DETECT_BACKEND",
+            serialPort: "/dev/ttyUSB99"
+        }}) {{
+            timerType
+            serialPort
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_update})
+    data = resp.json()["data"]["updateTrack"]
+    assert data["timerType"] == "AUTO_DETECT_BACKEND"
+    assert data["serialPort"] == "/dev/ttyUSB99"

@@ -13,6 +13,7 @@ const GET_INITIAL_CONFIG = `
         laneCount
         lengthFeet
         timerType
+        serialPort
       }
     }
   }
@@ -43,7 +44,7 @@ const UPDATE_INITIAL_CONFIG = `
 export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
-  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE' }]);
+  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '' }]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -65,7 +66,8 @@ export default function SystemConfig() {
             name: t.name,
             laneCount: t.laneCount,
             lengthFeet: t.lengthFeet,
-            timerType: t.timerType
+            timerType: t.timerType,
+            serialPort: t.serialPort || ''
           })));
         }
       }
@@ -79,7 +81,7 @@ export default function SystemConfig() {
   };
 
   const addTrack = () => {
-    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: 40, timerType: 'FAKE' }]);
+    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '' }]);
   };
 
   const removeTrack = (index: number) => {
@@ -105,11 +107,12 @@ export default function SystemConfig() {
       const variables = {
         config: {
           groupName: groupName,
-          tracks: tracks.map(({ name, laneCount, lengthFeet, timerType }) => ({
+          tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort }) => ({
             name,
             laneCount,
             lengthFeet: lengthFeet || 40,
-            timerType
+            timerType,
+            serialPort: timerType === 'AUTO_DETECT_BACKEND' ? serialPort : null
           }))
         }
       };
@@ -221,13 +224,28 @@ export default function SystemConfig() {
               <select
                 value={track.timerType}
                 onChange={(e) => handleTrackChange(index, 'timerType', e.target.value)}
-                style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc', marginBottom: track.timerType === 'AUTO_DETECT_BACKEND' ? '1rem' : '0' }}
               >
                 <option value="FAKE">Fake Timer (Manual Control)</option>
                 <option value="AUTO_DETECT_BACKEND">Auto-Detect (Backend Connected)</option>
                 <option value="AUTO_DETECT_PROXY">Use Remote Proxy</option>
               </select>
             </div>
+
+            {track.timerType === 'AUTO_DETECT_BACKEND' && (
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Serial Port</label>
+                <input
+                  type="text"
+                  value={track.serialPort || ''}
+                  onChange={(e) => handleTrackChange(index, 'serialPort', e.target.value)}
+                  required
+                  placeholder="e.g. /dev/ttyUSB0 or COM3"
+                  style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+                <small style={{ color: '#666' }}>The device path where the timer is connected to the server.</small>
+              </div>
+            )}
           </div>
         ))}
 

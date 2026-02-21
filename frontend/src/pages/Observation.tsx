@@ -4,6 +4,7 @@ import { useSubscription, useQuery } from 'urql';
 import Icon from '@mdi/react';
 import RacerAvatar from '../components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
+import TimerStatusBadge from '../components/timer/TimerStatusBadge';
 import { 
   LeaderboardSubscription, 
   OnDeckSubscription, 
@@ -16,6 +17,9 @@ const GET_INITIAL_DATA = `
   query GetInitialData($id: Int!) {
     race(raceId: $id) {
       id
+      track {
+        id
+      }
       racers {
         id
         firstName
@@ -307,7 +311,10 @@ export default function Observation() {
     return (
       <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
         {renderResultsOverlay()}
-        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {initialData?.race?.track?.id && (
+            <TimerStatusBadge trackId={initialData.race.track.id} />
+          )}
           <button 
             onClick={() => window.open(`${window.location.pathname}?projector=true`, '_blank')}
             style={{
