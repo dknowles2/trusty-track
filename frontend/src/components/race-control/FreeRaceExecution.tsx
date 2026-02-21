@@ -97,7 +97,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     pause: !trackId,
   });
 
-  const timerState: string = subResult.data?.timerStatus?.state ?? 'IDLE';
+  const timerState: string = subResult.data?.timerStatus?.status?.state ?? 'IDLE';
   
   // Results are completed if we have lane_results from the backend
   // In Phase 1, we expect the backend to record results automatically

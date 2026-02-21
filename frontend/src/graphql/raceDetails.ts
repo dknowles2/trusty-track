@@ -249,10 +249,13 @@ export const FAKE_TIMER_FINISH = gql`
 export const TIMER_STATUS_SUBSCRIPTION = gql`
   subscription TimerStatus($trackId: Int!) {
     timerStatus(trackId: $trackId) {
-      state
-      deviceName
-      activeHeatId
-      lastError
+      status {
+        state
+        deviceName
+        laneCount
+        activeHeatId
+        lastError
+      }
     }
   }
 `;

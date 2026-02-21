@@ -8,10 +8,12 @@ interface TimerStatusBadgeProps {
 
 interface TimerStatusData {
   timerStatus: {
-    state: string;
-    deviceName: string | null;
-    activeHeatId: number | null;
-    lastError: string | null;
+    status: {
+      state: string;
+      deviceName: string | null;
+      activeHeatId: number | null;
+      lastError: string | null;
+    };
   };
 }
 
@@ -41,7 +43,7 @@ export function TimerStatusBadge({ trackId }: TimerStatusBadgeProps) {
     variables: { trackId },
   });
 
-  const state = data?.timerStatus?.state;
+  const state = data?.timerStatus?.status?.state;
   const { colorClass, label } = getStatusDisplay(state);
 
   return (

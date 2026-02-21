@@ -92,7 +92,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     variables: { trackId: trackId ?? 0 },
     pause: !trackId,
   });
-  const timerState: string = subResult.data?.timerStatus?.state ?? 'IDLE';
+  const timerState: string = subResult.data?.timerStatus?.status?.state ?? 'IDLE';
 
   const [, prepareHeat] = useMutation(PREPARE_HEAT);
   const [, resetTimer] = useMutation(RESET_TIMER);
