@@ -194,32 +194,51 @@ class TimerManager:
 
         db = SessionLocal()
         try:
+            # Try official Heat first
             heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if heat is None:
-                logger.error("Timer %d: heat %d not found", self._track_id, heat_id)
-                return
+            if heat:
+                # Official Heat
+                existing = json.loads(heat.lane_results) if heat.lane_results else []
+                racer_by_lane: Dict[int, Optional[int]] = {r["lane"]: r.get("racer_id") for r in existing}
 
-            # Preserve racer_id assignments from the existing lane_results
-            existing = json.loads(heat.lane_results) if heat.lane_results else []
-            racer_by_lane: Dict[int, Optional[int]] = {r["lane"]: r.get("racer_id") for r in existing}
+                results = [
+                    {
+                        "lane": r.lane,
+                        "racer_id": racer_by_lane.get(r.lane),
+                        "time": r.time_seconds,
+                        "place": r.place,
+                    }
+                    for r in timer_results
+                ]
 
-            results = [
-                {
-                    "lane": r.lane,
-                    "racer_id": racer_by_lane.get(r.lane),
-                    "time": r.time_seconds,
-                    "place": r.place,
-                }
-                for r in timer_results
-            ]
+                crud.record_heat_result(db, heat_id, json.dumps(results))
+                race_id = heat.race_id
+            else:
+                # Check FreeRaceHeat
+                free_heat = db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
+                if not free_heat:
+                    logger.error("Timer %d: heat %d not found in official or free race heats", self._track_id, heat_id)
+                    return
+                
+                # FreeRaceHeat
+                existing = json.loads(free_heat.lane_assignments) if free_heat.lane_assignments else []
+                racer_by_lane = {r["lane"]: r.get("racer_id") for r in existing}
 
-            crud.record_heat_result(db, heat_id, json.dumps(results))
-            race_id = heat.race_id
+                results = [
+                    {
+                        "lane": r.lane,
+                        "racer_id": racer_by_lane.get(r.lane),
+                        "time": r.time_seconds,
+                        "place": r.place,
+                    }
+                    for r in timer_results
+                ]
+                crud.update_free_race_heat_result(db, heat_id, results)
+                race_id = free_heat.race_id
         finally:
             db.close()
 
         # Notify race-state subscribers (e.g. RaceExecution, Observation)
-        # Lazy import avoids circular dependency: schema.py will import timer in task 5.
         from ..schema import _publish_race_state
         await _publish_race_state(race_id)
 

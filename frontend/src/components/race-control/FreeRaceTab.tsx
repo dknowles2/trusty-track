@@ -15,6 +15,7 @@ interface FreeRaceTabProps {
   raceId: number;
   laneCount: number;
   timerType: string | null;
+  trackId?: number | null;
   racers: Record<number, RacerSummary>;
 }
 
@@ -35,6 +36,7 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
   raceId,
   laneCount,
   timerType,
+  trackId,
   racers,
 }) => {
   const [phase, setPhase] = useState<FreeRacePhase>({ kind: 'setup' });
@@ -98,6 +100,7 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
           laneAssignments={phase.assignments}
           racers={racers}
           timerType={timerType}
+          trackId={trackId ?? null}
           onRunAnother={handleRunAnother}
         />
       )}

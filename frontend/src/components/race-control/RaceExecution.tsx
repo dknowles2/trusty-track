@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useSubscription, useMutation } from 'urql';
 import Modal from '../Modal';
 import { FakeTimerMole } from './FakeTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
+import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT } from '../../graphql/raceDetails';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight } from '@mdi/js';
@@ -64,7 +66,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   activeExecutionHeat,
   nextExecutionHeat,
   upcomingHeats,
-  activeHeatId,
   onRunHeat,
   onNextHeat,
   getRacerName,
@@ -79,9 +80,18 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
   const [isRoundSummaryOpen, setIsRoundSummaryOpen] = useState(!!roundSummary);
 
+  const [subResult] = useSubscription({
+    query: TIMER_STATUS_SUBSCRIPTION,
+    variables: { trackId: trackId ?? 0 },
+    pause: !trackId,
+  });
+  const timerState: string = subResult.data?.timerStatus?.state ?? 'IDLE';
+
+  const [, prepareHeat] = useMutation(PREPARE_HEAT);
+
   const results = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
   const isCompleted = results.length > 0 && results[0].time !== null;
-  const isRunning = activeHeatId !== null && activeHeatId === activeExecutionHeat?.id;
+  const isRunning = timerState === 'RUNNING';
 
   useEffect(() => {
     setIsRoundSummaryOpen(!!roundSummary);
@@ -102,7 +112,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
       return () => {
           if (interval) clearInterval(interval);
       };
-  }, [isRunning, activeHeatId]);
+  }, [isRunning]);
 
   if (!activeExecutionHeat) {
       return (
@@ -211,16 +221,43 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                       </button>
                                   )}
                               </>
-                          ) : (
-                              <div style={{ 
-                                  padding: '15px 30px', 
+                          ) : isRunning ? (
+                              <div style={{
+                                  padding: '15px 30px',
                                   fontSize: '1.3rem',
-                                  background: isRunning ? 'orange' : '#e0e0e0',
-                                  color: isRunning ? 'white' : '#666',
+                                  background: 'orange',
+                                  color: 'white',
                                   borderRadius: '4px',
                                   fontWeight: 'bold'
                               }}>
-                                  {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
+                                  Racing... {elapsedSeconds.toFixed(1)}s
+                              </div>
+                          ) : timerState === 'IDLE' && trackId != null ? (
+                              <button
+                                  onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
+                                  style={{
+                                      padding: '15px 30px',
+                                      fontSize: '1.3rem',
+                                      background: 'var(--scouting-blue)',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      fontWeight: 'bold',
+                                  }}
+                              >
+                                  Prepare Heat
+                              </button>
+                          ) : (
+                              <div style={{
+                                  padding: '15px 30px',
+                                  fontSize: '1.3rem',
+                                  background: '#e0e0e0',
+                                  color: '#666',
+                                  borderRadius: '4px',
+                                  fontWeight: 'bold'
+                              }}>
+                                  Waiting for Timer...
                               </div>
                           )}
                       </div>

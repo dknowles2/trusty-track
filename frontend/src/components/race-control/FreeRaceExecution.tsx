@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useSubscription } from 'urql';
 import { FakeTimerMole } from './FakeTimerMole';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../graphql/raceDetails';
@@ -55,53 +55,56 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
 
   const [, recordResult] = useMutation(RECORD_FREE_RACE_RESULT);
+  const [, prepareHeat] = useMutation(`
+    mutation PrepareHeat($heatId: Int!) {
+      prepareHeat(heatId: $heatId)
+    }
+  `);
 
-  // Subscribe to timer status to drive isRunning/isCompleted
+  // Subscribe to the specific free race heat to get results when they arrive
+  const [heatSubResult] = useSubscription({
+    query: `
+      subscription FreeRaceHeat($heatId: Int!) {
+        freeRaceHeat(heatId: $heatId) {
+          id
+          laneResults
+        }
+      }
+    `,
+    variables: { heatId },
+  });
+
+  useEffect(() => {
+    const laneResults = heatSubResult.data?.freeRaceHeat?.laneResults;
+    if (laneResults) {
+      setResults(JSON.parse(laneResults));
+    }
+  }, [heatSubResult.data?.freeRaceHeat?.laneResults]);
+
+  // Subscribe to timer status
   const [subResult] = useSubscription({
     query: TIMER_STATUS_SUBSCRIPTION,
     variables: { trackId: trackId ?? 0 },
-    pause: !trackId || timerType !== 'FAKE',
+    pause: !trackId,
   });
 
   const timerState: string = subResult.data?.timerStatus?.state ?? 'IDLE';
+  
+  // Results are completed if we have lane_results from the backend
+  // In Phase 1, we expect the backend to record results automatically
+  // but we might need to fetch them if they aren't in props yet.
+  // Actually, FreeRaceTab might give us the updated heat.
+  // For now, let's just drive isRunning/isCompleted from timerState and local state
+  
   const isRunning = timerState === 'RUNNING';
-  // isCompleted once we have recorded results
   const isCompleted = results !== null;
 
-  // Track previous timerState to detect RUNNING -> IDLE transition
-  const prevTimerStateRef = useRef<string>(timerState);
-
-  // When timer transitions from RUNNING to IDLE, generate and record results
+  // Auto-prepare heat on mount if not already completed and timer is IDLE
   useEffect(() => {
-    const prevState = prevTimerStateRef.current;
-    prevTimerStateRef.current = timerState;
-
-    if (prevState === 'RUNNING' && timerState === 'IDLE' && !isCompleted) {
-      // Generate random times for each lane (same logic as old FakeTimerMole)
-      const generatedResults: LaneResult[] = laneAssignments.map((a) => ({
-        lane: a.lane,
-        racer_id: a.racerId,
-        time: a.racerId !== null ? 3.0 + Math.random() : null,
-        place: null,
-      }));
-
-      // Sort and assign places (only for non-empty lanes)
-      const filled = generatedResults.filter((r) => r.racer_id !== null && r.time !== null);
-      filled.sort((a, b) => (a.time ?? 9999) - (b.time ?? 9999));
-      filled.forEach((r, idx) => { r.place = idx + 1; });
-
-      recordResult({
-        heatId,
-        results: JSON.stringify(generatedResults),
-      }).then((res) => {
-        if (res.data?.recordFreeRaceResult?.laneResults) {
-          setResults(JSON.parse(res.data.recordFreeRaceResult.laneResults));
-        } else {
-          setResults(generatedResults);
-        }
-      });
+    if (timerState === 'IDLE' && !isCompleted && heatId) {
+      prepareHeat({ heatId });
     }
-  }, [timerState]);
+  }, [heatId, isCompleted, timerState]);
 
   // Timer for elapsed display
   useEffect(() => {

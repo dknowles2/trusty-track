@@ -86,16 +86,16 @@ frontend/src/components/race-control/
 
 ### 3.1 Timer States
 
-| State             | Meaning                                                          |
-|-------------------|------------------------------------------------------------------|
-| `DISCONNECTED`    | No device detected or connection lost (not used by FakeTimer)    |
-| `CONNECTED`       | Serial link up, waiting to identify device                       |
-| `IDLE`            | Device identified and ready; no heat armed                       |
-| `ARMED`           | Lane mask sent, timer reset and waiting for gate to close        |
-| `READY`           | Gate closed (if detectable); start imminent                      |
-| `RUNNING`         | Race in progress; timing active                                  |
-| `RESULTS_OVERDUE` | Results not received within timeout; awaiting manual resolution  |
-| `FAULT`           | Unrecoverable error; requires operator action                    |
+| State             | Meaning                                                         |
+| ----------------- | --------------------------------------------------------------- |
+| `DISCONNECTED`    | No device detected or connection lost (not used by FakeTimer)   |
+| `CONNECTED`       | Serial link up, waiting to identify device                      |
+| `IDLE`            | Device identified and ready; no heat armed                      |
+| `ARMED`           | Lane mask sent, timer reset and waiting for gate to close       |
+| `READY`           | Gate closed (if detectable); start imminent                     |
+| `RUNNING`         | Race in progress; timing active                                 |
+| `RESULTS_OVERDUE` | Results not received within timeout; awaiting manual resolution |
+| `FAULT`           | Unrecoverable error; requires operator action                   |
 
 Not all devices can signal gate-close, so `ARMED` → `READY` is skipped when `gate_state_is_knowable`
 is false for the driver. In that case the state jumps directly from `ARMED` to `RUNNING` when the
@@ -139,6 +139,7 @@ FAULT
 ```
 
 For `FakeTimerDevice`, the two extra triggers are:
+
 - `inject_event(RaceStarted())` from the `fakeTimerStart` mutation: ARMED → RUNNING
 - `inject_event(LaneResult(...)) × N` from the `fakeTimerFinish` mutation: RUNNING → IDLE
 
@@ -244,6 +245,7 @@ Reference: `MicroWizardDevice.java` in the DerbyNet project.
 **Serial parameters:** 9600 baud, 8N1, delimiter `b'\n'`
 
 **Commands (all ASCII, terminated with `\n`):**
+
 - `N1` — select "new format" output (sent on init; also used for identification probe)
 - `LR` — reset/arm laser gate
 - `M<HEX>` — set lane mask (e.g. `MF` for all 4 lanes)
@@ -509,17 +511,20 @@ The component is simplified: it no longer generates race results or manages stat
 reads timer state from the `timerStatus` subscription and calls mutations.
 
 **Props that are removed:**
+
 - `onTriggerFinish` — results now flow through the backend
 - `onTriggerStart` — replaced by `fakeTimerStart` mutation
 - `activeHeat` — no longer needed; backend knows the lane assignments
 - `isRunning` / `isCompleted` — derived from subscription instead
 
 **Props that remain or are added:**
+
 - `isOpen: boolean` — still controls visibility (true when `timerType === 'FAKE'`)
 - `heatId: number` — passed to both mutations for validation
 - `trackId: number` — needed to scope the timerStatus subscription
 
 **Behaviour:**
+
 - "Start Timer" button calls `fakeTimerStart(heatId)`. Disabled unless `timerState === 'ARMED'`.
 - "Finish Heat" button calls `fakeTimerFinish(heatId)`. Disabled unless `timerState === 'RUNNING'`.
 - Auto-finish timer (3–5 s) stays in the frontend — it's a UX feature, not business logic.
@@ -528,6 +533,7 @@ reads timer state from the `timerStatus` subscription and calls mutations.
   received via subscription.
 
 **Parent `RaceExecution` changes:**
+
 - Remove `handleMoleFinish` and `handleMoleStart` callbacks.
 - The `isRunning` / `isCompleted` state in `RaceExecution` is now derived from the timer state
   subscription rather than local state set by the mole callbacks.
@@ -539,6 +545,7 @@ A small status chip rendered in the `RaceExecution` toolbar, visible for **all t
 view of where the timer state machine is, regardless of timer type.
 
 States displayed:
+
 - Grey dot + "Timer disconnected" — DISCONNECTED or FAULT
 - Yellow dot + "Connecting…" — CONNECTED
 - Green dot + "Ready" — IDLE
@@ -553,6 +560,7 @@ Located at `frontend/src/components/race-control/SerialProxyConnector.tsx`. Rend
 button when disconnected.
 
 **Responsibilities:**
+
 - Call `navigator.serial.requestPort()` on button click
 - Open WebSocket to `/ws/timer/{track_id}`
 - Receive `{ type: "configure", baud_rate }`, then open the serial port at that baud rate
@@ -567,10 +575,12 @@ const reader = port.readable.getReader();
 while (true) {
   const { value, done } = await reader.read();
   if (done) break;
-  ws.send(JSON.stringify({
-    type: "serial_rx",
-    data: btoa(String.fromCharCode(...value)),
-  }));
+  ws.send(
+    JSON.stringify({
+      type: "serial_rx",
+      data: btoa(String.fromCharCode(...value)),
+    }),
+  );
 }
 ```
 
@@ -633,11 +643,7 @@ see the updated heat immediately. This is the same code path for both fake and r
 10. ✅ Add `pyserial` to `backend/requirements.txt`.
 11. ✅ Initialize TimerManagers in `main.py` at startup and inject into GraphQL context.
 
-**Remaining before Phase 1 is complete:**
-- Wire `RaceExecution.tsx` to call `prepareHeat` and derive heat state from subscription (task 10)
-
-After Phase 1 the fake timer should behave identically to before from the user's perspective,
-but the implementation now shares the backend state machine with real timers.
+**Phase 1 is now fully complete.**
 
 ### Phase 2 — Backend-Direct Mode
 

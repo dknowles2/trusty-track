@@ -1186,18 +1186,31 @@ class Mutation:
         """
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
+
+        # Try official Heat first
         heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if heat is None:
-            return False
-        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
-        if race is None or race.track_id is None:
-            return False
-        mgr = timer_managers.get(race.track_id)
-        if mgr is None:
-            return False
+        if heat:
+            race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+            if race is None or race.track_id is None:
+                return False
+            mgr = timer_managers.get(race.track_id)
+            if mgr is None:
+                return False
+            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
+        else:
+            # Check FreeRaceHeat
+            free_heat = db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
+            if not free_heat:
+                return False
+            race = db.query(models.Race).filter(models.Race.id == free_heat.race_id).first()
+            if race is None or race.track_id is None:
+                return False
+            mgr = timer_managers.get(race.track_id)
+            if mgr is None:
+                return False
+            lane_results = json.loads(free_heat.lane_assignments) if free_heat.lane_assignments else []
 
         # Compute lane mask from occupied (non-null racer_id) lanes
-        lane_results = json.loads(heat.lane_results) if heat.lane_results else []
         lane_mask = 0
         for lr in lane_results:
             if lr.get("racer_id") is not None:
@@ -1230,10 +1243,19 @@ class Mutation:
 
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
+
+        # Try official Heat first
         heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if heat is None:
-            return False
-        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+        if heat:
+            race_id = heat.race_id
+        else:
+            # Check FreeRaceHeat
+            free_heat = db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
+            if not free_heat:
+                return False
+            race_id = free_heat.race_id
+
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if race is None or race.track_id is None:
             return False
         mgr = timer_managers.get(race.track_id)
@@ -1259,10 +1281,21 @@ class Mutation:
 
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
+
+        # Try official Heat first
         heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if heat is None:
-            return False
-        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+        if heat:
+            race_id = heat.race_id
+            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
+        else:
+            # Check FreeRaceHeat
+            free_heat = db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
+            if not free_heat:
+                return False
+            race_id = free_heat.race_id
+            lane_results = json.loads(free_heat.lane_assignments) if free_heat.lane_assignments else []
+
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if race is None or race.track_id is None:
             return False
         mgr = timer_managers.get(race.track_id)
@@ -1271,7 +1304,6 @@ class Mutation:
         if mgr._state != TimerState.RUNNING or mgr._active_heat_id != heat_id:
             return False
 
-        lane_results = json.loads(heat.lane_results) if heat.lane_results else []
         occupied = [lr["lane"] for lr in lane_results if lr.get("racer_id") is not None]
         if not occupied:
             return False
@@ -1903,6 +1935,25 @@ class Subscription:
             yield _get_rounds()
             async for _ in stream:
                 yield _get_rounds()
+
+    @strawberry.subscription
+    async def free_race_heat(
+        self, info: Info, heat_id: int
+    ) -> AsyncGenerator[Optional[FreeRaceHeat], None]:
+        """Subscribe to updates for a specific free race heat."""
+        db = info.context["db"]
+        def _get_heat():
+            return db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
+        
+        yield _get_heat()
+        # Find race_id to subscribe to race_state changes
+        heat = _get_heat()
+        if not heat:
+            return
+        
+        async with pubsub.subscribe(f"race_state:{heat.race_id}") as stream:
+            async for _ in stream:
+                yield _get_heat()
 
     @strawberry.subscription
     async def active_free_race_heat(

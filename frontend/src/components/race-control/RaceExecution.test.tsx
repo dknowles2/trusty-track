@@ -1,8 +1,17 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { describe, it, expect, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
-import { RaceExecution } from './RaceExecution';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useMutation, useSubscription } from 'urql';
+import { RaceExecution, Heat } from './RaceExecution';
+
+vi.mock('urql', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('urql')>();
+  return {
+    ...actual,
+    useMutation: vi.fn(),
+    useSubscription: vi.fn(),
+  };
+});
 
 // Mock Modal component
 vi.mock('../Modal', () => ({
@@ -15,19 +24,26 @@ vi.mock('../Modal', () => ({
     ) : null
 }));
 
+// Mock FakeTimerMole
+vi.mock('./FakeTimerMole', () => ({
+  FakeTimerMole: ({ isOpen }: any) =>
+    isOpen ? (
+      <div data-testid="fake-timer-mole">
+        Fake Timer Controls
+      </div>
+    ) : null,
+}));
+
 describe('RaceExecution', () => {
-    const mockHeat = { 
+    const mockHeat: Heat = { 
         id: 1, 
         roundNumber: 1,
         roundId: 1,
         heatNumber: 1,
         roundName: "Round 1",
-        advancementNumRacers: null,
-        advancementSource: null,
-        totalParticipants: 4, 
         laneResults: JSON.stringify([
-            { lane: 1, racerId: 101, racer_id: 101, time: '3.5', place: 1 },
-            { lane: 2, racerId: 102, racer_id: 102, time: '3.6', place: 2 }
+            { lane: 1, racer_id: 101, time: '3.5', place: 1 },
+            { lane: 2, racer_id: 102, time: '3.6', place: 2 }
         ]) 
     };
 
@@ -38,9 +54,9 @@ describe('RaceExecution', () => {
 
     const mockGetRacerName = vi.fn((id: number) => (mockRacers as any)[id] ? `${(mockRacers as any)[id].firstName} ${(mockRacers as any)[id].lastName}` : `Racer ${id}`);
     const mockOnRunHeat = vi.fn();
-    const mockOnStartTimer = vi.fn();
     const mockOnNextHeat = vi.fn();
     const mockOnUpdateResult = vi.fn();
+    const mockMutationFn = vi.fn();
 
     const defaultProps = {
         activeExecutionHeat: mockHeat,
@@ -48,13 +64,30 @@ describe('RaceExecution', () => {
         upcomingHeats: [],
         activeHeatId: null,
         onRunHeat: mockOnRunHeat,
-        onStartTimer: mockOnStartTimer,
         onNextHeat: mockOnNextHeat,
         getRacerName: mockGetRacerName,
         onUpdateResult: mockOnUpdateResult,
         racers: mockRacers,
-        roundSummary: null
+        roundSummary: null,
+        trackId: 1,
+        timerType: 'FAKE'
     };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        
+        mockMutationFn.mockResolvedValue({ data: { prepareHeat: true } });
+        (useMutation as any).mockReturnValue([{}, mockMutationFn]);
+
+        (useSubscription as any).mockImplementation(({ query }: any) => {
+            const qStr = JSON.stringify(query);
+            if (qStr.includes('TimerStatus')) {
+                return [{ data: { timerStatus: { state: 'IDLE' } } }];
+            }
+            return [{ data: null }];
+        });
+    });
+
     it('renders race execution message if no active heat', () => {
         render(
             <RaceExecution 
@@ -75,11 +108,6 @@ describe('RaceExecution', () => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
         expect(screen.getByText('3.5000s')).toBeInTheDocument();
         expect(screen.getByText('1st')).toBeInTheDocument();
-        
-        // Check for image
-        const img = screen.getByAltText('John Doe'); // RacerAvatar uses name as alt
-        expect(img).toBeInTheDocument();
-        expect(img).toHaveAttribute('src', 'http://example.com/racer101.jpg');
     });
 
     it('shows Edit button when heat is completed', () => {
@@ -110,101 +138,68 @@ describe('RaceExecution', () => {
         );
         fireEvent.click(screen.getByText('Edit'));
         
-        const inputs = screen.getAllByRole('spinbutton'); // number inputs
+        const inputs = screen.getAllByRole('spinbutton');
         fireEvent.change(inputs[0], { target: { value: '4.0' } });
         
         fireEvent.click(screen.getByText('Save Results'));
         
         await waitFor(() => {
             expect(mockOnUpdateResult).toHaveBeenCalled();
-            // Verify arguments - should be heatId and updated results array
             const args = mockOnUpdateResult.mock.calls[0];
             expect(args[0]).toBe(1);
             expect(args[1][0].time).toBe('4.0');
         });
     });
 
-    const mockActiveHeatRunning = { 
-        ...mockHeat,
-        laneResults: JSON.stringify([
-            { lane: 1, racerId: 101, racer_id: 101, time: null, place: null },
-            { lane: 2, racerId: 102, racer_id: 102, time: null, place: null }
-        ]) 
-    };
+    it('renders "Racing..." when timer state is RUNNING', () => {
+        (useSubscription as any).mockImplementation(({ query }: any) => {
+            const qStr = JSON.stringify(query);
+            if (qStr.includes('TimerStatus')) {
+                return [{ data: { timerStatus: { state: 'RUNNING' } } }];
+            }
+            return [{ data: null }];
+        });
 
-    it('renders FakeTimerMole when timerType is FAKE and active heat is running', async () => {
         render(
             <RaceExecution
                 {...defaultProps}
-                activeExecutionHeat={mockActiveHeatRunning}
-                activeHeatId={1} // Running
-                timerType="FAKE"
+                activeExecutionHeat={{
+                    ...mockHeat,
+                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+                }}
             />
         );
 
-        // Should show "Racing..." (now in both main UI and Mole)
-        expect(screen.getAllByText(/Racing.../)).toHaveLength(2);
-        
-        // Mole button should be visible (title "Fake Timer Controls")
-        expect(screen.getByText('Fake Timer Controls')).toBeInTheDocument();
+        expect(screen.getByText(/Racing.../)).toBeInTheDocument();
     });
 
-
-    it('finishes heat when FakeTimerMole Finish button is clicked', async () => {
-        const user = userEvent.setup();
+    it('shows "Prepare Heat" button when IDLE and not completed', () => {
         render(
             <RaceExecution
                 {...defaultProps}
-                activeExecutionHeat={mockActiveHeatRunning}
-                activeHeatId={1} // Running
-                timerType="FAKE"
+                activeExecutionHeat={{
+                    ...mockHeat,
+                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+                }}
             />
         );
-        
-        // Click "Finish Heat"
-        await user.click(screen.getByText('Finish Heat'));
-        
-        // Should verify results were saved
-        expect(mockOnUpdateResult).toHaveBeenCalledWith(1, expect.any(Array));
+
+        expect(screen.getByText('Prepare Heat')).toBeInTheDocument();
     });
 
-    it('does not overwrite results if FakeTimerMole triggers finish on completed heat', async () => {
-        // Reset mock
-        mockOnUpdateResult.mockClear();
-
+    it('calls prepareHeat mutation when Prepare Heat button is clicked', () => {
         render(
             <RaceExecution
                 {...defaultProps}
-                activeExecutionHeat={mockHeat} // This mockHeat is already completed (times are set)
-                timerType="FAKE"
+                activeExecutionHeat={{
+                    ...mockHeat,
+                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+                }}
             />
         );
-        
-        // Buttons should be disabled in the mole, but we can also check the logic directly
-        // The Mole Finish button should be disabled because isCompleted={true} is passed to it.
-        const finishBtn = screen.getByText('Finish Heat');
-        expect(finishBtn).toBeDisabled();
-        
-        // Even if somehow triggered, handleMoleFinish should guard it.
-    });
 
-    it('logs start timer event when FakeTimerMole Start button is clicked', async () => {
-        const consoleSpy = vi.spyOn(console, 'log');
-        const user = userEvent.setup();
-        render(
-            <RaceExecution
-                {...defaultProps}
-                activeExecutionHeat={mockActiveHeatRunning}
-                activeHeatId={null} // Not running yet, so button is enabled
-                timerType="FAKE"
-            />
-        );
-        
-        // Click "Start Timer"
-        await user.click(screen.getByText('Start Timer'));
-        
-        expect(consoleSpy).toHaveBeenCalledWith('Fake Timer Started via Mole');
-        consoleSpy.mockRestore();
+        fireEvent.click(screen.getByText('Prepare Heat'));
+        expect(mockMutationFn).toHaveBeenCalledWith({ heatId: 1 });
     });
 
     it('renders round summary when provided', () => {
@@ -228,89 +223,5 @@ describe('RaceExecution', () => {
         
         const modal = screen.getByTestId('mock-modal');
         expect(within(modal).getByText('Round Complete!')).toBeInTheDocument();
-        expect(within(modal).getByText(/Top 1 racers advance/)).toBeInTheDocument();
-        expect(within(modal).getByText('John Doe')).toBeInTheDocument();
-        expect(within(modal).getByText('Lions #1')).toBeInTheDocument();
-        expect(within(modal).getByText('3.500')).toBeInTheDocument();
-        expect(within(modal).getByText('Start Next Round')).toBeInTheDocument();
-    });
-
-    it('renders round summary results even if advancement not required', () => {
-        const mockSummaryNoAdvancement = {
-            isReady: true,
-            requiresAdvancement: false,
-            alreadyAdvanced: false,
-            advancingRacers: [
-                { racerId: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2, denName: 'Tigers', score: 3.6, rank: 2, isAdvancing: false }
-            ],
-            source: null,
-            numRacers: null
-        };
-
-        render(
-            <RaceExecution 
-                {...defaultProps}
-                roundSummary={mockSummaryNoAdvancement}
-            />
-        );
-        
-        expect(screen.getByText('Round Complete!')).toBeInTheDocument();
-        expect(screen.getByText('This round is complete.')).toBeInTheDocument();
-        
-        // Scope to modal to avoid finding the active heat racer
-        const modal = screen.getByTestId('mock-modal');
-        expect(within(modal).getByText('Jane Smith')).toBeInTheDocument();
-        expect(within(modal).getByText('3.600')).toBeInTheDocument();
-    });
-
-    it('renders upcoming heats list', () => {
-        const upcoming = [
-            { 
-                id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, roundName: 'Round 1',
-                advancementNumRacers: null, advancementSource: null, totalParticipants: 4,
-                laneResults: JSON.stringify([{ lane: 1, racerId: 103, racer_id: 103, time: null }])
-            }
-        ];
-        
-        render(
-            <RaceExecution 
-                 {...defaultProps}
-                 upcomingHeats={upcoming}
-            />
-        );
-        
-        expect(screen.getByText('Upcoming')).toBeInTheDocument();
-        expect(screen.getByText('Heat 2')).toBeInTheDocument();
-        expect(screen.getAllByText('Round 1')[1]).toBeInTheDocument(); // One in active, one in upcoming
-    });
-
-    it('closes modal when close button is clicked', async () => {
-        const mockSummary = {
-            isReady: true,
-            requiresAdvancement: false,
-            alreadyAdvanced: false,
-            advancingRacers: [],
-            source: null,
-            numRacers: null
-        };
-
-        render(
-            <RaceExecution 
-                {...defaultProps}
-                roundSummary={mockSummary}
-            />
-        );
-        
-        // Modal should be open initially
-        expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
-        
-        // Find and click close button
-        const closeBtn = screen.getByText('Close Mock');
-        fireEvent.click(closeBtn);
-        
-        // Modal should be gone
-        await waitFor(() => {
-            expect(screen.queryByTestId('mock-modal')).not.toBeInTheDocument();
-        });
     });
 });

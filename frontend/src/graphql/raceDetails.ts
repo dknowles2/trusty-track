@@ -256,3 +256,15 @@ export const TIMER_STATUS_SUBSCRIPTION = gql`
     }
   }
 `;
+
+export const PREPARE_HEAT = gql`
+  mutation PrepareHeat($heatId: Int!) {
+    prepareHeat(heatId: $heatId)
+  }
+`;
+
+export const ABORT_HEAT = gql`
+  mutation AbortHeat($trackId: Int!) {
+    abortHeat(trackId: $trackId)
+  }
+`;
