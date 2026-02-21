@@ -174,7 +174,7 @@ export default function Observation() {
     const isEmpty = racers.length === 0;
 
     return (
-      <div style={{ 
+      <div className="heat-card" style={{ 
         flex: 1, 
         minWidth: '300px', 
         background: isEmpty ? '#f5f5f5' : 'white', 
@@ -185,7 +185,7 @@ export default function Observation() {
         opacity: isEmpty ? 0.7 : 1,
         textAlign: isEmpty ? 'center' : 'left'
       }}>
-        <h2 style={{ 
+        <h2 className="heat-card-title" style={{ 
           marginTop: 0, 
           fontSize: '1.5rem', 
           color: isNext ? '#666' : '#333', 
@@ -221,8 +221,8 @@ export default function Observation() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
             {racers.map((racer: any, idx: number) => (
-              <div key={racer.id || idx} style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
-                <div style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {idx + 1}</div>
+              <div key={racer.id || idx} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
+                <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {idx + 1}</div>
                 <RacerAvatar 
                   racer={{
                     id: racer.id,
@@ -233,10 +233,10 @@ export default function Observation() {
                   size="80px"
                   style={{ margin: '0 auto 5px', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                 />
-                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
                   {racer.firstName} {racer.lastName}
                 </div>
-                {racer.carNumber && <div style={{ fontSize: '0.8rem', color: '#666' }}>Car #{racer.carNumber}</div>}
+                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: '#666' }}>Car #{racer.carNumber}</div>}
               </div>
             ))}
           </div>
@@ -318,7 +318,7 @@ export default function Observation() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
+      <div className="heat-cards-layout" style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
         {renderHeatCard(
           "Now Racing", 
           currentHeatRacers, 
@@ -381,8 +381,8 @@ export default function Observation() {
       )}
 
       {activeTab === 'standings' ? (
-        <div style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div className="standings-table-wrapper" style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+          <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead style={{ backgroundColor: 'var(--cub-scouting-gold)', color: '#333' }}>
               <tr>
                 <th style={{ padding: '15px' }}>Rank</th>
@@ -395,11 +395,11 @@ export default function Observation() {
               {standings.map((s: Standing, idx: number) => {
                 const racer = racersMap[s.racerId];
                 return (
-                  <tr key={s.racerId} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '15px', fontSize: '1.5rem', fontWeight: 'bold', color: idx === 0 ? '#d4af37' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#333' }}>
+                  <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid #eee' }}>
+                    <td className="standing-rank" style={{ padding: '15px', fontSize: '1.5rem', fontWeight: 'bold', color: idx === 0 ? '#d4af37' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#333' }}>
                       {idx + 1}
                     </td>
-                    <td style={{ padding: '15px' }}>
+                    <td className="standing-racer" style={{ padding: '15px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                         <RacerAvatar 
                           racer={{
@@ -412,17 +412,17 @@ export default function Observation() {
                           style={{ border: '3px solid white', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
                         />
                         <div>
-                          <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+                          <div className="standing-racer-name" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
                             {racer ? `${racer.firstName} ${racer.lastName}` : `Racer #${s.racerId}`}
                           </div>
                           {racer?.carNumber && (
-                            <div style={{ color: '#666', fontSize: '0.9rem' }}>Car #{racer.carNumber}</div>
+                            <div className="standing-car-number" style={{ color: '#666', fontSize: '0.9rem' }}>Car #{racer.carNumber}</div>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: '15px', textAlign: 'right', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>{s.score.toFixed(4)}s</td>
-                    <td style={{ padding: '15px', textAlign: 'right', fontSize: '1.1rem' }}>{s.heatsCompleted}</td>
+                    <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>{s.score.toFixed(4)}s</td>
+                    <td className="standing-runs" style={{ padding: '15px', textAlign: 'right', fontSize: '1.1rem' }}>{s.heatsCompleted}</td>
                   </tr>
                 );
               })}
@@ -433,10 +433,10 @@ export default function Observation() {
           </table>
         </div>
       ) : (
-        <div style={{ background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+        <div className="timing-list-wrapper" style={{ background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
           {lastHeatResults ? (
             <div>
-              <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>
+              <h2 className="timing-header" style={{ textAlign: 'center', marginBottom: '30px' }}>
                 Last Completed: {lastHeatResults.roundName} / Heat {lastHeatResults.heatNumber}
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -445,6 +445,7 @@ export default function Observation() {
                   .map((lane) => (
                   <div 
                     key={lane.laneNumber} 
+                    className="timing-list-item"
                     style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -454,14 +455,14 @@ export default function Observation() {
                       borderLeft: `10px solid ${lane.place === 1 ? '#d4af37' : '#ddd'}`
                     }}
                   >
-                    <div style={{ fontSize: '2rem', fontWeight: 'bold', width: '60px', textAlign: 'center' }}>
+                    <div className="timing-rank" style={{ fontSize: '2rem', fontWeight: 'bold', width: '60px', textAlign: 'center' }}>
                       {lane.place}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{lane.racerName}</div>
-                      <div style={{ color: '#666' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
+                    <div className="timing-racer-info" style={{ flex: 1 }}>
+                      <div className="timing-racer-name" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{lane.racerName}</div>
+                      <div className="timing-car-name" style={{ color: '#666' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
                     </div>
-                    <div style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                    <div className="timing-time" style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
                       {lane.time?.toFixed(3)}s
                     </div>
                   </div>

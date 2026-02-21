@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import Observation from './Observation';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
@@ -260,13 +260,13 @@ describe('Observation Page', () => {
 
 
         // Fast-forward time
-        vi.advanceTimersByTime(6000);
+        act(() => {
+            vi.advanceTimersByTime(6000);
+        });
 
         // Overlay should be gone
         // Overlay should be gone
-        await waitFor(() => {
-            expect(screen.queryByText('Heat Results')).not.toBeInTheDocument();
-        });
+        expect(screen.queryByText('Heat Results')).not.toBeInTheDocument();
 
         vi.useRealTimers();
     });
