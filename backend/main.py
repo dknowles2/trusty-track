@@ -19,13 +19,42 @@ from strawberry.fastapi import GraphQLRouter
 import logging
 from contextlib import asynccontextmanager
 
+from typing import Dict
+
 from . import models
 from .database import DATA_DIR, SessionLocal, engine
 from .schema import schema
+from .timer.manager import TimerManager
+from .timer.devices.fake import FakeTimerDevice
+from .timer.devices.microwizard import MicroWizardDevice
+
+# Registry of TimerManager instances, keyed by track_id
+TIMER_MANAGERS: Dict[int, TimerManager] = {}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _build_timer_managers() -> None:
+    """Query all Track records and create a TimerManager for each."""
+    db = SessionLocal()
+    try:
+        tracks = db.query(models.Track).all()
+        for track in tracks:
+            if track.timer_type == models.TimerType.FAKE:
+                device = FakeTimerDevice()
+            else:
+                # AUTO_DETECT_BACKEND / AUTO_DETECT_PROXY: use MicroWizard as the
+                # target device; real connection logic is wired in Phase 2/3.
+                device = MicroWizardDevice()
+            TIMER_MANAGERS[track.id] = TimerManager(track.id, device)
+            logger.info(
+                "TimerManager created for track %d (%s) with device %s",
+                track.id, track.name, device.name,
+            )
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -41,6 +70,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         # In a real production app, you might want to exit here
+
+    logger.info("Initializing timer managers...")
+    try:
+        _build_timer_managers()
+        logger.info("Timer managers ready: %s", list(TIMER_MANAGERS.keys()))
+    except Exception as e:
+        logger.error(f"Failed to initialize timer managers: {e}")
+
     yield
 
 
@@ -76,8 +113,8 @@ app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 
 async def get_graphql_context(db: Session = Depends(get_db)) -> dict:
-    """Provide the database session as GraphQL context."""
-    return {"db": db}
+    """Provide the database session and timer managers as GraphQL context."""
+    return {"db": db, "timer_managers": TIMER_MANAGERS}
 
 
 graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)
