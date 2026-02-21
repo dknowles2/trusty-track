@@ -5,11 +5,14 @@ Owns byte framing, state machine, result recording, and pub/sub publishing.
 Shared by all connectivity modes (fake, backend-direct, frontend-proxy).
 """
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable, Awaitable, Dict, List, Optional
+
+import serial
 
 from ..pubsub import pubsub
 from ..database import SessionLocal
@@ -42,6 +45,10 @@ class TimerManager:
         self._pending_results: Dict[int, LaneResult] = {}
         self._last_error: Optional[str] = None
         self._write_fn: Callable[[bytes], Awaitable[None]] = self._noop_write
+        self._serial: Optional[serial.Serial] = None
+        self._read_task: Optional[asyncio.Task] = None
+        self._direct_port: Optional[str] = None
+        self._watchdog_task: Optional[asyncio.Task] = None
 
         if not device.requires_serial:
             # Fake timer: skip DISCONNECTED/CONNECTED/identification; start in IDLE
@@ -275,5 +282,113 @@ class TimerManager:
     # ------------------------------------------------------------------ #
 
     async def connect_direct(self, port: str) -> None:
-        """Open a serial port and begin reading (implemented in Phase 2)."""
-        raise NotImplementedError("Backend-direct serial mode is not yet implemented")
+        """Open a serial port and begin reading."""
+        self._direct_port = port
+        if self._serial:
+            self._serial.close()
+            self._serial = None # Ensure it's None before trying to re-open
+        if self._read_task:
+            self._read_task.cancel()
+            self._read_task = None
+
+        try:
+            # We wrap this in to_thread because Serial() opening can block
+            self._serial = await asyncio.to_thread(
+                serial.Serial,
+                port,
+                baudrate=self._device.baud_rate,
+                timeout=0.1
+            )
+        except Exception as e:
+            self._last_error = f"Failed to open port {port}: {e}"
+            logger.error("Timer %d: %s", self._track_id, self._last_error)
+            await self._transition(TimerState.FAULT)
+            
+            # Still start watchdog even if it fails once
+            if not self._watchdog_task:
+                self._watchdog_task = asyncio.create_task(self._watchdog_loop())
+            return
+
+        async def send_to_serial(data: bytes) -> None:
+            if self._serial and self._serial.is_open:
+                try:
+                    await asyncio.to_thread(self._serial.write, data)
+                except Exception as e:
+                    logger.error("Timer %d write error: %s", self._track_id, e)
+
+        self.set_write_fn(send_to_serial)
+        await self.handle_connect()
+
+        # Start background read task
+        self._read_task = asyncio.create_task(self._read_loop())
+
+        # Start watchdog if not already running
+        if not self._watchdog_task:
+            self._watchdog_task = asyncio.create_task(self._watchdog_loop())
+
+        logger.info("Timer %d: Started direct serial mode on %s", self._track_id, port)
+
+    async def _watchdog_loop(self) -> None:
+        """Monitor connection health and attempt reconnects."""
+        try:
+            while True:
+                await asyncio.sleep(10.0)
+                if self._direct_port and (not self._serial or not self._serial.is_open or self._state == TimerState.FAULT):
+                    logger.info("Timer %d watchdog: attempting reconnect on %s", self._track_id, self._direct_port)
+                    # We call connect_direct again. It handles its own task/serial cleanup.
+                    try:
+                        await self.connect_direct(self._direct_port)
+                    except Exception as e:
+                        logger.error("Timer %d: Watchdog reconnect failed: %s", self._track_id, e)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("Timer %d watchdog error: %s", self._track_id, e)
+
+    async def _read_loop(self) -> None:
+        """Background task for reading from serial."""
+        try:
+            while self._serial and self._serial.is_open:
+                # Use to_thread for blocking read
+                data = await asyncio.to_thread(self._serial.read, 64)
+                if data:
+                    await self.receive_bytes(data)
+                else:
+                    # Small sleep to yield if no data (timeout reached)
+                    await asyncio.sleep(0.01)
+        except asyncio.CancelledError:
+            logger.info("Timer %d: Serial read task cancelled", self._track_id)
+        except serial.SerialException as e:
+            self._last_error = f"Serial error: {e}"
+            logger.error("Timer %d serial error: %s", self._track_id, e)
+            await self.handle_disconnect()
+            await self._transition(TimerState.FAULT)
+        except Exception as e:
+            logger.error("Timer %d read loop error: %s", self._track_id, e)
+        finally:
+            if self._serial:
+                self._serial.close()
+                self._serial = None
+            logger.info("Timer %d: Serial read loop stopped", self._track_id)
+
+    async def stop(self) -> None:
+        """Stop the timer manager and close any active connections."""
+        if self._watchdog_task:
+            self._watchdog_task.cancel()
+            self._watchdog_task = None
+
+        if self._read_task:
+            self._read_task.cancel()
+            try:
+                await self._read_task
+            except asyncio.CancelledError:
+                pass
+            self._read_task = None
+        
+        self._direct_port = None
+
+        if self._serial:
+            self._serial.close()
+            self._serial = None
+        
+        await self.handle_disconnect()

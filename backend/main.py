@@ -37,7 +37,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def _build_timer_managers() -> None:
+async def _build_timer_managers() -> None:
     """Query all Track records and create a TimerManager for each."""
     db = SessionLocal()
     try:
@@ -49,11 +49,17 @@ def _build_timer_managers() -> None:
                 # AUTO_DETECT_BACKEND / AUTO_DETECT_PROXY: use MicroWizard as the
                 # target device; real connection logic is wired in Phase 2/3.
                 device = MicroWizardDevice()
-            TIMER_MANAGERS[track.id] = TimerManager(track.id, device)
+            
+            manager = TimerManager(track.id, device)
+            TIMER_MANAGERS[track.id] = manager
             logger.info(
                 "TimerManager created for track %d (%s) with device %s",
                 track.id, track.name, device.name,
             )
+
+            # Start connection automatically if in direct-backend mode
+            if track.timer_type == models.TimerType.AUTO_DETECT_BACKEND and track.serial_port:
+                asyncio.create_task(manager.connect_direct(track.serial_port))
     finally:
         db.close()
 
@@ -74,7 +80,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Initializing timer managers...")
     try:
-        _build_timer_managers()
+        await _build_timer_managers()
         logger.info("Timer managers ready: %s", list(TIMER_MANAGERS.keys()))
     except Exception as e:
         logger.error(f"Failed to initialize timer managers: {e}")

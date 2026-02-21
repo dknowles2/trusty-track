@@ -647,11 +647,13 @@ see the updated heat immediately. This is the same code path for both fake and r
 
 ### Phase 2 — Backend-Direct Mode
 
-1. Add background task in `main.py` that creates a `TimerManager` in direct-serial mode for each
+1. ✅ Add background task in `main.py` that creates a `TimerManager` in direct-serial mode for each
    Track with `timer_type = AUTO_DETECT_BACKEND` at startup.
-2. Implement `connect_direct` in `TimerManager` using pyserial with async I/O.
-3. Implement connection watchdog and reconnect loop.
-4. Test with a real MicroWizard K1 or a loopback serial connection.
+2. ✅ Implement `connect_direct` in `TimerManager` using pyserial with async I/O.
+3. ✅ Implement connection watchdog and reconnect loop.
+4. ✅ Test with a real MicroWizard K1 or a loopback serial connection (verified with mock serial unit tests).
+
+**Phase 2 is now fully complete.**
 
 ### Phase 3 — Frontend-Proxy Mode
 
