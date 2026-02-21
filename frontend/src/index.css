@@ -650,3 +650,32 @@ input:checked + .slider:before {
   border-width: 0.4vmin !important;
   font-size: 5vmin !important; /* Initials size */
 }
+
+/* Responsive Projector Standings */
+@media screen and (max-aspect-ratio: 8/5), screen and (max-width: 1200px) {
+  .projector-standings-time-col {
+    display: none !important;
+  }
+  .projector-standings-rank-col {
+    width: 25% !important;
+  }
+  .projector-standings-racer-col {
+    width: 75% !important;
+  }
+}
+
+@media screen and (max-width: 800px) {
+  .projector-grid {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  .projector-left-col, .projector-right-col {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .projector-mode {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+}
