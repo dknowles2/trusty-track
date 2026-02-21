@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import os
+import random
 import typing
 import uuid
 from datetime import datetime, timezone
@@ -615,6 +616,38 @@ class FreeRaceLaneAssignmentInput:
 
 
 @strawberry.type
+class TimerStatus:
+    """Current state of the timer for a track."""
+
+    state: str
+    device_name: Optional[str]
+    lane_count: Optional[int]
+    active_heat_id: Optional[int]
+    last_error: Optional[str]
+
+
+@strawberry.type
+class TimerStateChangedEvent:
+    """Event emitted whenever the timer state changes for a track."""
+
+    track_id: int
+    status: TimerStatus
+    changed_at: str  # ISO 8601 UTC timestamp
+
+
+def _timer_status_from_manager(mgr) -> TimerStatus:
+    """Convert a TimerManager.status() dataclass to the Strawberry TimerStatus type."""
+    s = mgr.status()
+    return TimerStatus(
+        state=s.state,
+        device_name=s.device_name,
+        lane_count=s.lane_count,
+        active_heat_id=s.active_heat_id,
+        last_error=s.last_error,
+    )
+
+
+@strawberry.type
 class Query:
     """
     Root query type for fetching data.
@@ -838,6 +871,15 @@ class Query:
             FreeRaceLaneAssignment(lane=a["lane"], racer_id=a["racer_id"])
             for a in assignments
         ]
+
+    @strawberry.field
+    def timer_status(self, info: Info, track_id: int) -> Optional[TimerStatus]:
+        """Return the current timer state for a track."""
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(track_id)
+        if mgr is None:
+            return None
+        return _timer_status_from_manager(mgr)
 
 
 @strawberry.type
@@ -1130,6 +1172,117 @@ class Mutation:
         crud.resolve_round_placeholders(db, round_id, winner_ids)
         await _publish_race_state(race_id)
         return len(winner_ids)
+
+    # Timer Mutations
+
+    @strawberry.mutation
+    async def prepare_heat(self, info: Info, heat_id: int) -> bool:
+        """Arm the timer for a heat (all timer types).
+
+        Computes the lane mask from occupied lanes in the heat, then calls
+        TimerManager.prepare_heat() which sends device commands and transitions
+        to ARMED state. For the fake timer no serial commands are sent but the
+        state still advances.
+        """
+        timer_managers = info.context.get("timer_managers", {})
+        db = info.context["db"]
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if heat is None:
+            return False
+        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+        if race is None or race.track_id is None:
+            return False
+        mgr = timer_managers.get(race.track_id)
+        if mgr is None:
+            return False
+
+        # Compute lane mask from occupied (non-null racer_id) lanes
+        lane_results = json.loads(heat.lane_results) if heat.lane_results else []
+        lane_mask = 0
+        for lr in lane_results:
+            if lr.get("racer_id") is not None:
+                lane = lr["lane"]
+                lane_mask |= 1 << (lane - 1)
+        if lane_mask == 0:
+            return False
+
+        await mgr.prepare_heat(heat_id=heat_id, lane_mask=lane_mask)
+        return True
+
+    @strawberry.mutation
+    async def abort_heat(self, info: Info, track_id: int) -> bool:
+        """Abort the current heat and return the timer to IDLE (all timer types)."""
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(track_id)
+        if mgr is None:
+            return False
+        await mgr.abort_heat()
+        return True
+
+    @strawberry.mutation
+    async def fake_timer_start(self, info: Info, heat_id: int) -> bool:
+        """Signal race start for the fake timer (ARMED → RUNNING).
+
+        Returns False if the timer is not in ARMED state or heat_id doesn't match.
+        """
+        from .timer.state_machine import TimerState
+        from .timer.devices.base import RaceStarted
+
+        timer_managers = info.context.get("timer_managers", {})
+        db = info.context["db"]
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if heat is None:
+            return False
+        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+        if race is None or race.track_id is None:
+            return False
+        mgr = timer_managers.get(race.track_id)
+        if mgr is None:
+            return False
+        if mgr._state != TimerState.ARMED or mgr._active_heat_id != heat_id:
+            return False
+
+        await mgr.inject_event(RaceStarted())
+        return True
+
+    @strawberry.mutation
+    async def fake_timer_finish(self, info: Info, heat_id: int) -> bool:
+        """Generate random results and record them for the fake timer (RUNNING → IDLE).
+
+        Looks up occupied lanes, generates random times (3.0–4.0 s), sorts
+        them, assigns placements, then injects LaneResult events into the
+        TimerManager. The manager records results through the same path as a
+        real timer. Returns False if the timer is not in RUNNING state.
+        """
+        from .timer.state_machine import TimerState
+        from .timer.devices.base import LaneResult as TimerLaneResult
+
+        timer_managers = info.context.get("timer_managers", {})
+        db = info.context["db"]
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if heat is None:
+            return False
+        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+        if race is None or race.track_id is None:
+            return False
+        mgr = timer_managers.get(race.track_id)
+        if mgr is None:
+            return False
+        if mgr._state != TimerState.RUNNING or mgr._active_heat_id != heat_id:
+            return False
+
+        lane_results = json.loads(heat.lane_results) if heat.lane_results else []
+        occupied = [lr["lane"] for lr in lane_results if lr.get("racer_id") is not None]
+        if not occupied:
+            return False
+
+        # Generate random times and sort to assign placements
+        timed = [(lane, 3.0 + random.random()) for lane in occupied]
+        timed.sort(key=lambda x: x[1])
+        for place, (lane, t) in enumerate(timed, start=1):
+            await mgr.inject_event(TimerLaneResult(lane=lane, time_seconds=t, place=place))
+
+        return True
 
     # Heat Mutations
     @strawberry.mutation
@@ -1525,6 +1678,37 @@ async def _publish_race_state(race_id: int) -> None:
 @strawberry.type
 class Subscription:
     """Root subscription type for real-time race state updates."""
+
+    @strawberry.subscription
+    async def timer_status(
+        self, info: Info, track_id: int
+    ) -> AsyncGenerator[TimerStateChangedEvent, None]:
+        """Subscribe to timer state changes for a specific track.
+
+        Emits a TimerStateChangedEvent on every timer state transition.
+        Yields an initial event immediately with the current state.
+        """
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(track_id)
+        if mgr is not None:
+            yield TimerStateChangedEvent(
+                track_id=track_id,
+                status=_timer_status_from_manager(mgr),
+                changed_at=datetime.now(timezone.utc).isoformat(),
+            )
+        async with pubsub.subscribe(f"timer_state:{track_id}") as stream:
+            async for status_dc in stream:
+                yield TimerStateChangedEvent(
+                    track_id=track_id,
+                    status=TimerStatus(
+                        state=status_dc.state,
+                        device_name=status_dc.device_name,
+                        lane_count=status_dc.lane_count,
+                        active_heat_id=status_dc.active_heat_id,
+                        last_error=status_dc.last_error,
+                    ),
+                    changed_at=datetime.now(timezone.utc).isoformat(),
+                )
 
     @strawberry.subscription
     async def race_state_changed(
