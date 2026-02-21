@@ -4,16 +4,10 @@ import Modal from '../Modal';
 import { FakeTimerMole } from './FakeTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
-import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT } from '../../graphql/raceDetails';
+import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT } from '../../graphql/raceDetails';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
-
-const RESET_TIMER = `
-  mutation ResetTimer($trackId: Int!) {
-    resetTimer(trackId: $trackId)
-  }
-`;
 
 export interface Heat {
   id: number;
@@ -95,7 +89,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
   const timerState: string = subResult.data?.timerStatus?.status?.state ?? 'IDLE';
 
   const [, prepareHeat] = useMutation(PREPARE_HEAT);
-  const [, resetTimer] = useMutation(RESET_TIMER);
+  const [, abortHeat] = useMutation(ABORT_HEAT);
 
   const results = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
   const isCompleted = results.length > 0 && results[0].time !== null;
@@ -165,7 +159,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         place: null
       }));
       await onUpdateResult(activeExecutionHeat.id, skippedResults);
-      if (trackId) await resetTimer({ trackId });
+      if (trackId) await abortHeat({ trackId });
       onNextHeat();
     }
   };
