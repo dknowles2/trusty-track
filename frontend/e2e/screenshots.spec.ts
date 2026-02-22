@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 test('take screenshots', async ({ page }) => {
   const screenshotsDir = path.resolve(__dirname, '../../docs/assets/screenshots');
@@ -29,12 +32,14 @@ test('take screenshots', async ({ page }) => {
   await page.waitForTimeout(500); // wait for modal animation
   await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/03-new-race-form.png') });
 
-  await page.getByLabel('Event Name').fill('2026 Pinewood Derby');
-  await page.getByLabel('Date & Time').fill('2026-03-01T10:00');
-  await page.getByLabel('Location').fill('School Gym');
+  await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('2026 Pinewood Derby');
+  await page.locator('input[type="datetime-local"]').fill('2026-03-01T10:00');
+  await page.getByPlaceholder('e.g. School Gym').fill('School Gym');
   await page.getByRole('button', { name: 'Create Race' }).click();
 
-  // URL should be /race/1 or /race/2
+  // Modal closes, race appears in table — click it to navigate to the race
+  await expect(page.getByRole('link', { name: '2026 Pinewood Derby' })).toBeVisible();
+  await page.getByRole('link', { name: '2026 Pinewood Derby' }).click();
   await page.waitForURL('**/race/*');
   await expect(page.getByRole('heading', { name: '2026 Pinewood Derby' })).toBeVisible();
   await page.waitForTimeout(500); // render elements
@@ -106,7 +111,7 @@ test('take screenshots', async ({ page }) => {
   // Final Roster Review - maybe group by den
   await page.mouse.click(0, 0); // Click body to close dropdown
   await page.waitForTimeout(300);
-  await page.locator('.toggle-switch input').check({ force: true }); // Check "Group by den"
+  await page.locator('.toggle-switch').click(); // Toggle "Group by den"
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/10-final-roster-review.png') });
 });

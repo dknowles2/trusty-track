@@ -257,7 +257,7 @@ class FreeRaceHeat(Base):
         return self.round.round_number if self.round else 0
 
     @property
-    def round_name(self) -> str | None:
+    def round_name(self) -> Optional[str]:
         """Get the round name from the related Round."""
         return self.round.name if self.round else None
 
@@ -267,11 +267,11 @@ class FreeRaceHeat(Base):
         return self.round.total_participants if self.round else 0
 
     @property
-    def advancement_num_racers(self) -> int | None:
+    def advancement_num_racers(self) -> Optional[int]:
         """Get the number of racers to advance to this round."""
         return self.round.advancement_num_racers if self.round else None
 
     @property
-    def advancement_source(self) -> str | None:
+    def advancement_source(self) -> Optional[str]:
         """Get the advancement source from the related Round."""
         return self.round.advancement_source if self.round else None

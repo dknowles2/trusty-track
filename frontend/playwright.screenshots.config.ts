@@ -1,16 +1,17 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as path from 'path';
-import { TEST_DATA_DIR } from './e2e/screenshots-setup';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const BACKEND_PORT = 8001;
 const FRONTEND_PORT = 5175;
 const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
+const TEST_DATA_DIR = '/tmp/trusty-track-screenshots';
 
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/screenshots.spec.ts',
-  globalSetup: './e2e/screenshots-setup.ts',
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
@@ -26,8 +27,8 @@ export default defineConfig({
   ],
   webServer: [
     {
-      // Fresh backend with isolated data directory
-      command: `.venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port ${BACKEND_PORT}`,
+      // Clean data dir then start a fresh backend on an isolated port
+      command: `rm -rf ${TEST_DATA_DIR} && mkdir -p ${TEST_DATA_DIR} && .venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port ${BACKEND_PORT}`,
       url: `${BACKEND_URL}/health`,
       reuseExistingServer: false,
       cwd: PROJECT_ROOT,
