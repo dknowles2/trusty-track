@@ -147,6 +147,34 @@ npm run dev
 | **Database Locks**        | SQLite can occasionally lock if a process crashes. Restart the backend server.                                                                 |
 | **Missing Dependencies**  | Re-run `pip install -r requirements.txt` (backend) or `npm install` (frontend).                                                                |
 
+## 📸 Regenerating Documentation Screenshots
+
+The screenshots in `docs/assets/screenshots/` are generated automatically via a Playwright test that walks through the full UI flow.
+
+### Prerequisites
+
+Playwright's Chromium browser must be installed:
+
+```bash
+cd frontend
+npx playwright install chromium
+```
+
+### Running
+
+```bash
+cd frontend
+npx playwright test --config playwright.screenshots.config.ts
+```
+
+This will:
+1. Start a fresh backend on port 8001 with an isolated, empty database (`/tmp/trusty-track-screenshots`)
+2. Start a fresh frontend dev server on port 5175 pointing at that backend
+3. Walk through the UI (create a race, add dens, import test data, etc.) and capture screenshots
+4. Write the updated PNGs to `docs/assets/screenshots/`
+
+Every run is clean — the test data directory is wiped before the backend starts, so screenshots always reflect a fresh install.
+
 ## 📁 Directory Structure
 
 - `backend/` - API, database models, business logic.
