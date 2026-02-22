@@ -23,6 +23,8 @@ fi
 
 export CERT_FILE="$PROJECT_ROOT/certs/localhost.pem"
 export KEY_FILE="$PROJECT_ROOT/certs/localhost-key.pem"
+export VITE_BACKEND_SECURE=false
+
 
 # Start Backend (HTTPS :8000)
 echo "Starting Backend (HTTPS :8000)..."
