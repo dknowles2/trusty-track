@@ -16,6 +16,7 @@ const GET_RACE_CONTROL_DATA = `
       name
       championshipTrophies
       scoringStrategy
+      autoAdvanceHeat
       track {
         id
         laneCount
@@ -79,6 +80,15 @@ const UPDATE_HEAT_RESULT_MUTATION = `
   mutation UpdateHeatResult($heatId: Int!, $results: String!) {
     updateHeatResult(heatId: $heatId, results: $results) {
       id
+    }
+  }
+`;
+
+const UPDATE_RACE_MUTATION = `
+  mutation UpdateRace($id: Int!, $race: RaceUpdateInput!) {
+    updateRace(id: $id, race: $race) {
+      id
+      autoAdvanceHeat
     }
   }
 `;
@@ -150,6 +160,7 @@ export default function RaceControl() {
   const [, deleteRoundMutation] = useMutation(DELETE_ROUND_MUTATION);
   const [, reorderHeatsMutation] = useMutation(REORDER_HEATS_MUTATION);
   const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
+  const [, updateRaceMutation] = useMutation(UPDATE_RACE_MUTATION);
 
   // Subscribe to race state changes so all tabs stay in sync.
   // Any mutation — from this tab or another — triggers a fresh fetch.
@@ -463,7 +474,22 @@ export default function RaceControl() {
             </div>
         </div>
 
-        <div></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '160px', justifyContent: 'flex-end' }}>
+          {viewMode === 'EXECUTION' && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.95rem', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={race?.autoAdvanceHeat ?? false}
+                onChange={async (e) => {
+                  await updateRaceMutation({ id, race: { autoAdvanceHeat: e.target.checked } });
+                  reExecute({ requestPolicy: 'network-only' });
+                }}
+                style={{ cursor: 'pointer' }}
+              />
+              Auto-advance
+            </label>
+          )}
+        </div>
       </div>
 
       {viewMode === 'FREE_RACE' ? (
@@ -493,6 +519,7 @@ export default function RaceControl() {
             trackId={race?.track?.id ?? null}
             racers={racers}
             roundSummary={roundSummary}
+            autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
           />
         )
       ) : (

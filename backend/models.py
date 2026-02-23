@@ -103,6 +103,7 @@ class Race(Base):
         SAEnum(ScoringStrategy), default=ScoringStrategy.TIMED
     )
     rules_configuration: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    auto_advance_heat: Mapped[bool] = mapped_column(Boolean, default=False)
 
     group: Mapped["Group"] = relationship("Group", back_populates="races")
     track: Mapped[Optional["Track"]] = relationship("Track", back_populates="races")

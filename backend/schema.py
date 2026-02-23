@@ -222,6 +222,7 @@ class RaceUpdateInput:
     car_numbering_strategy: Optional[str] = None
     global_start_number: Optional[int] = None
     championship_trophies: Optional[int] = None
+    auto_advance_heat: Optional[bool] = None
 
 
 @strawberry.input
@@ -398,6 +399,7 @@ class Race:
     global_start_number: int
     championship_trophies: int
     scoring_strategy: str
+    auto_advance_heat: bool
 
     @strawberry.field
     def leaderboard(self, info: Info) -> List[LeaderboardEntry]:

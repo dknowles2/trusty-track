@@ -167,6 +167,7 @@ class RaceUpdate(BaseModel):
     car_numbering_strategy: Optional[CarNumberingStrategy] = None
     global_start_number: Optional[int] = None
     championship_trophies: Optional[int] = None
+    auto_advance_heat: Optional[bool] = None
 
 
 class Race(RaceBase):

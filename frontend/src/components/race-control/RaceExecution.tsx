@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSubscription, useMutation } from 'urql';
 import Modal from '../Modal';
 import { FakeTimerMole } from './FakeTimerMole';
@@ -61,6 +61,7 @@ interface RaceExecutionProps {
     trackId?: number | null;
     racers: Record<number, Racer>;
     roundSummary: AdvancementStatus | null;
+    autoAdvanceHeat: boolean;
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
@@ -74,12 +75,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     timerType,
     trackId,
     racers,
-    roundSummary
+    roundSummary,
+    autoAdvanceHeat
 }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<any[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [isRoundSummaryOpen, setIsRoundSummaryOpen] = useState(!!roundSummary);
+    const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
+    const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [subResult] = useSubscription({
         query: TIMER_STATUS_SUBSCRIPTION,
@@ -124,6 +128,38 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     useEffect(() => {
         setIsRoundSummaryOpen(!!roundSummary);
     }, [roundSummary]);
+
+    useEffect(() => {
+        if (!autoAdvanceHeat || !isCompleted || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen)) {
+            setAutoAdvanceCountdown(null);
+            if (autoAdvanceTimeoutRef.current) {
+                clearTimeout(autoAdvanceTimeoutRef.current);
+                autoAdvanceTimeoutRef.current = null;
+            }
+            return;
+        }
+        setAutoAdvanceCountdown(3);
+        const interval = setInterval(() => {
+            setAutoAdvanceCountdown(prev => {
+                if (prev === null || prev <= 1) {
+                    clearInterval(interval);
+                    return null;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        autoAdvanceTimeoutRef.current = setTimeout(() => {
+            onNextHeat();
+        }, 3000);
+        return () => {
+            clearInterval(interval);
+            if (autoAdvanceTimeoutRef.current) {
+                clearTimeout(autoAdvanceTimeoutRef.current);
+                autoAdvanceTimeoutRef.current = null;
+            }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isCompleted, autoAdvanceHeat, nextExecutionHeat?.id, roundSummary, isRoundSummaryOpen]);
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -248,22 +284,52 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             <Icon path={mdiRefresh} size={0.7} /> Re-Run
                                         </button>
                                         {nextExecutionHeat && (!roundSummary || !isRoundSummaryOpen) && (
-                                            <button
-                                                className="primary-btn"
-                                                onClick={onNextHeat}
-                                                style={{
-                                                    padding: '6px 16px',
-                                                    fontSize: '1rem',
-                                                    background: '#2e7d32', // Green for Go
-                                                    color: 'white',
-                                                    marginLeft: '10px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '8px'
-                                                }}
-                                            >
-                                                Next Heat <Icon path={mdiArrowRight} size={0.8} />
-                                            </button>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '10px' }}>
+                                                <button
+                                                    className="primary-btn"
+                                                    onClick={() => {
+                                                        if (autoAdvanceTimeoutRef.current) {
+                                                            clearTimeout(autoAdvanceTimeoutRef.current);
+                                                            autoAdvanceTimeoutRef.current = null;
+                                                        }
+                                                        setAutoAdvanceCountdown(null);
+                                                        onNextHeat();
+                                                    }}
+                                                    style={{
+                                                        padding: '6px 16px',
+                                                        fontSize: '1rem',
+                                                        background: '#2e7d32',
+                                                        color: 'white',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '8px'
+                                                    }}
+                                                >
+                                                    Next Heat{autoAdvanceCountdown !== null ? ` (${autoAdvanceCountdown}s)` : ''} <Icon path={mdiArrowRight} size={0.8} />
+                                                </button>
+                                                {autoAdvanceCountdown !== null && (
+                                                    <button
+                                                        onClick={() => {
+                                                            if (autoAdvanceTimeoutRef.current) {
+                                                                clearTimeout(autoAdvanceTimeoutRef.current);
+                                                                autoAdvanceTimeoutRef.current = null;
+                                                            }
+                                                            setAutoAdvanceCountdown(null);
+                                                        }}
+                                                        style={{
+                                                            padding: '4px 10px',
+                                                            fontSize: '0.85rem',
+                                                            background: 'transparent',
+                                                            color: '#c62828',
+                                                            border: '1px solid #c62828',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
                                     </>
                                 ) : isRunning ? (
