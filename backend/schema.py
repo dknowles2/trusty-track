@@ -1512,8 +1512,25 @@ class Mutation:
 
         for i, input_track in enumerate(input_tracks):
             if i < len(db_tracks):
-                # Update existing track via existing mutation logic
-                await self.update_track(info, db_tracks[i].id, input_track)
+                # Update existing track inline (cannot call self.update_track — self is None in Strawberry)
+                db_track = db_tracks[i]
+                old_timer_type = db_track.timer_type
+                old_serial_port = db_track.serial_port
+                track_update = schemas.TrackBase(**typing.cast(Any, strawberry.asdict(input_track)))
+                crud.update_track(db, db_track, track_update)
+                mgr = timer_managers.get(db_track.id)
+                if mgr:
+                    if input_track.timer_type != old_timer_type:
+                        if input_track.timer_type == models.TimerType.FAKE:
+                            await mgr.set_device(FakeTimerDevice())
+                        else:
+                            await mgr.set_device(MicroWizardDevice())
+                    if input_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+                        if input_track.serial_port != old_serial_port or input_track.timer_type != old_timer_type:
+                            if input_track.serial_port:
+                                asyncio.create_task(mgr.connect_direct(input_track.serial_port))
+                    elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+                        await mgr.stop()
             else:
                 # Add new track
                 track_in = schemas.TrackCreate(**typing.cast(Any, strawberry.asdict(input_track)))
