@@ -1912,6 +1912,7 @@ class Subscription:
             db.commit()
             yield [LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)]
             async for _ in stream:
+                db.expire_all()
                 db.commit()
                 yield [
                     LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)
@@ -1953,6 +1954,7 @@ class Subscription:
 
             yield _get_on_deck()
             async for _ in stream:
+                db.expire_all()
                 db.commit()
                 yield _get_on_deck()
 
@@ -1976,6 +1978,7 @@ class Subscription:
 
             yield _get_current()
             async for _ in stream:
+                db.expire_all()
                 db.commit()
                 yield _get_current()
 
@@ -2058,6 +2061,7 @@ class Subscription:
 
             yield _get_timing_stats()
             async for _ in stream:
+                db.expire_all()
                 db.commit()
                 yield _get_timing_stats()
 
@@ -2079,6 +2083,7 @@ class Subscription:
 
             yield _get_rounds()
             async for _ in stream:
+                db.expire_all()
                 db.commit()
                 yield _get_rounds()
 
