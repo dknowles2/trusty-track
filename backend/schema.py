@@ -1865,8 +1865,10 @@ class Subscription:
         """Subscribe to the leaderboard for a specific race."""
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]
+            db.commit()
             yield [LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)]
             async for _ in stream:
+                db.commit()
                 yield [
                     LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)
                 ]
@@ -1907,6 +1909,7 @@ class Subscription:
 
             yield _get_on_deck()
             async for _ in stream:
+                db.commit()
                 yield _get_on_deck()
 
     @strawberry.subscription
@@ -1929,6 +1932,7 @@ class Subscription:
 
             yield _get_current()
             async for _ in stream:
+                db.commit()
                 yield _get_current()
 
     @strawberry.subscription
@@ -2010,6 +2014,7 @@ class Subscription:
 
             yield _get_timing_stats()
             async for _ in stream:
+                db.commit()
                 yield _get_timing_stats()
 
     @strawberry.subscription
@@ -2030,6 +2035,7 @@ class Subscription:
 
             yield _get_rounds()
             async for _ in stream:
+                db.commit()
                 yield _get_rounds()
 
     @strawberry.subscription
@@ -2049,6 +2055,7 @@ class Subscription:
         
         async with pubsub.subscribe(f"race_state:{heat.race_id}") as stream:
             async for _ in stream:
+                db.commit()
                 yield _get_heat()
 
     @strawberry.subscription
@@ -2072,6 +2079,7 @@ class Subscription:
 
             yield _get_active_free()
             async for _ in stream:
+                db.commit()
                 yield _get_active_free()
 
 
