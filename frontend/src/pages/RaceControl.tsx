@@ -387,9 +387,22 @@ export default function RaceControl() {
       ? sortedHeatsEx[currentIndex + 1] 
       : null;
 
-  const upcomingHeats = currentIndex !== -1 
+  const upcomingHeats = currentIndex !== -1
       ? sortedHeatsEx.slice(currentIndex + 1, currentIndex + 5)
       : [];
+
+  const completedPreviousHeats = useMemo(() => {
+    return [...heats]
+      .filter((h: Heat) => {
+        if (h.id === activeExecutionHeat?.id) return false;
+        const results = h.laneResults ? JSON.parse(h.laneResults) : [];
+        return results.length > 0 && results.some((r: any) => r.time !== null);
+      })
+      .sort((a: Heat, b: Heat) => {
+        if (b.roundNumber !== a.roundNumber) return b.roundNumber - a.roundNumber;
+        return b.heatNumber - a.heatNumber;
+      });
+  }, [heats, activeExecutionHeat?.id]);
 
   const handleNextHeat = () => {
       setRoundSummary(null);
@@ -506,21 +519,69 @@ export default function RaceControl() {
             <p>No heats available. Please add a round in the Schedule view first.</p>
           </div>
         ) : (
-          <RaceExecution
-            activeExecutionHeat={activeExecutionHeat || null}
-            nextExecutionHeat={nextExecutionHeat}
-            upcomingHeats={upcomingHeats}
-            activeHeatId={activeHeatId}
-            onRunHeat={handleRunHeat}
-            onNextHeat={handleNextHeat}
-            getRacerName={getRacerName}
-            onUpdateResult={handleUpdateResult}
-            timerType={race?.track?.timerType}
-            trackId={race?.track?.id ?? null}
-            racers={racers}
-            roundSummary={roundSummary}
-            autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
-          />
+          <>
+            <RaceExecution
+              activeExecutionHeat={activeExecutionHeat || null}
+              nextExecutionHeat={nextExecutionHeat}
+              upcomingHeats={upcomingHeats}
+              activeHeatId={activeHeatId}
+              onRunHeat={handleRunHeat}
+              onNextHeat={handleNextHeat}
+              getRacerName={getRacerName}
+              onUpdateResult={handleUpdateResult}
+              timerType={race?.track?.timerType}
+              trackId={race?.track?.id ?? null}
+              racers={racers}
+              roundSummary={roundSummary}
+              autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
+            />
+            {completedPreviousHeats.length > 0 && (
+              <div style={{ maxWidth: '1000px', margin: '24px auto 0' }}>
+                <h3 style={{ marginBottom: '12px', color: '#555', fontWeight: 600 }}>Previous Heats</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {completedPreviousHeats.map((heat: Heat) => {
+                    const heatResults: any[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
+                    const sorted = [...heatResults].sort((a, b) => (a.place ?? 99) - (b.place ?? 99));
+                    return (
+                      <div key={heat.id} style={{
+                        background: 'white',
+                        borderRadius: '12px',
+                        padding: '14px 20px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                        borderLeft: '4px solid #4caf50'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.heatNumber}</span>
+                          <span style={{ color: '#888', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
+                        </div>
+                        <div style={{ display: 'grid', gap: '2px' }}>
+                          {sorted.map((r: any) => (
+                            <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', padding: '5px 0', borderBottom: '1px solid #f5f5f5' }}>
+                              <span style={{
+                                minWidth: '26px',
+                                height: '26px',
+                                borderRadius: '50%',
+                                background: r.place === 1 ? 'var(--cub-scouting-gold)' : r.place === 2 ? '#e0e0e0' : r.place === 3 ? '#d7a48d' : '#f0f0f0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 'bold',
+                                fontSize: '0.75rem',
+                                flexShrink: 0
+                              }}>{r.place ?? '–'}</span>
+                              <span style={{ color: '#888', minWidth: '52px', fontSize: '0.85rem' }}>Lane {r.lane}</span>
+                              <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{getRacerName(r.racer_id)}</span>
+                              <span style={{ fontFamily: 'monospace', color: '#444', flexShrink: 0 }}>{r.time != null ? `${Number(r.time).toFixed(4)}s` : '–'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )
       ) : (
         <ScheduleManagement
