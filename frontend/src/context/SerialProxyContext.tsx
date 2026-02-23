@@ -44,6 +44,12 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 reader.releaseLock();
             }
         }
+        // Device was unplugged or read loop ended — close the WebSocket so the
+        // backend transitions to DISCONNECTED and ws.onclose updates our status.
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            console.log('Serial device disconnected, closing WebSocket');
+            ws.close();
+        }
     }, []);
 
     const disconnect = useCallback(() => {
