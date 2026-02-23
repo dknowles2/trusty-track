@@ -49,6 +49,7 @@ class TimerManager:
         self._read_task: Optional[asyncio.Task] = None
         self._direct_port: Optional[str] = None
         self._watchdog_task: Optional[asyncio.Task] = None
+        self._event_lock = asyncio.Lock()
 
         if not device.requires_serial:
             # Fake timer: skip DISCONNECTED/CONNECTED/identification; start in IDLE
@@ -255,40 +256,42 @@ class TimerManager:
         await pubsub.publish(f"timer_state:{self._track_id}", self.status())
 
     async def _handle_event(self, event: TimerEvent) -> None:
-        if isinstance(event, RaceStarted):
-            if self._state in (TimerState.ARMED, TimerState.READY):
-                await self._transition(TimerState.RUNNING)
-            else:
-                logger.warning(
-                    "Timer %d: RaceStarted in unexpected state %s",
-                    self._track_id, self._state.value,
-                )
+        """Process a timer event, updating state and publishing results."""
+        async with self._event_lock:
+            if isinstance(event, RaceStarted):
+                if self._state in (TimerState.ARMED, TimerState.READY):
+                    await self._transition(TimerState.RUNNING)
+                else:
+                    logger.warning(
+                        "Timer %d: RaceStarted in unexpected state %s",
+                        self._track_id, self._state.value,
+                    )
 
-        elif isinstance(event, GateClosed):
-            if self._state == TimerState.ARMED and self._device.gate_state_is_knowable:
-                await self._transition(TimerState.READY)
+            elif isinstance(event, GateClosed):
+                if self._state == TimerState.ARMED and self._device.gate_state_is_knowable:
+                    await self._transition(TimerState.READY)
 
-        elif isinstance(event, LaneResult):
-            if self._state in (TimerState.ARMED, TimerState.READY):
-                await self._transition(TimerState.RUNNING)
+            elif isinstance(event, LaneResult):
+                if self._state in (TimerState.ARMED, TimerState.READY):
+                    await self._transition(TimerState.RUNNING)
 
-            if self._state != TimerState.RUNNING:
-                logger.warning(
-                    "Timer %d: LaneResult received in state %s, ignoring",
-                    self._track_id, self._state.value,
-                )
-                return
-            self._pending_results[event.lane] = event
-            expected_lanes = {
-                i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
-            }
-            if expected_lanes and expected_lanes.issubset(self._pending_results.keys()):
-                await self._record_results()
+                if self._state != TimerState.RUNNING:
+                    logger.warning(
+                        "Timer %d: LaneResult received in state %s, ignoring",
+                        self._track_id, self._state.value,
+                    )
+                    return
+                self._pending_results[event.lane] = event
+                expected_lanes = {
+                    i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
+                }
+                if expected_lanes and expected_lanes.issubset(self._pending_results.keys()):
+                    await self._record_results()
 
-        elif isinstance(event, DeviceError):
-            self._last_error = event.message
-            logger.error("Timer %d device error: %s", self._track_id, event.message)
-            await self._transition(TimerState.FAULT)
+            elif isinstance(event, DeviceError):
+                self._last_error = event.message
+                logger.error("Timer %d device error: %s", self._track_id, event.message)
+                await self._transition(TimerState.FAULT)
 
     async def _record_results(self) -> None:
         """Persist accumulated lane results to the database and notify subscribers."""

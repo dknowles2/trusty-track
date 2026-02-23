@@ -1206,52 +1206,6 @@ class Mutation:
 
     # Timer Mutations
 
-    @strawberry.mutation
-    async def prepare_heat(self, info: Info, heat_id: int) -> bool:
-        """Arm the timer for a heat (all timer types).
-
-        Computes the lane mask from occupied lanes in the heat, then calls
-        TimerManager.prepare_heat() which sends device commands and transitions
-        to ARMED state. For the fake timer no serial commands are sent but the
-        state still advances.
-        """
-        timer_managers = info.context.get("timer_managers", {})
-        db = info.context["db"]
-
-        # Try official Heat first
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if heat:
-            race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
-            if race is None or race.track_id is None:
-                return False
-            mgr = timer_managers.get(race.track_id)
-            if mgr is None:
-                return False
-            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
-        else:
-            # Check FreeRaceHeat
-            free_heat = db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
-            if not free_heat:
-                return False
-            race = db.query(models.Race).filter(models.Race.id == free_heat.race_id).first()
-            if race is None or race.track_id is None:
-                return False
-            mgr = timer_managers.get(race.track_id)
-            if mgr is None:
-                return False
-            lane_results = json.loads(free_heat.lane_assignments) if free_heat.lane_assignments else []
-
-        # Compute lane mask from occupied (non-null racer_id) lanes
-        lane_mask = 0
-        for lr in lane_results:
-            if lr.get("racer_id") is not None:
-                lane = lr["lane"]
-                lane_mask |= 1 << (lane - 1)
-        if lane_mask == 0:
-            return False
-
-        await mgr.prepare_heat(heat_id=heat_id, lane_mask=lane_mask)
-        return True
 
     @strawberry.mutation
     async def abort_heat(self, info: Info, track_id: int) -> bool:
@@ -1310,6 +1264,63 @@ class Mutation:
             return False
 
         await mgr.inject_event(RaceStarted())
+        return True
+
+    @strawberry.mutation
+    async def prepare_heat(self, info: Info, heat_id: int) -> bool:
+        """Arm the timer for a heat (all timer types).
+
+        Computes the lane mask from occupied lanes in the heat, then calls
+        TimerManager.prepare_heat() which sends device commands and transitions
+        to ARMED state. For the fake timer no serial commands are sent but the
+        state still advances.
+        """
+        timer_managers = info.context.get("timer_managers", {})
+        db = info.context["db"]
+
+        # Try official Heat first
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        is_free_race = False
+        if heat:
+            race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+            if race is None or race.track_id is None:
+                return False
+            mgr = timer_managers.get(race.track_id)
+            if mgr is None:
+                return False
+            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
+        else:
+            # Check FreeRaceHeat
+            free_heat = db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
+            if not free_heat:
+                return False
+            race = db.query(models.Race).filter(models.Race.id == free_heat.race_id).first()
+            if race is None or race.track_id is None:
+                return False
+            mgr = timer_managers.get(race.track_id)
+            if mgr is None:
+                return False
+            lane_results = json.loads(free_heat.lane_assignments) if free_heat.lane_assignments else []
+            is_free_race = True
+
+        # Compute lane mask
+        lane_mask = 0
+        if is_free_race:
+            # For free races, arm all lanes on the track so the timer captures everything
+            track = db.query(models.Track).filter(models.Track.id == race.track_id).first()
+            if track:
+                lane_mask = (1 << track.lane_count) - 1
+        else:
+            # For official heats, compute lane mask from occupied (non-null racer_id) lanes
+            for lr in lane_results:
+                if lr.get("racer_id") is not None:
+                    lane = lr["lane"]
+                    lane_mask |= 1 << (lane - 1)
+        
+        if lane_mask == 0:
+            return False
+
+        await mgr.prepare_heat(heat_id=heat_id, lane_mask=lane_mask)
         return True
 
     @strawberry.mutation
