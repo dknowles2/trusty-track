@@ -271,6 +271,97 @@ class WizardConfigurationInput:
 
 
 @strawberry.type
+class TimesPerLane:
+    """Average time a racer recorded in a specific lane."""
+
+    lane: int
+    avg_time: Optional[float]
+
+
+@strawberry.type
+class RacerStat:
+    """Per-racer statistics computed across all completed heats."""
+
+    racer_id: int
+    first_name: str
+    last_name: str
+    car_number: Optional[int]
+    den_name: str
+    heats_completed: int
+    heats_scheduled: int
+    min_time: Optional[float]
+    max_time: Optional[float]
+    mean_time: Optional[float]
+    std_dev: Optional[float]
+    times_per_lane: List[TimesPerLane]
+
+
+@strawberry.type
+class LaneTimeStat:
+    """Fairness statistics for a single lane."""
+
+    lane: int
+    avg_time: Optional[float]
+    heat_count: int
+    relative_advantage_pct: Optional[float]
+
+
+@strawberry.type
+class HeatHighlight:
+    """A notable moment from the race (fastest heat, closest race, etc.)."""
+
+    type: str  # "FASTEST_HEAT" | "CLOSEST_RACE"
+    round_name: str
+    heat_number: int
+    racer_name: Optional[str]
+    time: Optional[float]
+    margin: Optional[float]
+
+
+@strawberry.type
+class DenStat:
+    """Aggregate statistics for a den."""
+
+    den_id: int
+    den_name: str
+    den_color: str
+    racer_count: int
+    avg_score: Optional[float]
+    best_racer_name: Optional[str]
+
+
+@strawberry.type
+class HeatResultRow:
+    """A single lane result row, used for CSV export."""
+
+    round_name: str
+    heat_number: int
+    lane: int
+    car_number: Optional[int]
+    racer_first_name: str
+    racer_last_name: str
+    time: Optional[float]
+    place: Optional[int]
+
+
+@strawberry.type
+class RaceStats:
+    """Full statistics payload for a race."""
+
+    race_id: int
+    race_name: str
+    scoring_strategy: str
+    total_heats_scheduled: int
+    total_heats_completed: int
+    total_racers: int
+    lane_stats: List[LaneTimeStat]
+    racer_stats: List[RacerStat]
+    highlights: List[HeatHighlight]
+    den_stats: List[DenStat]
+    heat_results: List[HeatResultRow]
+
+
+@strawberry.type
 class LeaderboardEntry:
     """
     Represents a single entry in the race leaderboard.
@@ -895,6 +986,89 @@ class Query:
         if mgr is None:
             return None
         return _timer_status_from_manager(mgr)
+
+    @strawberry.field
+    def race_stats(self, info: Info, race_id: int) -> Optional[RaceStats]:
+        """Get per-racer stats, lane fairness, den comparisons, and highlights for a race."""
+        from . import stats as race_stats_module
+
+        db = info.context["db"]
+        data = race_stats_module.compute_race_stats(db, race_id)
+        if data is None:
+            return None
+
+        return RaceStats(
+            race_id=data["race_id"],
+            race_name=data["race_name"],
+            scoring_strategy=data["scoring_strategy"],
+            total_heats_scheduled=data["total_heats_scheduled"],
+            total_heats_completed=data["total_heats_completed"],
+            total_racers=data["total_racers"],
+            lane_stats=[
+                LaneTimeStat(
+                    lane=ls["lane"],
+                    avg_time=ls["avg_time"],
+                    heat_count=ls["heat_count"],
+                    relative_advantage_pct=ls["relative_advantage_pct"],
+                )
+                for ls in data["lane_stats"]
+            ],
+            racer_stats=[
+                RacerStat(
+                    racer_id=rs["racer_id"],
+                    first_name=rs["first_name"],
+                    last_name=rs["last_name"],
+                    car_number=rs["car_number"],
+                    den_name=rs["den_name"],
+                    heats_completed=rs["heats_completed"],
+                    heats_scheduled=rs["heats_scheduled"],
+                    min_time=rs["min_time"],
+                    max_time=rs["max_time"],
+                    mean_time=rs["mean_time"],
+                    std_dev=rs["std_dev"],
+                    times_per_lane=[
+                        TimesPerLane(lane=tpl["lane"], avg_time=tpl["avg_time"])
+                        for tpl in rs["times_per_lane"]
+                    ],
+                )
+                for rs in data["racer_stats"]
+            ],
+            highlights=[
+                HeatHighlight(
+                    type=hl["type"],
+                    round_name=hl["round_name"],
+                    heat_number=hl["heat_number"],
+                    racer_name=hl.get("racer_name"),
+                    time=hl.get("time"),
+                    margin=hl.get("margin"),
+                )
+                for hl in data["highlights"]
+            ],
+            den_stats=[
+                DenStat(
+                    den_id=ds["den_id"],
+                    den_name=ds["den_name"],
+                    den_color=ds["den_color"],
+                    racer_count=ds["racer_count"],
+                    avg_score=ds["avg_score"],
+                    best_racer_name=ds["best_racer_name"],
+                )
+                for ds in data["den_stats"]
+            ],
+            heat_results=[
+                HeatResultRow(
+                    round_name=hr["round_name"],
+                    heat_number=hr["heat_number"],
+                    lane=hr["lane"],
+                    car_number=hr["car_number"],
+                    racer_first_name=hr["racer_first_name"],
+                    racer_last_name=hr["racer_last_name"],
+                    time=hr["time"],
+                    place=hr["place"],
+                )
+                for hr in data["heat_results"]
+            ],
+        )
 
 
 @strawberry.type

@@ -1,0 +1,202 @@
+.race-stats {
+  padding: 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.race-stats__header {
+  margin-bottom: 2rem;
+}
+
+.race-stats__title {
+  margin: 0 0 0.5rem 0;
+  color: var(--scouting-blue);
+}
+
+.race-stats__overview-cards {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.race-stats__overview-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  flex: 1;
+  min-width: 140px;
+}
+
+.race-stats__overview-card-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #888;
+  margin-bottom: 0.4rem;
+}
+
+.race-stats__overview-card-value {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: var(--scouting-blue);
+}
+
+.race-stats__overview-card--badge .race-stats__overview-card-value {
+  font-size: 1rem;
+  background: var(--scouting-blue);
+  color: white;
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.race-stats__section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+}
+
+.race-stats__section-title {
+  margin: 0 0 1.25rem 0;
+  color: var(--scouting-blue);
+  font-size: 1.1rem;
+}
+
+.race-stats__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.race-stats__table th {
+  background: var(--scouting-blue);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.race-stats__table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.race-stats__table th.sortable:hover {
+  background: #002d6b;
+}
+
+.race-stats__table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.race-stats__table tr:last-child td {
+  border-bottom: none;
+}
+
+.race-stats__table tr:hover td {
+  background: #f8faff;
+}
+
+.race-stats__table td.mono {
+  font-family: monospace;
+  font-size: 0.95rem;
+}
+
+.race-stats__highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.race-stats__highlight-card {
+  background: #f7f9fc;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid var(--scouting-blue);
+}
+
+.race-stats__highlight-card--closest {
+  border-left-color: var(--gold, #FCD116);
+}
+
+.race-stats__highlight-type {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #888;
+  margin-bottom: 0.35rem;
+}
+
+.race-stats__highlight-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--scouting-blue);
+  font-family: monospace;
+}
+
+.race-stats__highlight-sub {
+  font-size: 0.85rem;
+  color: #555;
+  margin-top: 0.25rem;
+}
+
+.race-stats__export-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.race-stats__export-btn {
+  background: var(--scouting-blue);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.race-stats__export-btn:hover {
+  background: #002d6b;
+}
+
+.race-stats__empty {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.race-stats__chart-wrapper {
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .race-stats {
+    padding: 1rem;
+  }
+
+  .race-stats__overview-cards {
+    gap: 0.75rem;
+  }
+
+  .race-stats__table {
+    font-size: 0.8rem;
+  }
+
+  .race-stats__table th,
+  .race-stats__table td {
+    padding: 7px 8px;
+  }
+}
