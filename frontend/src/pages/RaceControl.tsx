@@ -487,22 +487,7 @@ export default function RaceControl() {
             </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '160px', justifyContent: 'flex-end' }}>
-          {viewMode === 'EXECUTION' && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.95rem', userSelect: 'none' }}>
-              <input
-                type="checkbox"
-                checked={race?.autoAdvanceHeat ?? false}
-                onChange={async (e) => {
-                  await updateRaceMutation({ id, race: { autoAdvanceHeat: e.target.checked } });
-                  reExecute({ requestPolicy: 'network-only' });
-                }}
-                style={{ cursor: 'pointer' }}
-              />
-              Auto-advance
-            </label>
-          )}
-        </div>
+        <div style={{ minWidth: '160px' }} />
       </div>
 
       {viewMode === 'FREE_RACE' ? (
@@ -534,6 +519,10 @@ export default function RaceControl() {
               racers={racers}
               roundSummary={roundSummary}
               autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
+              onToggleAutoAdvance={async (value) => {
+                await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
+                reExecute({ requestPolicy: 'network-only' });
+              }}
             />
             {completedPreviousHeats.length > 0 && (
               <div style={{ maxWidth: '1000px', margin: '24px auto 0' }}>

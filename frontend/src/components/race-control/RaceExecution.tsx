@@ -62,6 +62,7 @@ interface RaceExecutionProps {
     racers: Record<number, Racer>;
     roundSummary: AdvancementStatus | null;
     autoAdvanceHeat: boolean;
+    onToggleAutoAdvance?: (value: boolean) => void;
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
@@ -76,13 +77,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     trackId,
     racers,
     roundSummary,
-    autoAdvanceHeat
+    autoAdvanceHeat,
+    onToggleAutoAdvance,
 }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<any[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [isRoundSummaryOpen, setIsRoundSummaryOpen] = useState(!!roundSummary);
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
+    const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
     const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [subResult] = useSubscription({
@@ -515,6 +518,59 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 );
                             })}
                         </div>
+
+                        {onToggleAutoAdvance && (
+                            <div
+                                style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}
+                                onMouseEnter={() => setShowAutoAdvanceTooltip(true)}
+                                onMouseLeave={() => setShowAutoAdvanceTooltip(false)}
+                            >
+                                {showAutoAdvanceTooltip && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: '100%',
+                                        right: 0,
+                                        marginBottom: '8px',
+                                        background: '#333',
+                                        color: 'white',
+                                        fontSize: '0.8rem',
+                                        padding: '6px 10px',
+                                        borderRadius: '6px',
+                                        whiteSpace: 'nowrap',
+                                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                                        pointerEvents: 'none',
+                                        zIndex: 10,
+                                    }}>
+                                        Automatically advances to the next heat 10 seconds after results are recorded.
+                                    </div>
+                                )}
+                                <span style={{ fontSize: '0.9rem', color: '#555', userSelect: 'none' }}>Auto-advance</span>
+                                <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={autoAdvanceHeat}
+                                        onChange={(e) => onToggleAutoAdvance(e.target.checked)}
+                                        style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                                    />
+                                    <div style={{
+                                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                        background: autoAdvanceHeat ? 'var(--scouting-blue)' : '#ccc',
+                                        borderRadius: '24px',
+                                        transition: 'background 0.2s',
+                                    }} />
+                                    <div style={{
+                                        position: 'absolute',
+                                        height: '18px', width: '18px',
+                                        left: autoAdvanceHeat ? '23px' : '3px',
+                                        bottom: '3px',
+                                        background: 'white',
+                                        borderRadius: '50%',
+                                        transition: 'left 0.2s',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                    }} />
+                                </label>
+                            </div>
+                        )}
                     </div>
                 </div>
 
