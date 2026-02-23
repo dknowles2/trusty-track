@@ -25,7 +25,7 @@ function getStatusDisplay(state: string | undefined): { colorClass: string; labe
       return { colorClass: 'green', label: 'Ready' };
     case 'ARMED':
     case 'READY':
-      return { colorClass: 'blue', label: 'Armed' };
+      return { colorClass: 'blue', label: 'Staged' };
     case 'RUNNING':
       return { colorClass: 'pulse', label: 'Racing\u2026' };
     case 'RESULTS_OVERDUE':
