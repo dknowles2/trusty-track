@@ -24,23 +24,27 @@ export const SerialProxyConnector: React.FC<SerialProxyConnectorProps> = ({ trac
 
       // 1. Request port (shows browser dialog)
       const port = await (navigator as any).serial.requestPort();
-      
+
       // 2. Open WebSocket
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws/timer/${trackId}`;
+      const wsUrl = `${protocol}//${window.location.host}/api/ws/timer/${trackId}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('Proxy WebSocket opened');
+        console.log('Handshake: Proxy WebSocket opened');
       };
 
       ws.onmessage = async (event) => {
+        console.log('Handshake: Received message:', event.data);
         const msg = JSON.parse(event.data);
         if (msg.type === 'configure') {
           try {
+            console.log('Handshake: Configuring port with baud rate:', msg.baud_rate);
             await port.open({ baudRate: msg.baud_rate });
             portRef.current = port;
+            console.log('Handshake: Port opened successfully, sending ready');
+            ws.send(JSON.stringify({ type: 'ready' }));
             setStatus('connected');
             startReading(port, ws);
           } catch (err: any) {
@@ -52,6 +56,8 @@ export const SerialProxyConnector: React.FC<SerialProxyConnectorProps> = ({ trac
           if (port.writable) {
             const writer = port.writable.getWriter();
             const data = Uint8Array.from(atob(msg.data), (c) => c.charCodeAt(0));
+            const decodedTx = new TextDecoder().decode(data);
+            console.log('Serial PROXY TX:', decodedTx.replace(/\r/g, '\\r').replace(/\n/g, '\\n'));
             await writer.write(data);
             writer.releaseLock();
           }
@@ -71,10 +77,10 @@ export const SerialProxyConnector: React.FC<SerialProxyConnectorProps> = ({ trac
 
     } catch (err: any) {
       if (err.name === 'NotFoundError') {
-          setStatus('disconnected');
+        setStatus('disconnected');
       } else {
-          setErrorMsg(err.message || 'Connection failed');
-          setStatus('error');
+        setErrorMsg(err.message || 'Connection failed');
+        setStatus('error');
       }
     }
   };
@@ -86,6 +92,8 @@ export const SerialProxyConnector: React.FC<SerialProxyConnectorProps> = ({ trac
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
+          const decoded = new TextDecoder().decode(value);
+          console.log('Serial PROXY RX:', decoded.replace(/\r/g, '\\r').replace(/\n/g, '\\n'));
           ws.send(JSON.stringify({
             type: 'serial_rx',
             data: btoa(String.fromCharCode(...value))
@@ -117,12 +125,12 @@ export const SerialProxyConnector: React.FC<SerialProxyConnectorProps> = ({ trac
   }
 
   if (status === 'connected') {
-      return (
-          <div className="proxy-connector-status connected">
-              <Icon path={mdiCheckCircle} size={0.8} color="#4caf50" />
-              <span>Hardware Timer Proxy Active</span>
-          </div>
-      );
+    return (
+      <div className="proxy-connector-status connected">
+        <Icon path={mdiCheckCircle} size={0.8} color="#4caf50" />
+        <span>Hardware Timer Proxy Active</span>
+      </div>
+    );
   }
 
   return (
@@ -133,8 +141,8 @@ export const SerialProxyConnector: React.FC<SerialProxyConnectorProps> = ({ trac
           <span>{errorMsg}</span>
         </div>
       )}
-      <button 
-        className="proxy-connect-btn" 
+      <button
+        className="proxy-connect-btn"
         onClick={connect}
         disabled={status === 'connecting'}
       >

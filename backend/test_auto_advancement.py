@@ -84,9 +84,10 @@ def test_auto_advancement_with_placeholders(client, db):
                 lane_res["time"] = 1.0 + (racer_id * 0.1)
                 lane_res["place"] = 1
 
+        results_str = json.dumps(current_results).replace('"', '\\"')
         mutation_update = f"""
         mutation {{
-            updateHeatResult(heatId: {heat.id}, results: "{json.dumps(current_results).replace('"', '\\"')}") {{
+            updateHeatResult(heatId: {heat.id}, results: "{results_str}") {{
                 id
             }}
         }}

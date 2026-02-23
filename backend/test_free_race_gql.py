@@ -72,7 +72,7 @@ def test_random_free_race_lanes_query(db: Session):
 
 
 
-def test_random_free_race_lanes_query_includes_all_racers(db: Session):
+def test_random_free_race_lanes_query_excludes_not_checked_in_racers(db: Session):
     race_id, _ = _create_race_with_track(db)
     # Add one checked-in and one NOT checked-in racer
     _add_checked_in_racer(db, race_id, "Alice", "CheckedIn")
@@ -100,9 +100,9 @@ def test_random_free_race_lanes_query_includes_all_racers(db: Session):
     assert resp.status_code == 200
     data = resp.json()
     lanes = data["data"]["randomFreeRaceLanes"]
-    # Should find BOTH racers now
+    # Should find ONLY the checked-in racer
     racer_ids = [l["racerId"] for l in lanes if l["racerId"] is not None]
-    assert len(racer_ids) == 2
+    assert len(racer_ids) == 1
 
 
 def test_start_free_race_heat_mutation(db: Session):

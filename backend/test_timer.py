@@ -78,13 +78,18 @@ class TestMicroWizardIsIdentifiedBy:
     def setup_method(self):
         self.device = MicroWizardDevice()
 
-    def test_n1_response_identifies_device(self):
-        """Device echoing N1 returns True."""
-        assert self.device.is_identified_by(b"N1") is True
+    def test_rv_response_identifies_device(self):
+        """Device returning a version string returns True."""
+        assert self.device.is_identified_by(b"Copyright (c) Micro Wizard 2001-2009 a K3 2.10") is True
 
-    def test_n1_lowercase_also_identified(self):
-        """Identification check is case-insensitive; n1 also matches."""
-        assert self.device.is_identified_by(b"n1") is True
+    def test_bare_k1_also_identified(self):
+        """Identification check is case-insensitive and matches bare version strings."""
+        assert self.device.is_identified_by(b"k1") is True
+
+    def test_serial_number_identifies_device(self):
+        """Device returning a serial number string returns True."""
+        assert self.device.is_identified_by(b"Serial number12345") is True
+        assert self.device.is_identified_by(b"K2 Version 2.3A. Serial Number29284") is True
 
     def test_hello_does_not_identify_device(self):
         """Arbitrary line does not identify the device."""
@@ -115,7 +120,7 @@ async def test_byte_framing_split_across_chunks():
     manager._record_results = AsyncMock()
 
     chunk1 = b"  1    3.4"
-    chunk2 = b"52  1\n"
+    chunk2 = b"52  1\r\n"
 
     await manager.receive_bytes(chunk1)
     # No complete line yet; pending_results should still be empty
@@ -143,7 +148,7 @@ async def test_byte_framing_two_lines_in_one_chunk():
     manager._lane_mask = 0b11
     manager._record_results = AsyncMock()
 
-    data = b"  1    3.452  1\n  2    3.501  2\n"
+    data = b"  1    3.452  1\r\n  2    3.501  2\r\n"
     await manager.receive_bytes(data)
 
     assert 1 in manager._pending_results

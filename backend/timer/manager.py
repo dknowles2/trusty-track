@@ -22,8 +22,8 @@ from .devices.base import TimerDevice, TimerEvent, RaceStarted, LaneResult, Gate
 
 logger = logging.getLogger(__name__)
 
-# Leading bytes to strip from incoming result lines
-_STRIP_CHARS = b'@>'
+
+# Leading bytes to strip from incoming result lines (now handled by device)
 
 
 @dataclass
@@ -90,6 +90,7 @@ class TimerManager:
 
     async def _send_commands(self, commands: List[bytes]) -> None:
         for cmd in commands:
+            logger.info(f"Timer {self._track_id} sending command: {cmd}")
             await self._write_fn(cmd)
 
     # ------------------------------------------------------------------ #
@@ -134,10 +135,23 @@ class TimerManager:
 
     async def handle_connect(self) -> None:
         """Called when a serial connection (direct or proxy) is established."""
-        if self._state == TimerState.DISCONNECTED:
-            await self._transition(TimerState.CONNECTED)
-            # Send identification probe
-            await self._send_commands(self._device.identification_commands())
+        logger.info(f"Timer {self._track_id} connected")
+        await self._transition(TimerState.CONNECTED)
+        if not self._watchdog_task:
+            self._watchdog_task = asyncio.create_task(self._watchdog_loop())
+
+        # Send identification *and* initialization commands immediately.
+        # This ensures that even if we are reconnecting to a device that is already 
+        # in a high-speed or "new-style" format, we put it back into a known state.
+        commands = self._device.identification_commands() + self._device.initialization_commands()
+
+        # If we have an active heat, re-send lane mask
+        if self._active_heat_id is not None:
+            logger.info(f"Timer {self._track_id}: re-sending lane mask {self._lane_mask:X}")
+            commands += self._device.prepare_heat_commands(self._lane_mask)
+
+        if commands:
+            await self._send_commands(commands)
 
     async def handle_disconnect(self) -> None:
         """Called when a serial connection is lost."""
@@ -158,25 +172,64 @@ class TimerManager:
         during the identification handshake.
         """
         self._buf += data
-        while self._device.delimiter in self._buf:
-            line, self._buf = self._buf.split(self._device.delimiter, 1)
-            await self._process_line(line)
+        while True:
+            # 1. Try standard delimiter
+            delim_idx = self._buf.find(self._device.delimiter)
+            
+            # 2. Try immediate characters
+            imm_idx = -1
+            imm_marker = b''
+            for char in self._device.immediate_chars:
+                idx = self._buf.find(char)
+                if idx != -1 and (imm_idx == -1 or idx < imm_idx):
+                    imm_idx = idx
+                    imm_marker = char
+            
+            # Which one is first?
+            if delim_idx != -1 and (imm_idx == -1 or delim_idx < imm_idx):
+                # Process delimiter
+                line = self._buf[0:delim_idx]
+                self._buf = self._buf[delim_idx + len(self._device.delimiter):]
+                await self._process_line(line)
+            elif imm_idx != -1:
+                # Process immediate char
+                # We include the char in the "line" so process_line can see it
+                line = self._buf[0:imm_idx + len(imm_marker)]
+                self._buf = self._buf[imm_idx + len(imm_marker):]
+                await self._process_line(line)
+            else:
+                break
         return []
-
     async def _process_line(self, line: bytes) -> None:
-        line = line.lstrip(_STRIP_CHARS).strip()
+        raw_line = line # Keep raw for logging
+        line = line.strip()
         if not line:
             return
+        
+        logger.info("Timer %d received line: %r", self._track_id, raw_line)
+
+        # Try to parse the line first. Even in CONNECTED state, if it looks like
+        # a valid event, we should handle it.
+        event_or_list = self._device.parse_line(line)
 
         if self._state == TimerState.CONNECTED:
-            if self._device.is_identified_by(line):
-                await self._transition(TimerState.IDLE)
-                await self._send_commands(self._device.initialization_commands())
-                return
+            if self._device.is_identified_by(line) or event_or_list is not None:
+                # If identified OR if we got a valid event (like a result), we are good.
+                logger.info("Timer %d: identified or event received, transitioning from CONNECTED", self._track_id)
+                next_state = TimerState.ARMED if self._active_heat_id is not None else TimerState.IDLE
+                await self._transition(next_state)
+                # If it was just identification, we are done. If it was an event,
+                # we'll fall through and handle it below.
+                if self._device.is_identified_by(line) and event_or_list is None:
+                    return
 
-        event = self._device.parse_line(line)
-        if event is not None:
-            await self._handle_event(event)
+        if event_or_list is not None:
+            events = event_or_list if isinstance(event_or_list, list) else [event_or_list]
+            for event in events:
+                logger.info("Timer %d parsed event: %s", self._track_id, event)
+                await self._handle_event(event)
+        else:
+            logger.debug("Timer %d failed to parse line: %r", self._track_id, line)
 
     # ------------------------------------------------------------------ #
     # Fake timer injection                                                 #
@@ -356,7 +409,13 @@ class TimerManager:
         """Monitor connection health and attempt reconnects."""
         try:
             while True:
-                await asyncio.sleep(10.0)
+                await asyncio.sleep(5.0)
+
+                # Resend identification if stuck in CONNECTED (e.g. initial command lost due to Arduino bootloader)
+                if self._state == TimerState.CONNECTED:
+                    logger.info("Timer %d watchdog: still CONNECTED, resending identification", self._track_id)
+                    await self._send_commands(self._device.identification_commands())
+
                 if self._direct_port and (not self._serial or not self._serial.is_open or self._state == TimerState.FAULT):
                     logger.info("Timer %d watchdog: attempting reconnect on %s", self._track_id, self._direct_port)
                     # We call connect_direct again. It handles its own task/serial cleanup.

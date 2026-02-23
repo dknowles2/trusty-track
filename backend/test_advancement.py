@@ -110,9 +110,10 @@ def test_full_advancement_flow(client, db):
             # Actually scoring.py calculates score based on strategy. Default is TIMED.
 
         # Use mutation to update
+        results_str = json.dumps(lane_res).replace('"', '\\"')
         mutation_update = f"""
         mutation {{
-            updateHeatResult(heatId: {h.id}, results: "{json.dumps(lane_res).replace('"', '\\"')}") {{
+            updateHeatResult(heatId: {h.id}, results: "{results_str}") {{
                 id
             }}
         }}

@@ -1070,7 +1070,10 @@ def get_random_lane_assignments(
     """
     pool = (
         db.query(models.Racer)
-        .filter(models.Racer.race_id == race_id)
+        .filter(
+            models.Racer.race_id == race_id,
+            models.Racer.car_passed_inspection == True
+        )
         .all()
     )
     random.shuffle(pool)

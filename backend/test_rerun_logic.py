@@ -83,9 +83,10 @@ def test_rerun_last_heat_clears_next_round(client, db):
             lane["time"] = 1.0 + (i * 0.1)
             results.append(lane)
 
+        results_str = json.dumps(results).replace('"', '\\"')
         mutation_update = f"""
         mutation {{
-            updateHeatResult(heatId: {heat.id}, results: "{json.dumps(results).replace('"', '\\"')}") {{
+            updateHeatResult(heatId: {heat.id}, results: "{results_str}") {{
                 id
             }}
         }}
@@ -114,9 +115,10 @@ def test_rerun_last_heat_clears_next_round(client, db):
     for r in results:
         r["time"] = None
 
+    results_str = json.dumps(results).replace('"', '\\"')
     mutation_update_clear = f"""
     mutation {{
-        updateHeatResult(heatId: {last_heat.id}, results: "{json.dumps(results).replace('"', '\\"')}") {{
+        updateHeatResult(heatId: {last_heat.id}, results: "{results_str}") {{
             id
         }}
     }}

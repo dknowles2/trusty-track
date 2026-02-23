@@ -34,6 +34,7 @@ class TimerDevice(ABC):
     delimiter: ClassVar[bytes] = b'\n'
     gate_state_is_knowable: ClassVar[bool] = False
     requires_serial: ClassVar[bool] = True
+    immediate_chars: ClassVar[List[bytes]] = []
 
     @abstractmethod
     def identification_commands(self) -> List[bytes]:
@@ -64,5 +65,5 @@ class TimerDevice(ABC):
         return []
 
     @abstractmethod
-    def parse_line(self, line: bytes) -> "TimerEvent | None":
-        """Parse a complete message. Return a TimerEvent or None."""
+    def parse_line(self, line: bytes) -> "TimerEvent | List[TimerEvent] | None":
+        """Parse a complete message. Return a TimerEvent, a list of events, or None."""

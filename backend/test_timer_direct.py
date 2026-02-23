@@ -11,7 +11,7 @@ async def test_timer_manager_connect_direct_success():
     """Verifies that connect_direct successfully opens a port and starts reading."""
     mock_serial = MagicMock(spec=serial.Serial)
     mock_serial.is_open = True
-    mock_serial.read.side_effect = [b"", b"N1\n", b""]
+    mock_serial.read.side_effect = [b"", b"Copyright (c) Micro Wizard\r\n", b""]
     
     with patch("serial.Serial", return_value=mock_serial):
         device = MicroWizardDevice()
@@ -25,7 +25,7 @@ async def test_timer_manager_connect_direct_success():
         # Give some time for the read loop to run
         await asyncio.sleep(0.3)
         
-        # Should have transitioned to IDLE after seeing N1\n
+        # Should have transitioned to IDLE after seeing version string
         assert manager._state == TimerState.IDLE
         
         await manager.stop()

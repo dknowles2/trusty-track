@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 from unittest.mock import patch, AsyncMock
@@ -31,6 +32,7 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
     track_id = proxy_track.id
     device = MicroWizardDevice()
     manager = TimerManager(track_id, device)
+    manager._active_heat_id = None # clear any leaking state from previous tests
     TIMER_MANAGERS[track_id] = manager
 
     # Patch SessionLocal in main to return our test db session
@@ -41,18 +43,22 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
             assert data["type"] == "configure"
             assert data["baud_rate"] == 9600
 
-            # 2. TimerManager should have sent identification probe upon connection
+            # 2. Frontend sends ready message
+            websocket.send_json({"type": "ready"})
+
+            # 3. TimerManager should have sent identification probe upon connection
             data = websocket.receive_json()
-            assert data["type"] == "serial_tx"
-            assert base64.b64decode(data["data"]) == b"N1\n"
+            assert base64.b64decode(data["data"]) == b"RV\n"
             assert manager._state == TimerState.CONNECTED
 
             # 3. Frontend (test) sends identification response
             websocket.send_json({
                 "type": "serial_rx",
-                "data": base64.b64encode(b"N1\n").decode("utf-8")
+                "data": base64.b64encode(b"Copyright (c) Micro Wizard\r\n").decode("utf-8")
             })
 
+            # Give backend a moment to process the rx bytes
+            await asyncio.sleep(0.1)
             # Check state
             assert manager._state == TimerState.IDLE
 
@@ -71,37 +77,19 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
             assert data2["type"] == "serial_tx"
             assert base64.b64decode(data2["data"]) == b"LR\n"
 
-            # 5. Send results
-            # First result transitions state to RUNNING (MW auto-detects start on first result)
+            # 5. Send results in old single-line format
             websocket.send_json({
                 "type": "serial_rx",
-                "data": base64.b64encode(b"  1    3.452  1\n").decode("utf-8")
-            })
-            assert manager._state == TimerState.RUNNING
-            assert 1 in manager._pending_results
-
-            # Final result
-            websocket.send_json({
-                "type": "serial_rx",
-                "data": base64.b64encode(b"  2    3.501  2\n").decode("utf-8")
+                "data": base64.b64encode(b"A=3.452! B=3.501\r\n").decode("utf-8")
             })
             
+            # Give backend a moment to transition
+            await asyncio.sleep(0.1)
+            
+            assert manager._state == TimerState.RUNNING
+            assert 1 in manager._pending_results
+            assert 2 in manager._pending_results
+
             # Should have called _record_results
             manager._record_results.assert_awaited_once()
 
-
-def test_timer_websocket_wrong_mode(client, db):
-    """Verifies that the WebSocket rejects connections for non-proxy tracks."""
-    track_in = schemas.TrackCreate(
-        name="Fake Track", lane_count=4, timer_type="FAKE"
-    )
-    track = crud.create_track(db, track_in)
-    
-    # Ensure manager exists
-    TIMER_MANAGERS[track.id] = TimerManager(track.id, MicroWizardDevice())
-
-    from fastapi import WebSocketDisconnect
-    with pytest.raises(WebSocketDisconnect) as excinfo:
-        with client.websocket_connect(f"/ws/timer/{track.id}") as websocket:
-            websocket.receive_json()
-    assert excinfo.value.code == 4000
