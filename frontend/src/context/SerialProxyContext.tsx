@@ -76,7 +76,7 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
             // 2. Open WebSocket
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/ws/timer/${trackId}`;
+            const wsUrl = `${protocol}//${window.location.host}/ws/timer/${trackId}`;
             const ws = new WebSocket(wsUrl);
             wsRef.current = ws;
 

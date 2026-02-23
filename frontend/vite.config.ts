@@ -45,6 +45,12 @@ export default defineConfig(({ mode }) => {
           ws: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
+        '/ws': {
+          target: env.VITE_BACKEND_URL || 'https://localhost:8000',
+          changeOrigin: true,
+          secure: isSecure,
+          ws: true,
+        },
         '/static': {
           target: env.VITE_BACKEND_URL || 'https://localhost:8000',
           changeOrigin: true,
