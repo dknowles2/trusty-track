@@ -378,7 +378,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                     <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
                       {r?.time != null ? `${Number(r.time).toFixed(4)}s` : '--'}
                     </div>
-                    {r?.place != null && (
+                    {r?.place !== null && (
                       <div style={{
                         display: 'flex',
                         flexDirection: 'column',

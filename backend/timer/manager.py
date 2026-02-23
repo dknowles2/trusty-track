@@ -9,7 +9,6 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import Callable, Awaitable, Dict, List, Optional, Any
 
 import serial
@@ -18,7 +17,14 @@ from ..pubsub import pubsub
 from ..database import SessionLocal
 from .. import crud, models
 from .state_machine import TimerState
-from .devices.base import TimerDevice, TimerEvent, RaceStarted, LaneResult, GateClosed, DeviceError
+from .devices.base import (
+    TimerDevice,
+    TimerEvent,
+    RaceStarted,
+    LaneResult,
+    GateClosed,
+    DeviceError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +46,7 @@ class TimerManager:
     def __init__(self, track_id: int, device: TimerDevice) -> None:
         self._track_id = track_id
         self._device = device
-        self._buf: bytes = b''
+        self._buf: bytes = b""
         self._active_heat_id: Optional[int] = None
         self._lane_mask: int = 0
         self._pending_results: Dict[int, LaneResult] = {}
@@ -66,10 +72,10 @@ class TimerManager:
         """Update the device and reset state. Stops any active connections."""
         await self.stop()
         self._device = device
-        self._buf = b''
+        self._buf = b""
         self._pending_results = {}
         self._last_error = None
-        
+
         if not device.requires_serial:
             await self._transition(TimerState.IDLE)
         else:
@@ -100,7 +106,7 @@ class TimerManager:
     # ------------------------------------------------------------------ #
 
     def status(self) -> TimerStatus:
-        lane_count = bin(self._lane_mask).count('1') if self._lane_mask else None
+        lane_count = bin(self._lane_mask).count("1") if self._lane_mask else None
         pending = [
             {
                 "lane": r.lane,
@@ -125,7 +131,7 @@ class TimerManager:
     async def reset(self) -> None:
         """Manually reset the timer to IDLE state, clearing buffers and active heat."""
         self._active_heat_id = None
-        self._buf = b''
+        self._buf = b""
         self._pending_results = {}
         await self._transition(TimerState.IDLE)
 
@@ -158,13 +164,18 @@ class TimerManager:
             self._watchdog_task = asyncio.create_task(self._watchdog_loop())
 
         # Send identification *and* initialization commands immediately.
-        # This ensures that even if we are reconnecting to a device that is already 
+        # This ensures that even if we are reconnecting to a device that is already
         # in a high-speed or "new-style" format, we put it back into a known state.
-        commands = self._device.identification_commands() + self._device.initialization_commands()
+        commands = (
+            self._device.identification_commands()
+            + self._device.initialization_commands()
+        )
 
         # If we have an active heat, re-send lane mask
         if self._active_heat_id is not None:
-            logger.info(f"Timer {self._track_id}: re-sending lane mask {self._lane_mask:X}")
+            logger.info(
+                f"Timer {self._track_id}: re-sending lane mask {self._lane_mask:X}"
+            )
             commands += self._device.prepare_heat_commands(self._lane_mask)
 
         if commands:
@@ -172,7 +183,7 @@ class TimerManager:
 
     async def handle_disconnect(self) -> None:
         """Called when a serial connection is lost."""
-        self._buf = b''
+        self._buf = b""
         self._write_fn = self._noop_write
         if self._device.requires_serial:
             await self._transition(TimerState.DISCONNECTED)
@@ -192,37 +203,38 @@ class TimerManager:
         while True:
             # 1. Try standard delimiter
             delim_idx = self._buf.find(self._device.delimiter)
-            
+
             # 2. Try immediate characters
             imm_idx = -1
-            imm_marker = b''
+            imm_marker = b""
             for char in self._device.immediate_chars:
                 idx = self._buf.find(char)
                 if idx != -1 and (imm_idx == -1 or idx < imm_idx):
                     imm_idx = idx
                     imm_marker = char
-            
+
             # Which one is first?
             if delim_idx != -1 and (imm_idx == -1 or delim_idx < imm_idx):
                 # Process delimiter
                 line = self._buf[0:delim_idx]
-                self._buf = self._buf[delim_idx + len(self._device.delimiter):]
+                self._buf = self._buf[delim_idx + len(self._device.delimiter) :]
                 await self._process_line(line)
             elif imm_idx != -1:
                 # Process immediate char
                 # We include the char in the "line" so process_line can see it
-                line = self._buf[0:imm_idx + len(imm_marker)]
-                self._buf = self._buf[imm_idx + len(imm_marker):]
+                line = self._buf[0 : imm_idx + len(imm_marker)]
+                self._buf = self._buf[imm_idx + len(imm_marker) :]
                 await self._process_line(line)
             else:
                 break
         return []
+
     async def _process_line(self, line: bytes) -> None:
-        raw_line = line # Keep raw for logging
+        raw_line = line  # Keep raw for logging
         line = line.strip()
         if not line:
             return
-        
+
         logger.info("Timer %d received line: %r", self._track_id, raw_line)
 
         # Try to parse the line first. Even in CONNECTED state, if it looks like
@@ -232,8 +244,15 @@ class TimerManager:
         if self._state == TimerState.CONNECTED:
             if self._device.is_identified_by(line) or event_or_list is not None:
                 # If identified OR if we got a valid event (like a result), we are good.
-                logger.info("Timer %d: identified or event received, transitioning from CONNECTED", self._track_id)
-                next_state = TimerState.ARMED if self._active_heat_id is not None else TimerState.IDLE
+                logger.info(
+                    "Timer %d: identified or event received, transitioning from CONNECTED",
+                    self._track_id,
+                )
+                next_state = (
+                    TimerState.ARMED
+                    if self._active_heat_id is not None
+                    else TimerState.IDLE
+                )
                 await self._transition(next_state)
                 # If it was just identification, we are done. If it was an event,
                 # we'll fall through and handle it below.
@@ -241,7 +260,9 @@ class TimerManager:
                     return
 
         if event_or_list is not None:
-            events = event_or_list if isinstance(event_or_list, list) else [event_or_list]
+            events = (
+                event_or_list if isinstance(event_or_list, list) else [event_or_list]
+            )
             for event in events:
                 logger.info("Timer %d parsed event: %s", self._track_id, event)
                 await self._handle_event(event)
@@ -267,7 +288,9 @@ class TimerManager:
     async def _transition(self, new_state: TimerState) -> None:
         if self._state == new_state:
             return
-        logger.debug("Timer %d: %s → %s", self._track_id, self._state.value, new_state.value)
+        logger.debug(
+            "Timer %d: %s → %s", self._track_id, self._state.value, new_state.value
+        )
         self._state = new_state
         await pubsub.publish(f"timer_state:{self._track_id}", self.status())
 
@@ -280,11 +303,15 @@ class TimerManager:
                 else:
                     logger.warning(
                         "Timer %d: RaceStarted in unexpected state %s",
-                        self._track_id, self._state.value,
+                        self._track_id,
+                        self._state.value,
                     )
 
             elif isinstance(event, GateClosed):
-                if self._state == TimerState.ARMED and self._device.gate_state_is_knowable:
+                if (
+                    self._state == TimerState.ARMED
+                    and self._device.gate_state_is_knowable
+                ):
                     await self._transition(TimerState.READY)
 
             elif isinstance(event, LaneResult):
@@ -294,17 +321,21 @@ class TimerManager:
                 if self._state != TimerState.RUNNING:
                     logger.warning(
                         "Timer %d: LaneResult received in state %s, ignoring",
-                        self._track_id, self._state.value,
+                        self._track_id,
+                        self._state.value,
                     )
                     return
                 self._pending_results[event.lane] = event
+                self._recalculate_places()
                 # Publish status update with new pending results
                 await pubsub.publish(f"timer_state:{self._track_id}", self.status())
 
                 expected_lanes = {
                     i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
                 }
-                if expected_lanes and expected_lanes.issubset(self._pending_results.keys()):
+                if expected_lanes and expected_lanes.issubset(
+                    self._pending_results.keys()
+                ):
                     await self._record_results()
 
             elif isinstance(event, DeviceError):
@@ -312,11 +343,30 @@ class TimerManager:
                 logger.error("Timer %d device error: %s", self._track_id, event.message)
                 await self._transition(TimerState.FAULT)
 
+    def _recalculate_places(self) -> None:
+        """Re-sort pending results by time and assign places (1-indexed)."""
+        # Collect results that have a time
+        results = [r for r in self._pending_results.values() if r.time_seconds > 0]
+        if not results:
+            return
+
+        # Sort by time
+        results.sort(key=lambda r: r.time_seconds)
+
+        # Assign places, handling ties
+        current_place = 1
+        for i, res in enumerate(results):
+            if i > 0 and res.time_seconds > results[i - 1].time_seconds:
+                current_place = i + 1
+            res.place = current_place
+
     async def _record_results(self) -> None:
         """Persist accumulated lane results to the database and notify subscribers."""
         heat_id = self._active_heat_id
         if heat_id is None:
-            logger.error("Timer %d: _record_results called with no active heat", self._track_id)
+            logger.error(
+                "Timer %d: _record_results called with no active heat", self._track_id
+            )
             return
 
         # Build result list sorted by lane
@@ -329,7 +379,9 @@ class TimerManager:
             if heat:
                 # Official Heat
                 existing = json.loads(heat.lane_results) if heat.lane_results else []
-                racer_by_lane: Dict[int, Optional[int]] = {r["lane"]: r.get("racer_id") for r in existing}
+                racer_by_lane: Dict[int, Optional[int]] = {
+                    r["lane"]: r.get("racer_id") for r in existing
+                }
 
                 results = [
                     {
@@ -345,13 +397,25 @@ class TimerManager:
                 race_id = heat.race_id
             else:
                 # Check FreeRaceHeat
-                free_heat = db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
+                free_heat = (
+                    db.query(models.FreeRaceHeat)
+                    .filter(models.FreeRaceHeat.id == heat_id)
+                    .first()
+                )
                 if not free_heat:
-                    logger.error("Timer %d: heat %d not found in official or free race heats", self._track_id, heat_id)
+                    logger.error(
+                        "Timer %d: heat %d not found in official or free race heats",
+                        self._track_id,
+                        heat_id,
+                    )
                     return
-                
+
                 # FreeRaceHeat
-                existing = json.loads(free_heat.lane_assignments) if free_heat.lane_assignments else []
+                existing = (
+                    json.loads(free_heat.lane_assignments)
+                    if free_heat.lane_assignments
+                    else []
+                )
                 racer_by_lane = {r["lane"]: r.get("racer_id") for r in existing}
 
                 results = [
@@ -370,6 +434,7 @@ class TimerManager:
 
         # Notify race-state subscribers (e.g. RaceExecution, Observation)
         from ..schema import _publish_race_state
+
         await _publish_race_state(race_id)
 
         self._active_heat_id = None
@@ -386,7 +451,7 @@ class TimerManager:
         self._direct_port = port
         if self._serial:
             self._serial.close()
-            self._serial = None # Ensure it's None before trying to re-open
+            self._serial = None  # Ensure it's None before trying to re-open
         if self._read_task:
             self._read_task.cancel()
             self._read_task = None
@@ -394,16 +459,13 @@ class TimerManager:
         try:
             # We wrap this in to_thread because Serial() opening can block
             self._serial = await asyncio.to_thread(
-                serial.Serial,
-                port,
-                baudrate=self._device.baud_rate,
-                timeout=0.1
+                serial.Serial, port, baudrate=self._device.baud_rate, timeout=0.1
             )
         except Exception as e:
             self._last_error = f"Failed to open port {port}: {e}"
             logger.error("Timer %d: %s", self._track_id, self._last_error)
             await self._transition(TimerState.FAULT)
-            
+
             # Still start watchdog even if it fails once
             if not self._watchdog_task:
                 self._watchdog_task = asyncio.create_task(self._watchdog_loop())
@@ -436,16 +498,29 @@ class TimerManager:
 
                 # Resend identification if stuck in CONNECTED (e.g. initial command lost due to Arduino bootloader)
                 if self._state == TimerState.CONNECTED:
-                    logger.info("Timer %d watchdog: still CONNECTED, resending identification", self._track_id)
+                    logger.info(
+                        "Timer %d watchdog: still CONNECTED, resending identification",
+                        self._track_id,
+                    )
                     await self._send_commands(self._device.identification_commands())
 
-                if self._direct_port and (not self._serial or not self._serial.is_open or self._state == TimerState.FAULT):
-                    logger.info("Timer %d watchdog: attempting reconnect on %s", self._track_id, self._direct_port)
+                if self._direct_port and (
+                    not self._serial
+                    or not self._serial.is_open
+                    or self._state == TimerState.FAULT
+                ):
+                    logger.info(
+                        "Timer %d watchdog: attempting reconnect on %s",
+                        self._track_id,
+                        self._direct_port,
+                    )
                     # We call connect_direct again. It handles its own task/serial cleanup.
                     try:
                         await self.connect_direct(self._direct_port)
                     except Exception as e:
-                        logger.error("Timer %d: Watchdog reconnect failed: %s", self._track_id, e)
+                        logger.error(
+                            "Timer %d: Watchdog reconnect failed: %s", self._track_id, e
+                        )
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -490,11 +565,11 @@ class TimerManager:
             except asyncio.CancelledError:
                 pass
             self._read_task = None
-        
+
         self._direct_port = None
 
         if self._serial:
             self._serial.close()
             self._serial = None
-        
+
         await self.handle_disconnect()
