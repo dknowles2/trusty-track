@@ -4,23 +4,30 @@ FastAPI application entry point.
 Mounts the GraphQL router and static file serving.
 """
 
+import asyncio
+import base64
+import logging
 import os
 import shutil
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Dict
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-import base64
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
-
-import logging
-from contextlib import asynccontextmanager
-
-from typing import Dict
 
 from . import models
 from .database import DATA_DIR, SessionLocal, engine
@@ -186,12 +193,13 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
     })
 
     manager.set_write_fn(send_to_ws)
-    await manager.handle_connect()
 
     try:
         while True:
             data = await websocket.receive_json()
-            if data.get("type") == "serial_rx":
+            if data.get("type") == "ready":
+                await manager.handle_connect()
+            elif data.get("type") == "serial_rx":
                 rx_bytes = base64.b64decode(data["data"])
                 await manager.receive_bytes(rx_bytes)
             elif data.get("type") == "pong":
