@@ -13,6 +13,7 @@ Create user-facing documentation for Trusty Track aimed at **race event organize
 | 2 [DONE] | `02_race_setup.md`           | Race Setup Guide                     | Pack admins setting up a race              |
 | 3        | `03_race_day.md`             | Race Day Operations Guide            | Check-in operators, race control operators |
 | 4        | `04_observation_displays.md` | Observation & Audience Displays      | Display/kiosk operators                    |
+| 5        | `06_race_stats.md`           | Race Stats Guide                     | Organizers reviewing per-racer and lane stats, exporting results |
 
 Task 0 (infrastructure) should be completed first; the content tasks (1–4) can proceed in parallel once the site skeleton exists.
 
