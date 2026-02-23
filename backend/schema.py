@@ -627,6 +627,7 @@ class TimerStatus:
     lane_count: Optional[int]
     active_heat_id: Optional[int]
     last_error: Optional[str]
+    pending_results: List[LaneResult] = strawberry.field(default_factory=list)
 
 
 @strawberry.type
@@ -647,6 +648,15 @@ def _timer_status_from_manager(mgr) -> TimerStatus:
         lane_count=s.lane_count,
         active_heat_id=s.active_heat_id,
         last_error=s.last_error,
+        pending_results=[
+            LaneResult(
+                lane=r["lane"],
+                time=r["time"],
+                place=r["place"],
+                racer_id=None, # Not known by timer manager directly
+            )
+            for r in s.pending_results
+        ],
     )
 
 
@@ -1219,16 +1229,24 @@ class Mutation:
 
     @strawberry.mutation
     async def force_results(self, info: Info, track_id: int) -> bool:
-        """Send the force-results command to the timer device (e.g. RA for MicroWizard).
+        """Send the force-results command to the timer device (e.g. RA for MicroWizard)
+        and record whatever results have been collected so far.
 
-        No-op for timer types that do not support this command (e.g. FAKE).
+        No-op for timer types that do not support this command (e.g. FAKE),
+        but still forces recording of any pending results.
         Returns False if no manager exists for the track.
         """
         timer_managers = info.context.get("timer_managers", {})
         mgr = timer_managers.get(track_id)
         if mgr is None:
             return False
+        
+        # 1. Send device command
         await mgr._send_commands(mgr._device.force_results_commands())
+        
+        # 2. Force manager to record what it has
+        await mgr.force_record()
+        
         return True
 
     @strawberry.mutation
@@ -1306,10 +1324,16 @@ class Mutation:
         # Compute lane mask
         lane_mask = 0
         if is_free_race:
-            # For free races, arm all lanes on the track so the timer captures everything
-            track = db.query(models.Track).filter(models.Track.id == race.track_id).first()
-            if track:
-                lane_mask = (1 << track.lane_count) - 1
+            # For free races, only arm assigned lanes if any exist.
+            # Otherwise arm all lanes on the track so the timer captures everything.
+            occupied_lanes = [lr["lane"] for lr in lane_results if lr.get("racer_id") is not None]
+            if occupied_lanes:
+                for lane in occupied_lanes:
+                    lane_mask |= 1 << (lane - 1)
+            else:
+                track = db.query(models.Track).filter(models.Track.id == race.track_id).first()
+                if track:
+                    lane_mask = (1 << track.lane_count) - 1
         else:
             # For official heats, compute lane mask from occupied (non-null racer_id) lanes
             for lr in lane_results:
@@ -1845,6 +1869,15 @@ class Subscription:
                         lane_count=status_dc.lane_count,
                         active_heat_id=status_dc.active_heat_id,
                         last_error=status_dc.last_error,
+                        pending_results=[
+                            LaneResult(
+                                lane=r["lane"],
+                                time=r["time"],
+                                place=r["place"],
+                                racer_id=None,
+                            )
+                            for r in status_dc.pending_results
+                        ],
                     ),
                     changed_at=datetime.now(timezone.utc).isoformat(),
                 )
@@ -2066,6 +2099,7 @@ class Subscription:
         
         async with pubsub.subscribe(f"race_state:{heat.race_id}") as stream:
             async for _ in stream:
+                db.expire_all()
                 db.commit()
                 yield _get_heat()
 
@@ -2090,6 +2124,7 @@ class Subscription:
 
             yield _get_active_free()
             async for _ in stream:
+                db.expire_all()
                 db.commit()
                 yield _get_active_free()
 

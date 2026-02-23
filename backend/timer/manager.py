@@ -10,7 +10,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Awaitable, Dict, List, Optional
+from typing import Callable, Awaitable, Dict, List, Optional, Any
 
 import serial
 
@@ -33,6 +33,7 @@ class TimerStatus:
     lane_count: Optional[int]
     active_heat_id: Optional[int]
     last_error: Optional[str]
+    pending_results: List[Dict[str, Any]] = field(default_factory=list)
 
 
 class TimerManager:
@@ -100,12 +101,21 @@ class TimerManager:
 
     def status(self) -> TimerStatus:
         lane_count = bin(self._lane_mask).count('1') if self._lane_mask else None
+        pending = [
+            {
+                "lane": r.lane,
+                "time": r.time_seconds,
+                "place": r.place,
+            }
+            for r in self._pending_results.values()
+        ]
         return TimerStatus(
             state=self._state.value,
             device_name=self._device.name,
             lane_count=lane_count,
             active_heat_id=self._active_heat_id,
             last_error=self._last_error,
+            pending_results=pending,
         )
 
     # ------------------------------------------------------------------ #
@@ -133,6 +143,12 @@ class TimerManager:
         self._pending_results = {}
         await self._send_commands(self._device.abort_commands())
         await self._transition(TimerState.IDLE)
+
+    async def force_record(self) -> None:
+        """Force recording of whatever results have been collected so far."""
+        if self._active_heat_id is not None:
+            logger.info("Timer %d: force_record called", self._track_id)
+            await self._record_results()
 
     async def handle_connect(self) -> None:
         """Called when a serial connection (direct or proxy) is established."""
@@ -282,6 +298,9 @@ class TimerManager:
                     )
                     return
                 self._pending_results[event.lane] = event
+                # Publish status update with new pending results
+                await pubsub.publish(f"timer_state:{self._track_id}", self.status())
+
                 expected_lanes = {
                     i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
                 }
@@ -354,7 +373,8 @@ class TimerManager:
         await _publish_race_state(race_id)
 
         self._active_heat_id = None
-        self._pending_results = {}
+        # Note: we do NOT clear self._pending_results here so they remain available
+        # in the status (IDLE state) until the next heat is prepared.
         await self._transition(TimerState.IDLE)
 
     # ------------------------------------------------------------------ #

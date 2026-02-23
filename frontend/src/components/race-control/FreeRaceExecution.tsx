@@ -98,22 +98,24 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   });
 
   const timerState: string = subResult.data?.timerStatus?.status?.state ?? 'IDLE';
-  
+
   // Results are completed if we have lane_results from the backend
   // In Phase 1, we expect the backend to record results automatically
   // but we might need to fetch them if they aren't in props yet.
   // Actually, FreeRaceTab might give us the updated heat.
   // For now, let's just drive isRunning/isCompleted from timerState and local state
-  
+
   const isRunning = timerState === 'RUNNING';
   const isCompleted = results !== null;
 
-  // Auto-prepare heat on mount if not already completed and timer is IDLE
+  // Auto-prepare heat when a new heatId is provided
   useEffect(() => {
-    if (timerState === 'IDLE' && !isCompleted && heatId) {
+    if (timerState === 'IDLE' && !results && heatId) {
       prepareHeat({ heatId });
     }
-  }, [heatId, isCompleted, timerState]);
+    // Only run when heatId changes or on mount. 
+    // Do NOT depend on timerState or results to avoid re-prepare loops.
+  }, [heatId]);
 
   // Timer for elapsed display
   useEffect(() => {
@@ -132,11 +134,11 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     const base = results
       ? results
       : laneAssignments.map((a) => ({
-          lane: a.lane,
-          racer_id: a.racerId,
-          time: null as number | null,
-          place: null as number | null,
-        }));
+        lane: a.lane,
+        racer_id: a.racerId,
+        time: null as number | null,
+        place: null as number | null,
+      }));
     setEditingResults(base.map((r) => ({ ...r })));
     setIsEditModalOpen(true);
   };
@@ -192,9 +194,21 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     return `${r.firstName} ${r.lastName}${r.carNumber != null ? ` #${r.carNumber}` : ''}`;
   };
 
+  const pendingResults = subResult.data?.timerStatus?.status?.pendingResults ?? [];
+
   const laneResultMap: Record<number, LaneResult> = {};
   if (results) {
     results.forEach((r) => { laneResultMap[r.lane] = r; });
+  } else {
+    // Show pending results if official results aren't in yet
+    pendingResults.forEach((r: any) => {
+      laneResultMap[r.lane] = {
+        lane: r.lane,
+        racer_id: laneAssignments.find(a => a.lane === r.lane)?.racerId ?? null,
+        time: r.time,
+        place: r.place,
+      };
+    });
   }
 
   const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
@@ -269,39 +283,39 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
               </>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                  <div style={{
-                    padding: '8px 20px',
-                    fontSize: '1.15rem',
-                    background: isRunning ? '#ff9800' : '#f5f5f5',
-                    color: isRunning ? 'white' : '#666',
-                    borderRadius: '4px',
-                    fontWeight: 'bold',
-                    border: isRunning ? 'none' : '1px solid #ddd',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px'
-                  }}>
-                    {isRunning && <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />}
-                    {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button 
-                      onClick={openEditModal}
-                      className="secondary-btn"
-                      style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Icon path={isRunning ? mdiAlertCircleOutline : mdiPencil} size={0.6} /> 
-                      {isRunning ? 'Force Results' : 'Override'}
-                    </button>
-                    <button 
-                      onClick={handleSkipHeat}
-                      className="secondary-btn"
-                      style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
-                    </button>
-                  </div>
-                  <style>{`
+                <div style={{
+                  padding: '8px 20px',
+                  fontSize: '1.15rem',
+                  background: isRunning ? '#ff9800' : '#f5f5f5',
+                  color: isRunning ? 'white' : '#666',
+                  borderRadius: '4px',
+                  fontWeight: 'bold',
+                  border: isRunning ? 'none' : '1px solid #ddd',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  {isRunning && <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />}
+                  {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={openEditModal}
+                    className="secondary-btn"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Icon path={isRunning ? mdiAlertCircleOutline : mdiPencil} size={0.6} />
+                    {isRunning ? 'Force Results' : 'Override'}
+                  </button>
+                  <button
+                    onClick={handleSkipHeat}
+                    className="secondary-btn"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
+                  </button>
+                </div>
+                <style>{`
                       .pulse-dot { animation: pulse 1s infinite; }
                       @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
                   `}</style>
@@ -373,8 +387,8 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                         padding: '5px',
                         borderRadius: '8px',
                         background: r.place === 1 ? 'var(--scouting-blue)' :
-                                   r.place === 2 ? '#e0e0e0' :
-                                   r.place === 3 ? '#d7a48d' : 'transparent',
+                          r.place === 2 ? '#e0e0e0' :
+                            r.place === 3 ? '#d7a48d' : 'transparent',
                         color: r.place === 1 ? 'white' : 'inherit',
                         boxShadow: r.place <= 3 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
                       }}>
@@ -383,13 +397,13 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                             path={mdiTrophy}
                             size={1}
                             color={r.place === 1 ? 'white' :
-                                   r.place === 2 ? '#757575' : '#8d6e63'}
+                              r.place === 2 ? '#757575' : '#8d6e63'}
                           />
                         ) : (
                           <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{r.place}th</span>
                         )}
                         {r.place <= 3 && <span style={{ fontSize: '0.7rem', fontWeight: 'bold', lineHeight: 1 }}>
-                            {r.place === 1 ? '1st' : r.place === 2 ? '2nd' : '3rd'}
+                          {r.place === 1 ? '1st' : r.place === 2 ? '2nd' : '3rd'}
                         </span>}
                       </div>
                     )}

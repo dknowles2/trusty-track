@@ -255,6 +255,11 @@ export const TIMER_STATUS_SUBSCRIPTION = gql`
         laneCount
         activeHeatId
         lastError
+        pendingResults {
+          lane
+          time
+          place
+        }
       }
     }
   }
