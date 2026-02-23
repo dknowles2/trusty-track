@@ -138,7 +138,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             }
             return;
         }
-        setAutoAdvanceCountdown(3);
+        setAutoAdvanceCountdown(10);
         const interval = setInterval(() => {
             setAutoAdvanceCountdown(prev => {
                 if (prev === null || prev <= 1) {
@@ -150,7 +150,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         }, 1000);
         autoAdvanceTimeoutRef.current = setTimeout(() => {
             onNextHeat();
-        }, 3000);
+        }, 10000);
         return () => {
             clearInterval(interval);
             if (autoAdvanceTimeoutRef.current) {
@@ -158,7 +158,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 autoAdvanceTimeoutRef.current = null;
             }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isCompleted, autoAdvanceHeat, nextExecutionHeat?.id, roundSummary, isRoundSummaryOpen]);
 
     useEffect(() => {
