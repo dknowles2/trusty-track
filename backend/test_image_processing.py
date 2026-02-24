@@ -121,3 +121,44 @@ def test_remove_green_screen_dilation() -> None:
     # Check for soft edges (values between 0 and 255)
     # The edges of the 5x5 green block should now be feathered
     assert np.any((alpha_blurred > 0) & (alpha_blurred < 255))
+
+
+def test_convert_to_browser_safe_png_resizing() -> None:
+    """Tests that convert_to_browser_safe_png resizes large images."""
+    from .image_processing import convert_to_browser_safe_png, MAX_IMAGE_SIZE
+    import io
+
+    # Create a large image (larger than MAX_IMAGE_SIZE)
+    large_size = MAX_IMAGE_SIZE + 500
+    img = Image.new("RGB", (large_size, large_size // 2), color=(255, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    large_bytes = buf.getvalue()
+
+    # Process image
+    processed_bytes = convert_to_browser_safe_png(large_bytes)
+
+    # Check if resized
+    processed_img = Image.open(io.BytesIO(processed_bytes))
+    assert processed_img.width == MAX_IMAGE_SIZE
+    assert processed_img.height == MAX_IMAGE_SIZE // 2
+    assert processed_img.format == "PNG"
+
+
+def test_convert_to_browser_safe_png_no_resize_if_small() -> None:
+    """Tests that convert_to_browser_safe_png doesn't resize or change small safe images."""
+    from .image_processing import convert_to_browser_safe_png, MAX_IMAGE_SIZE
+    import io
+
+    # Create a small JPEG image
+    small_size = MAX_IMAGE_SIZE - 100
+    img = Image.new("RGB", (small_size, small_size), color=(255, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    small_bytes = buf.getvalue()
+
+    # Process image
+    processed_bytes = convert_to_browser_safe_png(small_bytes)
+
+    # Should be identical
+    assert processed_bytes == small_bytes

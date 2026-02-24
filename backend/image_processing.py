@@ -6,20 +6,52 @@ from PIL import Image, ImageFilter
 # Formats natively supported by all major browsers.
 _BROWSER_NATIVE_FORMATS = {"JPEG", "PNG", "GIF", "WEBP"}
 
+# Maximum dimension for uploaded images (racer photos, etc.)
+MAX_IMAGE_SIZE = 1024
 
-def convert_to_browser_safe_png(image_bytes: bytes) -> bytes:
+
+def resize_image(img: Image.Image, max_size: int = MAX_IMAGE_SIZE) -> Image.Image:
+    """Resize *img* so that its longest side does not exceed *max_size*."""
+    width, height = img.size
+    if width <= max_size and height <= max_size:
+        return img
+
+    if width > height:
+        new_width = max_size
+        new_height = int(height * (max_size / width))
+    else:
+        new_height = max_size
+        new_width = int(width * (max_size / height))
+
+    # Using LANCZOS for high-quality downsampling.
+    return img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+
+def convert_to_browser_safe_png(image_bytes: bytes, max_size: int = MAX_IMAGE_SIZE) -> bytes:
     """Return *image_bytes* re-encoded as PNG if the format is not natively
-    supported by all major browsers (e.g. HEIC/HEIF, TIFF, BMP).
+    supported by all major browsers (e.g. HEIC/HEIF, TIFF, BMP), or if it
+    exceeds *max_size* in either dimension.
 
-    If the image is already JPEG, PNG, GIF, or WebP the original bytes are
-    returned unchanged.
+    If the image is already a native format and within *max_size*, the original
+    bytes are returned unchanged.
     """
     img = Image.open(io.BytesIO(image_bytes))
-    if img.format in _BROWSER_NATIVE_FORMATS:
+
+    # Check if we need to resize or convert
+    width, height = img.size
+    needs_resize = width > max_size or height > max_size
+    needs_conversion = img.format not in _BROWSER_NATIVE_FORMATS
+
+    if not needs_resize and not needs_conversion:
         return image_bytes
+
+    if needs_resize:
+        img = resize_image(img, max_size)
+
     # Convert to RGBA so transparency is preserved for any source mode.
     if img.mode not in ("RGB", "RGBA"):
         img = img.convert("RGBA")
+
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
