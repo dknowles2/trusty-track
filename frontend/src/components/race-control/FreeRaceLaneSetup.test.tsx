@@ -37,6 +37,7 @@ describe('FreeRaceLaneSetup', () => {
     laneCount: 4,
     onStart: mockOnStart,
     racers: racersMap,
+    timerType: 'FAKE',
   };
 
   beforeEach(() => {

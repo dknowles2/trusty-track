@@ -10,8 +10,8 @@ import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCar
 
 export default function Navigation() {
   const { showAlert } = useAlert();
-  const [{ data, fetching }] = useQuery({ query: GET_RACES_NAV });
-  const races = data?.races || [];
+  const [{ data }] = useQuery({ query: GET_RACES_NAV });
+  const races: { id: number; name: string }[] = data?.races || [];
   
   const [, createRaceMutation] = useMutation(CREATE_RACE);
 
@@ -34,7 +34,7 @@ export default function Navigation() {
 
   const match = location.pathname.match(/\/race\/(\d+)/);
   const raceId = match ? match[1] : null;
-  const activeRace = raceId ? races.find(r => r.id === parseInt(raceId)) : null;
+  const activeRace = raceId ? races.find((r: { id: number; name: string }) => r.id === parseInt(raceId)) : null;
 
   const links: { to: string; label: string; icon: string }[] = [];
   if (raceId) {
@@ -133,7 +133,7 @@ export default function Navigation() {
                   border: '1px solid #eee'
                 }}>
                   <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                    {races.map(r => (
+                    {races.map((r: { id: number; name: string }) => (
                       <Link
                         key={r.id}
                         to={`/race/${r.id}`}
@@ -304,7 +304,7 @@ export default function Navigation() {
               {/* Drawer Content */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
                 <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#999', margin: '1rem 0 0.5rem 0.5rem', letterSpacing: '1px' }}>Races</h3>
-                {races.map(r => (
+                {races.map((r: { id: number; name: string }) => (
                   <div key={r.id}>
                     <Link
                       to={`/race/${r.id}`}

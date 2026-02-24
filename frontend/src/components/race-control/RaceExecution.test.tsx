@@ -70,7 +70,8 @@ describe('RaceExecution', () => {
         racers: mockRacers,
         roundSummary: null,
         trackId: 1,
-        timerType: 'FAKE'
+        timerType: 'FAKE',
+        autoAdvanceHeat: false
     };
 
     beforeEach(() => {

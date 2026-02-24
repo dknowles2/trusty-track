@@ -138,8 +138,8 @@ describe('SystemSettings', () => {
             config: {
                 groupName: 'Test Pack',
                 tracks: [
-                    { name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE' },
-                    { name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE' }
+                    { name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null },
+                    { name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null }
                 ]
             }
         });

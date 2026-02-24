@@ -3,7 +3,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
 import { AlertProvider } from '../../context/AlertContext';
-import { useMutation } from 'urql';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {

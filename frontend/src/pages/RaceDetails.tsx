@@ -12,7 +12,6 @@ import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
 import CheckInModal from '../components/CheckInModal';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
-import { LeaderboardData } from '../components/Leaderboard';
 import RacerAvatar from '../components/RacerAvatar';
 import Icon from '@mdi/react';
 import { 
@@ -21,6 +20,24 @@ import {
   mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiTrophy, mdiCamera
 } from '@mdi/js';
 import * as GQL from '../graphql/raceDetails';
+
+interface LeaderboardEntry {
+    racer_id: number;
+    first_name: string;
+    last_name: string;
+    car_number: number;
+    den_name: string;
+    score: number;
+    heats_completed: number;
+    racer_image_url?: string;
+    rank: number;
+}
+
+interface LeaderboardData {
+    race_id: number;
+    scoring_strategy: string;
+    leaderboard: LeaderboardEntry[];
+}
 
 interface GQLDen {
     id: number;
@@ -580,7 +597,7 @@ export default function RaceDetails() {
       </Modal>
 
       {/* Standings Link - Only show if at least one heat has been run */}
-      {race && leaderboard && leaderboard.leaderboard.some(r => r.heats_completed > 0) && (
+      {race && leaderboard && leaderboard.leaderboard.some((r: LeaderboardEntry) => r.heats_completed > 0) && (
         <div style={{ marginBottom: '2rem' }}>
             <Link to={`/race/${race.id}/standings`} style={{ textDecoration: 'none' }}>
                 <div style={{ 
@@ -617,7 +634,7 @@ export default function RaceDetails() {
 
                         {leaderboard && leaderboard.leaderboard.length > 0 && (
                             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                                {leaderboard.leaderboard.slice(0, 3).map((racer) => (
+                                {leaderboard.leaderboard.slice(0, 3).map((racer: LeaderboardEntry) => (
                                     <div key={racer.racer_id} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', position: 'relative', overflow: 'hidden' }}>
                                         <RacerAvatar
                                             racer={{
