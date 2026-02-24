@@ -1,5 +1,28 @@
+import io
+
 import numpy as np
 from PIL import Image, ImageFilter
+
+# Formats natively supported by all major browsers.
+_BROWSER_NATIVE_FORMATS = {"JPEG", "PNG", "GIF", "WEBP"}
+
+
+def convert_to_browser_safe_png(image_bytes: bytes) -> bytes:
+    """Return *image_bytes* re-encoded as PNG if the format is not natively
+    supported by all major browsers (e.g. HEIC/HEIF, TIFF, BMP).
+
+    If the image is already JPEG, PNG, GIF, or WebP the original bytes are
+    returned unchanged.
+    """
+    img = Image.open(io.BytesIO(image_bytes))
+    if img.format in _BROWSER_NATIVE_FORMATS:
+        return image_bytes
+    # Convert to RGBA so transparency is preserved for any source mode.
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGBA")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 def remove_green_screen(

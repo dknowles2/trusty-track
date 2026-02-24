@@ -13,11 +13,17 @@ from typing import Any, AsyncGenerator, List, Optional
 import strawberry
 from strawberry.types import Info
 
+import pillow_heif
+
 from . import crud, models, schemas, scoring
+from .database import UPLOAD_DIR
+from .image_processing import convert_to_browser_safe_png
 from .pubsub import pubsub
 from .timer.devices.fake import FakeTimerDevice
 from .timer.devices.microwizard import MicroWizardDevice
 from .timer.manager import TimerManager
+
+pillow_heif.register_heif_opener()
 
 
 @strawberry.type
@@ -1999,27 +2005,30 @@ class Mutation:
         Returns:
             The static URL path to the saved image.
         """
-        upload_dir = "backend/uploads"
-        os.makedirs(upload_dir, exist_ok=True)
-
         # Parse data URL: data:<mime>;base64,<data>
         if "," not in data_url:
             raise ValueError("Invalid data URL format")
         header, encoded = data_url.split(",", 1)
 
-        # Determine file extension from mime type
-        ext = ".jpg"
-        if "image/png" in header:
+        raw_data = base64.b64decode(encoded)
+        image_data = convert_to_browser_safe_png(raw_data)
+
+        # If conversion happened (non-browser-safe format like HEIC), the
+        # result is PNG regardless of what the data-URL header claims.
+        if image_data is not raw_data:
+            ext = ".png"
+        elif "image/png" in header:
             ext = ".png"
         elif "image/gif" in header:
             ext = ".gif"
         elif "image/webp" in header:
             ext = ".webp"
+        else:
+            ext = ".jpg"
 
         filename = f"{uuid.uuid4()}{ext}"
-        file_path = os.path.join(upload_dir, filename)
+        file_path = os.path.join(UPLOAD_DIR, filename)
 
-        image_data = base64.b64decode(encoded)
         with open(file_path, "wb") as f:
             f.write(image_data)
 

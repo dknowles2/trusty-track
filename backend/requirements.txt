@@ -7,4 +7,5 @@ httpx
 strawberry-graphql
 numpy
 Pillow
+pillow-heif
 pyserial

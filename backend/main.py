@@ -29,12 +29,18 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
+import pillow_heif
+
 from . import models
-from .database import DATA_DIR, SessionLocal, engine
+from .database import DATA_DIR, SessionLocal, UPLOAD_DIR, engine
+from .image_processing import convert_to_browser_safe_png
 from .schema import schema
 from .timer.manager import TimerManager
 from .timer.devices.fake import FakeTimerDevice
 from .timer.devices.microwizard import MicroWizardDevice
+
+# Register the HEIF/HEIC plugin so Pillow can open those files.
+pillow_heif.register_heif_opener()
 
 # Registry of TimerManager instances, keyed by track_id
 TIMER_MANAGERS: Dict[int, TimerManager] = {}
@@ -115,10 +121,6 @@ def get_db():
     finally:
         db.close()
 
-
-# Create uploads directory if not exists
-UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 
@@ -216,15 +218,21 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)) -> dict:
     """Upload a file and return its static URL."""
-    # Create unique filename
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is missing")
 
-    file_extension = os.path.splitext(file.filename)[1]
-    filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join(UPLOAD_DIR, filename)
+    raw_bytes = await file.read()
+    image_bytes = convert_to_browser_safe_png(raw_bytes)
 
+    # Use .png extension if conversion happened, otherwise keep original.
+    if image_bytes is not raw_bytes:
+        ext = ".png"
+    else:
+        ext = os.path.splitext(file.filename)[1]
+
+    filename = f"{uuid.uuid4()}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(image_bytes)
 
     return {"url": f"/static/{filename}"}

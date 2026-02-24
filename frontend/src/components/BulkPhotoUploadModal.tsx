@@ -193,6 +193,76 @@ function RacerCombobox({ racers, value, onChange }: ComboboxProps) {
 
 // ---------- Helpers ----------
 
+const BROWSER_SAFE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+function isBrowserSafe(file: File) {
+    if (BROWSER_SAFE_TYPES.includes(file.type)) return true;
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext ?? '');
+}
+
+function PhotoPreview({ entry }: { entry: PhotoEntry }) {
+    // If we have an uploaded URL, it's definitely safe (backend converted it to PNG if needed)
+    if (entry.uploadedUrl) {
+        return (
+            <img
+                src={entry.uploadedUrl}
+                alt={entry.file.name}
+                style={{
+                    width: 80,
+                    height: 80,
+                    objectFit: 'cover',
+                    borderRadius: '6px',
+                    flexShrink: 0,
+                    border: '1px solid #ddd',
+                }}
+            />
+        );
+    }
+
+    // If still uploading/error and not browser-safe, show a placeholder
+    if (!isBrowserSafe(entry.file)) {
+        return (
+            <div style={{
+                width: 80,
+                height: 80,
+                borderRadius: '6px',
+                background: '#f0f0f0',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.65rem',
+                color: '#888',
+                textAlign: 'center',
+                border: '1px solid #ddd',
+                flexShrink: 0,
+                padding: '0 4px',
+                boxSizing: 'border-box'
+            }}>
+                <span style={{ fontSize: '1.2rem', marginBottom: '2px' }}>⏳</span>
+                {entry.status === 'uploading' ? 'Converting...' : 'HEIC File'}
+            </div>
+        );
+    }
+
+    // Otherwise show local object URL
+    return (
+        <img
+            src={entry.objectUrl}
+            alt={entry.file.name}
+            style={{
+                width: 80,
+                height: 80,
+                objectFit: 'cover',
+                borderRadius: '6px',
+                flexShrink: 0,
+                border: '1px solid #ddd',
+            }}
+        />
+    );
+}
+
 function readFileAsDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -334,18 +404,7 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                             borderRadius: '8px',
                             background: entry.status === 'error' ? '#fff5f5' : 'white',
                         }}>
-                            <img
-                                src={entry.objectUrl}
-                                alt={entry.file.name}
-                                style={{
-                                    width: 80,
-                                    height: 80,
-                                    objectFit: 'cover',
-                                    borderRadius: '6px',
-                                    flexShrink: 0,
-                                    border: '1px solid #ddd',
-                                }}
-                            />
+                            <PhotoPreview entry={entry} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: '0.8rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
                                     {entry.file.name}
