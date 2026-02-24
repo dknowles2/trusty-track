@@ -52,7 +52,7 @@ The easiest way to run Trusty Track from source is using the convenience scripts
 ./scripts/serve.sh
 ```
 
-Then open `http://localhost:8000` in your browser.
+Then open `http://localhost:8005` in your browser.
 
 For a two-terminal development workflow with live reload, or for other deployment options like Docker, see the [Development Guide](docs/development.md).
 

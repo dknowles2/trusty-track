@@ -16,7 +16,7 @@ The GraphQL endpoint at `/graphql` is the primary interface between frontend and
 
 ```bash
 ./scripts/install.sh   # Installs dependencies & builds frontend
-./scripts/serve.sh     # Starts unified server on http://localhost:8000
+./scripts/serve.sh     # Starts unified server on http://localhost:8005
 ```
 
 **Development (Two processes)**:
@@ -75,7 +75,7 @@ frontend/src/
   graphql/
     raceDetails.ts            # gql query/mutation strings (some queries also inline in pages)
   api/
-    graphqlClient.ts          # urql client, proxies to http://127.0.0.1:8000/graphql
+    graphqlClient.ts          # urql client, proxies to http://127.0.0.1:8005/graphql
   context/
     AlertContext.tsx          # App-wide alert/toast system
 

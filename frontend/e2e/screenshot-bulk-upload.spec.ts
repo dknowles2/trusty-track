@@ -6,7 +6,7 @@
  *   npx playwright test e2e/screenshot-bulk-upload.spec.ts --headed
  *
  * Assumes the Vite dev server is running at http://localhost:5173 and the
- * backend is reachable (the Vite proxy handles the SSL tunnel to port 8000).
+ * backend is reachable (the Vite proxy handles the SSL tunnel to port 8005).
  */
 
 import { test } from '@playwright/test';

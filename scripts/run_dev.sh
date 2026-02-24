@@ -24,11 +24,12 @@ fi
 export CERT_FILE="$PROJECT_ROOT/certs/localhost.pem"
 export KEY_FILE="$PROJECT_ROOT/certs/localhost-key.pem"
 export VITE_BACKEND_SECURE=false
+export VITE_BACKEND_URL=https://localhost:8005
 
 
-# Start Backend (HTTPS :8000)
-echo "Starting Backend (HTTPS :8000)..."
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000 --ssl-keyfile "$KEY_FILE" --ssl-certfile "$CERT_FILE" &
+# Start Backend (HTTPS :8005)
+echo "Starting Backend (HTTPS :8005)..."
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8005 --ssl-keyfile "$KEY_FILE" --ssl-certfile "$CERT_FILE" &
 BACKEND_PID=$!
 
 

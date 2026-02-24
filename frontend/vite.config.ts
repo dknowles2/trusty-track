@@ -39,20 +39,20 @@ export default defineConfig(({ mode }) => {
       } : undefined,
       proxy: {
         '/api': {
-          target: env.VITE_BACKEND_URL || 'https://localhost:8000',
+          target: env.VITE_BACKEND_URL || 'http://localhost:8005',
           changeOrigin: true,
           secure: isSecure,
           ws: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
         '/ws': {
-          target: env.VITE_BACKEND_URL || 'https://localhost:8000',
+          target: env.VITE_BACKEND_URL || 'http://localhost:8005',
           changeOrigin: true,
           secure: isSecure,
           ws: true,
         },
         '/static': {
-          target: env.VITE_BACKEND_URL || 'https://localhost:8000',
+          target: env.VITE_BACKEND_URL || 'http://localhost:8005',
           changeOrigin: true,
           secure: isSecure,
         }

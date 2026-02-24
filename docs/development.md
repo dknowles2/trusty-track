@@ -38,8 +38,8 @@ Start the development server with live reload:
 uvicorn main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`.
-Interactive API docs are at `http://localhost:8000/docs`.
+The API will be available at `http://localhost:8005`.
+Interactive API docs are at `http://localhost:8005/docs`.
 
 ### 3. Running Tests
 
@@ -107,7 +107,7 @@ To install and run the application as a single process:
 # Install everything (prerequisites: Python 3.10+, Node.js 18+)
 ./scripts/install.sh
 
-# Start the server (serves both backend and frontend on port 8000)
+# Start the server (serves both backend and frontend on port 8005)
 ./scripts/serve.sh
 ```
 
@@ -142,7 +142,7 @@ npm run dev
 
 | Issue                     | Solution                                                                                                                                       |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Port 8000/5173 in use** | Stop other running processes or allow the tools to pick the next available port (check console output).                                        |
+| **Port 8005/5173 in use** | Stop other running processes or allow the tools to pick the next available port (check console output).                                        |
 | **CORS Errors**           | The backend is configured to allow `*` origins in development. Ensure you are accessing the frontend via `localhost` matching the CORS config. |
 | **Database Locks**        | SQLite can occasionally lock if a process crashes. Restart the backend server.                                                                 |
 | **Missing Dependencies**  | Re-run `pip install -r requirements.txt` (backend) or `npm install` (frontend).                                                                |
