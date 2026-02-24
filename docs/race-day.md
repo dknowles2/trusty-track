@@ -62,6 +62,50 @@ _Sort by inspection status to bring unchecked racers to the top. Here you can se
 
 ---
 
+### Uploading Photos in Bulk
+
+If a photographer takes portraits or car photos before the race, you can upload and assign all of them at once using the **Upload Photos** button — without opening each racer's check-in form individually.
+
+**When to use this:** After a pre-race photo session where you have a folder of racer or car images to associate with the correct racers.
+
+![Upload Photos button in the toolbar](assets/screenshots/race-day/19-upload-photos-button.png)
+_The **Upload Photos** button sits in the toolbar above the racer list, between Bulk Actions and Add Racer._
+
+1. Click **Upload Photos** in the toolbar above the racer list.
+2. The **Upload & Assign Photos** modal opens. Click **Choose Photos** and select one or more image files from your device.
+
+![Empty upload modal](assets/screenshots/race-day/20-bulk-upload-modal-empty.png)
+_The modal before any photos are selected. Click "Choose Photos" to pick files from your device._
+
+3. Each image uploads immediately and appears as a thumbnail card. The footer shows how many photos have been assigned so far.
+
+![Photos loaded in the modal](assets/screenshots/race-day/21-bulk-upload-photos-loaded.png)
+_Three photos loaded and ready to assign. Each card shows the filename, an assignment search box, and a Racer/Car photo toggle. The footer tracks progress ("0 of 3 uploaded photo(s) assigned")._
+
+4. Click the search box on a card and start typing a racer's name or car number. A filtered list appears as you type.
+
+![Combobox open showing full racer list](assets/screenshots/race-day/22-bulk-upload-combobox-open.png)
+_Clicking the search box shows all racers sorted by car number. Scroll or start typing to narrow the list._
+
+![Combobox filtered to a single racer](assets/screenshots/race-day/23-bulk-upload-combobox-filtered.png)
+_Typing "jax" immediately filters to matching racers. Press Enter or click the name to assign._
+
+5. Use the **Racer photo** / **Car photo** radio buttons on each card to indicate what the image shows (default is Racer photo).
+6. After assigning all photos, click **Apply N Assignment(s)** to save.
+
+![Modal with assignments made and Apply button active](assets/screenshots/race-day/24-bulk-upload-assigned.png)
+_With one photo assigned, the Apply button becomes active and shows the count. The footer updates to "1 of 3 uploaded photo(s) assigned." Continue assigning the remaining cards before clicking Apply._
+
+Photos that are uploaded but not assigned to any racer are silently skipped — only photos with a racer selected are saved. Assignments can be applied at any time during or after check-in; the photos will be visible on the audience display during the race.
+
+> [!TIP]
+> If an upload fails (for example, due to a slow network), a **Retry** link appears on that card. Other cards are not affected — you can assign and apply the successful uploads while retrying the failed ones.
+
+> [!NOTE]
+> Photos can also be added individually through each racer's check-in form (see [Checking In a Racer](#checking-in-a-racer) above). The bulk upload tool is most useful when photos were taken as a batch outside the app and you want to assign them all at once.
+
+---
+
 ## Part 2: Scheduling the Race
 
 ### Navigating to Race Control
