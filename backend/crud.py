@@ -339,6 +339,27 @@ def update_racer(
     return db_racer
 
 
+def bulk_assign_racer_photos(
+    db: Session,
+    assignments: list[dict],
+) -> int:
+    """Apply photo URLs to racers in bulk. Returns count of updated racers."""
+    count = 0
+    for a in assignments:
+        racer_id = a.get("racer_id")
+        url = a.get("url")
+        photo_type = a.get("photo_type", "racer")
+        if not racer_id or not url:
+            continue
+        if photo_type == "racer":
+            update = schemas.RacerUpdate(racer_image_url=url)
+        elif photo_type == "car":
+            update = schemas.RacerUpdate(car_image_url=url)
+        else:
+            continue
+        if update_racer(db, racer_id, update):
+            count += 1
+    return count
 
 
 

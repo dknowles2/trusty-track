@@ -11,13 +11,14 @@ import Modal from '../components/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
 import CheckInModal from '../components/CheckInModal';
+import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import { LeaderboardData } from '../components/Leaderboard';
 import RacerAvatar from '../components/RacerAvatar';
 import Icon from '@mdi/react';
 import { 
-  mdiCalendar, mdiMapMarker, mdiMagnify, mdiNumeric, 
-  mdiChevronDown, mdiChevronRight, mdiLightningBolt, mdiFileUpload, 
-  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiTrophy
+  mdiCalendar, mdiMapMarker, mdiMagnify, mdiNumeric,
+  mdiChevronDown, mdiChevronRight, mdiLightningBolt, mdiFileUpload,
+  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiTrophy, mdiCamera
 } from '@mdi/js';
 import * as GQL from '../graphql/raceDetails';
 
@@ -162,6 +163,8 @@ export default function RaceDetails() {
   // Check In Modal
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkingInRacer, setCheckingInRacer] = useState<Racer | null>(null);
+
+  const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
 
   // Populate Modal
   const [showPopulateModal, setShowPopulateModal] = useState(false);
@@ -770,6 +773,13 @@ export default function RaceDetails() {
                 )}
             </div>
 
+            <button
+                className="secondary-btn"
+                onClick={() => setShowBulkPhotoUpload(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+            >
+                <Icon path={mdiCamera} size={0.8} /> Upload Photos
+            </button>
 
             <div className="dropdown" style={{ position: 'relative' }}>
                 <div className="split-btn-container">
@@ -1133,6 +1143,16 @@ export default function RaceDetails() {
             onClose={() => setShowImportModal(false)}
             raceId={race.id}
             onImportSuccess={refreshData}
+          />
+      )}
+
+      {/* Bulk Photo Upload Modal */}
+      {showBulkPhotoUpload && (
+          <BulkPhotoUploadModal
+              isOpen={showBulkPhotoUpload}
+              onClose={() => setShowBulkPhotoUpload(false)}
+              onSuccess={refreshData}
+              racers={racers}
           />
       )}
 

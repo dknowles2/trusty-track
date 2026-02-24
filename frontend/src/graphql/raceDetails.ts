@@ -225,6 +225,12 @@ export const UPLOAD_IMAGE = gql`
   }
 `;
 
+export const BULK_ASSIGN_PHOTOS = gql`
+  mutation BulkAssignPhotos($assignments: [PhotoAssignmentInput!]!) {
+    bulkAssignPhotos(assignments: $assignments)
+  }
+`;
+
 export const RACE_STATE_CHANGED_SUBSCRIPTION = `
   subscription RaceStateChanged($raceId: Int!) {
     raceStateChanged(raceId: $raceId) {

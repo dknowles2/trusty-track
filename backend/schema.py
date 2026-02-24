@@ -417,6 +417,15 @@ class PopulateTestDataInput:
 
 
 @strawberry.input
+class PhotoAssignmentInput:
+    """Single racer-to-photo assignment for bulk photo assignment."""
+
+    racer_id: int
+    url: str        # /static/{uuid}.jpg from uploadImage
+    photo_type: str # "racer" or "car"
+
+
+@strawberry.input
 class RoundCreateInput:
     """Input for creating a new race round."""
 
@@ -1631,6 +1640,28 @@ class Mutation:
         if race_id:
             await _publish_race_state(race_id)
         return True
+
+    @strawberry.mutation
+    async def bulk_assign_photos(
+        self,
+        info: Info,
+        assignments: List[PhotoAssignmentInput],
+    ) -> int:
+        """Assign uploaded photo URLs to racers in bulk. Returns count updated."""
+        db = info.context["db"]
+        if not assignments:
+            return 0
+        assignment_dicts = [
+            {"racer_id": a.racer_id, "url": a.url, "photo_type": a.photo_type}
+            for a in assignments
+        ]
+        count = crud.bulk_assign_racer_photos(db, assignment_dicts)
+        racer = db.query(models.Racer).filter(
+            models.Racer.id == assignments[0].racer_id
+        ).first()
+        if racer:
+            await _publish_race_state(racer.race_id)
+        return count
 
     @strawberry.mutation
     def create_initial_config(
