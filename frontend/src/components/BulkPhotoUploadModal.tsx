@@ -202,11 +202,15 @@ function isBrowserSafe(file: File) {
 }
 
 function PhotoPreview({ entry }: { entry: PhotoEntry }) {
-    // If we have an uploaded URL, it's definitely safe (backend converted it to PNG if needed)
-    if (entry.uploadedUrl) {
+    const [remoteLoaded, setRemoteLoaded] = useState(false);
+    const isSafe = isBrowserSafe(entry.file);
+
+    // If it's a browser-safe image, always use the local objectUrl for previewing.
+    // This is instant and avoids the flicker when switching to the remote URL.
+    if (isSafe) {
         return (
             <img
-                src={entry.uploadedUrl}
+                src={entry.objectUrl}
                 alt={entry.file.name}
                 style={{
                     width: 80,
@@ -220,46 +224,73 @@ function PhotoPreview({ entry }: { entry: PhotoEntry }) {
         );
     }
 
-    // If still uploading/error and not browser-safe, show a placeholder
-    if (!isBrowserSafe(entry.file)) {
+    // For non-browser-safe images (like HEIC), we must use the converted uploadedUrl
+    if (entry.uploadedUrl) {
         return (
-            <div style={{
-                width: 80,
-                height: 80,
-                borderRadius: '6px',
-                background: '#f0f0f0',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.65rem',
-                color: '#888',
-                textAlign: 'center',
-                border: '1px solid #ddd',
-                flexShrink: 0,
-                padding: '0 4px',
-                boxSizing: 'border-box'
-            }}>
-                <span style={{ fontSize: '1.2rem', marginBottom: '2px' }}>⏳</span>
-                {entry.status === 'uploading' ? 'Converting...' : 'HEIC File'}
+            <div style={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
+                {!remoteLoaded && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: '#f0f0f0',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.65rem',
+                        color: '#888',
+                        textAlign: 'center',
+                        border: '1px solid #ddd',
+                        borderRadius: '6px',
+                        padding: '0 4px',
+                        boxSizing: 'border-box',
+                        zIndex: 1,
+                    }}>
+                        <span style={{ fontSize: '1.2rem', marginBottom: '2px' }}>⏳</span>
+                        Finalizing...
+                    </div>
+                )}
+                <img
+                    src={entry.uploadedUrl}
+                    alt={entry.file.name}
+                    onLoad={() => setRemoteLoaded(true)}
+                    onError={() => setRemoteLoaded(true)}
+                    style={{
+                        width: 80,
+                        height: 80,
+                        objectFit: 'cover',
+                        borderRadius: '6px',
+                        flexShrink: 0,
+                        border: '1px solid #ddd',
+                        display: remoteLoaded ? 'block' : 'none',
+                    }}
+                />
             </div>
         );
     }
 
-    // Otherwise show local object URL
+    // Still uploading and not browser-safe
     return (
-        <img
-            src={entry.objectUrl}
-            alt={entry.file.name}
-            style={{
-                width: 80,
-                height: 80,
-                objectFit: 'cover',
-                borderRadius: '6px',
-                flexShrink: 0,
-                border: '1px solid #ddd',
-            }}
-        />
+        <div style={{
+            width: 80,
+            height: 80,
+            borderRadius: '6px',
+            background: '#f0f0f0',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.65rem',
+            color: '#888',
+            textAlign: 'center',
+            border: '1px solid #ddd',
+            flexShrink: 0,
+            padding: '0 4px',
+            boxSizing: 'border-box'
+        }}>
+            <span style={{ fontSize: '1.2rem', marginBottom: '2px' }}>⏳</span>
+            {entry.status === 'uploading' ? 'Converting...' : 'HEIC File'}
+        </div>
     );
 }
 

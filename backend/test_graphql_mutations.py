@@ -559,8 +559,9 @@ def test_upload_image_mutation(client):
     assert url.endswith(".png")
 
     # Verify the file was actually saved
+    from backend.database import UPLOAD_DIR
     filename = url.split("/static/")[1]
-    file_path = os.path.join("backend/uploads", filename)
+    file_path = os.path.join(UPLOAD_DIR, filename)
     assert os.path.exists(file_path)
 
     # Cleanup

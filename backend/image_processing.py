@@ -43,7 +43,16 @@ def convert_to_browser_safe_png(image_bytes: bytes, max_size: int = MAX_IMAGE_SI
     needs_conversion = img.format not in _BROWSER_NATIVE_FORMATS
 
     if not needs_resize and not needs_conversion:
-        return image_bytes
+        # Even if we don't need to resize or convert format, we still apply
+        # auto-cropping if there's transparency information.
+        if img.mode == "RGBA":
+            img = crop_to_content(img)
+            # If cropping changed the image, we must continue to re-encoding.
+            # Otherwise we can still return original bytes.
+            if img.size[0] == width and img.size[1] == height:
+                return image_bytes
+        else:
+            return image_bytes
 
     if needs_resize:
         img = resize_image(img, max_size)
@@ -51,6 +60,9 @@ def convert_to_browser_safe_png(image_bytes: bytes, max_size: int = MAX_IMAGE_SI
     # Convert to RGBA so transparency is preserved for any source mode.
     if img.mode not in ("RGB", "RGBA"):
         img = img.convert("RGBA")
+    
+    # Apply auto-cropping as per SPEC
+    img = crop_to_content(img)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
