@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navigation from './components/Navigation';
 import SystemSettings from './pages/SystemSettings';
@@ -24,7 +25,7 @@ const INITIAL_CONFIG_QUERY = `
 
 
 
-function ProtectedRoute({ children }: { children: JSX.Element }) {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   const [result] = useQuery({

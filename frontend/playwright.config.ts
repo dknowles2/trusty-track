@@ -8,8 +8,9 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.HTTPS_SERVER === 'true' ? 'https://localhost:5174' : 'http://localhost:5173',
     trace: 'on-first-retry',
+    ignoreHTTPSErrors: true,
   },
   projects: [
     {
@@ -19,7 +20,8 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
+    url: process.env.HTTPS_SERVER === 'true' ? 'https://localhost:5174' : 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
+    ignoreHTTPSErrors: true,
   },
 });
