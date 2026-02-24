@@ -226,3 +226,4 @@ certs/
 
 .claude/settings.local.json
 .trusty-track/
+.DS_Store
