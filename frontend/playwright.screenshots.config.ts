@@ -15,6 +15,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
+  timeout: 600000, // 10 minutes — screenshot spec runs many heats and backend API calls
   use: {
     baseURL: `http://localhost:${FRONTEND_PORT}`,
     trace: 'off',

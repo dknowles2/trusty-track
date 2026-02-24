@@ -27,6 +27,7 @@ nav:
   - Race Setup: race-setup.md
   - Race Day: race-day.md
   - Observation Displays: observation-displays.md
+  - Race Stats: race-stats.md
 
 plugins:
   - search

@@ -17,6 +17,7 @@ from . import crud, models, schemas, scoring
 from .pubsub import pubsub
 from .timer.devices.fake import FakeTimerDevice
 from .timer.devices.microwizard import MicroWizardDevice
+from .timer.manager import TimerManager
 
 
 @strawberry.type
@@ -1643,6 +1644,14 @@ class Mutation:
         config_dict = strawberry.asdict(config)
         config_in = schemas.InitialConfigCreate(**config_dict)
         group, tracks = crud.create_initial_config(db, config_in)
+
+        # Register a TimerManager for each newly created track so that
+        # prepare_heat works immediately without requiring a server restart.
+        timer_managers = info.context.get("timer_managers", {})
+        for track in tracks:
+            if track.id not in timer_managers:
+                device = FakeTimerDevice() if track.timer_type == models.TimerType.FAKE else MicroWizardDevice()
+                timer_managers[track.id] = TimerManager(track.id, device)
 
         # Link existing races if any
         if tracks:
