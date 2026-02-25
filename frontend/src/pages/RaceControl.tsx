@@ -508,7 +508,6 @@ export default function RaceControl() {
             <RaceExecution
               activeExecutionHeat={activeExecutionHeat || null}
               nextExecutionHeat={nextExecutionHeat}
-              upcomingHeats={upcomingHeats}
               activeHeatId={activeHeatId}
               onRunHeat={handleRunHeat}
               onNextHeat={handleNextHeat}

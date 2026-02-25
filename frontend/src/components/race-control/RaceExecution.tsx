@@ -7,7 +7,7 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../../graphql/raceDetails';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
-import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronRight, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
+import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
 
 export interface Heat {
     id: number;
@@ -51,7 +51,6 @@ export interface AdvancementStatus {
 interface RaceExecutionProps {
     activeExecutionHeat: Heat | null;
     nextExecutionHeat: Heat | null;
-    upcomingHeats: Heat[];
     activeHeatId: number | null;
     onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
     onNextHeat: () => void;
@@ -68,7 +67,6 @@ interface RaceExecutionProps {
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
     activeExecutionHeat,
     nextExecutionHeat,
-    upcomingHeats,
     onRunHeat,
     onNextHeat,
     getRacerName,
@@ -187,7 +185,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" style={{ marginBottom: '20px' }} />
                 <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Race Execution</h2>
                 <p style={{ fontSize: '1.2rem', color: '#666' }}>
-                    {upcomingHeats.length > 0 ? "Select a heat to begin." : "All heats have been run."}
+                    {nextExecutionHeat ? "Select a heat to begin." : "All heats have been run."}
                 </p>
             </div>
         );
@@ -374,7 +372,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             display: 'flex',
                                             alignItems: 'center'
                                         }}>
-                                            <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                            <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                                 <RacerAvatar
                                                     racer={{
                                                         id: racer?.id || r.racer_id,
@@ -382,13 +380,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                         last_name: racer?.lastName || '',
                                                         racer_image_url: racer?.racerImageUrl
                                                     }}
-                                                    size="60px"
+                                                    size="80px"
                                                 />
                                             </div>
 
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{getRacerName(r.racer_id)}</div>
-                                                {racer && <div style={{ fontSize: '0.9rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
+                                                <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>
+                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id)}
+                                                </div>
+                                                {racer && <div style={{ fontSize: '1rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
                                             </div>
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -588,34 +588,70 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN: Upcoming Heats */}
+                {/* RIGHT COLUMN: On Deck */}
                 <div>
-                    <h3 style={{ marginTop: 0, marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <Icon path={mdiChevronRight} size={1} /> Upcoming
+                    <h3 style={{ marginTop: 0, marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: '#444' }}>
+                        <Icon path={mdiChevronDoubleRight} size={1} /> On Deck
                     </h3>
                     <div style={{ background: 'white', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', height: 'fit-content' }}>
-                        {upcomingHeats.length === 0 ? (
+                        {!nextExecutionHeat ? (
                             <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
-                                No more upcoming heats.
+                                No more heats scheduled.
                             </div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {upcomingHeats.map(h => (
-                                    <div key={h.id} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #eee', background: '#fafafa' }}>
-                                        <div style={{ fontWeight: 'bold', marginBottom: '5px', display: 'flex', justifyContent: 'space-between' }}>
-                                            <span>Heat {h.heatNumber}</span>
-                                            <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>Round {h.roundNumber}</span>
-                                        </div>
-                                        <div style={{ fontSize: '0.85rem' }}>
-                                            {(h.laneResults ? JSON.parse(h.laneResults) : []).map((r: any) => (
-                                                <div key={r.lane} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                                                    <span style={{ color: '#666' }}>L{r.lane}:</span>
-                                                    <span style={{ fontWeight: '500' }}>{getRacerName(r.racer_id)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                <div style={{ fontWeight: 'bold', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                    <span style={{ fontSize: '1.1rem' }}>Heat {nextExecutionHeat.heatNumber}</span>
+                                    <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>{nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}</span>
+                                </div>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    {(nextExecutionHeat.laneResults ? JSON.parse(nextExecutionHeat.laneResults) : []).map((r: any) => {
+                                        const racer = racers[r.racer_id];
+                                        return (
+                                                                                        <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid #f5f5f5' }}>
+                                                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#999', width: '30px' }}>L{r.lane}</div>
+                                                                                            
+                                                                                            <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                                                {racer?.carImageUrl ? (
+                                                                                                    <img 
+                                                                                                        src={racer.carImageUrl} 
+                                                                                                        alt={`Car #${racer.carNumber}`} 
+                                                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', border: '1px solid #eee' }}
+                                                                                                    />
+                                                                                                ) : (
+                                                                                                    <div style={{ 
+                                                                                                        width: '100%', 
+                                                                                                        height: '100%', 
+                                                                                                        background: 'var(--cub-scouting-gold)', 
+                                                                                                        color: 'var(--scouting-blue)', 
+                                                                                                        borderRadius: '50%', 
+                                                                                                        display: 'flex', 
+                                                                                                        flexDirection: 'column',
+                                                                                                        alignItems: 'center', 
+                                                                                                        justifyContent: 'center', 
+                                                                                                        fontWeight: 'bold',
+                                                                                                        border: '1px solid #d4af37',
+                                                                                                        boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)'
+                                                                                                    }}>
+                                                                                                        <div style={{ fontSize: '0.6rem', opacity: 0.8, textTransform: 'uppercase', lineHeight: 1 }}>Car</div>
+                                                                                                        <div style={{ fontSize: '1.25rem', lineHeight: 1 }}>{racer?.carNumber ?? '-'}</div>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                            
+                                                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                                                <div style={{ fontWeight: '600', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id)}
+                                                                                                </div>
+                                                                                                {racer?.carNumber && (
+                                                                                                    <div style={{ fontSize: '0.85rem', color: '#888' }}>Car #{racer.carNumber}</div>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                            
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
                     </div>
