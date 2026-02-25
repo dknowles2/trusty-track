@@ -40,13 +40,17 @@ describe('FreeRaceLaneSetup', () => {
     timerType: 'FAKE',
   };
 
+  const mockData = { randomFreeRaceLanes: mockRandomLanes };
+  const mockResult = { data: mockData, fetching: false };
+  const emptyResult = { data: null, fetching: false };
+
   beforeEach(() => {
     vi.clearAllMocks();
     (useQuery as any).mockImplementation(({ query }: any) => {
       if (query.includes('randomFreeRaceLanes')) {
-        return [{ data: { randomFreeRaceLanes: mockRandomLanes }, fetching: false }, mockReExecute];
+        return [mockResult, mockReExecute];
       }
-      return [{ data: null, fetching: false }, vi.fn()];
+      return [emptyResult, vi.fn()];
     });
   });
 
@@ -127,18 +131,16 @@ describe('FreeRaceLaneSetup', () => {
   });
 
   it('Start Free Race Heat is disabled when all lanes are empty in random mode', async () => {
-    (useQuery as any).mockImplementation(() => [
-      {
-        data: {
-          randomFreeRaceLanes: [
-            { lane: 1, racerId: null },
-            { lane: 2, racerId: null },
-          ],
-        },
-        fetching: false,
+    const emptyLanesData = {
+      data: {
+        randomFreeRaceLanes: [
+          { lane: 1, racerId: null },
+          { lane: 2, racerId: null },
+        ],
       },
-      mockReExecute,
-    ]);
+      fetching: false,
+    };
+    (useQuery as any).mockImplementation(() => [emptyLanesData, mockReExecute]);
     render(<FreeRaceLaneSetup {...defaultProps} />);
     const startBtn = screen.getByRole('button', { name: /Start Free Race Heat/i });
     expect(startBtn).toBeDisabled();

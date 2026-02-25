@@ -1,7 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from 'urql';
 import Icon from '@mdi/react';
-import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered } from '@mdi/js';
+import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered, mdiDragVertical } from '@mdi/js';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { RacerCombobox } from '../RacerCombobox';
@@ -30,6 +47,141 @@ interface Racer {
 
 type Mode = 'random' | 'manual';
 
+interface SortableLaneItemProps {
+  assignment: LaneAssignment;
+  racer: Racer | null;
+  mode: Mode;
+  racers: Record<number, Racer>;
+  allRacersList: Racer[];
+  onManualChange: (lane: number, racerId: number | null) => void;
+  manualAssignments: LaneAssignment[];
+}
+
+const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
+  assignment,
+  racer,
+  mode,
+  racers,
+  allRacersList,
+  onManualChange,
+  manualAssignments,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: assignment.lane });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    display: 'flex',
+    alignItems: 'center',
+    padding: '15px',
+    background: isDragging ? '#fff' : '#f9f9f9',
+    borderRadius: '8px',
+    borderLeft: '5px solid var(--scouting-blue)',
+    boxShadow: isDragging ? '0 5px 15px rgba(0,0,0,0.1)' : 'none',
+    zIndex: isDragging ? 10 : 1,
+    position: 'relative' as const,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: 'grab',
+          paddingRight: '15px',
+          display: 'flex',
+          alignItems: 'center',
+          color: '#999',
+          opacity: 0.6,
+        }}
+      >
+        <Icon path={mdiDragVertical} size={1} />
+      </div>
+
+      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>
+        Lane {assignment.lane}
+      </div>
+
+      <div style={{
+        width: '80px',
+        height: '80px',
+        borderRadius: '50%',
+        overflow: 'hidden',
+        marginRight: '15px',
+        background: 'transparent',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        {assignment.racerId ? (
+          <RacerAvatar
+            racer={{
+              id: assignment.racerId,
+              first_name: racers[assignment.racerId]?.firstName || '',
+              last_name: racers[assignment.racerId]?.lastName || '',
+              racer_image_url: racers[assignment.racerId]?.racerImageUrl
+            }}
+            size="80px"
+          />
+        ) : (
+          <div style={{
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            border: '2px dashed #ccc',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ccc'
+          }}>
+            ?
+          </div>
+        )}
+      </div>
+
+      <div style={{ flex: 1 }}>
+        {mode === 'manual' ? (
+          <RacerCombobox
+            racers={allRacersList.filter((r) => {
+              const takenByOther = manualAssignments.some(
+                (other) => other.lane !== assignment.lane && other.racerId === r.id
+              );
+              return !takenByOther;
+            })}
+            value={assignment.racerId ?? undefined}
+            onChange={(racerId) => onManualChange(assignment.lane, racerId ?? null)}
+            placeholder="— Select racer —"
+            style={{ minWidth: '350px' }}
+          />
+        ) : (
+          assignment.racerId === null ? (
+            <em style={{ color: '#999', fontSize: '1.2rem' }}>(empty)</em>
+          ) : (
+            <>
+              <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                {racer?.firstName} {racer?.lastName}
+              </div>
+              {racer?.carNumber != null && (
+                <div style={{ fontSize: '1rem', color: '#666' }}>
+                  Car #{racer.carNumber}
+                </div>
+              )}
+            </>
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Record<number, Racer> }> = ({
   raceId,
   laneCount,
@@ -42,6 +194,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
   const [manualAssignments, setManualAssignments] = useState<LaneAssignment[]>(
     Array.from({ length: laneCount }, (_, i) => ({ lane: i + 1, racerId: null }))
   );
+  const [randomAssignments, setRandomAssignments] = useState<LaneAssignment[]>([]);
 
   const [randomResult, reExecuteRandom] = useQuery({
     query: `
@@ -56,12 +209,15 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
     requestPolicy: 'network-only',
   });
 
-  const randomLanes: LaneAssignment[] = (
-    randomResult.data?.randomFreeRaceLanes || []
-  ).map((l: { lane: number; racerId: number | null }) => ({
-    lane: l.lane,
-    racerId: l.racerId,
-  }));
+  useEffect(() => {
+    if (randomResult.data?.randomFreeRaceLanes) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRandomAssignments(randomResult.data.randomFreeRaceLanes.map((l: { lane: number, racerId: number | null }) => ({
+        lane: l.lane,
+        racerId: l.racerId
+      })));
+    }
+  }, [randomResult.data]);
 
   const allRacersList = Object.values(racers);
 
@@ -75,7 +231,36 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
     );
   };
 
-  const currentAssignments = mode === 'random' ? randomLanes : manualAssignments;
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const current = mode === 'random' ? randomAssignments : manualAssignments;
+      const set = mode === 'random' ? setRandomAssignments : setManualAssignments;
+
+      const oldIndex = current.findIndex((a) => a.lane === active.id);
+      const newIndex = current.findIndex((a) => a.lane === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(current, oldIndex, newIndex);
+        // Re-assign lane numbers based on new index to keep them 1..N
+        const fixed = reordered.map((a, i) => ({
+          ...a,
+          lane: i + 1,
+        }));
+        set(fixed);
+      }
+    }
+  };
+
+  const currentAssignments = mode === 'random' ? randomAssignments : manualAssignments;
   const hasAnyRacer = currentAssignments.some((a) => a.racerId != null);
 
   const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
@@ -141,175 +326,77 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           </button>
         </div>
 
-        {mode === 'random' ? (
-          <div>
-            {randomResult.fetching ? (
-              <p>Loading random assignments...</p>
-            ) : (
-              <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
-                {randomLanes.map((a) => {
-                  const racer = a.racerId ? racers[a.racerId] : null;
-                  return (
-                    <div key={a.lane} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '15px',
-                      background: '#f9f9f9',
-                      borderRadius: '8px',
-                      borderLeft: '5px solid var(--scouting-blue)'
-                    }}>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {a.lane}</div>
-                      
-                      <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        {racer ? (
-                          <RacerAvatar
-                            racer={{
-                              id: racer.id,
-                              first_name: racer.firstName,
-                              last_name: racer.lastName,
-                              racer_image_url: racer.racerImageUrl
-                            }}
-                            size="80px"
-                          />
-                        ) : (
-                          <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc' }}>
-                            ?
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ flex: 1 }}>
-                        {a.racerId === null ? (
-                          <em style={{ color: '#999', fontSize: '1.2rem' }}>(empty)</em>
-                        ) : (
-                          <>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
-                              {racer?.firstName} {racer?.lastName}
-                            </div>
-                            {racer?.carNumber != null && (
-                              <div style={{ fontSize: '1rem', color: '#666' }}>
-                                Car #{racer.carNumber}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <button
-                onClick={handleReshuffle}
-                disabled={randomResult.fetching}
-                style={{
-                  padding: '10px 20px',
-                  border: '1px solid #ccc',
-                  borderRadius: '6px',
-                  background: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <Icon path={mdiShuffle} size={0.8} /> Re-shuffle
-              </button>
-              <button
-                onClick={() => onStart(randomLanes)}
-                disabled={!hasAnyRacer || randomResult.fetching}
-                className="primary-btn"
-                style={{
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: hasAnyRacer ? 'var(--scouting-blue)' : '#ccc',
-                  color: hasAnyRacer ? 'white' : '#999',
-                  cursor: hasAnyRacer ? 'pointer' : 'not-allowed',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <Icon path={mdiFlagCheckered} size={0.8} /> Start Free Race Heat
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          {mode === 'random' && randomResult.fetching && randomAssignments.length === 0 ? (
+            <p style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+              Loading random assignments...
+            </p>
+          ) : (
             <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
-              {manualAssignments.map((a) => {
-                const takenIds = new Set(
-                  manualAssignments
-                    .filter((x) => x.lane !== a.lane && x.racerId !== null)
-                    .map((x) => x.racerId)
-                );
-                const available = allRacersList.filter((r) => !takenIds.has(r.id));
-                return (
-                  <div key={a.lane} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '15px',
-                    background: '#f9f9f9',
-                    borderRadius: '8px',
-                    borderLeft: '5px solid var(--scouting-blue)'
-                  }}>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {a.lane}</div>
-                    
-                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      {a.racerId ? (
-                        <RacerAvatar
-                          racer={{
-                            id: a.racerId,
-                            first_name: racers[a.racerId]?.firstName || '',
-                            last_name: racers[a.racerId]?.lastName || '',
-                            racer_image_url: racers[a.racerId]?.racerImageUrl
-                          }}
-                          size="80px"
-                        />
-                      ) : (
-                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc' }}>
-                          ?
-                        </div>
-                      )}
-                    </div>
-
-                    <RacerCombobox
-                      racers={available}
-                      value={a.racerId ?? undefined}
-                      onChange={(racerId) => handleManualChange(a.lane, racerId ?? null)}
-                      placeholder="— Select racer —"
-                      style={{ minWidth: '350px' }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => onStart(manualAssignments)}
-                disabled={!hasAnyRacer}
-                className="primary-btn"
-                style={{
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: hasAnyRacer ? 'var(--scouting-blue)' : '#ccc',
-                  color: hasAnyRacer ? 'white' : '#999',
-                  cursor: hasAnyRacer ? 'pointer' : 'not-allowed',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
+              <SortableContext
+                items={currentAssignments.map((a) => a.lane)}
+                strategy={verticalListSortingStrategy}
               >
-                <Icon path={mdiFlagCheckered} size={0.8} /> Start Free Race Heat
-              </button>
+                {currentAssignments.map((a) => (
+                  <SortableLaneItem
+                    key={a.lane}
+                    assignment={a}
+                    racer={a.racerId ? racers[a.racerId] : null}
+                    mode={mode}
+                    racers={racers}
+                    allRacersList={allRacersList}
+                    onManualChange={handleManualChange}
+                    manualAssignments={manualAssignments}
+                  />
+                ))}
+              </SortableContext>
             </div>
-          </div>
-        )}
+          )}
+        </DndContext>
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: mode === 'manual' ? 'flex-end' : 'flex-start' }}>
+          {mode === 'random' && (
+            <button
+              onClick={handleReshuffle}
+              disabled={randomResult.fetching}
+              style={{
+                padding: '10px 20px',
+                border: '1px solid #ccc',
+                borderRadius: '6px',
+                background: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Icon path={mdiShuffle} size={0.8} /> Re-shuffle
+            </button>
+          )}
+          <button
+            onClick={() => onStart(currentAssignments)}
+            disabled={!hasAnyRacer || (mode === 'random' && randomResult.fetching && randomAssignments.length === 0)}
+            className="primary-btn"
+            style={{
+              padding: '10px 20px',
+              border: 'none',
+              borderRadius: '6px',
+              background: hasAnyRacer ? 'var(--scouting-blue)' : '#ccc',
+              color: hasAnyRacer ? 'white' : '#999',
+              cursor: hasAnyRacer ? 'pointer' : 'not-allowed',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <Icon path={mdiFlagCheckered} size={0.8} /> Start Free Race Heat
+          </button>
+        </div>
       </div>
     </div>
   );
