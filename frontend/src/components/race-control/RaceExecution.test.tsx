@@ -224,4 +224,49 @@ describe('RaceExecution', () => {
         const modal = screen.getByTestId('mock-modal');
         expect(within(modal).getByText('Round Complete!')).toBeInTheDocument();
     });
+
+    it('renders round progress and remaining heats correctly', () => {
+        render(
+            <RaceExecution 
+                {...defaultProps}
+                nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }}
+                totalHeatsInRound={10}
+                remainingHeatsInRound={4}
+            />
+        );
+        
+        expect(screen.getByText('Round Progress')).toBeInTheDocument();
+        expect(screen.getByText('6 of 10 Heats Completed')).toBeInTheDocument();
+        // Since nextExecutionHeat is present, remainingHeatsInRound (4) - 1 = 3
+        expect(screen.getByText('3 Heats Remaining')).toBeInTheDocument();
+    });
+
+    it('renders upcoming rounds when provided', () => {
+        const mockUpcomingRounds = [
+            { roundNumber: 2, roundName: "Finals", totalHeats: 1 }
+        ];
+        render(
+            <RaceExecution 
+                {...defaultProps}
+                upcomingRounds={mockUpcomingRounds}
+            />
+        );
+        
+        expect(screen.getByText('Upcoming Rounds')).toBeInTheDocument();
+        expect(screen.getByText('Finals')).toBeInTheDocument();
+        expect(screen.getByText('1 Heat Scheduled')).toBeInTheDocument();
+    });
+
+    it('shows "End of Round" in On Deck when next heat is in a different round', () => {
+        render(
+            <RaceExecution 
+                {...defaultProps}
+                activeExecutionHeat={{ ...mockHeat, roundId: 1 }}
+                nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 1, roundId: 2, roundNumber: 2, roundName: null }}
+            />
+        );
+        
+        expect(screen.getByText('End of Round')).toBeInTheDocument();
+        expect(screen.getByText(/Next: Round 2/)).toBeInTheDocument();
+    });
 });

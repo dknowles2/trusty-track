@@ -702,7 +702,7 @@ export default function RaceDetails() {
                 <Icon path={mdiMagnify} size={0.7} style={{ position: 'absolute', left: '10px', color: '#999' }} />
                 <input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search racers..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{

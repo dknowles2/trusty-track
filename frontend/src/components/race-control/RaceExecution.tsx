@@ -7,7 +7,7 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../../graphql/raceDetails';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
-import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
+import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange } from '@mdi/js';
 
 export interface Heat {
     id: number;
@@ -62,6 +62,9 @@ interface RaceExecutionProps {
     roundSummary: AdvancementStatus | null;
     autoAdvanceHeat: boolean;
     onToggleAutoAdvance?: (value: boolean) => void;
+    remainingHeatsInRound?: number;
+    totalHeatsInRound?: number;
+    upcomingRounds?: { roundNumber: number, roundName: string | null, totalHeats: number }[];
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
@@ -77,6 +80,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     roundSummary,
     autoAdvanceHeat,
     onToggleAutoAdvance,
+    remainingHeatsInRound,
+    totalHeatsInRound,
+    upcomingRounds,
 }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<any[]>([]);
@@ -594,9 +600,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         <Icon path={mdiChevronDoubleRight} size={1} /> On Deck
                     </h3>
                     <div style={{ background: 'white', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', height: 'fit-content' }}>
-                        {!nextExecutionHeat ? (
-                            <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
-                                No more heats scheduled.
+                        {!nextExecutionHeat || nextExecutionHeat.roundId !== activeExecutionHeat.roundId ? (
+                            <div style={{ padding: '30px 20px', textAlign: 'center', color: '#555' }}>
+                                <Icon path={mdiTrophy} size={2} color="var(--cub-scouting-gold)" style={{ marginBottom: '10px' }} />
+                                <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>End of Round</div>
+                                <div style={{ fontSize: '0.9rem', color: '#888', marginTop: '5px' }}>
+                                    {nextExecutionHeat 
+                                        ? `Next: ${nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}`
+                                        : "Race Complete!"}
+                                </div>
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -655,6 +667,36 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             </div>
                         )}
                     </div>
+                    {totalHeatsInRound !== undefined && remainingHeatsInRound !== undefined && (
+                        <div style={{ marginTop: '15px', padding: '10px 15px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.85rem', color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Round Progress</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#495057' }}>
+                                {totalHeatsInRound - remainingHeatsInRound} of {totalHeatsInRound} Heats Completed
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: '#2e7d32', fontWeight: 600 }}>
+                                {Math.max(0, remainingHeatsInRound - (nextExecutionHeat ? 1 : 0))} {Math.max(0, remainingHeatsInRound - (nextExecutionHeat ? 1 : 0)) === 1 ? 'Heat' : 'Heats'} Remaining
+                            </div>
+                        </div>
+                    )}
+                    {upcomingRounds && upcomingRounds.length > 0 && (
+                        <div style={{ marginTop: '20px' }}>
+                            <h3 style={{ fontSize: '1rem', color: '#444', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Icon path={mdiCalendarRange} size={0.8} /> Upcoming Rounds
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {upcomingRounds.map((round) => (
+                                    <div key={round.roundNumber} style={{ background: 'white', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: '4px solid #ddd' }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '1rem', marginBottom: '4px' }}>
+                                            {round.roundName || `Round ${round.roundNumber}`}
+                                        </div>
+                                        <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                                            {round.totalHeats} {round.totalHeats === 1 ? 'Heat' : 'Heats'} Scheduled
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

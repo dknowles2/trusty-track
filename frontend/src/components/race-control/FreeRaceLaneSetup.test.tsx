@@ -88,6 +88,7 @@ describe('FreeRaceLaneSetup', () => {
   });
 
   it('Manual mode dropdowns exclude already-selected racers', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup();
     render(<FreeRaceLaneSetup {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Manual/i }));
     await waitFor(() => {
@@ -96,25 +97,33 @@ describe('FreeRaceLaneSetup', () => {
 
     // Assign Alice (101) to lane 1
     const selects = screen.getAllByRole('combobox');
-    fireEvent.change(selects[0], { target: { value: '101' } });
+    
+    // Focus and select Alice
+    await user.click(selects[0]);
+    await user.type(selects[0], 'Alice');
+    const aliceOption = screen.getByText(/#7 Alice Smith/);
+    await user.click(aliceOption);
 
     // Lane 2's dropdown should NOT include Alice as an available option
-    const lane2Options = Array.from(selects[1].querySelectorAll('option')).map(
-      (o) => (o as HTMLOptionElement).value
-    );
-    expect(lane2Options).not.toContain('101');
+    await user.click(selects[1]);
+    expect(screen.queryByText(/#7 Alice Smith/)).not.toBeInTheDocument();
     // But should include Bob
-    expect(lane2Options).toContain('102');
+    expect(screen.getByText(/#12 Bob Jones/)).toBeInTheDocument();
   });
 
   it('Manual mode only shows checked-in racers', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup();
     render(<FreeRaceLaneSetup {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Manual/i }));
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(4);
     });
+    
+    const selects = screen.getAllByRole('combobox');
+    await user.click(selects[0]);
+    
     // Carol is NOT checked in, but we now show all racers in Manual mode
-    expect(screen.getAllByText(/Carol White/)).toHaveLength(4);
+    expect(screen.getByText(/Carol White/)).toBeInTheDocument();
   });
 
   it('Start Free Race Heat is disabled when all lanes are empty in random mode', async () => {
@@ -150,18 +159,20 @@ describe('FreeRaceLaneSetup', () => {
   });
 
   it('Start Free Race Heat calls onStart with correct assignments in manual mode', async () => {
+    const user = (await import('@testing-library/user-event')).default.setup();
     render(<FreeRaceLaneSetup {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Manual/i }));
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(4);
     });
+    
     // Assign Alice to lane 1
     const selects = screen.getAllByRole('combobox');
-    fireEvent.change(selects[0], { target: { value: '101' } });
+    await user.click(selects[0]);
+    await user.type(selects[0], 'Alice');
+    const aliceOption = screen.getByText(/#7 Alice Smith/);
+    await user.click(aliceOption);
 
-    // Button name changed back if I'm not careful, wait I used "Start Free Race Heat" in my implementation.
-    // Looking at my previous replacement for FreeRaceLaneSetup.tsx...
-    // Yes, I kept it as "Start Free Race Heat".
     fireEvent.click(screen.getByRole('button', { name: /Start Free Race Heat/i }));
     expect(mockOnStart).toHaveBeenCalledWith(
       expect.arrayContaining([{ lane: 1, racerId: 101 }])

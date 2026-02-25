@@ -411,6 +411,37 @@ export default function RaceControl() {
       }
   };
 
+  const currentRoundHeats = useMemo(() => {
+    if (!activeExecutionHeat) return [];
+    return heats.filter((h: Heat) => h.roundId === activeExecutionHeat.roundId);
+  }, [heats, activeExecutionHeat?.roundId]);
+
+  const totalHeatsInRound = currentRoundHeats.length;
+  const remainingHeatsInRound = useMemo(() => {
+    return currentRoundHeats.filter((h: Heat) => {
+      const results = h.laneResults ? JSON.parse(h.laneResults) : [];
+      return !(results.length > 0 && results[0].time !== null);
+    }).length;
+  }, [currentRoundHeats]);
+
+  const upcomingRounds = useMemo(() => {
+    if (!activeExecutionHeat) return [];
+    const rounds: Record<number, { roundNumber: number, roundName: string | null, totalHeats: number }> = {};
+    heats.forEach((h: Heat) => {
+      if (h.roundNumber > activeExecutionHeat.roundNumber) {
+        if (!rounds[h.roundId]) {
+          rounds[h.roundId] = {
+            roundNumber: h.roundNumber,
+            roundName: h.roundName,
+            totalHeats: 0
+          };
+        }
+        rounds[h.roundId].totalHeats++;
+      }
+    });
+    return Object.values(rounds).sort((a, b) => a.roundNumber - b.roundNumber);
+  }, [heats, activeExecutionHeat?.roundNumber]);
+
   if (fetching && !data) return <div>Loading Race Control...</div>;
 
   if (!race && !fetching) return (
@@ -518,6 +549,9 @@ export default function RaceControl() {
               racers={racers}
               roundSummary={roundSummary}
               autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
+              remainingHeatsInRound={remainingHeatsInRound}
+              totalHeatsInRound={totalHeatsInRound}
+              upcomingRounds={upcomingRounds}
               onToggleAutoAdvance={async (value) => {
                 await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
                 reExecute({ requestPolicy: 'network-only' });

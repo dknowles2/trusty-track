@@ -99,7 +99,9 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
   useEffect(() => {
     if (activeIndex >= 0 && listRef.current) {
       const item = listRef.current.children[activeIndex] as HTMLElement | undefined;
-      item?.scrollIntoView({ block: 'nearest' });
+      if (item && typeof item.scrollIntoView === 'function') {
+        item.scrollIntoView({ block: 'nearest' });
+      }
     }
   }, [activeIndex]);
 
@@ -108,6 +110,7 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
       <input
         ref={inputRef}
         type="text"
+        role="combobox"
         value={inputValue}
         placeholder={placeholder || '— Select racer —'}
         onFocus={handleFocus}
