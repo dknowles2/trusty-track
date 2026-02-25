@@ -55,6 +55,7 @@ interface SortableHeatRowProps {
   heat: Heat;
   isRunning: boolean;
   isReordering: boolean;
+  isUpcoming: boolean;
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   laneCount: number;
@@ -70,6 +71,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   heat,
   isRunning,
   isReordering,
+  isUpcoming,
   getRacerName,
   onRunHeat,
   laneCount
@@ -77,6 +79,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   const laneResults = heat.laneResults ? JSON.parse(heat.laneResults) : [];
   const hasResults = laneResults.length > 0 && laneResults.some((r: any) => r.time !== null);
   const isCompleted = hasResults;
+  const hasPlaceholders = laneResults.some((r: any) => r.racer_id !== null && r.racer_id < 0);
 
   // Disable dragging if heat is running, reordering is in progress, or heat has results
   const isDraggingDisabled = isRunning || isReordering || hasResults;
@@ -100,6 +103,13 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
     background: isDragging ? '#f5f5f5' : 'white',
     borderLeft: isRunning ? '5px solid orange' : isCompleted ? '5px solid green' : '5px solid transparent',
   };
+
+  const isRunDisabled = isRunning || hasPlaceholders || isUpcoming;
+  const runBtnTitle = hasPlaceholders 
+    ? "Racers not yet determined for this round" 
+    : isUpcoming 
+      ? "Complete previous rounds first" 
+      : "";
 
   return (
     <tr ref={setNodeRef} style={style}>
@@ -142,7 +152,8 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
         <button
           className="primary-btn"
           onClick={() => onRunHeat(heat, !isCompleted)}
-          disabled={isRunning}
+          disabled={isRunDisabled}
+          title={runBtnTitle}
           style={{ padding: '4px 12px', fontSize: '0.8rem', minWidth: '70px' }}
         >
           {isRunning ? '...' : isCompleted ? 'Re-Run' : 'Run'}
@@ -193,6 +204,14 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   );
 
   const sortedRounds = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+  
+  const firstUncompletedRoundNumber = sortedRounds.find(roundNum => {
+    return rounds[roundNum].some(heat => {
+      const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
+      return !(results.length > 0 && results.some((r: any) => r.time !== null));
+    });
+  }) || (sortedRounds.length > 0 ? sortedRounds[sortedRounds.length - 1] : 1);
+
   const hasGeneralRound = Object.values(rounds).some(roundHeats => {
       // In GraphQL we might need a better way to identify general rounds
       // but if roundNumber is small or name is 'All Pack'
@@ -447,6 +466,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 heat={heat}
                                 isRunning={activeHeatId === heat.id}
                                 isReordering={reordering}
+                                isUpcoming={roundNum > firstUncompletedRoundNumber}
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
                                 laneCount={laneCount}

@@ -269,4 +269,30 @@ describe('RaceExecution', () => {
         expect(screen.getByText('End of Round')).toBeInTheDocument();
         expect(screen.getByText(/Next: Round 2/)).toBeInTheDocument();
     });
+
+    it('renders "Round Not Ready" when heat has placeholders', () => {
+        const placeholderHeat: Heat = {
+            id: 2,
+            roundNumber: 2,
+            roundId: 2,
+            heatNumber: 1,
+            roundName: "Finals",
+            laneResults: JSON.stringify([
+                { lane: 1, racer_id: -1, time: null, place: null }
+            ])
+        };
+
+        render(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={placeholderHeat}
+            />
+        );
+
+        expect(screen.getByText('Round Not Ready')).toBeInTheDocument();
+        expect(screen.getByText(/The racers for/)).toBeInTheDocument();
+        expect(screen.getByText('Finals')).toBeInTheDocument();
+        // Should NOT call prepareHeat
+        expect(mockMutationFn).not.toHaveBeenCalled();
+    });
 });

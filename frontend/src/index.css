@@ -49,8 +49,14 @@ button {
   color: var(--white);
 }
 
-.primary-btn:hover {
+.primary-btn:hover:not(:disabled) {
   filter: brightness(1.1);
+}
+
+.primary-btn:disabled {
+  background-color: #ccc;
+  color: #888;
+  cursor: not-allowed;
 }
 
 .secondary-btn {

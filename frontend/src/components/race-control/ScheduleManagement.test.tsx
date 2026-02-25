@@ -474,4 +474,73 @@ describe('ScheduleManagement', () => {
     expect(deleteBtn).toBeDisabled();
     expect(deleteBtn).toHaveAttribute('title', 'Cannot delete general round: championship rounds are already scheduled');
   });
+
+  it('disables run button when heat has placeholders', () => {
+    const heatsWithPlaceholders: Heat[] = [
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": -1, "lane": 1, "time": null}]', roundName: 'Round 1' },
+    ];
+
+    render(
+      <AlertProvider>
+        <ScheduleManagement
+          raceId={1}
+          heats={heatsWithPlaceholders}
+          generating={false}
+          activeHeatId={null}
+          onAddRound={mockOnAddRound}
+          onRegenerateRound={mockOnRegenerateRound}
+          onDeleteRound={mockOnDeleteRound}
+          onRunHeat={mockOnRunHeat}
+          onReorderHeats={mockOnReorderHeats}
+          getRacerName={mockGetRacerName}
+          onRefetchHeats={vi.fn()}
+          laneCount={4}
+          racerCount={10}
+          denCount={3}
+          championshipTrophies={3}
+        />
+      </AlertProvider>
+    );
+
+    const runButton = screen.getByText('Run');
+    expect(runButton).toBeDisabled();
+    expect(runButton).toHaveAttribute('title', 'Racers not yet determined for this round');
+  });
+
+  it('disables run button for upcoming rounds', () => {
+    const multiRoundHeats: Heat[] = [
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', roundName: 'Round 2' },
+    ];
+
+    render(
+      <AlertProvider>
+        <ScheduleManagement
+          raceId={1}
+          heats={multiRoundHeats}
+          generating={false}
+          activeHeatId={null}
+          onAddRound={mockOnAddRound}
+          onRegenerateRound={mockOnRegenerateRound}
+          onDeleteRound={mockOnDeleteRound}
+          onRunHeat={mockOnRunHeat}
+          onReorderHeats={mockOnReorderHeats}
+          getRacerName={mockGetRacerName}
+          onRefetchHeats={vi.fn()}
+          laneCount={4}
+          racerCount={10}
+          denCount={3}
+          championshipTrophies={3}
+        />
+      </AlertProvider>
+    );
+
+    // Round 1 Run button should be enabled
+    const runButtons = screen.getAllByText('Run');
+    expect(runButtons[0]).not.toBeDisabled();
+    
+    // Round 2 Run button should be disabled as Round 1 is not complete
+    expect(runButtons[1]).toBeDisabled();
+    expect(runButtons[1]).toHaveAttribute('title', 'Complete previous rounds first');
+  });
 });

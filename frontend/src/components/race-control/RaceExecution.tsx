@@ -107,6 +107,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const results = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
     const isCompleted = results.length > 0 && results[0].time !== null;
     const isRunning = timerState === 'RUNNING';
+    const hasPlaceholders = results.some((r: any) => r.racer_id !== null && r.racer_id < 0);
 
     const laneResultMap: Record<number, any> = {};
     if (isCompleted) {
@@ -125,19 +126,19 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     // Auto-prepare heat when a new heatId is provided
     useEffect(() => {
-        if (timerState === 'IDLE' && !isCompleted && activeExecutionHeat?.id) {
+        if (timerState === 'IDLE' && !isCompleted && !hasPlaceholders && activeExecutionHeat?.id) {
             prepareHeat({ heatId: activeExecutionHeat.id });
         }
         // Only run when heatId changes or on mount.
         // Do NOT depend on timerState or isCompleted to avoid re-prepare loops.
-    }, [activeExecutionHeat?.id]);
+    }, [activeExecutionHeat?.id, hasPlaceholders]);
 
     useEffect(() => {
         setIsRoundSummaryOpen(!!roundSummary);
     }, [roundSummary]);
 
     useEffect(() => {
-        if (!autoAdvanceHeat || !isCompleted || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen)) {
+        if (!autoAdvanceHeat || !isCompleted || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen) || hasPlaceholders) {
             setAutoAdvanceCountdown(null);
             if (autoAdvanceTimeoutRef.current) {
                 clearTimeout(autoAdvanceTimeoutRef.current);
@@ -166,7 +167,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isCompleted, autoAdvanceHeat, nextExecutionHeat?.id, roundSummary, isRoundSummaryOpen]);
+    }, [isCompleted, autoAdvanceHeat, nextExecutionHeat?.id, roundSummary, isRoundSummaryOpen, hasPlaceholders]);
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -192,6 +193,21 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Race Execution</h2>
                 <p style={{ fontSize: '1.2rem', color: '#666' }}>
                     {nextExecutionHeat ? "Select a heat to begin." : "All heats have been run."}
+                </p>
+            </div>
+        );
+    }
+
+    if (hasPlaceholders) {
+        return (
+            <div style={{ textAlign: 'center', padding: '100px 50px' }}>
+                <Icon path={mdiCalendarRange} size={4} color="#ccc" style={{ marginBottom: '20px' }} />
+                <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Round Not Ready</h2>
+                <p style={{ fontSize: '1.2rem', color: '#666', maxWidth: '600px', margin: '0 auto' }}>
+                    The racers for <strong>{activeExecutionHeat.roundName || `Round ${activeExecutionHeat.roundNumber}`}</strong> haven't been determined yet.
+                </p>
+                <p style={{ color: '#888', marginTop: '10px' }}>
+                    Please complete the previous rounds to advance racers into this round.
                 </p>
             </div>
         );
