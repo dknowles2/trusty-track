@@ -515,32 +515,37 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           <Icon path={mdiCached} size={0.7} /> Regenerate
                         </button>
                       )}
-                      {(
-                        <button
-                          onClick={() => onDeleteRound(roundId)}
-                          className="secondary-btn"
-                          disabled={generating || reordering || isAnyStarted || roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))}
-                          aria-label={`Delete ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
-                          title={
-                              isAnyStarted 
-                                ? "Cannot delete round: it has heats with results" 
-                                : roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))
-                                  ? "Cannot delete general round: championship rounds are already scheduled"
-                                  : undefined
-                          }
-                          style={{
-                            padding: '6px 16px', 
-                            fontSize: '0.85rem',
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '6px',
-                            color: '#d32f2f',
-                            background: '#fff0f0'
-                          }}
-                        >
-                          <Icon path={mdiDelete} size={0.7} /> Delete
-                        </button>
-                      )}
+                      {roundId && (() => {
+                        const roundNums = sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0);
+                        const deleteDisabled = generating || reordering || isAnyStarted || roundNum < Math.max(...roundNums);
+                        return (
+                          <button
+                            onClick={() => onDeleteRound(roundId)}
+                            className="secondary-btn"
+                            disabled={deleteDisabled}
+                            aria-label={`Delete ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
+                            title={
+                                isAnyStarted
+                                  ? "Cannot delete round: it has heats with results"
+                                  : roundNum < Math.max(...roundNums)
+                                    ? "Cannot delete general round: championship rounds are already scheduled"
+                                    : undefined
+                            }
+                            style={{
+                              padding: '6px 16px',
+                              fontSize: '0.85rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              color: deleteDisabled ? '#aaa' : '#d32f2f',
+                              background: deleteDisabled ? '#f5f5f5' : '#fff0f0',
+                              cursor: deleteDisabled ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            <Icon path={mdiDelete} size={0.7} /> Delete
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
 
