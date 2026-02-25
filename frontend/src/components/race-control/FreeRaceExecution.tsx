@@ -351,7 +351,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   display: 'flex',
                   alignItems: 'center'
                 }}>
-                  <div style={{ width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <RacerAvatar
                       racer={{
                         id: a.racerId || 0,
@@ -359,7 +359,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                         last_name: racer?.lastName || '',
                         racer_image_url: racer?.racerImageUrl
                       }}
-                      size="60px"
+                      size="80px"
                     />
                   </div>
 
@@ -369,7 +369,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                     ) : (
                       <>
                         <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{racer?.firstName} {racer?.lastName}</div>
-                        {racer?.carNumber != null && <div style={{ fontSize: '0.9rem', color: '#666' }}>#{racer.carNumber}</div>}
+                        {racer?.carNumber != null && <div style={{ fontSize: '0.9rem', color: '#666' }}>Car #{racer.carNumber}</div>}
                       </>
                     )}
                   </div>

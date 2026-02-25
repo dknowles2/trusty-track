@@ -5,6 +5,7 @@ import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered } from '@mdi/js';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { RacerCombobox } from '../RacerCombobox';
+import RacerAvatar from '../RacerAvatar';
 
 export interface LaneAssignment {
   lane: number;
@@ -24,6 +25,7 @@ interface Racer {
   firstName: string;
   lastName: string;
   carNumber: number | null;
+  racerImageUrl?: string;
 }
 
 type Mode = 'random' | 'manual';
@@ -157,14 +159,39 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                       borderLeft: '5px solid var(--scouting-blue)'
                     }}>
                       <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {a.lane}</div>
+                      
+                      <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        {racer ? (
+                          <RacerAvatar
+                            racer={{
+                              id: racer.id,
+                              first_name: racer.firstName,
+                              last_name: racer.lastName,
+                              racer_image_url: racer.racerImageUrl
+                            }}
+                            size="80px"
+                          />
+                        ) : (
+                          <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc' }}>
+                            ?
+                          </div>
+                        )}
+                      </div>
+
                       <div style={{ flex: 1 }}>
                         {a.racerId === null ? (
                           <em style={{ color: '#999', fontSize: '1.2rem' }}>(empty)</em>
                         ) : (
-                          <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
-                            {racer?.firstName} {racer?.lastName}
-                            {racer?.carNumber != null && <span style={{ color: '#666', fontWeight: 'normal' }}> #{racer.carNumber}</span>}
-                          </div>
+                          <>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                              {racer?.firstName} {racer?.lastName}
+                            </div>
+                            {racer?.carNumber != null && (
+                              <div style={{ fontSize: '1rem', color: '#666' }}>
+                                Car #{racer.carNumber}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -230,6 +257,25 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                     borderLeft: '5px solid var(--scouting-blue)'
                   }}>
                     <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {a.lane}</div>
+                    
+                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                      {a.racerId ? (
+                        <RacerAvatar
+                          racer={{
+                            id: a.racerId,
+                            first_name: racers[a.racerId]?.firstName || '',
+                            last_name: racers[a.racerId]?.lastName || '',
+                            racer_image_url: racers[a.racerId]?.racerImageUrl
+                          }}
+                          size="80px"
+                        />
+                      ) : (
+                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px dashed #ccc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc' }}>
+                          ?
+                        </div>
+                      )}
+                    </div>
+
                     <RacerCombobox
                       racers={available}
                       value={a.racerId ?? undefined}
