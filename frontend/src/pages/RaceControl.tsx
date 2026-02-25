@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
+import { arrayMove } from '@dnd-kit/sortable';
 import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../graphql/raceDetails';
 import { useAlert } from '../context/AlertContext';
 import { ScheduleManagement } from '../components/race-control/ScheduleManagement';
@@ -296,6 +297,33 @@ export default function RaceControl() {
     }
 
     if (shouldStart) {
+        // If this is a future heat, move it to be the next one in its round
+        const roundHeats = heats
+          .filter((h: Heat) => h.roundId === heat.roundId)
+          .sort((a: Heat, b: Heat) => a.heatNumber - b.heatNumber);
+        
+        const firstUncompletedIndex = roundHeats.findIndex(h => {
+            const results = h.laneResults ? JSON.parse(h.laneResults) : [];
+            return !(results.length > 0 && results.some((r: any) => r.time !== null));
+        });
+
+        const targetIndex = roundHeats.findIndex(h => h.id === heat.id);
+
+        // Only reorder if we're jumping ahead of at least one uncompleted heat
+        if (firstUncompletedIndex !== -1 && targetIndex > firstUncompletedIndex) {
+            const reordered = arrayMove(roundHeats, targetIndex, firstUncompletedIndex);
+            const updates = reordered.map((h, idx) => ({
+                heat_id: h.id,
+                new_heat_number: idx + 1
+            }));
+            
+            try {
+                await handleReorderHeats(updates);
+            } catch (e) {
+                console.error("Failed to reorder heats for Run button", e);
+            }
+        }
+
         setSelectedHeatId(heat.id);
         navigate(`/race/${id}/control/race`);
     } else {

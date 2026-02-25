@@ -186,6 +186,9 @@ If you need to adjust the heat order before racing begins (for example, to separ
 ![Heat Reordering](assets/screenshots/race-day/11-heat-reordering.png)
 _Drag the handle icon on the left side of a heat card to reorder it within the round._
 
+> [!TIP]
+> **Jumping Ahead:** If you want to run a future heat immediately, you can simply click the **Run** button on that heat in the Schedule view. Trusty Track will automatically move it to be the next heat in the order and take you directly to the **Race** tab.
+
 ---
 
 ## Part 3: Running the Race
