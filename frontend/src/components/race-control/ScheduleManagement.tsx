@@ -183,9 +183,15 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [localHeats, setLocalHeats] = useState<Heat[]>(heats);
   const { showToast } = useAlert();
 
-  const rounds = heats.reduce((acc, heat) => {
+  // Sync local heats with props whenever they change
+  React.useEffect(() => {
+    setLocalHeats(heats);
+  }, [heats]);
+
+  const rounds = localHeats.reduce((acc, heat) => {
     if (!acc[heat.roundNumber]) {
       acc[heat.roundNumber] = [];
     }
@@ -222,6 +228,38 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     await onAddRound(config);
   };
 
+  const handleDragOver = (event: DragEndEvent, roundNum: number) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const roundHeats = rounds[roundNum].sort((a, b) => a.heatNumber - b.heatNumber);
+    const oldIndex = roundHeats.findIndex(h => h.id === active.id);
+    const newIndex = roundHeats.findIndex(h => h.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    const reorderedHeats = arrayMove(roundHeats, oldIndex, newIndex);
+    const newHeatUpdates = reorderedHeats.map((heat, index) => ({
+      heat_id: heat.id,
+      new_heat_number: index + 1,
+    }));
+
+    // Optimistically update local state during drag
+    const optimisticHeats = localHeats.map(h => {
+        const update = newHeatUpdates.find(u => u.heat_id === h.id);
+        if (update) {
+            return { ...h, heatNumber: update.new_heat_number };
+        }
+        return h;
+    });
+    setLocalHeats(optimisticHeats);
+  };
+
   const handleDragEnd = async (event: DragEndEvent, roundNum: number) => {
     const { active, over } = event;
 
@@ -243,7 +281,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
       new_heat_number: index + 1,
     }));
 
-    // Calculate new order
+    // Re-calculate updates for the final position (already handled by dragOver mostly, but we need the final list for the mutation)
     const reorderedHeats = arrayMove(roundHeats, oldIndex, newIndex);
     const newHeatUpdates = reorderedHeats.map((heat, index) => ({
       heat_id: heat.id,
@@ -269,6 +307,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     } catch (error: any) {
       console.error('Failed to reorder heats:', error);
       showToast(error.message || 'Failed to reorder heats', 'error');
+      setLocalHeats(heats);
     } finally {
       setReordering(false);
     }
@@ -442,6 +481,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
+                      onDragOver={(event) => handleDragOver(event, roundNum)}
                       onDragEnd={(event) => handleDragEnd(event, roundNum)}
                     >
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>

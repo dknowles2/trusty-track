@@ -153,10 +153,10 @@ describe('FreeRaceLaneSetup', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Start Free Race Heat/i }));
     expect(mockOnStart).toHaveBeenCalledWith([
-      { lane: 1, racerId: 101 },
-      { lane: 2, racerId: 102 },
-      { lane: 3, racerId: null },
-      { lane: 4, racerId: null },
+      { id: 'random-1', lane: 1, racerId: 101 },
+      { id: 'random-2', lane: 2, racerId: 102 },
+      { id: 'random-3', lane: 3, racerId: null },
+      { id: 'random-4', lane: 4, racerId: null },
     ]);
   });
 
@@ -177,7 +177,7 @@ describe('FreeRaceLaneSetup', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Start Free Race Heat/i }));
     expect(mockOnStart).toHaveBeenCalledWith(
-      expect.arrayContaining([{ lane: 1, racerId: 101 }])
+      expect.arrayContaining([{ id: 'manual-1', lane: 1, racerId: 101 }])
     );
   });
 

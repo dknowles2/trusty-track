@@ -25,6 +25,7 @@ import { RacerCombobox } from '../RacerCombobox';
 import RacerAvatar from '../RacerAvatar';
 
 export interface LaneAssignment {
+  id: string;
   lane: number;
   racerId: number | null;
 }
@@ -73,7 +74,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: assignment.lane });
+  } = useSortable({ id: assignment.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -192,7 +193,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 }) => {
   const [mode, setMode] = useState<Mode>('random');
   const [manualAssignments, setManualAssignments] = useState<LaneAssignment[]>(
-    Array.from({ length: laneCount }, (_, i) => ({ lane: i + 1, racerId: null }))
+    Array.from({ length: laneCount }, (_, i) => ({ id: `manual-${i + 1}`, lane: i + 1, racerId: null }))
   );
   const [randomAssignments, setRandomAssignments] = useState<LaneAssignment[]>([]);
 
@@ -212,7 +213,8 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
   useEffect(() => {
     if (randomResult.data?.randomFreeRaceLanes) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setRandomAssignments(randomResult.data.randomFreeRaceLanes.map((l: { lane: number, racerId: number | null }) => ({
+      setRandomAssignments(randomResult.data.randomFreeRaceLanes.map((l: { lane: number, racerId: number | null }, i: number) => ({
+        id: `random-${i + 1}`,
         lane: l.lane,
         racerId: l.racerId
       })));
@@ -238,19 +240,18 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
     })
   );
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragOver = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
       const current = mode === 'random' ? randomAssignments : manualAssignments;
       const set = mode === 'random' ? setRandomAssignments : setManualAssignments;
 
-      const oldIndex = current.findIndex((a) => a.lane === active.id);
-      const newIndex = current.findIndex((a) => a.lane === over.id);
+      const oldIndex = current.findIndex((a) => a.id === active.id);
+      const newIndex = current.findIndex((a) => a.id === over.id);
 
       if (oldIndex !== -1 && newIndex !== -1) {
         const reordered = arrayMove(current, oldIndex, newIndex);
-        // Re-assign lane numbers based on new index to keep them 1..N
         const fixed = reordered.map((a, i) => ({
           ...a,
           lane: i + 1,
@@ -258,6 +259,11 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
         set(fixed);
       }
     }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    // Reordering is now handled in onDragOver for real-time feedback.
+    // We can keep onDragEnd as a no-op or for any final persistence if needed.
   };
 
   const currentAssignments = mode === 'random' ? randomAssignments : manualAssignments;
@@ -329,6 +335,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           {mode === 'random' && randomResult.fetching && randomAssignments.length === 0 ? (
@@ -338,12 +345,12 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           ) : (
             <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
               <SortableContext
-                items={currentAssignments.map((a) => a.lane)}
+                items={currentAssignments.map((a) => a.id)}
                 strategy={verticalListSortingStrategy}
               >
                 {currentAssignments.map((a) => (
                   <SortableLaneItem
-                    key={a.lane}
+                    key={a.id}
                     assignment={a}
                     racer={a.racerId ? racers[a.racerId] : null}
                     mode={mode}
