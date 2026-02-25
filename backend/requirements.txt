@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+python-multipart
 pytest
 pytest-asyncio
 sqlalchemy
@@ -9,3 +10,4 @@ numpy
 Pillow
 pillow-heif
 pyserial
+cryptography

@@ -9,6 +9,7 @@ import base64
 import logging
 import os
 import shutil
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -122,7 +123,13 @@ def get_db():
         db.close()
 
 
-FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+if getattr(sys, "frozen", False):
+    # Running inside a PyInstaller bundle
+    _BASE_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+else:
+    _BASE_DIR = Path(__file__).parent.parent
+
+FRONTEND_DIST = _BASE_DIR / "frontend" / "dist"
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
@@ -135,12 +142,19 @@ async def get_graphql_context(db: Session = Depends(get_db)) -> dict:
 
 graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)
 app.include_router(graphql_app, prefix="/graphql")
+# In production the built frontend sends requests to /api/graphql (the Vite dev
+# proxy rewrites /api/* → /* so /graphql above handles dev; this covers production).
+app.include_router(graphql_app, prefix="/api/graphql")
 
 
 @app.get("/health")
 async def health() -> dict:
     """Return application health status."""
-    return {"status": "ok"}
+    try:
+        from .version import __version__ as _version
+    except ImportError:
+        _version = "unknown"
+    return {"status": "ok", "version": _version}
 
 
 # Mount static assets if the built frontend exists
@@ -149,9 +163,11 @@ if FRONTEND_DIST.exists():
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str) -> FileResponse:
-        """Serve index.html for all unknown paths (React Router)."""
-        index = FRONTEND_DIST / "index.html"
-        return FileResponse(index)
+        """Serve dist files when they exist, otherwise fall back to index.html."""
+        candidate = (FRONTEND_DIST / full_path).resolve()
+        if candidate.is_file() and candidate.is_relative_to(FRONTEND_DIST.resolve()):
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_DIST / "index.html")
 
 
 

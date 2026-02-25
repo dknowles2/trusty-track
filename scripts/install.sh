@@ -42,5 +42,8 @@ npm ci
 npm run build
 cd ..
 
+echo "### Generating TLS certificates..."
+./scripts/generate_certs.sh
+
 echo "### Installation Complete!"
 echo "To start the server, run: ./scripts/serve.sh"

@@ -7,6 +7,7 @@ import RaceForm, { RaceFormData } from './RaceForm';
 import { useAlert } from '../context/AlertContext';
 import Icon from '@mdi/react';
 import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo, mdiMenu, mdiClose, mdiChartBar } from '@mdi/js';
+import logoUrl from '../assets/logo_transparent.png';
 
 export default function Navigation() {
   const { showAlert } = useAlert();
@@ -81,7 +82,7 @@ export default function Navigation() {
           
           {/* Left: Logo & Home */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
-            <img src="/src/assets/logo_transparent.png" alt="Trusty Track Logo" style={{ height: '32px', width: 'auto' }} />
+            <img src={logoUrl} alt="Trusty Track Logo" style={{ height: '32px', width: 'auto' }} />
             <span style={{ fontSize: '1.2rem', fontWeight: 'bold', letterSpacing: '0.5px' }}>Trusty Track</span>
           </Link>
 
@@ -289,7 +290,7 @@ export default function Navigation() {
                 color: 'white'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <img src="/src/assets/logo_transparent.png" alt="Logo" style={{ height: '24px' }} />
+                  <img src={logoUrl} alt="Logo" style={{ height: '24px' }} />
                   <span style={{ fontWeight: 'bold' }}>Trusty Track</span>
                 </div>
                 <button 
