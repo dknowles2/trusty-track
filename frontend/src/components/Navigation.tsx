@@ -6,7 +6,7 @@ import Modal from './Modal';
 import RaceForm, { RaceFormData } from './RaceForm';
 import { useAlert } from '../context/AlertContext';
 import Icon from '@mdi/react';
-import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo, mdiMenu, mdiClose, mdiChartBar } from '@mdi/js';
+import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo, mdiMenu, mdiClose } from '@mdi/js';
 import logoUrl from '../assets/logo_transparent.png';
 
 export default function Navigation() {
@@ -42,8 +42,7 @@ export default function Navigation() {
       links.push(
         { to: `/race/${raceId}`, label: 'Details', icon: mdiCardSearch },
         { to: `/race/${raceId}/control`, label: 'Control', icon: mdiFlagCheckered },
-        { to: `/race/${raceId}/observation`, label: 'Live', icon: mdiVideo },
-        { to: `/race/${raceId}/stats`, label: 'Stats', icon: mdiChartBar }
+        { to: `/race/${raceId}/observation`, label: 'Live', icon: mdiVideo }
       );
   }
 

@@ -1,7 +1,6 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import Leaderboard from '../components/Leaderboard';
-import Icon from '@mdi/react';
-import { mdiArrowLeft } from '@mdi/js';
+import RaceModeToggle from '../components/RaceModeToggle';
 import { useQuery } from 'urql';
 
 const GET_RACE_NAME = `
@@ -30,14 +29,12 @@ export default function Standings() {
 
     return (
         <div className="container" style={{ padding: '2rem' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <Link to={`/race/${raceId}`} style={{ display: 'flex', alignItems: 'center', gap: '5px', textDecoration: 'none', color: '#666', marginBottom: '1rem' }}>
-                    <Icon path={mdiArrowLeft} size={0.8} /> Back to Race Details
-                </Link>
-                
-                <h1 style={{ margin: 0, color: 'var(--scouting-blue)' }}>
-                    {fetching ? 'Standings' : (race ? `${race.name} - Standings` : 'Standings')}
-                </h1>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
+                <div style={{ minWidth: '160px' }} />
+
+                <RaceModeToggle />
+
+                <div style={{ minWidth: '160px' }} />
             </div>
 
             <Leaderboard raceId={id} />

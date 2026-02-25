@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
-import Icon from '@mdi/react';
-import { mdiArrowLeft } from '@mdi/js';
+import RaceModeToggle from '../components/RaceModeToggle';
 import {
   BarChart,
   Bar,
@@ -218,16 +217,14 @@ export default function RaceStats() {
   const hasResults = stats.totalHeatsCompleted > 0;
 
   return (
-    <div className="container race-stats">
+    <div className="container race-stats" style={{ padding: '2rem' }}>
       {/* Header */}
-      <div className="race-stats__header">
-        <Link
-          to={`/race/${raceId}`}
-          style={{ display: 'flex', alignItems: 'center', gap: '5px', textDecoration: 'none', color: '#666', marginBottom: '1rem' }}
-        >
-          <Icon path={mdiArrowLeft} size={0.8} /> Back to Race Details
-        </Link>
-        <h1 className="race-stats__title">{stats.raceName} — Stats</h1>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
+        <div style={{ minWidth: '160px' }} />
+
+        <RaceModeToggle />
+
+        <div style={{ minWidth: '160px' }} />
       </div>
 
       {/* Overview Cards */}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
 
 import { useAlert } from '../context/AlertContext';
@@ -13,31 +13,14 @@ import ImportRacersModal from '../components/ImportRacersModal';
 import CheckInModal from '../components/CheckInModal';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
+import RaceModeToggle from '../components/RaceModeToggle';
 import Icon from '@mdi/react';
 import { 
-  mdiCalendar, mdiMapMarker, mdiMagnify, mdiNumeric,
-  mdiChevronDown, mdiChevronRight, mdiLightningBolt, mdiFileUpload,
-  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiTrophy, mdiCamera
+  mdiMagnify, mdiNumeric,
+  mdiChevronDown, mdiLightningBolt, mdiFileUpload,
+  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera
 } from '@mdi/js';
 import * as GQL from '../graphql/raceDetails';
-
-interface LeaderboardEntry {
-    racer_id: number;
-    first_name: string;
-    last_name: string;
-    car_number: number;
-    den_name: string;
-    score: number;
-    heats_completed: number;
-    racer_image_url?: string;
-    rank: number;
-}
-
-interface LeaderboardData {
-    race_id: number;
-    scoring_strategy: string;
-    leaderboard: LeaderboardEntry[];
-}
 
 interface GQLDen {
     id: number;
@@ -116,9 +99,7 @@ export default function RaceDetails() {
       car_numbering_strategy: data.race.carNumberingStrategy,
       global_start_number: data.race.globalStartNumber,
       championship_trophies: data.race.championshipTrophies,
-      registeredCount: data.race.registeredCount,
-      checkedInCount: data.race.checkedInCount,
-    } as Race & { registeredCount: number; checkedInCount: number };
+    } as Race;
   }, [data]);
 
   const racers = useMemo<Racer[]>(() => {
@@ -151,25 +132,6 @@ export default function RaceDetails() {
 
   const tracks = useMemo(() => data?.tracks || [], [data]);
   
-  const leaderboard = useMemo<LeaderboardData | null>(() => {
-    if (!data?.race?.leaderboard) return null;
-    return {
-      race_id: data.race.id,
-      scoring_strategy: data.race.scoringStrategy,
-      leaderboard: data.race.leaderboard.map((l: any) => ({
-        racer_id: l.racerId,
-        first_name: l.firstName,
-        last_name: l.lastName,
-        car_number: l.carNumber,
-        den_name: l.denName,
-        score: l.score,
-        heats_completed: l.heatsCompleted,
-        racer_image_url: l.racerImageUrl,
-        rank: l.rank,
-      }))
-    } as LeaderboardData;
-  }, [data]);
-
   const loading = fetching && !data;
   
   // Racer Form State
@@ -234,7 +196,7 @@ export default function RaceDetails() {
 
   const handleUpdateRace = async (formData: RaceFormData) => {
       try {
-          const { registeredCount, checkedInCount, ...updateInput } = formData as any;
+          const { registeredCount: _, checkedInCount: __, ...updateInput } = formData as any;
           // Map snake_case to camelCase for GQL input
           const raceInput = {
               name: updateInput.name,
@@ -250,8 +212,8 @@ export default function RaceDetails() {
           if (result.error) throw result.error;
           setIsEditingRace(false);
           refreshData();
-      } catch (e) {
-          console.error("Failed to update race", e);
+      } catch (_e) {
+          console.error("Failed to update race", _e);
           showAlert("Failed to update race details", "Error");
       }
   };
@@ -273,8 +235,8 @@ export default function RaceDetails() {
         if (result.error) throw result.error;
         // Redirect to home
         window.location.href = '/'; 
-    } catch (e) {
-        console.error("Failed to delete race", e);
+    } catch (_e) {
+        console.error("Failed to delete race", _e);
         showAlert("Failed to delete race", "Error");
     }
   };
@@ -323,8 +285,8 @@ export default function RaceDetails() {
           }
            setShowRacerForm(false);
            refreshData();
-      } catch (e) {
-          console.error("Failed to save", e);
+      } catch (_e) {
+          console.error("Failed to save", _e);
           showAlert("Failed to save racer", "Error");
       }
   };
@@ -354,7 +316,7 @@ export default function RaceDetails() {
       refreshData();
       showAlert(`Successfully auto-numbered ${result.data.bulkAutoNumber} racers`, "Bulk Auto-Number Result");
       setSelectedRacerIds([]);
-    } catch (e) {
+    } catch (_e) {
       showAlert("Failed to bulk auto-number racers", "Error");
     }
   };
@@ -373,7 +335,7 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setSelectedRacerIds([]);
-    } catch (e) {
+    } catch (_e) {
       showAlert("Failed to clear racer numbers", "Error");
     }
   };
@@ -393,7 +355,7 @@ export default function RaceDetails() {
       refreshData();
       setSelectedRacerIds([]);
       setIsBulkMenuOpen(false);
-    } catch (e) {
+    } catch (_e) {
       showAlert("Failed to bulk check-in racers", "Error");
     }
   };
@@ -406,7 +368,7 @@ export default function RaceDetails() {
       setSelectedRacerIds([]);
       setIsMoveToDenOpen(false);
       setIsBulkMenuOpen(false);
-    } catch (e) {
+    } catch (_e) {
       showAlert("Failed to move racers to den", "Error");
     }
   };
@@ -433,7 +395,7 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setSelectedRacerIds([]);
-    } catch (e) {
+    } catch (_e) {
       showAlert("Failed to delete racers", "Error");
     }
   };
@@ -557,34 +519,22 @@ export default function RaceDetails() {
   return (
     <div className="container" style={{ padding: '2rem' }}>
       {/* Header Section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
-          <div>
-              {race ? (
-                  <>
-                    <h1 style={{ margin: 0, color: 'var(--scouting-blue)' }}>{race.name}</h1>
-                    <div style={{ color: '#666', marginTop: '0.5rem', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                        {race.date_time && (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }} data-testid="race-date">
-                                <Icon path={mdiCalendar} size={0.7} /> {new Date(race.date_time).toLocaleString()}
-                            </span>
-                        )}
-                        {race.location && (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }} data-testid="race-location">
-                                <Icon path={mdiMapMarker} size={0.7} /> {race.location}
-                            </span>
-                        )}
-                    </div>
-                  </>
-              ) : <p>Race not found</p>}
-          </div>
-          <button onClick={() => setIsEditingRace(true)} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Icon path={mdiPencil} size={0.7} /> Edit Details
-          </button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
+          <div style={{ minWidth: '160px' }} />
+
+          <RaceModeToggle />
+
+          <div style={{ minWidth: '160px' }} />
       </div>
 
       {/* Race Settings Summary (Read-Only for now, can be expanded) */}
       <div style={{ marginBottom: '2rem', background: '#f9f9f9', padding: '1rem', borderRadius: '8px' }}>
-          <h3 style={{ marginTop: 0 }}>Race Settings</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0 }}>Race Settings</h3>
+              <button onClick={() => setIsEditingRace(true)} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.85rem' }}>
+                  <Icon path={mdiPencil} size={0.6} /> Edit Details
+              </button>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
               <div><strong>Scoring:</strong> {race?.scoring_strategy ? ({
                   'TIMED': 'Timed',
@@ -616,81 +566,6 @@ export default function RaceDetails() {
             />
           )}
       </Modal>
-
-      {/* Standings Link - Only show if at least one heat has been run */}
-      {race && leaderboard && leaderboard.leaderboard.some((r: LeaderboardEntry) => r.heats_completed > 0) && (
-        <div style={{ marginBottom: '2rem' }}>
-            <Link to={`/race/${race.id}/standings`} style={{ textDecoration: 'none' }}>
-                <div style={{ 
-                    padding: '1.5rem', 
-                    background: 'linear-gradient(135deg, var(--scouting-blue), #1e2a78)', 
-                    borderRadius: '8px', 
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                    cursor: 'pointer'
-                }}
-                onMouseEnter={e => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.15)';
-                }}
-                onMouseLeave={e => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <Icon path={mdiTrophy} size={2} />
-                            <div>
-                                <h2 style={{ margin: 0, color: 'white' }}>Current Standings</h2>
-                                {(!leaderboard || leaderboard.leaderboard.length === 0) && (
-                                     <p style={{ margin: 0, opacity: 0.9 }}>View the latest race results and rankings</p>
-                                )}
-                            </div>
-                        </div>
-
-                        {leaderboard && leaderboard.leaderboard.length > 0 && (
-                            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                                {leaderboard.leaderboard.slice(0, 3).map((racer: LeaderboardEntry) => (
-                                    <div key={racer.racer_id} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', position: 'relative', overflow: 'hidden' }}>
-                                        <RacerAvatar
-                                            racer={{
-                                                id: racer.racer_id,
-                                                first_name: racer.first_name,
-                                                last_name: racer.last_name,
-                                                racer_image_url: racer.racer_image_url
-                                            }}
-                                            size="100%"
-                                            style={{ 
-                                                position: 'absolute', 
-                                                top: 0, 
-                                                left: 0, 
-                                                opacity: 0.15, 
-                                                pointerEvents: 'none',
-                                                borderRadius: 0 
-                                            }} 
-                                        />
-                                        <span style={{ fontSize: '1.2rem', zIndex: 1 }}>
-                                            {racer.rank === 1 ? '🥇' : racer.rank === 2 ? '🥈' : '🥉'}
-                                        </span>
-                                        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1, zIndex: 1 }}>
-                                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{racer.first_name} {racer.last_name}</span>
-                                            <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Car #{racer.car_number}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    <Icon path={mdiChevronRight} size={1.5} />
-                </div>
-            </Link>
-        </div>
-      )}
 
       {/* Roster Section */}
       <div className="roster-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
@@ -1312,8 +1187,8 @@ export default function RaceDetails() {
                             if (result.error) throw result.error;
                             refreshData();
                             setShowPopulateModal(false);
-                        } catch (e) {
-                            console.error("Failed to populate racers", e);
+                        } catch (_e) {
+                            console.error("Failed to populate racers", _e);
                             showAlert("Failed to populate test racers", "Error");
                         } finally {
                             if (btn) {
