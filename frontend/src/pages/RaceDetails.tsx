@@ -672,27 +672,32 @@ export default function RaceDetails() {
       )}
 
       {/* Roster Section */}
-      <div className="roster-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h2>Racer Roster</h2>
-        <div className="roster-controls" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <div className="search-container" style={{ display: 'flex', alignItems: 'center', marginRight: '10px', position: 'relative' }}>
-                <Icon path={mdiMagnify} size={0.8} style={{ position: 'absolute', left: '10px', color: '#999' }} />
+      <div className="roster-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
+        <h2 style={{ margin: 0, fontSize: '1.4rem' }}>
+            Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>({filteredRacers.length})</span>
+        </h2>
+        <div className="roster-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div className="search-container" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                <Icon path={mdiMagnify} size={0.7} style={{ position: 'absolute', left: '10px', color: '#999' }} />
                 <input
                     type="text"
-                    placeholder="Search racers..."
+                    placeholder="Search..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{
-                        padding: '8px 12px 8px 35px',
+                        padding: '6px 12px 6px 30px',
                         borderRadius: '20px',
                         border: '1px solid #ddd',
-                        marginRight: '1rem',
-                        fontSize: '0.9rem',
-                        width: '200px'
+                        fontSize: '0.85rem',
+                        width: '160px',
+                        height: '32px'
                     }}
                 />
-                <span style={{ marginRight: '8px', fontSize: '0.9rem', color: '#555' }}>Group by Den</span>
-                <label className="toggle-switch">
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px', borderRight: '1px solid #eee', height: '24px', marginRight: '4px' }}>
+                <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 500 }}>Group by Den</span>
+                <label className="toggle-switch small">
                     <input 
                         type="checkbox" 
                         checked={isGroupedByDen} 
@@ -702,8 +707,8 @@ export default function RaceDetails() {
                 </label>
             </div>
             
-            <button className="secondary-btn" onClick={() => setShowDenManager(true)} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Icon path={mdiAccountGroup} size={0.8} /> Manage Dens
+            <button className="secondary-btn" onClick={() => setShowDenManager(true)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}>
+                <Icon path={mdiAccountGroup} size={0.7} /> Manage Dens
             </button>
             
             <div className="dropdown" style={{ position: 'relative' }}>
@@ -714,14 +719,17 @@ export default function RaceDetails() {
                     style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '5px',
+                        gap: '4px',
+                        padding: '6px 12px',
+                        fontSize: '0.85rem',
+                        height: '32px',
                         backgroundColor: selectedRacerIds.length > 0 ? 'var(--scouting-blue)' : undefined,
                         color: selectedRacerIds.length > 0 ? 'white' : undefined,
                         opacity: selectedRacerIds.length === 0 ? 0.5 : 1
                     }}
                 >
-                    <Icon path={mdiNumeric} size={0.8} /> Bulk Actions {selectedRacerIds.length > 0 && `(${selectedRacerIds.length})`}
-                    <Icon path={mdiChevronDown} size={0.7} />
+                    <Icon path={mdiNumeric} size={0.7} /> Bulk Actions {selectedRacerIds.length > 0 && `(${selectedRacerIds.length})`}
+                    <Icon path={mdiChevronDown} size={0.6} />
                 </button>
                 {isBulkMenuOpen && (
                     <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '180px', overflow: 'visible' }}>
@@ -793,25 +801,25 @@ export default function RaceDetails() {
             <button
                 className="secondary-btn"
                 onClick={() => setShowBulkPhotoUpload(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}
             >
-                <Icon path={mdiCamera} size={0.8} /> Upload Photos
+                <Icon path={mdiCamera} size={0.7} /> Upload Photos
             </button>
 
             <div className="dropdown" style={{ position: 'relative' }}>
                 <div className="split-btn-container">
-                    <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <Icon path={mdiPlus} size={0.8} /> Add Racer
+                    <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}>
+                        <Icon path={mdiPlus} size={0.7} /> Add Racer
                     </button>
                     <button 
                         className="secondary-btn split-btn-arrow" 
-                        style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}
+                        style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', padding: '6px 8px', height: '32px' }}
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsAddRacerDropdownOpen(!isAddRacerDropdownOpen);
                         }}
                     >
-                        <Icon path={mdiChevronDown} size={0.8} />
+                        <Icon path={mdiChevronDown} size={0.7} />
                     </button>
                 </div>
                 {isAddRacerDropdownOpen && (

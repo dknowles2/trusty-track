@@ -73,6 +73,11 @@ button {
   height: 24px;
 }
 
+.toggle-switch.small {
+  width: 34px;
+  height: 20px;
+}
+
 .toggle-switch input {
   opacity: 0;
   width: 0;
@@ -103,16 +108,14 @@ button {
   border-radius: 50%;
 }
 
-input:checked + .slider {
-  background-color: var(--cub-scouting-gold); /* Using Gold to see interaction better, or stick to blue? User likes premium. Blue matches header. */
+.toggle-switch.small .slider:before {
+  height: 14px;
+  width: 14px;
 }
 
-/* User asked for premium feel. Let's stick to blue or gold. index.css defines secondary as gold. */
-/* Let's try blue for "on" to match heavy accents */
 input:checked + .slider {
   background-color: var(--scouting-blue);
 }
-
 
 input:focus + .slider {
   box-shadow: 0 0 1px var(--scouting-blue);
@@ -120,6 +123,10 @@ input:focus + .slider {
 
 input:checked + .slider:before {
   transform: translateX(16px);
+}
+
+.toggle-switch.small input:checked + .slider:before {
+  transform: translateX(14px);
 }
 
 /* Dropdown Button */
