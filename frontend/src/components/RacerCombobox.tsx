@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
+import RacerAvatar from './RacerAvatar';
 
 export interface RacerOption {
   id: number;
   firstName: string;
   lastName: string;
   carNumber?: number | null;
+  racerImageUrl?: string;
 }
 
 interface ComboboxProps {
@@ -180,9 +182,21 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
                     cursor: 'pointer',
                     background: i === activeIndex ? 'var(--scouting-blue)' : 'white',
                     color: i === activeIndex ? 'white' : 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
                   }}
                 >
-                  {racerLabel(r)}
+                  <RacerAvatar
+                    racer={{
+                      id: r.id,
+                      first_name: r.firstName,
+                      last_name: r.lastName,
+                      racer_image_url: r.racerImageUrl,
+                    }}
+                    size="40px"
+                  />
+                  <span>{racerLabel(r)}</span>
                 </li>
               ))}
             </>
