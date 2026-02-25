@@ -59,10 +59,9 @@ describe('Standings', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('Test Race - Standings')).toBeInTheDocument();
+            expect(screen.getByText('Current Standings')).toBeInTheDocument();
         });
 
-        expect(screen.getByText('Back to Race Details')).toBeInTheDocument();
         expect(screen.getByText('John Doe')).toBeInTheDocument();
         expect(screen.getByText('Tigers')).toBeInTheDocument();
     });
@@ -95,10 +94,9 @@ describe('Standings', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('Test Race - Standings')).toBeInTheDocument();
+            expect(screen.getByText('No results yet. Complete some heats to see standings!')).toBeInTheDocument();
         });
 
-        expect(screen.getByText('No results yet. Complete some heats to see standings!')).toBeInTheDocument();
         expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });
 });

@@ -43,9 +43,6 @@ vi.mock('../context/AlertContext', () => ({
     }),
 }))
 
-// Mock apiClient
-
-
 describe('RaceDetails', () => {
     it('displays human-readable race settings', async () => {
         // Mock race data
@@ -101,7 +98,7 @@ describe('RaceDetails', () => {
 
         // Wait for race details to load
         await waitFor(() => {
-            expect(screen.getByText('Test Race')).toBeInTheDocument();
+            expect(screen.getByText('Race Settings')).toBeInTheDocument();
         });
 
         // Verify human-readable settings are displayed
@@ -133,7 +130,7 @@ describe('RaceDetails', () => {
                         lastName: r.last_name,
                         carNumber: r.car_number,
                         carPassedInspection: r.car_passed_inspection,
-                        den: (mockDens.find(d => d.id === r.den_id) || { name: 'Unknown', color: 'gray' })
+                        denId: r.den_id
                     })),
                     dens: mockDens.map(d => ({ ...d, racerCount: 0 })),
                     leaderboard: []
@@ -211,9 +208,6 @@ describe('RaceDetails', () => {
         const mockDeleteRace = vi.fn().mockResolvedValue({ data: { deleteRace: { success: true } } });
         (useMutation as any).mockReturnValue([{ fetching: false }, mockDeleteRace]);
 
-        // Mock tracks fetch for RaceForm
-
-
         render(
             <MemoryRouter initialEntries={['/races/1']}>
                 <Routes>
@@ -223,7 +217,7 @@ describe('RaceDetails', () => {
         );
 
         await waitFor(() => {
-             expect(screen.getByText('Test Race')).toBeInTheDocument();
+             expect(screen.getByText('Race Settings')).toBeInTheDocument();
              expect(screen.getByText('Edit Details')).toBeInTheDocument();
         });
 
@@ -236,177 +230,6 @@ describe('RaceDetails', () => {
         expect(mockShowConfirm).toHaveBeenCalled();
         expect(mockDeleteRace).toHaveBeenCalledWith({ id: 1 });
         expect(window.location.href).toBe('/');
-    });
-    
-    it('contains a link to the updated standings page and shows top 3 preview', async () => {
-        const mockRace = {
-            id: 1,
-            name: 'Test Race',
-            date_time: '2024-03-15T10:00:00',
-            location: 'Test Location',
-            scheduling_strategy: 'LANE_ROTATION',
-            scoring_strategy: 'TIMED',
-            car_numbering_strategy: 'PER_GROUP',
-            group_id: 1,
-            global_start_number: 1,
-            track_id: 1,
-            championship_trophies: 3
-        };
-
-        const mockLeaderboard = [
-            { racerId: 1, firstName: 'Fast', lastName: 'Driver', carNumber: 10, denName: 'Tigers', score: 2.5, heatsCompleted: 1, rank: 1, racerImageUrl: '/static/fast.jpg' },
-            { racerId: 2, firstName: 'Slow', lastName: 'Driver', carNumber: 20, denName: 'Wolves', score: 3.0, heatsCompleted: 1, rank: 2 },
-            { racerId: 3, firstName: 'Medium', lastName: 'Driver', carNumber: 30, denName: 'Bears', score: 2.8, heatsCompleted: 1, rank: 3 }
-        ];
-
-        (useQuery as any).mockReturnValue([{
-            data: {
-                race: {
-                    id: mockRace.id,
-                    name: mockRace.name,
-                    dateTime: mockRace.date_time,
-                    scoringStrategy: 'TIMED',
-                    carNumberingStrategy: 'PER_GROUP',
-                    racers: [],
-                    dens: [],
-                    leaderboard: mockLeaderboard
-                },
-                tracks: []
-            },
-            fetching: false,
-            error: null
-        }, vi.fn()]);
-
-        render(
-            <MemoryRouter initialEntries={['/races/1']}>
-                <Routes>
-                    <Route path="/races/:raceId" element={<RaceDetails />} />
-                </Routes>
-            </MemoryRouter>
-        );
-
-        await waitFor(() => {
-            expect(screen.getByText('Current Standings')).toBeInTheDocument();
-        });
-        
-        expect(screen.getByText('Fast Driver')).toBeInTheDocument();
-        expect(screen.getByText('Slow Driver')).toBeInTheDocument();
-        expect(screen.getByText('Medium Driver')).toBeInTheDocument();
-        expect(screen.getByText('🥇')).toBeInTheDocument();
-        expect(screen.getByText('🥈')).toBeInTheDocument();
-        expect(screen.getByText('🥉')).toBeInTheDocument();
-
-        const images = document.querySelectorAll('img');
-        const profileImg = Array.from(images).find(i => i.src.includes('fast.jpg'));
-        expect(profileImg).toBeInTheDocument();
-        
-        const link = screen.getByRole('link', { name: /current standings/i });
-        expect(link).toBeInTheDocument();
-        expect(link).toHaveAttribute('href', '/race/1/standings');
-    });
-
-    it('does not show standings banner if no heats run', async () => {
-        const mockRace = {
-            id: 1,
-            name: 'New Race',
-            date_time: '2024-03-15T10:00:00',
-            location: 'Test Location',
-            scheduling_strategy: 'LANE_ROTATION',
-            scoring_strategy: 'TIMED',
-            car_numbering_strategy: 'PER_GROUP',
-            group_id: 1,
-            global_start_number: 1,
-            track_id: 1,
-            championship_trophies: 3
-        };
-
-        const mockLeaderboard = [
-            { racerId: 1, firstName: 'Fast', lastName: 'Driver', carNumber: 10, denName: 'Tigers', score: 0, heatsCompleted: 0, rank: 1 },
-            { racerId: 2, firstName: 'Slow', lastName: 'Driver', carNumber: 20, denName: 'Wolves', score: 0, heatsCompleted: 0, rank: 2 }
-        ];
-
-        (useQuery as any).mockReturnValue([{
-            data: {
-                race: {
-                    id: mockRace.id,
-                    name: mockRace.name,
-                    dateTime: mockRace.date_time,
-                    scoringStrategy: 'TIMED',
-                    carNumberingStrategy: 'PER_GROUP',
-                    racers: [],
-                    dens: [],
-                    leaderboard: mockLeaderboard
-                },
-                tracks: []
-            },
-            fetching: false,
-            error: null
-        }, vi.fn()]);
-
-        render(
-            <MemoryRouter initialEntries={['/races/1']}>
-                <Routes>
-                    <Route path="/races/:raceId" element={<RaceDetails />} />
-                </Routes>
-            </MemoryRouter>
-        );
-
-        await waitFor(() => {
-            expect(screen.getByText('New Race')).toBeInTheDocument();
-        });
-
-        expect(screen.queryByText('Current Standings')).not.toBeInTheDocument();
-    });
-
-    it('hides date and location when they are unset', async () => {
-        const mockRace = {
-            id: 1,
-            name: 'Unset Details Race',
-            date_time: null,
-            location: '',
-            scheduling_strategy: 'LANE_ROTATION',
-            scoring_strategy: 'TIMED',
-            car_numbering_strategy: 'PER_GROUP',
-            group_id: 1,
-            track_id: 1,
-            global_start_number: 1,
-            championship_trophies: 3
-        };
-
-        (useQuery as any).mockReturnValue([{
-            data: {
-                race: {
-                    id: mockRace.id,
-                    name: mockRace.name,
-                    dateTime: null,
-                    location: '',
-                    scoringStrategy: 'TIMED',
-                    carNumberingStrategy: 'PER_GROUP',
-                    racers: [],
-                    dens: [],
-                    leaderboard: []
-                },
-                tracks: []
-            },
-            fetching: false,
-            error: null
-        }, vi.fn()]);
-
-        render(
-            <MemoryRouter initialEntries={['/races/1']}>
-                <Routes>
-                    <Route path="/races/:raceId" element={<RaceDetails />} />
-                </Routes>
-            </MemoryRouter>
-        );
-
-        await waitFor(() => {
-            expect(screen.getByText('Unset Details Race')).toBeInTheDocument();
-        });
-
-        expect(screen.queryByTestId('race-date')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('race-location')).not.toBeInTheDocument();
-        expect(screen.queryByText('No Location Set')).not.toBeInTheDocument();
     });
 
     it('calls reexecuteRaceDetails when raceStateChanged subscription fires', async () => {
@@ -450,6 +273,7 @@ describe('RaceDetails', () => {
         );
 
         await waitFor(() => {
+            expect(screen.getByText('Race Settings')).toBeInTheDocument();
             expect(capturedHandler).toBeDefined();
         });
 

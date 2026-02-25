@@ -91,7 +91,7 @@ describe('RaceDetails Populate', () => {
 
         // Wait for race details to load
         await waitFor(() => {
-            expect(screen.getByText('Test Race')).toBeInTheDocument();
+            expect(screen.getByText('Race Settings')).toBeInTheDocument();
         });
 
         // 1. Open dropdown
@@ -160,7 +160,7 @@ describe('RaceDetails Populate', () => {
             </AlertProvider>
         );
 
-        await waitFor(() => screen.getByText('Test Race'));
+        await waitFor(() => screen.getByText('Race Settings'));
 
         // Open dropdown and click
         await user.click(document.querySelector('.split-btn-arrow')!);
