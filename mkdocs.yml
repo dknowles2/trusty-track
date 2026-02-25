@@ -23,6 +23,13 @@ extra_css:
 
 nav:
   - Home: index.md
+  - Installation:
+    - Which method?: user/install.md
+    - macOS App: user/install-mac.md
+    - Windows App: user/install-windows.md
+    - Docker: user/install-docker.md
+    - Raspberry Pi: user/install-raspberry-pi.md
+    - From Source: user/install-from-source.md
   - Getting Started: getting-started.md
   - Race Setup: race-setup.md
   - Race Day: race-day.md

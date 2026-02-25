@@ -6,6 +6,7 @@ import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { useAlert } from '../context/AlertContext';
 import Icon from '@mdi/react';
 import { mdiPlus, mdiFlagCheckered, mdiEye } from '@mdi/js';
+import logoFullUrl from '../assets/logo_full_transparent.png';
 
 const GET_RACES = gql`
     query GetRaces {
@@ -78,7 +79,7 @@ export default function Home() {
     return (
         <div className="container" style={{ padding: '2rem' }}>
             <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-                 <img src="/src/assets/logo_full_transparent.png" alt="Trusty Track Logo" style={{ maxWidth: '300px', marginBottom: '1rem' }} />
+                 <img src={logoFullUrl} alt="Trusty Track Logo" style={{ maxWidth: '300px', marginBottom: '1rem' }} />
                  <h1>Welcome to Trusty Track</h1>
                  <p>Select a race to manage or create a new one.</p>
             </div>

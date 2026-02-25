@@ -1,0 +1,44 @@
+# Python artifacts
+backend/venv/
+packaging/.build-venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/**/*.pyo
+backend/*.db
+
+# Frontend artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Development and test files
+backend/test_*.py
+backend/conftest.py
+backend/populate.py
+frontend/src/**/*.test.*
+frontend/src/**/*.spec.*
+frontend/playwright-report/
+frontend/test-results/
+
+# Data and secrets
+*.db
+certs/
+.env
+.env.*
+
+# Version control
+.git/
+.gitignore
+
+# Documentation and tasks
+docs/
+tasks/
+*.md
+!README.md
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+*.swp

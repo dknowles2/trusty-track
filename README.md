@@ -36,13 +36,19 @@
 
 ---
 
-## Running the App
+## Installing Trusty Track
 
-Trusty Track runs a local server on your computer. You access it through a web browser, and anyone on the same network can open it on their own device (tablet, laptop, phone).
+| Method | Difficulty | Best for |
+|--------|-----------|----------|
+| [macOS App](docs/user/install-mac.md) | Easy | Mac users |
+| [Windows App](docs/user/install-windows.md) | Easy | Windows users |
+| [Docker](docs/user/install-docker.md) | Medium | Home servers, NAS devices |
+| [Raspberry Pi](docs/user/install-raspberry-pi.md) | Medium | Dedicated race-day appliance |
+| [From Source](docs/user/install-from-source.md) | Advanced | Developers |
+
+Not sure which to pick? See [Which method should I use?](docs/user/install.md)
 
 ### Quick Start (From Source)
-
-The easiest way to run Trusty Track from source is using the convenience scripts:
 
 ```bash
 # Install dependencies and build the frontend
@@ -53,8 +59,6 @@ The easiest way to run Trusty Track from source is using the convenience scripts
 ```
 
 Then open `http://localhost:8005` in your browser.
-
-For a two-terminal development workflow with live reload, or for other deployment options like Docker, see the [Development Guide](docs/development.md).
 
 ---
 

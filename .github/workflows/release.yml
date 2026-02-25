@@ -1,0 +1,212 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # -------------------------------------------------------------------
+  # Docker — build multi-platform image and push to GHCR
+  # -------------------------------------------------------------------
+  docker:
+    name: Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"           # e.g. v1.2.3
+          VERSION="${TAG#v}"                  # 1.2.3
+          MINOR="${VERSION%.*}"               # 1.2
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU (for arm64 cross-build)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/trusty-track:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/trusty-track:${{ steps.version.outputs.minor }}
+            ghcr.io/${{ github.repository_owner }}/trusty-track:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate versioned docker-compose.yml
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          OWNER="${{ github.repository_owner }}"
+          cat > docker-compose-release.yml <<EOF
+          services:
+            app:
+              image: ghcr.io/$OWNER/trusty-track:$VERSION
+              ports:
+                - "8000:8000"
+              volumes:
+                - trustytrack_data:/data
+              environment:
+                - TRUSTYTRACK_DATA_DIR=/data
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+                interval: 10s
+                timeout: 5s
+                retries: 5
+                start_period: 15s
+
+          volumes:
+            trustytrack_data:
+          EOF
+
+      - name: Upload docker-compose artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-compose
+          path: docker-compose-release.yml
+
+  # -------------------------------------------------------------------
+  # macOS .dmg
+  # -------------------------------------------------------------------
+  macos-dmg:
+    name: macOS DMG
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Python dependencies + PyInstaller
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pyinstaller
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set version in version.py
+        run: echo '__version__ = "${{ steps.version.outputs.version }}"' > backend/version.py
+
+      - name: Build macOS app
+        run: bash packaging/build-mac.sh
+        env:
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_NOTARIZATION_PASSWORD: ${{ secrets.APPLE_NOTARIZATION_PASSWORD }}
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: dist/TrustyTrack-*-mac.dmg
+
+  # -------------------------------------------------------------------
+  # Windows .exe installer
+  # -------------------------------------------------------------------
+  windows-exe:
+    name: Windows Installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Python dependencies + PyInstaller
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pyinstaller
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set version in version.py
+        run: echo '__version__ = "${{ steps.version.outputs.version }}"' > backend/version.py
+
+      - name: Build Windows installer
+        run: powershell -ExecutionPolicy Bypass -File packaging\build-windows.ps1
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/TrustyTrack-*-setup.exe
+
+  # -------------------------------------------------------------------
+  # Create GitHub Release
+  # -------------------------------------------------------------------
+  create-release:
+    name: Create GitHub Release
+    needs: [docker, macos-dmg, windows-exe]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Trusty Track v$VERSION" \
+            --generate-notes \
+            release-artifacts/macos-dmg/TrustyTrack-*-mac.dmg \
+            release-artifacts/windows-exe/TrustyTrack-*-setup.exe \
+            release-artifacts/docker-compose/docker-compose-release.yml#docker-compose.yml

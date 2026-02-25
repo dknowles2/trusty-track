@@ -143,6 +143,12 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+packaging/.build-venv/
+packaging/build/
+packaging/dist/
+packaging/*.icns
+packaging/*.iconset
+packaging/*.ico
 
 # Spyder project settings
 .spyderproject
