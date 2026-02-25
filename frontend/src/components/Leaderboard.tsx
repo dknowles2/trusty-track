@@ -1,5 +1,5 @@
 import { useQuery, useSubscription } from 'urql';
-import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../graphql/raceDetails';
+import { LeaderboardSubscription } from '../graphql/observation';
 import RacerAvatar from './RacerAvatar';
 
 export interface LeaderboardEntry {
@@ -14,22 +14,11 @@ export interface LeaderboardEntry {
   racerImageUrl?: string;
 }
 
-const GET_LEADERBOARD = `
-  query GetLeaderboard($raceId: Int!) {
+const GET_LEADERBOARD_METADATA = `
+  query GetLeaderboardMetadata($raceId: Int!) {
     race(raceId: $raceId) {
       id
       scoringStrategy
-      leaderboard {
-        racerId
-        firstName
-        lastName
-        carNumber
-        denName
-        score
-        heatsCompleted
-        rank
-        racerImageUrl
-      }
     }
   }
 `;
@@ -39,42 +28,36 @@ interface LeaderboardProps {
 }
 
 export default function Leaderboard({ raceId }: LeaderboardProps) {
-  const [result, reExecute] = useQuery({
-    query: GET_LEADERBOARD,
+  const [queryResult] = useQuery({
+    query: GET_LEADERBOARD_METADATA,
     variables: { raceId },
     requestPolicy: 'cache-and-network',
   });
 
-  // Subscribe to race state changes so the leaderboard auto-refetches.
-  useSubscription(
-    { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId }, pause: !raceId || isNaN(raceId) },
-    (_prev, data) => {
-      reExecute({ requestPolicy: 'network-only' });
-      return data;
-    }
-  );
+  const [subscriptionResult] = useSubscription({
+    query: LeaderboardSubscription,
+    variables: { raceId },
+    pause: !raceId || isNaN(raceId)
+  });
 
-  const { data, fetching, error } = result;
+  const { data: queryData, fetching: queryFetching, error: queryError } = queryResult;
+  const { data: subscriptionData, error: subscriptionError } = subscriptionResult;
 
-  const fetchLeaderboard = () => {
-    reExecute({ requestPolicy: 'network-only' });
-  };
-
-  if (fetching) {
+  if (queryFetching && !subscriptionData) {
     return <div style={{ textAlign: 'center', padding: '20px' }}>Loading standings...</div>;
   }
 
-  if (error) {
+  if (queryError || subscriptionError) {
     return <div style={{ textAlign: 'center', padding: '20px', color: 'red' }}>Error loading standings</div>;
   }
 
-  const race = data?.race;
-  const leaderboard = race?.leaderboard || [];
+  const race = queryData?.race;
+  const leaderboard = (subscriptionData?.leaderboard || []) as LeaderboardEntry[];
   const scoringStrategy = race?.scoringStrategy || 'TIMED';
 
   const hasResults = leaderboard.some((entry: LeaderboardEntry) => entry.heatsCompleted > 0);
 
-  if (!race || leaderboard.length === 0 || !hasResults) {
+  if (!race || (leaderboard.length === 0 && !queryFetching) || (!hasResults && !queryFetching)) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
         <p>No results yet. Complete some heats to see standings!</p>
@@ -113,13 +96,6 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         marginBottom: '15px' 
       }}>
         <h2 style={{ margin: 0 }}>Current Standings</h2>
-        <button 
-          className="secondary-btn" 
-          onClick={fetchLeaderboard}
-          style={{ padding: '8px 16px', fontSize: '0.9rem' }}
-        >
-          Refresh
-        </button>
       </div>
 
       <div style={{ 
