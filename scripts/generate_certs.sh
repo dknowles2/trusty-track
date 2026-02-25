@@ -16,8 +16,26 @@ fi
 
 echo "Generating self-signed certificates in $CERT_DIR..."
 
-# Generate self-signed certificate
+# Detect the primary outbound LAN IP so remote devices can connect over HTTPS.
+LOCAL_IP=$(python3 -c "
+import socket
+try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(('8.8.8.8', 80))
+    print(s.getsockname()[0])
+    s.close()
+except Exception:
+    print('127.0.0.1')
+" 2>/dev/null || echo "127.0.0.1")
+
+echo "Including SAN for localhost and $LOCAL_IP"
+
+# Generate self-signed certificate with Subject Alternative Names so modern
+# browsers accept it for both localhost and the LAN IP address.
 openssl req -x509 -newkey rsa:4096 -keyout "$KEY_FILE" -out "$CERT_FILE" \
-    -days 365 -nodes -subj "/CN=localhost"
+    -days 3650 -nodes \
+    -subj "/CN=TrustyTrack" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:$LOCAL_IP" \
+    -addext "basicConstraints=CA:TRUE"
 
 echo "Certificates generated successfully."

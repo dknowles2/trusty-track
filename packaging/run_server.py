@@ -11,9 +11,13 @@ needing a terminal:
 from __future__ import annotations
 
 import asyncio
+import datetime
+import ipaddress
 import logging
 import os
 import platform
+import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -36,11 +40,12 @@ def _get_data_dir() -> Path:
     return base
 
 
-DATA_DIR = _get_data_dir()
-LOG_PATH = DATA_DIR / "server.log"
-DB_PATH  = DATA_DIR / "trusty-track.db"
-PORT     = int(os.environ.get("PORT", "8000"))
-APP_URL  = f"http://localhost:{PORT}"
+DATA_DIR  = _get_data_dir()
+LOG_PATH  = DATA_DIR / "server.log"
+DB_PATH   = DATA_DIR / "trusty-track.db"
+CERT_PATH = DATA_DIR / "server.crt"
+KEY_PATH  = DATA_DIR / "server.key"
+PORT      = int(os.environ.get("PORT", "8000"))
 
 # Must be set before importing backend (database.py reads it at import time).
 os.environ.setdefault("TRUSTYTRACK_DATA_DIR", str(DATA_DIR))
@@ -52,7 +57,101 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
-# ── Backend imports (after env var is set) ─────────────────────────────────────
+# ── SSL context for health-check (skips self-signed cert verification) ─────────
+
+_SSL_CTX = ssl.create_default_context()
+_SSL_CTX.check_hostname = False
+_SSL_CTX.verify_mode = ssl.CERT_NONE
+
+# ── Networking helpers ─────────────────────────────────────────────────────────
+
+def _get_local_ip() -> str:
+    """Return the primary outbound network IP (not loopback)."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except Exception:
+        return "127.0.0.1"
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+# ── Self-signed certificate generation ────────────────────────────────────────
+
+def _cert_is_valid() -> bool:
+    """Return True if the cert exists and has not expired."""
+    if not CERT_PATH.exists() or not KEY_PATH.exists():
+        return False
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.backends import default_backend
+        cert = x509.load_pem_x509_certificate(CERT_PATH.read_bytes(), default_backend())
+        return cert.not_valid_after_utc > datetime.datetime.now(datetime.timezone.utc)
+    except Exception:
+        return False
+
+
+def _ensure_cert() -> None:
+    """Generate a self-signed TLS certificate covering localhost and the LAN IP."""
+    if _cert_is_valid():
+        return
+
+    logging.info("Generating self-signed TLS certificate…")
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID
+
+    local_ip = _get_local_ip()
+    san_entries: list[x509.GeneralName] = [
+        x509.DNSName("localhost"),
+        x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
+    ]
+    if local_ip != "127.0.0.1":
+        try:
+            san_entries.append(x509.IPAddress(ipaddress.IPv4Address(local_ip)))
+        except ValueError:
+            pass
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COMMON_NAME, "TrustyTrack"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "TrustyTrack"),
+    ])
+
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650))
+        .add_extension(x509.SubjectAlternativeName(san_entries), critical=False)
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
+
+    KEY_PATH.write_bytes(key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    ))
+    CERT_PATH.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    logging.info("Certificate written to %s", CERT_PATH)
+
+
+# Generate the cert before importing the backend (uvicorn needs the files).
+_ensure_cert()
+
+LOCAL_IP    = _get_local_ip()
+APP_URL     = f"https://localhost:{PORT}"
+NETWORK_URL = f"https://{LOCAL_IP}:{PORT}"
+
+# ── Backend imports (after env vars are set) ───────────────────────────────────
 
 import uvicorn                          # noqa: E402
 from backend.main import app as _app   # noqa: E402
@@ -75,7 +174,14 @@ class ServerController:
 
     def start(self) -> None:
         self._notify("starting")
-        config = uvicorn.Config(_app, host="0.0.0.0", port=PORT, log_level="info")
+        config = uvicorn.Config(
+            _app,
+            host="0.0.0.0",
+            port=PORT,
+            log_level="info",
+            ssl_keyfile=str(KEY_PATH),
+            ssl_certfile=str(CERT_PATH),
+        )
         self._server = uvicorn.Server(config)
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
@@ -93,7 +199,7 @@ class ServerController:
                 self._notify("error")
                 return
             try:
-                with urllib.request.urlopen(f"{APP_URL}/health", timeout=1) as r:
+                with urllib.request.urlopen(f"{APP_URL}/health", timeout=1, context=_SSL_CTX) as r:
                     if r.status == 200:
                         self._notify("running")
                         return
@@ -151,12 +257,13 @@ if sys.platform == "darwin":
                 rumps.MenuItem("Open App in Browser", callback=self._open_browser),
                 None,
                 self._status_item,
+                rumps.MenuItem(f"Network: {NETWORK_URL}"),
                 None,
-                rumps.MenuItem("Restart Server",  callback=self._restart),
-                rumps.MenuItem("Reset Database…", callback=self._reset_db),
-                rumps.MenuItem("View Logs",        callback=self._view_logs),
+                rumps.MenuItem("Restart Server",        callback=self._restart),
+                rumps.MenuItem("Reset Database…",       callback=self._reset_db),
+                rumps.MenuItem("View Logs",             callback=self._view_logs),
                 None,
-                rumps.MenuItem("Quit TrustyTrack", callback=self._quit),
+                rumps.MenuItem("Quit TrustyTrack",      callback=self._quit),
             ]
 
             controller.on_status_change = self._update_status
@@ -271,12 +378,13 @@ elif sys.platform == "win32":
                 ),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(lambda item: self._get_status_label(), None),
+                pystray.MenuItem(f"Network: {NETWORK_URL}", None),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Restart Server",  self._restart),
-                pystray.MenuItem("Reset Database…", self._reset_db),
-                pystray.MenuItem("View Logs",        self._view_logs),
+                pystray.MenuItem("Restart Server",        self._restart),
+                pystray.MenuItem("Reset Database…",       self._reset_db),
+                pystray.MenuItem("View Logs",             self._view_logs),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Quit TrustyTrack", self._quit),
+                pystray.MenuItem("Quit TrustyTrack",      self._quit),
             )
             self._icon_obj = pystray.Icon(
                 "TrustyTrack", self._load_image(), "TrustyTrack", menu
@@ -293,7 +401,7 @@ controller.start()
 def _auto_open() -> None:
     for _ in range(60):
         try:
-            with urllib.request.urlopen(f"{APP_URL}/health", timeout=1) as r:
+            with urllib.request.urlopen(f"{APP_URL}/health", timeout=1, context=_SSL_CTX) as r:
                 if r.status == 200:
                     webbrowser.open(APP_URL)
                     return
