@@ -248,93 +248,57 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: '10px' }}>
-                                {isCompleted ? (
-                                    <>
+                                {isCompleted && nextExecutionHeat && (!roundSummary || !isRoundSummaryOpen) ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <button
-                                            onClick={handleEditOpen}
+                                            className="primary-btn"
+                                            onClick={() => {
+                                                if (autoAdvanceTimeoutRef.current) {
+                                                    clearTimeout(autoAdvanceTimeoutRef.current);
+                                                    autoAdvanceTimeoutRef.current = null;
+                                                }
+                                                setAutoAdvanceCountdown(null);
+                                                onNextHeat();
+                                            }}
                                             style={{
-                                                padding: '4px 12px',
-                                                fontSize: '0.9rem',
-                                                background: '#f0f0f0',
-                                                color: 'black',
-                                                border: '1px solid #ccc',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer',
-                                                fontWeight: 'bold',
+                                                padding: '6px 16px',
+                                                fontSize: '0.95rem',
+                                                background: '#2e7d32',
+                                                color: 'white',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                gap: '5px'
+                                                gap: '8px',
+                                                borderRadius: '6px',
+                                                height: '36px'
                                             }}
                                         >
-                                            <Icon path={mdiPencil} size={0.7} /> Edit
+                                            Next Heat{autoAdvanceCountdown !== null ? ` (${autoAdvanceCountdown}s)` : ''} <Icon path={mdiArrowRight} size={0.8} />
                                         </button>
-                                        <button
-                                            onClick={() => onRunHeat(activeExecutionHeat, false)}
-                                            style={{
-                                                padding: '4px 12px',
-                                                fontSize: '0.9rem',
-                                                background: 'var(--cub-scouting-gold)', // Caution color
-                                                color: 'black',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer',
-                                                fontWeight: 'bold',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '5px'
-                                            }}
-                                        >
-                                            <Icon path={mdiRefresh} size={0.7} /> Re-Run
-                                        </button>
-                                        {nextExecutionHeat && (!roundSummary || !isRoundSummaryOpen) && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '10px' }}>
-                                                <button
-                                                    className="primary-btn"
-                                                    onClick={() => {
-                                                        if (autoAdvanceTimeoutRef.current) {
-                                                            clearTimeout(autoAdvanceTimeoutRef.current);
-                                                            autoAdvanceTimeoutRef.current = null;
-                                                        }
-                                                        setAutoAdvanceCountdown(null);
-                                                        onNextHeat();
-                                                    }}
-                                                    style={{
-                                                        padding: '6px 16px',
-                                                        fontSize: '1rem',
-                                                        background: '#2e7d32',
-                                                        color: 'white',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '8px'
-                                                    }}
-                                                >
-                                                    Next Heat{autoAdvanceCountdown !== null ? ` (${autoAdvanceCountdown}s)` : ''} <Icon path={mdiArrowRight} size={0.8} />
-                                                </button>
-                                                {autoAdvanceCountdown !== null && (
-                                                    <button
-                                                        onClick={() => {
-                                                            if (autoAdvanceTimeoutRef.current) {
-                                                                clearTimeout(autoAdvanceTimeoutRef.current);
-                                                                autoAdvanceTimeoutRef.current = null;
-                                                            }
-                                                            setAutoAdvanceCountdown(null);
-                                                        }}
-                                                        style={{
-                                                            padding: '4px 10px',
-                                                            fontSize: '0.85rem',
-                                                            background: 'transparent',
-                                                            color: '#c62828',
-                                                            border: '1px solid #c62828',
-                                                            borderRadius: '4px',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                )}
-                                            </div>
+                                        {autoAdvanceCountdown !== null && (
+                                            <button
+                                                onClick={() => {
+                                                    if (autoAdvanceTimeoutRef.current) {
+                                                        clearTimeout(autoAdvanceTimeoutRef.current);
+                                                        autoAdvanceTimeoutRef.current = null;
+                                                    }
+                                                    setAutoAdvanceCountdown(null);
+                                                }}
+                                                style={{
+                                                    padding: '6px 14px',
+                                                    fontSize: '0.9rem',
+                                                    background: 'transparent',
+                                                    color: '#c62828',
+                                                    border: '1px solid #c62828',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: 'bold',
+                                                    height: '36px'
+                                                }}
+                                            >
+                                                Cancel
+                                            </button>
                                         )}
-                                    </>
+                                    </div>
                                 ) : isRunning ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                                         <div style={{
@@ -350,22 +314,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         }}>
                                             <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />
                                             Racing... {elapsedSeconds.toFixed(1)}s
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button
-                                                onClick={handleEditOpen}
-                                                className="secondary-btn"
-                                                style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            >
-                                                <Icon path={mdiAlertCircleOutline} size={0.6} /> Force Results
-                                            </button>
-                                            <button
-                                                onClick={handleSkipHeat}
-                                                className="secondary-btn"
-                                                style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            >
-                                                <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
-                                            </button>
                                         </div>
                                         <style>{`
                                         .pulse-dot { animation: pulse 1s infinite; }
@@ -387,60 +335,24 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         }}>
                                             <Icon path={mdiAlertCircleOutline} size={0.8} color="white" /> Results Overdue
                                         </div>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            {timerType !== 'FAKE' && trackId != null && (
-                                                <button
-                                                    onClick={() => forceResults({ trackId })}
-                                                    className="secondary-btn"
-                                                    style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                                >
-                                                    <Icon path={mdiAlertCircleOutline} size={0.6} /> Force Results
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={handleSkipHeat}
-                                                className="secondary-btn"
-                                                style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            >
-                                                <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
-                                            </button>
-                                        </div>
                                     </div>
-                                ) : timerState === 'IDLE' && trackId != null ? (
-                                    <div style={{ padding: '15px', color: '#666', fontStyle: 'italic' }}>
+                                ) : timerState === 'IDLE' && trackId != null && !isCompleted ? (
+                                    <div style={{ padding: '8px 20px', color: '#666', fontStyle: 'italic', background: '#f5f5f5', borderRadius: '4px', border: '1px solid #ddd' }}>
                                         Waiting for Timer...
                                     </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                                        <div style={{
-                                            padding: '8px 20px',
-                                            fontSize: '1.15rem',
-                                            background: '#f5f5f5',
-                                            color: '#666',
-                                            borderRadius: '4px',
-                                            fontWeight: 'bold',
-                                            border: '1px solid #ddd'
-                                        }}>
-                                            Waiting for Timer...
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button
-                                                onClick={handleEditOpen}
-                                                className="secondary-btn"
-                                                style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            >
-                                                <Icon path={mdiPencil} size={0.6} /> Override
-                                            </button>
-                                            <button
-                                                onClick={handleSkipHeat}
-                                                className="secondary-btn"
-                                                style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            >
-                                                <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
-                                            </button>
-                                        </div>
+                                ) : !isCompleted ? (
+                                    <div style={{
+                                        padding: '8px 20px',
+                                        fontSize: '1.15rem',
+                                        background: '#f5f5f5',
+                                        color: '#666',
+                                        borderRadius: '4px',
+                                        fontWeight: 'bold',
+                                        border: '1px solid #ddd'
+                                    }}>
+                                        Waiting for Timer...
                                     </div>
-                                )}
+                                ) : null}
                             </div>
                         </div>
 
@@ -519,58 +431,160 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             })}
                         </div>
 
-                        {onToggleAutoAdvance && (
-                            <div
-                                style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}
-                                onMouseEnter={() => setShowAutoAdvanceTooltip(true)}
-                                onMouseLeave={() => setShowAutoAdvanceTooltip(false)}
-                            >
-                                {showAutoAdvanceTooltip && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: '100%',
-                                        right: 0,
-                                        marginBottom: '8px',
-                                        background: '#333',
-                                        color: 'white',
-                                        fontSize: '0.8rem',
-                                        padding: '6px 10px',
-                                        borderRadius: '6px',
-                                        whiteSpace: 'nowrap',
-                                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                                        pointerEvents: 'none',
-                                        zIndex: 10,
-                                    }}>
-                                        Automatically advances to the next heat 10 seconds after results are recorded.
-                                    </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
+                            {/* BOTTOM LEFT: Controls */}
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                {isCompleted ? (
+                                    <>
+                                        <button
+                                            onClick={handleEditOpen}
+                                            style={{
+                                                padding: '6px 14px',
+                                                fontSize: '0.9rem',
+                                                background: '#f0f0f0',
+                                                color: 'black',
+                                                border: '1px solid #ccc',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontWeight: 'bold',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                height: '36px'
+                                            }}
+                                        >
+                                            <Icon path={mdiPencil} size={0.7} /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => onRunHeat(activeExecutionHeat, false)}
+                                            style={{
+                                                padding: '6px 14px',
+                                                fontSize: '0.9rem',
+                                                background: 'var(--cub-scouting-gold)',
+                                                color: 'black',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontWeight: 'bold',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                height: '36px'
+                                            }}
+                                        >
+                                            <Icon path={mdiRefresh} size={0.7} /> Re-Run
+                                        </button>
+                                    </>
+                                ) : isRunning ? (
+                                    <>
+                                        <button
+                                            onClick={handleEditOpen}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                        >
+                                            <Icon path={mdiAlertCircleOutline} size={0.7} /> Force Results
+                                        </button>
+                                        <button
+                                            onClick={handleSkipHeat}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                        >
+                                            <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
+                                        </button>
+                                    </>
+                                ) : timerState === 'RESULTS_OVERDUE' ? (
+                                    <>
+                                        {timerType !== 'FAKE' && trackId != null && (
+                                            <button
+                                                onClick={() => forceResults({ trackId })}
+                                                className="secondary-btn"
+                                                style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                            >
+                                                <Icon path={mdiAlertCircleOutline} size={0.7} /> Force Results
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={handleSkipHeat}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                        >
+                                            <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={handleEditOpen}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                        >
+                                            <Icon path={mdiPencil} size={0.7} /> Override
+                                        </button>
+                                        <button
+                                            onClick={handleSkipHeat}
+                                            className="secondary-btn"
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                        >
+                                            <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
+                                        </button>
+                                    </>
                                 )}
-                                <span style={{ fontSize: '0.9rem', color: '#555', userSelect: 'none' }}>Auto-advance</span>
-                                <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={autoAdvanceHeat}
-                                        onChange={(e) => onToggleAutoAdvance(e.target.checked)}
-                                        style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-                                    />
-                                    <div style={{
-                                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                                        background: autoAdvanceHeat ? 'var(--scouting-blue)' : '#ccc',
-                                        borderRadius: '24px',
-                                        transition: 'background 0.2s',
-                                    }} />
-                                    <div style={{
-                                        position: 'absolute',
-                                        height: '18px', width: '18px',
-                                        left: autoAdvanceHeat ? '23px' : '3px',
-                                        bottom: '3px',
-                                        background: 'white',
-                                        borderRadius: '50%',
-                                        transition: 'left 0.2s',
-                                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                                    }} />
-                                </label>
                             </div>
-                        )}
+
+                            {/* BOTTOM RIGHT: Auto-advance */}
+                            {onToggleAutoAdvance && (
+                                <div
+                                    style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}
+                                    onMouseEnter={() => setShowAutoAdvanceTooltip(true)}
+                                    onMouseLeave={() => setShowAutoAdvanceTooltip(false)}
+                                >
+                                    {showAutoAdvanceTooltip && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '100%',
+                                            right: 0,
+                                            marginBottom: '8px',
+                                            background: '#333',
+                                            color: 'white',
+                                            fontSize: '0.8rem',
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            whiteSpace: 'nowrap',
+                                            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                                            pointerEvents: 'none',
+                                            zIndex: 10,
+                                        }}>
+                                            Automatically advances to the next heat 10 seconds after results are recorded.
+                                        </div>
+                                    )}
+                                    <span style={{ fontSize: '0.9rem', color: '#555', userSelect: 'none' }}>Auto-advance</span>
+                                    <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={autoAdvanceHeat}
+                                            onChange={(e) => onToggleAutoAdvance(e.target.checked)}
+                                            style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                                        />
+                                        <div style={{
+                                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                                            background: autoAdvanceHeat ? 'var(--scouting-blue)' : '#ccc',
+                                            borderRadius: '24px',
+                                            transition: 'background 0.2s',
+                                        }} />
+                                        <div style={{
+                                            position: 'absolute',
+                                            height: '18px', width: '18px',
+                                            left: autoAdvanceHeat ? '23px' : '3px',
+                                            bottom: '3px',
+                                            background: 'white',
+                                            borderRadius: '50%',
+                                            transition: 'left 0.2s',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                        }} />
+                                    </label>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
