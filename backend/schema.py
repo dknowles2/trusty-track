@@ -1326,18 +1326,30 @@ class Mutation:
                     current_round_number += 1
 
             # Championship Rounds
+            previous_champ_round_id = None
             for champ_cfg in config.championship_rounds:
+                adv_source = champ_cfg.source
+                if adv_source == "PREVIOUS":
+                    if previous_champ_round_id:
+                        adv_source = f"ROUND:{previous_champ_round_id}"
+                    else:
+                        # Fallback to PACK if no previous championship round exists
+                        adv_source = "PACK"
+
                 round_obj = crud.create_round(
                     db,
                     race_id,
                     current_round_number,
                     models.SchedulingStrategy.PPC,
                     champ_cfg.name,
-                    advancement_source=champ_cfg.source,
+                    advancement_source=adv_source,
                     advancement_num_racers=champ_cfg.num_top_racers,
                 )
+                db.flush()  # Ensure the round ID is generated
+                previous_champ_round_id = round_obj.id
+
                 num_placeholders = champ_cfg.num_top_racers
-                if champ_cfg.source == "DEN":
+                if adv_source == "DEN":
                     den_count = (
                         db.query(models.Den)
                         .filter(models.Den.race_id == race_id)

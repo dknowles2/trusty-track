@@ -23,7 +23,7 @@ interface GeneralConfig {
 interface ChampionshipConfig {
   id: string;
   name: string;
-  source: 'PACK' | 'DEN';
+  source: 'PACK' | 'DEN' | 'PREVIOUS';
   numTopRacers: number;
   runsPerLane: number;
 }
@@ -78,7 +78,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     // Championship Rounds
     for (const round of championshipRounds) {
       let participatingRacers = 0;
-      if (round.source === 'PACK') {
+      if (round.source === 'PACK' || round.source === 'PREVIOUS') {
         participatingRacers = round.numTopRacers;
       } else {
         participatingRacers = round.numTopRacers * denCount;
@@ -100,7 +100,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       {
         id: `champ-${Date.now()}`,
         name: 'New Championship Round',
-        source: 'PACK',
+        source: prev.length === 0 ? 'PACK' : 'PREVIOUS',
         numTopRacers: laneCount,
         runsPerLane: 1
       }
@@ -281,7 +281,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                 </div>
               )}
 
-              {championshipRounds.map((round) => (
+              {championshipRounds.map((round, idx) => (
                 <div key={round.id} style={{ position: 'relative', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#f9fafb' }}>
                   <button 
                     onClick={() => handleRemoveChampionshipRound(round.id)}
@@ -303,14 +303,20 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     </div>
                     <div>
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Advancement Source</label>
-                      <select 
-                        style={{ ...inputStyle, fontSize: '0.875rem' }}
-                        value={round.source}
-                        onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'PACK' | 'DEN' })}
-                      >
-                        <option value="PACK">Top Overall (Pack)</option>
-                        <option value="DEN">Top per Den</option>
-                      </select>
+                      {idx === 0 ? (
+                        <select 
+                          style={{ ...inputStyle, fontSize: '0.875rem' }}
+                          value={round.source}
+                          onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'PACK' | 'DEN' })}
+                        >
+                          <option value="PACK">Top Overall (Pack)</option>
+                          <option value="DEN">Top per Den</option>
+                        </select>
+                      ) : (
+                        <div style={{ ...inputStyle, fontSize: '0.875rem', backgroundColor: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
+                          Previous Championship Round
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>
@@ -363,7 +369,9 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     <h4 style={{ fontWeight: 'bold', color: '#111827', margin: 0 }}>{idx + 2}. {round.name}</h4>
                     <p style={{ fontSize: '0.875rem', color: '#4b5563', margin: '0.25rem 0 0 0' }}>
                       Advances top {round.numTopRacers} racers
-                      {round.source === 'DEN' ? ' from each Den' : ' overall'}.
+                      {round.source === 'DEN' ? ' from each Den' : 
+                       round.source === 'PREVIOUS' ? ` from ${championshipRounds[idx-1].name}` :
+                       ' overall'}.
                       {' '}{round.runsPerLane > 1 && `(${round.runsPerLane} runs per lane)`}
                     </p>
                   </div>

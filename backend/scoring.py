@@ -6,20 +6,23 @@ based on different scoring strategies (TIMED or POINTS).
 """
 
 import json
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from . import crud, models
 
 
-def calculate_racer_scores(db: Session, race_id: int) -> Dict[int, Dict[str, float]]:
+def calculate_racer_scores(
+    db: Session, race_id: int, round_id: Optional[int] = None
+) -> Dict[int, Dict[str, float]]:
     """
-    Calculate scores for all racers in a race.
+    Calculate scores for all racers in a race (optionally filtered by round).
 
     Args:
         db: Database session
         race_id: ID of the race
+        round_id: Optional ID of the round to limit calculation to
 
     Returns:
         Dictionary mapping racer_id to score info:
@@ -36,7 +39,7 @@ def calculate_racer_scores(db: Session, race_id: int) -> Dict[int, Dict[str, flo
     if not race:
         return {}
 
-    heats = crud.get_heats(db, race_id)
+    heats = crud.get_heats(db, race_id, round_id=round_id)
     scoring_strategy = race.scoring_strategy
 
     # Initialize racer scores
@@ -96,13 +99,14 @@ def calculate_racer_scores(db: Session, race_id: int) -> Dict[int, Dict[str, flo
     return racer_scores
 
 
-def get_leaderboard(db: Session, race_id: int) -> List[Dict]:
+def get_leaderboard(db: Session, race_id: int, round_id: Optional[int] = None) -> List[Dict]:
     """
-    Get the current leaderboard for a race.
+    Get the current leaderboard for a race (optionally filtered by round).
 
     Args:
         db: Database session
         race_id: ID of the race
+        round_id: Optional ID of the round to limit calculation to
 
     Returns:
         List of racer standings, sorted by score (ascending - lower is better):
@@ -124,7 +128,7 @@ def get_leaderboard(db: Session, race_id: int) -> List[Dict]:
     if not race:
         return []
 
-    racer_scores = calculate_racer_scores(db, race_id)
+    racer_scores = calculate_racer_scores(db, race_id, round_id=round_id)
 
     # Get racer details
     racers = crud.get_racers(db, race_id=race_id)
@@ -181,12 +185,20 @@ def get_advancing_racers(
     Args:
         db: Database session
         race_id: ID of the race
-        source: "PACK" (overall winners) or "DEN" (top performers per den)
+        source: "PACK" (overall winners), "DEN" (top per den), or "ROUND:<id>" (round specific)
         num_top: Number of top racers to pick (if "DEN", it's per den)
 
     Returns:
         List of racer IDs, sorted by rank.
     """
+    if source.startswith("ROUND:"):
+        try:
+            round_id = int(source.split(":")[1])
+            standings = get_leaderboard(db, race_id, round_id=round_id)
+            return [s["racer_id"] for s in standings[:num_top]]
+        except (ValueError, IndexError):
+            return []
+
     standings = get_leaderboard(db, race_id)
 
     if source == "PACK":

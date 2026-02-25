@@ -420,12 +420,13 @@ def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
     return db_racer
 
 
-def get_heats(db: Session, race_id: int) -> List[models.Heat]:
+def get_heats(db: Session, race_id: int, round_id: Optional[int] = None) -> List[models.Heat]:
     """Get all heats for a specific race, ordered by round and heat number."""
+    query = db.query(models.Heat).filter(models.Heat.race_id == race_id)
+    if round_id:
+        return query.filter(models.Heat.round_id == round_id).order_by(models.Heat.heat_number).all()
     return (
-        db.query(models.Heat)
-        .filter(models.Heat.race_id == race_id)
-        .join(models.Round)
+        query.join(models.Round)
         .order_by(models.Round.round_number, models.Heat.heat_number)
         .all()
     )
