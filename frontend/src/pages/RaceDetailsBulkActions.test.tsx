@@ -57,6 +57,7 @@ describe('RaceDetails Bulk Actions', () => {
     const mockBulkAutoNumber = vi.fn().mockResolvedValue({ data: { bulkAutoNumber: 2 } });
     const mockBulkDelete = vi.fn().mockResolvedValue({ data: { bulkDeleteRacers: true } });
     const mockBulkMoveToDen = vi.fn().mockResolvedValue({ data: { bulkMoveToDen: true } });
+    const mockBulkCheckIn = vi.fn().mockResolvedValue({ data: { bulkCheckIn: true } });
 
     const setupMocks = () => {
         (useQuery as any).mockReturnValue([{
@@ -72,7 +73,8 @@ describe('RaceDetails Bulk Actions', () => {
                         firstName: r.first_name,
                         lastName: r.last_name,
                         carNumber: r.car_number,
-                        den: (mockDens.find(d => d.id === r.den_id) || { name: 'Unknown', color: 'gray' })
+                        denId: r.den_id,
+                        carPassedInspection: false,
                     })),
                     dens: mockDens.map(d => ({ ...d, racerCount: 0 })),
                     leaderboard: []
@@ -87,6 +89,7 @@ describe('RaceDetails Bulk Actions', () => {
             if (query === GQL.BULK_AUTO_NUMBER) return [{ fetching: false }, mockBulkAutoNumber];
             if (query === GQL.BULK_DELETE_RACERS) return [{ fetching: false }, mockBulkDelete];
             if (query === GQL.BULK_MOVE_TO_DEN) return [{ fetching: false }, mockBulkMoveToDen];
+            if (query === GQL.BULK_CHECK_IN) return [{ fetching: false }, mockBulkCheckIn];
             return [{ fetching: false }, vi.fn()];
         });
 
@@ -212,5 +215,35 @@ describe('RaceDetails Bulk Actions', () => {
         const tigerOption = await screen.findByTestId('bulk-move-to-den-1');
         expect(tigerOption).toHaveTextContent('Tigers');
         expect(screen.getByTestId('bulk-move-to-unassigned')).toBeInTheDocument();
+    });
+
+    it('triggers bulk check-in action after confirmation', async () => {
+        setupMocks();
+        mockShowConfirm.mockResolvedValue(true);
+        
+        const user = (await import('@testing-library/user-event')).default.setup();
+        
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+
+        const selectAllCheckbox = screen.getByTestId('select-all-header');
+        await user.click(selectAllCheckbox);
+
+        const bulkMenuBtn = screen.getByRole('button', { name: /Bulk Actions/i });
+        await user.click(bulkMenuBtn);
+
+        const checkInBtn = await screen.findByTestId('bulk-check-in-btn');
+        await user.click(checkInBtn);
+
+        expect(mockShowConfirm).toHaveBeenCalled();
+        expect(mockBulkCheckIn).toHaveBeenCalledWith({
+            racerIds: [1, 2],
+            passedInspection: true
+        });
     });
 });

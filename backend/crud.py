@@ -1028,6 +1028,14 @@ def bulk_clear_car_numbers(db: Session, racer_ids: List[int]):
     db.commit()
 
 
+def bulk_check_in_racers(db: Session, racer_ids: List[int], passed_inspection: bool = True):
+    """Bulk update check-in status for racers."""
+    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
+        {models.Racer.car_passed_inspection: passed_inspection}, synchronize_session=False
+    )
+    db.commit()
+
+
 def create_free_race_heat(
     db: Session,
     race_id: int,

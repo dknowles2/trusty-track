@@ -406,6 +406,15 @@ def test_bulk_mutations(client, db):
     response = client.post("/graphql", json={"query": mutation_auto_number})
     assert response.json()["data"]["bulkAutoNumber"] == 5
 
+    # 1b. Bulk Check-In
+    mutation_check_in = f"""
+    mutation {{
+        bulkCheckIn(racerIds: {racer_ids}, passedInspection: true)
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation_check_in})
+    assert response.json()["data"]["bulkCheckIn"] is True
+
     # 2. Bulk Clear Numbers
     mutation_clear = f"""
     mutation {{
@@ -485,6 +494,17 @@ def test_bulk_mutations_with_variables(client, db):
     )
     assert "errors" not in resp.json(), f"bulkAutoNumber failed: {resp.json()}"
     assert resp.json()["data"]["bulkAutoNumber"] == len(racer_ids)
+
+    # -- bulkCheckIn --
+    resp = client.post(
+        "/graphql",
+        json={
+            "query": "mutation BulkCheckIn($racerIds: [Int!]!, $passedInspection: Boolean!) { bulkCheckIn(racerIds: $racerIds, passedInspection: $passedInspection) }",
+            "variables": {"racerIds": racer_ids, "passedInspection": True},
+        },
+    )
+    assert "errors" not in resp.json(), f"bulkCheckIn failed: {resp.json()}"
+    assert resp.json()["data"]["bulkCheckIn"] is True
 
     # -- bulkClearNumbers --
     resp = client.post(

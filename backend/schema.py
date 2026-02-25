@@ -1625,6 +1625,19 @@ class Mutation:
         return True
 
     @strawberry.mutation
+    async def bulk_check_in(self, info: Info, racer_ids: List[int], passed_inspection: bool = True) -> bool:
+        """Bulk check-in racers."""
+        db = info.context["db"]
+        if not racer_ids:
+            return False
+        racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
+        if not racer:
+            return False
+        crud.bulk_check_in_racers(db, racer_ids, passed_inspection)
+        await _publish_race_state(racer.race_id)
+        return True
+
+    @strawberry.mutation
     async def bulk_move_to_den(
         self, info: Info, racer_ids: List[int], den_id: Optional[int]
     ) -> bool:

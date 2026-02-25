@@ -98,6 +98,7 @@ export default function RaceDetails() {
   const [, deleteRaceMutation] = useMutation(GQL.DELETE_RACE);
   const [, bulkAutoNumberMutation] = useMutation(GQL.BULK_AUTO_NUMBER);
   const [, bulkClearNumbersMutation] = useMutation(GQL.BULK_CLEAR_NUMBERS);
+  const [, bulkCheckInMutation] = useMutation(GQL.BULK_CHECK_IN);
   const [, bulkMoveToDenMutation] = useMutation(GQL.BULK_MOVE_TO_DEN);
   const [, bulkDeleteRacersMutation] = useMutation(GQL.BULK_DELETE_RACERS);
   const [, populateRaceMutation] = useMutation(GQL.POPULATE_RACE);
@@ -374,6 +375,26 @@ export default function RaceDetails() {
       setSelectedRacerIds([]);
     } catch (e) {
       showAlert("Failed to clear racer numbers", "Error");
+    }
+  };
+
+  const handleBulkCheckIn = async () => {
+    const confirmed = await showConfirm(
+      `Mark ${selectedRacerIds.length} racers as passed inspection and checked-in?`,
+      "Bulk Check-In",
+      "Check In",
+      "primary"
+    );
+    if (!confirmed) return;
+
+    try {
+      const result = await bulkCheckInMutation({ racerIds: selectedRacerIds, passedInspection: true });
+      if (result.error) throw result.error;
+      refreshData();
+      setSelectedRacerIds([]);
+      setIsBulkMenuOpen(false);
+    } catch (e) {
+      showAlert("Failed to bulk check-in racers", "Error");
     }
   };
 
@@ -746,6 +767,13 @@ export default function RaceDetails() {
                             data-testid="bulk-clear-numbers-btn"
                         >
                             <Icon path={mdiPlus} size={0.7} style={{ transform: 'rotate(45deg)' }} /> Clear numbers
+                        </button>
+                        <button 
+                            onClick={handleBulkCheckIn} 
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            data-testid="bulk-check-in-btn"
+                        >
+                            <Icon path={mdiCheckDecagram} size={0.7} /> Bulk Check-In
                         </button>
                         <div 
                             ref={denMenuContainerRef}

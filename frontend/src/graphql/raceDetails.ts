@@ -175,6 +175,12 @@ export const BULK_CLEAR_NUMBERS = gql`
   }
 `;
 
+export const BULK_CHECK_IN = gql`
+  mutation BulkCheckIn($racerIds: [Int!]!, $passedInspection: Boolean!) {
+    bulkCheckIn(racerIds: $racerIds, passedInspection: $passedInspection)
+  }
+`;
+
 export const BULK_MOVE_TO_DEN = gql`
   mutation BulkMoveToDen($racerIds: [Int!]!, $denId: Int) {
     bulkMoveToDen(racerIds: $racerIds, denId: $denId)
