@@ -4,6 +4,7 @@ import Icon from '@mdi/react';
 import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered } from '@mdi/js';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { TimerStatusBadge } from './TimerStatusBadge';
+import { RacerCombobox } from '../RacerCombobox';
 
 export interface LaneAssignment {
   lane: number;
@@ -229,32 +230,13 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                     borderLeft: '5px solid var(--scouting-blue)'
                   }}>
                     <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {a.lane}</div>
-                    <select
-                      value={a.racerId ?? ''}
-                      onChange={(e) =>
-                        handleManualChange(a.lane, e.target.value === '' ? null : parseInt(e.target.value))
-                      }
-                      style={{
-                        padding: '10px',
-                        borderRadius: '4px',
-                        border: '1px solid #ccc',
-                        minWidth: '250px',
-                        fontSize: '1rem'
-                      }}
-                    >
-                      <option value="">— Empty —</option>
-                      {available.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.firstName} {r.lastName}
-                          {r.carNumber != null ? ` (#${r.carNumber})` : ''}
-                        </option>
-                      ))}
-                      {a.racerId !== null && !available.find((r) => r.id === a.racerId) && racers[a.racerId] && (
-                        <option key={a.racerId} value={a.racerId}>
-                          {racers[a.racerId].firstName} {racers[a.racerId].lastName}
-                        </option>
-                      )}
-                    </select>
+                    <RacerCombobox
+                      racers={available}
+                      value={a.racerId ?? undefined}
+                      onChange={(racerId) => handleManualChange(a.lane, racerId ?? null)}
+                      placeholder="— Select racer —"
+                      style={{ minWidth: '350px' }}
+                    />
                   </div>
                 );
               })}
