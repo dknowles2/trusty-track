@@ -51,12 +51,13 @@ interface ScheduleManagementProps {
 
 
 
-interface SortableHeatCardProps {
+interface SortableHeatRowProps {
   heat: Heat;
   isRunning: boolean;
   isReordering: boolean;
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
+  laneCount: number;
 }
 
 const getDisplayName = (id: number, getRacerName: (id: number) => string) => {
@@ -65,12 +66,13 @@ const getDisplayName = (id: number, getRacerName: (id: number) => string) => {
   return getRacerName(id);
 };
 
-const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
+const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   heat,
   isRunning,
   isReordering,
   getRacerName,
   onRunHeat,
+  laneCount
 }) => {
   const laneResults = heat.laneResults ? JSON.parse(heat.laneResults) : [];
   const hasResults = laneResults.length > 0 && laneResults.some((r: any) => r.time !== null);
@@ -95,66 +97,58 @@ const SortableHeatCard: React.FC<SortableHeatCardProps> = ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    background: isDragging ? '#f5f5f5' : 'white',
+    borderLeft: isRunning ? '5px solid orange' : isCompleted ? '5px solid green' : '5px solid transparent',
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'stretch',
-        background: '#fff',
-        borderRadius: '8px',
-        marginBottom: '10px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        overflow: 'hidden'
-      }}>
-        {/* Drag Handle */}
-        <div
-          {...attributes}
-          {...listeners}
-          style={{
-            cursor: isDraggingDisabled ? 'not-allowed' : 'grab',
-            padding: '10px 8px',
-            background: isDraggingDisabled ? '#f5f5f5' : '#fafafa',
-            borderRight: '1px solid #e0e0e0',
-            display: 'flex',
-            alignItems: 'center',
-            opacity: isDraggingDisabled ? 0.4 : 1,
-          }}
-          title={hasResults ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
-        >
-          <Icon path={mdiDragVertical} size={0.8} color="#999" />
-        </div>
-
-        {/* Heat Content */}
-        <div style={{ flex: 1, padding: '15px', borderLeft: isRunning ? '5px solid orange' : isCompleted ? '5px solid green' : '5px solid #ccc' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <span style={{ fontWeight: 'bold' }}>Heat {heat.heatNumber}</span>
-            <button
-              className="primary-btn"
-              onClick={() => onRunHeat(heat, !isCompleted)}
-              disabled={isRunning}
-              style={{ padding: '4px 8px', fontSize: '0.8rem', minWidth: '60px' }}
-            >
-              {isRunning ? '...' : isCompleted ? 'Re-Run' : 'Run'}
-            </button>
-          </div>
-          <div style={{ fontSize: '0.85rem' }}>
-            {laneResults.map((r: any) => (
-              <div key={r.lane} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', minWidth: '80px' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#888', textTransform: 'uppercase', marginBottom: '2px' }}>Lane {r.lane}</span>
-                  <span style={{ fontWeight: 500 }}>{getDisplayName(r.racer_id, getRacerName)}</span>
-                </div>
-                <span style={{ textAlign: 'right', minWidth: '50px', fontFamily: 'monospace' }}>
-                  {r.time != null ? `${Number(r.time).toFixed(4)}s` : ''}
-                </span>
+    <tr ref={setNodeRef} style={style}>
+      <td
+        {...attributes}
+        {...listeners}
+        style={{
+          cursor: isDraggingDisabled ? 'not-allowed' : 'grab',
+          padding: '12px 8px',
+          textAlign: 'center',
+          width: '40px',
+          opacity: isDraggingDisabled ? 0.4 : 1,
+        }}
+        title={hasResults ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
+      >
+        <Icon path={mdiDragVertical} size={0.8} color="#999" />
+      </td>
+      <td style={{ padding: '12px', fontWeight: 'bold', width: '80px' }}>Heat {heat.heatNumber}</td>
+      {Array.from({ length: laneCount }).map((_, i) => {
+        const laneNum = i + 1;
+        const result = laneResults.find((r: any) => r.lane === laneNum);
+        return (
+          <td key={laneNum} style={{ padding: '8px 12px', borderLeft: '1px solid #f0f0f0' }}>
+            {result ? (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{getDisplayName(result.racer_id, getRacerName)}</span>
+                {result.time != null && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--scouting-blue)', fontFamily: 'monospace' }}>
+                    {Number(result.time).toFixed(4)}s
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+            ) : (
+              <span style={{ color: '#ccc' }}>-</span>
+            )}
+          </td>
+        );
+      })}
+      <td style={{ padding: '12px', textAlign: 'right', width: '120px' }}>
+        <button
+          className="primary-btn"
+          onClick={() => onRunHeat(heat, !isCompleted)}
+          disabled={isRunning}
+          style={{ padding: '4px 12px', fontSize: '0.8rem', minWidth: '70px' }}
+        >
+          {isRunning ? '...' : isCompleted ? 'Re-Run' : 'Run'}
+        </button>
+      </td>
+    </tr>
   );
 };
 
@@ -262,13 +256,13 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 'fit-content' }}>
-        <div style={{ display: 'flex', justifyContent: sortedRounds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+      <div style={{ width: '100%', maxWidth: '1200px' }}>
+        <div style={{ display: 'flex', justifyContent: sortedRounds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '20px' }}>
           {sortedRounds.length > 0 && (
-            <div style={{ textAlign: 'center', flex: 1, minWidth: '150px' }}>
-              <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#333' }}>
-                {sortedRounds.length} Round{sortedRounds.length > 1 ? 's' : ''}
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#333' }}>
+                {sortedRounds.length} Round{sortedRounds.length > 1 ? 's' : ''} Scheduled
               </span>
             </div>
           )}
@@ -338,11 +332,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
         ) : (
           <div style={{
             display: 'flex',
-            overflowX: 'auto',
-            gap: '20px',
-            paddingBottom: '20px',
-            alignItems: 'flex-start',
-            justifyContent: 'center'
+            flexDirection: 'column',
+            gap: '40px',
+            paddingBottom: '40px',
           }}>
             {sortedRounds.map(roundNum => {
               const roundHeats = (rounds[roundNum] || []).sort((a, b) => a.heatNumber - b.heatNumber);
@@ -355,31 +347,32 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
 
               return (
                 <div key={roundNum} style={{
-                  minWidth: '350px',
-                  background: '#f5f5f5',
-                  borderRadius: '8px',
-                  padding: '10px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  background: 'white',
+                  borderRadius: '12px',
+                  padding: '20px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  border: '1px solid #eee'
                 }}>
                   <div style={{ 
                     display: 'flex', 
-                    flexDirection: 'column',
+                    justifyContent: 'space-between',
                     alignItems: 'center', 
-                    marginBottom: '15px',
+                    marginBottom: '20px',
                     width: '100%',
-                    gap: '8px'
+                    gap: '20px',
+                    borderBottom: '2px solid #f0f0f0',
+                    paddingBottom: '15px'
                   }}>
-                    <h3 style={{ 
+                    <h2 style={{ 
                       margin: 0, 
                       color: 'var(--scouting-blue)', 
-                      textAlign: 'center',
-                      wordBreak: 'break-word',
-                      lineHeight: '1.2'
+                      textAlign: 'left',
+                      fontSize: '1.5rem'
                     }}>
                       {roundHeats[0]?.roundName || `Round ${roundNum}`}
-                    </h3>
+                    </h2>
 
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '10px' }}>
                       {!isAnyStarted && roundId && (
                         <button
                           onClick={() => onRegenerateRound(roundId)}
@@ -387,14 +380,14 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           disabled={generating || reordering}
                           aria-label={`Regenerate ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           style={{
-                            padding: '4px 12px', 
-                            fontSize: '0.75rem',
+                            padding: '6px 16px', 
+                            fontSize: '0.85rem',
                             display: 'flex', 
                             alignItems: 'center', 
-                            gap: '4px'
+                            gap: '6px'
                           }}
                         >
-                          <Icon path={mdiCached} size={0.6} /> Regenerate
+                          <Icon path={mdiCached} size={0.7} /> Regenerate
                         </button>
                       )}
                       {roundId && (
@@ -411,47 +404,59 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                   : undefined
                           }
                           style={{
-                            padding: '4px 12px', 
-                            fontSize: '0.75rem',
+                            padding: '6px 16px', 
+                            fontSize: '0.85rem',
                             display: 'flex', 
                             alignItems: 'center', 
-                            gap: '4px',
+                            gap: '6px',
                             color: '#d32f2f',
+                            background: '#fff0f0'
                           }}
                         >
-                          <Icon path={mdiDelete} size={0.6} /> Delete
+                          <Icon path={mdiDelete} size={0.7} /> Delete
                         </button>
                       )}
                     </div>
                   </div>
 
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={(event) => handleDragEnd(event, roundNum)}
-                  >
-                    <SortableContext
-                      items={roundHeats.map(h => h.id)}
-                      strategy={verticalListSortingStrategy}
+                  <div style={{ overflowX: 'auto' }}>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={(event) => handleDragEnd(event, roundNum)}
                     >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                        {roundHeats.map(heat => {
-                          const isRunning = activeHeatId === heat.id;
-
-                          return (
-                            <SortableHeatCard
-                              key={heat.id}
-                              heat={heat}
-                              isRunning={isRunning}
-                              isReordering={reordering}
-                              getRacerName={getRacerName}
-                              onRunHeat={onRunHeat}
-                            />
-                          );
-                        })}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ background: '#f8f9fa' }}>
+                            <th style={{ padding: '12px 8px', width: '40px' }}></th>
+                            <th style={{ padding: '12px', width: '100px', fontWeight: 'bold', color: '#666', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Heat</th>
+                            {Array.from({ length: laneCount }).map((_, i) => (
+                              <th key={i} style={{ padding: '12px', fontWeight: 'bold', color: '#666', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Lane {i + 1}</th>
+                            ))}
+                            <th style={{ padding: '12px', width: '120px', textAlign: 'right', fontWeight: 'bold', color: '#666', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <SortableContext
+                          items={roundHeats.map(h => h.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <tbody>
+                            {roundHeats.map(heat => (
+                              <SortableHeatRow
+                                key={heat.id}
+                                heat={heat}
+                                isRunning={activeHeatId === heat.id}
+                                isReordering={reordering}
+                                getRacerName={getRacerName}
+                                onRunHeat={onRunHeat}
+                                laneCount={laneCount}
+                              />
+                            ))}
+                          </tbody>
+                        </SortableContext>
+                      </table>
+                    </DndContext>
+                  </div>
                 </div>
               );
             })}

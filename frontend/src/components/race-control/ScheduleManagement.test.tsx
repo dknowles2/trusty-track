@@ -16,7 +16,7 @@ vi.mock('urql', async (importOriginal) => {
 
 // Mock @dnd-kit modules
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: any) => <div data-testid="dnd-context">{children}</div>,
+  DndContext: ({ children }: any) => <>{children}</>,
   closestCenter: vi.fn(),
   KeyboardSensor: vi.fn(),
   PointerSensor: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock('@dnd-kit/sortable', () => ({
     newArr.splice(newIndex, 0, removed);
     return newArr;
   },
-  SortableContext: ({ children }: any) => <div data-testid="sortable-context">{children}</div>,
+  SortableContext: ({ children }: any) => <>{children}</>,
   sortableKeyboardCoordinates: vi.fn(),
   useSortable: () => ({
     attributes: {},
@@ -116,7 +116,7 @@ describe('ScheduleManagement', () => {
                 />
             </AlertProvider>
         );
-        expect(screen.getByText('1 Round')).toBeInTheDocument();
+        expect(screen.getByText(/1 Round/i)).toBeInTheDocument();
         expect(screen.getByText('Heat 1')).toBeInTheDocument();
         expect(screen.getByText('Heat 2')).toBeInTheDocument();
     });
@@ -176,7 +176,7 @@ describe('ScheduleManagement', () => {
     });
 
     // Heat reordering tests
-    it('renders drag-and-drop context for heat reordering', () => {
+    it('renders heats in a table', () => {
         render(
             <AlertProvider>
                 <ScheduleManagement 
@@ -199,9 +199,9 @@ describe('ScheduleManagement', () => {
             </AlertProvider>
         );
 
-        // Verify DndContext and SortableContext are rendered
-        expect(screen.getByTestId('dnd-context')).toBeInTheDocument();
-        expect(screen.getByTestId('sortable-context')).toBeInTheDocument();
+        // Verify table and rows are rendered
+        expect(screen.getByRole('table')).toBeInTheDocument();
+        expect(screen.getAllByRole('row')).toHaveLength(3); // 1 header + 2 heats
     });
 
     it('displays heats sorted by heat_number', () => {
