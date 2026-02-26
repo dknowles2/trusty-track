@@ -50,7 +50,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return children;
 }
 
-// App entry point - pre-commit verification
 function App() {
   return (
     <AlertProvider>
