@@ -25,7 +25,7 @@ Start the backend and frontend dev servers if they are not already running:
 ```bash
 # Terminal 1 — backend
 cd /home/dknowles/src/trusty-track
-.venv/bin/uvicorn backend.main:app --reload --port 8000
+.venv/bin/uvicorn backend.api.main:app --reload --port 8000
 
 # Terminal 2 — frontend
 cd /home/dknowles/src/trusty-track/frontend

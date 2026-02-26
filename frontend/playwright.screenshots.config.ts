@@ -29,7 +29,7 @@ export default defineConfig({
   webServer: [
     {
       // Clean data dir then start a fresh backend on an isolated port
-      command: `rm -rf ${TEST_DATA_DIR} && mkdir -p ${TEST_DATA_DIR} && .venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port ${BACKEND_PORT}`,
+      command: `rm -rf ${TEST_DATA_DIR} && mkdir -p ${TEST_DATA_DIR} && .venv/bin/python -m uvicorn backend.api.main:app --host 127.0.0.1 --port ${BACKEND_PORT}`,
       url: `${BACKEND_URL}/health`,
       reuseExistingServer: false,
       cwd: PROJECT_ROOT,

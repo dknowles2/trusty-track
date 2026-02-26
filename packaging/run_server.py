@@ -154,7 +154,7 @@ NETWORK_URL = f"https://{LOCAL_IP}:{PORT}"
 # ── Backend imports (after env vars are set) ───────────────────────────────────
 
 import uvicorn                          # noqa: E402
-from backend.main import app as _app   # noqa: E402
+from backend.api.main import app as _app   # noqa: E402
 
 # ── Server controller ─────────────────────────────────────────────────────────
 

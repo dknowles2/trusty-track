@@ -135,7 +135,7 @@ A script to start the production (unified) server in the foreground.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 source backend/venv/bin/activate
-exec uvicorn backend.main:app --host 0.0.0.0 --port 8000
+exec uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 ---
