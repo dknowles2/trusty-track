@@ -29,6 +29,7 @@ export interface Heat {
   roundId: number;
   heatNumber: number;
   laneResults: string; // JSON
+  globalHeatNumber?: number;
 }
 
 interface ScheduleManagementProps {
@@ -127,7 +128,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
       >
         <Icon path={mdiDragVertical} size={0.8} color="#999" />
       </td>
-      <td style={{ padding: '12px', fontWeight: 'bold', width: '80px' }}>Heat {heat.heatNumber}</td>
+      <td style={{ padding: '12px', fontWeight: 'bold', width: '80px' }}>Heat {heat.globalHeatNumber ?? heat.heatNumber}</td>
       {Array.from({ length: laneCount }).map((_, i) => {
         const laneNum = i + 1;
         const result = laneResults.find((r: any) => r.lane === laneNum);
@@ -266,13 +267,21 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     }));
 
     // Optimistically update local state
+    const updatedRoundHeats = reorderedHeats.map((heat, index) => ({
+        ...heat,
+        heatNumber: index + 1,
+    }));
+
     const optimisticHeats = localHeats.map(h => {
-        const update = newHeatUpdates.find(u => u.heat_id === h.id);
-        if (update) {
-            return { ...h, heatNumber: update.new_heat_number };
+        if (h.roundId === roundId) {
+            return updatedRoundHeats.find(u => u.id === h.id) || h;
         }
         return h;
-    });
+    }).sort((a, b) => {
+        if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
+        return a.heatNumber - b.heatNumber;
+    }).map((h, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
+    
     setLocalHeats(optimisticHeats);
 
     // Prepare original order for undo

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '../setupTests';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import Leaderboard from './Leaderboard';
 import { useQuery, useSubscription } from 'urql';
 
@@ -59,7 +59,13 @@ describe('Leaderboard', () => {
 
   it('renders leaderboard data correctly', async () => {
     (useQuery as any).mockReturnValue([{
-      data: mockData,
+      data: { race: mockData.race },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: mockData.race.leaderboard },
       fetching: false,
       error: null
     }, vi.fn()]);
@@ -73,36 +79,6 @@ describe('Leaderboard', () => {
     expect(screen.getByText('102')).toBeInTheDocument();
     expect(screen.getByText('3.500s')).toBeInTheDocument();
     expect(screen.getByText('4.200s')).toBeInTheDocument();
-  });
-
-  it('calls reExecute when raceStateChanged subscription fires', async () => {
-    const mockReExecute = vi.fn();
-    let capturedHandler: ((prev: any, data: any) => any) | undefined;
-
-    (useQuery as any).mockReturnValue([{
-      data: mockData,
-      fetching: false,
-      error: null
-    }, mockReExecute]);
-
-    (useSubscription as any).mockImplementation(
-      (_opts: any, handler: (prev: any, data: any) => any) => {
-        capturedHandler = handler;
-        return [{ data: undefined }, vi.fn()];
-      }
-    );
-
-    render(<Leaderboard raceId={1} />);
-
-    await waitFor(() => {
-      expect(capturedHandler).toBeDefined();
-    });
-
-    act(() => {
-      capturedHandler!(undefined, { raceStateChanged: { raceId: 1, changedAt: '2026-01-01T00:00:00Z' } });
-    });
-
-    expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
   });
 
   it('shows non-timed scores correctly (POINTS strategy)', async () => {
@@ -126,7 +102,13 @@ describe('Leaderboard', () => {
     };
 
     (useQuery as any).mockReturnValue([{
-      data: pointsData,
+      data: { race: pointsData.race },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: pointsData.race.leaderboard },
       fetching: false,
       error: null
     }, vi.fn()]);

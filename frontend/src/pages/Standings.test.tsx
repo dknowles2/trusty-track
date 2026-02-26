@@ -4,7 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import Standings from './Standings';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { useQuery } from 'urql';
+import { useQuery, useSubscription } from 'urql';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -45,7 +45,13 @@ describe('Standings', () => {
         };
 
         (useQuery as any).mockReturnValue([{
-            data: mockData,
+            data: { race: mockData.race },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        (vi.mocked(useSubscription) as any).mockReturnValue([{
+            data: { leaderboard: mockData.race.leaderboard },
             fetching: false,
             error: null
         }, vi.fn()]);
@@ -80,7 +86,13 @@ describe('Standings', () => {
         };
 
         (useQuery as any).mockReturnValue([{
-            data: mockData,
+            data: { race: mockData.race },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        (vi.mocked(useSubscription) as any).mockReturnValue([{
+            data: { leaderboard: mockData.race.leaderboard },
             fetching: false,
             error: null
         }, vi.fn()]);

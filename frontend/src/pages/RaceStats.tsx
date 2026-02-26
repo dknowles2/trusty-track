@@ -49,6 +49,7 @@ interface HeatHighlight {
   type: string;
   roundName: string;
   heatNumber: number;
+  globalHeatNumber: number;
   racerName: string | null;
   time: number | null;
   margin: number | null;
@@ -66,6 +67,7 @@ interface DenStat {
 interface HeatResultRow {
   roundName: string;
   heatNumber: number;
+  globalHeatNumber: number;
   lane: number;
   carNumber: number | null;
   racerFirstName: string;
@@ -103,10 +105,11 @@ function downloadCsv(filename: string, rows: CsvRow[]) {
 }
 
 function exportHeatResults(heatResults: HeatResultRow[], raceName: string) {
-  const header: CsvRow = ['Round', 'Heat #', 'Lane', 'Car #', 'First Name', 'Last Name', 'Time (s)', 'Place'];
+  const header: CsvRow = ['Round', 'Heat #', 'Global Heat #', 'Lane', 'Car #', 'First Name', 'Last Name', 'Time (s)', 'Place'];
   const rows = heatResults.map(r => [
     r.roundName,
     r.heatNumber,
+    r.globalHeatNumber,
     r.lane,
     r.carNumber,
     r.racerFirstName,
@@ -377,7 +380,7 @@ export default function RaceStats() {
                       {hl.type === 'FASTEST_HEAT' && hl.racerName && (
                         <span>{hl.racerName} &mdash; </span>
                       )}
-                      {hl.roundName}, Heat {hl.heatNumber}
+                      {hl.roundName}, Heat {hl.globalHeatNumber ?? hl.heatNumber}
                     </div>
                   </div>
                 ))}

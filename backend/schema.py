@@ -71,6 +71,30 @@ class Heat:
         return round_obj.name if round_obj else None
 
     @strawberry.field
+    def global_heat_number(self, info: Info) -> int:
+        db = info.context["db"]
+        this_round = (
+            db.query(models.Round).filter(models.Round.id == self.round_id).first()
+        )
+        if not this_round:
+            return self.heat_number
+
+        before_count = (
+            db.query(models.Heat)
+            .join(models.Round, models.Heat.round_id == models.Round.id)
+            .filter(models.Heat.race_id == self.race_id)
+            .filter(
+                (models.Round.round_number < this_round.round_number)
+                | (
+                    (models.Round.round_number == this_round.round_number)
+                    & (models.Heat.heat_number < self.heat_number)
+                )
+            )
+            .count()
+        )
+        return before_count + 1
+
+    @strawberry.field
     def parsed_results(self) -> List[LaneResult]:
         if not self.lane_results:
             return []
@@ -320,6 +344,7 @@ class HeatHighlight:
     type: str  # "FASTEST_HEAT" | "CLOSEST_RACE"
     round_name: str
     heat_number: int
+    global_heat_number: int
     racer_name: Optional[str]
     time: Optional[float]
     margin: Optional[float]
@@ -343,6 +368,7 @@ class HeatResultRow:
 
     round_name: str
     heat_number: int
+    global_heat_number: int
     lane: int
     car_number: Optional[int]
     racer_first_name: str
@@ -1054,6 +1080,7 @@ class Query:
                     type=hl["type"],
                     round_name=hl["round_name"],
                     heat_number=hl["heat_number"],
+                    global_heat_number=hl["global_heat_number"],
                     racer_name=hl.get("racer_name"),
                     time=hl.get("time"),
                     margin=hl.get("margin"),
@@ -1075,6 +1102,7 @@ class Query:
                 HeatResultRow(
                     round_name=hr["round_name"],
                     heat_number=hr["heat_number"],
+                    global_heat_number=hr["global_heat_number"],
                     lane=hr["lane"],
                     car_number=hr["car_number"],
                     racer_first_name=hr["racer_first_name"],
@@ -2087,6 +2115,7 @@ class TimingStats:
     heat_id: int
     round_name: str
     heat_number: int
+    global_heat_number: int
     lanes: List[TimingStatsLane]
 
 
@@ -2319,10 +2348,30 @@ class Subscription:
                         racer_image_url=racer.racer_image_url if racer else None,
                     ))
                 
+                if is_free:
+                    global_num = 0
+                else:
+                    this_round = target_heat.round
+                    before_count = (
+                        db.query(models.Heat)
+                        .join(models.Round, models.Heat.round_id == models.Round.id)
+                        .filter(models.Heat.race_id == race_id)
+                        .filter(
+                            (models.Round.round_number < this_round.round_number)
+                            | (
+                                (models.Round.round_number == this_round.round_number)
+                                & (models.Heat.heat_number < target_heat.heat_number)
+                            )
+                        )
+                        .count()
+                    )
+                    global_num = before_count + 1
+
                 return TimingStats(
                     heat_id=target_heat.id,
                     round_name="Exhibition" if is_free else target_heat.round.name,
                     heat_number=0 if is_free else target_heat.heat_number,
+                    global_heat_number=global_num,
                     lanes=lane_stats
                 )
 

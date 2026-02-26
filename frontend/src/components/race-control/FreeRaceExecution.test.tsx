@@ -34,9 +34,9 @@ vi.mock('./FakeTimerMole', () => ({
 }));
 
 const mockLaneAssignments = [
-  { lane: 1, racerId: 101 },
-  { lane: 2, racerId: 102 },
-  { lane: 3, racerId: null },
+  { id: '1', lane: 1, racerId: 101 },
+  { id: '2', lane: 2, racerId: 102 },
+  { id: '3', lane: 3, racerId: null },
 ];
 
 const mockRacers = {

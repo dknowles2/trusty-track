@@ -1,29 +1,10 @@
 import { useParams } from 'react-router-dom';
 import Leaderboard from '../components/Leaderboard';
 import RaceModeToggle from '../components/RaceModeToggle';
-import { useQuery } from 'urql';
-
-const GET_RACE_NAME = `
-  query GetRaceName($id: Int!) {
-    race(raceId: $id) {
-      id
-      name
-    }
-  }
-`;
 
 export default function Standings() {
     const { raceId } = useParams<{ raceId: string }>();
     const id = parseInt(raceId || '0');
-
-    const [result] = useQuery({
-        query: GET_RACE_NAME,
-        variables: { id },
-        pause: !id || isNaN(id)
-    });
-
-    const { data, fetching } = result;
-    const race = data?.race;
 
     if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 

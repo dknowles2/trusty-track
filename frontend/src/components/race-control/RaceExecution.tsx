@@ -16,6 +16,7 @@ export interface Heat {
     heatNumber: number;
     roundName: string | null;
     laneResults: string; // JSON
+    globalHeatNumber?: number;
 }
 
 export interface Racer {
@@ -260,7 +261,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                    <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.heatNumber}</h2>
+                                    <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}</h2>
                                     {trackId != null && <TimerStatusBadge trackId={trackId} />}
                                 </div>
                                 <div style={{ color: '#666', fontSize: '1.1rem' }}>
@@ -629,7 +630,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                 <div style={{ fontWeight: 'bold', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                    <span style={{ fontSize: '1.1rem' }}>Heat {nextExecutionHeat.heatNumber}</span>
+                                    <span style={{ fontSize: '1.1rem' }}>Heat {nextExecutionHeat.globalHeatNumber ?? nextExecutionHeat.heatNumber}</span>
                                     <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>{nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}</span>
                                 </div>
                                 <div style={{ display: 'grid', gap: '12px' }}>
@@ -794,7 +795,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             <Modal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
-                title={`Edit Results - Heat ${activeExecutionHeat.heatNumber}`}
+                title={`Edit Results - Heat ${activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}`}
             >
                 <div className="form-group">
                     <p className="form-help">Manually update times for this heat.</p>

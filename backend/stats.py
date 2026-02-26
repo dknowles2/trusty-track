@@ -42,6 +42,16 @@ def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
     )
     lane_count = track.lane_count if track else 4
 
+    # Pre-calculate global heat numbers
+    sorted_heats = sorted(
+        heats,
+        key=lambda h: (
+            round_map.get(h.round_id).round_number if round_map.get(h.round_id) else 0,
+            h.heat_number,
+        ),
+    )
+    global_heat_map = {h.id: idx + 1 for idx, h in enumerate(sorted_heats)}
+
     total_heats_scheduled = len(heats)
     total_heats_completed = 0
 
@@ -61,7 +71,9 @@ def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
             continue
 
         round_obj = round_map.get(heat.round_id)
-        round_name = round_obj.name if (round_obj and round_obj.name) else f"Round {heat.heat_number}"
+        round_name = (
+            round_obj.name if (round_obj and round_obj.name) else f"Round {heat.heat_number}"
+        )
 
         # Count scheduled heats for each racer (regardless of completion)
         for r in results:
@@ -91,6 +103,7 @@ def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
         heats_with_rounds.append({
             "heat": heat,
             "round_name": round_name,
+            "global_heat_number": global_heat_map.get(heat.id, 0),
             "results": results,
         })
 
@@ -270,6 +283,7 @@ def _compute_highlights(heats_with_rounds: list, racer_map: dict) -> list:
     for item in heats_with_rounds:
         heat = item["heat"]
         round_name = item["round_name"]
+        global_heat_number = item["global_heat_number"]
         results = item["results"]
 
         valid_pairs = []
@@ -298,6 +312,7 @@ def _compute_highlights(heats_with_rounds: list, racer_map: dict) -> list:
                 "type": "FASTEST_HEAT",
                 "round_name": round_name,
                 "heat_number": heat.heat_number,
+                "global_heat_number": global_heat_number,
                 "time": best_time,
                 "margin": None,
                 "racer_name": fastest_racer_name,
@@ -311,6 +326,7 @@ def _compute_highlights(heats_with_rounds: list, racer_map: dict) -> list:
                     "type": "CLOSEST_RACE",
                     "round_name": round_name,
                     "heat_number": heat.heat_number,
+                    "global_heat_number": global_heat_number,
                     "time": valid_pairs[0][0],
                     "margin": margin,
                     "racer_name": None,
@@ -384,6 +400,7 @@ def _compute_heat_results(heats_with_rounds: list, racer_map: dict) -> list:
     for item in heats_with_rounds:
         heat = item["heat"]
         round_name = item["round_name"]
+        global_heat_number = item["global_heat_number"]
         results = item["results"]
 
         for r in results:
@@ -402,6 +419,7 @@ def _compute_heat_results(heats_with_rounds: list, racer_map: dict) -> list:
             rows.append({
                 "round_name": round_name,
                 "heat_number": heat.heat_number,
+                "global_heat_number": global_heat_number,
                 "lane": r.get("lane"),
                 "car_number": racer.car_number,
                 "racer_first_name": racer.first_name,

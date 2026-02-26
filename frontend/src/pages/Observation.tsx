@@ -341,7 +341,7 @@ export default function Observation() {
             currentHeatRacers, 
             false, 
             mdiFire, 
-            officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.heatNumber}` : undefined,
+            officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}` : undefined,
             isExhibition
           )}
           {renderHeatCard(
@@ -446,7 +446,7 @@ export default function Observation() {
             {lastHeatResults ? (
               <div>
                 <h2 className="timing-header" style={{ textAlign: 'center', marginBottom: '30px' }}>
-                  Last Completed: {lastHeatResults.roundName} / Heat {lastHeatResults.heatNumber}
+                  Last Completed: {lastHeatResults.roundName} / Heat {lastHeatResults.globalHeatNumber ?? lastHeatResults.heatNumber}
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   {[...lastHeatResults.lanes]
@@ -539,7 +539,7 @@ export default function Observation() {
   };
 
   const top5Standings = standings.slice(0, 5);
-  const nowRacingHeatInfo = officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.heatNumber}` : undefined;
+  const nowRacingHeatInfo = officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}` : undefined;
 
   return (
     <div className="container projector-mode" style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>

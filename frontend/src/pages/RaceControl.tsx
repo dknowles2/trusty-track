@@ -101,6 +101,7 @@ interface Heat {
   heatNumber: number;
   roundName: string | null;
   laneResults: string;
+  globalHeatNumber?: number;
 }
 
 interface Racer {
@@ -187,12 +188,14 @@ export default function RaceControl() {
   useEffect(() => {
       if (heats.length > 0) {
           const sorted = [...heats].sort((a, b) => {
-            if (a.roundId !== b.roundId) return a.roundId - b.roundId;
+            if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
             return a.heatNumber - b.heatNumber;
           });
           
           const currentHeatExists = selectedHeatId !== null && heats.some((h: Heat) => h.id === selectedHeatId);
 
+          // If no heat selected, or the selected heat no longer exists,
+          // find the first uncompleted one.
           if (!currentHeatExists || selectedHeatId === null) {
               const firstUncompleted = sorted.find((h: Heat) => {
                   const results = h.laneResults ? JSON.parse(h.laneResults) : [];
@@ -398,11 +401,16 @@ export default function RaceControl() {
     ? 'FREE_RACE'
     : 'SCHEDULE';
 
+  // Re-fetch on view change to ensure fresh data (e.g., after reordering in Schedule)
+  useEffect(() => {
+    reExecute({ requestPolicy: 'network-only' });
+  }, [viewMode, reExecute]);
+
   const sortedHeatsEx = useMemo(() => {
     return [...heats].sort((a, b) => {
-      if (a.roundId !== b.roundId) return a.roundId - b.roundId;
+      if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
       return a.heatNumber - b.heatNumber;
-    });
+    }).map((h: Heat, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
   }, [heats]);
   
   const activeExecutionHeat = selectedHeatId 
@@ -418,17 +426,17 @@ export default function RaceControl() {
       : null;
 
   const completedPreviousHeats = useMemo(() => {
-    return [...heats]
+    return [...sortedHeatsEx]
       .filter((h: Heat) => {
         if (h.id === activeExecutionHeat?.id) return false;
         const results = h.laneResults ? JSON.parse(h.laneResults) : [];
         return results.length > 0 && results.some((r: any) => r.time !== null);
       })
       .sort((a: Heat, b: Heat) => {
-        if (b.roundId !== a.roundId) return b.roundId - a.roundId;
+        if (b.roundNumber !== a.roundNumber) return b.roundNumber - a.roundNumber;
         return b.heatNumber - a.heatNumber;
       });
-  }, [heats, activeExecutionHeat?.id]);
+  }, [sortedHeatsEx, activeExecutionHeat?.id]);
 
   const handleNextHeat = () => {
       setRoundSummary(null);
@@ -454,7 +462,7 @@ export default function RaceControl() {
     if (!activeExecutionHeat) return [];
     const rounds: Record<number, { roundNumber: number, roundName: string | null, totalHeats: number, roundId: number }> = {};
     heats.forEach((h: Heat) => {
-      if (h.roundId > activeExecutionHeat.roundId) {
+      if (h.roundNumber > activeExecutionHeat.roundNumber) {
         if (!rounds[h.roundId]) {
           rounds[h.roundId] = {
             roundNumber: h.roundNumber,
@@ -466,8 +474,8 @@ export default function RaceControl() {
         rounds[h.roundId].totalHeats++;
       }
     });
-    return Object.values(rounds).sort((a, b) => a.roundId - b.roundId);
-  }, [heats, activeExecutionHeat?.roundId]);
+    return Object.values(rounds).sort((a, b) => a.roundNumber - b.roundNumber);
+  }, [heats, activeExecutionHeat?.roundNumber]);
 
   if (fetching && !data) return <div>Loading Race Control...</div>;
 
@@ -600,7 +608,7 @@ export default function RaceControl() {
                         borderLeft: '4px solid #4caf50'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-                          <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.heatNumber}</span>
+                          <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.globalHeatNumber ?? heat.heatNumber}</span>
                           <span style={{ color: '#888', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
                         </div>
                         <div style={{ display: 'grid', gap: '2px' }}>

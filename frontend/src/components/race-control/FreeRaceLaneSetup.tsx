@@ -261,7 +261,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = () => {
     // Reordering is now handled in onDragOver for real-time feedback.
     // We can keep onDragEnd as a no-op or for any final persistence if needed.
   };

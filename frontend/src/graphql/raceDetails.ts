@@ -261,9 +261,9 @@ export const GET_RACE_STATS = gql`
         heatsCompleted heatsScheduled minTime maxTime meanTime stdDev
         timesPerLane { lane avgTime }
       }
-      highlights { type roundName heatNumber racerName time margin }
+      highlights { type roundName heatNumber globalHeatNumber racerName time margin }
       denStats { denId denName denColor racerCount avgScore bestRacerName }
-      heatResults { roundName heatNumber lane carNumber racerFirstName racerLastName time place }
+      heatResults { roundName heatNumber globalHeatNumber lane carNumber racerFirstName racerLastName time place }
     }
   }
 `;

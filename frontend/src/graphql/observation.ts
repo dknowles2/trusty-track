@@ -34,6 +34,7 @@ export const CurrentlyRacingSubscription = gql`
     currentlyRacing(raceId: $raceId) {
       id
       heatNumber
+      globalHeatNumber
       roundNumber
       roundName
       laneResults
@@ -47,6 +48,7 @@ export const TimingStatsSubscription = gql`
       heatId
       roundName
       heatNumber
+      globalHeatNumber
       lanes {
         laneNumber
         racerName
