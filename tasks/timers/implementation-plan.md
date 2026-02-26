@@ -640,7 +640,7 @@ see the updated heat immediately. This is the same code path for both fake and r
    - `TimerManager` byte-framing and state transitions (in-memory byte feed, no hardware)
    - `fakeTimerFinish` result generation (lane count, placement ordering)
    - 26 tests total, all passing
-10. ✅ Add `pyserial` to `backend/requirements.txt`.
+10. ✅ Add `pyserial` to `pyproject.toml`.
 11. ✅ Initialize TimerManagers in `main.py` at startup and inject into GraphQL context.
 
 **Phase 1 is now fully complete.**

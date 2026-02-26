@@ -16,8 +16,8 @@ The application has shifted to GraphQL for data operations, but printables are b
 ## Steps
 
 1. **Add Dependencies**
-   - Add a QR code generation library (e.g., `qrcode[pil]`) to `requirements.txt`.
-   - Add a PDF generation library (e.g., `reportlab` or `weasyprint`) to `requirements.txt`.
+   - Add a QR code generation library (e.g., `qrcode[pil]`) to `pyproject.toml`.
+   - Add a PDF generation library (e.g., `reportlab` or `weasyprint`) to `pyproject.toml`.
 
 2. **Implement Barcode/QR Endpoint** (`GET /api/printables/barcode/{racer_id}`)
    - Generate a QR code encoding the racer's ID (or a URL like `/checkin?racer_id={id}`).

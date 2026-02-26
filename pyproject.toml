@@ -1,0 +1,56 @@
+[project]
+name = "trusty-track2"
+version = "0.1.0"
+description = "A race tracking and timing system"
+authors = [
+    { name = "David Knowles", email = "dknowles2@gmail.com" }
+]
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "sqlalchemy",
+    "strawberry-graphql",
+    "numpy",
+    "Pillow",
+    "pillow-heif",
+    "pyserial",
+    "cryptography",
+]
+readme = "README.md"
+requires-python = ">=3.9"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+    "ruff",
+    "mypy",
+    "pyinstaller",
+]
+docs = [
+    "mkdocs-material",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "ARG"]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["backend"]

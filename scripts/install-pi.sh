@@ -86,7 +86,7 @@ install_source() {
 build_app() {
     info "Installing Python dependencies..."
     python3 -m venv "$INSTALL_DIR/backend/venv"
-    "$INSTALL_DIR/backend/venv/bin/pip" install --quiet -r "$INSTALL_DIR/backend/requirements.txt"
+    "$INSTALL_DIR/backend/venv/bin/pip" install --quiet "$INSTALL_DIR"
     success "Python dependencies installed"
 
     info "Building frontend (this may take a few minutes)..."
@@ -169,9 +169,9 @@ After=network.target
 [Service]
 Type=simple
 User=trustytrack
-WorkingDirectory=/opt/trustytrack/backend
+WorkingDirectory=/opt/trustytrack
 EnvironmentFile=-/etc/trustytrack/env
-ExecStart=/opt/trustytrack/backend/venv/bin/uvicorn main:app \
+ExecStart=/opt/trustytrack/backend/venv/bin/uvicorn backend.api.main:app \
     --host 0.0.0.0 \
     --port 8000 \
     --ssl-keyfile /etc/trustytrack/key.pem \

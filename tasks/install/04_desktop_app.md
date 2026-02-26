@@ -72,7 +72,7 @@ the backend code doesn't need to know which platform it's on.
 A PyInstaller spec file that bundles:
 
 - All Python source files from `backend/`.
-- All Python dependencies from `backend/requirements.txt`.
+- All Python dependencies from `pyproject.toml`.
 - The compiled frontend at `frontend/dist/` (added as a data file so
   FastAPI's `StaticFiles` can find it at runtime).
 - `uvicorn` and all its extras.

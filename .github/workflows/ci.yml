@@ -17,16 +17,14 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-          cache-dependency-glob: "backend/requirements.txt"
+          cache-dependency-glob: "pyproject.toml"
           python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          [ ! -d ".venv" ] && uv venv || echo ".venv already exists"
-          uv pip install -r backend/requirements.txt
+        run: uv sync
 
       - name: Run tests
-        run: uv run pytest backend/ -v
+        run: uv run pytest backend/tests/ -v
 
   frontend-test:
     name: Frontend Tests

@@ -27,7 +27,7 @@ The backend is located in the `backend/` directory.
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+pip install .
 ```
 
 ### 2. Running the Server
@@ -145,7 +145,7 @@ npm run dev
 | **Port 8005/5173 in use** | Stop other running processes or allow the tools to pick the next available port (check console output).                                        |
 | **CORS Errors**           | The backend is configured to allow `*` origins in development. Ensure you are accessing the frontend via `localhost` matching the CORS config. |
 | **Database Locks**        | SQLite can occasionally lock if a process crashes. Restart the backend server.                                                                 |
-| **Missing Dependencies**  | Re-run `pip install -r requirements.txt` (backend) or `npm install` (frontend).                                                                |
+| **Missing Dependencies**  | Re-run `pip install .` (backend) or `npm install` (frontend).                                                                |
 
 ## 📸 Regenerating Documentation Screenshots
 

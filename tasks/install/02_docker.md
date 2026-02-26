@@ -35,7 +35,7 @@ A single `Dockerfile` at the repo root using two build stages:
 
 **Stage 2 — Runtime image (Python)**
 - Base image: `python:3.11-slim`
-- Copy `backend/requirements.txt`, run `pip install --no-cache-dir -r requirements.txt`.
+- Copy `pyproject.toml`, run `pip install --no-cache-dir .`.
 - Copy `backend/` source.
 - Copy `frontend/dist/` from Stage 1 into the image.
 - Set `WORKDIR /app/backend`.

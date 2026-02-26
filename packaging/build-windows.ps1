@@ -36,17 +36,16 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 }
 
 # ── 1. Isolated build venv ────────────────────────────────────────────────────
-# Guarantees all deps from requirements.txt are present for PyInstaller analysis.
+# Guarantees all deps from pyproject.toml are present for PyInstaller analysis.
 
 Write-Host "Setting up build venv..."
 python -m venv $Venv
 & "$Venv\Scripts\pip.exe" install --quiet --upgrade pip
-& "$Venv\Scripts\pip.exe" install --quiet -r "$Root\backend\requirements.txt"
+& "$Venv\Scripts\pip.exe" install --quiet "$Root"
 & "$Venv\Scripts\pip.exe" install --quiet pyinstaller pyinstaller-hooks-contrib pystray
 
 $Version = & "$Venv\Scripts\python.exe" -c @"
-import sys; sys.path.insert(0, '$Root\backend'.replace('\','\\'))
-from version import __version__; print(__version__)
+from backend.version import __version__; print(__version__)
 "@ 2>$null
 if (-not $Version) { $Version = "0.0.0" }
 Write-Host "Building Trusty Track v$Version for Windows..."

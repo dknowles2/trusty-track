@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=trustytrack
-WorkingDirectory=/opt/trustytrack/backend
+WorkingDirectory=/opt/trustytrack
 EnvironmentFile=-/etc/trustytrack/env
-ExecStart=/opt/trustytrack/backend/venv/bin/uvicorn main:app \
+ExecStart=/opt/trustytrack/backend/venv/bin/uvicorn backend.api.main:app \
     --host 0.0.0.0 \
     --port 8000 \
     --ssl-keyfile /etc/trustytrack/key.pem \

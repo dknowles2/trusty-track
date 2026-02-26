@@ -65,7 +65,7 @@ running Trusty Track appliance.
    cd /opt/trustytrack/backend
    python3 -m venv venv
    source venv/bin/activate
-   pip install -r requirements.txt
+   pip install -r pyproject.toml
    ```
 
 5. **Create the data directory**

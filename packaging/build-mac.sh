@@ -31,17 +31,17 @@ command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 not found."; exit 1
 command -v node    >/dev/null 2>&1 || { echo "ERROR: node not found."; exit 1; }
 
 # 1. Set up an isolated build venv with all deps + PyInstaller
-#    This guarantees every package in requirements.txt is present when
+#    This guarantees every package in pyproject.toml is present when
 #    PyInstaller analyses and bundles the app.
 echo "Setting up build venv..."
 python3 -m venv "$VENV"
 "$VENV/bin/pip" install --quiet --upgrade pip
-"$VENV/bin/pip" install --quiet -r "$ROOT/backend/requirements.txt"
+"$VENV/bin/pip" install --quiet "$ROOT"
 "$VENV/bin/pip" install --quiet pyinstaller pyinstaller-hooks-contrib rumps
 
 # Read version using the venv's Python so the path is consistent
 VERSION=$("$VENV/bin/python" -c \
-    "import sys; sys.path.insert(0, '$ROOT/backend'); from version import __version__; print(__version__)" \
+    "from backend.version import __version__; print(__version__)" \
     2>/dev/null || echo "0.0.0")
 echo "Building Trusty Track v$VERSION for macOS..."
 

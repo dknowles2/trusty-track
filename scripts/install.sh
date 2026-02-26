@@ -36,14 +36,13 @@ fi
 echo "### Setting up Backend..."
 if command -v uv &> /dev/null; then
     echo "Using uv for faster installation..."
-    uv venv --python 3.12
+    uv sync --python 3.12
     source .venv/bin/activate
-    uv pip install -r backend/requirements.txt
 else
     echo "uv not found, using standard venv..."
     python3 -m venv .venv
     source .venv/bin/activate
-    pip install -r backend/requirements.txt
+    pip install -e ".[dev,docs]"
 fi
 
 echo "### Setting up Frontend..."
