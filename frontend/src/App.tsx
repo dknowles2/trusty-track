@@ -1,27 +1,21 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import Navigation from './components/Navigation';
-import SystemSettings from './pages/SystemSettings';
-import Home from './pages/Home';
+import Navigation from './features/core/components/Navigation';
+import SystemSettings from './features/settings/pages/SystemSettings';
+import Home from './features/management/pages/Home';
 import { useQuery } from 'urql';
 import { AlertProvider } from './context/AlertContext';
 import { SerialProxyProvider } from './context/SerialProxyContext';
 
-import RaceDetails from './pages/RaceDetails';
-import RaceControl from './pages/RaceControl';
-import Observation from './pages/Observation';
-import Standings from './pages/Standings';
-import RaceStats from './pages/RaceStats';
+import RaceDetails from './features/management/pages/RaceDetails';
+import RaceControl from './features/racing/pages/RaceControl';
+import Observation from './features/observation/pages/Observation';
+import Standings from './features/stats/pages/Standings';
+import RaceStats from './features/stats/pages/RaceStats';
+
+import { INITIAL_CONFIG_QUERY } from './features/core/graphql/queries';
 
 // No React hooks needed anymore in this file
-
-const INITIAL_CONFIG_QUERY = `
-  query GetInitialConfig {
-    initialConfig {
-      initialized
-    }
-  }
-`;
 
 
 

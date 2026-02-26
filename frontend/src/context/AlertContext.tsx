@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import Modal from '../components/Modal';
+import Modal from '../components/ui/Modal';
 
 interface ToastAction {
   label: string;
