@@ -108,7 +108,7 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
   }, [activeIndex]);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', ...style }}>
+    <div ref={containerRef} style={{ position: 'relative', zIndex: isOpen ? 100 : 1, ...style }}>
       <input
         ref={inputRef}
         type="text"

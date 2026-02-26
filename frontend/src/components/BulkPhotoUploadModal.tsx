@@ -124,7 +124,7 @@ function RacerCombobox({ racers, value, onChange }: ComboboxProps) {
     }, [activeIndex]);
 
     return (
-        <div ref={containerRef} style={{ position: 'relative', marginBottom: '6px' }}>
+        <div ref={containerRef} style={{ position: 'relative', marginBottom: '6px', zIndex: isOpen ? 100 : 1 }}>
             <input
                 ref={inputRef}
                 type="text"

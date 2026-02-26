@@ -67,6 +67,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
   onManualChange,
   manualAssignments,
 }) => {
+  const [isFocused, setIsFocused] = useState(false);
   const {
     attributes,
     listeners,
@@ -86,12 +87,21 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
     borderRadius: '8px',
     borderLeft: '5px solid var(--scouting-blue)',
     boxShadow: isDragging ? '0 5px 15px rgba(0,0,0,0.1)' : 'none',
-    zIndex: isDragging ? 10 : 1,
+    zIndex: isDragging ? 100 : (isFocused ? 50 : 1),
     position: 'relative' as const,
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      onFocus={() => setIsFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          setIsFocused(false);
+        }
+      }}
+    >
       <div
         {...attributes}
         {...listeners}
