@@ -41,7 +41,7 @@ test('take screenshots', async ({ page }) => {
   await expect(page.getByRole('link', { name: '2026 Pinewood Derby' })).toBeVisible();
   await page.getByRole('link', { name: '2026 Pinewood Derby' }).click();
   await page.waitForURL('**/race/*');
-  await expect(page.getByRole('heading', { name: '2026 Pinewood Derby' })).toBeVisible();
+  await expect(page.getByText('2026 Pinewood Derby')).toBeVisible();
   await page.waitForTimeout(500); // render elements
 
   await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/05-race-details-empty.png') });

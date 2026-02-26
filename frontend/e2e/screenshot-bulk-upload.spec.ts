@@ -9,7 +9,7 @@
  * backend is reachable (the Vite proxy handles the SSL tunnel to port 8005).
  */
 
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -73,9 +73,29 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
         }
     });
 
-    // ── Navigate to Race Details ────────────────────────────────────────────
-    await page.goto('/race/1', { waitUntil: 'networkidle' });
+        // ── Navigate to Home and create a race first ───────────────────────────
+        await page.goto('/', { waitUntil: 'networkidle' });
+    
+        if (page.url().includes('/system-settings')) {
+            await page.getByLabel('Organization Name').fill('Bulk Test Pack');
+            await page.getByRole('button', { name: 'Save Settings' }).click();
+            await page.waitForURL('**/', { waitUntil: 'networkidle' });
+        }
+    
+        await page.getByRole('button', { name: /Create New Race/i }).click();
+    await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('Bulk Upload Race');
+    await page.getByRole('button', { name: 'Create Race' }).click();
+    await expect(page.getByRole('link', { name: 'Bulk Upload Race' })).toBeVisible();
+    await page.getByRole('link', { name: 'Bulk Upload Race' }).click();
+    await page.waitForURL('**/race/*');
     await page.waitForTimeout(600);
+
+    // Populate test data so we have racers
+    await page.locator('.split-btn-arrow').click();
+    await page.getByText(/Populate Test Data/i).click();
+    await page.getByRole('button', { name: 'Generate', exact: true }).click();
+    await page.waitForResponse(response => response.url().includes('graphql') && response.status() === 200, { timeout: 30000 });
+    await page.waitForTimeout(1000);
 
     // ── Screenshot 1: toolbar with Upload Photos button highlighted ─────────
     // Scroll to top so the toolbar is visible

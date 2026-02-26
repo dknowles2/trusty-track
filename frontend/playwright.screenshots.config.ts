@@ -11,7 +11,7 @@ const TEST_DATA_DIR = '/tmp/trusty-track-screenshots';
 
 export default defineConfig({
   testDir: './e2e',
-  testMatch: '**/screenshots.spec.ts',
+  testMatch: ['screenshots.spec.ts', 'screenshot-bulk-upload.spec.ts'],
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
