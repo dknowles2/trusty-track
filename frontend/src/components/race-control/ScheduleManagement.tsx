@@ -21,6 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAlert } from '../../context/AlertContext';
+import { ESTIMATED_HEAT_DURATION_MIN } from '../../utils/constants';
 
 export interface Heat {
   id: number;
@@ -436,6 +437,12 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                 const res = JSON.parse(h.laneResults);
                 return res.some((r: any) => r.time !== null);
               });
+              
+              const uncompletedHeats = roundHeats.filter(h => {
+                const results = h.laneResults ? JSON.parse(h.laneResults) : [];
+                return !results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
+              }).length;
+              const totalHeats = roundHeats.length;
 
               return (
                 <div key={roundId} style={{
@@ -455,14 +462,25 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     borderBottom: '2px solid #f0f0f0',
                     paddingBottom: '15px'
                   }}>
-                    <h2 style={{ 
-                      margin: 0, 
-                      color: 'var(--scouting-blue)', 
-                      textAlign: 'left',
-                      fontSize: '1.5rem'
-                    }}>
-                      {roundHeats[0]?.roundName || `Round ${roundNum}`}
-                    </h2>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                      <h2 style={{ 
+                        margin: 0, 
+                        color: 'var(--scouting-blue)', 
+                        textAlign: 'left',
+                        fontSize: '1.5rem'
+                      }}>
+                        {roundHeats[0]?.roundName || `Round ${roundNum}`}
+                      </h2>
+                      <span style={{ fontSize: '0.9rem', color: '#666', fontWeight: 500 }}>
+                        {uncompletedHeats === 0 ? (
+                          <span style={{ color: '#2e7d32' }}>Completed</span>
+                        ) : (
+                          <>
+                            {uncompletedHeats < totalHeats ? `~${Math.ceil(uncompletedHeats * ESTIMATED_HEAT_DURATION_MIN)} mins remaining` : `~${Math.ceil(totalHeats * ESTIMATED_HEAT_DURATION_MIN)} mins duration`}
+                          </>
+                        )}
+                      </span>
+                    </div>
 
                     <div style={{ display: 'flex', gap: '10px' }}>
                       {!isAnyStarted && (

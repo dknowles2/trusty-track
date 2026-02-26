@@ -57,8 +57,8 @@ describe('RoundWizard Component', () => {
         // Total = 3.5 -> ceil -> 4 total heats.
         
         expect(screen.getByText('Total Heats: 4')).toBeInTheDocument();
-        // 4 heats * 1.5 min = 6 min
-        expect(screen.getByText(/Estimated Duration: ~6 mins/i)).toBeInTheDocument();
+        // 4 heats * 3 min = 12 min
+        expect(screen.getByText(/Estimated Duration: ~12 mins/i)).toBeInTheDocument();
     });
 
     it('navigates through steps', async () => {
@@ -73,7 +73,7 @@ describe('RoundWizard Component', () => {
         
         // Step 2 -> Step 3
         await user.click(screen.getByText('Next'));
-        expect(screen.getByText('Estimated Duration: ~6 mins')).toBeInTheDocument();
+        expect(screen.getByText('Estimated Duration: ~12 mins')).toBeInTheDocument();
         expect(screen.getByText('Review')).toBeInTheDocument(); // Step indicator or content
         
         // Step 3 -> Step 2

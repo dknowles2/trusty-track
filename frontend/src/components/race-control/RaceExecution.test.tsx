@@ -237,8 +237,7 @@ describe('RaceExecution', () => {
         
         expect(screen.getByText('Round Progress')).toBeInTheDocument();
         expect(screen.getByText('6 of 10 Heats Completed')).toBeInTheDocument();
-        // Since nextExecutionHeat is present, remainingHeatsInRound (4) - 1 = 3
-        expect(screen.getByText('3 Heats Remaining')).toBeInTheDocument();
+        expect(screen.getByText('4 Heats Remaining')).toBeInTheDocument();
     });
 
     it('renders upcoming rounds when provided', () => {

@@ -5,6 +5,7 @@ import { FakeTimerMole } from './FakeTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../../graphql/raceDetails';
+import { ESTIMATED_HEAT_DURATION_MIN } from '../../utils/constants';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
@@ -260,6 +261,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const showFakeControls = timerType === 'FAKE';
     const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
+
+    const totalRemainingHeats = (remainingHeatsInRound || 0) + (upcomingRounds || []).reduce((acc, r) => acc + r.totalHeats, 0);
+    const estimatedMinutesRemaining = Math.ceil(totalRemainingHeats * ESTIMATED_HEAT_DURATION_MIN);
 
     return (
         <>
@@ -706,7 +710,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 {totalHeatsInRound - remainingHeatsInRound} of {totalHeatsInRound} Heats Completed
                             </div>
                             <div style={{ fontSize: '0.9rem', color: '#2e7d32', fontWeight: 600 }}>
-                                {Math.max(0, remainingHeatsInRound - (nextExecutionHeat ? 1 : 0))} {Math.max(0, remainingHeatsInRound - (nextExecutionHeat ? 1 : 0)) === 1 ? 'Heat' : 'Heats'} Remaining
+                                {remainingHeatsInRound} {remainingHeatsInRound === 1 ? 'Heat' : 'Heats'} Remaining
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
+                                Estimated time remaining: ~{Math.ceil(remainingHeatsInRound * ESTIMATED_HEAT_DURATION_MIN)} mins
                             </div>
                         </div>
                     )}

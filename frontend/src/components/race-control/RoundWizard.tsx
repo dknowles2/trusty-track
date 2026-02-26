@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAlert } from '../../context/AlertContext';
 import { useMutation } from 'urql';
 import { CREATE_ROUND_WIZARD } from '../../graphql/raceDetails';
+import { ESTIMATED_HEAT_DURATION_MIN } from '../../utils/constants';
 import Modal from '../Modal';
 
 interface RoundWizardProps {
@@ -27,9 +28,6 @@ interface ChampionshipConfig {
   numTopRacers: number;
   runsPerLane: number;
 }
-
-// Helper to estimate duration (in minutes)
-const ESTIMATED_HEAT_DURATION_MIN = 1.5;
 
 export const RoundWizard: React.FC<RoundWizardProps> = ({
   isOpen,
