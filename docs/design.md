@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-This document outlines the technical design for Trusty Track, a Cub Scout Pinewood Derby race management system. It details the architectural choices, component designs, data structures, and API specifications to meet the product vision and basic requirements described in `SPEC.md`. The system aims for ease of use, fairness, accuracy, and aesthetic appeal across various user interfaces and device types.
+This document outlines the technical design for Trusty Track, a Cub Scout Pinewood Derby race management system. It details the architectural choices, component designs, data structures, and API specifications to meet the product vision and basic requirements described in the [Specification](spec.md). The system aims for ease of use, fairness, accuracy, and aesthetic appeal across various user interfaces and device types.
 
 ## 2. Architectural Overview
 

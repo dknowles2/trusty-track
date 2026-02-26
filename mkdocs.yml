@@ -16,7 +16,7 @@ theme:
     - navigation.top
     - search.highlight
     - content.action.edit    # "edit this page" link
-  # logo: assets/logo.png    # add later
+  logo: assets/logo.png
 
 extra_css:
   - assets/extra.css         # custom color overrides
@@ -35,6 +35,12 @@ nav:
   - Race Day: race-day.md
   - Observation Displays: observation-displays.md
   - Race Stats: race-stats.md
+  - Developers:
+    - Development Guide: development.md
+    - Design: design.md
+    - Specification: spec.md
+    - Scheduling Algorithms: scheduling-algorithms.md
+    - Fake Timer Setup: fake-timer.md
 
 plugins:
   - search
