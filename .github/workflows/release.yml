@@ -100,9 +100,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "backend/requirements.txt"
-
-      - name: Set up Python
-        run: uv python install 3.12
+          python-version: "3.12"
 
       - uses: actions/setup-node@v4
         with:
@@ -112,8 +110,8 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          uv pip install -r backend/requirements.txt
-          uv pip install pyinstaller
+          uv pip install --system -r backend/requirements.txt
+          uv pip install --system pyinstaller
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -153,9 +151,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "backend/requirements.txt"
-
-      - name: Set up Python
-        run: uv python install 3.12
+          python-version: "3.12"
 
       - uses: actions/setup-node@v4
         with:
@@ -165,8 +161,8 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          uv pip install -r backend/requirements.txt
-          uv pip install pyinstaller
+          uv pip install --system -r backend/requirements.txt
+          uv pip install --system pyinstaller
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y

@@ -23,12 +23,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.12
+          python-version: "3.12"
 
       - name: Install MkDocs
-        run: uv pip install mkdocs-material
+        run: uv pip install --system mkdocs-material
 
       - name: Build and deploy
-        run: uv run mkdocs gh-deploy --force
+        run: mkdocs gh-deploy --force
