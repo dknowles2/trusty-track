@@ -25,6 +25,8 @@ from .devices.base import (
     GateClosed,
     DeviceError,
 )
+from .devices.fake import FakeTimerDevice
+from .devices.microwizard import MicroWizardDevice
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,10 @@ class TimerManager:
             self._state = TimerState.IDLE
         else:
             self._state = TimerState.DISCONNECTED
+
+    @property
+    def track_id(self) -> int:
+        return self._track_id
 
     # ------------------------------------------------------------------ #
     # Configuration                                                        #
@@ -573,3 +579,35 @@ class TimerManager:
             self._serial = None
 
         await self.handle_disconnect()
+
+
+async def initialize_timer_managers(registry: Dict[int, TimerManager]) -> None:
+    """Query all Track records and create a TimerManager for each."""
+    db = SessionLocal()
+    try:
+        tracks = db.query(models.Track).all()
+        for track in tracks:
+            if track.timer_type == models.TimerType.FAKE:
+                device = FakeTimerDevice()
+            else:
+                # AUTO_DETECT_BACKEND / AUTO_DETECT_PROXY: use MicroWizard as the
+                # target device; real connection logic is wired in Phase 2/3.
+                device = MicroWizardDevice()
+
+            manager = TimerManager(track.id, device)
+            registry[track.id] = manager
+            logger.info(
+                "TimerManager created for track %d (%s) with device %s",
+                track.id,
+                track.name,
+                device.name,
+            )
+
+            # Start connection automatically if in direct-backend mode
+            if (
+                track.timer_type == models.TimerType.AUTO_DETECT_BACKEND
+                and track.serial_port
+            ):
+                asyncio.create_task(manager.connect_direct(track.serial_port))
+    finally:
+        db.close()

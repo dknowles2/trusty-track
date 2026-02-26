@@ -36,12 +36,10 @@ import pillow_heif
 load_dotenv()
 
 from backend.db import models
-from backend.db.database import SessionLocal, UPLOAD_DIR, engine
+from backend.db.database import SessionLocal, UPLOAD_DIR, engine, init_db
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.api.schema import schema
-from backend.services.timer.manager import TimerManager
-from backend.services.timer.devices.fake import FakeTimerDevice
-from backend.services.timer.devices.microwizard import MicroWizardDevice
+from backend.services.timer.manager import TimerManager, initialize_timer_managers
 
 # Register the HEIF/HEIC plugin so Pillow can open those files.
 pillow_heif.register_heif_opener()
@@ -54,33 +52,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def _build_timer_managers() -> None:
-    """Query all Track records and create a TimerManager for each."""
-    db = SessionLocal()
-    try:
-        tracks = db.query(models.Track).all()
-        for track in tracks:
-            if track.timer_type == models.TimerType.FAKE:
-                device = FakeTimerDevice()
-            else:
-                # AUTO_DETECT_BACKEND / AUTO_DETECT_PROXY: use MicroWizard as the
-                # target device; real connection logic is wired in Phase 2/3.
-                device = MicroWizardDevice()
-            
-            manager = TimerManager(track.id, device)
-            TIMER_MANAGERS[track.id] = manager
-            logger.info(
-                "TimerManager created for track %d (%s) with device %s",
-                track.id, track.name, device.name,
-            )
-
-            # Start connection automatically if in direct-backend mode
-            if track.timer_type == models.TimerType.AUTO_DETECT_BACKEND and track.serial_port:
-                asyncio.create_task(manager.connect_direct(track.serial_port))
-    finally:
-        db.close()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -89,7 +60,7 @@ async def lifespan(app: FastAPI):
     """
     logger.info("Initializing database...")
     try:
-        models.Base.metadata.create_all(bind=engine)
+        init_db()
         logger.info("Database initialization complete.")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
@@ -97,7 +68,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Initializing timer managers...")
     try:
-        await _build_timer_managers()
+        await initialize_timer_managers(TIMER_MANAGERS)
         logger.info("Timer managers ready: %s", list(TIMER_MANAGERS.keys()))
     except Exception as e:
         logger.error(f"Failed to initialize timer managers: {e}")
