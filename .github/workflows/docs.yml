@@ -26,7 +26,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install MkDocs
-        run: uv pip install --system mkdocs-material
+        run: uv pip install --system --break-system-packages mkdocs-material
 
       - name: Build and deploy
         run: mkdocs gh-deploy --force

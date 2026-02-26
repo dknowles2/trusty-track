@@ -110,8 +110,8 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          uv pip install --system -r backend/requirements.txt
-          uv pip install --system pyinstaller
+          uv pip install --system --break-system-packages -r backend/requirements.txt
+          uv pip install --system --break-system-packages pyinstaller
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -161,8 +161,8 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          uv pip install --system -r backend/requirements.txt
-          uv pip install --system pyinstaller
+          uv pip install --system --break-system-packages -r backend/requirements.txt
+          uv pip install --system --break-system-packages pyinstaller
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
