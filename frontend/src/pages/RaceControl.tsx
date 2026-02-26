@@ -5,7 +5,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../graphql/raceDetails';
 import { useAlert } from '../context/AlertContext';
 import { ScheduleManagement } from '../components/race-control/ScheduleManagement';
-import { RaceExecution } from '../components/race-control/RaceExecution';
+import { RaceExecution, LaneResult } from '../components/race-control/RaceExecution';
 import { FreeRaceTab } from '../components/race-control/FreeRaceTab';
 import Icon from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
@@ -380,7 +380,7 @@ export default function RaceControl() {
     }
   };
 
-  const handleUpdateResult = async (heatId: number, results: { lane: number; racer_id: number; time: string | null; place: number | null; skipped?: boolean }[]) => {
+  const handleUpdateResult = async (heatId: number, results: LaneResult[]) => {
       try {
           const heat = heats.find((h: Heat) => h.id === heatId);
           if (!heat) return;
@@ -392,8 +392,8 @@ export default function RaceControl() {
           
           if (hasAnyTime) {
               sortedResults.sort((a, b) => {
-                  const tA = a.time ? parseFloat(a.time) : 9999;
-                  const tB = b.time ? parseFloat(b.time) : 9999;
+                  const tA = a.time ? (typeof a.time === 'number' ? a.time : parseFloat(a.time)) : 9999;
+                  const tB = b.time ? (typeof b.time === 'number' ? b.time : parseFloat(b.time)) : 9999;
                   return tA - tB;
               });
               

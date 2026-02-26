@@ -49,7 +49,7 @@ export interface AdvancementStatus {
     numRacers: number | null;
 }
 
-interface LaneResult {
+export interface LaneResult {
     lane: number;
     racer_id: number | null;
     time: number | string | null;

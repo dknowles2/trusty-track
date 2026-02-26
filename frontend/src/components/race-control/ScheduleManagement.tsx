@@ -548,7 +548,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
-                      onDragOver={(event) => handleDragOver(event, roundId)}
+                      onDragOver={handleDragOver}
                       onDragEnd={(event) => handleDragEnd(event, roundId)}
                     >
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>

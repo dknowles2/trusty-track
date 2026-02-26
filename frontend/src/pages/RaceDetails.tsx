@@ -1058,7 +1058,6 @@ export default function RaceDetails() {
           {race ? (
              <DenManager 
                 raceId={race.id}
-                onClose={() => setShowDenManager(false)}
                 onUpdate={refreshData}
               />
           ) : <p>Loading race details...</p>}
