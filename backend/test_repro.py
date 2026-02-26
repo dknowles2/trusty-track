@@ -1,6 +1,5 @@
 import pytest
-import base64
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from .timer.manager import TimerManager
 from .timer.devices.microwizard import MicroWizardDevice
 from .timer.state_machine import TimerState

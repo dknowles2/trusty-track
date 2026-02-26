@@ -48,14 +48,15 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                 setStatus({ type: 'success', message: `Successfully imported ${importedCount} racers.` });
                 onImportSuccess();
 
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.error("Import failed", error);
                 
                 let message = "Failed to import racers. Please try again.";
-                if (error.graphQLErrors && error.graphQLErrors.length > 0) {
-                    message = error.graphQLErrors[0].message;
-                } else if (error.message) {
-                    message = error.message;
+                const err = error as { graphQLErrors?: { message: string }[], message?: string };
+                if (err.graphQLErrors && err.graphQLErrors.length > 0) {
+                    message = err.graphQLErrors[0].message;
+                } else if (err.message) {
+                    message = err.message;
                 }
                 
                 setStatus({ 

@@ -6,7 +6,7 @@ currently_racing, timing_stats, heats) emit the expected data.
 
 import asyncio
 import json
-from typing import Any, List
+from typing import Any
 
 import pytest
 import strawberry

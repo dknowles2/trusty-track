@@ -6,7 +6,14 @@ import { mdiFlagCheckered, mdiAccountGroup, mdiInformation } from '@mdi/js';
 interface RoundConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (config: any) => Promise<void>;
+  onSubmit: (config: {
+    name: string;
+    schedulingStrategy: string;
+    advancementSource?: string;
+    advancementNumRacers?: number;
+    runsPerLane: number;
+    generalType?: string;
+  }) => Promise<void>;
   racerCount: number;
   denCount: number;
   championshipTrophies: number;

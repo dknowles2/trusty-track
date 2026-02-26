@@ -52,7 +52,16 @@ export default function Observation() {
   const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(initialView);
   
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
-  const [overlayData, setOverlayData] = useState<any>(null);
+  const [overlayData, setOverlayData] = useState<{
+    lanes: {
+      laneNumber: number;
+      place: number | null;
+      racerName: string;
+      racerImageUrl?: string;
+      carName?: string;
+      time: number | null;
+    }[];
+  } | null>(null);
   const [lastProcessedHeatId, setLastProcessedHeatId] = useState<string | null>(null);
 
   // Auto-cycling logic (disabled in projector mode)
@@ -66,13 +75,14 @@ export default function Observation() {
     return () => clearInterval(interval);
   }, [shouldCycle, cycleInterval, isProjectorMode]);
 
-  // Sync tab with URL if view param changes externally
-  useEffect(() => {
-    const view = searchParams.get('view');
-    if (view === 'standings' || view === 'timing') {
-      setActiveTab(view);
+  const [prevViewParam, setPrevViewParam] = useState(searchParams.get('view'));
+  const currentViewParam = searchParams.get('view');
+  if (currentViewParam !== prevViewParam) {
+    setPrevViewParam(currentViewParam);
+    if (currentViewParam === 'standings' || currentViewParam === 'timing') {
+      setActiveTab(currentViewParam);
     }
-  }, [searchParams]);
+  }
 
   // Ensure body scroll is hidden in projector mode
   useEffect(() => {
@@ -124,19 +134,13 @@ export default function Observation() {
     pause: !id || isNaN(id),
   });
 
-  // Effect to trigger heat result overlay
-  useEffect(() => {
-    if (!isProjectorMode || !timingStatsData?.timingStats) return;
-
-    const stats = timingStatsData.timingStats;
-    const heatId = `${stats.roundName}-${stats.heatNumber}`;
-
-    if (heatId !== lastProcessedHeatId) {
-      setOverlayData(stats);
-      setShowResultsOverlay(true);
-      setLastProcessedHeatId(heatId);
-    }
-  }, [timingStatsData, isProjectorMode, lastProcessedHeatId]);
+  // Sync results overlay state during render
+  const currentHeatId = timingStatsData?.timingStats ? `${timingStatsData.timingStats.roundName}-${timingStatsData.timingStats.heatNumber}` : null;
+  if (isProjectorMode && currentHeatId && currentHeatId !== lastProcessedHeatId) {
+    setOverlayData(timingStatsData.timingStats);
+    setShowResultsOverlay(true);
+    setLastProcessedHeatId(currentHeatId);
+  }
 
   // Effect to handle overlay timeout
   useEffect(() => {
@@ -148,13 +152,20 @@ export default function Observation() {
     }
   }, [showResultsOverlay, lastProcessedHeatId]);
 
+  interface Racer {
+    id: number;
+    firstName: string;
+    lastName: string;
+    carNumber?: number;
+    racerImageUrl?: string;
+    carName?: string;
+  }
+
   const racersMap = useMemo(() => {
-    const map: Record<number, any> = {};
-    initialData?.race?.racers.forEach((r: any) => map[r.id] = r);
+    const map: Record<number, Racer> = {};
+    initialData?.race?.racers.forEach((r: Racer) => map[r.id] = r);
     return map;
   }, [initialData]);
-
-  if (!id || isNaN(id)) return <div className="container" style={{ padding: '20px' }}>Invalid Race ID</div>;
 
   const officialCurrentHeat = currentlyRacingData?.currentlyRacing;
   const nextHeatRacers = onDeckData?.onDeck || [];
@@ -168,7 +179,7 @@ export default function Observation() {
     if (officialCurrentHeat?.laneResults) {
       try {
         const assignments = JSON.parse(officialCurrentHeat.laneResults);
-        return assignments.map((a: any) => racersMap[a.racer_id]).filter(Boolean);
+        return assignments.map((a: { racer_id: number }) => racersMap[a.racer_id]).filter(Boolean);
       } catch {
         return [];
       }
@@ -176,7 +187,7 @@ export default function Observation() {
     if (isExhibition && activeFreeRace?.laneAssignments) {
       try {
         const assignments = JSON.parse(activeFreeRace.laneAssignments);
-        return assignments.map((a: any) => racersMap[a.racer_id]).filter(Boolean);
+        return assignments.map((a: { racer_id: number }) => racersMap[a.racer_id]).filter(Boolean);
       } catch {
         return [];
       }
@@ -184,7 +195,9 @@ export default function Observation() {
     return [];
   }, [officialCurrentHeat, isExhibition, activeFreeRace, racersMap]);
 
-  const renderHeatCard = (title: string, racers: any[], isNext: boolean = false, iconPath?: string, heatInfo?: string, exhibition?: boolean) => {
+  if (!id || isNaN(id)) return <div className="container" style={{ padding: '20px' }}>Invalid Race ID</div>;
+
+  const renderHeatCard = (title: string, racers: Racer[], isNext: boolean = false, iconPath?: string, heatInfo?: string, exhibition?: boolean) => {
     const isEmpty = racers.length === 0;
 
     return (
@@ -234,7 +247,7 @@ export default function Observation() {
           <p>No heat scheduled</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
-            {racers.map((racer: any, idx: number) => (
+            {racers.map((racer: Racer, idx: number) => (
               <div key={racer.id || idx} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
                 <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {idx + 1}</div>
                 <RacerAvatar 
@@ -491,7 +504,7 @@ export default function Observation() {
   }
 
   // --- PROJECTOR MODE RENDER ---
-  const renderProjectorRacers = (racers: any[], isNowRacing: boolean) => {
+  const renderProjectorRacers = (racers: Racer[], isNowRacing: boolean) => {
     if (racers.length === 0) {
       return (
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', fontSize: '3vmin' }}>
@@ -502,7 +515,7 @@ export default function Observation() {
     
     return (
       <div style={{ display: 'flex', height: '100%', gap: '2vmin' }}>
-        {racers.map((racer: any, idx: number) => (
+        {racers.map((racer: Racer, idx: number) => (
           <div key={racer.id || idx} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#222', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
             {/* Priority 1: Racer Name */}
             <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: '#fff', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
@@ -545,7 +558,7 @@ export default function Observation() {
     <div className="container projector-mode" style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
       {renderResultsOverlay()}
       
-      <div className="projector-grid" style={{ display: 'flex', flex: 1, gap: '3vmin', height: '100%' }}>
+      <div className="projector-grid" style={{ display: 'flex', flex: '1', gap: '3vmin', height: '100%' }}>
         {/* Left Column: Active and Upcoming Heats */}
         <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '3vmin', boxSizing: 'border-box' }}>
           
@@ -561,7 +574,7 @@ export default function Observation() {
               )}
             </h2>
             <div style={{ flex: 1 }}>
-              {renderProjectorRacers(currentHeatRacers, true)}
+              {renderProjectorRacers(currentHeatRacers as Racer[], true)}
             </div>
           </div>
 
@@ -572,7 +585,7 @@ export default function Observation() {
               On Deck
             </h2>
             <div style={{ flex: 1 }}>
-              {renderProjectorRacers(nextHeatRacers, false)}
+              {renderProjectorRacers(nextHeatRacers as Racer[], false)}
             </div>
           </div>
         </div>

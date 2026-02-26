@@ -1,4 +1,5 @@
 import json
+import pytest
 
 from backend import crud, schemas
 
@@ -244,6 +245,3 @@ def test_race_stats_returns_none_for_missing_race(client, db):
     )
     assert resp.status_code == 200
     assert resp.json()["data"]["raceStats"] is None
-
-
-import pytest

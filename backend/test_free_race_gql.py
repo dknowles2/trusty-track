@@ -101,7 +101,7 @@ def test_random_free_race_lanes_query_excludes_not_checked_in_racers(db: Session
     data = resp.json()
     lanes = data["data"]["randomFreeRaceLanes"]
     # Should find ONLY the checked-in racer
-    racer_ids = [l["racerId"] for l in lanes if l["racerId"] is not None]
+    racer_ids = [lane["racerId"] for lane in lanes if lane["racerId"] is not None]
     assert len(racer_ids) == 1
 
 

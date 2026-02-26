@@ -1151,7 +1151,7 @@ def get_random_lane_assignments(
         db.query(models.Racer)
         .filter(
             models.Racer.race_id == race_id,
-            models.Racer.car_passed_inspection == True
+            models.Racer.car_passed_inspection
         )
         .all()
     )

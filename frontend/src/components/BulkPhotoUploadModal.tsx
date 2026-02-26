@@ -50,13 +50,15 @@ function RacerCombobox({ racers, value, onChange }: ComboboxProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
+    const [prevValue, setPrevValue] = useState(value);
 
     // Keep input text in sync when external value changes (e.g. on initial render)
-    useEffect(() => {
+    if (value !== prevValue) {
+        setPrevValue(value);
         if (!isOpen) {
             setInputValue(assigned ? racerLabel(assigned) : '');
         }
-    }, [value, assigned, isOpen]);
+    }
 
     const query = inputValue.trim().toLowerCase();
     const filtered = query

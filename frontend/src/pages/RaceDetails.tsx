@@ -166,7 +166,7 @@ export default function RaceDetails() {
 
   // Selection State
   const [selectedRacerIds, setSelectedRacerIds] = useState<number[]>([]);
-  const moveDenTimeoutRef = useRef<any>(null);
+  const moveDenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [denMenuSide, setDenMenuSide] = useState<'left' | 'right'>('left');
   const denMenuContainerRef = useRef<HTMLDivElement>(null);
 
@@ -196,7 +196,7 @@ export default function RaceDetails() {
 
   const handleUpdateRace = async (formData: RaceFormData) => {
       try {
-          const { registeredCount: _, checkedInCount: __, ...updateInput } = formData as any;
+          const updateInput = formData;
           // Map snake_case to camelCase for GQL input
           const raceInput = {
               name: updateInput.name,
@@ -212,8 +212,8 @@ export default function RaceDetails() {
           if (result.error) throw result.error;
           setIsEditingRace(false);
           refreshData();
-      } catch (_e) {
-          console.error("Failed to update race", _e);
+      } catch (e: unknown) {
+          console.error("Failed to update race", e);
           showAlert("Failed to update race details", "Error");
       }
   };
@@ -235,8 +235,8 @@ export default function RaceDetails() {
         if (result.error) throw result.error;
         // Redirect to home
         window.location.href = '/'; 
-    } catch (_e) {
-        console.error("Failed to delete race", _e);
+    } catch (e: unknown) {
+        console.error("Failed to delete race", e);
         showAlert("Failed to delete race", "Error");
     }
   };
@@ -285,8 +285,8 @@ export default function RaceDetails() {
           }
            setShowRacerForm(false);
            refreshData();
-      } catch (_e) {
-          console.error("Failed to save", _e);
+      } catch (e: unknown) {
+          console.error("Failed to save", e);
           showAlert("Failed to save racer", "Error");
       }
   };
@@ -316,7 +316,7 @@ export default function RaceDetails() {
       refreshData();
       showAlert(`Successfully auto-numbered ${result.data.bulkAutoNumber} racers`, "Bulk Auto-Number Result");
       setSelectedRacerIds([]);
-    } catch (_e) {
+    } catch {
       showAlert("Failed to bulk auto-number racers", "Error");
     }
   };
@@ -335,7 +335,7 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setSelectedRacerIds([]);
-    } catch (_e) {
+    } catch {
       showAlert("Failed to clear racer numbers", "Error");
     }
   };
@@ -355,7 +355,7 @@ export default function RaceDetails() {
       refreshData();
       setSelectedRacerIds([]);
       setIsBulkMenuOpen(false);
-    } catch (_e) {
+    } catch {
       showAlert("Failed to bulk check-in racers", "Error");
     }
   };
@@ -368,7 +368,7 @@ export default function RaceDetails() {
       setSelectedRacerIds([]);
       setIsMoveToDenOpen(false);
       setIsBulkMenuOpen(false);
-    } catch (_e) {
+    } catch {
       showAlert("Failed to move racers to den", "Error");
     }
   };
@@ -395,7 +395,7 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setSelectedRacerIds([]);
-    } catch (_e) {
+    } catch {
       showAlert("Failed to delete racers", "Error");
     }
   };
@@ -1187,8 +1187,8 @@ export default function RaceDetails() {
                             if (result.error) throw result.error;
                             refreshData();
                             setShowPopulateModal(false);
-                        } catch (_e) {
-                            console.error("Failed to populate racers", _e);
+                        } catch {
+                            console.error("Failed to populate racers");
                             showAlert("Failed to populate test racers", "Error");
                         } finally {
                             if (btn) {

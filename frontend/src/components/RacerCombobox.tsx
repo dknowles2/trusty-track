@@ -25,17 +25,20 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
   const assigned = racers.find((r) => r.id === value);
   const [inputValue, setInputValue] = useState(assigned ? racerLabel(assigned) : '');
   const [isOpen, setIsOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+    const [activeIndex, setActiveIndex] = useState(-1);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const listRef = useRef<HTMLUListElement>(null);
+  
+    const [prevValue, setPrevValue] = useState(value);
 
   // Keep input text in sync when external value changes (e.g. on initial render)
-  useEffect(() => {
+  if (value !== prevValue) {
+    setPrevValue(value);
     if (!isOpen) {
       setInputValue(assigned ? racerLabel(assigned) : '');
     }
-  }, [value, assigned, isOpen]);
+  }
 
   const query = inputValue.trim().toLowerCase();
   const filtered = query

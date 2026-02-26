@@ -1,13 +1,11 @@
 import asyncio
 import base64
-import json
 from unittest.mock import patch, AsyncMock
 
 import pytest
-from fastapi.testclient import TestClient
 
-from . import crud, models, schemas
-from .main import app, TIMER_MANAGERS
+from . import crud, schemas
+from .main import TIMER_MANAGERS
 from .timer.devices.microwizard import MicroWizardDevice
 from .timer.manager import TimerManager
 from .timer.state_machine import TimerState

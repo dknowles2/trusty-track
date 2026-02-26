@@ -92,12 +92,15 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     variables: { heatId },
   });
 
-  useEffect(() => {
-    const laneResults = heatSubResult.data?.freeRaceHeat?.laneResults;
-    if (laneResults) {
-      setResults(JSON.parse(laneResults));
+  const [prevLaneResults, setPrevLaneResults] = useState<string | undefined>(undefined);
+  const currentLaneResults = heatSubResult.data?.freeRaceHeat?.laneResults;
+
+  if (currentLaneResults !== prevLaneResults) {
+    setPrevLaneResults(currentLaneResults);
+    if (currentLaneResults) {
+      setResults(JSON.parse(currentLaneResults));
     }
-  }, [heatSubResult.data?.freeRaceHeat?.laneResults]);
+  }
 
   // Subscribe to timer status
   const [subResult] = useSubscription({
@@ -117,6 +120,15 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   const isRunning = timerState === 'RUNNING';
   const isCompleted = results !== null;
 
+  // Reset timer state when it stops
+  const [prevIsRunning, setPrevIsRunning] = useState(isRunning);
+  if (isRunning !== prevIsRunning) {
+    setPrevIsRunning(isRunning);
+    if (!isRunning) {
+      setElapsedSeconds(0);
+    }
+  }
+
   // Auto-prepare heat when a new heatId is provided
   useEffect(() => {
     if (timerState === 'IDLE' && !results && heatId) {
@@ -124,12 +136,12 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     }
     // Only run when heatId changes or on mount. 
     // Do NOT depend on timerState or results to avoid re-prepare loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heatId]);
 
   // Timer for elapsed display
   useEffect(() => {
     if (!isRunning) {
-      setElapsedSeconds(0);
       return;
     }
     const start = Date.now();
@@ -207,7 +219,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     results.forEach((r) => { laneResultMap[r.lane] = r; });
   } else {
     // Show pending results if official results aren't in yet
-    pendingResults.forEach((r: any) => {
+    pendingResults.forEach((r: { lane: number; time: number | null; place: number | null }) => {
       laneResultMap[r.lane] = {
         lane: r.lane,
         racer_id: laneAssignments.find(a => a.lane === r.lane)?.racerId ?? null,

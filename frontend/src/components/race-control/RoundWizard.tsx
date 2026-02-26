@@ -141,9 +141,10 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       
       onCreated();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to create rounds via wizard:', error);
-      const message = error.message || 'Unknown error';
+      const e = error as { message?: string };
+      const message = e.message || 'Unknown error';
       showAlert(`Failed to create rounds: ${message}`, "Error");
     } finally {
       setLoading(false);

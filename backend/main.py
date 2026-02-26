@@ -8,7 +8,6 @@ import asyncio
 import base64
 import logging
 import os
-import shutil
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -33,7 +32,7 @@ from strawberry.fastapi import GraphQLRouter
 import pillow_heif
 
 from . import models
-from .database import DATA_DIR, SessionLocal, UPLOAD_DIR, engine
+from .database import SessionLocal, UPLOAD_DIR, engine
 from .image_processing import convert_to_browser_safe_png
 from .schema import schema
 from .timer.manager import TimerManager

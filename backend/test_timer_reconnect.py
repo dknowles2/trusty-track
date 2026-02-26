@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from .timer.manager import TimerManager
 from .timer.devices.microwizard import MicroWizardDevice
 from .timer.state_machine import TimerState

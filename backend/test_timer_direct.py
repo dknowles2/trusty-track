@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 import pytest
 import serial
 from .timer.manager import TimerManager

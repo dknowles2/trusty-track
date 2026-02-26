@@ -41,7 +41,7 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
         return () => {
             if (timeout) clearTimeout(timeout);
         };
-    }, [isOpen, timerState, heatId]);
+    }, [isOpen, timerState, heatId, fakeTimerFinish, showAlert]);
 
     if (!isOpen) return null;
 

@@ -183,7 +183,7 @@ export default function RaceControl() {
 
   const { data, fetching } = result;
   const race = data?.race;
-  const heats = race?.heats || [];
+  const heats = useMemo(() => race?.heats || [], [race?.heats]);
   const racers = useMemo(() => {
     const map: Record<number, Racer> = {};
     (race?.racers || []).forEach((r: Racer) => {
@@ -196,14 +196,14 @@ export default function RaceControl() {
       if (heats.length > 0) {
           if (selectedHeatId !== null) return;
 
-          const sorted = [...heats].sort((a, b) => {
+          const sorted = [...heats].sort((a: Heat, b: Heat) => {
             if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
             return a.heatNumber - b.heatNumber;
           });
           
           const firstUncompleted = sorted.find((h: Heat) => {
               const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-              return !results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
+              return !results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
           });
 
           if (firstUncompleted) {
@@ -216,7 +216,14 @@ export default function RaceControl() {
       }
   }, [heats, selectedHeatId]);
 
-  const handleAddRound = async (config: any) => {
+  const handleAddRound = async (config: {
+    schedulingStrategy?: string;
+    name: string;
+    advancementSource?: string;
+    advancementNumRacers?: number;
+    runsPerLane?: number;
+    generalType?: string;
+  }) => {
     if (!id) return;
     setGenerating(true);
     try {
@@ -236,9 +243,10 @@ export default function RaceControl() {
       
       reExecute({ requestPolicy: 'network-only' });
       setSelectedHeatId(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Failed to add round", e);
-      showAlert(e.message || "Failed to add round.", "Error");
+      const err = e as { message?: string };
+      showAlert(err.message || "Failed to add round.", "Error");
     } finally {
       setGenerating(false);
     }
@@ -255,9 +263,10 @@ export default function RaceControl() {
       if (!silent) {
         showToast("Schedule regenerated successfully.", "success");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Failed to regenerate round", e);
-      showAlert(e.message || "Failed to regenerate the schedule.", "Error");
+      const err = e as { message?: string };
+      showAlert(err.message || "Failed to regenerate the schedule.", "Error");
     } finally {
       setGenerating(false);
     }
@@ -272,9 +281,10 @@ export default function RaceControl() {
       reExecute({ requestPolicy: 'network-only' });
       setSelectedHeatId(null);
       showToast("Round deleted successfully.", "success");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Failed to delete round", e);
-      showAlert(e.message || "Failed to delete the round.", "Error");
+      const err = e as { message?: string };
+      showAlert(err.message || "Failed to delete the round.", "Error");
     } finally {
       setGenerating(false);
     }
@@ -299,9 +309,10 @@ export default function RaceControl() {
         setSelectedHeatId(null);
       }
       showToast("Heat deleted successfully.", "success");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Failed to delete heat", e);
-      showAlert(e.message || "Failed to delete the heat.", "Error");
+      const err = e as { message?: string };
+      showAlert(err.message || "Failed to delete the heat.", "Error");
     } finally {
       setGenerating(false);
     }
@@ -310,11 +321,11 @@ export default function RaceControl() {
   const handleRunHeat = async (heat: Heat, shouldStart: boolean = true) => {
     // Check if heat already has results or was skipped
     const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-    const hasResults = results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
+    const hasResults = results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
     
     if (hasResults) {
         // Clear results locally first (Optimistic UI Update would be complex with urql, so we just clear on server)
-        const emptyResults = results.map((r: any) => ({ ...r, time: null, place: null, skipped: false }));
+        const emptyResults = results.map((r: { lane: number; racer_id: number }) => ({ ...r, time: null, place: null, skipped: false }));
         
         try {
             const result = await updateHeatResultMutation({
@@ -340,7 +351,7 @@ export default function RaceControl() {
         
         const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => {
             const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-            return !(results.length > 0 && results.some((r: any) => r.time !== null));
+            return !(results.length > 0 && results.some((r: { time: number | string | null }) => r.time !== null));
         });
 
         const targetIndex = roundHeats.findIndex((h: Heat) => h.id === heat.id);
@@ -369,12 +380,12 @@ export default function RaceControl() {
     }
   };
 
-  const handleUpdateResult = async (heatId: number, results: any[]) => {
+  const handleUpdateResult = async (heatId: number, results: { lane: number; racer_id: number; time: string | null; place: number | null; skipped?: boolean }[]) => {
       try {
           const heat = heats.find((h: Heat) => h.id === heatId);
           if (!heat) return;
 
-          const sortedResults = [...results] as {lane: number, racer_id: number, time: string | null, place: number | null, skipped?: boolean}[];
+          const sortedResults = [...results];
           
           // Only assign places if at least one racer has a time
           const hasAnyTime = sortedResults.some(r => r.time !== null && r.time !== '');
@@ -430,7 +441,7 @@ export default function RaceControl() {
       const result = await reorderHeatsMutation({ heatUpdates: formattedUpdates });
       if (result.error) throw result.error;
       reExecute({ requestPolicy: 'network-only' });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Failed to reorder heats", e);
       throw e;
     }
@@ -481,13 +492,13 @@ export default function RaceControl() {
       .filter((h: Heat) => {
         if (h.id === activeExecutionHeat?.id) return false;
         const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-        return results.length > 0 && results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
+        return results.length > 0 && results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
       })
       .sort((a: Heat, b: Heat) => {
         if (b.roundNumber !== a.roundNumber) return b.roundNumber - a.roundNumber;
         return b.heatNumber - a.heatNumber;
       });
-  }, [sortedHeatsEx, activeExecutionHeat?.id]);
+  }, [sortedHeatsEx, activeExecutionHeat]);
 
   const handleNextHeat = () => {
       setRoundSummary(null);
@@ -499,13 +510,13 @@ export default function RaceControl() {
   const currentRoundHeats = useMemo(() => {
     if (!activeExecutionHeat) return [];
     return heats.filter((h: Heat) => h.roundId === activeExecutionHeat.roundId);
-  }, [heats, activeExecutionHeat?.roundId]);
+  }, [heats, activeExecutionHeat]);
 
   const totalHeatsInRound = currentRoundHeats.length;
   const remainingHeatsInRound = useMemo(() => {
     return currentRoundHeats.filter((h: Heat) => {
       const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-      return !results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
+      return !results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
     }).length;
   }, [currentRoundHeats]);
 
@@ -526,7 +537,7 @@ export default function RaceControl() {
       }
     });
     return Object.values(rounds).sort((a, b) => a.roundNumber - b.roundNumber);
-  }, [heats, activeExecutionHeat?.roundNumber]);
+  }, [heats, activeExecutionHeat]);
 
   if (fetching && !data) return <div>Loading Race Control...</div>;
 
@@ -648,9 +659,9 @@ export default function RaceControl() {
                 <h3 style={{ marginBottom: '12px', color: '#555', fontWeight: 600 }}>Previous Heats</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {completedPreviousHeats.map((heat: Heat) => {
-                    const heatResults: any[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-                    const isSkipped = heatResults.some((r: any) => r.skipped);
-                    const hasTimes = heatResults.some((r: any) => r.time !== null && r.time !== '');
+                    const heatResults: { lane: number; time: number | string | null; skipped?: boolean; place?: number; racer_id: number }[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
+                    const isSkipped = heatResults.some((r) => r.skipped);
+                    const hasTimes = heatResults.some((r) => r.time !== null && r.time !== '');
                     const sorted = [...heatResults].sort((a, b) => (a.place ?? 99) - (b.place ?? 99));
                     return (
                       <div key={heat.id} style={{
@@ -690,7 +701,7 @@ export default function RaceControl() {
                           </div>
                         </div>
                         <div style={{ display: 'grid', gap: '2px' }}>
-                          {sorted.map((r: any) => (
+                          {sorted.map((r) => (
                             <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', padding: '5px 0', borderBottom: '1px solid #f5f5f5' }}>
                               <span style={{
                                 minWidth: '26px',

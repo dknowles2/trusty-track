@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 export interface RaceFormData {
     name: string;
@@ -39,14 +39,14 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
     });
     const [loading, setLoading] = useState(false);
     const [tracksResult] = useQuery({ query: GET_TRACKS });
-    const tracks = tracksResult.data?.tracks || [];
+    const tracks = useMemo(() => tracksResult.data?.tracks || [], [tracksResult.data?.tracks]);
     const fetchingTracks = tracksResult.fetching;
 
     useEffect(() => {
         if (tracks.length > 0 && !formData.track_id) {
             setFormData(prev => ({ ...prev, track_id: tracks[0].id }));
         }
-    }, [tracks]);
+    }, [tracks, formData.track_id]);
 
     useEffect(() => {
         if (initialData) {
@@ -54,7 +54,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         }
     }, [initialData]);
 
-    const handleChange = (field: keyof RaceFormData, value: any) => {
+    const handleChange = (field: keyof RaceFormData, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 

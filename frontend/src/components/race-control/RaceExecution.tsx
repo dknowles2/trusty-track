@@ -49,6 +49,14 @@ export interface AdvancementStatus {
     numRacers: number | null;
 }
 
+interface LaneResult {
+    lane: number;
+    racer_id: number | null;
+    time: number | string | null;
+    place: number | null;
+    skipped?: boolean;
+}
+
 
 interface RaceExecutionProps {
     activeExecutionHeat: Heat | null;
@@ -57,7 +65,7 @@ interface RaceExecutionProps {
     onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
     onNextHeat: () => void;
     getRacerName: (id: number) => string;
-    onUpdateResult: (heatId: number, results: any[]) => Promise<void>;
+    onUpdateResult: (heatId: number, results: LaneResult[]) => Promise<void>;
     timerType?: string | null;
     trackId?: number | null;
     racers: Record<number, Racer>;
@@ -87,7 +95,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     upcomingRounds,
 }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingResults, setEditingResults] = useState<any[]>([]);
+    const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [isRoundSummaryOpen, setIsRoundSummaryOpen] = useState(!!roundSummary);
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
@@ -106,26 +114,48 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [, abortHeat] = useMutation(ABORT_HEAT);
     const [, forceResults] = useMutation(FORCE_RESULTS);
 
-    const results = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
-    const hasRecordedTimes = results.length > 0 && results.some((r: any) => r.time !== null && r.time !== '');
-    const isSkipped = results.length > 0 && results.some((r: any) => r.skipped);
+    const results: LaneResult[] = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
+    const hasRecordedTimes = results.length > 0 && results.some((r: LaneResult) => r.time !== null && r.time !== '');
+    const isSkipped = results.length > 0 && results.some((r: LaneResult) => r.skipped);
     const isCompleted = results.length > 0 && (hasRecordedTimes || isSkipped);
     const isRunning = timerState === 'RUNNING';
-    const hasPlaceholders = results.some((r: any) => r.racer_id !== null && r.racer_id < 0);
+    const hasPlaceholders = results.some((r: LaneResult) => r.racer_id !== null && r.racer_id < 0);
 
-    const laneResultMap: Record<number, any> = {};
+    const laneResultMap: Record<number, LaneResult> = {};
     if (isCompleted) {
-        results.forEach((r: any) => { laneResultMap[r.lane] = r; });
+        results.forEach((r: LaneResult) => { laneResultMap[r.lane] = r; });
     } else {
         // Show pending results if official results aren't in yet
-        pendingResults.forEach((r: any) => {
+        pendingResults.forEach((r: { lane: number, time: number | null, place: number | null }) => {
             laneResultMap[r.lane] = {
                 lane: r.lane,
-                racer_id: (results.find((cr: any) => cr.lane === r.lane))?.racer_id || null,
+                racer_id: (results.find((cr: LaneResult) => cr.lane === r.lane))?.racer_id || null,
                 time: r.time,
                 place: r.place,
             };
         });
+    }
+
+    // Reset timer state when it stops
+    const [prevIsRunning, setPrevIsRunning] = useState(isRunning);
+    if (isRunning !== prevIsRunning) {
+        setPrevIsRunning(isRunning);
+        if (!isRunning) {
+            setElapsedSeconds(0);
+        }
+    }
+
+    // Sync round summary state
+    const [prevRoundSummary, setPrevRoundSummary] = useState(roundSummary);
+    if (roundSummary !== prevRoundSummary) {
+        setPrevRoundSummary(roundSummary);
+        setIsRoundSummaryOpen(!!roundSummary);
+    }
+
+    // Sync auto-advance state
+    const shouldResetAutoAdvance = !autoAdvanceHeat || !hasRecordedTimes || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen) || hasPlaceholders;
+    if (shouldResetAutoAdvance && autoAdvanceCountdown !== null) {
+        setAutoAdvanceCountdown(null);
     }
 
     // Auto-prepare heat when a new heatId is provided or results cleared
@@ -134,24 +164,19 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             prepareHeat({ heatId: activeExecutionHeat.id });
         }
         // Only run when heatId changes, on mount, or when results are cleared (re-run/un-skip)
-    }, [activeExecutionHeat?.id, hasPlaceholders, isCompleted]);
-
-    useEffect(() => {
-        setIsRoundSummaryOpen(!!roundSummary);
-    }, [roundSummary]);
+    }, [activeExecutionHeat?.id, hasPlaceholders, isCompleted, prepareHeat, timerState]);
 
     useEffect(() => {
         // Only trigger auto-advance countdown if we have actual recorded times.
         // For skipped heats, we advance immediately in the handler.
-        if (!autoAdvanceHeat || !hasRecordedTimes || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen) || hasPlaceholders) {
-            setAutoAdvanceCountdown(null);
+        if (shouldResetAutoAdvance) {
             if (autoAdvanceTimeoutRef.current) {
                 clearTimeout(autoAdvanceTimeoutRef.current);
                 autoAdvanceTimeoutRef.current = null;
             }
             return;
         }
-        setAutoAdvanceCountdown(10);
+        setTimeout(() => setAutoAdvanceCountdown(10), 0);
         const interval = setInterval(() => {
             setAutoAdvanceCountdown(prev => {
                 if (prev === null || prev <= 1) {
@@ -171,20 +196,16 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 autoAdvanceTimeoutRef.current = null;
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [hasRecordedTimes, autoAdvanceHeat, nextExecutionHeat?.id, roundSummary, isRoundSummaryOpen, hasPlaceholders]);
+    }, [shouldResetAutoAdvance, onNextHeat]);
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
         if (isRunning) {
             const startTime = Date.now();
-            setElapsedSeconds(0);
             interval = setInterval(() => {
                 const now = Date.now();
                 setElapsedSeconds((now - startTime) / 1000);
             }, 100);
-        } else {
-            setElapsedSeconds(0);
         }
         return () => {
             if (interval) clearInterval(interval);
@@ -225,7 +246,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const handleResultChange = (index: number, field: 'time' | 'place', value: string) => {
         const newResults = [...editingResults];
-        newResults[index][field] = value;
+        if (field === 'time') newResults[index].time = value;
+        else if (field === 'place') newResults[index].place = parseInt(value) || null;
         setEditingResults(newResults);
     };
 
@@ -244,7 +266,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             setAutoAdvanceCountdown(null);
 
             const currentHeatId = activeExecutionHeat.id;
-            const skippedResults = results.map((r: any) => ({
+            const skippedResults = results.map((r: LaneResult) => ({
                 ...r,
                 time: null,
                 place: null,
@@ -261,9 +283,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const showFakeControls = timerType === 'FAKE';
     const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
-
-    const totalRemainingHeats = (remainingHeatsInRound || 0) + (upcomingRounds || []).reduce((acc, r) => acc + r.totalHeats, 0);
-    const estimatedMinutesRemaining = Math.ceil(totalRemainingHeats * ESTIMATED_HEAT_DURATION_MIN);
 
     return (
         <>
@@ -397,8 +416,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         </div>
 
                         <div style={{ display: 'grid', gap: '15px' }}>
-                            {results.map((r: any) => {
-                                const racer = racers[r.racer_id];
+                            {results.map((r) => {
+                                const racer = racers[r.racer_id || 0];
                                 // Use mapped results for real-time updates
                                 const m = laneResultMap[r.lane] || r;
                                 return (
@@ -417,7 +436,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                                 <RacerAvatar
                                                     racer={{
-                                                        id: racer?.id || r.racer_id,
+                                                        id: racer?.id || r.racer_id || 0,
                                                         first_name: racer?.firstName || '',
                                                         last_name: racer?.lastName || '',
                                                         racer_image_url: racer?.racerImageUrl
@@ -428,7 +447,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>
-                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id)}
+                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id || 0)}
                                                 </div>
                                                 {racer && <div style={{ fontSize: '1rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
                                             </div>
@@ -653,8 +672,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>{nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}</span>
                                 </div>
                                 <div style={{ display: 'grid', gap: '12px' }}>
-                                    {(nextExecutionHeat.laneResults ? JSON.parse(nextExecutionHeat.laneResults) : []).map((r: any) => {
-                                        const racer = racers[r.racer_id];
+                                    {(nextExecutionHeat.laneResults ? JSON.parse(nextExecutionHeat.laneResults) : []).map((r: LaneResult) => {
+                                        const racer = racers[r.racer_id || 0];
                                         return (
                                                                                         <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid #f5f5f5' }}>
                                                                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#999', width: '30px' }}>L{r.lane}</div>
@@ -689,7 +708,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                             
                                                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                                                 <div style={{ fontWeight: '600', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id)}
+                                                                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id || 0)}
                                                                                                 </div>
                                                                                                 {racer?.carNumber && (
                                                                                                     <div style={{ fontSize: '0.85rem', color: '#888' }}>Car #{racer.carNumber}</div>
@@ -830,10 +849,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             </tr>
                         </thead>
                         <tbody>
-                            {editingResults.map((r: any, idx: number) => (
+                            {editingResults.map((r, idx) => (
                                 <tr key={r.lane} style={{ borderBottom: '1px solid #eee' }}>
                                     <td style={{ padding: '8px' }}>{r.lane}</td>
-                                    <td style={{ padding: '8px' }}>{getRacerName(r.racer_id)}</td>
+                                    <td style={{ padding: '8px' }}>{getRacerName(r.racer_id || 0)}</td>
                                     <td style={{ padding: '8px' }}>
                                         <input
                                             type="number"

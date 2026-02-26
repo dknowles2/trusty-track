@@ -74,7 +74,8 @@ def test_advancement_restricted_to_round(db: Session):
         results = json.loads(heat.lane_results)
         for res in results:
             rid = res.get("racer_id")
-            if rid is None or rid < 0: continue
+            if rid is None or rid < 0:
+                continue
             idx = next(i for i, r in enumerate(racers) if r.id == rid)
             res["time"] = 0.1 if idx < 2 else (1.0 if idx < 4 else 2.0)
         crud.record_heat_result(db, heat.id, json.dumps(results))
@@ -92,10 +93,13 @@ def test_advancement_restricted_to_round(db: Session):
         results = json.loads(heat.lane_results)
         for res in results:
             rid = res.get("racer_id")
-            if rid is None or rid < 0: continue
+            if rid is None or rid < 0:
+                continue
             idx = next(i for i, r in enumerate(racers) if r.id == rid)
-            if idx < 2: res["time"] = 1.1
-            else: res["time"] = 0.8
+            if idx < 2:
+                res["time"] = 1.1
+            else:
+                res["time"] = 0.8
         crud.record_heat_result(db, heat.id, json.dumps(results))
 
     # 6. Check Advancement to Round 3

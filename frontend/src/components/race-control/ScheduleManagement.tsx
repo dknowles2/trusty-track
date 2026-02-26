@@ -38,7 +38,14 @@ interface ScheduleManagementProps {
   heats: Heat[];
   generating: boolean;
   activeHeatId: number | null;
-  onAddRound: (config: any) => Promise<void>;
+  onAddRound: (config: {
+    schedulingStrategy?: string;
+    name: string;
+    advancementSource?: string;
+    advancementNumRacers?: number;
+    runsPerLane?: number;
+    generalType?: string;
+  }) => Promise<void>;
   onRegenerateRound: (roundId: number, silent?: boolean) => Promise<void>;
   onDeleteRound: (roundId: number) => Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
@@ -65,7 +72,7 @@ interface SortableHeatRowProps {
   laneCount: number;
 }
 
-const getDisplayName = (id: number, getRacerName: (id: number) => string) => {
+const getDisplayName = (id: number | null, getRacerName: (id: number) => string) => {
   if (id === null) return "Empty";
   if (id < 0) return `Placeholder ${Math.abs(id)}`;
   return getRacerName(id);
@@ -81,11 +88,11 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   onDeleteHeat,
   laneCount
 }) => {
-  const laneResults = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-  const hasRecordedTimes = laneResults.length > 0 && laneResults.some((r: any) => r.time !== null && r.time !== '');
-  const isSkipped = laneResults.length > 0 && laneResults.some((r: any) => r.skipped);
+  const laneResults: { lane: number; racer_id: number | null; time: number | string | null; skipped?: boolean }[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
+  const hasRecordedTimes = laneResults.length > 0 && laneResults.some((r) => r.time !== null && r.time !== '');
+  const isSkipped = laneResults.length > 0 && laneResults.some((r) => r.skipped);
   const isCompleted = hasRecordedTimes || isSkipped;
-  const hasPlaceholders = laneResults.some((r: any) => r.racer_id !== null && r.racer_id < 0);
+  const hasPlaceholders = laneResults.some((r) => r.racer_id !== null && r.racer_id !== null && r.racer_id < 0);
 
   // Disable dragging if heat is running, reordering is in progress, or heat has results
   const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes;
@@ -141,7 +148,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
       </td>
       {Array.from({ length: laneCount }).map((_, i) => {
         const laneNum = i + 1;
-        const result = laneResults.find((r: any) => r.lane === laneNum);
+        const result = laneResults.find((r) => r.lane === laneNum);
         return (
           <td key={laneNum} style={{ padding: '8px 12px', borderLeft: '1px solid #f0f0f0' }}>
             {result ? (
@@ -249,8 +256,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   
   const firstUncompletedRoundId = sortedRoundIds.find(roundId => {
     return rounds[roundId].some(heat => {
-      const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-      return !(results.length > 0 && results.some((r: any) => r.time !== null));
+      const results: { time: number | string | null }[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
+      return !(results.length > 0 && results.some((r) => r.time !== null));
     });
   }) || (sortedRoundIds.length > 0 ? sortedRoundIds[sortedRoundIds.length - 1] : 0);
 
@@ -260,11 +267,18 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
       return roundHeats[0]?.roundName === 'All Pack' || roundHeats[0]?.roundNumber === 1;
   });
 
-  const handleAddRound = async (config: any) => {
+  const handleAddRound = async (config: {
+    schedulingStrategy?: string;
+    name: string;
+    advancementSource?: string;
+    advancementNumRacers?: number;
+    runsPerLane?: number;
+    generalType?: string;
+  }) => {
     await onAddRound(config);
   };
 
-  const handleDragOver = (event: DragEndEvent, _roundId: number) => {
+  const handleDragOver = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!over || active.id === over.id) {
@@ -338,9 +352,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           }
         }
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to reorder heats:', error);
-      showToast(error.message || 'Failed to reorder heats', 'error');
+      const e = error as { message?: string };
+      showToast(e.message || 'Failed to reorder heats', 'error');
       // Revert local state on error
       setLocalHeats(heats);
     } finally {
@@ -434,13 +449,13 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               const roundNum = roundHeats[0]?.roundNumber || 0;
               const isAnyStarted = roundHeats.some(h => {
                 if (!h.laneResults) return false;
-                const res = JSON.parse(h.laneResults);
-                return res.some((r: any) => r.time !== null);
+                const res: { time: number | string | null }[] = JSON.parse(h.laneResults);
+                return res.some((r) => r.time !== null);
               });
               
               const uncompletedHeats = roundHeats.filter(h => {
-                const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-                return !results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
+                const results: { time: number | string | null; skipped?: boolean }[] = h.laneResults ? JSON.parse(h.laneResults) : [];
+                return !results.some((r) => (r.time !== null && r.time !== '') || r.skipped);
               }).length;
               const totalHeats = roundHeats.length;
 

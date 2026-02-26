@@ -11,19 +11,25 @@ const DEN_COLORS = COMMON_COLORS;
 
 interface DenManagerProps {
     raceId: number;
-    onClose: () => void;
     onUpdate: () => void;
 }
 
-export default function DenManager({ raceId, onClose: _onClose, onUpdate }: DenManagerProps) {
+export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
     const { showAlert, showConfirm } = useAlert();
     
-    const [{ data, fetching: _fetching }, reexecuteQuery] = useQuery({
+    const [{ data }, reexecuteQuery] = useQuery({
         query: GET_RACE_DETAILS,
         variables: { raceId }
     });
 
-    const dens: Den[] = (data?.race?.dens || []).map((d: any) => ({
+    const dens: Den[] = (data?.race?.dens || []).map((d: {
+        id: number;
+        name: string;
+        color: string;
+        rank?: string;
+        carNumberRangeStart?: number;
+        carNumberRangeEnd?: number;
+    }) => ({
         id: d.id,
         name: d.name,
         color: d.color,

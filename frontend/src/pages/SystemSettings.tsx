@@ -62,7 +62,13 @@ export default function SystemConfig() {
         setIsEditing(true);
         setGroupName(savedGroupName || '');
         if (savedTracks && savedTracks.length > 0) {
-          setTracks(savedTracks.map((t: any) => ({
+          setTracks(savedTracks.map((t: {
+            name: string;
+            laneCount: number;
+            lengthFeet: number;
+            timerType: string;
+            serialPort?: string;
+          }) => ({
             name: t.name,
             laneCount: t.laneCount,
             lengthFeet: t.lengthFeet,
@@ -74,7 +80,7 @@ export default function SystemConfig() {
     }
   }, [data]);
 
-  const handleTrackChange = (index: number, field: string, value: any) => {
+  const handleTrackChange = (index: number, field: string, value: string | number) => {
     const newTracks = [...tracks];
     newTracks[index] = { ...newTracks[index], [field]: value };
     setTracks(newTracks);
@@ -136,8 +142,9 @@ export default function SystemConfig() {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'Failed to apply settings');
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setError(e.message || 'Failed to apply settings');
     } finally {
       setSubmitting(false);
     }

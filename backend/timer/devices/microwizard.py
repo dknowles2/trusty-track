@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import List, Optional
+from typing import List
 
 from .base import TimerDevice, TimerEvent, LaneResult, RaceStarted
 

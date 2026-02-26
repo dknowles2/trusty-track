@@ -13,17 +13,26 @@ interface SerialProxyContextType {
 
 const SerialProxyContext = createContext<SerialProxyContextType | undefined>(undefined);
 
+interface SerialPort {
+    readable: { getReader: () => { read: () => Promise<{ value: Uint8Array, done: boolean }>, releaseLock: () => void } };
+    writable: { getWriter: () => { write: (data: Uint8Array) => Promise<void>, releaseLock: () => void } };
+    open: (options: { baudRate: number }) => Promise<void>;
+    close: () => Promise<void>;
+}
+
 export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [status, setStatus] = useState<ConnectionStatus>('disconnected');
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [activeTrackId, setActiveTrackId] = useState<number | null>(null);
 
-    const portRef = useRef<any>(null);
+    // Using any for Web Serial API as it might not be in the default TS lib
+    // but defining a minimal interface would be better if we had one.
+    const portRef = useRef<SerialPort | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
 
     const isSupported = typeof navigator !== 'undefined' && 'serial' in navigator;
 
-    const startReading = useCallback(async (port: any, ws: WebSocket) => {
+    const startReading = useCallback(async (port: SerialPort, ws: WebSocket) => {
         while (port.readable && ws.readyState === WebSocket.OPEN) {
             const reader = port.readable.getReader();
             try {
@@ -37,7 +46,7 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                         data: btoa(String.fromCharCode(...value))
                     }));
                 }
-            } catch (err) {
+            } catch (err: unknown) {
                 console.error('Serial read error:', err);
                 break;
             } finally {
@@ -78,7 +87,7 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
             setActiveTrackId(trackId);
 
             // 1. Request port (shows browser dialog)
-            const port = await (navigator as any).serial.requestPort();
+            const port = await (navigator as unknown as { serial: { requestPort: () => Promise<SerialPort> } }).serial.requestPort();
 
             // 2. Open WebSocket
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -102,8 +111,9 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                         ws.send(JSON.stringify({ type: 'ready' }));
                         setStatus('connected');
                         startReading(port, ws);
-                    } catch (err: any) {
-                        setErrorMsg(`Port error: ${err.message}`);
+                    } catch (err: unknown) {
+                        const e = err as { message?: string };
+                        setErrorMsg(`Port error: ${e.message}`);
                         setStatus('error');
                         ws.close();
                     }
@@ -131,12 +141,13 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 setStatus('error');
             };
 
-        } catch (err: any) {
-            if (err.name === 'NotFoundError') {
+        } catch (err: unknown) {
+            const e = err as { name?: string, message?: string };
+            if (e.name === 'NotFoundError') {
                 setStatus('disconnected');
                 setActiveTrackId(null);
             } else {
-                setErrorMsg(err.message || 'Connection failed');
+                setErrorMsg(e.message || 'Connection failed');
                 setStatus('error');
             }
         }
@@ -157,6 +168,7 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSerialProxy = () => {
     const context = useContext(SerialProxyContext);
     if (context === undefined) {

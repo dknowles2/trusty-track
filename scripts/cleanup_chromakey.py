@@ -1,5 +1,5 @@
 import sys
-from PIL import Image, ImageOps
+from PIL import Image
 
 def cleanup_chromakey(input_path: str, output_path: str):
     """
