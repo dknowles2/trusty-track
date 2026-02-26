@@ -110,8 +110,9 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          uv pip install --system --break-system-packages -r backend/requirements.txt
-          uv pip install --system --break-system-packages pyinstaller
+          uv venv
+          uv pip install -r backend/requirements.txt
+          uv pip install pyinstaller
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -124,7 +125,7 @@ jobs:
         run: echo '__version__ = "${{ steps.version.outputs.version }}"' > backend/version.py
 
       - name: Build macOS app
-        run: bash packaging/build-mac.sh
+        run: uv run bash packaging/build-mac.sh
         env:
           APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -161,8 +162,9 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          uv pip install --system --break-system-packages -r backend/requirements.txt
-          uv pip install --system --break-system-packages pyinstaller
+          uv venv
+          uv pip install -r backend/requirements.txt
+          uv pip install pyinstaller
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
@@ -176,7 +178,7 @@ jobs:
         run: echo '__version__ = "${{ steps.version.outputs.version }}"' > backend/version.py
 
       - name: Build Windows installer
-        run: powershell -ExecutionPolicy Bypass -File packaging\build-windows.ps1
+        run: uv run powershell -ExecutionPolicy Bypass -File packaging\build-windows.ps1
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4

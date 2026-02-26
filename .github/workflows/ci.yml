@@ -21,10 +21,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: uv pip install --system --break-system-packages -r backend/requirements.txt
+        run: |
+          uv venv
+          uv pip install -r backend/requirements.txt
 
       - name: Run tests
-        run: pytest backend/ -v
+        run: uv run pytest backend/ -v
 
   frontend-test:
     name: Frontend Tests
