@@ -187,6 +187,8 @@ export default function RaceControl() {
 
   useEffect(() => {
       if (heats.length > 0) {
+          if (selectedHeatId !== null) return;
+
           const sorted = [...heats].sort((a, b) => {
             if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
             return a.heatNumber - b.heatNumber;
@@ -194,35 +196,13 @@ export default function RaceControl() {
           
           const firstUncompleted = sorted.find((h: Heat) => {
               const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-              return !(results.length > 0 && results.some((r: any) => r.time !== null));
+              return !results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
           });
 
-          const currentHeat = selectedHeatId !== null ? heats.find((h: Heat) => h.id === selectedHeatId) : null;
-          const isCurrentCompleted = currentHeat && (() => {
-              const results = currentHeat.laneResults ? JSON.parse(currentHeat.laneResults) : [];
-              return results.length > 0 && results.some((r: any) => r.time !== null);
-          })();
-
-          // Determine if we should update the selection
-          let shouldUpdate = false;
-          if (!currentHeat || isCurrentCompleted) {
-              shouldUpdate = true;
-          } else if (firstUncompleted && firstUncompleted.id !== selectedHeatId) {
-              // If we have an uncompleted heat earlier in the schedule than our selection,
-              // it usually means we reordered things and want to follow the new "next" heat.
-              const firstIdx = sorted.findIndex(h => h.id === firstUncompleted.id);
-              const selectedIdx = sorted.findIndex(h => h.id === selectedHeatId);
-              if (firstIdx < selectedIdx) {
-                  shouldUpdate = true;
-              }
-          }
-
-          if (shouldUpdate) {
-              if (firstUncompleted) {
-                  setSelectedHeatId(firstUncompleted.id);
-              } else if (sorted.length > 0 && !currentHeat) {
-                  setSelectedHeatId(sorted[sorted.length - 1].id);
-              }
+          if (firstUncompleted) {
+              setSelectedHeatId(firstUncompleted.id);
+          } else if (sorted.length > 0) {
+              setSelectedHeatId(sorted[sorted.length - 1].id);
           }
       } else if (selectedHeatId !== null) {
           setSelectedHeatId(null);
@@ -264,6 +244,7 @@ export default function RaceControl() {
       if (result.error) throw result.error;
       
       reExecute({ requestPolicy: 'network-only' });
+      setSelectedHeatId(null);
       if (!silent) {
         showToast("Schedule regenerated successfully.", "success");
       }
@@ -282,6 +263,7 @@ export default function RaceControl() {
       if (result.error) throw result.error;
       
       reExecute({ requestPolicy: 'network-only' });
+      setSelectedHeatId(null);
       showToast("Round deleted successfully.", "success");
     } catch (e: any) {
       console.error("Failed to delete round", e);
@@ -292,12 +274,13 @@ export default function RaceControl() {
   };
 
   const handleRunHeat = async (heat: Heat, shouldStart: boolean = true) => {
-    // Check if heat already has results
-    const hasResults = heat.laneResults && JSON.parse(heat.laneResults).some((r: {time: number | null}) => r.time !== null);
+    // Check if heat already has results or was skipped
+    const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
+    const hasResults = results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
     
     if (hasResults) {
         // Clear results locally first (Optimistic UI Update would be complex with urql, so we just clear on server)
-        const emptyResults = JSON.parse(heat.laneResults).map((r: {lane: number, racer_id: number, time: number | null, place: number | null}) => ({ ...r, time: null, place: null }));
+        const emptyResults = results.map((r: any) => ({ ...r, time: null, place: null, skipped: false }));
         
         try {
             const result = await updateHeatResultMutation({
@@ -358,13 +341,31 @@ export default function RaceControl() {
           if (!heat) return;
 
           const sortedResults = [...results] as {lane: number, racer_id: number, time: string | null, place: number | null}[];
-          sortedResults.sort((a, b) => {
-              const tA = parseFloat(a.time || '9999');
-              const tB = parseFloat(b.time || '9999');
-              return tA - tB;
-          });
           
-          sortedResults.forEach((r, idx) => r.place = idx + 1);
+          // Only assign places if at least one racer has a time
+          const hasAnyTime = sortedResults.some(r => r.time !== null && r.time !== '');
+          
+          if (hasAnyTime) {
+              sortedResults.sort((a, b) => {
+                  const tA = a.time ? parseFloat(a.time) : 9999;
+                  const tB = b.time ? parseFloat(b.time) : 9999;
+                  return tA - tB;
+              });
+              
+              sortedResults.forEach((r, idx) => {
+                  r.skipped = false; // Always clear skipped flag if we have times
+                  if (r.time !== null && r.time !== '') {
+                      r.place = idx + 1;
+                  } else {
+                      r.place = null;
+                  }
+              });
+          } else {
+              // If no times (e.g. Skip Heat), clear all places
+              sortedResults.forEach(r => {
+                  r.place = null;
+              });
+          }
 
           const result = await updateHeatResultMutation({
               heatId,
@@ -446,7 +447,7 @@ export default function RaceControl() {
       .filter((h: Heat) => {
         if (h.id === activeExecutionHeat?.id) return false;
         const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-        return results.length > 0 && results.some((r: any) => r.time !== null);
+        return results.length > 0 && results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
       })
       .sort((a: Heat, b: Heat) => {
         if (b.roundNumber !== a.roundNumber) return b.roundNumber - a.roundNumber;
@@ -470,7 +471,7 @@ export default function RaceControl() {
   const remainingHeatsInRound = useMemo(() => {
     return currentRoundHeats.filter((h: Heat) => {
       const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-      return !(results.length > 0 && results[0].time !== null);
+      return !results.some((r: any) => (r.time !== null && r.time !== '') || r.skipped);
     }).length;
   }, [currentRoundHeats]);
 

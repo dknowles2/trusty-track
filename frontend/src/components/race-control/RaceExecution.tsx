@@ -7,7 +7,7 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../../graphql/raceDetails';
 import RacerAvatar from '../RacerAvatar';
 import Icon from '@mdi/react';
-import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange } from '@mdi/js';
+import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
 
 export interface Heat {
     id: number;
@@ -106,7 +106,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [, forceResults] = useMutation(FORCE_RESULTS);
 
     const results = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
-    const isCompleted = results.length > 0 && results[0].time !== null;
+    const hasRecordedTimes = results.length > 0 && results.some((r: any) => r.time !== null && r.time !== '');
+    const isSkipped = results.length > 0 && results.some((r: any) => r.skipped);
+    const isCompleted = results.length > 0 && (hasRecordedTimes || isSkipped);
     const isRunning = timerState === 'RUNNING';
     const hasPlaceholders = results.some((r: any) => r.racer_id !== null && r.racer_id < 0);
 
@@ -139,7 +141,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     }, [roundSummary]);
 
     useEffect(() => {
-        if (!autoAdvanceHeat || !isCompleted || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen) || hasPlaceholders) {
+        // Only trigger auto-advance countdown if we have actual recorded times.
+        // For skipped heats, we advance immediately in the handler.
+        if (!autoAdvanceHeat || !hasRecordedTimes || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen) || hasPlaceholders) {
             setAutoAdvanceCountdown(null);
             if (autoAdvanceTimeoutRef.current) {
                 clearTimeout(autoAdvanceTimeoutRef.current);
@@ -168,7 +172,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isCompleted, autoAdvanceHeat, nextExecutionHeat?.id, roundSummary, isRoundSummaryOpen, hasPlaceholders]);
+    }, [hasRecordedTimes, autoAdvanceHeat, nextExecutionHeat?.id, roundSummary, isRoundSummaryOpen, hasPlaceholders]);
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -232,14 +236,26 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const handleSkipHeat = async () => {
         if (window.confirm("Are you sure you want to skip this heat? No results will be recorded.")) {
+            // Clear auto-advance timeout if it's running
+            if (autoAdvanceTimeoutRef.current) {
+                clearTimeout(autoAdvanceTimeoutRef.current);
+                autoAdvanceTimeoutRef.current = null;
+            }
+            setAutoAdvanceCountdown(null);
+
+            const currentHeatId = activeExecutionHeat.id;
             const skippedResults = results.map((r: any) => ({
                 ...r,
                 time: null,
-                place: null
+                place: null,
+                skipped: true
             }));
-            await onUpdateResult(activeExecutionHeat.id, skippedResults);
-            if (trackId) await abortHeat({ trackId });
+
+            // Move UI forward IMMEDIATELY to prevent "flash back" race conditions
             onNextHeat();
+
+            await onUpdateResult(currentHeatId, skippedResults);
+            if (trackId) await abortHeat({ trackId });
         }
     };
 
@@ -495,7 +511,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                 height: '36px'
                                             }}
                                         >
-                                            <Icon path={mdiRefresh} size={0.7} /> Re-Run
+                                            <Icon path={isSkipped && !hasRecordedTimes ? mdiPlay : mdiRefresh} size={0.7} /> {isSkipped && !hasRecordedTimes ? 'Run' : 'Re-Run'}
                                         </button>
                                     </>
                                 ) : isRunning ? (
