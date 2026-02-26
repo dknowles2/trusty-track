@@ -523,6 +523,55 @@ def delete_round(db: Session, round_id: int) -> bool:
     return False
 
 
+def delete_heat(db: Session, heat_id: int) -> bool:
+    """Delete a heat. Only if it hasn't been run."""
+    heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    if heat:
+        if heat.lane_results:
+            import json
+
+            try:
+                results = json.loads(heat.lane_results)
+                if any(r.get("time") is not None for r in results):
+                    raise ValueError("Cannot delete heat: it has results.")
+            except json.JSONDecodeError:
+                pass
+
+        round_id = heat.round_id
+        db.delete(heat)
+        db.flush()
+
+        # Renumber remaining heats in the same round
+        remaining_heats = (
+            db.query(models.Heat)
+            .filter(models.Heat.round_id == round_id)
+            .order_by(models.Heat.heat_number)
+            .all()
+        )
+        for i, h in enumerate(remaining_heats):
+            h.heat_number = i + 1
+
+        db.commit()
+        return True
+    return False
+
+
+def delete_free_race_heat(db: Session, heat_id: int) -> bool:
+    """Delete a free race heat. Only if it hasn't been run."""
+    heat = (
+        db.query(models.FreeRaceHeat)
+        .filter(models.FreeRaceHeat.id == heat_id)
+        .first()
+    )
+    if heat:
+        if heat.lane_results:
+            raise ValueError("Cannot delete free race heat: it has results.")
+        db.delete(heat)
+        db.commit()
+        return True
+    return False
+
+
 def _generate_ppc(
     db: Session,
     race_id: int,

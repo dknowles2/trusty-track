@@ -9,6 +9,7 @@ import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiCloseOctagon, mdi
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../RacerAvatar';
 import { TimerStatusBadge } from './TimerStatusBadge';
+import { useAlert } from '../../context/AlertContext';
 
 const RESET_TIMER = `
   mutation ResetTimer($trackId: Int!) {
@@ -49,6 +50,12 @@ const RECORD_FREE_RACE_RESULT = `
   }
 `;
 
+const DELETE_FREE_RACE_HEAT = `
+  mutation DeleteFreeRaceHeat($heatId: Int!) {
+    deleteFreeRaceHeat(heatId: $heatId)
+  }
+`;
+
 export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   heatId,
   laneAssignments,
@@ -57,12 +64,14 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   trackId,
   onRunAnother,
 }) => {
+  const { showConfirm } = useAlert();
   const [results, setResults] = useState<LaneResult[] | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
 
   const [, recordResult] = useMutation(RECORD_FREE_RACE_RESULT);
+  const [, deleteFreeRaceHeat] = useMutation(DELETE_FREE_RACE_HEAT);
   const [, resetTimer] = useMutation(RESET_TIMER);
   const [, prepareHeat] = useMutation(`
     mutation PrepareHeat($heatId: Int!) {
@@ -171,17 +180,14 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   };
 
   const handleSkipHeat = async () => {
-    if (window.confirm("Are you sure you want to skip this heat? No results will be recorded.")) {
-      const skippedResults = laneAssignments.map((a) => ({
-        lane: a.lane,
-        racer_id: a.racerId,
-        time: null,
-        place: null,
-      }));
-      await recordResult({
-        heatId,
-        results: JSON.stringify(skippedResults),
-      });
+    const confirmed = await showConfirm(
+      "Are you sure you want to skip this heat? It will be deleted and no results will be recorded.",
+      "Skip Heat",
+      "Skip & Delete",
+      "danger"
+    );
+    if (confirmed) {
+      await deleteFreeRaceHeat({ heatId });
       if (trackId) await resetTimer({ trackId });
       onRunAnother();
     }

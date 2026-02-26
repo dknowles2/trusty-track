@@ -69,6 +69,12 @@ const DELETE_ROUND_MUTATION = `
   }
 `;
 
+const DELETE_HEAT_MUTATION = `
+  mutation DeleteHeat($heatId: Int!) {
+    deleteHeat(heatId: $heatId)
+  }
+`;
+
 const REORDER_HEATS_MUTATION = `
   mutation ReorderHeats($heatUpdates: [HeatReorderItemInput!]!) {
     reorderHeats(heatUpdates: $heatUpdates) {
@@ -134,7 +140,7 @@ interface AdvancementStatus {
 }
 
 export default function RaceControl() {
-  const { showAlert, showToast } = useAlert();
+  const { showAlert, showConfirm, showToast } = useAlert();
   const { raceId } = useParams<{ raceId: string }>();
   const navigate = useNavigate();
   const id = parseInt(raceId || '0');
@@ -160,6 +166,7 @@ export default function RaceControl() {
   const [, createRoundMutation] = useMutation(CREATE_ROUND_MUTATION);
   const [, regenerateRoundMutation] = useMutation(REGENERATE_ROUND_MUTATION);
   const [, deleteRoundMutation] = useMutation(DELETE_ROUND_MUTATION);
+  const [, deleteHeatMutation] = useMutation(DELETE_HEAT_MUTATION);
   const [, reorderHeatsMutation] = useMutation(REORDER_HEATS_MUTATION);
   const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
   const [, updateRaceMutation] = useMutation(UPDATE_RACE_MUTATION);
@@ -273,6 +280,33 @@ export default function RaceControl() {
     }
   };
 
+  const handleDeleteHeat = async (heatId: number) => {
+    const confirmed = await showConfirm(
+      "Are you sure you want to delete this heat?",
+      "Delete Heat",
+      "Delete",
+      "danger"
+    );
+    if (!confirmed) return;
+
+    try {
+      setGenerating(true);
+      const result = await deleteHeatMutation({ heatId });
+      if (result.error) throw result.error;
+      
+      reExecute({ requestPolicy: 'network-only' });
+      if (selectedHeatId === heatId) {
+        setSelectedHeatId(null);
+      }
+      showToast("Heat deleted successfully.", "success");
+    } catch (e: any) {
+      console.error("Failed to delete heat", e);
+      showAlert(e.message || "Failed to delete the heat.", "Error");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const handleRunHeat = async (heat: Heat, shouldStart: boolean = true) => {
     // Check if heat already has results or was skipped
     const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
@@ -340,7 +374,7 @@ export default function RaceControl() {
           const heat = heats.find((h: Heat) => h.id === heatId);
           if (!heat) return;
 
-          const sortedResults = [...results] as {lane: number, racer_id: number, time: string | null, place: number | null}[];
+          const sortedResults = [...results] as {lane: number, racer_id: number, time: string | null, place: number | null, skipped?: boolean}[];
           
           // Only assign places if at least one racer has a time
           const hasAnyTime = sortedResults.some(r => r.time !== null && r.time !== '');
@@ -666,6 +700,7 @@ export default function RaceControl() {
           onAddRound={handleAddRound}
           onRegenerateRound={handleRegenerateRound}
           onDeleteRound={handleDeleteRound}
+          onDeleteHeat={handleDeleteHeat}
           onRefetchHeats={async () => { reExecute({ requestPolicy: 'network-only' }); }}
           onRunHeat={handleRunHeat}
           onReorderHeats={handleReorderHeats}

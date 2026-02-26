@@ -40,6 +40,7 @@ interface ScheduleManagementProps {
   onAddRound: (config: any) => Promise<void>;
   onRegenerateRound: (roundId: number, silent?: boolean) => Promise<void>;
   onDeleteRound: (roundId: number) => Promise<void>;
+  onDeleteHeat: (heatId: number) => Promise<void>;
   onRefetchHeats: () => Promise<void>;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   onReorderHeats: (updates: { heat_id: number, new_heat_number: number }[]) => Promise<void>;
@@ -59,6 +60,7 @@ interface SortableHeatRowProps {
   isUpcoming: boolean;
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
+  onDeleteHeat: (heatId: number) => Promise<void>;
   laneCount: number;
 }
 
@@ -75,6 +77,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   isUpcoming,
   getRacerName,
   onRunHeat,
+  onDeleteHeat,
   laneCount
 }) => {
   const laneResults = heat.laneResults ? JSON.parse(heat.laneResults) : [];
@@ -150,15 +153,36 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
         );
       })}
       <td style={{ padding: '12px', textAlign: 'right', width: '120px' }}>
-        <button
-          className="primary-btn"
-          onClick={() => onRunHeat(heat, !isCompleted)}
-          disabled={isRunDisabled}
-          title={runBtnTitle}
-          style={{ padding: '4px 12px', fontSize: '0.8rem', minWidth: '70px' }}
-        >
-          {isRunning ? '...' : isCompleted ? 'Re-Run' : 'Run'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+          {!isCompleted && !isRunning && (
+            <button
+              onClick={() => onDeleteHeat(heat.id)}
+              className="icon-btn-delete"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#d32f2f',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                opacity: 0.7
+              }}
+              title="Delete Heat"
+            >
+              <Icon path={mdiDelete} size={0.7} />
+            </button>
+          )}
+          <button
+            className="primary-btn"
+            onClick={() => onRunHeat(heat, !isCompleted)}
+            disabled={isRunDisabled}
+            title={runBtnTitle}
+            style={{ padding: '4px 12px', fontSize: '0.8rem', minWidth: '70px' }}
+          >
+            {isRunning ? '...' : isCompleted ? 'Re-Run' : 'Run'}
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -172,6 +196,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onAddRound,
   onRegenerateRound,
   onDeleteRound,
+  onDeleteHeat,
   onRefetchHeats,
   onRunHeat,
   onReorderHeats,
@@ -232,7 +257,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     await onAddRound(config);
   };
 
-  const handleDragOver = (event: DragEndEvent, roundId: number) => {
+  const handleDragOver = (event: DragEndEvent, _roundId: number) => {
     const { active, over } = event;
 
     if (!over || active.id === over.id) {
@@ -512,6 +537,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 isUpcoming={roundId > firstUncompletedRoundId}
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
+                                onDeleteHeat={onDeleteHeat}
                                 laneCount={laneCount}
                               />
                             ))}

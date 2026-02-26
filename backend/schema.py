@@ -1431,6 +1431,38 @@ class Mutation:
         return result
 
     @strawberry.mutation
+    async def delete_heat(self, info: Info, heat_id: int) -> bool:
+        """Delete a single heat."""
+        db = info.context["db"]
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        race_id = heat.race_id if heat else None
+        try:
+            result = crud.delete_heat(db, heat_id)
+        except ValueError:
+            return False
+        if race_id:
+            await _publish_race_state(race_id)
+        return result
+
+    @strawberry.mutation
+    async def delete_free_race_heat(self, info: Info, heat_id: int) -> bool:
+        """Delete a single free race heat."""
+        db = info.context["db"]
+        heat = (
+            db.query(models.FreeRaceHeat)
+            .filter(models.FreeRaceHeat.id == heat_id)
+            .first()
+        )
+        race_id = heat.race_id if heat else None
+        try:
+            result = crud.delete_free_race_heat(db, heat_id)
+        except ValueError:
+            return False
+        if race_id:
+            await _publish_race_state(race_id)
+        return result
+
+    @strawberry.mutation
     async def advance_round(self, info: Info, race_id: int, round_id: int) -> int:
         """Advance racers to a round."""
         db = info.context["db"]
