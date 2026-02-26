@@ -8,7 +8,6 @@ export default defineConfig(({ mode }) => {
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, process.cwd(), '');
   const isHttps = env.HTTPS_SERVER === 'true';
-  const isSecure = env.VITE_BACKEND_SECURE !== 'false';
 
 
   return {
@@ -41,20 +40,30 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: env.VITE_BACKEND_URL || 'http://localhost:8005',
           changeOrigin: true,
-          secure: isSecure,
+          secure: env.VITE_BACKEND_SECURE === 'true',
           ws: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+        '/graphql': {
+          target: env.VITE_BACKEND_URL || 'http://localhost:8005',
+          changeOrigin: true,
+          secure: env.VITE_BACKEND_SECURE === 'true',
         },
         '/ws': {
           target: env.VITE_BACKEND_URL || 'http://localhost:8005',
           changeOrigin: true,
-          secure: isSecure,
+          secure: env.VITE_BACKEND_SECURE === 'true',
           ws: true,
         },
         '/static': {
           target: env.VITE_BACKEND_URL || 'http://localhost:8005',
           changeOrigin: true,
-          secure: isSecure,
+          secure: env.VITE_BACKEND_SECURE === 'true',
+        },
+        '/upload': {
+          target: env.VITE_BACKEND_URL || 'http://localhost:8005',
+          changeOrigin: true,
+          secure: env.VITE_BACKEND_SECURE === 'true',
         }
       },
     },

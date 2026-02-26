@@ -29,7 +29,7 @@ export VITE_BACKEND_URL=https://localhost:8005
 
 # Start Backend (HTTPS :8005)
 echo "Starting Backend (HTTPS :8005)..."
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8005 --ssl-keyfile "$KEY_FILE" --ssl-certfile "$CERT_FILE" &
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8005 --ssl-keyfile "$KEY_FILE" --ssl-certfile "$CERT_FILE" > backend.log 2>&1 &
 BACKEND_PID=$!
 
 
