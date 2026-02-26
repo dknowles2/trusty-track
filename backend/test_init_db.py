@@ -3,10 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import inspect
 from pathlib import Path
 
-# Mock DATA_DIR for testing to avoid touching user's real DB
-os.environ["TRUSTYTRACK_DATA_DIR"] = "/tmp/trustytrack_test"
-
-# Import app after setting env var
+# Import app after env var is set in conftest.py
 from backend.main import app
 from backend.database import engine
 

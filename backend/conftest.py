@@ -1,4 +1,9 @@
+import os
 import pytest
+
+# Set this before importing any backend modules to ensure they use the test directory
+os.environ["TRUSTYTRACK_DATA_DIR"] = "/tmp/trustytrack_test"
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
