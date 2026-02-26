@@ -4,6 +4,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useMutation, useSubscription } from 'urql';
 import { FreeRaceExecution } from './FreeRaceExecution';
 
+vi.mock('../../context/AlertContext', () => ({
+  useAlert: () => ({
+    showAlert: vi.fn(),
+    showConfirm: vi.fn(),
+    showToast: vi.fn(),
+  }),
+}));
+
 vi.mock('urql', async (importOriginal) => {
   const actual = await importOriginal<typeof import('urql')>();
   return {

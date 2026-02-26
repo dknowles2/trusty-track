@@ -81,12 +81,13 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   laneCount
 }) => {
   const laneResults = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-  const hasResults = laneResults.length > 0 && laneResults.some((r: any) => r.time !== null);
-  const isCompleted = hasResults;
+  const hasRecordedTimes = laneResults.length > 0 && laneResults.some((r: any) => r.time !== null && r.time !== '');
+  const isSkipped = laneResults.length > 0 && laneResults.some((r: any) => r.skipped);
+  const isCompleted = hasRecordedTimes || isSkipped;
   const hasPlaceholders = laneResults.some((r: any) => r.racer_id !== null && r.racer_id < 0);
 
   // Disable dragging if heat is running, reordering is in progress, or heat has results
-  const isDraggingDisabled = isRunning || isReordering || hasResults;
+  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes;
 
   const {
     attributes,
@@ -105,7 +106,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
     transition,
     opacity: isDragging ? 0.5 : 1,
     background: isDragging ? '#f5f5f5' : 'white',
-    borderLeft: isRunning ? '5px solid orange' : isCompleted ? '5px solid green' : '5px solid transparent',
+    borderLeft: isRunning ? '5px solid orange' : (isSkipped && !hasRecordedTimes) ? '5px solid #f44336' : isCompleted ? '5px solid green' : '5px solid transparent',
   };
 
   const isRunDisabled = isRunning || hasPlaceholders || isUpcoming;
@@ -127,11 +128,16 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
           width: '40px',
           opacity: isDraggingDisabled ? 0.4 : 1,
         }}
-        title={hasResults ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
+        title={hasRecordedTimes ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
       >
         <Icon path={mdiDragVertical} size={0.8} color="#999" />
       </td>
-      <td style={{ padding: '12px', fontWeight: 'bold', width: '80px' }}>Heat {heat.globalHeatNumber ?? heat.heatNumber}</td>
+      <td style={{ padding: '12px', fontWeight: 'bold', width: '80px' }}>
+        Heat {heat.globalHeatNumber ?? heat.heatNumber}
+        {isSkipped && !hasRecordedTimes && (
+          <div style={{ color: '#c62828', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold' }}>Skipped</div>
+        )}
+      </td>
       {Array.from({ length: laneCount }).map((_, i) => {
         const laneNum = i + 1;
         const result = laneResults.find((r: any) => r.lane === laneNum);
@@ -180,7 +186,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
             title={runBtnTitle}
             style={{ padding: '4px 12px', fontSize: '0.8rem', minWidth: '70px' }}
           >
-            {isRunning ? '...' : isCompleted ? 'Re-Run' : 'Run'}
+            {isRunning ? '...' : (isSkipped && !hasRecordedTimes) ? 'Run' : isCompleted ? 'Re-Run' : 'Run'}
           </button>
         </div>
       </td>

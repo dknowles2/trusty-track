@@ -8,7 +8,7 @@ import { ScheduleManagement } from '../components/race-control/ScheduleManagemen
 import { RaceExecution } from '../components/race-control/RaceExecution';
 import { FreeRaceTab } from '../components/race-control/FreeRaceTab';
 import Icon from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
 
 const GET_RACE_CONTROL_DATA = `
   query GetRaceControlData($id: Int!) {
@@ -649,6 +649,8 @@ export default function RaceControl() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {completedPreviousHeats.map((heat: Heat) => {
                     const heatResults: any[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
+                    const isSkipped = heatResults.some((r: any) => r.skipped);
+                    const hasTimes = heatResults.some((r: any) => r.time !== null && r.time !== '');
                     const sorted = [...heatResults].sort((a, b) => (a.place ?? 99) - (b.place ?? 99));
                     return (
                       <div key={heat.id} style={{
@@ -656,11 +658,36 @@ export default function RaceControl() {
                         borderRadius: '12px',
                         padding: '14px 20px',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                        borderLeft: '4px solid #4caf50'
+                        borderLeft: isSkipped && !hasTimes ? '4px solid #f44336' : '4px solid #4caf50'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-                          <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.globalHeatNumber ?? heat.heatNumber}</span>
-                          <span style={{ color: '#888', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.globalHeatNumber ?? heat.heatNumber}</span>
+                            {isSkipped && !hasTimes && (
+                                <span style={{ background: '#ffebee', color: '#c62828', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Skipped</span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ color: '#888', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
+                            <button 
+                                onClick={() => handleRunHeat(heat)}
+                                style={{
+                                    padding: '4px 10px',
+                                    fontSize: '0.8rem',
+                                    background: isSkipped && !hasTimes ? 'var(--cub-scouting-gold)' : '#f5f5f5',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                <Icon path={isSkipped && !hasTimes ? mdiPlay : mdiRefresh} size={0.6} />
+                                {isSkipped && !hasTimes ? 'Run' : 'Re-Run'}
+                            </button>
+                          </div>
                         </div>
                         <div style={{ display: 'grid', gap: '2px' }}>
                           {sorted.map((r: any) => (

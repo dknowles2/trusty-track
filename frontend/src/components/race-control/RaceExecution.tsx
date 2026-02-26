@@ -127,14 +127,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         });
     }
 
-    // Auto-prepare heat when a new heatId is provided
+    // Auto-prepare heat when a new heatId is provided or results cleared
     useEffect(() => {
         if (timerState === 'IDLE' && !isCompleted && !hasPlaceholders && activeExecutionHeat?.id) {
             prepareHeat({ heatId: activeExecutionHeat.id });
         }
-        // Only run when heatId changes or on mount.
-        // Do NOT depend on timerState or isCompleted to avoid re-prepare loops.
-    }, [activeExecutionHeat?.id, hasPlaceholders]);
+        // Only run when heatId changes, on mount, or when results are cleared (re-run/un-skip)
+    }, [activeExecutionHeat?.id, hasPlaceholders, isCompleted]);
 
     useEffect(() => {
         setIsRoundSummaryOpen(!!roundSummary);
