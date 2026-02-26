@@ -11,16 +11,19 @@ RUN npm run build
 
 
 # Stage 2 — Runtime image
-FROM python:3.11-slim AS runtime
+FROM python:3.12-slim AS runtime
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Create a non-root user
 RUN useradd --system --create-home --home-dir /home/trustytrack --shell /usr/sbin/nologin trustytrack
 
 WORKDIR /app/backend
 
-# Install Python dependencies
+# Install Python dependencies using uv
 COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy backend source
 COPY backend/ ./

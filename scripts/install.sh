@@ -8,15 +8,17 @@ cd "$(dirname "$0")/.."
 echo "### Checking Prerequisites..."
 
 # Check Python version
-if ! command -v python3 &> /dev/null; then
+if command -v uv &> /dev/null; then
+    echo "uv found, skipping system Python version check as uv will manage it."
+elif ! command -v python3 &> /dev/null; then
     echo "Error: python3 is not installed."
     exit 1
-fi
-
-PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-if (( $(echo "$PYTHON_VERSION < 3.10" | bc -l) )); then
-    echo "Error: Trusty Track requires Python 3.10 or higher. Found $PYTHON_VERSION"
-    exit 1
+else
+    PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+    if (( $(echo "$PYTHON_VERSION < 3.10" | bc -l) )); then
+        echo "Error: Trusty Track requires Python 3.10 or higher. Found $PYTHON_VERSION"
+        exit 1
+    fi
 fi
 
 # Check Node.js version
@@ -32,9 +34,17 @@ if [ "$NODE_VERSION" -lt 18 ]; then
 fi
 
 echo "### Setting up Backend..."
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r backend/requirements.txt
+if command -v uv &> /dev/null; then
+    echo "Using uv for faster installation..."
+    uv venv --python 3.12
+    source .venv/bin/activate
+    uv pip install -r backend/requirements.txt
+else
+    echo "uv not found, using standard venv..."
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install -r backend/requirements.txt
+fi
 
 echo "### Setting up Frontend..."
 cd frontend

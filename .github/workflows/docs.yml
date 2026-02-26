@@ -19,12 +19,16 @@ jobs:
         with:
           fetch-depth: 0      # full history for git-dates plugin (optional)
 
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.12'
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
 
       - name: Install MkDocs
-        run: pip install mkdocs-material
+        run: uv pip install mkdocs-material
 
       - name: Build and deploy
-        run: mkdocs gh-deploy --force
+        run: uv run mkdocs gh-deploy --force

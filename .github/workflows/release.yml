@@ -95,10 +95,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.11"
-          cache: pip
+          enable-cache: true
+          cache-dependency-glob: "backend/requirements.txt"
+
+      - name: Set up Python
+        run: uv python install 3.12
 
       - uses: actions/setup-node@v4
         with:
@@ -108,8 +112,8 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          pip install -r backend/requirements.txt
-          pip install pyinstaller
+          uv pip install -r backend/requirements.txt
+          uv pip install pyinstaller
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -144,10 +148,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.11"
-          cache: pip
+          enable-cache: true
+          cache-dependency-glob: "backend/requirements.txt"
+
+      - name: Set up Python
+        run: uv python install 3.12
 
       - uses: actions/setup-node@v4
         with:
@@ -157,8 +165,8 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          pip install -r backend/requirements.txt
-          pip install pyinstaller
+          uv pip install -r backend/requirements.txt
+          uv pip install pyinstaller
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
