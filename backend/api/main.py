@@ -14,6 +14,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict
 
+from dotenv import load_dotenv
 from fastapi import (
     Depends,
     FastAPI,
@@ -30,6 +31,9 @@ from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
 import pillow_heif
+
+# Load environment variables from .env if present
+load_dotenv()
 
 from backend.db import models
 from backend.db.database import SessionLocal, UPLOAD_DIR, engine
