@@ -192,10 +192,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   }, [heats]);
 
   const rounds = localHeats.reduce((acc, heat) => {
-    if (!acc[heat.roundNumber]) {
-      acc[heat.roundNumber] = [];
+    if (!acc[heat.roundId]) {
+      acc[heat.roundId] = [];
     }
-    acc[heat.roundNumber].push(heat);
+    acc[heat.roundId].push(heat);
     return acc;
   }, {} as Record<number, Heat[]>);
 
@@ -209,33 +209,49 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     })
   );
 
-  const sortedRounds = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+  // Get unique round IDs in order of their round numbers
+  const sortedRoundIds = Object.keys(rounds)
+    .map(Number)
+    .sort((a, b) => (rounds[a][0]?.roundNumber || 0) - (rounds[b][0]?.roundNumber || 0));
   
-  const firstUncompletedRoundNumber = sortedRounds.find(roundNum => {
-    return rounds[roundNum].some(heat => {
+  const firstUncompletedRoundId = sortedRoundIds.find(roundId => {
+    return rounds[roundId].some(heat => {
       const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
       return !(results.length > 0 && results.some((r: any) => r.time !== null));
     });
-  }) || (sortedRounds.length > 0 ? sortedRounds[sortedRounds.length - 1] : 1);
+  }) || (sortedRoundIds.length > 0 ? sortedRoundIds[sortedRoundIds.length - 1] : 0);
 
   const hasGeneralRound = Object.values(rounds).some(roundHeats => {
       // In GraphQL we might need a better way to identify general rounds
       // but if roundNumber is small or name is 'All Pack'
-      return roundHeats[0].roundName === 'All Pack' || roundHeats[0].roundNumber === 1;
+      return roundHeats[0]?.roundName === 'All Pack' || roundHeats[0]?.roundNumber === 1;
   });
 
   const handleAddRound = async (config: any) => {
     await onAddRound(config);
   };
 
-  const handleDragOver = (event: DragEndEvent, roundNum: number) => {
+  const handleDragOver = (event: DragEndEvent, roundId: number) => {
     const { active, over } = event;
 
     if (!over || active.id === over.id) {
       return;
     }
 
-    const roundHeats = rounds[roundNum].sort((a, b) => a.heatNumber - b.heatNumber);
+    // We don't strictly need to update state in handleDragOver for single-list sorting
+    // as SortableContext handles the visual part. But if we wanted to, we would
+    // just swap IDs in a list. Since we're using heatNumber for sorting,
+    // let's try to only update on drag end to keep it stable.
+  };
+
+  const handleDragEnd = async (event: DragEndEvent, roundId: number) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const roundHeats = [...(rounds[roundId] || [])].sort((a, b) => a.heatNumber - b.heatNumber);
     const oldIndex = roundHeats.findIndex(h => h.id === active.id);
     const newIndex = roundHeats.findIndex(h => h.id === over.id);
 
@@ -249,7 +265,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
       new_heat_number: index + 1,
     }));
 
-    // Optimistically update local state during drag
+    // Optimistically update local state
     const optimisticHeats = localHeats.map(h => {
         const update = newHeatUpdates.find(u => u.heat_id === h.id);
         if (update) {
@@ -258,32 +274,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
         return h;
     });
     setLocalHeats(optimisticHeats);
-  };
 
-  const handleDragEnd = async (event: DragEndEvent, roundNum: number) => {
-    const { active, over } = event;
-
-    if (!over || active.id === over.id) {
-      return;
-    }
-
-    const roundHeats = rounds[roundNum].sort((a, b) => a.heatNumber - b.heatNumber);
-    const oldIndex = roundHeats.findIndex(h => h.id === active.id);
-    const newIndex = roundHeats.findIndex(h => h.id === over.id);
-
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
-    }
-
-    // Store original order for undo
+    // Prepare original order for undo
     const originalHeatUpdates = roundHeats.map((heat, index) => ({
-      heat_id: heat.id,
-      new_heat_number: index + 1,
-    }));
-
-    // Re-calculate updates for the final position (already handled by dragOver mostly, but we need the final list for the mutation)
-    const reorderedHeats = arrayMove(roundHeats, oldIndex, newIndex);
-    const newHeatUpdates = reorderedHeats.map((heat, index) => ({
       heat_id: heat.id,
       new_heat_number: index + 1,
     }));
@@ -307,6 +300,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     } catch (error: any) {
       console.error('Failed to reorder heats:', error);
       showToast(error.message || 'Failed to reorder heats', 'error');
+      // Revert local state on error
       setLocalHeats(heats);
     } finally {
       setReordering(false);
@@ -316,11 +310,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       <div style={{ width: '100%', maxWidth: '1200px' }}>
-        <div style={{ display: 'flex', justifyContent: sortedRounds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '20px' }}>
-          {sortedRounds.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: sortedRoundIds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '20px' }}>
+          {sortedRoundIds.length > 0 && (
             <div style={{ flex: 1 }}>
               <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#333' }}>
-                {sortedRounds.length} Round{sortedRounds.length > 1 ? 's' : ''} Scheduled
+                {sortedRoundIds.length} Round{sortedRoundIds.length > 1 ? 's' : ''} Scheduled
               </span>
             </div>
           )}
@@ -328,7 +322,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
-                disabled={generating || reordering || sortedRounds.some(r => (rounds[r][0]?.roundName || '').toLowerCase().includes('final'))}
+                disabled={generating || reordering || sortedRoundIds.some(r => (rounds[r][0]?.roundName || '').toLowerCase().includes('final'))}
                 style={{ 
                   boxShadow: '0 2px 5px rgba(0,0,0,0.1)', 
                   whiteSpace: 'nowrap', 
@@ -365,7 +359,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           hasGeneralRound={hasGeneralRound}
         />
 
-        {sortedRounds.length === 0 ? (
+        {sortedRoundIds.length === 0 ? (
           <div style={{
             textAlign: 'center',
             padding: '60px 40px',
@@ -394,9 +388,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             gap: '40px',
             paddingBottom: '40px',
           }}>
-            {sortedRounds.map(roundNum => {
-              const roundHeats = (rounds[roundNum] || []).sort((a, b) => a.heatNumber - b.heatNumber);
-              const roundId = roundHeats[0]?.roundId;
+            {sortedRoundIds.map(roundId => {
+              const roundHeats = [...(rounds[roundId] || [])].sort((a, b) => a.heatNumber - b.heatNumber);
+              const roundNum = roundHeats[0]?.roundNumber || 0;
               const isAnyStarted = roundHeats.some(h => {
                 if (!h.laneResults) return false;
                 const res = JSON.parse(h.laneResults);
@@ -404,7 +398,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
               });
 
               return (
-                <div key={roundNum} style={{
+                <div key={roundId} style={{
                   background: 'white',
                   borderRadius: '12px',
                   padding: '20px',
@@ -431,7 +425,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     </h2>
 
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      {!isAnyStarted && roundId && (
+                      {!isAnyStarted && (
                         <button
                           onClick={() => onRegenerateRound(roundId)}
                           className="secondary-btn"
@@ -448,16 +442,16 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           <Icon path={mdiCached} size={0.7} /> Regenerate
                         </button>
                       )}
-                      {roundId && (
+                      {(
                         <button
                           onClick={() => onDeleteRound(roundId)}
                           className="secondary-btn"
-                          disabled={generating || reordering || isAnyStarted || roundNum < Math.max(...sortedRounds)}
+                          disabled={generating || reordering || isAnyStarted || roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))}
                           aria-label={`Delete ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           title={
                               isAnyStarted 
                                 ? "Cannot delete round: it has heats with results" 
-                                : roundNum < Math.max(...sortedRounds)
+                                : roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))
                                   ? "Cannot delete general round: championship rounds are already scheduled"
                                   : undefined
                           }
@@ -481,8 +475,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     <DndContext
                       sensors={sensors}
                       collisionDetection={closestCenter}
-                      onDragOver={(event) => handleDragOver(event, roundNum)}
-                      onDragEnd={(event) => handleDragEnd(event, roundNum)}
+                      onDragOver={(event) => handleDragOver(event, roundId)}
+                      onDragEnd={(event) => handleDragEnd(event, roundId)}
                     >
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
@@ -506,7 +500,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 heat={heat}
                                 isRunning={activeHeatId === heat.id}
                                 isReordering={reordering}
-                                isUpcoming={roundNum > firstUncompletedRoundNumber}
+                                isUpcoming={roundId > firstUncompletedRoundId}
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
                                 laneCount={laneCount}

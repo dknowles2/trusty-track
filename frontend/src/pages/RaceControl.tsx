@@ -187,16 +187,16 @@ export default function RaceControl() {
   useEffect(() => {
       if (heats.length > 0) {
           const sorted = [...heats].sort((a, b) => {
-            if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
+            if (a.roundId !== b.roundId) return a.roundId - b.roundId;
             return a.heatNumber - b.heatNumber;
           });
           
           const currentHeatExists = selectedHeatId !== null && heats.some((h: Heat) => h.id === selectedHeatId);
 
-          if (!currentHeatExists) {
+          if (!currentHeatExists || selectedHeatId === null) {
               const firstUncompleted = sorted.find((h: Heat) => {
                   const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-                  return !(results.length > 0 && results[0].time !== null);
+                  return !(results.length > 0 && results.some((r: any) => r.time !== null));
               });
               
               if (firstUncompleted) {
@@ -302,17 +302,17 @@ export default function RaceControl() {
           .filter((h: Heat) => h.roundId === heat.roundId)
           .sort((a: Heat, b: Heat) => a.heatNumber - b.heatNumber);
         
-        const firstUncompletedIndex = roundHeats.findIndex(h => {
+        const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => {
             const results = h.laneResults ? JSON.parse(h.laneResults) : [];
             return !(results.length > 0 && results.some((r: any) => r.time !== null));
         });
 
-        const targetIndex = roundHeats.findIndex(h => h.id === heat.id);
+        const targetIndex = roundHeats.findIndex((h: Heat) => h.id === heat.id);
 
         // Only reorder if we're jumping ahead of at least one uncompleted heat
         if (firstUncompletedIndex !== -1 && targetIndex > firstUncompletedIndex) {
-            const reordered = arrayMove(roundHeats, targetIndex, firstUncompletedIndex);
-            const updates = reordered.map((h, idx) => ({
+            const reordered = arrayMove(roundHeats, targetIndex, firstUncompletedIndex) as Heat[];
+            const updates = reordered.map((h: Heat, idx) => ({
                 heat_id: h.id,
                 new_heat_number: idx + 1
             }));
@@ -398,10 +398,12 @@ export default function RaceControl() {
     ? 'FREE_RACE'
     : 'SCHEDULE';
 
-  const sortedHeatsEx = [...heats].sort((a, b) => {
-      if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
+  const sortedHeatsEx = useMemo(() => {
+    return [...heats].sort((a, b) => {
+      if (a.roundId !== b.roundId) return a.roundId - b.roundId;
       return a.heatNumber - b.heatNumber;
-  });
+    });
+  }, [heats]);
   
   const activeExecutionHeat = selectedHeatId 
       ? sortedHeatsEx.find((h: Heat) => h.id === selectedHeatId)
@@ -415,10 +417,6 @@ export default function RaceControl() {
       ? sortedHeatsEx[currentIndex + 1] 
       : null;
 
-  const upcomingHeats = currentIndex !== -1
-      ? sortedHeatsEx.slice(currentIndex + 1, currentIndex + 5)
-      : [];
-
   const completedPreviousHeats = useMemo(() => {
     return [...heats]
       .filter((h: Heat) => {
@@ -427,7 +425,7 @@ export default function RaceControl() {
         return results.length > 0 && results.some((r: any) => r.time !== null);
       })
       .sort((a: Heat, b: Heat) => {
-        if (b.roundNumber !== a.roundNumber) return b.roundNumber - a.roundNumber;
+        if (b.roundId !== a.roundId) return b.roundId - a.roundId;
         return b.heatNumber - a.heatNumber;
       });
   }, [heats, activeExecutionHeat?.id]);
@@ -454,21 +452,22 @@ export default function RaceControl() {
 
   const upcomingRounds = useMemo(() => {
     if (!activeExecutionHeat) return [];
-    const rounds: Record<number, { roundNumber: number, roundName: string | null, totalHeats: number }> = {};
+    const rounds: Record<number, { roundNumber: number, roundName: string | null, totalHeats: number, roundId: number }> = {};
     heats.forEach((h: Heat) => {
-      if (h.roundNumber > activeExecutionHeat.roundNumber) {
+      if (h.roundId > activeExecutionHeat.roundId) {
         if (!rounds[h.roundId]) {
           rounds[h.roundId] = {
             roundNumber: h.roundNumber,
             roundName: h.roundName,
-            totalHeats: 0
+            totalHeats: 0,
+            roundId: h.roundId
           };
         }
         rounds[h.roundId].totalHeats++;
       }
     });
-    return Object.values(rounds).sort((a, b) => a.roundNumber - b.roundNumber);
-  }, [heats, activeExecutionHeat?.roundNumber]);
+    return Object.values(rounds).sort((a, b) => a.roundId - b.roundId);
+  }, [heats, activeExecutionHeat?.roundId]);
 
   if (fetching && !data) return <div>Loading Race Control...</div>;
 
