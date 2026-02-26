@@ -23,8 +23,6 @@ jobs:
 
       - name: Run tests
         run: pytest backend/ -v
-        env:
-          TRUSTYTRACK_DB_URL: "sqlite:///:memory:"
 
   frontend-test:
     name: Frontend Tests
