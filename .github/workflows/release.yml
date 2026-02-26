@@ -110,7 +110,7 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          uv venv
+          [ ! -d ".venv" ] && uv venv || echo ".venv already exists"
           uv pip install -r backend/requirements.txt
           uv pip install pyinstaller
 
@@ -162,7 +162,7 @@ jobs:
 
       - name: Install Python dependencies + PyInstaller
         run: |
-          uv venv
+          if (!(Test-Path .venv)) { uv venv }
           uv pip install -r backend/requirements.txt
           uv pip install pyinstaller
 
