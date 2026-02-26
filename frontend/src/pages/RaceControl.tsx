@@ -192,19 +192,35 @@ export default function RaceControl() {
             return a.heatNumber - b.heatNumber;
           });
           
-          const currentHeatExists = selectedHeatId !== null && heats.some((h: Heat) => h.id === selectedHeatId);
+          const firstUncompleted = sorted.find((h: Heat) => {
+              const results = h.laneResults ? JSON.parse(h.laneResults) : [];
+              return !(results.length > 0 && results.some((r: any) => r.time !== null));
+          });
 
-          // If no heat selected, or the selected heat no longer exists,
-          // find the first uncompleted one.
-          if (!currentHeatExists || selectedHeatId === null) {
-              const firstUncompleted = sorted.find((h: Heat) => {
-                  const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-                  return !(results.length > 0 && results.some((r: any) => r.time !== null));
-              });
-              
+          const currentHeat = selectedHeatId !== null ? heats.find((h: Heat) => h.id === selectedHeatId) : null;
+          const isCurrentCompleted = currentHeat && (() => {
+              const results = currentHeat.laneResults ? JSON.parse(currentHeat.laneResults) : [];
+              return results.length > 0 && results.some((r: any) => r.time !== null);
+          })();
+
+          // Determine if we should update the selection
+          let shouldUpdate = false;
+          if (!currentHeat || isCurrentCompleted) {
+              shouldUpdate = true;
+          } else if (firstUncompleted && firstUncompleted.id !== selectedHeatId) {
+              // If we have an uncompleted heat earlier in the schedule than our selection,
+              // it usually means we reordered things and want to follow the new "next" heat.
+              const firstIdx = sorted.findIndex(h => h.id === firstUncompleted.id);
+              const selectedIdx = sorted.findIndex(h => h.id === selectedHeatId);
+              if (firstIdx < selectedIdx) {
+                  shouldUpdate = true;
+              }
+          }
+
+          if (shouldUpdate) {
               if (firstUncompleted) {
                   setSelectedHeatId(firstUncompleted.id);
-              } else if (sorted.length > 0) {
+              } else if (sorted.length > 0 && !currentHeat) {
                   setSelectedHeatId(sorted[sorted.length - 1].id);
               }
           }
