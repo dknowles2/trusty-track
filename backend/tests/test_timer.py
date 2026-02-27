@@ -71,6 +71,62 @@ class TestMicroWizardParseLineValid:
         assert result is None
 
 
+class TestMicroWizardParseLineNewFormat:
+    """Tests for MicroWizardDevice.parse_line with new-format multi-lane input."""
+
+    def setup_method(self):
+        self.device = MicroWizardDevice()
+
+    def test_multi_lane_with_places(self):
+        """New-format multi-lane line with symbols for place 1-6."""
+        # A=3.001! (1st), B=3.002" (2nd), C=3.003# (3rd), D=3.004$ (4th)
+        # E=3.005% (5th), F=3.006& (6th)
+        line = b"A=3.001! B=3.002\" C=3.003# D=3.004$ E=3.005% F=3.006&"
+        results = self.device.parse_line(line)
+        assert isinstance(results, list)
+        assert len(results) == 6
+        
+        # Lane 1 (A)
+        assert results[0].lane == 1
+        assert results[0].time_seconds == pytest.approx(3.001)
+        assert results[0].place == 1
+        
+        # Lane 2 (B)
+        assert results[1].lane == 2
+        assert results[1].time_seconds == pytest.approx(3.002)
+        assert results[1].place == 2
+        
+        # Lane 3 (C)
+        assert results[2].lane == 3
+        assert results[2].time_seconds == pytest.approx(3.003)
+        assert results[2].place == 3
+        
+        # Lane 4 (D)
+        assert results[3].lane == 4
+        assert results[3].time_seconds == pytest.approx(3.004)
+        assert results[3].place == 4
+        
+        # Lane 5 (E)
+        assert results[4].lane == 5
+        assert results[4].time_seconds == pytest.approx(3.005)
+        assert results[4].place == 5
+        
+        # Lane 6 (F)
+        assert results[5].lane == 6
+        assert results[5].time_seconds == pytest.approx(3.006)
+        assert results[5].place == 6
+
+    def test_multi_lane_no_places(self):
+        """Multi-lane format without placement symbols (place=0)."""
+        line = b"A=3.100  B=3.200  C=3.300"
+        results = self.device.parse_line(line)
+        assert isinstance(results, list)
+        assert len(results) == 3
+        for i, res in enumerate(results):
+            assert res.lane == i + 1
+            assert res.place == 0
+
+
 class TestMicroWizardIsIdentifiedBy:
     """Tests for MicroWizardDevice.is_identified_by."""
 

@@ -8,9 +8,19 @@ logger = logging.getLogger(__name__)
 # Leading characters to strip from result lines
 _STRIP_CHARS = b'@>'
 
-# Matches a lane and time pair in the old-style format: A=3.001! or B=3.002
-# The exclamation point indicates the winner.
-_OLD_RESULT_PAIR_RE = re.compile(rb'([A-P])=(\d+\.\d+)(!?)', re.IGNORECASE)
+# Symbols that indicate placement in the N1 "new-format" results.
+_PLACE_SYMBOLS = {
+    b'!': 1,
+    b'"': 2,
+    b'#': 3,
+    b'$': 4,
+    b'%': 5,
+    b'&': 6,
+}
+
+# Matches a lane and time pair in the multi-lane format: A=3.001! or B=3.002"
+# The symbol after the time indicates the place.
+_RESULT_PAIR_RE = re.compile(rb'([A-P])=(\d+\.\d+)([!\"#$%&]?)', re.IGNORECASE)
 
 # Matches a result line, like:
 # A=3.001! B=3.002 C=3.003 D=3.004 E=3.005 F=3.006
@@ -59,10 +69,11 @@ class MicroWizardDevice(TimerDevice):
         return bool(_IDENT_RE.search(line))
 
     def initialization_commands(self) -> list[bytes]:
+        # N1 enables "new format" results (lane results on one line with placement).
         # N2 enables real-time gate feedback. The timer responds with '\r\n*\r\n'
         # to acknowledge, then sends '@' when the start gate opens (timer begins
         # counting) and '>' when the gate closes (can be ignored).
-        return [b'N2']
+        return [b'N1', b'N2']
 
     NUM_LANES = 6
 
@@ -103,38 +114,36 @@ class MicroWizardDevice(TimerDevice):
 
         if _GATE_CLOSED_RE.match(cleaned):
             logger.debug("MicroWizard: gate closed signal received (ignored)")
-            return None
+            return []
 
         if _IDENT_RE.search(cleaned):
             logger.debug("MicroWizard: RV identification line received: %r", cleaned)
-            return None
+            return []
 
         if _VERSION_RE.match(cleaned):
             logger.debug("MicroWizard: RV version line received: %r", cleaned)
-            return None
+            return []
 
         if _ACK_RE.match(cleaned):
             logger.debug("MicroWizard: AC acknowledgment received")
-            return None
+            return []
 
         if _STAR_ACK_RE.match(cleaned):
             logger.debug("MicroWizard: * acknowledgment received")
-            return None
+            return []
 
-        # Try parsing the old-style multi-lane format: A=3.001! B=3.002 C=3.003
+        # Try parsing the multi-lane format: A=3.001! B=3.002" C=3.003#
         results: list[TimerEvent] = []
-        for match in _OLD_RESULT_PAIR_RE.finditer(cleaned):
+        for match in _RESULT_PAIR_RE.finditer(cleaned):
             lane_letter = match.group(1).upper()
             lane = ord(lane_letter) - ord(b'A') + 1
             time_seconds = float(match.group(2))
-            is_winner = bool(match.group(3))
+            symbol = match.group(3)
             
-            # Old format only marks the winner (place=1); other places left as 0
-            # for the caller to sort out based on relative times.
-            place = 1 if is_winner else 0
+            place = _PLACE_SYMBOLS.get(symbol, 0)
             logger.info(
-                "MicroWizard: old-style multi-lane: lane=%d (%r), time=%f, winner=%s",
-                lane, lane_letter, time_seconds, is_winner,
+                "MicroWizard: multi-lane: lane=%d (%r), time=%f, symbol=%r, place=%d",
+                lane, lane_letter, time_seconds, symbol, place,
             )
             results.append(
                 LaneResult(lane=lane, time_seconds=time_seconds, place=place)

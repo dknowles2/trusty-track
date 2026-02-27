@@ -44,9 +44,17 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
             # 2. Frontend sends ready message
             websocket.send_json({"type": "ready"})
 
-            # 3. TimerManager should have sent identification probe upon connection
-            data = websocket.receive_json()
-            assert base64.b64decode(data["data"]) == b"RV"
+            # 3. TimerManager should have sent identification probe + initialization
+            # upon connection: RV, N1, N2.
+            rv_msg = websocket.receive_json()
+            assert base64.b64decode(rv_msg["data"]) == b"RV"
+            
+            n1_msg = websocket.receive_json()
+            assert base64.b64decode(n1_msg["data"]) == b"N1"
+            
+            n2_msg = websocket.receive_json()
+            assert base64.b64decode(n2_msg["data"]) == b"N2"
+
             assert manager._state == TimerState.CONNECTED
 
             # Frontend sends identification response
@@ -57,12 +65,9 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
                 ).decode("utf-8")
             })
 
-            # Give backend a moment to process — it will send N2 as initialization
+            # Give backend a moment to process — it will transition to IDLE
             await asyncio.sleep(0.1)
             assert manager._state == TimerState.IDLE
-
-            n2_msg = websocket.receive_json()
-            assert base64.b64decode(n2_msg["data"]) == b"N2"
 
             # 4. Prepare a heat (lanes 1 and 2 active; lanes 3-6 masked)
             # Mock _record_results to avoid needing a full Heat DB record
