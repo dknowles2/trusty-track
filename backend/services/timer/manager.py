@@ -6,27 +6,30 @@ Shared by all connectivity modes (fake, backend-direct, frontend-proxy).
 """
 
 import asyncio
+import contextlib
 import json
 import logging
+from collections.abc import Awaitable
 from dataclasses import dataclass, field
-from typing import Callable, Awaitable, Dict, List, Optional, Any
+from typing import Any, Callable, Optional
 
 import serial
 
 from backend.api.pubsub import pubsub
-from backend.db.database import SessionLocal
 from backend.db import crud, models
-from .state_machine import TimerState
+from backend.db.database import SessionLocal
+
 from .devices.base import (
+    DeviceError,
+    GateClosed,
+    LaneResult,
+    RaceStarted,
     TimerDevice,
     TimerEvent,
-    RaceStarted,
-    LaneResult,
-    GateClosed,
-    DeviceError,
 )
 from .devices.fake import FakeTimerDevice
 from .devices.microwizard import MicroWizardDevice
+from .state_machine import TimerState
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,7 @@ class TimerStatus:
     lane_count: Optional[int]
     active_heat_id: Optional[int]
     last_error: Optional[str]
-    pending_results: List[Dict[str, Any]] = field(default_factory=list)
+    pending_results: list[dict[str, Any]] = field(default_factory=list)
 
 
 class TimerManager:
@@ -51,13 +54,14 @@ class TimerManager:
         self._buf: bytes = b""
         self._active_heat_id: Optional[int] = None
         self._lane_mask: int = 0
-        self._pending_results: Dict[int, LaneResult] = {}
+        self._pending_results: dict[int, LaneResult] = {}
         self._last_error: Optional[str] = None
         self._write_fn: Callable[[bytes], Awaitable[None]] = self._noop_write
         self._serial: Optional[serial.Serial] = None
         self._read_task: Optional[asyncio.Task] = None
         self._direct_port: Optional[str] = None
         self._watchdog_task: Optional[asyncio.Task] = None
+        self._running_since: Optional[float] = None
         self._event_lock = asyncio.Lock()
 
         if not device.requires_serial:
@@ -102,7 +106,7 @@ class TimerManager:
         """
         self._write_fn = fn
 
-    async def _send_commands(self, commands: List[bytes]) -> None:
+    async def _send_commands(self, commands: list[bytes]) -> None:
         for cmd in commands:
             logger.info(f"Timer {self._track_id} sending command: {cmd}")
             await self._write_fn(cmd)
@@ -198,7 +202,7 @@ class TimerManager:
     # Byte framing (proxy and direct modes)                                #
     # ------------------------------------------------------------------ #
 
-    async def receive_bytes(self, data: bytes) -> List[bytes]:
+    async def receive_bytes(self, data: bytes) -> list[bytes]:
         """Buffer incoming bytes and process any complete messages.
 
         Returns bytes that should be written back to the serial device.
@@ -247,23 +251,22 @@ class TimerManager:
         # a valid event, we should handle it.
         event_or_list = self._device.parse_line(line)
 
-        if self._state == TimerState.CONNECTED:
-            if self._device.is_identified_by(line) or event_or_list is not None:
-                # If identified OR if we got a valid event (like a result), we are good.
-                logger.info(
-                    "Timer %d: identified or event received, transitioning from CONNECTED",
-                    self._track_id,
-                )
-                next_state = (
-                    TimerState.ARMED
-                    if self._active_heat_id is not None
-                    else TimerState.IDLE
-                )
-                await self._transition(next_state)
-                # If it was just identification, we are done. If it was an event,
-                # we'll fall through and handle it below.
-                if self._device.is_identified_by(line) and event_or_list is None:
-                    return
+        identified = self._device.is_identified_by(line) or event_or_list is not None
+        if self._state == TimerState.CONNECTED and identified:
+            logger.info(
+                "Timer %d: identified or event received, leaving CONNECTED",
+                self._track_id,
+            )
+            next_state = (
+                TimerState.ARMED
+                if self._active_heat_id is not None
+                else TimerState.IDLE
+            )
+            await self._transition(next_state)
+            # If it was just identification, we are done. If it was an event,
+            # we'll fall through and handle it below.
+            if self._device.is_identified_by(line) and event_or_list is None:
+                return
 
         if event_or_list is not None:
             events = (
@@ -305,6 +308,7 @@ class TimerManager:
         async with self._event_lock:
             if isinstance(event, RaceStarted):
                 if self._state in (TimerState.ARMED, TimerState.READY):
+                    self._running_since = asyncio.get_event_loop().time()
                     await self._transition(TimerState.RUNNING)
                 else:
                     logger.warning(
@@ -385,7 +389,7 @@ class TimerManager:
             if heat:
                 # Official Heat
                 existing = json.loads(heat.lane_results) if heat.lane_results else []
-                racer_by_lane: Dict[int, Optional[int]] = {
+                racer_by_lane: dict[int, Optional[int]] = {
                     r["lane"]: r.get("racer_id") for r in existing
                 }
 
@@ -444,6 +448,7 @@ class TimerManager:
         await _publish_race_state(race_id)
 
         self._active_heat_id = None
+        self._running_since = None
         # Note: we do NOT clear self._pending_results here so they remain available
         # in the status (IDLE state) until the next heat is prepared.
         await self._transition(TimerState.IDLE)
@@ -502,13 +507,32 @@ class TimerManager:
             while True:
                 await asyncio.sleep(5.0)
 
-                # Resend identification if stuck in CONNECTED (e.g. initial command lost due to Arduino bootloader)
+                # Resend identification if stuck in CONNECTED
+                # (e.g. initial command lost due to Arduino bootloader)
                 if self._state == TimerState.CONNECTED:
                     logger.info(
                         "Timer %d watchdog: still CONNECTED, resending identification",
                         self._track_id,
                     )
                     await self._send_commands(self._device.identification_commands())
+
+                # Check for device-level result timeout (e.g. MicroWizard silently
+                # discards results if no finish is detected within 10s of gate open).
+                timeout = self._device.result_timeout_seconds
+                if (
+                    timeout is not None
+                    and self._state == TimerState.RUNNING
+                    and self._running_since is not None
+                    and asyncio.get_event_loop().time() - self._running_since > timeout
+                ):
+                    logger.warning(
+                        "Timer %d: no results received within %.0fs of gate open; "
+                        "device has likely reset silently",
+                        self._track_id,
+                        timeout,
+                    )
+                    self._running_since = None
+                    await self._transition(TimerState.RESULTS_OVERDUE)
 
                 if self._direct_port and (
                     not self._serial
@@ -520,7 +544,7 @@ class TimerManager:
                         self._track_id,
                         self._direct_port,
                     )
-                    # We call connect_direct again. It handles its own task/serial cleanup.
+                    # connect_direct handles its own task/serial cleanup.
                     try:
                         await self.connect_direct(self._direct_port)
                     except Exception as e:
@@ -566,10 +590,8 @@ class TimerManager:
 
         if self._read_task:
             self._read_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._read_task
-            except asyncio.CancelledError:
-                pass
             self._read_task = None
 
         self._direct_port = None
@@ -581,7 +603,7 @@ class TimerManager:
         await self.handle_disconnect()
 
 
-async def initialize_timer_managers(registry: Dict[int, TimerManager]) -> None:
+async def initialize_timer_managers(registry: dict[int, TimerManager]) -> None:
     """Query all Track records and create a TimerManager for each."""
     db = SessionLocal()
     try:

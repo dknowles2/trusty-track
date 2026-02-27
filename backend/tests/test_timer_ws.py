@@ -1,11 +1,11 @@
 import asyncio
 import base64
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from backend.db import crud, schemas
 from backend.api.main import TIMER_MANAGERS
+from backend.db import crud, schemas
 from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
@@ -34,8 +34,8 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
     TIMER_MANAGERS[track_id] = manager
 
     # Patch SessionLocal in main to return our test db session
-    with patch("backend.api.main.SessionLocal", return_value=db_session):
-        with client.websocket_connect(f"/ws/timer/{track_id}") as websocket:
+    with patch("backend.api.main.SessionLocal", return_value=db_session), \
+            client.websocket_connect(f"/ws/timer/{track_id}") as websocket:
             # 1. Received initial configuration
             data = websocket.receive_json()
             assert data["type"] == "configure"
@@ -46,34 +46,37 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
 
             # 3. TimerManager should have sent identification probe upon connection
             data = websocket.receive_json()
-            assert base64.b64decode(data["data"]) == b"RV\n"
+            assert base64.b64decode(data["data"]) == b"RV"
             assert manager._state == TimerState.CONNECTED
 
-            # 3. Frontend (test) sends identification response
+            # Frontend sends identification response
             websocket.send_json({
                 "type": "serial_rx",
-                "data": base64.b64encode(b"Copyright (c) Micro Wizard\r\n").decode("utf-8")
+                "data": base64.b64encode(
+                    b"Copyright (c) Micro Wizard 2002-2009\r\n"
+                ).decode("utf-8")
             })
 
-            # Give backend a moment to process the rx bytes
+            # Give backend a moment to process — it will send N2 as initialization
             await asyncio.sleep(0.1)
-            # Check state
             assert manager._state == TimerState.IDLE
 
-            # 4. Prepare a heat
-            # Inject a mock for _record_results to avoid having to setup a full Heat record
+            n2_msg = websocket.receive_json()
+            assert base64.b64decode(n2_msg["data"]) == b"N2"
+
+            # 4. Prepare a heat (lanes 1 and 2 active; lanes 3-6 masked)
+            # Mock _record_results to avoid needing a full Heat DB record
             manager._record_results = AsyncMock()
-            
-            await manager.prepare_heat(heat_id=1, lane_mask=0b11) # Lanes 1 and 2
+
+            await manager.prepare_heat(heat_id=1, lane_mask=0b11)
             assert manager._state == TimerState.ARMED
 
-            # Check for sent commands: M3\n and LR\n
-            data1 = websocket.receive_json()
-            data2 = websocket.receive_json()
-            assert data1["type"] == "serial_tx"
-            assert base64.b64decode(data1["data"]) == b"M3\n"
-            assert data2["type"] == "serial_tx"
-            assert base64.b64decode(data2["data"]) == b"LR\n"
+            # Expect: MG MC MD ME MF LR
+            expected_commands = [b"MG", b"MC", b"MD", b"ME", b"MF", b"LR"]
+            for expected in expected_commands:
+                msg = websocket.receive_json()
+                assert msg["type"] == "serial_tx"
+                assert base64.b64decode(msg["data"]) == expected
 
             # 5. Send results in old single-line format
             websocket.send_json({

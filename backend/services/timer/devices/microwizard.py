@@ -1,8 +1,7 @@
-import re
 import logging
-from typing import List
+import re
 
-from .base import TimerDevice, TimerEvent, LaneResult, RaceStarted
+from .base import LaneResult, RaceStarted, TimerDevice, TimerEvent
 
 logger = logging.getLogger(__name__)
 
@@ -18,48 +17,80 @@ _OLD_RESULT_PAIR_RE = re.compile(rb'([A-P])=(\d+\.\d+)(!?)', re.IGNORECASE)
 # The ! indicates the winning lane.
 _RESULT_RE = re.compile(rb'^\s*(\d+)\s+([\d.!\s]+?)\s+(\d+)\s*$')
 
-# Matches a start signal (usually 'B' or '@' for MicroWizard)
+# Matches the gate-opened signal. The timer begins counting when '@' is received.
 _START_RE = re.compile(rb'^@$', re.IGNORECASE)
 
-# Matches an identification response (the device echoes N1 or sends a banner)
-_IDENT_RE = re.compile(rb'micro\s*wizard|copyright|k\d|serial\s*number', re.IGNORECASE)
+# Matches the gate-closed signal. Sent when the start gate closes after opening.
+# This can generally be ignored; timing has already begun on '@'.
+_GATE_CLOSED_RE = re.compile(rb'^>$')
+
+# Matches an acknowledgment ('AC') sent after certain commands (e.g. MG).
+_ACK_RE = re.compile(rb'^AC$', re.IGNORECASE)
+
+# Matches a '*' acknowledgment sent after certain commands (e.g. N2, MA–MF).
+_STAR_ACK_RE = re.compile(rb'^\*$')
+
+# Line 1 of the RV response: "Copyright (c) Micro Wizard 2002-2009"
+_IDENT_RE = re.compile(rb'micro\s*wizard', re.IGNORECASE)
+
+# Line 2 of the RV response: "K2 Version 2.3A  Serial Number29284"
+_VERSION_RE = re.compile(rb'^K\d\s+Version\s+\S+\s+Serial\s*Number\d+$', re.IGNORECASE)
 
 
 class MicroWizardDevice(TimerDevice):
-    name = "MicroWizard K1"
+    name = "MicroWizard K1/K2/K3"
     baud_rate = 9600
     delimiter = b'\r\n'
     gate_state_is_knowable = False
     requires_serial = True
-    immediate_chars = [b'@']
+    immediate_chars = [b'@', b'>']
+    # The MicroWizard silently discards results and resets if no finish is detected
+    # within 10 seconds of the gate opening. It sends no notification when this happens.
+    result_timeout_seconds = 10.0
 
-    def identification_commands(self) -> List[bytes]:
-        # 'RV' requests the version string (e.g., "Copyright (c) Micro Wizard 2001-2009...")
-        return [b'RV\n']
+    def identification_commands(self) -> list[bytes]:
+        # 'RV' requests the version/serial string. Expected response:
+        #   Copyright (c) Micro Wizard 2002-2009\r\n
+        #   K2 Version 2.3A  Serial Number29284\r\n
+        #   \r\n
+        return [b'RV']
 
     def is_identified_by(self, line: bytes) -> bool:
         return bool(_IDENT_RE.search(line))
 
-    def initialization_commands(self) -> List[bytes]:
-        return []
+    def initialization_commands(self) -> list[bytes]:
+        # N2 enables real-time gate feedback. The timer responds with '\r\n*\r\n'
+        # to acknowledge, then sends '@' when the start gate opens (timer begins
+        # counting) and '>' when the gate closes (can be ignored).
+        return [b'N2']
 
-    def prepare_heat_commands(self, lane_mask: int) -> List[bytes]:
-        # Send lane mask then reset/arm
-        mask_hex = format(lane_mask, 'X')
-        return [
-            f'M{mask_hex}\n'.encode(),
-            b'LR\n',
+    NUM_LANES = 6
+
+    def prepare_heat_commands(self, lane_mask: int) -> list[bytes]:
+        # MG clears all lane masks (resets to all lanes active), then send one
+        # M<letter> command for each masked-out (inactive) lane, then arm.
+        # Lane 1 = 'A', lane 2 = 'B', ..., lane 6 = 'F'.
+        # MG responds with '\r\nAC' to acknowledge.
+        commands = [b'MG']
+        # Each individual mask command (MA–MF) responds with '\r\n*\r\n'.
+        commands += [
+            f'M{chr(ord("A") + lane - 1)}'.encode()
+            for lane in range(1, self.NUM_LANES + 1)
+            if not (lane_mask & (1 << (lane - 1)))
         ]
+        # LR arms the timer and responds with '\r\n*\r\n'.
+        commands.append(b'LR')
+        return commands
 
-    def abort_commands(self) -> List[bytes]:
-        # LR will reset / arm / abort depending on context
-        return [b'LR\n']
+    def abort_commands(self) -> list[bytes]:
+        # LR will reset / arm / abort depending on context; responds with '\r\n*\r\n'.
+        return [b'LR']
 
-    def force_results_commands(self) -> List[bytes]:
+    def force_results_commands(self) -> list[bytes]:
         # RA forces the device to report results for all lanes immediately
-        return [b'RA\n']
+        return [b'RA']
 
-    def parse_line(self, line: bytes) -> "TimerEvent | List[TimerEvent] | None":
+    def parse_line(self, line: bytes) -> "TimerEvent | list[TimerEvent] | None":
         # Check for start signal before stripping leading markers
         # because '@' is often one of the markers but can also be the signal itself.
         cleaned = line.strip()
@@ -67,24 +98,47 @@ class MicroWizardDevice(TimerDevice):
             return None
 
         if _START_RE.match(cleaned):
-            logger.info("MicroWizard: matched start signal: %r", cleaned)
+            logger.info("MicroWizard: gate opened, timer started")
             return RaceStarted()
 
+        if _GATE_CLOSED_RE.match(cleaned):
+            logger.debug("MicroWizard: gate closed signal received (ignored)")
+            return None
+
+        if _IDENT_RE.search(cleaned):
+            logger.debug("MicroWizard: RV identification line received: %r", cleaned)
+            return None
+
+        if _VERSION_RE.match(cleaned):
+            logger.debug("MicroWizard: RV version line received: %r", cleaned)
+            return None
+
+        if _ACK_RE.match(cleaned):
+            logger.debug("MicroWizard: AC acknowledgment received")
+            return None
+
+        if _STAR_ACK_RE.match(cleaned):
+            logger.debug("MicroWizard: * acknowledgment received")
+            return None
+
         # Try parsing the old-style multi-lane format: A=3.001! B=3.002 C=3.003
-        results: List[TimerEvent] = []
+        results: list[TimerEvent] = []
         for match in _OLD_RESULT_PAIR_RE.finditer(cleaned):
             lane_letter = match.group(1).upper()
             lane = ord(lane_letter) - ord(b'A') + 1
             time_seconds = float(match.group(2))
             is_winner = bool(match.group(3))
             
-            # Since the old format only notes the winner (place=1), we leave other places as 0
-            # for the caller or frontend to sort out based on relative times.
+            # Old format only marks the winner (place=1); other places left as 0
+            # for the caller to sort out based on relative times.
             place = 1 if is_winner else 0
-            
-            logger.info("MicroWizard: matched old-style multi-lane result: lane=%d (%r), time=%f, winner=%s", 
-                        lane, lane_letter, time_seconds, is_winner)
-            results.append(LaneResult(lane=lane, time_seconds=time_seconds, place=place))
+            logger.info(
+                "MicroWizard: old-style multi-lane: lane=%d (%r), time=%f, winner=%s",
+                lane, lane_letter, time_seconds, is_winner,
+            )
+            results.append(
+                LaneResult(lane=lane, time_seconds=time_seconds, place=place)
+            )
         
         if results:
             return results
@@ -103,7 +157,10 @@ class MicroWizardDevice(TimerDevice):
             time_str = m.group(2).strip(b'!')
             time_seconds = float(time_str)
             place = int(m.group(3))
-            logger.info("MicroWizard: matched old-style result: lane=%d, time=%f, place=%d", lane, time_seconds, place)
+            logger.info(
+                "MicroWizard: old-style result: lane=%d, time=%f, place=%d",
+                lane, time_seconds, place,
+            )
             return LaneResult(lane=lane, time_seconds=time_seconds, place=place)
 
         logger.debug("MicroWizard: failed to parse line: %r", cleaned)

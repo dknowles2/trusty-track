@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import ClassVar, List, Union
+from typing import ClassVar, Optional, Union
 
 
 @dataclass
@@ -34,10 +34,13 @@ class TimerDevice(ABC):
     delimiter: ClassVar[bytes] = b'\n'
     gate_state_is_knowable: ClassVar[bool] = False
     requires_serial: ClassVar[bool] = True
-    immediate_chars: ClassVar[List[bytes]] = []
+    immediate_chars: ClassVar[list[bytes]] = []
+    # If set, the manager will transition to RESULTS_OVERDUE if no results are
+    # received within this many seconds of the race starting. None means no timeout.
+    result_timeout_seconds: ClassVar[Optional[float]] = None
 
     @abstractmethod
-    def identification_commands(self) -> List[bytes]:
+    def identification_commands(self) -> list[bytes]:
         """Bytes to send immediately after connecting, to probe identity."""
 
     @abstractmethod
@@ -45,18 +48,18 @@ class TimerDevice(ABC):
         """Return True if line confirms this is the expected device."""
 
     @abstractmethod
-    def initialization_commands(self) -> List[bytes]:
+    def initialization_commands(self) -> list[bytes]:
         """Commands sent once after identification (e.g. set output format)."""
 
     @abstractmethod
-    def prepare_heat_commands(self, lane_mask: int) -> List[bytes]:
+    def prepare_heat_commands(self, lane_mask: int) -> list[bytes]:
         """Commands to arm the timer for a heat (reset + lane mask)."""
 
     @abstractmethod
-    def abort_commands(self) -> List[bytes]:
+    def abort_commands(self) -> list[bytes]:
         """Commands sent to put the device back into an idle/reset state."""
 
-    def force_results_commands(self) -> List[bytes]:
+    def force_results_commands(self) -> list[bytes]:
         """Commands to demand result reporting from the device.
 
         Sent when the operator triggers 'Force Results' (e.g. in RESULTS_OVERDUE).
@@ -65,5 +68,5 @@ class TimerDevice(ABC):
         return []
 
     @abstractmethod
-    def parse_line(self, line: bytes) -> "TimerEvent | List[TimerEvent] | None":
+    def parse_line(self, line: bytes) -> "TimerEvent | list[TimerEvent] | None":
         """Parse a complete message. Return a TimerEvent, a list of events, or None."""

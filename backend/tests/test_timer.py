@@ -17,7 +17,6 @@ from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
-
 # ---------------------------------------------------------------------------
 # 1. MicroWizardDevice.parse_line tests
 # ---------------------------------------------------------------------------
@@ -80,16 +79,21 @@ class TestMicroWizardIsIdentifiedBy:
 
     def test_rv_response_identifies_device(self):
         """Device returning a version string returns True."""
-        assert self.device.is_identified_by(b"Copyright (c) Micro Wizard 2001-2009 a K3 2.10") is True
+        assert self.device.is_identified_by(
+            b"Copyright (c) Micro Wizard 2001-2009 a K3 2.10"
+        ) is True
 
-    def test_bare_k1_also_identified(self):
-        """Identification check is case-insensitive and matches bare version strings."""
-        assert self.device.is_identified_by(b"k1") is True
+    def test_identification_is_case_insensitive(self):
+        """Identification check is case-insensitive."""
+        assert self.device.is_identified_by(
+            b"copyright (c) micro wizard 2002-2009"
+        ) is True
 
-    def test_serial_number_identifies_device(self):
-        """Device returning a serial number string returns True."""
-        assert self.device.is_identified_by(b"Serial number12345") is True
-        assert self.device.is_identified_by(b"K2 Version 2.3A. Serial Number29284") is True
+    def test_version_line_does_not_identify(self):
+        """The second RV line (version/serial) does not trigger identification."""
+        assert self.device.is_identified_by(
+            b"K2 Version 2.3A  Serial Number29284"
+        ) is False
 
     def test_hello_does_not_identify_device(self):
         """Arbitrary line does not identify the device."""
@@ -234,8 +238,8 @@ async def test_all_lanes_reported_calls_record_results():
 
 @pytest.mark.anyio
 async def test_zero_lane_mask_does_not_trigger_record_results():
-    """With lane_mask=0 (no expected lanes), LaneResults are accumulated but _record_results
-    is never auto-triggered because the expected_lanes set is empty (falsy guard in manager).
+    """With lane_mask=0, LaneResults accumulate but _record_results is never
+    auto-triggered because the expected_lanes set is empty (falsy guard in manager).
     """
     device = FakeTimerDevice()
     manager = TimerManager(track_id=1, device=device)
@@ -301,8 +305,10 @@ def _generate_fake_results(occupied_lanes: list[int]) -> list[dict]:
     timed = [(lane, 3.0 + random.random()) for lane in occupied_lanes]
     # Sort by time to assign places
     timed_sorted = sorted(timed, key=lambda x: x[1])
-    place_by_lane = {lane: place for place, (lane, _t) in enumerate(timed_sorted, start=1)}
-    time_by_lane = {lane: t for lane, t in timed}
+    place_by_lane = {
+        lane: place for place, (lane, _t) in enumerate(timed_sorted, start=1)
+    }
+    time_by_lane = dict(timed)
 
     results = sorted(
         [
@@ -318,7 +324,9 @@ def test_fake_timer_finish_times_in_range():
     """All generated times fall within [3.0, 4.0)."""
     results = _generate_fake_results([1, 2, 3, 4])
     for r in results:
-        assert 3.0 <= r["time"] < 4.0, f"Time {r['time']} out of range for lane {r['lane']}"
+        assert 3.0 <= r["time"] < 4.0, (
+            f"Time {r['time']} out of range for lane {r['lane']}"
+        )
 
 
 def test_fake_timer_finish_places_assigned_1_to_n():
@@ -369,7 +377,7 @@ async def test_fake_timer_finish_via_inject_events():
     await manager.prepare_heat(heat_id=42, lane_mask=0b11)
     await manager.inject_event(RaceStarted())
 
-    # Inject pre-determined results: lane 2 is faster (place 1), lane 1 is slower (place 2)
+    # lane 2 faster (place 1), lane 1 slower (place 2)
     await manager.inject_event(LaneResult(lane=2, time_seconds=3.1, place=1))
     await manager.inject_event(LaneResult(lane=1, time_seconds=3.9, place=2))
 
