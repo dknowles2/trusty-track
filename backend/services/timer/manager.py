@@ -202,8 +202,16 @@ class TimerManager:
 
     async def handle_connect(self) -> None:
         """Called when a serial connection (direct or proxy) is established."""
-        logger.info(f"Timer {self._track_id} connected")
-        await self._transition(TimerState.CONNECTED)
+        # Only transition to CONNECTED if we are DISCONNECTED or FAULTed.
+        # If we are already IDLE or ARMED (e.g. unsolicited re-identification),
+        # don't show 'CONNECTED' (which looks like waiting for a device).
+        # We'll initialize and transition to IDLE/ARMED correctly in _process_line.
+        if self._state in (TimerState.DISCONNECTED, TimerState.FAULT):
+            logger.info(f"Timer {self._track_id} connected")
+            await self._transition(TimerState.CONNECTED)
+        else:
+            logger.info(f"Timer {self._track_id} re-initializing after reboot signal")
+
         if not self._watchdog_task:
             self._watchdog_task = asyncio.create_task(self._watchdog_loop())
 
@@ -292,7 +300,21 @@ class TimerManager:
         # a valid event, we should handle it.
         event_or_list = self._device.parse_line(line)
 
-        identified = self._device.is_identified_by(line) or event_or_list is not None
+        is_ident = self._device.is_identified_by(line)
+        identified = is_ident or event_or_list is not None
+
+        if is_ident and self._state != TimerState.CONNECTED:
+            # If we see an identification line while not in CONNECTED state,
+            # the device has likely rebooted (e.g. hard power cycle).
+            # We should re-run our full initialization sequence.
+            logger.warning(
+                "Timer %d: unsolicited identification received in state %s; "
+                "device likely rebooted. Re-initializing...",
+                self._track_id, self._state.value
+            )
+            await self.handle_connect()
+            return
+
         if self._state == TimerState.CONNECTED and identified:
             logger.info(
                 "Timer %d: identified or event received, leaving CONNECTED",

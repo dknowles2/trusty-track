@@ -103,3 +103,54 @@ async def test_microwizard_reconnect_delimiter_mismatch():
     # 2. Send \r\n — completes the buffered line, triggering identification
     await manager.receive_bytes(b" Micro Wizard 2002-2009\r\n")
     assert manager._state == TimerState.IDLE
+
+@pytest.mark.anyio
+async def test_microwizard_reboot_during_idle():
+    """Test that an unsolicited ident line (reboot) triggers re-init."""
+    device = MicroWizardDevice()
+    manager = TimerManager(track_id=1, device=device)
+    manager._send_commands = AsyncMock()
+    
+    # Start in IDLE
+    manager._state = TimerState.IDLE
+    
+    # 1. Receive unsolicited identification (e.g. from a hardware reboot)
+    await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
+    
+    # Verify identification/initialization commands were re-sent
+    sent_commands = [call.args[0] for call in manager._send_commands.call_args_list]
+    flat_commands = [cmd for sublist in sent_commands for cmd in sublist]
+    assert b'RV' in flat_commands
+    assert b'N1' in flat_commands
+    assert b'N2' in flat_commands
+    
+    # State should remain IDLE (after handle_connect re-initializes)
+    assert manager._state == TimerState.IDLE
+
+@pytest.mark.anyio
+async def test_microwizard_reboot_during_heat():
+    """Test that a reboot during a heat re-arms the active heat."""
+    device = MicroWizardDevice()
+    manager = TimerManager(track_id=1, device=device)
+    manager._send_commands = AsyncMock()
+    
+    # Start in ARMED state with an active heat
+    manager._state = TimerState.ARMED
+    manager._active_heat_id = 456
+    manager._lane_mask = 0b01
+    
+    # 1. Receive unsolicited identification
+    await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
+    
+    # Verify lane mask was re-sent
+    sent_commands = [call.args[0] for call in manager._send_commands.call_args_list]
+    flat_commands = [cmd for sublist in sent_commands for cmd in sublist]
+    
+    assert b'RV' in flat_commands
+    # MG = clear masks, MB-MF = mask out lanes 2-6 for mask 0b01
+    assert b'MG' in flat_commands
+    assert b'MB' in flat_commands
+    assert b'LR' in flat_commands
+    
+    # State remains ARMED
+    assert manager._state == TimerState.ARMED
