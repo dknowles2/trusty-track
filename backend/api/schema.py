@@ -755,6 +755,15 @@ class FreeRaceLaneAssignmentInput:
 
 
 @strawberry.type
+class SerialLogEntry:
+    """A single serial command logged by the timer."""
+
+    direction: str  # "RX" or "TX"
+    data: str
+    timestamp: str
+
+
+@strawberry.type
 class TimerStatus:
     """Current state of the timer for a track."""
 
@@ -764,6 +773,7 @@ class TimerStatus:
     active_heat_id: Optional[int]
     last_error: Optional[str]
     pending_results: List[LaneResult] = strawberry.field(default_factory=list)
+    serial_log: List[SerialLogEntry] = strawberry.field(default_factory=list)
 
 
 @strawberry.type
@@ -792,6 +802,14 @@ def _timer_status_from_manager(mgr) -> TimerStatus:
                 racer_id=None, # Not known by timer manager directly
             )
             for r in s.pending_results
+        ],
+        serial_log=[
+            SerialLogEntry(
+                direction=e.direction,
+                data=e.data,
+                timestamp=e.timestamp,
+            )
+            for e in s.serial_log
         ],
     )
 
@@ -1481,6 +1499,25 @@ class Mutation:
 
     # Timer Mutations
 
+
+    @strawberry.mutation
+    async def reconnect_timer(self, info: Info, track_id: int) -> bool:
+        """Re-trigger the serial connection for a backend-direct (AUTO_DETECT_BACKEND) timer.
+
+        No-op for FAKE or proxy timers; returns False if the track has no serial port.
+        """
+        db: Session = info.context["db"]
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(track_id)
+        if mgr is None:
+            return False
+        track = crud.get_track(db, track_id)
+        if track is None or track.timer_type != models.TimerType.AUTO_DETECT_BACKEND:
+            return False
+        if not track.serial_port:
+            return False
+        asyncio.create_task(mgr.connect_direct(track.serial_port))
+        return True
 
     @strawberry.mutation
     async def abort_heat(self, info: Info, track_id: int) -> bool:
@@ -2206,6 +2243,14 @@ class Subscription:
                                 racer_id=None,
                             )
                             for r in status_dc.pending_results
+                        ],
+                        serial_log=[
+                            SerialLogEntry(
+                                direction=e.direction,
+                                data=e.data,
+                                timestamp=e.timestamp,
+                            )
+                            for e in status_dc.serial_log
                         ],
                     ),
                     changed_at=datetime.now(timezone.utc).isoformat(),

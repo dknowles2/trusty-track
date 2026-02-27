@@ -9,8 +9,10 @@ import asyncio
 import contextlib
 import json
 import logging
+from collections import deque
 from collections.abc import Awaitable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 import serial
@@ -33,8 +35,31 @@ from .state_machine import TimerState
 
 logger = logging.getLogger(__name__)
 
+MAX_SERIAL_LOG = 100
 
-# Leading bytes to strip from incoming result lines (now handled by device)
+
+def _format_serial_bytes(data: bytes) -> str:
+    """Format bytes as a readable string, escaping non-printable characters."""
+    result = []
+    for b in data:
+        if 32 <= b < 127:
+            result.append(chr(b))
+        elif b == 0x0D:
+            result.append("\\r")
+        elif b == 0x0A:
+            result.append("\\n")
+        elif b == 0x09:
+            result.append("\\t")
+        else:
+            result.append(f"\\x{b:02x}")
+    return "".join(result)
+
+
+@dataclass
+class SerialLogEntry:
+    direction: str  # "RX" or "TX"
+    data: str
+    timestamp: str
 
 
 @dataclass
@@ -45,6 +70,7 @@ class TimerStatus:
     active_heat_id: Optional[int]
     last_error: Optional[str]
     pending_results: list[dict[str, Any]] = field(default_factory=list)
+    serial_log: list[SerialLogEntry] = field(default_factory=list)
 
 
 class TimerManager:
@@ -63,6 +89,7 @@ class TimerManager:
         self._watchdog_task: Optional[asyncio.Task] = None
         self._running_since: Optional[float] = None
         self._event_lock = asyncio.Lock()
+        self._serial_log: deque = deque(maxlen=MAX_SERIAL_LOG)
 
         if not device.requires_serial:
             # Fake timer: skip DISCONNECTED/CONNECTED/identification; start in IDLE
@@ -109,6 +136,12 @@ class TimerManager:
     async def _send_commands(self, commands: list[bytes]) -> None:
         for cmd in commands:
             logger.info(f"Timer {self._track_id} sending command: {cmd}")
+            self._serial_log.append(SerialLogEntry(
+                direction="TX",
+                data=_format_serial_bytes(cmd),
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            ))
+            await pubsub.publish(f"timer_state:{self._track_id}", self.status())
             await self._write_fn(cmd)
 
     # ------------------------------------------------------------------ #
@@ -132,6 +165,7 @@ class TimerManager:
             active_heat_id=self._active_heat_id,
             last_error=self._last_error,
             pending_results=pending,
+            serial_log=list(self._serial_log),
         )
 
     # ------------------------------------------------------------------ #
@@ -209,6 +243,13 @@ class TimerManager:
         For Phase 1 this is always empty; Phase 2/3 will fill in responses
         during the identification handshake.
         """
+        if data:
+            self._serial_log.append(SerialLogEntry(
+                direction="RX",
+                data=_format_serial_bytes(data),
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            ))
+            await pubsub.publish(f"timer_state:{self._track_id}", self.status())
         self._buf += data
         while True:
             # 1. Try standard delimiter

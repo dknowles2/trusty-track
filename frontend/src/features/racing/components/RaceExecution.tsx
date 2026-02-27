@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSubscription, useMutation } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { FakeTimerMole } from './FakeTimerMole';
+import { HardwareTimerMole } from './HardwareTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../graphql/queries';
@@ -283,6 +284,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const showFakeControls = timerType === 'FAKE';
     const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
+    const showHardwareMole = timerType != null && timerType !== 'FAKE';
 
     return (
         <>
@@ -880,6 +882,11 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 heatId={activeExecutionHeat.id}
                 trackId={trackId ?? 0}
             />
+
+            {/* Hardware Timer Mole */}
+            {showHardwareMole && trackId != null && (
+                <HardwareTimerMole trackId={trackId} timerType={timerType} />
+            )}
         </>
     );
 };

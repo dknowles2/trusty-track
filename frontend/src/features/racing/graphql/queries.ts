@@ -36,6 +36,11 @@ export const TIMER_STATUS_SUBSCRIPTION = gql`
           time
           place
         }
+        serialLog {
+          direction
+          data
+          timestamp
+        }
       }
     }
   }
@@ -56,5 +61,11 @@ export const ABORT_HEAT = gql`
 export const FORCE_RESULTS = gql`
   mutation ForceResults($trackId: Int!) {
     forceResults(trackId: $trackId)
+  }
+`;
+
+export const RECONNECT_TIMER = gql`
+  mutation ReconnectTimer($trackId: Int!) {
+    reconnectTimer(trackId: $trackId)
   }
 `;
