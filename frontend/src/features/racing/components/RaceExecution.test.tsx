@@ -294,4 +294,67 @@ describe('RaceExecution', () => {
         // Should NOT call prepareHeat
         expect(mockMutationFn).not.toHaveBeenCalled();
     });
+
+    it('does NOT call prepareHeat if heat is already completed', () => {
+        render(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={mockHeat} // mockHeat is completed
+            />
+        );
+
+        expect(mockMutationFn).not.toHaveBeenCalled();
+    });
+
+    it('calls prepareHeat when heatId changes to a new, uncompleted heat', () => {
+        const { rerender } = render(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={mockHeat} // mockHeat is completed
+            />
+        );
+
+        expect(mockMutationFn).not.toHaveBeenCalled();
+
+        const uncompletedHeat: Heat = {
+            ...mockHeat,
+            id: 2,
+            heatNumber: 2,
+            laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+        };
+
+        rerender(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={uncompletedHeat}
+            />
+        );
+
+        expect(mockMutationFn).toHaveBeenCalledWith({ heatId: 2 });
+    });
+
+    it('calls prepareHeat when results are cleared (re-run) for the same heatId', () => {
+        const { rerender } = render(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={mockHeat} // mockHeat is completed
+            />
+        );
+
+        expect(mockMutationFn).not.toHaveBeenCalled();
+
+        const clearedHeat: Heat = {
+            ...mockHeat,
+            laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+        };
+
+        rerender(
+            <RaceExecution
+                {...defaultProps}
+                activeExecutionHeat={clearedHeat}
+            />
+        );
+
+        expect(mockMutationFn).toHaveBeenCalledWith({ heatId: 1 });
+    });
 });

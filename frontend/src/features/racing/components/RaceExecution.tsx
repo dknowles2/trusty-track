@@ -153,6 +153,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         setIsRoundSummaryOpen(!!roundSummary);
     }
 
+    // Tracking for auto-prepare to avoid race conditions
+    const lastPreparedIdRef = useRef<number | null>(null);
+    const wasCompletedRef = useRef<boolean>(false);
+
     // Sync auto-advance state
     const shouldResetAutoAdvance = !autoAdvanceHeat || !hasRecordedTimes || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen) || hasPlaceholders;
     if (shouldResetAutoAdvance && autoAdvanceCountdown !== null) {
@@ -161,9 +165,16 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     // Auto-prepare heat when a new heatId is provided or results cleared
     useEffect(() => {
+        const idChanged = activeExecutionHeat?.id !== lastPreparedIdRef.current;
+        const resultsCleared = wasCompletedRef.current && !isCompleted;
+
         if (timerState === 'IDLE' && !isCompleted && !hasPlaceholders && activeExecutionHeat?.id) {
-            prepareHeat({ heatId: activeExecutionHeat.id });
+            if (idChanged || resultsCleared) {
+                prepareHeat({ heatId: activeExecutionHeat.id });
+                lastPreparedIdRef.current = activeExecutionHeat.id;
+            }
         }
+        wasCompletedRef.current = isCompleted;
         // Only run when heatId changes, on mount, or when results are cleared (re-run/un-skip)
     }, [activeExecutionHeat?.id, hasPlaceholders, isCompleted, prepareHeat, timerState]);
 
