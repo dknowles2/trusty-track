@@ -202,15 +202,19 @@ class TimerManager:
 
     async def handle_connect(self) -> None:
         """Called when a serial connection (direct or proxy) is established."""
-        # Only transition to CONNECTED if we are DISCONNECTED or FAULTed.
-        # If we are already IDLE or ARMED (e.g. unsolicited re-identification),
-        # don't show 'CONNECTED' (which looks like waiting for a device).
-        # We'll initialize and transition to IDLE/ARMED correctly in _process_line.
-        if self._state in (TimerState.DISCONNECTED, TimerState.FAULT):
-            logger.info(f"Timer {self._track_id} connected")
-            await self._transition(TimerState.CONNECTED)
-        else:
-            logger.info(f"Timer {self._track_id} re-initializing after reboot signal")
+        # Always transition to CONNECTED when initialization starts.
+        # This breaks re-initialization loops (unsolicited ident -> handle_connect)
+        # because _process_line only calls handle_connect if state != CONNECTED.
+        is_reboot = self._state not in (TimerState.DISCONNECTED, TimerState.FAULT)
+        msg = f"Timer {self._track_id} {'re-' if is_reboot else ''}connecting"
+        logger.info(msg)
+        
+        await self._transition(TimerState.CONNECTED)
+        self._buf = b""
+
+        if is_reboot:
+            # Give hardware a moment to settle after a reboot signal
+            await asyncio.sleep(1.0)
 
         if not self._watchdog_task:
             self._watchdog_task = asyncio.create_task(self._watchdog_loop())
