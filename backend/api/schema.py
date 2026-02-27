@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, List, Optional
 
+from sqlalchemy.orm import Session
 import strawberry
 from strawberry.types import Info
 
@@ -1502,7 +1503,7 @@ class Mutation:
 
     @strawberry.mutation
     async def reconnect_timer(self, info: Info, track_id: int) -> bool:
-        """Re-trigger the serial connection for a backend-direct (AUTO_DETECT_BACKEND) timer.
+        """Re-trigger the serial connection for a backend-direct timer.
 
         No-op for FAKE or proxy timers; returns False if the track has no serial port.
         """
