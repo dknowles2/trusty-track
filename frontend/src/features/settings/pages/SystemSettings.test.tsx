@@ -137,6 +137,7 @@ describe('SystemSettings', () => {
         expect(mockCreateMutation).toHaveBeenCalledWith({
             config: {
                 groupName: 'Test Pack',
+                debugMode: false,
                 tracks: [
                     { name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null },
                     { name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null }
