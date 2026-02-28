@@ -382,27 +382,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     </div>
                                 ) : isRunning ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                                        {timerState === 'RESULTS_OVERDUE' && (
-                                            <div style={{
-                                                padding: '4px 12px',
-                                                fontSize: '0.85rem',
-                                                background: '#d32f2f',
-                                                color: 'white',
-                                                borderRadius: '4px',
-                                                fontWeight: 'bold',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                marginBottom: '-5px',
-                                                zIndex: 1
-                                            }}>
-                                                <Icon path={mdiAlertCircleOutline} size={0.6} color="white" /> Results Overdue
-                                            </div>
-                                        )}
                                         <div style={{
                                             padding: '8px 20px',
                                             fontSize: '1.15rem',
-                                            background: 'orange',
+                                            background: timerState === 'RESULTS_OVERDUE' ? '#d32f2f' : 'orange',
                                             color: 'white',
                                             borderRadius: '4px',
                                             fontWeight: 'bold',
@@ -411,7 +394,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             gap: '10px'
                                         }}>
                                             <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />
-                                            Racing... {elapsedSeconds.toFixed(1)}s
+                                            {timerState === 'RESULTS_OVERDUE' ? 'Overdue' : 'Racing'}... {elapsedSeconds.toFixed(1)}s
                                         </div>
                                         <style>{`
                                         .pulse-dot { animation: pulse 1s infinite; }
