@@ -54,5 +54,12 @@ cd ..
 echo "### Generating TLS certificates..."
 ./scripts/generate_certs.sh
 
+echo "### Installing pre-commit hooks..."
+if command -v pre-commit &> /dev/null; then
+    pre-commit install
+elif [ -f .venv/bin/pre-commit ]; then
+    .venv/bin/pre-commit install
+fi
+
 echo "### Installation Complete!"
 echo "To start the server, run: ./scripts/serve.sh"

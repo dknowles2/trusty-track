@@ -1914,8 +1914,10 @@ class Mutation:
             )
             db.commit()
 
+        from backend.version import __version__ as _version
         return InitialConfigStatus(
             initialized=True,
+            version=_version,
             group_name=group.name,
             debug_mode=group.debug_mode,
             tracks=typing.cast(Any, tracks),
@@ -2024,8 +2026,10 @@ class Mutation:
         if race:
             await _publish_race_state(race.id)
 
+        from backend.version import __version__ as _version
         return InitialConfigStatus(
             initialized=True,
+            version=_version,
             group_name=group.name if group else None,
             debug_mode=group.debug_mode if group else False,
             tracks=typing.cast(Any, tracks),

@@ -29,6 +29,7 @@ dev = [
     "ruff",
     "mypy",
     "pyinstaller",
+    "pre-commit",
 ]
 docs = [
     "mkdocs-material",

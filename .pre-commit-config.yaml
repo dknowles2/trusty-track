@@ -1,0 +1,50 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: bash -c "if command -v uv > /dev/null; then uv run ruff check --fix --exit-non-zero-on-fix \"$@\"; elif [ -f .venv/bin/ruff ]; then .venv/bin/ruff check --fix --exit-non-zero-on-fix \"$@\"; fi" --
+        language: system
+        types: [python]
+
+      - id: ruff-format
+        name: ruff-format
+        entry: bash -c "if command -v uv > /dev/null; then uv run ruff format \"$@\"; elif [ -f .venv/bin/ruff ]; then .venv/bin/ruff format \"$@\"; fi" --
+        language: system
+        types: [python]
+
+      - id: backend-tests
+        name: backend-tests
+        entry: bash -c "if command -v uv > /dev/null; then uv run pytest backend/tests/; else export PYTHONPATH=$PYTHONPATH:. && .venv/bin/pytest backend/tests/; fi"
+        language: system
+        files: ^(backend/|scripts/|packaging/)
+        pass_filenames: false
+
+      - id: frontend-lint
+        name: frontend-lint
+        entry: bash -c "cd frontend && npx eslint $(echo \"$@\" | sed 's|frontend/||g') --max-warnings 0" --
+        language: system
+        files: ^frontend/
+        types_or: [javascript, jsx, ts, tsx]
+
+      - id: frontend-tests
+        name: frontend-tests
+        entry: bash -c "cd frontend && npx vitest related $(echo \"$@\" | sed 's|frontend/||g') --run" --
+        language: system
+        files: ^frontend/
+        types_or: [javascript, jsx, ts, tsx]
+
+      - id: frontend-build
+        name: frontend-build
+        entry: bash -c "cd frontend && npm run build"
+        language: system
+        files: ^frontend/
+        pass_filenames: false

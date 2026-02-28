@@ -32,6 +32,19 @@ cd backend && pytest          # backend unit/integration tests
 cd frontend && npm test       # frontend unit tests (vitest)
 ```
 
+**Pre-commit Hooks:**
+
+The project uses `pre-commit` to ensure code quality. It runs automatically on `git commit`.
+
+```bash
+pre-commit install            # manually install hooks
+pre-commit run --all-files     # run all checks manually
+```
+
+Checks include:
+- **Python:** Ruff (linting/formatting), Pytest
+- **Frontend:** ESLint, Vitest (related only), Build check
+
 ---
 
 ## Project layout
