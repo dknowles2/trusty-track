@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """
     Handle application lifespan events.
     Ensures the database is initialized before the app starts serving requests.
@@ -98,7 +98,8 @@ if getattr(sys, "frozen", False):
     # Running inside a PyInstaller bundle
     _BASE_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
 else:
-    _BASE_DIR = Path(__file__).parent.parent
+    # Development mode: Path(__file__) is backend/api/main.py
+    _BASE_DIR = Path(__file__).parent.parent.parent
 
 FRONTEND_DIST = _BASE_DIR / "frontend" / "dist"
 
@@ -197,7 +198,8 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
                 rx_bytes = base64.b64decode(data["data"])
                 await manager.receive_bytes(rx_bytes)
             elif data.get("type") == "pong":
-                # Heartbeat handled by FastAPI/Starlette usually, but we can log if needed
+                # Heartbeat handled by FastAPI/Starlette usually, but we can log
+                # if needed
                 pass
     except WebSocketDisconnect:
         logger.info("Proxy WebSocket disconnected for track %d", track_id)

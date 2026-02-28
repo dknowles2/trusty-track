@@ -28,7 +28,8 @@ import webbrowser
 from pathlib import Path
 
 try:
-    from backend.version import __version__ as TT_VERSION
+    from backend.version import __version__ as version
+    TT_VERSION = version
 except ImportError:
     TT_VERSION = "unknown"
 
@@ -309,7 +310,10 @@ if sys.platform == "darwin":
         def _reset_db(self, _) -> None:
             resp = rumps.alert(
                 title="Reset Database",
-                message="This will permanently delete all race data and cannot be undone.\n\nContinue?",
+                message=(
+                    "This will permanently delete all race data and cannot be undone."
+                    "\n\nContinue?"
+                ),
                 ok="Reset",
                 cancel="Cancel",
             )
@@ -370,25 +374,28 @@ elif sys.platform == "win32":
 
         # ── Callbacks (pystray passes (icon, item)) ────────────────────────────
 
-        def _open_browser(self, icon, item) -> None:
+        def _open_browser(self, _icon, _item) -> None:
             webbrowser.open(APP_URL)
 
-        def _restart(self, icon, item) -> None:
+        def _restart(self, _icon, _item) -> None:
             threading.Thread(target=self._controller.restart, daemon=True).start()
 
-        def _reset_db(self, icon, item) -> None:
+        def _reset_db(self, _icon, _item) -> None:
             import ctypes
 
-            MB_YESNO = 0x04
-            MB_ICONWARNING = 0x30
-            IDYES = 6
+            mb_yesno = 0x04
+            mb_iconwarning = 0x30
+            idyes = 6
             result = ctypes.windll.user32.MessageBoxW(
                 0,
-                "This will permanently delete all race data and cannot be undone.\n\nContinue?",
+                (
+                    "This will permanently delete all race data and cannot be undone."
+                    "\n\nContinue?"
+                ),
                 "Reset Database",
-                MB_YESNO | MB_ICONWARNING,
+                mb_yesno | mb_iconwarning,
             )
-            if result == IDYES:
+            if result == idyes:
 
                 def _do() -> None:
                     self._controller.stop()
@@ -398,11 +405,11 @@ elif sys.platform == "win32":
 
                 threading.Thread(target=_do, daemon=True).start()
 
-        def _view_logs(self, icon, item) -> None:
+        def _view_logs(self, _icon, _item) -> None:
             LOG_PATH.touch(exist_ok=True)
             os.startfile(str(LOG_PATH))
 
-        def _quit(self, icon, item) -> None:
+        def _quit(self, icon, _item) -> None:
             icon.stop()
 
         def run(self) -> None:
@@ -411,7 +418,7 @@ elif sys.platform == "win32":
                     "Open App in Browser", self._open_browser, default=True
                 ),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem(lambda item: self._get_status_label(), None),
+                pystray.MenuItem(lambda _item: self._get_status_label(), None),
                 pystray.MenuItem(f"Network: {NETWORK_URL}", None),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Restart Server", self._restart),
@@ -429,27 +436,49 @@ elif sys.platform == "win32":
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-controller = ServerController()
-controller.start()
+if __name__ == "__main__":
+    if getattr(sys, "frozen", False) and sys._MEIPASS not in sys.path:
+        # This is PyInstaller's working directory. Ensure it is in sys.path
+        # so that our backend.api imports work when run from Finder.
+        sys.path.insert(0, sys._MEIPASS)
 
+    try:
+        controller = ServerController()
+        controller.start()
 
-# Open the browser once on first successful startup.
-def _auto_open() -> None:
-    for _ in range(60):
-        try:
-            with urllib.request.urlopen(
-                f"{APP_URL}/health", timeout=1, context=_SSL_CTX
-            ) as r:
-                if r.status == 200:
-                    webbrowser.open(APP_URL)
-                    return
-        except Exception:
-            pass
-        time.sleep(0.5)
+        # Open the browser once on first successful startup.
+        def _auto_open() -> None:
+            for _ in range(60):
+                try:
+                    with urllib.request.urlopen(
+                        f"{APP_URL}/health", timeout=1, context=_SSL_CTX
+                    ) as r:
+                        if r.status == 200:
+                            webbrowser.open(APP_URL)
+                            return
+                except Exception:
+                    pass
+                time.sleep(0.5)
 
+        threading.Thread(target=_auto_open, daemon=True).start()
 
-threading.Thread(target=_auto_open, daemon=True).start()
+        TrustyTrackApp(controller).run()
 
-TrustyTrackApp(controller).run()
+        controller.stop()
+    except Exception as e:
+        import traceback
 
-controller.stop()
+        error_msg = f"Error during startup: {str(e)}\n" + traceback.format_exc()
+
+        # Log to /tmp/ for system visibility
+        with contextlib.suppress(Exception), open(
+            "/tmp/trustytrack_startup_error.log", "w"
+        ) as f:
+            f.write(error_msg)
+
+        # Log to user home for easy access
+        with contextlib.suppress(Exception):
+            home_log = os.path.expanduser("~/trusty_error.log")
+            with open(home_log, "w") as f:
+                f.write(error_msg)
+        raise
