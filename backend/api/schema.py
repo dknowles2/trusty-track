@@ -9,7 +9,7 @@ import typing
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import pillow_heif
 import strawberry
@@ -21,9 +21,14 @@ from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
 from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.timer.devices.base import (
+    LaneResult as TimerLaneResult,
+)
+from backend.services.timer.devices.base import RaceStarted
 from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
+from backend.services.timer.state_machine import TimerState
 
 pillow_heif.register_heif_opener()
 
@@ -97,7 +102,7 @@ class Heat:
         return before_count + 1
 
     @strawberry.field
-    def parsed_results(self) -> List[LaneResult]:
+    def parsed_results(self) -> list[LaneResult]:
         if not self.lane_results:
             return []
         try:
@@ -130,7 +135,7 @@ class Round:
     advancement_num_racers: Optional[int]
 
     @strawberry.field
-    def heats(self, info: Info) -> List[Heat]:
+    def heats(self, info: Info) -> list[Heat]:
         """Get all heats in this round."""
         return (
             info.context["db"]
@@ -166,7 +171,7 @@ class AdvancementStatus:
     is_ready: bool
     requires_advancement: bool
     already_advanced: bool
-    advancing_racers: List[AdvancementRacer]
+    advancing_racers: list[AdvancementRacer]
     source: Optional[str]
     num_racers: Optional[int]
 
@@ -179,7 +184,7 @@ class InitialConfigStatus:
 
     initialized: bool
     group_name: Optional[str] = None
-    tracks: List["Track"] = strawberry.field(default_factory=list)
+    tracks: list["Track"] = strawberry.field(default_factory=list)
     current_race_id: Optional[int] = None
 
 
@@ -190,7 +195,7 @@ class InitialConfigInput:
     """
 
     group_name: str
-    tracks: List["TrackInput"]
+    tracks: list["TrackInput"]
 
 
 @strawberry.input
@@ -300,7 +305,7 @@ class WizardConfigurationInput:
     """
 
     general_round: WizardGeneralRoundInput
-    championship_rounds: List[WizardChampionshipRoundInput]
+    championship_rounds: list[WizardChampionshipRoundInput]
 
 
 @strawberry.type
@@ -326,7 +331,7 @@ class RacerStat:
     max_time: Optional[float]
     mean_time: Optional[float]
     std_dev: Optional[float]
-    times_per_lane: List[TimesPerLane]
+    times_per_lane: list[TimesPerLane]
 
 
 @strawberry.type
@@ -389,11 +394,11 @@ class RaceStats:
     total_heats_scheduled: int
     total_heats_completed: int
     total_racers: int
-    lane_stats: List[LaneTimeStat]
-    racer_stats: List[RacerStat]
-    highlights: List[HeatHighlight]
-    den_stats: List[DenStat]
-    heat_results: List[HeatResultRow]
+    lane_stats: list[LaneTimeStat]
+    racer_stats: list[RacerStat]
+    highlights: list[HeatHighlight]
+    den_stats: list[DenStat]
+    heat_results: list[HeatResultRow]
 
 
 @strawberry.type
@@ -429,7 +434,7 @@ class Den:
     car_number_range_end: Optional[int]
 
     @strawberry.field
-    def racers(self, info: Info) -> List["Racer"]:
+    def racers(self, info: Info) -> list["Racer"]:
         """Get all racers belonging to this den."""
         return (
             info.context["db"]
@@ -484,7 +489,7 @@ class HeatReorderResponse:
     """Response after reordering heats."""
 
     updated_count: int
-    heats: List["Heat"]
+    heats: list["Heat"]
 
 
 @strawberry.type
@@ -537,7 +542,7 @@ class Race:
     auto_advance_heat: bool
 
     @strawberry.field
-    def leaderboard(self, info: Info) -> List[LeaderboardEntry]:
+    def leaderboard(self, info: Info) -> list[LeaderboardEntry]:
         """Get the current leaderboard for this race."""
         standings = scoring.get_leaderboard(info.context["db"], self.id)
         return [LeaderboardEntry(**s) for s in standings]
@@ -566,7 +571,7 @@ class Race:
         )
 
     @strawberry.field
-    def dens(self, info: Info) -> List[Den]:
+    def dens(self, info: Info) -> list[Den]:
         """Get all dens associated with this race."""
         return (
             info.context["db"]
@@ -576,7 +581,7 @@ class Race:
         )
 
     @strawberry.field
-    def racers(self, info: Info) -> List[Racer]:
+    def racers(self, info: Info) -> list[Racer]:
         """Get all racers registered for this race."""
         return (
             info.context["db"]
@@ -586,7 +591,7 @@ class Race:
         )
 
     @strawberry.field
-    def scheduled_racer_ids(self, info: Info) -> List[int]:
+    def scheduled_racer_ids(self, info: Info) -> list[int]:
         """Get IDs of all racers scheduled in any official heats of this race."""
         db = info.context["db"]
         heats = db.query(models.Heat).filter(models.Heat.race_id == self.id).all()
@@ -600,7 +605,7 @@ class Race:
                             ids.add(r["racer_id"])
                 except (json.JSONDecodeError, TypeError):
                     continue
-        return sorted(list(ids))
+        return sorted(ids)
 
     @strawberry.field
     def group(self, info: Info) -> "Group":
@@ -613,7 +618,7 @@ class Race:
         )
 
     @strawberry.field
-    def rounds(self, info: Info) -> List[Round]:
+    def rounds(self, info: Info) -> list[Round]:
         """Get all rounds for this race."""
         return (
             info.context["db"]
@@ -624,7 +629,7 @@ class Race:
         )
 
     @strawberry.field
-    def heats(self, info: Info) -> List[Heat]:
+    def heats(self, info: Info) -> list[Heat]:
         """Get all heats for this race."""
         return (
             info.context["db"]
@@ -660,7 +665,7 @@ class Track:
     serial_port: Optional[str]
 
     @strawberry.field
-    def races(self, info: Info) -> List[Race]:
+    def races(self, info: Info) -> list[Race]:
         """Get all races that have used this track."""
         return (
             info.context["db"]
@@ -680,7 +685,7 @@ class Group:
     name: str
 
     @strawberry.field
-    def races(self, info: Info) -> List[Race]:
+    def races(self, info: Info) -> list[Race]:
         """Get all races organized by this group."""
         return (
             info.context["db"]
@@ -701,7 +706,7 @@ class FreeRaceHeat:
     created_at: str
 
     @strawberry.field
-    def parsed_assignments(self) -> List[LaneResult]:
+    def parsed_assignments(self) -> list[LaneResult]:
         """Parse lane_assignments JSON into LaneResult objects."""
         if not self.lane_assignments:
             return []
@@ -720,7 +725,7 @@ class FreeRaceHeat:
             return []
 
     @strawberry.field
-    def parsed_results(self) -> List[LaneResult]:
+    def parsed_results(self) -> list[LaneResult]:
         """Parse lane_results JSON into LaneResult objects."""
         if not self.lane_results:
             return []
@@ -773,8 +778,8 @@ class TimerStatus:
     lane_count: Optional[int]
     active_heat_id: Optional[int]
     last_error: Optional[str]
-    pending_results: List[LaneResult] = strawberry.field(default_factory=list)
-    serial_log: List[SerialLogEntry] = strawberry.field(default_factory=list)
+    pending_results: list[LaneResult] = strawberry.field(default_factory=list)
+    serial_log: list[SerialLogEntry] = strawberry.field(default_factory=list)
     racer_by_lane: Optional[str] = None  # JSON mapping of lane -> racer_id
 
 
@@ -824,7 +829,7 @@ class Query:
     """
 
     @strawberry.field
-    def races(self, info: Info, skip: int = 0, limit: int = 100) -> List[Race]:
+    def races(self, info: Info, skip: int = 0, limit: int = 100) -> list[Race]:
         """Get a list of races with pagination."""
         return typing.cast(
             Any, crud.get_races(info.context["db"], skip=skip, limit=limit)
@@ -838,7 +843,7 @@ class Query:
     @strawberry.field
     def racers(
         self, info: Info, race_id: Optional[int] = None, skip: int = 0, limit: int = 100
-    ) -> List[Racer]:
+    ) -> list[Racer]:
         """Get a list of racers, optionally filtering by race_id."""
         return typing.cast(
             Any,
@@ -861,12 +866,12 @@ class Query:
         )
 
     @strawberry.field
-    def tracks(self, info: Info) -> List[Track]:
+    def tracks(self, info: Info) -> list[Track]:
         """Get all available tracks."""
         return typing.cast(Any, crud.get_tracks(info.context["db"]))
 
     @strawberry.field
-    def groups(self, info: Info) -> List[Group]:
+    def groups(self, info: Info) -> list[Group]:
         """Get all registered groups."""
         return typing.cast(Any, info.context["db"].query(models.Group).all())
 
@@ -887,7 +892,7 @@ class Query:
         return InitialConfigStatus(initialized=False)
 
     @strawberry.field
-    def rounds(self, info: Info, race_id: int) -> List[Round]:
+    def rounds(self, info: Info, race_id: int) -> list[Round]:
         """Get all rounds for a specific race."""
         return typing.cast(Any, crud.get_rounds(info.context["db"], race_id=race_id))
 
@@ -999,7 +1004,7 @@ class Query:
     @strawberry.field
     def free_race_heats(
         self, info: Info, race_id: int, limit: int = 10
-    ) -> List[FreeRaceHeat]:
+    ) -> list[FreeRaceHeat]:
         """Get the most recent free race heats for a race."""
         return typing.cast(
             Any, crud.get_free_race_heats(info.context["db"], race_id, limit)
@@ -1027,7 +1032,7 @@ class Query:
     @strawberry.field
     def random_free_race_lanes(
         self, info: Info, race_id: int
-    ) -> List[FreeRaceLaneAssignment]:
+    ) -> list[FreeRaceLaneAssignment]:
         """
         Return a random lane assignment for the race's track lane count,
         using only checked-in racers. Frontend can display this as a preview
@@ -1318,7 +1323,7 @@ class Mutation:
     @strawberry.mutation
     async def create_round_wizard(
         self, info: Info, race_id: int, config: WizardConfigurationInput
-    ) -> List[Round]:
+    ) -> list[Round]:
         """Create rounds using the wizard logic."""
         db = info.context["db"]
         # Logic replicated from main.py's create_race_wizard
@@ -1425,7 +1430,7 @@ class Mutation:
         return typing.cast(Any, created_rounds)
 
     @strawberry.mutation
-    async def regenerate_round(self, info: Info, round_id: int) -> List[Heat]:
+    async def regenerate_round(self, info: Info, round_id: int) -> list[Heat]:
         """Regenerate heats for a round."""
         db = info.context["db"]
         # We need to know if it's a placeholder round or racer round.
@@ -1560,9 +1565,6 @@ class Mutation:
 
         Returns False if the timer is not in ARMED state or heat_id doesn't match.
         """
-        from backend.services.timer.devices.base import RaceStarted
-        from backend.services.timer.state_machine import TimerState
-
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
@@ -1666,9 +1668,6 @@ class Mutation:
         TimerManager. The manager records results through the same path as a
         real timer. Returns False if the timer is not in RUNNING state.
         """
-        from backend.services.timer.devices.base import LaneResult as TimerLaneResult
-        from backend.services.timer.state_machine import TimerState
-
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
@@ -1720,7 +1719,7 @@ class Mutation:
 
     # Bulk Mutations
     @strawberry.mutation
-    async def bulk_auto_number(self, info: Info, racer_ids: List[int]) -> int:
+    async def bulk_auto_number(self, info: Info, racer_ids: list[int]) -> int:
         """Bulk auto-number racers."""
         db = info.context["db"]
         if not racer_ids:
@@ -1733,7 +1732,7 @@ class Mutation:
         return count
 
     @strawberry.mutation
-    async def bulk_clear_numbers(self, info: Info, racer_ids: List[int]) -> bool:
+    async def bulk_clear_numbers(self, info: Info, racer_ids: list[int]) -> bool:
         """Bulk clear car numbers."""
         db = info.context["db"]
         racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first() if racer_ids else None
@@ -1743,7 +1742,7 @@ class Mutation:
         return True
 
     @strawberry.mutation
-    async def bulk_check_in(self, info: Info, racer_ids: List[int], passed_inspection: bool = True) -> bool:
+    async def bulk_check_in(self, info: Info, racer_ids: list[int], passed_inspection: bool = True) -> bool:
         """Bulk check-in racers."""
         db = info.context["db"]
         if not racer_ids:
@@ -1757,7 +1756,7 @@ class Mutation:
 
     @strawberry.mutation
     async def bulk_move_to_den(
-        self, info: Info, racer_ids: List[int], den_id: Optional[int]
+        self, info: Info, racer_ids: list[int], den_id: Optional[int]
     ) -> bool:
         """Bulk move racers to a den."""
         db = info.context["db"]
@@ -1768,7 +1767,7 @@ class Mutation:
         return True
 
     @strawberry.mutation
-    async def bulk_delete_racers(self, info: Info, racer_ids: List[int]) -> bool:
+    async def bulk_delete_racers(self, info: Info, racer_ids: list[int]) -> bool:
         """Bulk delete racers."""
         db = info.context["db"]
         racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first() if racer_ids else None
@@ -1782,7 +1781,7 @@ class Mutation:
     async def bulk_assign_photos(
         self,
         info: Info,
-        assignments: List[PhotoAssignmentInput],
+        assignments: list[PhotoAssignmentInput],
     ) -> int:
         """Assign uploaded photo URLs to racers in bulk. Returns count updated."""
         db = info.context["db"]
@@ -1968,7 +1967,7 @@ class Mutation:
                     return row[alias]
                 # Normalized match
                 norm_alias = alias.lower().replace(" ", "_")
-                for key in row.keys():
+                for key in row:
                     norm_key = key.lower().replace(" ", "_")
                     if norm_key == norm_alias:
                         return row[key]
@@ -2017,7 +2016,7 @@ class Mutation:
     @strawberry.mutation
     async def create_round(
         self, info: Info, race_id: int, round_data: RoundCreateInput
-    ) -> List[Round]:
+    ) -> list[Round]:
         """Create a new round and generate heats."""
         db = info.context["db"]
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
@@ -2071,7 +2070,7 @@ class Mutation:
 
     @strawberry.mutation
     async def reorder_heats(
-        self, info: Info, heat_updates: List[HeatReorderItemInput]
+        self, info: Info, heat_updates: list[HeatReorderItemInput]
     ) -> HeatReorderResponse:
         """Reorder heats in a round."""
         db = info.context["db"]
@@ -2093,7 +2092,7 @@ class Mutation:
         self,
         info: Info,
         race_id: int,
-        lane_assignments: List[FreeRaceLaneAssignmentInput],
+        lane_assignments: list[FreeRaceLaneAssignmentInput],
     ) -> FreeRaceHeat:
         """
         Persist a free race heat with the given lane assignments.
@@ -2192,7 +2191,7 @@ class TimingStats:
     round_name: str
     heat_number: int
     global_heat_number: int
-    lanes: List[TimingStatsLane]
+    lanes: list[TimingStatsLane]
 
 
 async def _publish_race_state(race_id: int) -> None:
@@ -2286,7 +2285,7 @@ class Subscription:
     @strawberry.subscription
     async def leaderboard(
         self, info: Info, race_id: int
-    ) -> AsyncGenerator[List[LeaderboardEntry], None]:
+    ) -> AsyncGenerator[list[LeaderboardEntry], None]:
         """Subscribe to the leaderboard for a specific race."""
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]
@@ -2302,7 +2301,7 @@ class Subscription:
     @strawberry.subscription
     async def on_deck(
         self, info: Info, race_id: int
-    ) -> AsyncGenerator[List[Racer], None]:
+    ) -> AsyncGenerator[list[Racer], None]:
         """Subscribe to the 'on deck' racers (next heat) for a specific race."""
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]
@@ -2469,7 +2468,7 @@ class Subscription:
     @strawberry.subscription
     async def heats(
         self, info: Info, race_id: int
-    ) -> AsyncGenerator[List[Round], None]:
+    ) -> AsyncGenerator[list[Round], None]:
         """Subscribe to all rounds and heats for a specific race."""
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]

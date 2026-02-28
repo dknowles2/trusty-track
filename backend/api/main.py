@@ -11,7 +11,6 @@ import sys
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict
 
 import pillow_heif
 from dotenv import load_dotenv
@@ -30,20 +29,20 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
-# Load environment variables from .env if present
-load_dotenv()
-
 from backend.api.schema import schema
 from backend.db import models
 from backend.db.database import UPLOAD_DIR, SessionLocal, init_db
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
 
+# Load environment variables from .env if present
+load_dotenv()
+
 # Register the HEIF/HEIC plugin so Pillow can open those files.
 pillow_heif.register_heif_opener()
 
 # Registry of TimerManager instances, keyed by track_id
-TIMER_MANAGERS: Dict[int, TimerManager] = {}
+TIMER_MANAGERS: dict[int, TimerManager] = {}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -213,10 +212,7 @@ async def upload_file(file: UploadFile = File(...)) -> dict:
     image_bytes = convert_to_browser_safe_png(raw_bytes)
 
     # Use .png extension if conversion happened, otherwise keep original.
-    if image_bytes is not raw_bytes:
-        ext = ".png"
-    else:
-        ext = os.path.splitext(file.filename)[1]
+    ext = ".png" if image_bytes is not raw_bytes else os.path.splitext(file.filename)[1]
 
     filename = f"{uuid.uuid4()}{ext}"
     file_path = os.path.join(UPLOAD_DIR, filename)

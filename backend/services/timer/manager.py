@@ -22,6 +22,8 @@ from backend.api.pubsub import pubsub
 from backend.db import crud, models
 from backend.db.database import SessionLocal
 
+# Circular import handled by importing inside methods or using full module path
+# from backend.api.schema import _publish_race_state
 from .devices.base import (
     DeviceError,
     GateClosed,
