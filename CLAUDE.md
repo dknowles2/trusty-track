@@ -80,7 +80,6 @@ frontend/src/
       FakeTimerMole.tsx
     DenManager.tsx
     RacerForm.tsx
-    CheckInModal.tsx
     ImportRacersModal.tsx
     Leaderboard.tsx
     CameraCapture.tsx

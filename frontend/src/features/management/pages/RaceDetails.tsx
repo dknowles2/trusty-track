@@ -10,7 +10,6 @@ import DenManager from '../components/DenManager';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
-import CheckInModal from '../components/CheckInModal';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
 import RaceModeToggle from '../../racing/components/RaceModeToggle';
@@ -140,11 +139,9 @@ export default function RaceDetails() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showDenManager, setShowDenManager] = useState(false);
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
+  const [racerFormTitle, setRacerFormTitle] = useState('Add New Racer');
+  const [racerFormSubmitLabel, setRacerFormSubmitLabel] = useState('Save Racer');
   
-  // Check In Modal
-  const [showCheckInModal, setShowCheckInModal] = useState(false);
-  const [checkingInRacer, setCheckingInRacer] = useState<Racer | null>(null);
-
   const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
 
   // Populate Modal
@@ -245,17 +242,23 @@ export default function RaceDetails() {
   // Racer Actions
   const handleAddRacerClick = () => {
     setEditingRacer(undefined);
+    setRacerFormTitle('Add New Racer');
+    setRacerFormSubmitLabel('Save Racer');
     setShowRacerForm(true);
   };
 
   const handleEditRacerClick = (racer: Racer) => {
     setEditingRacer(racer);
+    setRacerFormTitle(`Edit Racer: ${racer.first_name} ${racer.last_name}`);
+    setRacerFormSubmitLabel('Save Racer');
     setShowRacerForm(true);
   };
 
   const handleCheckInClick = (racer: Racer) => {
-      setCheckingInRacer(racer);
-      setShowCheckInModal(true);
+      setEditingRacer(racer);
+      setRacerFormTitle('Racer Check In');
+      setRacerFormSubmitLabel('Save Check-In');
+      setShowRacerForm(true);
   };
   
   const [, createRacerMutation] = useMutation(GQL.CREATE_RACER);
@@ -492,23 +495,21 @@ export default function RaceDetails() {
                   onClick={() => handleCheckInClick(racer)}
                   className="secondary-btn"
                   style={{ 
-                      background: racer.car_passed_inspection ? '#e8f5e9' : '#fafafa', 
+                      background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)', 
                       borderColor: racer.car_passed_inspection ? '#4caf50' : '#ddd',
-                      color: racer.car_passed_inspection ? '#2e7d32' : '#666',
+                      color: racer.car_passed_inspection ? '#2e7d32' : 'var(--scouting-blue)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '5px'
+                      justifyContent: 'center',
+                      gap: '5px',
+                      flex: 1
                   }}
               >
-                  {racer.car_passed_inspection ? <Icon path={mdiCheckDecagram} size={0.7} /> : null}
-                  {racer.car_passed_inspection ? 'Checked In' : 'Check In'}
-              </button>
-              <button
-                  onClick={() => handleEditRacerClick(racer)}
-                  className="secondary-btn"
-                  style={{ color: 'var(--scouting-blue)', display: 'flex', alignItems: 'center', gap: '5px' }}
-              >
-                  <Icon path={mdiPencil} size={0.7} /> Edit
+                  {racer.car_passed_inspection ? (
+                      <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In / Edit</>
+                  ) : (
+                      'Check In'
+                  )}
               </button>
           </div>
       </div>
@@ -778,13 +779,12 @@ export default function RaceDetails() {
                         <th style={{ padding: '12px', textAlign: 'left' }}>First Name</th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>Last Name</th>
                         <th style={{ padding: '12px', textAlign: 'left' }}>Den</th>
-                        <th style={{ padding: '12px', textAlign: 'center' }}>Checked In</th>
-                        <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
+                        <th style={{ padding: '12px', textAlign: 'center' }}>Status / Edit</th>
                     </tr>
                 </thead>
                 <tbody>
                     {filteredRacers.length === 0 ? (
-                        <tr><td data-label="Status" colSpan={8} style={{ padding: '20px', textAlign: 'center' }}>
+                        <tr><td data-label="Status" colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>
                             {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
                         </td></tr>
                     ) : isGroupedByDen ? (
@@ -811,7 +811,7 @@ export default function RaceDetails() {
                             return (
                                 <>
                                     <tr key={`header-${group.denId}`} className="group-row" style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
-                                        <td colSpan={8} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                        <td colSpan={7} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{ 
                                                 display: 'inline-block', 
                                                 width: '12px', 
@@ -869,33 +869,30 @@ export default function RaceDetails() {
                                                     </span>
                                                 ) : '-'}
                                             </td>
-                                            <td data-label="Checked In" style={{ padding: '12px', textAlign: 'center' }}>
+                                            <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
                                                 <button 
                                                     onClick={() => handleCheckInClick(racer)}
                                                     style={{ 
-                                                        background: racer.car_passed_inspection ? '#e8f5e9' : '#fafafa', 
+                                                        background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)', 
                                                         border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`, 
                                                         borderRadius: '20px',
                                                         padding: '6px 12px',
                                                         cursor: 'pointer',
-                                                        color: racer.car_passed_inspection ? '#2e7d32' : '#666',
+                                                        color: racer.car_passed_inspection ? '#2e7d32' : 'var(--scouting-blue)',
                                                         fontSize: '0.85rem',
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
-                                                        gap: '5px'
+                                                        gap: '5px',
+                                                        minWidth: '120px',
+                                                        justifyContent: 'center'
                                                     }}
                                                 >
-                                                     {racer.car_passed_inspection ? <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In</> : 'Check In'}
+                                                     {racer.car_passed_inspection ? (
+                                                         <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In / Edit</>
+                                                     ) : (
+                                                         'Check In'
+                                                     )}
                                                  </button>
-                                            </td>
-                                            <td data-label="Actions" style={{ padding: '12px', textAlign: 'right' }}>
-                                                <button
-                                                    onClick={() => handleEditRacerClick(racer)}
-                                                    style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                                    title="Edit Racer"
-                                                >
-                                                    <Icon path={mdiPencil} size={0.7} /> Edit
-                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -956,36 +953,31 @@ export default function RaceDetails() {
                                         ) : '-'}
                                     </span>
                                 </td>
-                                <td data-label="Checked In" style={{ padding: '12px', textAlign: 'center' }}>
-                                    <span className="cell-value">
+                                <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
+                                    <span className="cell-value" style={{ display: 'flex', justifyContent: 'center' }}>
                                         <button 
                                             onClick={() => handleCheckInClick(racer)}
                                             style={{ 
-                                                background: racer.car_passed_inspection ? '#e8f5e9' : '#fafafa', 
+                                                background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)', 
                                                 border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`, 
                                                 borderRadius: '20px',
                                                 padding: '6px 12px',
                                                 cursor: 'pointer',
-                                                color: racer.car_passed_inspection ? '#2e7d32' : '#666',
+                                                color: racer.car_passed_inspection ? '#2e7d32' : 'var(--scouting-blue)',
                                                 fontSize: '0.85rem',
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
-                                                gap: '5px'
+                                                gap: '5px',
+                                                minWidth: '120px',
+                                                justifyContent: 'center'
                                             }}
                                         >
-                                            {racer.car_passed_inspection ? <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In</> : 'Check In'}
-                                        </button>
-                                    </span>
-                                </td>
-                                <td data-label="Actions" style={{ padding: '12px', textAlign: 'right' }}>
-                                    <span className="cell-value">
-                                        <button
-                                            onClick={() => handleEditRacerClick(racer)}
-                                            style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            title="Edit Racer"
-                                        >
-                                            <Icon path={mdiPencil} size={0.7} /> Edit
-                                        </button>
+                                             {racer.car_passed_inspection ? (
+                                                 <><Icon path={mdiCheckDecagram} size={0.7} /> Checked In / Edit</>
+                                             ) : (
+                                                 'Check In'
+                                             )}
+                                         </button>
                                     </span>
                                 </td>
                             </tr>
@@ -1040,13 +1032,14 @@ export default function RaceDetails() {
       <Modal
          isOpen={showRacerForm}
          onClose={() => setShowRacerForm(false)}
-         title={editingRacer ? 'Edit Racer' : 'Add New Racer'}
+         title={racerFormTitle}
       >
         <RacerForm
             initialData={editingRacer}
             raceId={race ? race.id : undefined}
             onSubmit={handleRacerFormSubmit}
             onCancel={() => setShowRacerForm(false)}
+            submitLabel={racerFormSubmitLabel}
         />
       </Modal>
 
@@ -1083,21 +1076,6 @@ export default function RaceDetails() {
               racers={racers}
           />
       )}
-
-      {/* Check In Modal */}
-      <Modal
-        isOpen={showCheckInModal}
-        onClose={() => setShowCheckInModal(false)}
-        title="Racer Check In"
-      >
-          {checkingInRacer && (
-              <CheckInModal 
-                racer={checkingInRacer}
-                onClose={() => setShowCheckInModal(false)}
-                onSave={refreshData}
-              />
-          )}
-      </Modal>
 
       {/* Populate Modal */}
       <Modal

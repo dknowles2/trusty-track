@@ -29,9 +29,10 @@ interface RacerFormProps {
   raceId?: number;
   onSubmit: (data: RacerData) => Promise<void>;
   onCancel: () => void;
+  submitLabel?: string;
 }
 
-export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: RacerFormProps) {
+export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel }: RacerFormProps) {
   const [formData, setFormData] = useState<RacerData>({
     first_name: '',
     last_name: '',
@@ -101,8 +102,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
   };
 
   return (
-    <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-      <h3>{initialData ? 'Edit Racer' : 'Add New Racer'}</h3>
+    <div>
       <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
           <div>
@@ -182,15 +182,15 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
         </div>
         
         <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>Passed Inspection / Checked In</label>
+            <label className="toggle-switch">
                 <input
                     type="checkbox"
                     name="car_passed_inspection"
                     checked={formData.car_passed_inspection}
                     onChange={handleChange}
-                    style={{ marginRight: '10px' }}
                 />
-                Passed Inspection / Checked In
+                <span className="slider"></span>
             </label>
         </div>
 
@@ -262,7 +262,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel }: R
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button type="button" onClick={onCancel} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
           <button type="submit" disabled={loading} className="primary-btn" style={{ fontSize: '0.9rem', padding: '8px 16px' }}>
-            {loading ? 'Saving...' : 'Save Racer'}
+            {loading ? 'Saving...' : (submitLabel || 'Save Racer')}
           </button>
         </div>
       </form>
