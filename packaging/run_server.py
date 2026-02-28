@@ -26,6 +26,11 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+try:
+    from backend.version import __version__ as TT_VERSION
+except ImportError:
+    TT_VERSION = "unknown"
+
 # ── Platform data directory ────────────────────────────────────────────────────
 
 def _get_data_dir() -> Path:
@@ -264,6 +269,7 @@ if sys.platform == "darwin":
                 rumps.MenuItem("Reset Database…",       callback=self._reset_db),
                 rumps.MenuItem("View Logs",             callback=self._view_logs),
                 None,
+                rumps.MenuItem(f"Trusty Track v{TT_VERSION}", callback=None),
                 rumps.MenuItem("Quit TrustyTrack",      callback=self._quit),
             ]
 
@@ -385,6 +391,7 @@ elif sys.platform == "win32":
                 pystray.MenuItem("Reset Database…",       self._reset_db),
                 pystray.MenuItem("View Logs",             self._view_logs),
                 pystray.Menu.SEPARATOR,
+                pystray.MenuItem(f"Trusty Track v{TT_VERSION}", None),
                 pystray.MenuItem("Quit TrustyTrack",      self._quit),
             )
             self._icon_obj = pystray.Icon(

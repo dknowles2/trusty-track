@@ -6,6 +6,7 @@ const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
     initialConfig {
       initialized
+      version
       groupName
       debugMode
       tracks {
@@ -287,6 +288,20 @@ export default function SystemConfig() {
           {submitting ? 'Saving...' : 'Save Settings'}
         </button>
       </form>
+
+      <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
+        <p>
+          Trusty Track v{data?.initialConfig?.version || '0.0.0'} &bull; 
+          <a 
+            href="https://github.com/dknowles2/trusty-track" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            style={{ marginLeft: '0.5rem', color: 'var(--primary)', textDecoration: 'none' }}
+          >
+            GitHub
+          </a>
+        </p>
+      </div>
     </div>
   );
 }

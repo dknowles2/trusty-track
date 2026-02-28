@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
-import { GET_RACES_NAV } from '../graphql/queries';
+import { GET_RACES_NAV, INITIAL_CONFIG_QUERY } from '../graphql/queries';
 import { CREATE_RACE } from '../../management/graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../../management/components/RaceForm';
@@ -12,8 +12,11 @@ import logoUrl from '../../../assets/logo_transparent.png';
 
 export default function Navigation() {
   const { showAlert } = useAlert();
-  const [{ data }] = useQuery({ query: GET_RACES_NAV });
-  const races: { id: number; name: string }[] = data?.races || [];
+  const [{ data: navData }] = useQuery({ query: GET_RACES_NAV });
+  const races: { id: number; name: string }[] = navData?.races || [];
+
+  const [{ data: configData }] = useQuery({ query: INITIAL_CONFIG_QUERY });
+  const version = configData?.initialConfig?.version || '0.0.0';
   
   const [, createRaceMutation] = useMutation(CREATE_RACE);
 
@@ -198,29 +201,41 @@ export default function Navigation() {
             </div>
           )}
 
-          {/* Right: System Settings (Hidden on Mobile) */}
+          {/* Right: Version and Settings (Hidden on Mobile) */}
           {!isMobile && (
-            <Link 
-              to="/system-settings" 
-              title="System Settings"
-              style={{
-                textDecoration: 'none',
-                color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'white',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                background: location.pathname === '/system-settings' ? 'rgba(255,255,255,0.15)' : 'transparent',
-                transition: 'all 0.2s ease',
-                flexShrink: 0
-              }}
-              onMouseEnter={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
-              onMouseLeave={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'transparent')}
-            >
-              <Icon path={mdiCog} size={0.9} />
-              <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Settings</span>
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
+              <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', textAlign: 'right', lineHeight: '1.2' }}>
+                <div>v{version}</div>
+                <a 
+                  href="https://github.com/dknowles2/trusty-track" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  style={{ color: 'rgba(255,255,255,0.9)', textDecoration: 'none' }}
+                >
+                  GitHub
+                </a>
+              </div>
+              <Link 
+                to="/system-settings" 
+                title="System Settings"
+                style={{
+                  textDecoration: 'none',
+                  color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  background: location.pathname === '/system-settings' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'rgba(255,255,255,0.1)')}
+                onMouseLeave={(e) => ! (location.pathname === '/system-settings') && (e.currentTarget.style.background = 'transparent')}
+              >
+                <Icon path={mdiCog} size={0.9} />
+                <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>Settings</span>
+              </Link>
+            </div>
           )}
 
           {/* Mobile: Hamburger Menu Button */}
@@ -398,6 +413,9 @@ export default function Navigation() {
                   <Icon path={mdiCog} size={0.9} />
                   System Settings
                 </Link>
+                <div style={{ marginTop: '0.8rem', textAlign: 'center', fontSize: '0.75rem', color: '#999' }}>
+                  v{version}
+                </div>
               </div>
             </div>
           </>

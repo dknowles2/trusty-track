@@ -183,6 +183,7 @@ class InitialConfigStatus:
     """
 
     initialized: bool
+    version: str
     group_name: Optional[str] = None
     debug_mode: bool = False
     tracks: list["Track"] = strawberry.field(default_factory=list)
@@ -838,6 +839,15 @@ class Query:
         )
 
     @strawberry.field
+    def version(self) -> str:
+        """Get the current application version."""
+        try:
+            from backend.version import __version__
+            return __version__
+        except ImportError:
+            return "unknown"
+
+    @strawberry.field
     def race(self, info: Info, race_id: int) -> Optional[Race]:
         """Get a single race by ID."""
         return typing.cast(Any, crud.get_race(info.context["db"], race_id=race_id))
@@ -882,17 +892,24 @@ class Query:
         """Get the system initialization status."""
         db = info.context["db"]
         tracks = crud.get_tracks(db)
+
+        try:
+            from backend.version import __version__ as _version
+        except ImportError:
+            _version = "unknown"
+
         if tracks:
             group = db.query(models.Group).first()
             race = db.query(models.Race).first()
             return InitialConfigStatus(
                 initialized=True,
+                version=_version,
                 group_name=group.name if group else None,
                 debug_mode=group.debug_mode if group else False,
                 tracks=typing.cast(Any, tracks),
                 current_race_id=race.id if race else None,
             )
-        return InitialConfigStatus(initialized=False)
+        return InitialConfigStatus(initialized=False, version=_version)
 
     @strawberry.field
     def rounds(self, info: Info, race_id: int) -> list[Round]:

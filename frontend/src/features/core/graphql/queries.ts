@@ -22,6 +22,7 @@ export const INITIAL_CONFIG_QUERY = `
   query GetInitialConfig {
     initialConfig {
       initialized
+      version
       debugMode
     }
   }
