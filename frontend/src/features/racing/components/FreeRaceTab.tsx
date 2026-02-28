@@ -17,6 +17,7 @@ interface FreeRaceTabProps {
   timerType: string | null;
   trackId?: number | null;
   racers: Record<number, RacerSummary>;
+  debugMode?: boolean;
 }
 
 type FreeRacePhase =
@@ -38,6 +39,7 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
   timerType,
   trackId,
   racers,
+  debugMode,
 }) => {
   const [phase, setPhase] = useState<FreeRacePhase>({ kind: 'setup' });
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +106,7 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
           timerType={timerType}
           trackId={trackId ?? null}
           onRunAnother={handleRunAnother}
+          debugMode={debugMode}
         />
       )}
     </div>

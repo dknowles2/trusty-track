@@ -31,3 +31,33 @@ Base = declarative_base()
 def init_db() -> None:
     """Initialize the database by creating all tables."""
     Base.metadata.create_all(bind=engine)
+
+    # Migrate older databases to include new columns
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        try:
+            # Check if debug_mode exists in groups table
+            if engine.driver == "pysqlite" or "sqlite" in engine.url.drivername:
+                res = conn.execute(text("PRAGMA table_info(groups)")).fetchall()
+                columns = [r[1] for r in res]
+                if columns and "debug_mode" not in columns:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE groups ADD COLUMN debug_mode BOOLEAN DEFAULT 0"
+                        )
+                    )
+                    conn.commit()
+            else:
+                # Generic check for other DBs (Postgres, etc.)
+                # This is more complex without Alembic, but we'll try basic approach.
+                conn.execute(
+                    text(
+                        "ALTER TABLE groups ADD COLUMN IF NOT EXISTS "
+                        "debug_mode BOOLEAN DEFAULT FALSE"
+                    )
+                )
+                conn.commit()
+        except Exception:
+            # If groups table doesn't exist yet, metadata.create_all handled it.
+            pass

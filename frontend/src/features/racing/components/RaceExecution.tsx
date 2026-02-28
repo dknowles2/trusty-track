@@ -76,6 +76,7 @@ interface RaceExecutionProps {
     remainingHeatsInRound?: number;
     totalHeatsInRound?: number;
     upcomingRounds?: { roundNumber: number, roundName: string | null, totalHeats: number }[];
+    debugMode?: boolean;
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
@@ -94,6 +95,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     remainingHeatsInRound,
     totalHeatsInRound,
     upcomingRounds,
+    debugMode,
 }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
@@ -304,7 +306,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const showFakeControls = timerType === 'FAKE';
     const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
-    const showHardwareMole = timerType != null && timerType !== 'FAKE';
+    const showHardwareMole = timerType != null && timerType !== 'FAKE' && debugMode;
 
     return (
         <>

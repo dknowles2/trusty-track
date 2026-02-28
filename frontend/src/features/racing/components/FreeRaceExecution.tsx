@@ -32,6 +32,7 @@ interface FreeRaceExecutionProps {
   timerType: string | null;
   trackId?: number | null;
   onRunAnother: () => void;
+  debugMode?: boolean;
 }
 
 interface LaneResult {
@@ -63,6 +64,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   timerType,
   trackId,
   onRunAnother,
+  debugMode,
 }) => {
   const { showConfirm } = useAlert();
   const [results, setResults] = useState<LaneResult[] | null>(null);

@@ -1,5 +1,5 @@
 import enum
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
 from sqlalchemy import Enum as SAEnum
@@ -46,7 +46,7 @@ class Den(Base):
     car_number_range_end: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="dens")
-    racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="den")
+    racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="den")
 
 
 class SchedulingStrategy(str, enum.Enum):
@@ -63,8 +63,9 @@ class Group(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    debug_mode: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    races: Mapped[List["Race"]] = relationship("Race", back_populates="group")
+    races: Mapped[list["Race"]] = relationship("Race", back_populates="group")
 
 
 class Track(Base):
@@ -79,7 +80,7 @@ class Track(Base):
     )
     serial_port: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    races: Mapped[List["Race"]] = relationship("Race", back_populates="track")
+    races: Mapped[list["Race"]] = relationship("Race", back_populates="track")
 
 
 class Race(Base):
@@ -107,18 +108,18 @@ class Race(Base):
 
     group: Mapped["Group"] = relationship("Group", back_populates="races")
     track: Mapped[Optional["Track"]] = relationship("Track", back_populates="races")
-    racing_groups: Mapped[List["RacingGroup"]] = relationship(
+    racing_groups: Mapped[list["RacingGroup"]] = relationship(
         "RacingGroup", back_populates="race"
     )
-    racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="race")
-    dens: Mapped[List["Den"]] = relationship(
+    racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="race")
+    dens: Mapped[list["Den"]] = relationship(
         "Den", back_populates="race", cascade="all, delete-orphan"
     )
-    rounds: Mapped[List["Round"]] = relationship(
+    rounds: Mapped[list["Round"]] = relationship(
         "Round", back_populates="race", cascade="all, delete-orphan"
     )
-    heats: Mapped[List["Heat"]] = relationship("Heat", back_populates="race")
-    free_race_heats: Mapped[List["FreeRaceHeat"]] = relationship(
+    heats: Mapped[list["Heat"]] = relationship("Heat", back_populates="race")
+    free_race_heats: Mapped[list["FreeRaceHeat"]] = relationship(
         "FreeRaceHeat", back_populates="race", cascade="all, delete-orphan"
     )
 
@@ -138,7 +139,7 @@ class RacingGroup(Base):
     car_number_range_end: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="racing_groups")
-    racers: Mapped[List["Racer"]] = relationship("Racer", back_populates="racing_group")
+    racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="racing_group")
 
 
 class Racer(Base):
@@ -187,7 +188,7 @@ class Round(Base):
     )
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
-    heats: Mapped[List["Heat"]] = relationship(
+    heats: Mapped[list["Heat"]] = relationship(
         "Heat", back_populates="round", cascade="all, delete-orphan"
     )
     den: Mapped[Optional["Den"]] = relationship("Den")
@@ -245,8 +246,8 @@ class FreeRaceHeat(Base):
     # JSON array: [{"lane": 1, "racer_id": 42, "time": 3.141, "place": 1}, ...]
     # racer_id may be None for empty lanes.
     lane_assignments: Mapped[str] = mapped_column(String)
-    # JSON array of results, same shape as lane_assignments but with time/place filled in.
-    # Null until the heat is completed.
+    # JSON array of results, same shape as lane_assignments but with
+    # time/place filled in. Null until the heat is completed.
     lane_results: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[str] = mapped_column(String)  # ISO-8601 timestamp
 

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -66,13 +66,15 @@ class Track(TrackBase):
 
 class InitialConfigCreate(BaseModel):
     group_name: str
-    tracks: List[TrackCreate]
+    debug_mode: bool = False
+    tracks: list[TrackCreate]
 
 
 class InitialConfigStatus(BaseModel):
     initialized: bool
     group_name: Optional[str] = None
-    tracks: List[Track] = []
+    debug_mode: bool = False
+    tracks: list[Track] = []
     current_race_id: Optional[int] = None
 
 
@@ -127,7 +129,7 @@ class RacingGroupCreate(RacingGroupBase):
 class RacingGroup(RacingGroupBase):
     id: int
     race_id: int
-    racers: List[Racer] = []
+    racers: list[Racer] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -174,8 +176,8 @@ class Race(RaceBase):
     id: int
     group_id: int
     track_id: int
-    racing_groups: List[RacingGroup] = []
-    racers: List[Racer] = []
+    racing_groups: list[RacingGroup] = []
+    racers: list[Racer] = []
     registered_count: int = 0
     checked_in_count: int = 0
 
@@ -184,6 +186,7 @@ class Race(RaceBase):
 
 class GroupBase(BaseModel):
     name: str
+    debug_mode: bool = False
 
 
 class GroupCreate(GroupBase):
@@ -192,7 +195,7 @@ class GroupCreate(GroupBase):
 
 class Group(GroupBase):
     id: int
-    races: List[Race] = []
+    races: list[Race] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -262,14 +265,14 @@ class HeatReorderItem(BaseModel):
 class HeatReorderRequest(BaseModel):
     """Request to reorder multiple heats within a round."""
 
-    heat_updates: List[HeatReorderItem]
+    heat_updates: list[HeatReorderItem]
 
 
 class HeatReorderResponse(BaseModel):
     """Response after reordering heats."""
 
     updated_count: int
-    heats: List[Heat]
+    heats: list[Heat]
 
 
 class AdvancementRacer(BaseModel):
@@ -287,7 +290,7 @@ class AdvancementStatus(BaseModel):
     is_ready: bool
     requires_advancement: bool
     already_advanced: bool
-    advancing_racers: List[AdvancementRacer] = []
+    advancing_racers: list[AdvancementRacer] = []
     source: Optional[str] = None
     num_racers: Optional[int] = None
 
@@ -306,11 +309,11 @@ class WizardChampionshipRound(BaseModel):
 
 class WizardConfiguration(BaseModel):
     general_round: WizardGeneralRound
-    championship_rounds: List[WizardChampionshipRound] = []
+    championship_rounds: list[WizardChampionshipRound] = []
 
 
 class BulkRacerActionRequest(BaseModel):
-    racer_ids: List[int]
+    racer_ids: list[int]
 
 
 class BulkRacerMoveRequest(BulkRacerActionRequest):
