@@ -10,8 +10,8 @@ const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
 const TEST_DATA_DIR = '/tmp/trusty-track-screenshots';
 
 export default defineConfig({
-  testDir: './e2e',
-  testMatch: ['screenshots.spec.ts', 'screenshot-bulk-upload.spec.ts'],
+  testDir: './e2e/docs',
+  testMatch: ['*.spec.ts'],
   fullyParallel: false,
   workers: 1,
   reporter: 'list',

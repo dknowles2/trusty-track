@@ -8,7 +8,9 @@
         "build": "tsc && vite build",
         "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
         "preview": "vite preview",
-        "test": "vitest"
+        "test": "vitest",
+        "test:e2e": "playwright test",
+        "test:docs": "playwright test --config=playwright.screenshots.config.ts"
     },
     "dependencies": {
         "@dnd-kit/core": "^6.3.1",

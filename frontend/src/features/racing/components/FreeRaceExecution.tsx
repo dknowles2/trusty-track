@@ -64,7 +64,6 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   timerType,
   trackId,
   onRunAnother,
-  debugMode,
 }) => {
   const { showConfirm } = useAlert();
   const [results, setResults] = useState<LaneResult[] | null>(null);
