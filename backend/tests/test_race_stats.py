@@ -1,4 +1,5 @@
 import json
+
 import pytest
 
 from backend.db import crud, schemas

@@ -589,7 +589,7 @@ def _generate_ppc(
     L = lane_count
 
     # Matchup matrix
-    matchups: dict[int, dict[int, int]] = {p1: {p2: 0 for p2 in p_ids} for p1 in p_ids}
+    matchups: dict[int, dict[int, int]] = {p1: dict.fromkeys(p_ids, 0) for p1 in p_ids}
 
     # heat_matrix[heat_idx][lane_idx] = racer_id
     heat_matrix: List[List[Optional[int]]] = [

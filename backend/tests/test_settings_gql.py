@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from backend.db import models
 from backend.api.main import app
+from backend.db import models
 
 client = TestClient(app)
 

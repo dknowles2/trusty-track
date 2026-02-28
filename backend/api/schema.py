@@ -7,20 +7,20 @@ import os
 import random
 import typing
 import uuid
+from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, List, Optional
-
-from sqlalchemy.orm import Session
-import strawberry
-from strawberry.types import Info
+from typing import Any, List, Optional
 
 import pillow_heif
+import strawberry
+from sqlalchemy.orm import Session
+from strawberry.types import Info
 
-from backend.db import crud, models, schemas
-from backend.services import scoring
-from backend.db.database import UPLOAD_DIR
-from backend.services.image_processing import convert_to_browser_safe_png
 from backend.api.pubsub import pubsub
+from backend.db import crud, models, schemas
+from backend.db.database import UPLOAD_DIR
+from backend.services import scoring
+from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
@@ -775,6 +775,7 @@ class TimerStatus:
     last_error: Optional[str]
     pending_results: List[LaneResult] = strawberry.field(default_factory=list)
     serial_log: List[SerialLogEntry] = strawberry.field(default_factory=list)
+    racer_by_lane: Optional[str] = None  # JSON mapping of lane -> racer_id
 
 
 @strawberry.type
@@ -800,7 +801,7 @@ def _timer_status_from_manager(mgr) -> TimerStatus:
                 lane=r["lane"],
                 time=r["time"],
                 place=r["place"],
-                racer_id=None, # Not known by timer manager directly
+                racer_id=s.racer_by_lane.get(r["lane"]),
             )
             for r in s.pending_results
         ],
@@ -812,6 +813,7 @@ def _timer_status_from_manager(mgr) -> TimerStatus:
             )
             for e in s.serial_log
         ],
+        racer_by_lane=json.dumps(s.racer_by_lane) if s.racer_by_lane else None,
     )
 
 
@@ -1558,8 +1560,8 @@ class Mutation:
 
         Returns False if the timer is not in ARMED state or heat_id doesn't match.
         """
-        from backend.services.timer.state_machine import TimerState
         from backend.services.timer.devices.base import RaceStarted
+        from backend.services.timer.state_machine import TimerState
 
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
@@ -1624,15 +1626,19 @@ class Mutation:
             lane_results = json.loads(free_heat.lane_assignments) if free_heat.lane_assignments else []
             is_free_race = True
 
-        # Compute lane mask
+        # Compute lane mask and racer mapping
         lane_mask = 0
+        racer_by_lane = {}
         if is_free_race:
             # For free races, only arm assigned lanes if any exist.
             # Otherwise arm all lanes on the track so the timer captures everything.
             occupied_lanes = [lr["lane"] for lr in lane_results if lr.get("racer_id") is not None]
             if occupied_lanes:
-                for lane in occupied_lanes:
-                    lane_mask |= 1 << (lane - 1)
+                for lr in lane_results:
+                    if lr.get("racer_id") is not None:
+                        lane = lr["lane"]
+                        lane_mask |= 1 << (lane - 1)
+                        racer_by_lane[lane] = lr["racer_id"]
             else:
                 track = db.query(models.Track).filter(models.Track.id == race.track_id).first()
                 if track:
@@ -1643,11 +1649,12 @@ class Mutation:
                 if lr.get("racer_id") is not None:
                     lane = lr["lane"]
                     lane_mask |= 1 << (lane - 1)
+                    racer_by_lane[lane] = lr["racer_id"]
         
         if lane_mask == 0:
             return False
 
-        await mgr.prepare_heat(heat_id=heat_id, lane_mask=lane_mask)
+        await mgr.prepare_heat(heat_id=heat_id, lane_mask=lane_mask, racer_by_lane=racer_by_lane)
         return True
 
     @strawberry.mutation
@@ -1659,8 +1666,8 @@ class Mutation:
         TimerManager. The manager records results through the same path as a
         real timer. Returns False if the timer is not in RUNNING state.
         """
-        from backend.services.timer.state_machine import TimerState
         from backend.services.timer.devices.base import LaneResult as TimerLaneResult
+        from backend.services.timer.state_machine import TimerState
 
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
@@ -2139,9 +2146,7 @@ class Mutation:
 
         # If conversion happened (non-browser-safe format like HEIC), the
         # result is PNG regardless of what the data-URL header claims.
-        if image_data is not raw_data:
-            ext = ".png"
-        elif "image/png" in header:
+        if image_data is not raw_data or "image/png" in header:
             ext = ".png"
         elif "image/gif" in header:
             ext = ".gif"
@@ -2241,7 +2246,7 @@ class Subscription:
                                 lane=r["lane"],
                                 time=r["time"],
                                 place=r["place"],
-                                racer_id=None,
+                                racer_id=status_dc.racer_by_lane.get(r["lane"]),
                             )
                             for r in status_dc.pending_results
                         ],
@@ -2253,6 +2258,7 @@ class Subscription:
                             )
                             for e in status_dc.serial_log
                         ],
+                        racer_by_lane=json.dumps(status_dc.racer_by_lane) if status_dc.racer_by_lane else None,
                     ),
                     changed_at=datetime.now(timezone.utc).isoformat(),
                 )

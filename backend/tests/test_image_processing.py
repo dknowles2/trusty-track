@@ -1,8 +1,14 @@
 import os
 from typing import Any
+
 import numpy as np
 from PIL import Image
-from backend.services.image_processing import remove_green_screen, crop_to_content, convert_to_favicon
+
+from backend.services.image_processing import (
+    convert_to_favicon,
+    crop_to_content,
+    remove_green_screen,
+)
 
 
 def test_remove_green_screen_pure_green() -> None:
@@ -125,8 +131,12 @@ def test_remove_green_screen_dilation() -> None:
 
 def test_convert_to_browser_safe_png_resizing() -> None:
     """Tests that convert_to_browser_safe_png resizes large images."""
-    from backend.services.image_processing import convert_to_browser_safe_png, MAX_IMAGE_SIZE
     import io
+
+    from backend.services.image_processing import (
+        MAX_IMAGE_SIZE,
+        convert_to_browser_safe_png,
+    )
 
     # Create a large image (larger than MAX_IMAGE_SIZE)
     large_size = MAX_IMAGE_SIZE + 500
@@ -147,8 +157,12 @@ def test_convert_to_browser_safe_png_resizing() -> None:
 
 def test_convert_to_browser_safe_png_no_resize_if_small() -> None:
     """Tests that convert_to_browser_safe_png doesn't resize or change small safe images."""
-    from backend.services.image_processing import convert_to_browser_safe_png, MAX_IMAGE_SIZE
     import io
+
+    from backend.services.image_processing import (
+        MAX_IMAGE_SIZE,
+        convert_to_browser_safe_png,
+    )
 
     # Create a small JPEG image
     small_size = MAX_IMAGE_SIZE - 100

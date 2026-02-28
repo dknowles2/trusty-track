@@ -1,6 +1,5 @@
 import json
 
-
 from backend.db import crud, schemas
 
 

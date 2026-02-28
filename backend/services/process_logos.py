@@ -1,5 +1,7 @@
 import os
+
 from PIL import Image
+
 from .image_processing import remove_green_screen
 
 

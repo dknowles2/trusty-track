@@ -4,7 +4,6 @@ FastAPI application entry point.
 Mounts the GraphQL router and static file serving.
 """
 
-import asyncio
 import base64
 import logging
 import os
@@ -14,6 +13,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict
 
+import pillow_heif
 from dotenv import load_dotenv
 from fastapi import (
     Depends,
@@ -30,15 +30,13 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
-import pillow_heif
-
 # Load environment variables from .env if present
 load_dotenv()
 
-from backend.db import models
-from backend.db.database import SessionLocal, UPLOAD_DIR, engine, init_db
-from backend.services.image_processing import convert_to_browser_safe_png
 from backend.api.schema import schema
+from backend.db import models
+from backend.db.database import UPLOAD_DIR, SessionLocal, init_db
+from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
 
 # Register the HEIF/HEIC plugin so Pillow can open those files.

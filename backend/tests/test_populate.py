@@ -1,7 +1,8 @@
 """Test populate functionality respects race car numbering strategy."""
 
 import pytest
-from backend.db import models, schemas, crud, populate
+
+from backend.db import crud, models, populate, schemas
 
 
 def test_populate_respects_global_numbering(db):

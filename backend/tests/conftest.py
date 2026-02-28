@@ -1,4 +1,5 @@
 import os
+
 import pytest
 
 # Set this before importing any backend modules to ensure they use the test directory
@@ -9,9 +10,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from backend.api.main import app, get_db
 from backend.db import crud, schemas
 from backend.db.database import Base
-from backend.api.main import app, get_db
 
 # Use in-memory SQLite database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

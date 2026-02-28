@@ -12,10 +12,9 @@ import strawberry
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.db.models import Base
-from backend.api.schema import Mutation, Query, RaceStateChangedEvent, Subscription
 from backend.api.pubsub import _PubSub
-
+from backend.api.schema import Mutation, Query, RaceStateChangedEvent, Subscription
+from backend.db.models import Base
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -52,7 +51,15 @@ def test_schema():
 
 def _seed_race(db_session: Any) -> tuple[int, int]:
     """Seed a minimal race, track, racer, heat, and return (race_id, heat_id)."""
-    from backend.db.models import Group, Race, Track, Racer, Round, Heat, SchedulingStrategy
+    from backend.db.models import (
+        Group,
+        Heat,
+        Race,
+        Racer,
+        Round,
+        SchedulingStrategy,
+        Track,
+    )
 
     group = Group(name="Test Pack")
     db_session.add(group)

@@ -1,7 +1,6 @@
 import json
 import uuid
 
-
 from backend.db import crud, schemas
 
 

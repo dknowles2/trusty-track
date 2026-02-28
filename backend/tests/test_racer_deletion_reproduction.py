@@ -1,6 +1,8 @@
 import json
 import uuid
+
 from backend.db import crud, models, schemas
+
 
 def _setup_race_with_heats(db, num_racers=3):
     """Setup a race with multiple racers and rounds."""

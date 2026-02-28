@@ -1,7 +1,9 @@
 import argparse
 import sys
+
 from PIL import Image
-from .image_processing import crop_to_content, convert_to_favicon
+
+from .image_processing import convert_to_favicon, crop_to_content
 
 
 def main() -> None:
