@@ -6,8 +6,9 @@ from .image_processing import remove_green_screen
 
 
 def main() -> None:
-    # Paths relative to backend directory or absolute
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Paths relative to project root
+    # __file__ is backend/services/process_logos.py
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     assets_dir = os.path.join(base_dir, "frontend", "src", "assets")
 
     logos = ["logo_chromakey.png", "logo_full_chromakey.png"]

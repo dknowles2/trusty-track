@@ -11,6 +11,7 @@ needing a terminal:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import datetime
 import ipaddress
 import logging
@@ -79,10 +80,8 @@ def _get_local_ip() -> str:
     except Exception:
         return "127.0.0.1"
     finally:
-        try:
+        with contextlib.suppress(Exception):
             s.close()
-        except Exception:
-            pass
 
 # ── Self-signed certificate generation ────────────────────────────────────────
 
@@ -116,10 +115,8 @@ def _ensure_cert() -> None:
         x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
     ]
     if local_ip != "127.0.0.1":
-        try:
+        with contextlib.suppress(ValueError):
             san_entries.append(x509.IPAddress(ipaddress.IPv4Address(local_ip)))
-        except ValueError:
-            pass
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = issuer = x509.Name([
@@ -402,23 +399,45 @@ elif sys.platform == "win32":
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-controller = ServerController()
-controller.start()
+if __name__ == "__main__":
+    if getattr(sys, "frozen", False) and sys._MEIPASS not in sys.path:
+        # This is PyInstaller's working directory. Ensure it is in sys.path
+        # so that our backend.api imports work when run from Finder.
+        sys.path.insert(0, sys._MEIPASS)
 
-# Open the browser once on first successful startup.
-def _auto_open() -> None:
-    for _ in range(60):
-        try:
-            with urllib.request.urlopen(f"{APP_URL}/health", timeout=1, context=_SSL_CTX) as r:
-                if r.status == 200:
-                    webbrowser.open(APP_URL)
-                    return
-        except Exception:
-            pass
-        time.sleep(0.5)
+    try:
+        controller = ServerController()
+        controller.start()
 
-threading.Thread(target=_auto_open, daemon=True).start()
+        # Open the browser once on first successful startup.
+        def _auto_open() -> None:
+            for _ in range(60):
+                try:
+                    with urllib.request.urlopen(f"{APP_URL}/health", timeout=1, context=_SSL_CTX) as r:
+                        if r.status == 200:
+                            webbrowser.open(APP_URL)
+                            return
+                except Exception:
+                    pass
+                time.sleep(0.5)
 
-TrustyTrackApp(controller).run()
+        threading.Thread(target=_auto_open, daemon=True).start()
 
-controller.stop()
+        TrustyTrackApp(controller).run()
+
+        controller.stop()
+    except Exception as e:
+        import traceback
+        error_msg = f"Error during startup: {str(e)}\n" + traceback.format_exc()
+        
+        # Log to /tmp/ for system visibility
+        with contextlib.suppress(Exception):
+            with open("/tmp/trustytrack_startup_error.log", "w") as f:
+                f.write(error_msg)
+            
+        # Log to user home for easy access
+        with contextlib.suppress(Exception):
+            home_log = os.path.expanduser("~/trusty_error.log")
+            with open(home_log, "w") as f:
+                f.write(error_msg)
+        raise

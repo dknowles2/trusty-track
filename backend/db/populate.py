@@ -1,6 +1,7 @@
 import os
 import random
 import shutil
+import sys
 import uuid
 from pathlib import Path
 
@@ -119,7 +120,15 @@ def generate_fake_racers(
     check_in: bool = False,
 ):
     # Ensure assets exist
-    assets_base = str(Path(__file__).parent / "assets" / "defaults")
+    if getattr(sys, "frozen", False):
+        # In a PyInstaller bundle, the root is sys._MEIPASS
+        # Based on trustytrack.spec, backend/assets is placed at sys._MEIPASS/backend/assets
+        backend_dir = Path(sys._MEIPASS) / "backend"
+    else:
+        # Development mode: Path(__file__) is backend/db/populate.py
+        backend_dir = Path(__file__).parent.parent
+
+    assets_base = str(backend_dir / "assets" / "defaults")
     uploads_dir = os.path.join(DATA_DIR, "uploads")
 
     racer_assets = []
@@ -136,7 +145,7 @@ def generate_fake_racers(
 
     # Get existing names to enforce uniqueness
     existing_racers = crud.get_racers(db, race_id=race_id)
-    existing_names = set(f"{r.first_name} {r.last_name}" for r in existing_racers)
+    existing_names = {f"{r.first_name} {r.last_name}" for r in existing_racers}
 
     # Ensure Dens exist and get them
     dens = []

@@ -24,7 +24,7 @@ hidden_imports = [
     'uvicorn.protocols.websockets.auto',
     'uvicorn.lifespan',
     'uvicorn.lifespan.on',
-    'backend.main',
+    'backend.api.main',
     'engineio.async_drivers.uvicorn', # Often needed for uvicorn + websockets
 ]
 

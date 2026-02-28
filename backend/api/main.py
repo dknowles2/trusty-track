@@ -98,7 +98,8 @@ if getattr(sys, "frozen", False):
     # Running inside a PyInstaller bundle
     _BASE_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
 else:
-    _BASE_DIR = Path(__file__).parent.parent
+    # Development mode: Path(__file__) is backend/api/main.py
+    _BASE_DIR = Path(__file__).parent.parent.parent
 
 FRONTEND_DIST = _BASE_DIR / "frontend" / "dist"
 
