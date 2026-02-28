@@ -81,36 +81,36 @@ class TestMicroWizardParseLineNewFormat:
         """New-format multi-lane line with symbols for place 1-6."""
         # A=3.001! (1st), B=3.002" (2nd), C=3.003# (3rd), D=3.004$ (4th)
         # E=3.005% (5th), F=3.006& (6th)
-        line = b"A=3.001! B=3.002\" C=3.003# D=3.004$ E=3.005% F=3.006&"
+        line = b'A=3.001! B=3.002" C=3.003# D=3.004$ E=3.005% F=3.006&'
         results = self.device.parse_line(line)
         assert isinstance(results, list)
         assert len(results) == 6
-        
+
         # Lane 1 (A)
         assert results[0].lane == 1
         assert results[0].time_seconds == pytest.approx(3.001)
         assert results[0].place == 1
-        
+
         # Lane 2 (B)
         assert results[1].lane == 2
         assert results[1].time_seconds == pytest.approx(3.002)
         assert results[1].place == 2
-        
+
         # Lane 3 (C)
         assert results[2].lane == 3
         assert results[2].time_seconds == pytest.approx(3.003)
         assert results[2].place == 3
-        
+
         # Lane 4 (D)
         assert results[3].lane == 4
         assert results[3].time_seconds == pytest.approx(3.004)
         assert results[3].place == 4
-        
+
         # Lane 5 (E)
         assert results[4].lane == 5
         assert results[4].time_seconds == pytest.approx(3.005)
         assert results[4].place == 5
-        
+
         # Lane 6 (F)
         assert results[5].lane == 6
         assert results[5].time_seconds == pytest.approx(3.006)
@@ -135,21 +135,33 @@ class TestMicroWizardIsIdentifiedBy:
 
     def test_rv_response_identifies_device(self):
         """Device returning a version string returns True."""
-        assert self.device.is_identified_by(
-            b"Copyright (c) Micro Wizard 2001-2009 a K3 2.10"
-        ) is True
+        assert (
+            self.device.is_identified_by(
+                b"Copyright (c) Micro Wizard 2001-2009 a K3 2.10"
+            )
+            is True
+        )
 
     def test_identification_is_case_insensitive(self):
         """Identification check is case-insensitive."""
-        assert self.device.is_identified_by(
-            b"copyright (c) micro wizard 2002-2009"
-        ) is True
+        assert (
+            self.device.is_identified_by(b"copyright (c) micro wizard 2002-2009")
+            is True
+        )
 
-    def test_version_line_does_not_identify(self):
-        """The second RV line (version/serial) does not trigger identification."""
-        assert self.device.is_identified_by(
-            b"K2 Version 2.3A  Serial Number29284"
-        ) is False
+    def test_version_line_identifies(self):
+        """The version line is informational and does NOT identify."""
+        # Line 2 alone should not identify
+        assert (
+            self.device.is_identified_by(b"K2 Version 2.3A  Serial Number29284")
+            is False
+        )
+
+        # Line 1 identifies
+        assert (
+            self.device.is_identified_by(b"Copyright (c) Micro Wizard 2001-2009")
+            is True
+        )
 
     def test_hello_does_not_identify_device(self):
         """Arbitrary line does not identify the device."""

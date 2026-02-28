@@ -1,10 +1,13 @@
 import asyncio
 from unittest.mock import MagicMock, patch
+
 import pytest
 import serial
-from backend.services.timer.manager import TimerManager
+
 from backend.services.timer.devices.microwizard import MicroWizardDevice
+from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
+
 
 @pytest.mark.anyio
 async def test_timer_manager_connect_direct_success():
@@ -12,25 +15,26 @@ async def test_timer_manager_connect_direct_success():
     mock_serial = MagicMock(spec=serial.Serial)
     mock_serial.is_open = True
     mock_serial.read.side_effect = [b"", b"Copyright (c) Micro Wizard\r\n", b""]
-    
+
     with patch("serial.Serial", return_value=mock_serial):
         device = MicroWizardDevice()
         manager = TimerManager(track_id=1, device=device)
-        
+
         await manager.connect_direct("/dev/ttyUSB0")
-        
+
         assert manager._serial == mock_serial
         assert manager._read_task is not None
-        
+
         # Give some time for the read loop to run
         await asyncio.sleep(0.3)
-        
-        # Should have transitioned to IDLE after seeing version string
+
+        # Should have transitioned to IDLE after seeing identification string
         assert manager._state == TimerState.IDLE
-        
+
         await manager.stop()
         assert manager._serial is None
         assert manager._read_task is None
+
 
 @pytest.mark.anyio
 async def test_timer_manager_connect_direct_failure():
@@ -38,13 +42,14 @@ async def test_timer_manager_connect_direct_failure():
     with patch("serial.Serial", side_effect=Exception("Port busy")):
         device = MicroWizardDevice()
         manager = TimerManager(track_id=1, device=device)
-        
+
         await manager.connect_direct("/dev/ttyUSB1")
-        
+
         assert manager._state == TimerState.FAULT
         assert "Failed to open port" in manager._last_error
         assert manager._watchdog_task is not None
         await manager.stop()
+
 
 @pytest.mark.anyio
 async def test_timer_manager_read_loop_exception():
@@ -52,33 +57,35 @@ async def test_timer_manager_read_loop_exception():
     mock_serial = MagicMock(spec=serial.Serial)
     mock_serial.is_open = True
     mock_serial.read.side_effect = serial.SerialException("Device disconnected")
-    
+
     with patch("serial.Serial", return_value=mock_serial):
         device = MicroWizardDevice()
         manager = TimerManager(track_id=1, device=device)
-        
+
         await manager.connect_direct("/dev/ttyUSB0")
-        
+
         # Give time for the read loop to hit the exception
         await asyncio.sleep(0.2)
-        
+
         assert manager._state == TimerState.FAULT
         assert "Serial error" in manager._last_error
         await manager.stop()
+
 
 @pytest.mark.anyio
 async def test_timer_manager_reset():
     """Verifies that reset clears buffers and transitions to IDLE."""
     from backend.services.timer.devices.base import LaneResult
+
     device = MicroWizardDevice()
     manager = TimerManager(track_id=1, device=device)
     manager._state = TimerState.FAULT
     manager._active_heat_id = 99
     manager._buf = b"some garbage"
     manager._pending_results = {1: LaneResult(lane=1, time_seconds=1.23, place=1)}
-    
+
     await manager.reset()
-    
+
     assert manager._state == TimerState.IDLE
     assert manager._active_heat_id is None
     assert manager._buf == b""

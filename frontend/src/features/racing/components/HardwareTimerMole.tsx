@@ -14,17 +14,44 @@ interface SerialLogEntry {
 interface DisplayLine {
     direction: string;
     data: string;
+    description?: string;
 }
 
-// Group raw serial log entries into display lines, flushing on \n or \r\n
-// (_format_serial_bytes emits these as the literal two-char sequences \n and \r\n).
+function getCommandDescription(data: string): string | undefined {
+    const cmd = data.trim().toUpperCase();
+    if (cmd === 'N1') return 'enable new-format results';
+    if (cmd === 'N2') return 'enable gate feedback';
+    if (cmd === 'LR') return 'arm / reset timer';
+    if (cmd === 'MG') return 'clear lane masks';
+    if (cmd === 'RA') return 'force results';
+    if (cmd === 'RV') return 'request version';
+    if (cmd.length === 2 && cmd[0] === 'M' && cmd[1] >= 'A' && cmd[1] <= 'P') {
+        const lane = cmd.charCodeAt(1) - 'A'.charCodeAt(0) + 1;
+        return `mask lane ${lane}`;
+    }
+    return undefined;
+}
+
+function getRXDescription(data: string): string | undefined {
+    const d = data.trim().toUpperCase();
+    if (d === 'AC') return 'command acknowledged';
+    if (d === '*') return 'command acknowledged';
+    if (d === '@') return 'gate opened - race started';
+    if (d === '>') return 'gate closed';
+    if (d.includes('=')) return 'results received';
+    return undefined;
+}
+
+// Group raw serial log entries into display lines.
+// TX: each entry is one complete command — always its own line with a description.
+// RX: accumulate chunks, flushing on \n or \r\n (emitted as literal two-char sequences).
 function buildDisplayLines(entries: SerialLogEntry[]): DisplayLine[] {
     const lines: DisplayLine[] = [];
     let currentDir = '';
     let currentData = '';
 
-    const flush = () => {
-        if (currentDir) lines.push({ direction: currentDir, data: currentData });
+    const flush = (description?: string) => {
+        if (currentDir) lines.push({ direction: currentDir, data: currentData, description });
         currentData = '';
     };
 
@@ -33,25 +60,41 @@ function buildDisplayLines(entries: SerialLogEntry[]): DisplayLine[] {
             flush();
             currentDir = entry.direction;
         }
-        // Split on literal \r\n, \r, \n sequences, keeping the delimiter in each part
-        // We match literal backslash followed by r or n.
-        const parts = entry.data.split(/(\\\\r\\\\n|\\\\n)/);
-        for (const part of parts) {
-            currentData += part;
-            if (part === '\\r\\n' || part === '\\n') flush();
+        if (entry.direction === 'TX') {
+            currentData = entry.data;
+            flush(getCommandDescription(entry.data));
+        } else {
+            // Split on delimiters and immediate characters (@, >)
+            const parts = entry.data.split(/(\\r\\n|\\r|\\n|[@>])/);
+            for (const part of parts) {
+                if (!part) continue;
+                currentData += part;
+                if (part === '\\r\\n' || part === '\\r' || part === '\\n' || part === '@' || part === '>') {
+                    flush(getRXDescription(currentData));
+                }
+            }
         }
     }
 
-    if (currentData) flush();
+    if (currentData) flush(getRXDescription(currentData));
     return lines;
 }
 
 function renderData(data: string): React.ReactNode {
-    return data.split(/(\\\\r\\\\n|\\\\r|\\\\n)/).map((part, i) =>
-        part === '\\r\\n' || part === '\\r' || part === '\\n'
-            ? <span key={i} style={{ color: '#bbb' }}>{part}</span>
-            : <span key={i}>{part}</span>
-    );
+    return data.split(/(\\r\\n|\\r|\\n)/).map((part, i) => {
+        if (part === '\\r\\n' || part === '\\n') {
+            return (
+                <React.Fragment key={i}>
+                    <span style={{ color: '#bbb' }}>{part}</span>
+                    <br />
+                </React.Fragment>
+            );
+        }
+        if (part === '\\r') {
+            return <span key={i} style={{ color: '#bbb' }}>{part}</span>;
+        }
+        return <span key={i}>{part}</span>;
+    });
 }
 
 interface HardwareTimerMoleProps {
@@ -182,6 +225,11 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
                                     </span>
                                     <span style={{ color: '#333', wordBreak: 'break-all' }}>
                                         {renderData(line.data)}
+                                        {line.description && (
+                                            <span style={{ color: '#aaa', fontStyle: 'italic', marginLeft: '6px' }}>
+                                                {line.description}
+                                            </span>
+                                        )}
                                     </span>
                                 </div>
                             ))}

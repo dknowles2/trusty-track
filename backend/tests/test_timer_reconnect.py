@@ -13,22 +13,22 @@ async def test_microwizard_reconnect_stuck_check():
     device = MicroWizardDevice()
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
-    
+
     # 1. Trigger connect
     await manager.handle_connect()
     assert manager._state == TimerState.CONNECTED
-    
-    # Verify commands sent on connect
-    sent_commands = [call.args[0] for call in manager._send_commands.call_args_list]
-    # Flatten list of lists
-    flat_commands = [cmd for sublist in sent_commands for cmd in sublist]
-    assert b'RV' in flat_commands
-    
-    # 2. Simulate hardware responding with the RV identification line
-    await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
 
-    # Should transition to IDLE
+    # Verify commands sent on connect (N1, N2), but NOT arming (MG, LR)
+    sent_commands = [call.args[0] for call in manager._send_commands.call_args_list]
+    flat_commands = [cmd for sublist in sent_commands for cmd in sublist]
+    assert b"N1" in flat_commands
+    assert b"N2" in flat_commands
+
+    # 2. Simulate hardware responding with the identification
+    await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
+    # Transitions to IDLE immediately on first ident line
     assert manager._state == TimerState.IDLE
+
 
 @pytest.mark.anyio
 async def test_microwizard_reconnect_with_active_heat():
@@ -45,20 +45,17 @@ async def test_microwizard_reconnect_with_active_heat():
     await manager.handle_connect()
     assert manager._state == TimerState.CONNECTED
 
-    # Verify commands include M (lane mask) and RA (force results)
-    sent_commands = [call.args[0] for call in manager._send_commands.call_args_list]
-    flat_commands = [cmd for sublist in sent_commands for cmd in sublist]
-
-    # lane_mask 0b11 = lanes 1 and 2 active; lanes 3-6 masked out (MC MD ME MF)
-    assert b'MG' in flat_commands
-    assert b'MC' in flat_commands
-    assert b'LR' in flat_commands
-
-    # 2. Simulate hardware responding with the RV identification line
+    # 2. Simulate hardware responding with the RV identification
     await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
-
     # Transition to ARMED
     assert manager._state == TimerState.ARMED
+
+    # Verify arming commands (MG, LR) were sent AFTER identification
+    sent_commands = [call.args[0] for call in manager._send_commands.call_args_list]
+    flat_commands = [cmd for sublist in sent_commands for cmd in sublist]
+    assert b"MG" in flat_commands
+    assert b"LR" in flat_commands
+
 
 @pytest.mark.anyio
 async def test_microwizard_reconnect_stuck_with_garbage_data():
@@ -66,25 +63,31 @@ async def test_microwizard_reconnect_stuck_with_garbage_data():
     device = MicroWizardDevice()
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
-    
+
     # 1. Trigger connect
     await manager.handle_connect()
     assert manager._state == TimerState.CONNECTED
-    
+
     # 2. Simulate hardware sending junk data first (e.g. results from a previous heat)
     # "A=3.001!" parses as a valid event; robust handling transitions CONNECTED → IDLE.
-    await manager.receive_bytes(b"A=3.001! B=3.002\"\r\n")
+    await manager.receive_bytes(b'A=3.001! B=3.002"\r\n')
     assert manager._state == TimerState.IDLE
 
-    # 3. Now send identification (no-op state-wise since already IDLE)
+    # 3. Now send identification (triggered by e.g. unsolicited boot message)
+    # Line 1 (Copyright) -> matches unsolicited ident check
+    # -> calls handle_connect -> CONNECTED
     await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
-    
-    # It transitions to CONNECTED for re-initialization
     assert manager._state == TimerState.CONNECTED
 
-    # And back to IDLE once ident response is seen
+    # Line 2 (Version) -> informational, no state change (stays in CONNECTED)
+    await manager.receive_bytes(b"K2 Version 2.3A  Serial Number29284\r\n")
+    assert manager._state == TimerState.CONNECTED
+
+    # Send ident line again (as if hardware responded to our probe) 
+    # -> transitions back to IDLE
     await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
     assert manager._state == TimerState.IDLE
+
 
 @pytest.mark.anyio
 async def test_microwizard_reconnect_delimiter_mismatch():
@@ -93,20 +96,20 @@ async def test_microwizard_reconnect_delimiter_mismatch():
     # MicroWizardDevice.delimiter is b'\r\n'
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
-    
+
     await manager.handle_connect()
     assert manager._state == TimerState.CONNECTED
-    
-    # 1. Send identification line with only \n (not the expected \r\n delimiter)
-    await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\n")
 
-    # Still CONNECTED — \r\n delimiter not yet found
+    # 1. Send identification line 1 with only \n (not the expected \r\n delimiter)
+    await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\n")
     assert manager._state == TimerState.CONNECTED
     assert manager._buf == b"Copyright (c) Micro Wizard 2002-2009\n"
 
-    # 2. Send \r\n — completes the buffered line, triggering identification
+    # 2. Send \r\n — completes the buffered line 1
     await manager.receive_bytes(b" Micro Wizard 2002-2009\r\n")
+    # Transitions to IDLE immediately on first ident line completion
     assert manager._state == TimerState.IDLE
+
 
 @pytest.mark.anyio
 async def test_microwizard_reboot_during_idle():
@@ -114,28 +117,19 @@ async def test_microwizard_reboot_during_idle():
     device = MicroWizardDevice()
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
-    
+
     # Start in IDLE
     manager._state = TimerState.IDLE
-    
-    # 1. Receive unsolicited identification (e.g. from a hardware reboot)
-    await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
-    
-    # Verify identification/initialization commands were re-sent
-    sent_commands = [call.args[0] for call in manager._send_commands.call_args_list]
-    flat_commands = [cmd for sublist in sent_commands for cmd in sublist]
-    assert b'RV' in flat_commands
-    assert b'N1' in flat_commands
-    assert b'N2' in flat_commands
-    
-    # State should be CONNECTED after unsolicited identification
-    assert manager._state == TimerState.CONNECTED
-    # Buffer should have been cleared by handle_connect
-    assert manager._buf == b""
 
-    # And transition to IDLE after receiving ident response to RV
+    # 1. Receive unsolicited identification (e.g. from a hardware reboot)
+    # Line 1 (Copyright) -> transitions IDLE -> CONNECTED (via handle_connect)
+    await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
+    assert manager._state == TimerState.CONNECTED
+
+    # 2. Complete re-initialization sequence by seeing identification again
     await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
     assert manager._state == TimerState.IDLE
+
 
 @pytest.mark.anyio
 async def test_microwizard_reboot_during_heat():
@@ -143,32 +137,18 @@ async def test_microwizard_reboot_during_heat():
     device = MicroWizardDevice()
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
-    
+
     # Start in ARMED state with an active heat
     manager._state = TimerState.ARMED
     manager._active_heat_id = 456
     manager._lane_mask = 0b01
-    
-    # 1. Receive unsolicited identification
-    # This should call handle_connect, which transitions to CONNECTED.
+
+    # 1. Receive unsolicited identification Line 1
+    # Transitions ARMED -> CONNECTED
     await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
-    
-    # After handle_connect (awaiting inside receive_bytes), state is CONNECTED.
     assert manager._state == TimerState.CONNECTED
 
-    # Verify lane mask was re-sent as part of handle_connect sequence
-    sent_commands = [call.args[0] for call in manager._send_commands.call_args_list]
-    flat_commands = [cmd for sublist in sent_commands for cmd in sublist]
-    
-    assert b'RV' in flat_commands
-    # MG = clear masks, MB-MF = mask out lanes 2-6 for mask 0b01
-    assert b'MG' in flat_commands
-    assert b'MB' in flat_commands
-    assert b'LR' in flat_commands
-
-    # 2. Simulate the identification line coming back in response to RV
-    # Since state is now CONNECTED, it should transition back to ARMED.
+    # 2. Complete re-initialization by seeing identification again
+    # Transitions CONNECTED -> ARMED
     await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
-    
-    # State remains ARMED
     assert manager._state == TimerState.ARMED

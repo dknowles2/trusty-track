@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import ClassVar, Optional, Union
@@ -31,13 +32,21 @@ TimerEvent = Union[RaceStarted, LaneResult, GateClosed, DeviceError]
 class TimerDevice(ABC):
     name: ClassVar[str]
     baud_rate: ClassVar[int] = 9600
-    delimiter: ClassVar[bytes] = b'\n'
+    delimiter: ClassVar[bytes] = b"\n"
     gate_state_is_knowable: ClassVar[bool] = False
     requires_serial: ClassVar[bool] = True
     immediate_chars: ClassVar[list[bytes]] = []
     # If set, the manager will transition to RESULTS_OVERDUE if no results are
     # received within this many seconds of the race starting. None means no timeout.
     result_timeout_seconds: ClassVar[Optional[float]] = None
+
+    def expected_response_for(self, _command: bytes) -> "re.Pattern[bytes] | None":
+        """Return the regex pattern that should match the device's response to
+        the given command, or None if no acknowledgment is expected.
+
+        The pattern will be matched against the stripped, complete response line.
+        """
+        return None
 
     @abstractmethod
     def identification_commands(self) -> list[bytes]:

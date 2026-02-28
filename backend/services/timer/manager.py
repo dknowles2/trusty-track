@@ -9,6 +9,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import re
 from collections import deque
 from collections.abc import Awaitable
 from dataclasses import dataclass, field
@@ -90,6 +91,9 @@ class TimerManager:
         self._running_since: Optional[float] = None
         self._event_lock = asyncio.Lock()
         self._serial_log: deque = deque(maxlen=MAX_SERIAL_LOG)
+        # Queue of (command, expected_response_pattern) for commands that have
+        # been sent but whose acknowledgment has not yet been received.
+        self._pending_acks: deque[tuple[bytes, re.Pattern[bytes]]] = deque()
 
         if not device.requires_serial:
             # Fake timer: skip DISCONNECTED/CONNECTED/identification; start in IDLE
@@ -136,13 +140,18 @@ class TimerManager:
     async def _send_commands(self, commands: list[bytes]) -> None:
         for cmd in commands:
             logger.info(f"Timer {self._track_id} sending command: {cmd}")
-            self._serial_log.append(SerialLogEntry(
-                direction="TX",
-                data=_format_serial_bytes(cmd),
-                timestamp=datetime.now(timezone.utc).isoformat(),
-            ))
+            self._serial_log.append(
+                SerialLogEntry(
+                    direction="TX",
+                    data=_format_serial_bytes(cmd),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                )
+            )
             await pubsub.publish(f"timer_state:{self._track_id}", self.status())
             await self._write_fn(cmd)
+            expected = self._device.expected_response_for(cmd)
+            if expected is not None:
+                self._pending_acks.append((cmd, expected))
 
     # ------------------------------------------------------------------ #
     # Status                                                               #
@@ -208,9 +217,18 @@ class TimerManager:
         is_reboot = self._state not in (TimerState.DISCONNECTED, TimerState.FAULT)
         msg = f"Timer {self._track_id} {'re-' if is_reboot else ''}connecting"
         logger.info(msg)
-        
+
+        # Discard any pending acks from a previous session.
+        if self._pending_acks:
+            logger.warning(
+                "Timer %d: clearing %d unacknowledged command(s) on reconnect: %s",
+                self._track_id,
+                len(self._pending_acks),
+                [cmd for cmd, _ in self._pending_acks],
+            )
+            self._pending_acks.clear()
+
         await self._transition(TimerState.CONNECTED)
-        self._buf = b""
 
         if is_reboot:
             # Give hardware a moment to settle after a reboot signal
@@ -226,13 +244,6 @@ class TimerManager:
             self._device.identification_commands()
             + self._device.initialization_commands()
         )
-
-        # If we have an active heat, re-send lane mask
-        if self._active_heat_id is not None:
-            logger.info(
-                f"Timer {self._track_id}: re-sending lane mask {self._lane_mask:X}"
-            )
-            commands += self._device.prepare_heat_commands(self._lane_mask)
 
         if commands:
             await self._send_commands(commands)
@@ -256,11 +267,13 @@ class TimerManager:
         during the identification handshake.
         """
         if data:
-            self._serial_log.append(SerialLogEntry(
-                direction="RX",
-                data=_format_serial_bytes(data),
-                timestamp=datetime.now(timezone.utc).isoformat(),
-            ))
+            self._serial_log.append(
+                SerialLogEntry(
+                    direction="RX",
+                    data=_format_serial_bytes(data),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                )
+            )
             await pubsub.publish(f"timer_state:{self._track_id}", self.status())
         self._buf += data
         while True:
@@ -300,12 +313,56 @@ class TimerManager:
 
         logger.info("Timer %d received line: %r", self._track_id, raw_line)
 
+        # Check whether this line is the expected acknowledgment for the oldest
+        # pending command. We do this before parse_line so that acks are consumed
+        # here rather than falling through to the generic catch-alls in the device.
+        if self._pending_acks:
+            pending_cmd, expected_pattern = self._pending_acks[0]
+            if expected_pattern.match(line):
+                self._pending_acks.popleft()
+                logger.debug(
+                    "Timer %d: command %r acknowledged by %r",
+                    self._track_id,
+                    pending_cmd,
+                    line,
+                )
+                return
+            elif line == pending_cmd.strip():
+                # This is a serial echo of the command we just sent.
+                # Just ignore it and wait for the actual ack.
+                logger.debug("Timer %d: ignoring echo of %r", self._track_id, line)
+                return
+            else:
+                # The line doesn't match what we expected. Pop the stale entry,
+                # log a warning, and continue so the line is still parsed normally.
+                self._pending_acks.popleft()
+                logger.warning(
+                    "Timer %d: expected ack for %r but received %r; "
+                    "command may have been dropped or response was out of order",
+                    self._track_id,
+                    pending_cmd,
+                    line,
+                )
+
         # Try to parse the line first. Even in CONNECTED state, if it looks like
         # a valid event, we should handle it.
         event_or_list = self._device.parse_line(line)
 
+        events = []
+        if event_or_list is not None:
+            events = (
+                event_or_list if isinstance(event_or_list, list) else [event_or_list]
+            )
+
         is_ident = self._device.is_identified_by(line)
-        identified = is_ident or event_or_list is not None
+        # We only leave CONNECTED state if we see a definitive identification line.
+        # Handshake/info lines (which return []) or standalone events are NOT
+        # enough to transition from CONNECTED; we want to stay in CONNECTED
+        # until we are sure we know what device we have.
+        #
+        # Note: If is_ident is true, we transition.
+
+        identified = is_ident or len(events) > 0
 
         if is_ident and self._state != TimerState.CONNECTED:
             # If we see an identification line while not in CONNECTED state,
@@ -314,7 +371,8 @@ class TimerManager:
             logger.warning(
                 "Timer %d: unsolicited identification received in state %s; "
                 "device likely rebooted. Re-initializing...",
-                self._track_id, self._state.value
+                self._track_id,
+                self._state.value,
             )
             await self.handle_connect()
             return
@@ -329,10 +387,30 @@ class TimerManager:
                 if self._active_heat_id is not None
                 else TimerState.IDLE
             )
+
+            # If we are transitioning to ARMED, we must send the lane mask now
+            # because we removed it from the initial handle_connect sequence.
+            #
+            # HOWEVER, if we somehow have events in this same line that
+            # indicate a race is already active, we should NOT interfere.
+            should_configure = is_ident and not any(
+                isinstance(e, (RaceStarted, LaneResult, GateClosed)) for e in events
+            )
+
+            if next_state == TimerState.ARMED and should_configure:
+                logger.info(
+                    "Timer %d: re-sending lane mask %X after identification",
+                    self._track_id,
+                    self._lane_mask,
+                )
+                await self._send_commands(
+                    self._device.prepare_heat_commands(self._lane_mask)
+                )
+
             await self._transition(next_state)
             # If it was just identification, we are done. If it was an event,
             # we'll fall through and handle it below.
-            if self._device.is_identified_by(line) and event_or_list is None:
+            if is_ident and not events:
                 return
 
         if event_or_list is not None:
@@ -468,8 +546,15 @@ class TimerManager:
                         "place": r.place,
                     }
                     for r in timer_results
+                    if r.lane in racer_by_lane
                 ]
 
+                logger.info(
+                    "Timer %d: recording %d official results for heat %d",
+                    self._track_id,
+                    len(results),
+                    heat_id,
+                )
                 crud.record_heat_result(db, heat_id, json.dumps(results))
                 race_id = heat.race_id
             else:
@@ -503,7 +588,14 @@ class TimerManager:
                         "place": r.place,
                     }
                     for r in timer_results
+                    if r.lane in racer_by_lane
                 ]
+                logger.info(
+                    "Timer %d: updating %d free race heat results for heat %d",
+                    self._track_id,
+                    len(results),
+                    heat_id,
+                )
                 crud.update_free_race_heat_result(db, heat_id, results)
                 race_id = free_heat.race_id
         finally:
