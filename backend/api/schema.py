@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import contextlib
 import csv
 import io
 import json
@@ -2012,11 +2013,8 @@ class Mutation:
                     await mgr.stop()
                     if track_id in timer_managers:
                         del timer_managers[track_id]
-                try:
+                with contextlib.suppress(ValueError):
                     crud.delete_track(db, track_id)
-                except ValueError:
-                    # Might be in use by a race
-                    pass
 
         db.commit()
         tracks = crud.get_tracks(db)

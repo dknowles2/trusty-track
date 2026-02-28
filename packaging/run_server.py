@@ -11,6 +11,7 @@ needing a terminal:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import datetime
 import ipaddress
 import logging
@@ -79,10 +80,8 @@ def _get_local_ip() -> str:
     except Exception:
         return "127.0.0.1"
     finally:
-        try:
+        with contextlib.suppress(Exception):
             s.close()
-        except Exception:
-            pass
 
 # ── Self-signed certificate generation ────────────────────────────────────────
 
@@ -116,10 +115,8 @@ def _ensure_cert() -> None:
         x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
     ]
     if local_ip != "127.0.0.1":
-        try:
+        with contextlib.suppress(ValueError):
             san_entries.append(x509.IPAddress(ipaddress.IPv4Address(local_ip)))
-        except ValueError:
-            pass
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = issuer = x509.Name([
