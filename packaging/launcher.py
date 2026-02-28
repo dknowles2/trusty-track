@@ -70,13 +70,17 @@ def show_error(message: str) -> None:
     system = platform.system()
     if system == "Darwin":
         subprocess.run(
-            ["osascript", "-e",
-             f'display dialog "{message}" with title "Trusty Track" '
-             f'buttons {{"OK"}} default button "OK" with icon stop'],
+            [
+                "osascript",
+                "-e",
+                f'display dialog "{message}" with title "Trusty Track" '
+                f'buttons {{"OK"}} default button "OK" with icon stop',
+            ],
             check=False,
         )
     elif system == "Windows":
         import ctypes
+
         ctypes.windll.user32.MessageBoxW(0, message, "Trusty Track", 0x10)  # type: ignore[attr-defined]
 
 
@@ -124,8 +128,7 @@ def main() -> None:
 
             print(f"\nServer output:\n{log_tail}", file=sys.stderr)
             show_error(
-                f"Trusty Track could not start. {detail}\n\n"
-                f"Log file: {log_path}"
+                f"Trusty Track could not start. {detail}\n\nLog file: {log_path}"
             )
             proc.terminate()
             sys.exit(1)

@@ -99,7 +99,9 @@ def calculate_racer_scores(
     return racer_scores
 
 
-def get_leaderboard(db: Session, race_id: int, round_id: Optional[int] = None) -> List[Dict]:
+def get_leaderboard(
+    db: Session, race_id: int, round_id: Optional[int] = None
+) -> List[Dict]:
     """
     Get the current leaderboard for a race (optionally filtered by round).
 

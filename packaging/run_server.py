@@ -34,6 +34,7 @@ except ImportError:
 
 # ── Platform data directory ────────────────────────────────────────────────────
 
+
 def _get_data_dir() -> Path:
     system = platform.system()
     if system == "Darwin":
@@ -46,12 +47,12 @@ def _get_data_dir() -> Path:
     return base
 
 
-DATA_DIR  = _get_data_dir()
-LOG_PATH  = DATA_DIR / "server.log"
-DB_PATH   = DATA_DIR / "trusty-track.db"
+DATA_DIR = _get_data_dir()
+LOG_PATH = DATA_DIR / "server.log"
+DB_PATH = DATA_DIR / "trusty-track.db"
 CERT_PATH = DATA_DIR / "server.crt"
-KEY_PATH  = DATA_DIR / "server.key"
-PORT      = int(os.environ.get("PORT", "8000"))
+KEY_PATH = DATA_DIR / "server.key"
+PORT = int(os.environ.get("PORT", "8000"))
 
 # Must be set before importing backend (database.py reads it at import time).
 os.environ.setdefault("TRUSTYTRACK_DATA_DIR", str(DATA_DIR))
@@ -71,6 +72,7 @@ _SSL_CTX.verify_mode = ssl.CERT_NONE
 
 # ── Networking helpers ─────────────────────────────────────────────────────────
 
+
 def _get_local_ip() -> str:
     """Return the primary outbound network IP (not loopback)."""
     try:
@@ -83,7 +85,9 @@ def _get_local_ip() -> str:
         with contextlib.suppress(Exception):
             s.close()
 
+
 # ── Self-signed certificate generation ────────────────────────────────────────
+
 
 def _cert_is_valid() -> bool:
     """Return True if the cert exists and has not expired."""
@@ -92,6 +96,7 @@ def _cert_is_valid() -> bool:
     try:
         from cryptography import x509
         from cryptography.hazmat.backends import default_backend
+
         cert = x509.load_pem_x509_certificate(CERT_PATH.read_bytes(), default_backend())
         return cert.not_valid_after_utc > datetime.datetime.now(datetime.timezone.utc)
     except Exception:
@@ -119,10 +124,12 @@ def _ensure_cert() -> None:
             san_entries.append(x509.IPAddress(ipaddress.IPv4Address(local_ip)))
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, "TrustyTrack"),
-        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "TrustyTrack"),
-    ])
+    subject = issuer = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COMMON_NAME, "TrustyTrack"),
+            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "TrustyTrack"),
+        ]
+    )
 
     cert = (
         x509.CertificateBuilder()
@@ -131,17 +138,21 @@ def _ensure_cert() -> None:
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
-        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650))
+        .not_valid_after(
+            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=3650)
+        )
         .add_extension(x509.SubjectAlternativeName(san_entries), critical=False)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )
 
-    KEY_PATH.write_bytes(key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption(),
-    ))
+    KEY_PATH.write_bytes(
+        key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
     CERT_PATH.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
     logging.info("Certificate written to %s", CERT_PATH)
 
@@ -149,8 +160,8 @@ def _ensure_cert() -> None:
 # Generate the cert before importing the backend (uvicorn needs the files).
 _ensure_cert()
 
-LOCAL_IP    = _get_local_ip()
-APP_URL     = f"https://localhost:{PORT}"
+LOCAL_IP = _get_local_ip()
+APP_URL = f"https://localhost:{PORT}"
 NETWORK_URL = f"https://{LOCAL_IP}:{PORT}"
 
 # ── Backend imports (after env vars are set) ───────────────────────────────────
@@ -160,6 +171,7 @@ import uvicorn  # noqa: E402
 from backend.api.main import app as _app  # noqa: E402
 
 # ── Server controller ─────────────────────────────────────────────────────────
+
 
 class ServerController:
     """Starts and stops a uvicorn server in a dedicated background thread."""
@@ -202,7 +214,9 @@ class ServerController:
                 self._notify("error")
                 return
             try:
-                with urllib.request.urlopen(f"{APP_URL}/health", timeout=1, context=_SSL_CTX) as r:
+                with urllib.request.urlopen(
+                    f"{APP_URL}/health", timeout=1, context=_SSL_CTX
+                ) as r:
                     if r.status == 200:
                         self._notify("running")
                         return
@@ -226,19 +240,26 @@ class ServerController:
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
+
 def _icon_path() -> Path | None:
     if getattr(sys, "frozen", False):
         p = Path(sys._MEIPASS) / "assets" / "logo_transparent.png"
     else:
-        p = Path(__file__).parent.parent / "frontend" / "src" / "assets" / "logo_transparent.png"
+        p = (
+            Path(__file__).parent.parent
+            / "frontend"
+            / "src"
+            / "assets"
+            / "logo_transparent.png"
+        )
     return p if p.exists() else None
 
 
 _STATUS_LABEL: dict[str, str] = {
     "starting": "Server: Starting…",
-    "running":  "Server: Running",
-    "stopped":  "Server: Stopped",
-    "error":    "Server: Error",
+    "running": "Server: Running",
+    "stopped": "Server: Stopped",
+    "error": "Server: Error",
 }
 
 
@@ -252,7 +273,9 @@ if sys.platform == "darwin":
 
         def __init__(self, controller: ServerController) -> None:
             p = _icon_path()
-            super().__init__("TrustyTrack", icon=str(p) if p else None, quit_button=None)
+            super().__init__(
+                "TrustyTrack", icon=str(p) if p else None, quit_button=None
+            )
             self._controller = controller
             self._status_item = rumps.MenuItem(_STATUS_LABEL["starting"])
 
@@ -262,12 +285,12 @@ if sys.platform == "darwin":
                 self._status_item,
                 rumps.MenuItem(f"Network: {NETWORK_URL}"),
                 None,
-                rumps.MenuItem("Restart Server",        callback=self._restart),
-                rumps.MenuItem("Reset Database…",       callback=self._reset_db),
-                rumps.MenuItem("View Logs",             callback=self._view_logs),
+                rumps.MenuItem("Restart Server", callback=self._restart),
+                rumps.MenuItem("Reset Database…", callback=self._reset_db),
+                rumps.MenuItem("View Logs", callback=self._view_logs),
                 None,
                 rumps.MenuItem(f"Trusty Track v{TT_VERSION}", callback=None),
-                rumps.MenuItem("Quit TrustyTrack",      callback=self._quit),
+                rumps.MenuItem("Quit TrustyTrack", callback=self._quit),
             ]
 
             controller.on_status_change = self._update_status
@@ -291,11 +314,13 @@ if sys.platform == "darwin":
                 cancel="Cancel",
             )
             if resp.clicked:
+
                 def _do() -> None:
                     self._controller.stop()
                     if DB_PATH.exists():
                         DB_PATH.unlink()
                     self._controller.start()
+
                 threading.Thread(target=_do, daemon=True).start()
 
         def _view_logs(self, _) -> None:
@@ -328,7 +353,9 @@ elif sys.platform == "win32":
             # pystray re-reads callable titles each time the menu opens.
 
         def _get_status_label(self) -> str:
-            return _STATUS_LABEL.get(self._status, f"Server: {self._status.capitalize()}")
+            return _STATUS_LABEL.get(
+                self._status, f"Server: {self._status.capitalize()}"
+            )
 
         def _load_image(self) -> Image.Image:
             p = _icon_path()
@@ -351,7 +378,8 @@ elif sys.platform == "win32":
 
         def _reset_db(self, icon, item) -> None:
             import ctypes
-            MB_YESNO      = 0x04
+
+            MB_YESNO = 0x04
             MB_ICONWARNING = 0x30
             IDYES = 6
             result = ctypes.windll.user32.MessageBoxW(
@@ -361,11 +389,13 @@ elif sys.platform == "win32":
                 MB_YESNO | MB_ICONWARNING,
             )
             if result == IDYES:
+
                 def _do() -> None:
                     self._controller.stop()
                     if DB_PATH.exists():
                         DB_PATH.unlink()
                     self._controller.start()
+
                 threading.Thread(target=_do, daemon=True).start()
 
         def _view_logs(self, icon, item) -> None:
@@ -384,12 +414,12 @@ elif sys.platform == "win32":
                 pystray.MenuItem(lambda item: self._get_status_label(), None),
                 pystray.MenuItem(f"Network: {NETWORK_URL}", None),
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Restart Server",        self._restart),
-                pystray.MenuItem("Reset Database…",       self._reset_db),
-                pystray.MenuItem("View Logs",             self._view_logs),
+                pystray.MenuItem("Restart Server", self._restart),
+                pystray.MenuItem("Reset Database…", self._reset_db),
+                pystray.MenuItem("View Logs", self._view_logs),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(f"Trusty Track v{TT_VERSION}", None),
-                pystray.MenuItem("Quit TrustyTrack",      self._quit),
+                pystray.MenuItem("Quit TrustyTrack", self._quit),
             )
             self._icon_obj = pystray.Icon(
                 "TrustyTrack", self._load_image(), "TrustyTrack", menu
@@ -402,17 +432,21 @@ elif sys.platform == "win32":
 controller = ServerController()
 controller.start()
 
+
 # Open the browser once on first successful startup.
 def _auto_open() -> None:
     for _ in range(60):
         try:
-            with urllib.request.urlopen(f"{APP_URL}/health", timeout=1, context=_SSL_CTX) as r:
+            with urllib.request.urlopen(
+                f"{APP_URL}/health", timeout=1, context=_SSL_CTX
+            ) as r:
                 if r.status == 200:
                     webbrowser.open(APP_URL)
                     return
         except Exception:
             pass
         time.sleep(0.5)
+
 
 threading.Thread(target=_auto_open, daemon=True).start()
 

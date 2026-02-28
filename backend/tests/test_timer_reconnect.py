@@ -83,7 +83,7 @@ async def test_microwizard_reconnect_stuck_with_garbage_data():
     await manager.receive_bytes(b"K2 Version 2.3A  Serial Number29284\r\n")
     assert manager._state == TimerState.CONNECTED
 
-    # Send ident line again (as if hardware responded to our probe) 
+    # Send ident line again (as if hardware responded to our probe)
     # -> transitions back to IDLE
     await manager.receive_bytes(b"Copyright (c) Micro Wizard 2002-2009\r\n")
     assert manager._state == TimerState.IDLE

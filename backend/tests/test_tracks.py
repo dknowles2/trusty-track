@@ -152,6 +152,7 @@ def test_race_track_association_update(client, db):
     assert data["trackId"] == int(t2.id)
     assert data["track"]["name"] == "T2"
 
+
 def test_update_track_serial_port(client, db):
     # 1. Create a track
     mutation_create = """

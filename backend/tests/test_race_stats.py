@@ -143,7 +143,9 @@ def test_race_stats_no_results(client, db):
     race_id, racer_ids, den_ids = _setup_race(client, db)
     _create_round_and_get_heats(client, race_id)
 
-    resp = client.post("/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}})
+    resp = client.post(
+        "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}}
+    )
     assert resp.status_code == 200
     data = resp.json()["data"]["raceStats"]
 
@@ -165,14 +167,20 @@ def test_race_stats_with_results(client, db):
     heat_id = heats[0]["id"]
 
     # Record results: racer 0 in lane 1 (fastest), racer 1 in lane 2
-    _record_heat_result(client, heat_id, [
-        {"lane": 1, "racer_id": racer_ids[0], "time": 3.100, "place": 1},
-        {"lane": 2, "racer_id": racer_ids[1], "time": 3.500, "place": 2},
-        {"lane": 3, "racer_id": racer_ids[2], "time": 3.800, "place": 3},
-        {"lane": 4, "racer_id": racer_ids[3], "time": 4.100, "place": 4},
-    ])
+    _record_heat_result(
+        client,
+        heat_id,
+        [
+            {"lane": 1, "racer_id": racer_ids[0], "time": 3.100, "place": 1},
+            {"lane": 2, "racer_id": racer_ids[1], "time": 3.500, "place": 2},
+            {"lane": 3, "racer_id": racer_ids[2], "time": 3.800, "place": 3},
+            {"lane": 4, "racer_id": racer_ids[3], "time": 4.100, "place": 4},
+        ],
+    )
 
-    resp = client.post("/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}})
+    resp = client.post(
+        "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}}
+    )
     assert resp.status_code == 200
     data = resp.json()["data"]["raceStats"]
 
@@ -221,12 +229,18 @@ def test_race_stats_multiple_heats(client, db):
 
     # Record results in 2 heats for racer 0 (times: 3.0, 4.0 → mean 3.5, std_dev ~0.5)
     for i, (h, t1, t2) in enumerate(zip(heats[:2], [3.0, 4.0], [3.5, 4.5])):
-        _record_heat_result(client, h["id"], [
-            {"lane": 1, "racer_id": racer_ids[0], "time": t1, "place": 1},
-            {"lane": 2, "racer_id": racer_ids[1], "time": t2, "place": 2},
-        ])
+        _record_heat_result(
+            client,
+            h["id"],
+            [
+                {"lane": 1, "racer_id": racer_ids[0], "time": t1, "place": 1},
+                {"lane": 2, "racer_id": racer_ids[1], "time": t2, "place": 2},
+            ],
+        )
 
-    resp = client.post("/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}})
+    resp = client.post(
+        "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}}
+    )
     data = resp.json()["data"]["raceStats"]
 
     assert data["totalHeatsCompleted"] == 2

@@ -1,6 +1,6 @@
 """Tests for Observation GraphQL subscriptions.
 
-Verifies that the new observation subscriptions (leaderboard, on_deck, 
+Verifies that the new observation subscriptions (leaderboard, on_deck,
 currently_racing, timing_stats, heats) emit the expected data.
 """
 
@@ -45,9 +45,7 @@ def db_session():
 @pytest.fixture()
 def test_schema():
     """Return the full strawberry schema with subscriptions."""
-    return strawberry.Schema(
-        query=Query, mutation=Mutation, subscription=Subscription
-    )
+    return strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)
 
 
 def _seed_race(db_session: Any) -> tuple[int, int, int]:
@@ -72,8 +70,12 @@ def _seed_race(db_session: Any) -> tuple[int, int, int]:
     db_session.add(race)
     db_session.flush()
 
-    r1 = Racer(first_name="Alice", last_name="A", race_id=race.id, car_passed_inspection=True)
-    r2 = Racer(first_name="Bob", last_name="B", race_id=race.id, car_passed_inspection=True)
+    r1 = Racer(
+        first_name="Alice", last_name="A", race_id=race.id, car_passed_inspection=True
+    )
+    r2 = Racer(
+        first_name="Bob", last_name="B", race_id=race.id, car_passed_inspection=True
+    )
     db_session.add_all([r1, r2])
     db_session.flush()
 
@@ -90,13 +92,17 @@ def _seed_race(db_session: Any) -> tuple[int, int, int]:
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps([{"lane": 1, "racer_id": r1.id, "time": None, "place": None}])
+        lane_results=json.dumps(
+            [{"lane": 1, "racer_id": r1.id, "time": None, "place": None}]
+        ),
     )
     h2 = Heat(
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=2,
-        lane_results=json.dumps([{"lane": 1, "racer_id": r2.id, "time": None, "place": None}])
+        lane_results=json.dumps(
+            [{"lane": 1, "racer_id": r2.id, "time": None, "place": None}]
+        ),
     )
     db_session.add_all([h1, h2])
     db_session.commit()
@@ -109,6 +115,7 @@ async def test_leaderboard_subscription(db_session, test_schema) -> None:
     race_id, h1_id, _ = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
+
     original_pubsub = schema_mod.pubsub
     schema_mod.pubsub = local_pubsub
 
@@ -127,8 +134,14 @@ async def test_leaderboard_subscription(db_session, test_schema) -> None:
         await asyncio.sleep(0.1)
         # Record result for h1
         from backend.db.crud import record_heat_result
-        record_heat_result(db_session, h1_id, json.dumps([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]))
+
+        record_heat_result(
+            db_session,
+            h1_id,
+            json.dumps([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]),
+        )
         from backend.api.schema import _publish_race_state
+
         await _publish_race_state(race_id)
 
     try:
@@ -147,6 +160,7 @@ async def test_on_deck_subscription(db_session, test_schema) -> None:
     race_id, h1_id, h2_id = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
+
     original_pubsub = schema_mod.pubsub
     schema_mod.pubsub = local_pubsub
 
@@ -165,8 +179,14 @@ async def test_on_deck_subscription(db_session, test_schema) -> None:
         await asyncio.sleep(0.1)
         # Record result for h1, making h2 "current" and the one after h2 (none) "on deck"
         from backend.db.crud import record_heat_result
-        record_heat_result(db_session, h1_id, json.dumps([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]))
+
+        record_heat_result(
+            db_session,
+            h1_id,
+            json.dumps([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]),
+        )
         from backend.api.schema import _publish_race_state
+
         await _publish_race_state(race_id)
 
     try:
@@ -187,6 +207,7 @@ async def test_currently_racing_subscription(db_session, test_schema) -> None:
     race_id, h1_id, h2_id = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
+
     original_pubsub = schema_mod.pubsub
     schema_mod.pubsub = local_pubsub
 
@@ -204,8 +225,14 @@ async def test_currently_racing_subscription(db_session, test_schema) -> None:
     async def _trigger():
         await asyncio.sleep(0.1)
         from backend.db.crud import record_heat_result
-        record_heat_result(db_session, h1_id, json.dumps([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]))
+
+        record_heat_result(
+            db_session,
+            h1_id,
+            json.dumps([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]),
+        )
         from backend.api.schema import _publish_race_state
+
         await _publish_race_state(race_id)
 
     try:
@@ -223,6 +250,7 @@ async def test_timing_stats_subscription(db_session, test_schema) -> None:
     race_id, h1_id, _ = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
+
     original_pubsub = schema_mod.pubsub
     schema_mod.pubsub = local_pubsub
 
@@ -240,8 +268,14 @@ async def test_timing_stats_subscription(db_session, test_schema) -> None:
     async def _trigger():
         await asyncio.sleep(0.1)
         from backend.db.crud import record_heat_result
-        record_heat_result(db_session, h1_id, json.dumps([{"lane": 1, "racer_id": 1, "time": 3.555, "place": 1}]))
+
+        record_heat_result(
+            db_session,
+            h1_id,
+            json.dumps([{"lane": 1, "racer_id": 1, "time": 3.555, "place": 1}]),
+        )
         from backend.api.schema import _publish_race_state
+
         await _publish_race_state(race_id)
 
     try:
@@ -261,6 +295,7 @@ async def test_heats_subscription(db_session, test_schema) -> None:
     race_id, _, _ = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
+
     original_pubsub = schema_mod.pubsub
     schema_mod.pubsub = local_pubsub
 
@@ -278,6 +313,7 @@ async def test_heats_subscription(db_session, test_schema) -> None:
     async def _trigger():
         await asyncio.sleep(0.1)
         from backend.api.schema import _publish_race_state
+
         await _publish_race_state(race_id)
 
     try:
@@ -286,5 +322,5 @@ async def test_heats_subscription(db_session, test_schema) -> None:
         schema_mod.pubsub = original_pubsub
 
     assert len(collected) == 2
-    assert len(collected[0]) == 1 # One round
+    assert len(collected[0]) == 1  # One round
     assert len(collected[0][0].heats) == 2

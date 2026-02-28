@@ -844,6 +844,7 @@ class Query:
         """Get the current application version."""
         try:
             from backend.version import __version__
+
             return __version__
         except ImportError:
             return "unknown"
@@ -1916,6 +1917,7 @@ class Mutation:
             db.commit()
 
         from backend.version import __version__ as _version
+
         return InitialConfigStatus(
             initialized=True,
             version=_version,
@@ -2025,6 +2027,7 @@ class Mutation:
             await _publish_race_state(race.id)
 
         from backend.version import __version__ as _version
+
         return InitialConfigStatus(
             initialized=True,
             version=_version,

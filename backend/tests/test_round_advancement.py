@@ -59,15 +59,25 @@ def test_advancement_restricted_to_round(db: Session):
     crud.generate_heats_for_round(db, r1.id)
 
     r2 = crud.create_round(
-        db, race.id, 2, models.SchedulingStrategy.PPC, "Champ A",
-        advancement_source="PACK", advancement_num_racers=4
+        db,
+        race.id,
+        2,
+        models.SchedulingStrategy.PPC,
+        "Champ A",
+        advancement_source="PACK",
+        advancement_num_racers=4,
     )
     db.flush()
     crud.generate_heats_for_round(db, r2.id, num_placeholders=4)
 
     r3 = crud.create_round(
-        db, race.id, 3, models.SchedulingStrategy.PPC, "Champ B",
-        advancement_source=f"ROUND:{r2.id}", advancement_num_racers=2
+        db,
+        race.id,
+        3,
+        models.SchedulingStrategy.PPC,
+        "Champ B",
+        advancement_source=f"ROUND:{r2.id}",
+        advancement_num_racers=2,
     )
     db.flush()
     crud.generate_heats_for_round(db, r3.id, num_placeholders=2)
@@ -85,7 +95,9 @@ def test_advancement_restricted_to_round(db: Session):
         crud.record_heat_result(db, heat.id, json.dumps(results))
 
     # Advance to R2
-    winners_r2 = scoring.get_advancing_racers(db, race.id, r2.advancement_source, r2.advancement_num_racers)
+    winners_r2 = scoring.get_advancing_racers(
+        db, race.id, r2.advancement_source, r2.advancement_num_racers
+    )
     assert set(winners_r2) == set([r.id for r in racers[:4]])
     crud.resolve_round_placeholders(db, r2.id, winners_r2)
     db.expire_all()
@@ -108,12 +120,15 @@ def test_advancement_restricted_to_round(db: Session):
 
     # 6. Check Advancement to Round 3
     # R2 only winners: 2,3 (0.8s)
-    winners_r3 = scoring.get_advancing_racers(db, race.id, r3.advancement_source, r3.advancement_num_racers)
+    winners_r3 = scoring.get_advancing_racers(
+        db, race.id, r3.advancement_source, r3.advancement_num_racers
+    )
     assert set(winners_r3) == set([racers[2].id, racers[3].id])
-    
+
     # Overall winners: 0,1 (avg (0.1+1.1)/2 = 0.6s) vs 2,3 (avg (1.0+0.8)/2 = 0.9s)
     winners_pack = scoring.get_advancing_racers(db, race.id, "PACK", 2)
     assert set(winners_pack) == set([racers[0].id, racers[1].id])
+
 
 def test_wizard_with_previous_round(client, db: Session):
     db.query(models.Heat).delete()
@@ -143,11 +158,18 @@ def test_wizard_with_previous_round(client, db: Session):
     )
     crud.create_race(db, race_in)
     race = db.query(models.Race).first()
-    
+
     for i in range(8):
-        crud.create_racer(db, schemas.RacerCreate(
-            first_name=f"Racer{i}", last_name="Test", car_number=i+1, race_id=race.id, car_passed_inspection=True
-        ))
+        crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name=f"Racer{i}",
+                last_name="Test",
+                car_number=i + 1,
+                race_id=race.id,
+                car_passed_inspection=True,
+            ),
+        )
     db.commit()
 
     mutation = """
@@ -160,26 +182,36 @@ def test_wizard_with_previous_round(client, db: Session):
         }
     }
     """
-    
+
     variables = {
         "raceId": race.id,
         "config": {
             "generalRound": {"type": "PACK", "runsPerLane": 1},
             "championshipRounds": [
-                {"name": "Semi-Finals", "source": "PACK", "numTopRacers": 4, "runsPerLane": 1},
-                {"name": "Finals", "source": "PREVIOUS", "numTopRacers": 2, "runsPerLane": 1}
-            ]
-        }
+                {
+                    "name": "Semi-Finals",
+                    "source": "PACK",
+                    "numTopRacers": 4,
+                    "runsPerLane": 1,
+                },
+                {
+                    "name": "Finals",
+                    "source": "PREVIOUS",
+                    "numTopRacers": 2,
+                    "runsPerLane": 1,
+                },
+            ],
+        },
     }
-    
+
     response = client.post("/graphql", json={"query": mutation, "variables": variables})
     assert response.status_code == 200
     res_data = response.json()
     assert "errors" not in res_data
     data = res_data["data"]["createRoundWizard"]
-    
-    assert len(data) == 3 
-    
+
+    assert len(data) == 3
+
     rounds = db.query(models.Round).order_by(models.Round.round_number).all()
     assert len(rounds) == 3
     assert rounds[0].name == "All Pack"

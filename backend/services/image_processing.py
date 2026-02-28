@@ -27,7 +27,9 @@ def resize_image(img: Image.Image, max_size: int = MAX_IMAGE_SIZE) -> Image.Imag
     return img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
 
-def convert_to_browser_safe_png(image_bytes: bytes, max_size: int = MAX_IMAGE_SIZE) -> bytes:
+def convert_to_browser_safe_png(
+    image_bytes: bytes, max_size: int = MAX_IMAGE_SIZE
+) -> bytes:
     """Return *image_bytes* re-encoded as PNG if the format is not natively
     supported by all major browsers (e.g. HEIC/HEIF, TIFF, BMP), or if it
     exceeds *max_size* in either dimension.
@@ -60,7 +62,7 @@ def convert_to_browser_safe_png(image_bytes: bytes, max_size: int = MAX_IMAGE_SI
     # Convert to RGBA so transparency is preserved for any source mode.
     if img.mode not in ("RGB", "RGBA"):
         img = img.convert("RGBA")
-    
+
     # Apply auto-cropping as per SPEC
     img = crop_to_content(img)
 

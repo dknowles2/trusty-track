@@ -19,14 +19,14 @@ def cleanup_chromakey(input_path: str, output_path: str):
     for y in range(height):
         for x in range(width):
             r, g, b = pixels[x, y]
-            
+
             # Identify green-ish (background)
             # We look for high green and low red/blue
             # The prompt requested #00FF00, so any pixel where G is dominant and R/B are low
             if g > 150 and r < 100 and b < 100:
                 pixels[x, y] = PURE_GREEN
                 continue
-            
+
             # Identify white-ish (outline)
             # Any pixel where all components are very high
             if r > 200 and g > 200 and b > 200:
@@ -35,6 +35,7 @@ def cleanup_chromakey(input_path: str, output_path: str):
 
     img.save(output_path, "PNG")
     print(f"Refined image saved to {output_path}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:

@@ -72,7 +72,9 @@ def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
 
         round_obj = round_map.get(heat.round_id)
         round_name = (
-            round_obj.name if (round_obj and round_obj.name) else f"Round {heat.heat_number}"
+            round_obj.name
+            if (round_obj and round_obj.name)
+            else f"Round {heat.heat_number}"
         )
 
         # Count scheduled heats for each racer (regardless of completion)
@@ -83,9 +85,7 @@ def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
 
         # A heat is "completed" if at least one racer has a recorded time
         has_result = any(
-            r.get("time") is not None
-            for r in results
-            if r.get("racer_id")
+            r.get("time") is not None for r in results if r.get("racer_id")
         )
         if not has_result:
             continue
@@ -100,12 +100,14 @@ def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
             enriched["round_name"] = round_name
             all_results.append(enriched)
 
-        heats_with_rounds.append({
-            "heat": heat,
-            "round_name": round_name,
-            "global_heat_number": global_heat_map.get(heat.id, 0),
-            "results": results,
-        })
+        heats_with_rounds.append(
+            {
+                "heat": heat,
+                "round_name": round_name,
+                "global_heat_number": global_heat_map.get(heat.id, 0),
+                "results": results,
+            }
+        )
 
     scoring_strategy = (
         race.scoring_strategy.value
@@ -170,12 +172,14 @@ def _compute_lane_stats(all_results: list, lane_count: int) -> list:
         heat_count = sum(
             1 for r in all_results if r.get("lane") == lane and r.get("racer_id")
         )
-        stats.append({
-            "lane": lane,
-            "avg_time": avg,
-            "heat_count": heat_count,
-            "relative_advantage_pct": rel_adv,
-        })
+        stats.append(
+            {
+                "lane": lane,
+                "avg_time": avg,
+                "heat_count": heat_count,
+                "relative_advantage_pct": rel_adv,
+            }
+        )
 
     return stats
 
@@ -249,21 +253,23 @@ def _compute_racer_stats(
             times_per_lane.append({"lane": lane, "avg_time": avg})
         times_per_lane.sort(key=lambda x: x["lane"])
 
-        stats.append({
-            "racer_id": racer_id,
-            "first_name": racer.first_name,
-            "last_name": racer.last_name,
-            "car_number": racer.car_number,
-            "den_name": den_name,
-            "_den_id": racer.den_id,
-            "heats_completed": heats_completed,
-            "heats_scheduled": racer_heat_counts.get(racer_id, 0),
-            "min_time": min_time,
-            "max_time": max_time,
-            "mean_time": mean_time,
-            "std_dev": std_dev,
-            "times_per_lane": times_per_lane,
-        })
+        stats.append(
+            {
+                "racer_id": racer_id,
+                "first_name": racer.first_name,
+                "last_name": racer.last_name,
+                "car_number": racer.car_number,
+                "den_name": den_name,
+                "_den_id": racer.den_id,
+                "heats_completed": heats_completed,
+                "heats_scheduled": racer_heat_counts.get(racer_id, 0),
+                "min_time": min_time,
+                "max_time": max_time,
+                "mean_time": mean_time,
+                "std_dev": std_dev,
+                "times_per_lane": times_per_lane,
+            }
+        )
 
     stats.sort(key=lambda x: (x["mean_time"] is None, x["mean_time"] or 0.0))
     return stats
@@ -374,18 +380,18 @@ def _compute_den_stats(racer_stats: list, dens: list) -> list:
             if rs["mean_time"] is not None:
                 if best is None or rs["mean_time"] < best["mean_time"]:
                     best = rs
-        best_racer_name = (
-            f"{best['first_name']} {best['last_name']}" if best else None
-        )
+        best_racer_name = f"{best['first_name']} {best['last_name']}" if best else None
 
-        stats.append({
-            "den_id": den_id,
-            "den_name": den.name,
-            "den_color": den.color,
-            "racer_count": len(rs_list),
-            "avg_score": avg_score,
-            "best_racer_name": best_racer_name,
-        })
+        stats.append(
+            {
+                "den_id": den_id,
+                "den_name": den.name,
+                "den_color": den.color,
+                "racer_count": len(rs_list),
+                "avg_score": avg_score,
+                "best_racer_name": best_racer_name,
+            }
+        )
 
     stats.sort(key=lambda x: (x["avg_score"] is None, x["avg_score"] or 0.0))
     return stats
@@ -416,16 +422,18 @@ def _compute_heat_results(heats_with_rounds: list, racer_map: dict) -> list:
                 t = float(time_val)
                 time_val = t if t > 0.0 else None
 
-            rows.append({
-                "round_name": round_name,
-                "heat_number": heat.heat_number,
-                "global_heat_number": global_heat_number,
-                "lane": r.get("lane"),
-                "car_number": racer.car_number,
-                "racer_first_name": racer.first_name,
-                "racer_last_name": racer.last_name,
-                "time": time_val,
-                "place": r.get("place"),
-            })
+            rows.append(
+                {
+                    "round_name": round_name,
+                    "heat_number": heat.heat_number,
+                    "global_heat_number": global_heat_number,
+                    "lane": r.get("lane"),
+                    "car_number": racer.car_number,
+                    "racer_first_name": racer.first_name,
+                    "racer_last_name": racer.last_name,
+                    "time": time_val,
+                    "place": r.get("place"),
+                }
+            )
 
     return rows

@@ -89,13 +89,37 @@ def test_racer_mutations(client, db):
 def _setup_race_with_heat(db, lane_count=4):
     """Create a race with two racers and a heat whose lane_results reference them."""
     group = crud.create_group(db, schemas.GroupCreate(name="Heat Test Group"))
-    track = crud.create_track(db, schemas.TrackCreate(name="Heat Track", lane_count=lane_count))
-    race = crud.create_race(db, schemas.RaceCreate(name="Heat Race", group_id=group.id, track_id=track.id))
+    track = crud.create_track(
+        db, schemas.TrackCreate(name="Heat Track", lane_count=lane_count)
+    )
+    race = crud.create_race(
+        db, schemas.RaceCreate(name="Heat Race", group_id=group.id, track_id=track.id)
+    )
 
-    racer_a = crud.create_racer(db, schemas.RacerCreate(first_name="Alice", last_name="A", car_number=1, race_id=race.id, car_passed_inspection=True))
-    racer_b = crud.create_racer(db, schemas.RacerCreate(first_name="Bob", last_name="B", car_number=2, race_id=race.id, car_passed_inspection=True))
+    racer_a = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Alice",
+            last_name="A",
+            car_number=1,
+            race_id=race.id,
+            car_passed_inspection=True,
+        ),
+    )
+    racer_b = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Bob",
+            last_name="B",
+            car_number=2,
+            race_id=race.id,
+            car_passed_inspection=True,
+        ),
+    )
 
-    round_ = models.Round(race_id=race.id, round_number=1, name="Round 1", scheduling_strategy="PPC")
+    round_ = models.Round(
+        race_id=race.id, round_number=1, name="Round 1", scheduling_strategy="PPC"
+    )
     db.add(round_)
     db.flush()
 
@@ -103,7 +127,12 @@ def _setup_race_with_heat(db, lane_count=4):
         {"lane": 1, "racer_id": racer_a.id, "time": 3.1, "place": 1},
         {"lane": 2, "racer_id": racer_b.id, "time": 3.5, "place": 2},
     ]
-    heat = models.Heat(race_id=race.id, round_id=round_.id, heat_number=1, lane_results=json.dumps(lane_results))
+    heat = models.Heat(
+        race_id=race.id,
+        round_id=round_.id,
+        heat_number=1,
+        lane_results=json.dumps(lane_results),
+    )
     db.add(heat)
     db.commit()
 
@@ -136,7 +165,9 @@ def test_delete_racer_clears_from_heats(client, db):
 def test_bulk_delete_racers_clears_from_heats(client, db):
     race_id, racer_a_id, racer_b_id, heat_id = _setup_race_with_heat(db)
 
-    mutation = f"mutation {{ bulkDeleteRacers(racerIds: [{racer_a_id}, {racer_b_id}]) }}"
+    mutation = (
+        f"mutation {{ bulkDeleteRacers(racerIds: [{racer_a_id}, {racer_b_id}]) }}"
+    )
     resp = client.post("/graphql", json={"query": mutation})
     assert resp.json()["data"]["bulkDeleteRacers"] is True
 
@@ -454,7 +485,11 @@ def test_bulk_mutations_with_variables(client, db):
             mutation CreateRace($race: RaceInput!) { createRace(race: $race) { id } }
             """,
             "variables": {
-                "race": {"name": "Bulk Vars Race", "groupId": group.id, "trackId": track.id}
+                "race": {
+                    "name": "Bulk Vars Race",
+                    "groupId": group.id,
+                    "trackId": track.id,
+                }
             },
         },
     )
@@ -468,7 +503,14 @@ def test_bulk_mutations_with_variables(client, db):
                 "query": """
                 mutation CreateRacer($racer: RacerInput!) { createRacer(racer: $racer) { id } }
                 """,
-                "variables": {"racer": {"firstName": "Racer", "lastName": str(i), "raceId": race_id, "carPassedInspection": True}},
+                "variables": {
+                    "racer": {
+                        "firstName": "Racer",
+                        "lastName": str(i),
+                        "raceId": race_id,
+                        "carPassedInspection": True,
+                    }
+                },
             },
         )
         racer_ids.append(r.json()["data"]["createRacer"]["id"])
@@ -524,7 +566,10 @@ def test_bulk_mutations_with_variables(client, db):
             "query": """
             mutation CreateDen($raceId: Int!, $den: DenInput!) { createDen(raceId: $raceId, den: $den) { id } }
             """,
-            "variables": {"raceId": race_id, "den": {"name": "Test Den", "color": "#ff0000"}},
+            "variables": {
+                "raceId": race_id,
+                "den": {"name": "Test Den", "color": "#ff0000"},
+            },
         },
     )
     den_id = den_resp.json()["data"]["createDen"]["id"]
@@ -580,6 +625,7 @@ def test_upload_image_mutation(client):
 
     # Verify the file was actually saved
     from backend.db.database import UPLOAD_DIR
+
     filename = url.split("/static/")[1]
     file_path = os.path.join(UPLOAD_DIR, filename)
     assert os.path.exists(file_path)

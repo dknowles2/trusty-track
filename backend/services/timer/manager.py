@@ -196,7 +196,12 @@ class TimerManager:
             self._racer_by_lane = {}
             await self._transition(TimerState.IDLE)
 
-    async def prepare_heat(self, heat_id: int, lane_mask: int, racer_by_lane: Optional[dict[int, Optional[int]]] = None) -> None:
+    async def prepare_heat(
+        self,
+        heat_id: int,
+        lane_mask: int,
+        racer_by_lane: Optional[dict[int, Optional[int]]] = None,
+    ) -> None:
         """Arm the timer for a heat. Sends device commands and transitions to ARMED."""
         async with self._event_lock:
             self._active_heat_id = heat_id
@@ -477,14 +482,15 @@ class TimerManager:
                 )
 
         elif isinstance(event, GateClosed):
-            if (
-                self._state == TimerState.ARMED
-                and self._device.gate_state_is_knowable
-            ):
+            if self._state == TimerState.ARMED and self._device.gate_state_is_knowable:
                 await self._transition(TimerState.READY)
 
         elif isinstance(event, LaneResult):
-            if self._state in (TimerState.ARMED, TimerState.READY, TimerState.RESULTS_OVERDUE):
+            if self._state in (
+                TimerState.ARMED,
+                TimerState.READY,
+                TimerState.RESULTS_OVERDUE,
+            ):
                 await self._transition(TimerState.RUNNING)
 
             if self._state != TimerState.RUNNING:
@@ -502,9 +508,7 @@ class TimerManager:
             expected_lanes = {
                 i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
             }
-            if expected_lanes and expected_lanes.issubset(
-                self._pending_results.keys()
-            ):
+            if expected_lanes and expected_lanes.issubset(self._pending_results.keys()):
                 await self._record_results()
 
         elif isinstance(event, DeviceError):
@@ -545,7 +549,7 @@ class TimerManager:
             if heat:
                 # Official Heat: lane_results contains both assignments and results
                 existing = json.loads(heat.lane_results) if heat.lane_results else []
-                
+
                 # Update a COPY of existing entries with timer results to be safe
                 updated_results = []
                 for entry in existing:
@@ -587,7 +591,7 @@ class TimerManager:
                     if free_heat.lane_assignments
                     else []
                 )
-                
+
                 # Create results list based on assignments
                 updated_results = []
                 for entry in existing:
@@ -672,7 +676,9 @@ class TimerManager:
             if not self._watchdog_task:
                 self._watchdog_task = asyncio.create_task(self._watchdog_loop())
 
-            logger.info("Timer %d: Started direct serial mode on %s", self._track_id, port)
+            logger.info(
+                "Timer %d: Started direct serial mode on %s", self._track_id, port
+            )
 
     async def _watchdog_loop(self) -> None:
         """Monitor connection health and attempt reconnects."""

@@ -71,7 +71,6 @@ def test_random_free_race_lanes_query(db: Session):
     assert sorted(lane_numbers) == [1, 2, 3, 4]
 
 
-
 def test_random_free_race_lanes_query_excludes_not_checked_in_racers(db: Session):
     race_id, _ = _create_race_with_track(db)
     # Add one checked-in and one NOT checked-in racer

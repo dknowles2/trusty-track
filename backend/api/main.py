@@ -141,7 +141,6 @@ if FRONTEND_DIST.exists():
         return FileResponse(FRONTEND_DIST / "index.html")
 
 
-
 @app.websocket("/ws/timer/{track_id}")
 async def timer_websocket(websocket: WebSocket, track_id: int):
     """WebSocket endpoint for frontend-proxy timer mode."""
@@ -158,7 +157,9 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
         track = db.query(models.Track).filter(models.Track.id == track_id).first()
         if not track or track.timer_type != models.TimerType.AUTO_DETECT_PROXY:
             await websocket.accept()
-            await websocket.close(code=4000, reason="Proxy mode not enabled for this track")
+            await websocket.close(
+                code=4000, reason="Proxy mode not enabled for this track"
+            )
             return
     finally:
         db.close()
@@ -168,18 +169,22 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
     # Define how to send bytes back to the frontend
     async def send_to_ws(data: bytes) -> None:
         try:
-            await websocket.send_json({
-                "type": "serial_tx",
-                "data": base64.b64encode(data).decode("utf-8"),
-            })
+            await websocket.send_json(
+                {
+                    "type": "serial_tx",
+                    "data": base64.b64encode(data).decode("utf-8"),
+                }
+            )
         except Exception as e:
             logger.error("Failed to send serial_tx to track %d: %s", track_id, e)
 
     # Tell the frontend to configure its serial port
-    await websocket.send_json({
-        "type": "configure",
-        "baud_rate": manager._device.baud_rate,
-    })
+    await websocket.send_json(
+        {
+            "type": "configure",
+            "baud_rate": manager._device.baud_rate,
+        }
+    )
 
     manager.set_write_fn(send_to_ws)
 

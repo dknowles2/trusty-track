@@ -39,9 +39,7 @@ def db_session():
 @pytest.fixture()
 def test_schema():
     """Return the full strawberry schema with subscriptions."""
-    return strawberry.Schema(
-        query=Query, mutation=Mutation, subscription=Subscription
-    )
+    return strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +150,7 @@ async def test_race_state_changed_subscription_emits_event(
         """Simulate a mutation calling _publish_race_state."""
         await asyncio.sleep(0.05)
         from backend.api.schema import _publish_race_state
+
         await _publish_race_state(race_id)
 
     try:
