@@ -678,7 +678,7 @@ class TimerManager:
         """Monitor connection health and attempt reconnects."""
         try:
             while True:
-                await asyncio.sleep(5.0)
+                await asyncio.sleep(1.0)
 
                 # Resend identification if stuck in CONNECTED
                 # (e.g. initial command lost due to Arduino bootloader)

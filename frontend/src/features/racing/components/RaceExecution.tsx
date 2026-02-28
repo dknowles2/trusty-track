@@ -382,6 +382,23 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     </div>
                                 ) : isRunning ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                                        {timerState === 'RESULTS_OVERDUE' && (
+                                            <div style={{
+                                                padding: '4px 12px',
+                                                fontSize: '0.85rem',
+                                                background: '#d32f2f',
+                                                color: 'white',
+                                                borderRadius: '4px',
+                                                fontWeight: 'bold',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                marginBottom: '-5px',
+                                                zIndex: 1
+                                            }}>
+                                                <Icon path={mdiAlertCircleOutline} size={0.6} color="white" /> Results Overdue
+                                            </div>
+                                        )}
                                         <div style={{
                                             padding: '8px 20px',
                                             fontSize: '1.15rem',
@@ -400,22 +417,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         .pulse-dot { animation: pulse 1s infinite; }
                                         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
                                     `}</style>
-                                    </div>
-                                ) : timerState === 'RESULTS_OVERDUE' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                                        <div style={{
-                                            padding: '8px 20px',
-                                            fontSize: '1.1rem',
-                                            background: '#d32f2f',
-                                            color: 'white',
-                                            borderRadius: '4px',
-                                            fontWeight: 'bold',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                        }}>
-                                            <Icon path={mdiAlertCircleOutline} size={0.8} color="white" /> Results Overdue
-                                        </div>
                                     </div>
                                 ) : timerState === 'IDLE' && trackId != null && !isCompleted ? (
                                     <div style={{ padding: '8px 20px', color: '#666', fontStyle: 'italic', background: '#f5f5f5', borderRadius: '4px', border: '1px solid #ddd' }}>
@@ -561,23 +562,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 ) : isRunning ? (
                                     <>
                                         <button
-                                            onClick={handleEditOpen}
+                                            onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
                                             className="secondary-btn"
-                                            style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#f5f5f5', color: 'black', border: '1px solid #ccc', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
-                                            <Icon path={mdiAlertCircleOutline} size={0.7} /> Force Results
+                                            <Icon path={mdiRefresh} size={0.7} /> Reset Heat
                                         </button>
-                                        <button
-                                            onClick={handleSkipHeat}
-                                            className="secondary-btn"
-                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
-                                        >
-                                            <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
-                                        </button>
-                                    </>
-                                ) : timerState === 'RESULTS_OVERDUE' ? (
-                                    <>
-                                        {timerType !== 'FAKE' && trackId != null && (
+                                        {trackId != null && (
                                             <button
                                                 onClick={() => forceResults({ trackId })}
                                                 className="secondary-btn"
