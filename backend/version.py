@@ -1,5 +1,6 @@
 import subprocess
 
+
 def _get_git_hash():
     try:
         return subprocess.check_output(

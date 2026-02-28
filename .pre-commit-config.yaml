@@ -30,7 +30,7 @@ repos:
 
       - id: frontend-lint
         name: frontend-lint
-        entry: bash -c "cd frontend && npx eslint $(echo \"$@\" | sed 's|frontend/||g') --max-warnings 0" --
+        entry: bash -c "cd frontend && npx eslint $(echo \"$@\" | sed 's|frontend/||g') --max-warnings 0 --no-warn-ignored" --
         language: system
         files: ^frontend/
         types_or: [javascript, jsx, ts, tsx]
