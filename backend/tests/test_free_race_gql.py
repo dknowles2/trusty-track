@@ -3,8 +3,8 @@ import json
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from backend.db import crud, models, schemas
 from backend.api.main import app
+from backend.db import crud, models, schemas
 
 client = TestClient(app)
 

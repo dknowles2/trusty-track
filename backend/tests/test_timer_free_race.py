@@ -1,11 +1,14 @@
 import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from backend.db import crud, models, schemas
-from backend.services.timer.manager import TimerManager
-from backend.services.timer.devices.fake import FakeTimerDevice
-from backend.services.timer.state_machine import TimerState
 from backend.services.timer.devices.base import LaneResult, RaceStarted
+from backend.services.timer.devices.fake import FakeTimerDevice
+from backend.services.timer.manager import TimerManager
+from backend.services.timer.state_machine import TimerState
+
 
 @pytest.mark.anyio
 async def test_free_race_heat_recording_in_manager(db):

@@ -1,10 +1,12 @@
-import random
 import os
+import random
 import shutil
 import uuid
 from pathlib import Path
+
 from sqlalchemy.orm import Session
-from . import crud, schemas, models
+
+from . import crud, models, schemas
 from .database import DATA_DIR
 
 FIRST_NAMES = [

@@ -1,7 +1,10 @@
 import json
+
 from sqlalchemy.orm import Session
+
 from backend.db import crud, models, schemas
 from backend.services import scoring
+
 
 def test_advancement_restricted_to_round(db: Session):
     # 1. Setup Race and Config

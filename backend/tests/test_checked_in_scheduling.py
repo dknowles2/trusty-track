@@ -1,5 +1,7 @@
 import pytest
+
 from backend.db import crud, schemas
+
 
 def create_test_race(db):
     group_in = schemas.GroupCreate(name="Check-in Group")

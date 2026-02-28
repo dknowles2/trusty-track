@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import random
-from typing import Any, List, Optional
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -27,7 +27,7 @@ def create_group(db: Session, group: schemas.GroupCreate) -> models.Group:
 
 def get_dens(
     db: Session, race_id: int, skip: int = 0, limit: int = 100
-) -> List[models.Den]:
+) -> list[models.Den]:
     return (
         db.query(models.Den)
         .filter(models.Den.race_id == race_id)
@@ -87,7 +87,7 @@ def update_den(
     return db_den
 
 
-def get_races(db: Session, skip: int = 0, limit: int = 100) -> List[models.Race]:
+def get_races(db: Session, skip: int = 0, limit: int = 100) -> list[models.Race]:
     """Get all races with computed registered and checked-in racer counts."""
     races = db.query(models.Race).offset(skip).limit(limit).all()
     for race in races:
@@ -189,7 +189,7 @@ def delete_race(db: Session, race_id: int) -> bool:
     return True
 
 
-def get_tracks(db: Session) -> List[models.Track]:
+def get_tracks(db: Session) -> list[models.Track]:
     return db.query(models.Track).all()
 
 
@@ -207,9 +207,9 @@ def create_track(db: Session, track: schemas.TrackCreate) -> models.Track:
 
 def create_initial_config(
     db: Session, config: schemas.InitialConfigCreate
-) -> tuple[models.Group, List[models.Track]]:
+) -> tuple[models.Group, list[models.Track]]:
     # Create Group
-    group = models.Group(name=config.group_name)
+    group = models.Group(name=config.group_name, debug_mode=config.debug_mode)
     db.add(group)
 
     # Create Tracks
@@ -226,8 +226,11 @@ def create_initial_config(
     return group, created_tracks
 
 
-def update_group(db: Session, group: models.Group, name: str) -> models.Group:
+def update_group(
+    db: Session, group: models.Group, name: str, debug_mode: bool = False
+) -> models.Group:
     group.name = name
+    group.debug_mode = debug_mode
     db.commit()
     db.refresh(group)
     return group
@@ -260,7 +263,7 @@ def delete_track(db: Session, track_id: int) -> bool:
 
 def get_racers(
     db: Session, skip: int = 0, limit: int = 100, race_id: int | None = None
-) -> List[models.Racer]:
+) -> list[models.Racer]:
     query = db.query(models.Racer)
     if race_id:
         query = query.filter(models.Racer.race_id == race_id)
@@ -362,7 +365,6 @@ def bulk_assign_racer_photos(
     return count
 
 
-
 def _remove_racer_from_regular_heats(db: Session, racer_ids: set[int], round_id: int):
     """Nullify lane entries for deleted racers in heats of a specific round."""
     heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
@@ -420,11 +422,17 @@ def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
     return db_racer
 
 
-def get_heats(db: Session, race_id: int, round_id: Optional[int] = None) -> List[models.Heat]:
+def get_heats(
+    db: Session, race_id: int, round_id: int | None = None
+) -> list[models.Heat]:
     """Get all heats for a specific race, ordered by round and heat number."""
     query = db.query(models.Heat).filter(models.Heat.race_id == race_id)
     if round_id:
-        return query.filter(models.Heat.round_id == round_id).order_by(models.Heat.heat_number).all()
+        return (
+            query.filter(models.Heat.round_id == round_id)
+            .order_by(models.Heat.heat_number)
+            .all()
+        )
     return (
         query.join(models.Round)
         .order_by(models.Round.round_number, models.Heat.heat_number)
@@ -432,7 +440,7 @@ def get_heats(db: Session, race_id: int, round_id: Optional[int] = None) -> List
     )
 
 
-def get_rounds(db: Session, race_id: int) -> List[models.Round]:
+def get_rounds(db: Session, race_id: int) -> list[models.Round]:
     """Get all rounds for a specific race, ordered by round number."""
     return (
         db.query(models.Round)
@@ -559,9 +567,7 @@ def delete_heat(db: Session, heat_id: int) -> bool:
 def delete_free_race_heat(db: Session, heat_id: int) -> bool:
     """Delete a free race heat. Only if it hasn't been run."""
     heat = (
-        db.query(models.FreeRaceHeat)
-        .filter(models.FreeRaceHeat.id == heat_id)
-        .first()
+        db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
     )
     if heat:
         if heat.lane_results:
@@ -576,10 +582,10 @@ def _generate_ppc(
     db: Session,
     race_id: int,
     round_id: int,
-    p_ids: List[int],
+    p_ids: list[int],
     lane_count: int,
     start_heat_num: int = 1,
-) -> List[models.Heat]:
+) -> list[models.Heat]:
     """
     Generate Partial Perfect Chart (PPC) heats.
     Uses greedy optimization to balance lane usage and maximize opponent variety.
@@ -589,12 +595,10 @@ def _generate_ppc(
     L = lane_count
 
     # Matchup matrix
-    matchups: dict[int, dict[int, int]] = {p1: {p2: 0 for p2 in p_ids} for p1 in p_ids}
+    matchups: dict[int, dict[int, int]] = {p1: dict.fromkeys(p_ids, 0) for p1 in p_ids}
 
     # heat_matrix[heat_idx][lane_idx] = racer_id
-    heat_matrix: List[List[Optional[int]]] = [
-        [None for _ in range(L)] for _ in range(P)
-    ]
+    heat_matrix: list[list[int | None]] = [[None for _ in range(L)] for _ in range(P)]
 
     # Fill Lane 1 (lane_idx 0) with all racers
     lane1_racers = list(p_ids)
@@ -650,7 +654,7 @@ def _generate_ppc(
                         matchups[best_racer][other] += 1
                         matchups[other][best_racer] += 1
 
-    generated_heats: List[models.Heat] = []
+    generated_heats: list[models.Heat] = []
     for i in range(P):
         lane_assignment = []
         for j in range(L):
@@ -677,9 +681,9 @@ def generate_heats_for_round(
     db: Session,
     round_id: int,
     num_placeholders: int = 0,
-    racer_ids: List[int] | None = None,
+    racer_ids: list[int] | None = None,
     clear_existing: bool = True,
-) -> List[models.Heat]:
+) -> list[models.Heat]:
     """
     Generate heats for a specific round based on its scheduling strategy.
     Supports regeneration if no heats in the round have started.
@@ -752,7 +756,7 @@ def generate_heats_for_round(
     return new_heats
 
 
-def resolve_round_placeholders(db: Session, round_id: int, racer_ids: List[int]):
+def resolve_round_placeholders(db: Session, round_id: int, racer_ids: list[int]):
     """
     Replace placeholders in a round's heats with actual racer IDs.
 
@@ -808,22 +812,19 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
         # So we manually delete heats first?
         # Or we catch the error?
 
-        # If the round has results, strictly speaking we should probably NOT auto-wipe them
-        # without user confirmation, but for this "Rerun Logic" test, it expects clearing.
-        # We will try to regenerate.
+        # If the round has results, strictly speaking we should probably NOT
+        # auto-wipe them without user confirmation, but for this
+        # "Rerun Logic" test, it expects clearing. We will try to regenerate.
 
-        try:
+        import contextlib
+
+        with contextlib.suppress(ValueError):
             generate_heats_for_round(
                 db,
                 r.id,
                 num_placeholders=r.advancement_num_racers or 0,
                 clear_existing=True,
             )
-        except ValueError:
-            # If we can't regenerate (e.g. because results exist), we silently skip
-            # or log usage?
-            # For the test case (no results in future round), this works.
-            pass
 
 
 def record_heat_result(
@@ -843,7 +844,7 @@ def record_heat_result(
 
 
 def auto_number_racers(
-    db: Session, race_id: int, racer_ids: Optional[List[int]] = None
+    db: Session, race_id: int, racer_ids: list[int | None] = None
 ) -> int:
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
@@ -917,7 +918,7 @@ def auto_number_racers(
     return updated_count
 
 
-def reorder_heats(db: Session, heat_updates: List[dict]) -> List[models.Heat]:
+def reorder_heats(db: Session, heat_updates: list[dict]) -> list[models.Heat]:
     """
     Reorder heats within a round by updating their heat_number.
 
@@ -1041,7 +1042,7 @@ def revert_round_to_placeholders(db: Session, round_id: int):
         )
 
 
-def bulk_delete_racers(db: Session, racer_ids: List[int]):
+def bulk_delete_racers(db: Session, racer_ids: list[int]):
     from collections import defaultdict
 
     racers = db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).all()
@@ -1071,17 +1072,20 @@ def bulk_delete_racers(db: Session, racer_ids: List[int]):
     db.commit()
 
 
-def bulk_clear_car_numbers(db: Session, racer_ids: List[int]):
+def bulk_clear_car_numbers(db: Session, racer_ids: list[int]):
     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
         {models.Racer.car_number: None}, synchronize_session=False
     )
     db.commit()
 
 
-def bulk_check_in_racers(db: Session, racer_ids: List[int], passed_inspection: bool = True):
+def bulk_check_in_racers(
+    db: Session, racer_ids: list[int], passed_inspection: bool = True
+):
     """Bulk update check-in status for racers."""
     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
-        {models.Racer.car_passed_inspection: passed_inspection}, synchronize_session=False
+        {models.Racer.car_passed_inspection: passed_inspection},
+        synchronize_session=False,
     )
     db.commit()
 
@@ -1149,10 +1153,7 @@ def get_random_lane_assignments(
     """
     pool = (
         db.query(models.Racer)
-        .filter(
-            models.Racer.race_id == race_id,
-            models.Racer.car_passed_inspection
-        )
+        .filter(models.Racer.race_id == race_id, models.Racer.car_passed_inspection)
         .all()
     )
     random.shuffle(pool)
@@ -1165,7 +1166,7 @@ def get_random_lane_assignments(
     return assignments
 
 
-def bulk_move_racers_to_den(db: Session, racer_ids: List[int], den_id: Optional[int]):
+def bulk_move_racers_to_den(db: Session, racer_ids: list[int], den_id: int | None):
     # Need to handle potential racing group updates if we were strict about it,
     # but create_racer handles it. For bulk move, let's just update den_id.
     # If we want to be thorough, we should also update racing_group_id.

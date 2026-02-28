@@ -76,6 +76,7 @@ interface RaceExecutionProps {
     remainingHeatsInRound?: number;
     totalHeatsInRound?: number;
     upcomingRounds?: { roundNumber: number, roundName: string | null, totalHeats: number }[];
+    debugMode?: boolean;
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
@@ -94,6 +95,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     remainingHeatsInRound,
     totalHeatsInRound,
     upcomingRounds,
+    debugMode,
 }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
@@ -119,18 +121,27 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const hasRecordedTimes = results.length > 0 && results.some((r: LaneResult) => r.time !== null && r.time !== '');
     const isSkipped = results.length > 0 && results.some((r: LaneResult) => r.skipped);
     const isCompleted = results.length > 0 && (hasRecordedTimes || isSkipped);
-    const isRunning = timerState === 'RUNNING';
+    const isRunning = timerState === 'RUNNING' || timerState === 'RESULTS_OVERDUE';
     const hasPlaceholders = results.some((r: LaneResult) => r.racer_id !== null && r.racer_id < 0);
 
     const laneResultMap: Record<number, LaneResult> = {};
+    const racerMapping: Record<number, number | null> = subResult.data?.timerStatus?.status?.racerByLane 
+        ? JSON.parse(subResult.data.timerStatus.status.racerByLane) 
+        : {};
+
     if (isCompleted) {
         results.forEach((r: LaneResult) => { laneResultMap[r.lane] = r; });
     } else {
-        // Show pending results if official results aren't in yet
-        pendingResults.forEach((r: { lane: number, time: number | null, place: number | null }) => {
+        // First populate with assignments
+        results.forEach((r: LaneResult) => {
+            laneResultMap[r.lane] = { ...r, time: null, place: null };
+        });
+
+        // Then overlay pending results from timer
+        pendingResults.forEach((r: { lane: number, time: number | null, place: number | null, racerId?: number | null }) => {
             laneResultMap[r.lane] = {
                 lane: r.lane,
-                racer_id: (results.find((cr: LaneResult) => cr.lane === r.lane))?.racer_id || null,
+                racer_id: r.racerId || racerMapping[r.lane] || laneResultMap[r.lane]?.racer_id || null,
                 time: r.time,
                 place: r.place,
             };
@@ -295,7 +306,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const showFakeControls = timerType === 'FAKE';
     const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
-    const showHardwareMole = timerType != null && timerType !== 'FAKE';
+    const showHardwareMole = timerType != null && timerType !== 'FAKE' && debugMode;
 
     return (
         <>
@@ -376,7 +387,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <div style={{
                                             padding: '8px 20px',
                                             fontSize: '1.15rem',
-                                            background: 'orange',
+                                            background: timerState === 'RESULTS_OVERDUE' ? '#d32f2f' : 'orange',
                                             color: 'white',
                                             borderRadius: '4px',
                                             fontWeight: 'bold',
@@ -385,28 +396,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             gap: '10px'
                                         }}>
                                             <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />
-                                            Racing... {elapsedSeconds.toFixed(1)}s
+                                            {timerState === 'RESULTS_OVERDUE' ? 'Overdue' : 'Racing'}... {elapsedSeconds.toFixed(1)}s
                                         </div>
                                         <style>{`
                                         .pulse-dot { animation: pulse 1s infinite; }
                                         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
                                     `}</style>
-                                    </div>
-                                ) : timerState === 'RESULTS_OVERDUE' ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                                        <div style={{
-                                            padding: '8px 20px',
-                                            fontSize: '1.1rem',
-                                            background: '#d32f2f',
-                                            color: 'white',
-                                            borderRadius: '4px',
-                                            fontWeight: 'bold',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                        }}>
-                                            <Icon path={mdiAlertCircleOutline} size={0.8} color="white" /> Results Overdue
-                                        </div>
                                     </div>
                                 ) : timerState === 'IDLE' && trackId != null && !isCompleted ? (
                                     <div style={{ padding: '8px 20px', color: '#666', fontStyle: 'italic', background: '#f5f5f5', borderRadius: '4px', border: '1px solid #ddd' }}>
@@ -552,23 +547,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 ) : isRunning ? (
                                     <>
                                         <button
-                                            onClick={handleEditOpen}
+                                            onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
                                             className="secondary-btn"
-                                            style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#f5f5f5', color: 'black', border: '1px solid #ccc', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
-                                            <Icon path={mdiAlertCircleOutline} size={0.7} /> Force Results
+                                            <Icon path={mdiRefresh} size={0.7} /> Reset Heat
                                         </button>
-                                        <button
-                                            onClick={handleSkipHeat}
-                                            className="secondary-btn"
-                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
-                                        >
-                                            <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
-                                        </button>
-                                    </>
-                                ) : timerState === 'RESULTS_OVERDUE' ? (
-                                    <>
-                                        {timerType !== 'FAKE' && trackId != null && (
+                                        {trackId != null && (
                                             <button
                                                 onClick={() => forceResults({ trackId })}
                                                 className="secondary-btn"

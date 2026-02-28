@@ -7,6 +7,7 @@ const GET_INITIAL_CONFIG = `
     initialConfig {
       initialized
       groupName
+      debugMode
       tracks {
         id
         name
@@ -24,6 +25,7 @@ const CREATE_INITIAL_CONFIG = `
     createInitialConfig(config: $config) {
       initialized
       groupName
+      debugMode
       tracks {
         id
         name
@@ -37,6 +39,7 @@ const UPDATE_INITIAL_CONFIG = `
     updateInitialConfig(config: $config) {
       initialized
       groupName
+      debugMode
     }
   }
 `;
@@ -44,6 +47,7 @@ const UPDATE_INITIAL_CONFIG = `
 export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
+  const [debugMode, setDebugMode] = useState(false);
   const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '' }]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -57,10 +61,11 @@ export default function SystemConfig() {
 
   useEffect(() => {
     if (data?.initialConfig) {
-      const { initialized, groupName: savedGroupName, tracks: savedTracks } = data.initialConfig;
+      const { initialized, groupName: savedGroupName, debugMode: savedDebugMode, tracks: savedTracks } = data.initialConfig;
       if (initialized) {
         setIsEditing(true);
         setGroupName(savedGroupName || '');
+        setDebugMode(!!savedDebugMode);
         if (savedTracks && savedTracks.length > 0) {
           setTracks(savedTracks.map((t: {
             name: string;
@@ -113,6 +118,7 @@ export default function SystemConfig() {
       const variables = {
         config: {
           groupName: groupName,
+          debugMode: debugMode,
           tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort }) => ({
             name,
             laneCount,
@@ -172,6 +178,18 @@ export default function SystemConfig() {
             placeholder="e.g. Pack 123"
             style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
           />
+        </div>
+
+        <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <input
+            type="checkbox"
+            id="debug_mode"
+            checked={debugMode}
+            onChange={(e) => setDebugMode(e.target.checked)}
+            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+          />
+          <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
+          <small style={{ color: '#666', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
         </div>
 
         <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>

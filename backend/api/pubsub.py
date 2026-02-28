@@ -7,8 +7,9 @@ to all active subscribers on a given channel.
 """
 
 import asyncio
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
+from typing import Any
 
 
 class _PubSub:

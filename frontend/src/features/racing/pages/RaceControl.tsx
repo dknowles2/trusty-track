@@ -13,6 +13,9 @@ import { LaneResult } from '../components/RaceExecution';
 
 const GET_RACE_CONTROL_DATA = `
   query GetRaceControlData($id: Int!) {
+    initialConfig {
+      debugMode
+    }
     race(raceId: $id) {
       id
       name
@@ -626,6 +629,7 @@ export default function RaceControl() {
           timerType={race?.track?.timerType ?? null}
           trackId={race?.track?.id ?? null}
           racers={racers}
+          debugMode={data?.initialConfig?.debugMode ?? false}
         />
       ) : viewMode === 'EXECUTION' ? (
         heats.length === 0 ? (
@@ -650,6 +654,7 @@ export default function RaceControl() {
               remainingHeatsInRound={remainingHeatsInRound}
               totalHeatsInRound={totalHeatsInRound}
               upcomingRounds={upcomingRounds}
+              debugMode={data?.initialConfig?.debugMode ?? false}
               onToggleAutoAdvance={async (value) => {
                 await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
                 reExecute({ requestPolicy: 'network-only' });

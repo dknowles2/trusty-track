@@ -13,9 +13,18 @@ import strawberry
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.db.models import Base, Group, Race, Track, Racer, Round, Heat, SchedulingStrategy
-from backend.api.schema import Mutation, Query, Subscription
 from backend.api.pubsub import _PubSub
+from backend.api.schema import Mutation, Query, Subscription
+from backend.db.models import (
+    Base,
+    Group,
+    Heat,
+    Race,
+    Racer,
+    Round,
+    SchedulingStrategy,
+    Track,
+)
 
 
 @pytest.fixture()

@@ -35,12 +35,14 @@ export const TIMER_STATUS_SUBSCRIPTION = gql`
           lane
           time
           place
+          racerId
         }
         serialLog {
           direction
           data
           timestamp
         }
+        racerByLane
       }
     }
   }

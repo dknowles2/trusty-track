@@ -153,8 +153,9 @@ NETWORK_URL = f"https://{LOCAL_IP}:{PORT}"
 
 # ── Backend imports (after env vars are set) ───────────────────────────────────
 
-import uvicorn                          # noqa: E402
-from backend.api.main import app as _app   # noqa: E402
+import uvicorn  # noqa: E402
+
+from backend.api.main import app as _app  # noqa: E402
 
 # ── Server controller ─────────────────────────────────────────────────────────
 
@@ -307,8 +308,8 @@ if sys.platform == "darwin":
 # ── Windows: pystray system-tray app ──────────────────────────────────────────
 
 elif sys.platform == "win32":
-    import pystray          # noqa: E402
-    from PIL import Image   # noqa: E402
+    import pystray  # noqa: E402
+    from PIL import Image  # noqa: E402
 
     class TrustyTrackApp:
         """Windows system-tray icon."""

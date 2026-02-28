@@ -1,7 +1,8 @@
 import os
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect
-from pathlib import Path
 
 # Import app after env var is set in conftest.py
 from backend.api.main import app

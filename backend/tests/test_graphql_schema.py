@@ -2,6 +2,7 @@
 
 from backend.api import schema
 
+
 def test_populate_race_mutation_sdl():
     """Verify the populateRace mutation structure in the SDL."""
     sdl = str(schema.schema)
