@@ -331,7 +331,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                     gap: '5px'
                   }}
                 >
-                  <Icon path={mdiRefresh} size={0.7} /> Run Another
+                  <Icon path={mdiArrowRight} size={0.7} /> Next Heat
                 </button>
               </>
             ) : (

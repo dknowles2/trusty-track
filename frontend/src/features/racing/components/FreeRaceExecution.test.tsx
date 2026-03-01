@@ -160,7 +160,7 @@ describe('FreeRaceExecution', () => {
     });
 
     render(<FreeRaceExecution {...defaultProps} />);
-    const btn = screen.getByRole('button', { name: /Run Another/i });
+    const btn = screen.getByRole('button', { name: /Next Heat/i });
     expect(btn).toBeInTheDocument();
     fireEvent.click(btn);
     expect(mockOnRunAnother).toHaveBeenCalledOnce();

@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -24,6 +25,11 @@ const mockRacers = [
   { id: 102, firstName: 'Bob', lastName: 'Jones', carNumber: 12, carPassedInspection: true },
   { id: 103, firstName: 'Carol', lastName: 'White', carNumber: 5, carPassedInspection: false },
 ];
+
+const StatefulWrapper: React.FC<any> = (props) => {
+  const [mode, setMode] = React.useState<'random' | 'manual'>('random');
+  return <FreeRaceLaneSetup {...props} mode={mode} onModeChange={setMode} />;
+};
 
 describe('FreeRaceLaneSetup', () => {
   const mockOnStart = vi.fn();
@@ -55,14 +61,14 @@ describe('FreeRaceLaneSetup', () => {
   });
 
   it('renders in random mode by default', () => {
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     // The Random tab button should be present and visually selected (bold)
     expect(screen.getByRole('button', { name: /Random/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Manual/i })).toBeInTheDocument();
   });
 
   it('displays lane assignments returned by the randomFreeRaceLanes query', async () => {
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     await waitFor(() => {
       expect(screen.getByText('Lane 1')).toBeInTheDocument();
       expect(screen.getByText('Lane 2')).toBeInTheDocument();
@@ -75,14 +81,14 @@ describe('FreeRaceLaneSetup', () => {
   });
 
   it('Re-shuffle button triggers a new query with network-only policy', async () => {
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     const reshuffleBtn = screen.getByRole('button', { name: /Re-shuffle/i });
     fireEvent.click(reshuffleBtn);
     expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
   });
 
   it('switching to Manual mode shows a dropdown for each lane', async () => {
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Manual/i }));
     await waitFor(() => {
       // One select per lane
@@ -93,7 +99,7 @@ describe('FreeRaceLaneSetup', () => {
 
   it('Manual mode dropdowns exclude already-selected racers', async () => {
     const user = (await import('@testing-library/user-event')).default.setup();
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Manual/i }));
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(4);
@@ -117,7 +123,7 @@ describe('FreeRaceLaneSetup', () => {
 
   it('Manual mode only shows checked-in racers', async () => {
     const user = (await import('@testing-library/user-event')).default.setup();
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Manual/i }));
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(4);
@@ -130,7 +136,7 @@ describe('FreeRaceLaneSetup', () => {
     expect(screen.getByText(/Carol White/)).toBeInTheDocument();
   });
 
-  it('Start Free Race Heat is disabled when all lanes are empty in random mode', async () => {
+  it('Start Anonymous Heat is enabled when all lanes are empty in random mode', async () => {
     const emptyLanesData = {
       data: {
         randomFreeRaceLanes: [
@@ -141,17 +147,17 @@ describe('FreeRaceLaneSetup', () => {
       fetching: false,
     };
     (useQuery as any).mockImplementation(() => [emptyLanesData, mockReExecute]);
-    render(<FreeRaceLaneSetup {...defaultProps} />);
-    const startBtn = screen.getByRole('button', { name: /Start Free Race Heat/i });
-    expect(startBtn).toBeDisabled();
+    render(<StatefulWrapper {...defaultProps} />);
+    const startBtn = screen.getByRole('button', { name: /Start (Free Race|Anonymous) Heat/i });
+    expect(startBtn).not.toBeDisabled();
   });
 
   it('Start Free Race Heat calls onStart with correct LaneAssignment array in random mode', async () => {
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     await waitFor(() => {
       expect(screen.getByText(/Alice Smith/)).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: /Start Free Race Heat/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Start (Free Race|Anonymous) Heat/i }));
     expect(mockOnStart).toHaveBeenCalledWith([
       { id: 'random-1', lane: 1, racerId: 101 },
       { id: 'random-2', lane: 2, racerId: 102 },
@@ -162,7 +168,7 @@ describe('FreeRaceLaneSetup', () => {
 
   it('Start Free Race Heat calls onStart with correct assignments in manual mode', async () => {
     const user = (await import('@testing-library/user-event')).default.setup();
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Manual/i }));
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(4);
@@ -175,14 +181,14 @@ describe('FreeRaceLaneSetup', () => {
     const aliceOption = screen.getByText(/#7 Alice Smith/);
     await user.click(aliceOption);
 
-    fireEvent.click(screen.getByRole('button', { name: /Start Free Race Heat/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Start (Free Race|Anonymous) Heat/i }));
     expect(mockOnStart).toHaveBeenCalledWith(
       expect.arrayContaining([{ id: 'manual-1', lane: 1, racerId: 101 }])
     );
   });
 
   it('displays the results-do-not-affect-standings banner', () => {
-    render(<FreeRaceLaneSetup {...defaultProps} />);
+    render(<StatefulWrapper {...defaultProps} />);
     expect(screen.getByText(/results do not affect standings/i)).toBeInTheDocument();
   });
 });

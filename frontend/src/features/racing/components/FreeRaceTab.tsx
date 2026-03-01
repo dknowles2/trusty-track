@@ -42,6 +42,7 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
   debugMode,
 }) => {
   const [phase, setPhase] = useState<FreeRacePhase>({ kind: 'setup' });
+  const [mode, setMode] = useState<'random' | 'manual'>('random');
   const [error, setError] = useState<string | null>(null);
 
   const [, startMutation] = useMutation(START_FREE_RACE_HEAT);
@@ -97,6 +98,8 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
           racers={racers}
           timerType={timerType}
           trackId={trackId}
+          mode={mode}
+          onModeChange={setMode}
         />
       ) : (
         <FreeRaceExecution

@@ -36,6 +36,8 @@ interface FreeRaceLaneSetupProps {
   onStart: (assignments: LaneAssignment[]) => void;
   timerType: string | null;
   trackId?: number | null;
+  mode: Mode;
+  onModeChange: (mode: Mode) => void;
 }
 
 interface Racer {
@@ -200,8 +202,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
   racers,
   timerType,
   trackId,
+  mode,
+  onModeChange,
 }) => {
-  const [mode, setMode] = useState<Mode>('random');
   const [manualAssignments, setManualAssignments] = useState<LaneAssignment[]>(
     Array.from({ length: laneCount }, (_, i) => ({ id: `manual-${i + 1}`, lane: i + 1, racerId: null }))
   );
@@ -307,7 +310,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
         {/* Mode tabs */}
         <div style={{ display: 'flex', background: '#e0e0e0', padding: '4px', borderRadius: '20px', marginBottom: '20px', width: 'fit-content', gap: '4px' }}>
           <button
-            onClick={() => setMode('random')}
+            onClick={() => onModeChange('random')}
             style={{
               padding: '8px 20px',
               borderRadius: '16px',
@@ -324,7 +327,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
             <Icon path={mdiDice5} size={0.8} /> Random
           </button>
           <button
-            onClick={() => setMode('manual')}
+            onClick={() => onModeChange('manual')}
             style={{
               padding: '8px 20px',
               borderRadius: '16px',
