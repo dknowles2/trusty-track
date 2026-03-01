@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useSubscription } from 'urql';
 import { FakeTimerMole } from './FakeTimerMole';
 import { SerialProxyConnector } from './SerialProxyConnector';
@@ -67,6 +67,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
 }) => {
   const { showConfirm } = useAlert();
   const [results, setResults] = useState<LaneResult[] | null>(null);
+  const lastPreparedIdRef = useRef<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
@@ -131,12 +132,14 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   // Auto-prepare heat when a new heatId is provided
   useEffect(() => {
     if (timerState === 'IDLE' && !results && heatId) {
-      prepareHeat({ heatId });
+      if (heatId !== lastPreparedIdRef.current) {
+        prepareHeat({ heatId });
+        lastPreparedIdRef.current = heatId;
+      }
     }
-    // Only run when heatId changes or on mount. 
-    // Do NOT depend on timerState or results to avoid re-prepare loops.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heatId]);
+    // Only run when heatId, timerState or results changes
+  }, [heatId, timerState, results, prepareHeat]);
+
 
   // Timer for elapsed display
   useEffect(() => {
