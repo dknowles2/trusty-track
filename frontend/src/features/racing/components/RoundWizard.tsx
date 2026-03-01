@@ -66,12 +66,16 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     }
   }, [isOpen, laneCount, championshipTrophies]);
 
-  const calculateTotalHeats = () => {
-    let heats = 0;
+  const getRaceBreakdown = () => {
+    const rounds: { name: string; heats: number; duration: number }[] = [];
     
     // General Round
-    // If Runs Per Lane = N, then we have roughly N * RacerCount / LaneCount heats
-    heats += (racerCount * generalConfig.runsPerLane) / laneCount;
+    const generalHeats = Math.ceil((racerCount * generalConfig.runsPerLane) / laneCount);
+    rounds.push({
+      name: `${generalConfig.type === 'PACK' ? 'All Pack' : 'Den'} Round`,
+      heats: generalHeats,
+      duration: Math.ceil(generalHeats * ESTIMATED_HEAT_DURATION_MIN)
+    });
 
     // Championship Rounds
     for (const round of championshipRounds) {
@@ -81,13 +85,21 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       } else {
         participatingRacers = round.numTopRacers * denCount;
       }
-       heats += (participatingRacers * round.runsPerLane) / laneCount;
+      const roundHeats = Math.ceil((participatingRacers * round.runsPerLane) / laneCount);
+      rounds.push({
+        name: round.name,
+        heats: roundHeats,
+        duration: Math.ceil(roundHeats * ESTIMATED_HEAT_DURATION_MIN)
+      });
     }
 
-    return Math.ceil(heats);
+    const totalHeats = rounds.reduce((sum, r) => sum + r.heats, 0);
+    const totalDuration = rounds.reduce((sum, r) => sum + r.duration, 0);
+
+    return { rounds, totalHeats, totalDuration };
   };
 
-  const estimatedDuration = Math.ceil(calculateTotalHeats() * ESTIMATED_HEAT_DURATION_MIN);
+  const { rounds: breakdown, totalHeats, totalDuration } = getRaceBreakdown();
 
   const handleNext = () => setStep(s => s + 1);
   const handleBack = () => setStep(s => s - 1);
@@ -350,28 +362,36 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               <div style={{ backgroundColor: '#eff6ff', padding: '1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '1.5rem', marginRight: '0.75rem' }}>⏱️</span>
                 <div>
-                  <div style={{ fontWeight: 'bold', color: '#1e3a8a' }}>Estimated Duration: ~{estimatedDuration} mins</div>
-                  <div style={{ color: '#1d4ed8', fontSize: '0.875rem' }}>Total Heats: {calculateTotalHeats()}</div>
+                  <div style={{ fontWeight: 'bold', color: '#1e3a8a' }}>Estimated Grand Total: ~{totalDuration} mins</div>
+                  <div style={{ color: '#1d4ed8', fontSize: '0.875rem' }}>Total Heats: {totalHeats}</div>
                 </div>
               </div>
 
               <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', overflow: 'hidden' }}>
-                <div style={{ padding: '1rem', borderBottom: '1px solid #e5e7eb' }}>
-                  <h4 style={{ fontWeight: 'bold', color: '#111827', margin: 0 }}>1. {generalConfig.type === 'PACK' ? 'All Pack' : 'Den'} Round</h4>
-                  <p style={{ fontSize: '0.875rem', color: '#4b5563', margin: '0.25rem 0 0 0' }}>
-                    {generalConfig.type === 'PACK' ? 'All racers compete against each other.' : 'Racers compete within their dens.'}
-                    {' '}{generalConfig.runsPerLane > 1 && `(${generalConfig.runsPerLane} runs per lane)`}
-                  </p>
-                </div>
-                {championshipRounds.map((round, idx) => (
-                  <div key={round.id} style={{ padding: '1rem', borderBottom: idx === championshipRounds.length - 1 ? 'none' : '1px solid #e5e7eb' }}>
-                    <h4 style={{ fontWeight: 'bold', color: '#111827', margin: 0 }}>{idx + 2}. {round.name}</h4>
+                {breakdown.map((roundInfo, idx) => (
+                  <div key={idx} style={{ 
+                    padding: '1rem', 
+                    borderBottom: idx === breakdown.length - 1 ? 'none' : '1px solid #e5e7eb',
+                    backgroundColor: idx % 2 === 0 ? 'white' : '#f9fafb'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <h4 style={{ fontWeight: 'bold', color: '#111827', margin: 0 }}>{idx + 1}. {roundInfo.name}</h4>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.875rem' }}>~{roundInfo.duration} mins</div>
+                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{roundInfo.heats} {roundInfo.heats === 1 ? 'heat' : 'heats'}</div>
+                      </div>
+                    </div>
                     <p style={{ fontSize: '0.875rem', color: '#4b5563', margin: '0.25rem 0 0 0' }}>
-                      Advances top {round.numTopRacers} racers
-                      {round.source === 'DEN' ? ' from each Den' : 
-                       round.source === 'PREVIOUS' ? ` from ${championshipRounds[idx-1].name}` :
-                       ' overall'}.
-                      {' '}{round.runsPerLane > 1 && `(${round.runsPerLane} runs per lane)`}
+                      {idx === 0 ? (
+                        generalConfig.type === 'PACK' ? 'All racers compete against each other.' : 'Racers compete within their dens.'
+                      ) : (
+                        `Advances top ${championshipRounds[idx-1].numTopRacers} racers ${
+                          championshipRounds[idx-1].source === 'DEN' ? ' from each Den' : 
+                          championshipRounds[idx-1].source === 'PREVIOUS' ? ` from ${championshipRounds[idx-2]?.name || 'previous round'}` :
+                          ' overall'
+                        }.`
+                      )}
+                      {' '}{(idx === 0 ? generalConfig.runsPerLane : championshipRounds[idx-1].runsPerLane) > 1 && `(${(idx === 0 ? generalConfig.runsPerLane : championshipRounds[idx-1].runsPerLane)} runs per lane)`}
                     </p>
                   </div>
                 ))}
