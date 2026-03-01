@@ -7,7 +7,7 @@ den comparisons, highlights, and exportable heat results for a race.
 
 import json
 import math
-from typing import Dict, List, Optional
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -56,11 +56,11 @@ def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
     total_heats_completed = 0
 
     # racer_id -> count of heats they appear in (scheduled, with or without results)
-    racer_heat_counts: Dict[int, int] = {}
+    racer_heat_counts: dict[int, int] = {}
     # Enriched results from completed heats only (has at least one time)
-    all_results: List[dict] = []
+    all_results: list[dict] = []
     # Completed heats with round context, for highlights and heat_results
-    heats_with_rounds: List[dict] = []
+    heats_with_rounds: list[dict] = []
 
     for heat in heats:
         if not heat.lane_results:
@@ -142,7 +142,7 @@ def _compute_lane_stats(all_results: list, lane_count: int) -> list:
     Only counts non-DNF times. Positive relative_advantage_pct means faster
     than overall average (lane favors racers).
     """
-    lane_times: Dict[int, List[float]] = {}
+    lane_times: dict[int, list[float]] = {}
 
     for r in all_results:
         lane = r.get("lane")
@@ -197,8 +197,8 @@ def _compute_racer_stats(
     Internal dicts carry _den_id for use by _compute_den_stats.
     Sorted by mean_time ascending (None last).
     """
-    racer_times: Dict[int, List[float]] = {}
-    racer_lane_times: Dict[int, Dict[int, List[float]]] = {}
+    racer_times: dict[int, list[float]] = {}
+    racer_lane_times: dict[int, dict[int, list[float]]] = {}
 
     for r in all_results:
         racer_id = r.get("racer_id")
@@ -234,12 +234,12 @@ def _compute_racer_stats(
         valid = [t for t in times if t < DNF_PENALTY]
         heats_completed = len(times)
 
-        if valid:
-            min_time = min(valid)
-            max_time = max(valid)
-            mean_time = sum(valid) / len(valid)
-            if len(valid) >= 2:
-                variance = sum((t - mean_time) ** 2 for t in valid) / len(valid)
+        if times:
+            min_time = min(valid) if valid else DNF_PENALTY
+            max_time = max(times)
+            mean_time = sum(times) / len(times)
+            if len(times) >= 2:
+                variance = sum((t - mean_time) ** 2 for t in times) / len(times)
                 std_dev = math.sqrt(variance)
             else:
                 std_dev = None
@@ -248,8 +248,7 @@ def _compute_racer_stats(
 
         times_per_lane = []
         for lane, lane_t in racer_lane_times[racer_id].items():
-            valid_lane = [t for t in lane_t if t < DNF_PENALTY]
-            avg = sum(valid_lane) / len(valid_lane) if valid_lane else None
+            avg = sum(lane_t) / len(lane_t) if lane_t else None
             times_per_lane.append({"lane": lane, "avg_time": avg})
         times_per_lane.sort(key=lambda x: x["lane"])
 
@@ -355,7 +354,7 @@ def _compute_den_stats(racer_stats: list, dens: list) -> list:
     Compute per-den aggregate statistics.
     Groups racer_stats by _den_id. Sorted by avg_score ascending.
     """
-    den_racers: Dict[int, list] = {}
+    den_racers: dict[int, list] = {}
     for rs in racer_stats:
         den_id = rs.get("_den_id")
         if den_id is None:
@@ -377,9 +376,10 @@ def _compute_den_stats(racer_stats: list, dens: list) -> list:
 
         best = None
         for rs in rs_list:
-            if rs["mean_time"] is not None:
-                if best is None or rs["mean_time"] < best["mean_time"]:
-                    best = rs
+            if rs["mean_time"] is not None and (
+                best is None or rs["mean_time"] < best["mean_time"]
+            ):
+                best = rs
         best_racer_name = f"{best['first_name']} {best['last_name']}" if best else None
 
         stats.append(
