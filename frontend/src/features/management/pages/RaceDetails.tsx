@@ -247,13 +247,6 @@ export default function RaceDetails() {
     setShowRacerForm(true);
   };
 
-  const handleEditRacerClick = (racer: Racer) => {
-    setEditingRacer(racer);
-    setRacerFormTitle(`Edit Racer: ${racer.first_name} ${racer.last_name}`);
-    setRacerFormSubmitLabel('Save Racer');
-    setShowRacerForm(true);
-  };
-
   const handleCheckInClick = (racer: Racer) => {
       setEditingRacer(racer);
       setRacerFormTitle('Racer Check In');
