@@ -1,13 +1,14 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useMutation, useSubscription } from 'urql';
 import { FreeRaceExecution } from './FreeRaceExecution';
 
+const mockShowConfirm = vi.fn();
 vi.mock('../../../context/AlertContext', () => ({
   useAlert: () => ({
     showAlert: vi.fn(),
-    showConfirm: vi.fn(),
+    showConfirm: mockShowConfirm,
     showToast: vi.fn(),
   }),
 }));
@@ -56,6 +57,7 @@ describe('FreeRaceExecution', () => {
   const mockOnRunAnother = vi.fn();
   const mockRecordResult = vi.fn();
   const mockPrepareHeat = vi.fn();
+  const mockResetTimer = vi.fn();
 
   const defaultProps = {
     heatId: 42,
@@ -69,11 +71,14 @@ describe('FreeRaceExecution', () => {
     vi.clearAllMocks();
     
     mockPrepareHeat.mockResolvedValue({ data: { prepareHeat: true } });
+    mockRecordResult.mockResolvedValue({ data: { recordFreeRaceResult: { id: 42, laneResults: '[]' } } });
+    mockResetTimer.mockResolvedValue({ data: { resetTimer: true } });
     
     (useMutation as any).mockImplementation((query: any) => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('RecordFreeRaceResult')) return [{}, mockRecordResult];
       if (qStr.includes('PrepareHeat')) return [{}, mockPrepareHeat];
+      if (qStr.includes('ResetTimer')) return [{}, mockResetTimer];
       return [{}, vi.fn()];
     });
 
@@ -204,6 +209,42 @@ describe('FreeRaceExecution', () => {
     expect(mockRecordResult).toHaveBeenCalledWith(
       expect.objectContaining({ heatId: 42 })
     );
+  });
+
+  it('Reset Heat button clears results and re-prepares heat', async () => {
+    mockShowConfirm.mockResolvedValue(true);
+    (useSubscription as any).mockImplementation(({ query }: any) => {
+      const qStr = JSON.stringify(query);
+      if (qStr.includes('TimerStatus')) {
+        return [{ data: { timerStatus: { status: { state: 'IDLE' } } } }];
+      }
+      if (qStr.includes('FreeRaceHeat')) {
+        return [{ data: { freeRaceHeat: {
+          id: 42,
+          laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: 3.142, place: 1 }])
+        } } }];
+      }
+      return [{ data: null }];
+    });
+
+    render(<FreeRaceExecution {...defaultProps} trackId={1} />);
+    
+    // Should see "Reset Heat" button
+    const btn = screen.getByRole('button', { name: /Reset Heat/i });
+    expect(btn).toBeInTheDocument();
+    
+    fireEvent.click(btn);
+    
+    await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
+    await waitFor(() => expect(mockRecordResult).toHaveBeenCalledWith({
+      heatId: 42,
+      results: 'null',
+    }));
+    await waitFor(() => expect(mockResetTimer).toHaveBeenCalledWith({ trackId: 1 }));
+    await waitFor(() => expect(mockPrepareHeat).toHaveBeenCalledWith({ heatId: 42 }));
+    
+    // Should NOT have called onRunAnother (stay on page)
+    expect(mockOnRunAnother).not.toHaveBeenCalled();
   });
 
   it('warning badge "results do not affect standings" is always visible', () => {
