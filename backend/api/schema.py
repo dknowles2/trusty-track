@@ -1298,10 +1298,22 @@ class Mutation:
     # Track Mutations
     @strawberry.mutation
     def create_track(self, info: Info, track: TrackInput) -> Track:
-        """Create a new track."""
+        """Create a new track and its associated TimerManager."""
         db = info.context["db"]
         track_in = schemas.TrackCreate(**typing.cast(Any, strawberry.asdict(track)))
-        return typing.cast(Any, crud.create_track(db, track_in))
+        new_track = typing.cast(Any, crud.create_track(db, track_in))
+
+        # Handle TimerManager initialization
+        timer_managers = info.context.get("timer_managers", {})
+        if new_track.id not in timer_managers:
+            if new_track.timer_type == models.TimerType.FAKE:
+                device = FakeTimerDevice()
+            else:
+                device = MicroWizardDevice()
+            mgr = TimerManager(new_track.id, device)
+            timer_managers[new_track.id] = mgr
+
+        return new_track
 
     @strawberry.mutation
     async def update_track(
@@ -1703,7 +1715,8 @@ class Mutation:
                 if track:
                     lane_mask = (1 << track.lane_count) - 1
         else:
-            # For official heats, compute lane mask from occupied (non-null racer_id) lanes
+            # For official heats, compute lane mask from occupied
+            # (non-null racer_id) lanes
             for lr in lane_results:
                 if lr.get("racer_id") is not None:
                     lane = lr["lane"]
@@ -1762,7 +1775,16 @@ class Mutation:
 
         occupied = [lr["lane"] for lr in lane_results if lr.get("racer_id") is not None]
         if not occupied:
-            return False
+            # If no racers are assigned (e.g., anonymous free race),
+            # generate results for all lanes.
+            track = (
+                db.query(models.Track)
+                .filter(models.Track.id == race.track_id)
+                .first()
+            )
+            if not track:
+                return False
+            occupied = list(range(1, track.lane_count + 1))
 
         # Generate random times and sort to assign placements
         timed = [(lane, 3.0 + random.random()) for lane in occupied]

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from 'urql';
 import Icon from '@mdi/react';
-import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered, mdiDragVertical } from '@mdi/js';
+import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered, mdiDragVertical, mdiCloseOctagon } from '@mdi/js';
 import {
   DndContext,
   closestCenter,
@@ -375,43 +375,62 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           )}
         </DndContext>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: mode === 'manual' ? 'flex-end' : 'flex-start' }}>
-          {mode === 'random' && (
-            <button
-              onClick={handleReshuffle}
-              disabled={randomResult.fetching}
-              style={{
-                padding: '10px 20px',
-                border: '1px solid #ccc',
-                borderRadius: '6px',
-                background: 'white',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <Icon path={mdiShuffle} size={0.8} /> Re-shuffle
-            </button>
-          )}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {mode === 'random' && (
+              <button
+                onClick={handleReshuffle}
+                disabled={randomResult.fetching}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  background: 'white',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Icon path={mdiShuffle} size={0.8} /> Re-shuffle
+              </button>
+            )}
+            {mode === 'manual' && (
+              <button
+                onClick={() => setManualAssignments((prev) => prev.map((a) => ({ ...a, racerId: null })))}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  background: 'white',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <Icon path={mdiCloseOctagon || mdiPencil} size={0.8} /> Clear All
+              </button>
+            )}
+          </div>
           <button
             onClick={() => onStart(currentAssignments)}
-            disabled={!hasAnyRacer || (mode === 'random' && randomResult.fetching && randomAssignments.length === 0)}
+            disabled={mode === 'random' && randomResult.fetching && randomAssignments.length === 0}
             className="primary-btn"
             style={{
               padding: '10px 20px',
               border: 'none',
               borderRadius: '6px',
-              background: hasAnyRacer ? 'var(--scouting-blue)' : '#ccc',
-              color: hasAnyRacer ? 'white' : '#999',
-              cursor: hasAnyRacer ? 'pointer' : 'not-allowed',
+              background: 'var(--scouting-blue)',
+              color: 'white',
+              cursor: 'pointer',
               fontWeight: 'bold',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
             }}
           >
-            <Icon path={mdiFlagCheckered} size={0.8} /> Start Free Race Heat
+            <Icon path={mdiFlagCheckered} size={0.8} /> {hasAnyRacer ? 'Start Free Race Heat' : 'Start Anonymous Heat'}
           </button>
         </div>
       </div>
