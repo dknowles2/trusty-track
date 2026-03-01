@@ -92,6 +92,10 @@ test('take screenshots', async ({ page }) => {
   await page.locator('.split-btn-arrow').click();
   await page.getByText(/Populate Test Data/i).click();
   await expect(page.getByRole('heading', { name: 'Populate Test Data' })).toBeVisible();
+  
+  // Toggle "Check In Automatically" ON
+  await page.getByLabel('Check In Automatically').click();
+  
   await page.getByRole('button', { name: 'Generate', exact: true }).click();
 
   // wait for it to generate and close modal
