@@ -11,14 +11,14 @@ export const CREATE_ROUND_WIZARD = gql`
 `;
 
 export const FAKE_TIMER_START = gql`
-  mutation FakeTimerStart($heatId: Int!) {
-    fakeTimerStart(heatId: $heatId)
+  mutation FakeTimerStart($heatId: Int!, $isFreeRace: Boolean = false) {
+    fakeTimerStart(heatId: $heatId, isFreeRace: $isFreeRace)
   }
 `;
 
 export const FAKE_TIMER_FINISH = gql`
-  mutation FakeTimerFinish($heatId: Int!) {
-    fakeTimerFinish(heatId: $heatId)
+  mutation FakeTimerFinish($heatId: Int!, $isFreeRace: Boolean = false) {
+    fakeTimerFinish(heatId: $heatId, isFreeRace: $isFreeRace)
   }
 `;
 
@@ -49,8 +49,8 @@ export const TIMER_STATUS_SUBSCRIPTION = gql`
 `;
 
 export const PREPARE_HEAT = gql`
-  mutation PrepareHeat($heatId: Int!) {
-    prepareHeat(heatId: $heatId)
+  mutation PrepareHeat($heatId: Int!, $isFreeRace: Boolean = false) {
+    prepareHeat(heatId: $heatId, isFreeRace: $isFreeRace)
   }
 `;
 

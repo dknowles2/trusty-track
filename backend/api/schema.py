@@ -1607,7 +1607,9 @@ class Mutation:
         return True
 
     @strawberry.mutation
-    async def fake_timer_start(self, info: Info, heat_id: int) -> bool:
+    async def fake_timer_start(
+        self, info: Info, heat_id: int, is_free_race: bool = False
+    ) -> bool:
         """Signal race start for the fake timer (ARMED → RUNNING).
 
         Returns False if the timer is not in ARMED state or heat_id doesn't match.
@@ -1615,12 +1617,7 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        # Try official Heat first
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if heat:
-            race_id = heat.race_id
-        else:
-            # Check FreeRaceHeat
+        if is_free_race:
             free_heat = (
                 db.query(models.FreeRaceHeat)
                 .filter(models.FreeRaceHeat.id == heat_id)
@@ -1629,6 +1626,11 @@ class Mutation:
             if not free_heat:
                 return False
             race_id = free_heat.race_id
+        else:
+            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+            if not heat:
+                return False
+            race_id = heat.race_id
 
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if race is None or race.track_id is None:
@@ -1643,7 +1645,9 @@ class Mutation:
         return True
 
     @strawberry.mutation
-    async def prepare_heat(self, info: Info, heat_id: int) -> bool:
+    async def prepare_heat(
+        self, info: Info, heat_id: int, is_free_race: bool = False
+    ) -> bool:
         """Arm the timer for a heat (all timer types).
 
         Computes the lane mask from occupied lanes in the heat, then calls
@@ -1654,19 +1658,10 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        # Try official Heat first
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        is_free_race = False
-        if heat:
-            race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
-            if race is None or race.track_id is None:
-                return False
-            mgr = timer_managers.get(race.track_id)
-            if mgr is None:
-                return False
-            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
-        else:
-            # Check FreeRaceHeat
+        heat = None
+        free_heat = None
+
+        if is_free_race:
             free_heat = (
                 db.query(models.FreeRaceHeat)
                 .filter(models.FreeRaceHeat.id == heat_id)
@@ -1679,17 +1674,23 @@ class Mutation:
                 .filter(models.Race.id == free_heat.race_id)
                 .first()
             )
-            if race is None or race.track_id is None:
-                return False
-            mgr = timer_managers.get(race.track_id)
-            if mgr is None:
-                return False
             lane_results = (
                 json.loads(free_heat.lane_assignments)
                 if free_heat.lane_assignments
                 else []
             )
-            is_free_race = True
+        else:
+            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+            if not heat:
+                return False
+            race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
+
+        if race is None or race.track_id is None:
+            return False
+        mgr = timer_managers.get(race.track_id)
+        if mgr is None:
+            return False
 
         # Compute lane mask and racer mapping
         lane_mask = 0
@@ -1732,7 +1733,9 @@ class Mutation:
         return True
 
     @strawberry.mutation
-    async def fake_timer_finish(self, info: Info, heat_id: int) -> bool:
+    async def fake_timer_finish(
+        self, info: Info, heat_id: int, is_free_race: bool = False
+    ) -> bool:
         """Generate random results and record them for the fake timer (RUNNING → IDLE).
 
         Looks up occupied lanes, generates random times (3.0–4.0 s), sorts
@@ -1743,12 +1746,7 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        # Try official Heat first
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if heat:
-            race_id = heat.race_id
-            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
-        else:
+        if is_free_race:
             # Check FreeRaceHeat
             free_heat = (
                 db.query(models.FreeRaceHeat)
@@ -1763,6 +1761,13 @@ class Mutation:
                 if free_heat.lane_assignments
                 else []
             )
+        else:
+            # Official Heat
+            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+            if not heat:
+                return False
+            race_id = heat.race_id
+            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
 
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if race is None or race.track_id is None:

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useSubscription } from 'urql';
 import { FakeTimerMole } from './FakeTimerMole';
 import { SerialProxyConnector } from './SerialProxyConnector';
-import { TIMER_STATUS_SUBSCRIPTION } from '../graphql/queries';
+import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import Icon from '@mdi/react';
 import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
@@ -75,11 +75,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   const [, recordResult] = useMutation(RECORD_FREE_RACE_RESULT);
   const [, deleteFreeRaceHeat] = useMutation(DELETE_FREE_RACE_HEAT);
   const [, resetTimer] = useMutation(RESET_TIMER);
-  const [, prepareHeat] = useMutation(`
-    mutation PrepareHeat($heatId: Int!) {
-      prepareHeat(heatId: $heatId)
-    }
-  `);
+  const [, prepareHeat] = useMutation(PREPARE_HEAT);
 
   // Subscribe to the specific free race heat to get results when they arrive
   const [heatSubResult] = useSubscription({
@@ -94,13 +90,11 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     variables: { heatId },
   });
 
-  const [prevLaneResults, setPrevLaneResults] = useState<string | undefined>(undefined);
   const currentLaneResults = heatSubResult.data?.freeRaceHeat?.laneResults;
 
-  if (currentLaneResults !== prevLaneResults) {
-    setPrevLaneResults(currentLaneResults);
+  useEffect(() => {
     setResults(currentLaneResults ? JSON.parse(currentLaneResults) : null);
-  }
+  }, [currentLaneResults]);
 
   // Subscribe to timer status
   const [subResult] = useSubscription({
@@ -131,9 +125,9 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
 
   // Auto-prepare heat when a new heatId is provided
   useEffect(() => {
-    if (timerState === 'IDLE' && !results && heatId) {
+    if (timerState === 'IDLE' && results === null && heatId) {
       if (heatId !== lastPreparedIdRef.current) {
-        prepareHeat({ heatId });
+        prepareHeat({ heatId, isFreeRace: true });
         lastPreparedIdRef.current = heatId;
       }
     }
@@ -224,8 +218,10 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
         });
         setResults(null);
       }
+      lastPreparedIdRef.current = null; // Allow re-prepare
       if (trackId) await resetTimer({ trackId });
-      await prepareHeat({ heatId });
+      await prepareHeat({ heatId, isFreeRace: true });
+      lastPreparedIdRef.current = heatId;
     }
   };
 
@@ -488,6 +484,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
           isOpen={!isCompleted}
           heatId={heatId}
           trackId={trackId ?? 0}
+          isFreeRace={true}
         />
       )}
 

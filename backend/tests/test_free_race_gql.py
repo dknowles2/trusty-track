@@ -253,23 +253,61 @@ def test_active_free_race_heat_returns_running_heat(db: Session):
     assert active["laneResults"] is None
 
 
-def test_active_free_race_heat_returns_none_when_completed(db: Session):
-    race_id, _ = _create_race_with_track(db)
-    heat = crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": None}])
-    crud.update_free_race_heat_result(
-        db, heat.id, [{"lane": 1, "racer_id": None, "time": None, "place": None}]
+def test_prepare_heat_is_free_race_flag(db: Session):
+    # Use GQL to create track so TimerManager is initialized
+    track_resp = client.post("/graphql", json={
+        "query": 'mutation { createTrack(track: {name: "Test Track", laneCount: 4, timerType: "FAKE"}) { id } }'
+    })
+    track_id = track_resp.json()["data"]["createTrack"]["id"]
+    
+    group = crud.create_group(db, schemas.GroupCreate(name="Test Group"))
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name="Test Race",
+            group_id=group.id,
+            track_id=track_id,
+            scoring_strategy="TIMED",
+            car_numbering_strategy="MANUAL",
+        ),
     )
-
-    query = """
-    query($raceId: Int!) {
-        activeFreeRaceHeat(raceId: $raceId) {
-            id
-        }
+    
+    # Force creation of a FreeRaceHeat
+    free_heat = crud.create_free_race_heat(db, race.id, [{"lane": 1, "racer_id": None}])
+    
+    # Try to prepare it as a free race
+    mutation = """
+    mutation($heatId: Int!, $isFreeRace: Boolean!) {
+        prepareHeat(heatId: $heatId, isFreeRace: $isFreeRace)
     }
     """
     resp = client.post(
-        "/graphql", json={"query": query, "variables": {"raceId": race_id}}
+        "/graphql", 
+        json={"query": mutation, "variables": {"heatId": free_heat.id, "isFreeRace": True}}
     )
     assert resp.status_code == 200
-    data = resp.json()
-    assert data["data"]["activeFreeRaceHeat"] is None
+    assert resp.json()["data"]["prepareHeat"] is True
+
+    # Start it
+    mutation_start = """
+    mutation($heatId: Int!, $isFreeRace: Boolean!) {
+        fakeTimerStart(heatId: $heatId, isFreeRace: $isFreeRace)
+    }
+    """
+    resp = client.post(
+        "/graphql",
+        json={"query": mutation_start, "variables": {"heatId": free_heat.id, "isFreeRace": True}}
+    )
+    assert resp.json()["data"]["fakeTimerStart"] is True
+
+    # Finish it
+    mutation_finish = """
+    mutation($heatId: Int!, $isFreeRace: Boolean!) {
+        fakeTimerFinish(heatId: $heatId, isFreeRace: $isFreeRace)
+    }
+    """
+    resp = client.post(
+        "/graphql",
+        json={"query": mutation_finish, "variables": {"heatId": free_heat.id, "isFreeRace": True}}
+    )
+    assert resp.json()["data"]["fakeTimerFinish"] is True

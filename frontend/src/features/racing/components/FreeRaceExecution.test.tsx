@@ -102,7 +102,7 @@ describe('FreeRaceExecution', () => {
 
   it('auto-calls prepareHeat mutation on mount if IDLE', () => {
     render(<FreeRaceExecution {...defaultProps} />);
-    expect(mockPrepareHeat).toHaveBeenCalledWith({ heatId: 42 });
+    expect(mockPrepareHeat).toHaveBeenCalledWith({ heatId: 42, isFreeRace: true });
   });
 
   it('shows "Waiting for timer..." before results are recorded', () => {
@@ -241,7 +241,7 @@ describe('FreeRaceExecution', () => {
       results: 'null',
     }));
     await waitFor(() => expect(mockResetTimer).toHaveBeenCalledWith({ trackId: 1 }));
-    await waitFor(() => expect(mockPrepareHeat).toHaveBeenCalledWith({ heatId: 42 }));
+    await waitFor(() => expect(mockPrepareHeat).toHaveBeenCalledWith({ heatId: 42, isFreeRace: true }));
     
     // Should NOT have called onRunAnother (stay on page)
     expect(mockOnRunAnother).not.toHaveBeenCalled();

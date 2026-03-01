@@ -10,9 +10,10 @@ interface FakeTimerMoleProps {
     isOpen: boolean;       // show/hide the mole panel
     heatId: number;        // passed to both mutations
     trackId: number;       // scopes the timerStatus subscription
+    isFreeRace?: boolean;
 }
 
-export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, trackId }) => {
+export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, trackId, isFreeRace = false }) => {
     const { showAlert } = useAlert();
 
     const [, fakeTimerStart] = useMutation(FAKE_TIMER_START);
@@ -32,7 +33,7 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
         if (isOpen && timerState === 'RUNNING') {
             const delay = 3000 + Math.random() * 2000;
             timeout = setTimeout(async () => {
-                const result = await fakeTimerFinish({ heatId });
+                const result = await fakeTimerFinish({ heatId, isFreeRace });
                 if (result.error) {
                     showAlert(result.error.message || 'Failed to finish heat.', 'Error');
                 }
@@ -41,19 +42,19 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
         return () => {
             if (timeout) clearTimeout(timeout);
         };
-    }, [isOpen, timerState, heatId, fakeTimerFinish, showAlert]);
+    }, [isOpen, timerState, heatId, isFreeRace, fakeTimerFinish, showAlert]);
 
     if (!isOpen) return null;
 
     const handleStartTimer = async () => {
-        const result = await fakeTimerStart({ heatId });
+        const result = await fakeTimerStart({ heatId, isFreeRace });
         if (result.error) {
             showAlert(result.error.message || 'Failed to start timer.', 'Error');
         }
     };
 
     const handleFinishHeat = async () => {
-        const result = await fakeTimerFinish({ heatId });
+        const result = await fakeTimerFinish({ heatId, isFreeRace });
         if (result.error) {
             showAlert(result.error.message || 'Failed to finish heat.', 'Error');
         }
