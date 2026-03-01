@@ -224,16 +224,18 @@ input:checked + .slider:before {
   }
 
   .roster-controls {
-    flex-direction: column;
-    align-items: stretch !important;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    align-items: center !important;
+    justify-content: flex-start;
     width: 100%;
-    gap: 12px;
+    gap: 8px;
   }
 
   .roster-controls > div, 
   .roster-controls > button,
   .roster-controls .dropdown {
-    width: 100%;
+    width: auto;
   }
 
   .search-container {
