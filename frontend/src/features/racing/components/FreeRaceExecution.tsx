@@ -5,7 +5,7 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import Icon from '@mdi/react';
-import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
+import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiCloseOctagon, mdiAlertCircleOutline, mdiArrowLeft } from '@mdi/js';
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { TimerStatusBadge } from './TimerStatusBadge';
@@ -206,6 +206,23 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     }
   };
 
+  const handleResetHeat = async () => {
+    const confirmed = await showConfirm(
+      "Resetting this heat will clear results and return to the setup screen. Existing results for this heat will be lost.",
+      "Reset Heat",
+      "Reset & Return",
+      "danger"
+    );
+    if (confirmed) {
+      await recordResult({
+        heatId,
+        results: "null",
+      });
+      if (trackId) await resetTimer({ trackId });
+      onRunAnother();
+    }
+  };
+
   const getRacerDisplay = (racerId: number | null) => {
     if (racerId === null) return null;
     const r = racers[racerId];
@@ -263,6 +280,24 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
             {isCompleted ? (
               <>
                 <button
+                  onClick={handleResetHeat}
+                  style={{
+                    padding: '4px 12px',
+                    fontSize: '0.9rem',
+                    background: '#fff3e0',
+                    color: '#e65100',
+                    border: '1px solid #ffe0b2',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <Icon path={mdiArrowLeft} size={0.7} /> Reset
+                </button>
+                <button
                   onClick={openEditModal}
                   style={{
                     padding: '4px 12px',
@@ -318,6 +353,13 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={handleResetHeat}
+                    className="secondary-btn"
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#fff3e0', color: '#e65100', border: '1px solid #ffe0b2', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <Icon path={mdiArrowLeft} size={0.6} /> Reset
+                  </button>
                   <button
                     onClick={openEditModal}
                     className="secondary-btn"
