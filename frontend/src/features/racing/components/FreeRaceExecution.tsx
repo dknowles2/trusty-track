@@ -5,7 +5,7 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import Icon from '@mdi/react';
-import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiCloseOctagon, mdiAlertCircleOutline } from '@mdi/js';
+import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiArrowRight } from '@mdi/js';
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { TimerStatusBadge } from './TimerStatusBadge';
@@ -90,11 +90,13 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     variables: { heatId },
   });
 
+  const [prevLaneResults, setPrevLaneResults] = useState<string | undefined>(undefined);
   const currentLaneResults = heatSubResult.data?.freeRaceHeat?.laneResults;
 
-  useEffect(() => {
+  if (currentLaneResults !== prevLaneResults) {
+    setPrevLaneResults(currentLaneResults);
     setResults(currentLaneResults ? JSON.parse(currentLaneResults) : null);
-  }, [currentLaneResults]);
+  }
 
   // Subscribe to timer status
   const [subResult] = useSubscription({
@@ -187,18 +189,13 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     setIsEditModalOpen(false);
   };
 
-  const handleSkipHeat = async () => {
-    const confirmed = await showConfirm(
-      "Are you sure you want to skip this heat? It will be deleted and no results will be recorded.",
-      "Skip Heat",
-      "Skip & Delete",
-      "danger"
-    );
-    if (confirmed) {
+  const handleNextHeat = async () => {
+    // If not completed, we should probably delete the current heat to avoid clutter
+    if (!isCompleted) {
       await deleteFreeRaceHeat({ heatId });
       if (trackId) await resetTimer({ trackId });
-      onRunAnother();
     }
+    onRunAnother();
   };
 
   const handleResetHeat = async () => {
@@ -363,19 +360,11 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                     <Icon path={mdiRefresh} size={0.6} /> Reset Heat
                   </button>
                   <button
-                    onClick={openEditModal}
+                    onClick={handleNextHeat}
                     className="secondary-btn"
                     style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    <Icon path={isRunning ? mdiAlertCircleOutline : mdiPencil} size={0.6} />
-                    {isRunning ? 'Force Results' : 'Override'}
-                  </button>
-                  <button
-                    onClick={handleSkipHeat}
-                    className="secondary-btn"
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    <Icon path={mdiCloseOctagon} size={0.6} /> Skip Heat
+                    <Icon path={mdiArrowRight} size={0.6} /> Next Heat
                   </button>
                 </div>
                 <style>{`
