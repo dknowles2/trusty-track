@@ -521,10 +521,7 @@ def delete_round(db: Session, round_id: int) -> bool:
                 .first()
             )
             if champ_rounds:
-                raise ValueError(
-                    "Cannot delete general round: championship rounds are already scheduled."
-                )
-
+                raise ValueError("Cannot delete round: championship rounds scheduled.")
         db.delete(round_obj)
         db.commit()
         return True
@@ -591,30 +588,31 @@ def _generate_ppc(
     Uses greedy optimization to balance lane usage and maximize opponent variety.
     """
     random.shuffle(p_ids)
-    P = len(p_ids)
-    L = lane_count
+    p_count = len(p_ids)
+    l_count = lane_count
 
     # Matchup matrix
     matchups: dict[int, dict[int, int]] = {p1: dict.fromkeys(p_ids, 0) for p1 in p_ids}
 
     # heat_matrix[heat_idx][lane_idx] = racer_id
-    heat_matrix: list[list[int | None]] = [[None for _ in range(L)] for _ in range(P)]
+    heat_matrix: list[list[int | None]] = [
+        [None for _ in range(l_count)] for _ in range(p_count)
+    ]
 
     # Fill Lane 1 (lane_idx 0) with all racers
     lane1_racers = list(p_ids)
-    random.shuffle(lane1_racers)
-    for i in range(P):
+    for i in range(p_count):
         heat_matrix[i][0] = lane1_racers[i]
 
     # Participant lane occupancy tracking
     occupied_lanes: dict[int, set[int]] = {p_id: {0} for p_id in lane1_racers}
 
     # For subsequent lanes
-    for j in range(1, L):
+    for j in range(1, l_count):
         available_racers = list(p_ids)
         random.shuffle(available_racers)
 
-        for i in range(P):
+        for i in range(p_count):
             current_heat_racers = [
                 heat_matrix[i][k] for k in range(j) if heat_matrix[i][k] is not None
             ]
@@ -655,9 +653,9 @@ def _generate_ppc(
                         matchups[other][best_racer] += 1
 
     generated_heats: list[models.Heat] = []
-    for i in range(P):
+    for i in range(p_count):
         lane_assignment = []
-        for j in range(L):
+        for j in range(l_count):
             lane_assignment.append(
                 {
                     "lane": j + 1,
@@ -730,6 +728,25 @@ def generate_heats_for_round(
         p_ids = [-(i + 1) for i in range(num_placeholders)]
     elif racer_ids is not None:
         p_ids = racer_ids
+    elif round_obj.advancement_source:
+        # Championship round without explicit racer_ids/placeholders:
+        # Use existing racers if advanced, otherwise use placeholders.
+        current_racers = set()
+        for h in round_obj.heats:
+            if h.lane_results:
+                try:
+                    res = json.loads(h.lane_results)
+                    for r in res:
+                        rid = r.get("racer_id")
+                        if rid is not None and rid > 0:
+                            current_racers.add(rid)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+        if current_racers:
+            p_ids = list(current_racers)
+        else:
+            num = round_obj.total_participants
+            p_ids = [-(i + 1) for i in range(num)]
     else:
         query = db.query(models.Racer).filter(
             models.Racer.race_id == race_id, models.Racer.car_passed_inspection
@@ -747,7 +764,7 @@ def generate_heats_for_round(
     start_heat_num = len(existing_heats) + 1 if existing_heats else 1
 
     # Generate heats using PPC strategy
-    # Note: we need to update _generate_ppc to accept a starting heat number if we want to support stacking
+    # TODO: support heat number offset for stacking
     new_heats = _generate_ppc(
         db, race_id, round_id, p_ids, lane_count, start_heat_num=start_heat_num
     )
@@ -788,9 +805,7 @@ def resolve_round_placeholders(db: Session, round_id: int, racer_ids: list[int])
 
 
 def invalidate_future_rounds(db: Session, race_id: int, current_round_number: int):
-    """
-    Invalidate and reset subsequent championship rounds when a previous round is modified.
-    """
+    """Reset future championship rounds when previous round is modified."""
     future_rounds = (
         db.query(models.Round)
         .filter(
@@ -804,10 +819,8 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
     )
 
     for r in future_rounds:
-        # Check if heats have results?
-        # For now, we aggressively clear to ensure consistency, matching test expectation.
-        # But we respect delete_round's check inside generate_heats_for_round?
-        # generate_heats_for_round with clear_existing=True WILL fail if results exist.
+        # Aggressively clear to ensure consistency, matching tests.
+        # Respect delete_round's check: fails if results exist.
         # But we want to FORCE clear placeholders.
         # So we manually delete heats first?
         # Or we catch the error?
@@ -827,6 +840,91 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
             )
 
 
+def is_round_complete(db: Session, round_id: int) -> bool:
+    """Check if all heats in a round have results and no placeholders remain."""
+    heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    if not heats:
+        return False
+    for h in heats:
+        if not h.lane_results:
+            return False
+        try:
+            results = json.loads(h.lane_results)
+            if not results:
+                return False
+            for r in results:
+                rid = r.get("racer_id")
+                if rid is not None:
+                    # If there's a racer (real or placeholder), they MUST have a time
+                    if r.get("time") is None:
+                        return False
+                    # AND it must be a real racer, not a placeholder
+                    if rid < 0:
+                        return False
+        except (json.JSONDecodeError, TypeError):
+            return False
+    return True
+
+
+def trigger_auto_advancements(db: Session, race_id: int, completed_round_id: int):
+    """
+    Check for championship rounds that can now be auto-populated.
+    """
+    if not is_round_complete(db, completed_round_id):
+        return
+
+    # Find all subsequent rounds
+    completed_round = (
+        db.query(models.Round).filter(models.Round.id == completed_round_id).first()
+    )
+    if not completed_round:
+        return
+
+    future_rounds = (
+        db.query(models.Round)
+        .filter(
+            models.Round.race_id == race_id,
+            models.Round.round_number > completed_round.round_number,
+            models.Round.advancement_source.is_not(None),
+        )
+        .order_by(models.Round.round_number)
+        .all()
+    )
+
+    from backend.services import scoring
+
+    for r in future_rounds:
+        source = r.advancement_source
+        should_advance = False
+
+        if source == f"ROUND:{completed_round_id}":
+            should_advance = True
+        elif source in ("PACK", "DEN"):
+            # Depends on all previous rounds being complete
+            prev_rounds = (
+                db.query(models.Round)
+                .filter(
+                    models.Round.race_id == race_id,
+                    models.Round.round_number < r.round_number,
+                )
+                .all()
+            )
+            if all(is_round_complete(db, pr.id) for pr in prev_rounds):
+                should_advance = True
+
+        if should_advance:
+            winner_ids = scoring.get_advancing_racers(
+                db, race_id, r.advancement_source, r.advancement_num_racers
+            )
+            if winner_ids:
+                resolve_round_placeholders(db, r.id, winner_ids)
+                # Recursively trigger for this round in case it completes it
+                # (though usually resolving placeholders doesn't complete it,
+                # but if it has no heats yet... wait, it already has heats).
+                # Actually, resolve_round_placeholders doesn't add times,
+                # so the round isn't "complete" yet.
+
+
 def record_heat_result(
     db: Session, heat_id: int, results: str | None
 ) -> models.Heat | None:
@@ -839,6 +937,7 @@ def record_heat_result(
         # Trigger cleanup of future rounds
         if heat.round:
             invalidate_future_rounds(db, heat.race_id, heat.round.round_number)
+            trigger_auto_advancements(db, heat.race_id, heat.round.id)
 
     return heat
 

@@ -425,9 +425,7 @@ class LeaderboardEntry:
 
 @strawberry.type
 class Den:
-    """
-    Represents a Den (sub-group of racers), usually corresponding to a rank or age group.
-    """
+    """Represents a Den (sub-group of racers), usually by rank or age."""
 
     id: int
     name: str
@@ -1085,7 +1083,7 @@ class Query:
 
     @strawberry.field
     def race_stats(self, info: Info, race_id: int) -> Optional[RaceStats]:
-        """Get per-racer stats, lane fairness, den comparisons, and highlights for a race."""
+        """Get racer stats, lane fairness, and highlights for a race."""
         from backend.services import stats as race_stats_module
 
         db = info.context["db"]
@@ -1348,10 +1346,9 @@ class Mutation:
                 if (
                     track.serial_port != old_serial_port
                     or track.timer_type != old_timer_type
-                ):
-                    if track.serial_port:
-                        # Start connection in background
-                        asyncio.create_task(mgr.connect_direct(track.serial_port))
+                ) and track.serial_port:
+                    # Start connection in background
+                    asyncio.create_task(mgr.connect_direct(track.serial_port))
             elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                 # Stopped being backend-direct, ensure it's closed
                 await mgr.stop()
@@ -1459,7 +1456,8 @@ class Mutation:
                         .count()
                     )
                     num_placeholders = champ_cfg.num_top_racers * den_count
-                for i in range(champ_cfg.runs_per_lane):
+                # Championship rounds: 1 run per lane
+                for i in range(1):
                     crud.generate_heats_for_round(
                         db,
                         round_obj.id,
@@ -1481,15 +1479,30 @@ class Mutation:
     async def regenerate_round(self, info: Info, round_id: int) -> list[Heat]:
         """Regenerate heats for a round."""
         db = info.context["db"]
-        # We need to know if it's a placeholder round or racer round.
-        # crud.generate_heats_for_round handles this if we pass the right params,
-        # but it defaults to all racers if none provided.
-        # For simplicity, let's just call it.
-        heats = typing.cast(Any, crud.generate_heats_for_round(db, round_id))
         round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
-        if round_obj:
-            await _publish_race_state(round_obj.race_id)
-        return heats
+        if not round_obj:
+            raise ValueError("Round not found")
+
+        # Determine how many runs per lane we have from existing heats
+        participants = round_obj.total_participants
+        runs_per_lane = 1
+        if not round_obj.advancement_source and participants > 0 and round_obj.heats:
+            runs_per_lane = len(round_obj.heats) // participants
+            if runs_per_lane == 0:
+                runs_per_lane = 1
+        # Championship rounds (advanced) use runs_per_lane = 1
+
+        heats = []
+        for i in range(runs_per_lane):
+            new_heats = crud.generate_heats_for_round(
+                db,
+                round_id,
+                clear_existing=(i == 0),
+            )
+            heats.extend(new_heats)
+
+        await _publish_race_state(round_obj.race_id)
+        return typing.cast(Any, heats)
 
     @strawberry.mutation
     async def delete_round(self, info: Info, round_id: int) -> bool:
@@ -1970,14 +1983,15 @@ class Mutation:
         """Update system organization name and tracks."""
         db = info.context["db"]
         group = db.query(models.Group).first()
-        if group:
-            if group.name != config.group_name or group.debug_mode != config.debug_mode:
-                if group.name != config.group_name:
-                    existing = crud.get_group_by_name(db, config.group_name)
-                    if existing:
-                        raise ValueError(f"Group '{config.group_name}' already exists")
-                crud.update_group(db, group, config.group_name, config.debug_mode)
-                db.refresh(group)
+        if group and (
+            group.name != config.group_name or group.debug_mode != config.debug_mode
+        ):
+            if group.name != config.group_name:
+                existing = crud.get_group_by_name(db, config.group_name)
+                if existing:
+                    raise ValueError(f"Group '{config.group_name}' already exists")
+            crud.update_group(db, group, config.group_name, config.debug_mode)
+            db.refresh(group)
 
         # Update Tracks by index (setup wizard style)
         db_tracks = crud.get_tracks(db)
@@ -1986,7 +2000,7 @@ class Mutation:
 
         for i, input_track in enumerate(input_tracks):
             if i < len(db_tracks):
-                # Update existing track inline (cannot call self.update_track — self is None in Strawberry)
+                # Update existing track inline
                 db_track = db_tracks[i]
                 old_timer_type = db_track.timer_type
                 old_serial_port = db_track.serial_port
@@ -2005,11 +2019,10 @@ class Mutation:
                         if (
                             input_track.serial_port != old_serial_port
                             or input_track.timer_type != old_timer_type
-                        ):
-                            if input_track.serial_port:
-                                asyncio.create_task(
-                                    mgr.connect_direct(input_track.serial_port)
-                                )
+                        ) and input_track.serial_port:
+                            asyncio.create_task(
+                                mgr.connect_direct(input_track.serial_port)
+                            )
                     elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                         await mgr.stop()
             else:
@@ -2096,7 +2109,7 @@ class Mutation:
         reader = csv.DictReader(f)
         count = 0
 
-        # Helper to get value from row with case-insensitive and space-insensitive key search
+        # Helper for case-insensitive and space-insensitive key search
         def get_val(row, *aliases):
             for alias in aliases:
                 # Direct match
@@ -2192,8 +2205,8 @@ class Mutation:
                     advancement_num_racers=round_data.advancement_num_racers,
                 )
 
-                # Generate Placeholder Heats
-                for i in range(round_data.runs_per_lane):
+                # Placeholder Heats (Champ rounds: 1 run per lane)
+                for i in range(1):
                     crud.generate_heats_for_round(
                         db,
                         round_obj.id,
@@ -2203,7 +2216,7 @@ class Mutation:
                 await _publish_race_state(race_id)
                 return [typing.cast(Any, round_obj)]
         except ValueError as e:
-            raise ValueError(str(e))
+            raise ValueError(str(e)) from None
 
     @strawberry.mutation
     async def reorder_heats(
@@ -2262,16 +2275,8 @@ class Mutation:
         return updated
 
     @strawberry.mutation
-    def upload_image(self, info: Info, data_url: str) -> str:
-        """Upload an image from a Base64 data URL and return the static URL.
-
-        Args:
-            info: GraphQL context info.
-            data_url: A data URL string (e.g. 'data:image/png;base64,...').
-
-        Returns:
-            The static URL path to the saved image.
-        """
+    def upload_image(self, data_url: str) -> str:
+        """Upload an image from a Base64 data URL."""
         # Parse data URL: data:<mime>;base64,<data>
         if "," not in data_url:
             raise ValueError("Invalid data URL format")
@@ -2322,7 +2327,7 @@ class TimingStatsLane:
 
 @strawberry.type
 class TimingStats:
-    """Represents the results of a completed heat for the Timing Stats observation view."""
+    """Completed heat results for Timing Stats observation."""
 
     heat_id: int
     round_name: str
@@ -2403,20 +2408,9 @@ class Subscription:
 
     @strawberry.subscription
     async def race_state_changed(
-        self, info: Info, race_id: int
+        self, race_id: int
     ) -> AsyncGenerator[RaceStateChangedEvent, None]:
-        """Subscribe to state changes for a specific race.
-
-        Emits a RaceStateChangedEvent whenever any mutation that modifies
-        race data is executed for *race_id*.
-
-        Args:
-            info: GraphQL context info.
-            race_id: The race to subscribe to.
-
-        Yields:
-            RaceStateChangedEvent payloads.
-        """
+        """Subscribe to state changes for a specific race."""
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             async for event in stream:
                 yield event
@@ -2553,7 +2547,7 @@ class Subscription:
                 # Pick the most recent one.
                 # Since we don't have a reliable cross-table timestamp for all,
                 # we'll just check which one exists or is "later" in some sense.
-                # For now, prioritize official if both exist, as it's the more common case.
+                # Prioritize official if both exist (most common case).
                 # Ideally Heat would have an 'updated_at' field.
 
                 target_heat = None
