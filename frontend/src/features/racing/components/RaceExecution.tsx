@@ -48,6 +48,7 @@ export interface AdvancementStatus {
     advancingRacers: AdvancementRacer[];
     source: string | null;
     numRacers: number | null;
+    roundId?: number;
 }
 
 export interface LaneResult {
@@ -150,19 +151,28 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     // Reset timer state when it stops
     const [prevIsRunning, setPrevIsRunning] = useState(isRunning);
-    if (isRunning !== prevIsRunning) {
-        setPrevIsRunning(isRunning);
-        if (!isRunning) {
-            setElapsedSeconds(0);
+    useEffect(() => {
+        if (isRunning !== prevIsRunning) {
+            setPrevIsRunning(isRunning);
+            if (!isRunning) {
+                setElapsedSeconds(0);
+            }
         }
-    }
+    }, [isRunning, prevIsRunning]);
 
-    // Sync round summary state
-    const [prevRoundSummary, setPrevRoundSummary] = useState(roundSummary);
-    if (roundSummary !== prevRoundSummary) {
-        setPrevRoundSummary(roundSummary);
-        setIsRoundSummaryOpen(!!roundSummary);
-    }
+    // Sync round summary state: only open if we transition to a non-null summary for a NEW round
+    const [lastOpenedRoundId, setLastOpenedRoundId] = useState<number | null>(null);
+    useEffect(() => {
+        if (roundSummary) {
+            if (roundSummary.roundId !== lastOpenedRoundId) {
+                setLastOpenedRoundId(roundSummary.roundId || null);
+                setIsRoundSummaryOpen(true);
+            }
+        } else if (lastOpenedRoundId !== null) {
+            setLastOpenedRoundId(null);
+            setIsRoundSummaryOpen(false);
+        }
+    }, [roundSummary?.roundId, lastOpenedRoundId]);
 
     // Tracking for auto-prepare to avoid race conditions
     const lastPreparedIdRef = useRef<number | null>(null);
@@ -170,9 +180,11 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     // Sync auto-advance state
     const shouldResetAutoAdvance = !autoAdvanceHeat || !hasRecordedTimes || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen) || hasPlaceholders;
-    if (shouldResetAutoAdvance && autoAdvanceCountdown !== null) {
-        setAutoAdvanceCountdown(null);
-    }
+    useEffect(() => {
+        if (shouldResetAutoAdvance && autoAdvanceCountdown !== null) {
+            setAutoAdvanceCountdown(null);
+        }
+    }, [shouldResetAutoAdvance, autoAdvanceCountdown]);
 
     // Auto-prepare heat when a new heatId is provided or results cleared
     useEffect(() => {
@@ -189,6 +201,11 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         // Only run when heatId changes, on mount, or when results are cleared (re-run/un-skip)
     }, [activeExecutionHeat?.id, hasPlaceholders, isCompleted, prepareHeat, timerState]);
 
+    const onNextHeatRef = useRef(onNextHeat);
+    useEffect(() => {
+        onNextHeatRef.current = onNextHeat;
+    }, [onNextHeat]);
+
     useEffect(() => {
         // Only trigger auto-advance countdown if we have actual recorded times.
         // For skipped heats, we advance immediately in the handler.
@@ -199,7 +216,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             }
             return;
         }
-        setTimeout(() => setAutoAdvanceCountdown(10), 0);
+
+        setAutoAdvanceCountdown(10);
         const interval = setInterval(() => {
             setAutoAdvanceCountdown(prev => {
                 if (prev === null || prev <= 1) {
@@ -210,7 +228,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             });
         }, 1000);
         autoAdvanceTimeoutRef.current = setTimeout(() => {
-            onNextHeat();
+            onNextHeatRef.current();
         }, 10000);
         return () => {
             clearInterval(interval);
@@ -219,7 +237,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 autoAdvanceTimeoutRef.current = null;
             }
         };
-    }, [shouldResetAutoAdvance, onNextHeat]);
+    }, [shouldResetAutoAdvance]);
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -788,7 +806,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 </tr>
                             </thead>
                             <tbody>
-                                {roundSummary.advancingRacers.map((ar, idx) => (
+                                {roundSummary.advancingRacers
+                                    .filter(ar => !roundSummary.requiresAdvancement || ar.isAdvancing)
+                                    .map((ar, idx) => (
                                     <tr key={ar.racerId} style={{ borderBottom: '1px solid #eee', background: ar.isAdvancing ? '#fff8e1' : 'white' }}>
                                         <td style={{ padding: '10px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>

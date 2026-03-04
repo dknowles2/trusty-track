@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
 import { arrayMove } from '@dnd-kit/sortable';
@@ -46,6 +46,29 @@ const GET_RACE_CONTROL_DATA = `
         roundId
         roundName
         laneResults
+      }
+      rounds {
+        id
+        roundNumber
+        name
+        advancementSource
+        advancementStatus {
+          isReady
+          requiresAdvancement
+          alreadyAdvanced
+          source
+          numRacers
+          advancingRacers {
+            racerId
+            firstName
+            lastName
+            carNumber
+            denName
+            score
+            rank
+            isAdvancing
+          }
+        }
       }
     }
   }
@@ -141,6 +164,15 @@ interface AdvancementStatus {
     advancingRacers: AdvancementRacer[];
     source: string | null;
     numRacers: number | null;
+    roundId?: number;
+}
+
+interface Round {
+  id: number;
+  roundNumber: number;
+  name: string | null;
+  advancementSource: string | null;
+  advancementStatus: AdvancementStatus;
 }
 
 export default function RaceControl() {
@@ -153,12 +185,16 @@ export default function RaceControl() {
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
+  const [seenAdvancedRoundIds, setSeenAdvancedRoundIds] = useState<number[]>([]);
+  const [advancementInitialized, setAdvancementInitialized] = useState(false);
 
   // Reset state when raceId changes
   useEffect(() => {
       setActiveHeatId(null);
       setSelectedHeatId(null);
       setRoundSummary(null);
+      setSeenAdvancedRoundIds([]);
+      setAdvancementInitialized(false);
   }, [id]);
 
   const [result, reExecute] = useQuery({
@@ -219,6 +255,48 @@ export default function RaceControl() {
           setSelectedHeatId(null);
       }
   }, [heats, selectedHeatId]);
+
+  useEffect(() => {
+    if (fetching || !race?.rounds) return;
+
+    // Monitor for round completions and advancement
+    // We only show the modal when a round transitions to "ready and advanced" (placeholders resolved)
+    const advancedIds = race.rounds
+      .filter(r => 
+          r.advancementStatus.requiresAdvancement && 
+          r.advancementStatus.isReady && 
+          r.advancementStatus.alreadyAdvanced
+      )
+      .map(r => r.id);
+    
+    if (!advancementInitialized) {
+        setSeenAdvancedRoundIds(advancedIds);
+        setAdvancementInitialized(true);
+        return;
+    }
+
+    // If a round was previously seen as advanced, but now it is NOT advanced (e.g. re-run of last heat),
+    // remove it from seen list so it can trigger again when completed.
+    const stillAdvancedIds = seenAdvancedRoundIds.filter(id => advancedIds.includes(id));
+    if (stillAdvancedIds.length !== seenAdvancedRoundIds.length) {
+        setSeenAdvancedRoundIds(stillAdvancedIds);
+        // Important: we return here so the next effect run (after state update) handles the "newly advanced" case
+        return;
+    }
+
+    // Find any ID in advancedIds that we haven't "seen" yet
+    const newlyAdvancedId = advancedIds.find(id => !seenAdvancedRoundIds.includes(id));
+    
+    if (newlyAdvancedId !== undefined) {
+      // Mark all currently advanced IDs as seen to avoid re-triggering
+      setSeenAdvancedRoundIds(advancedIds);
+      
+      const round = race.rounds.find(r => r.id === newlyAdvancedId);
+      if (round) {
+        setRoundSummary({ ...round.advancementStatus, roundId: round.id });
+      }
+    }
+  }, [race?.rounds, fetching, advancementInitialized, seenAdvancedRoundIds]);
 
   const handleAddRound = async (config: {
     schedulingStrategy?: string;
@@ -322,7 +400,74 @@ export default function RaceControl() {
     }
   };
 
-  const handleRunHeat = async (heat: Heat, shouldStart: boolean = true) => {
+  const handleUpdateResult = useCallback(async (heatId: number, results: LaneResult[]) => {
+      try {
+          const heat = heats.find((h: Heat) => h.id === heatId);
+          if (!heat) return;
+
+          const sortedResults = [...results];
+          
+          // Only assign places if at least one racer has a time
+          const hasAnyTime = sortedResults.some(r => r.time !== null && r.time !== '');
+          
+          if (hasAnyTime) {
+              sortedResults.sort((a, b) => {
+                  const tA = a.time ? (typeof a.time === 'number' ? a.time : parseFloat(a.time)) : 9999;
+                  const tB = b.time ? (typeof b.time === 'number' ? b.time : parseFloat(b.time)) : 9999;
+                  return tA - tB;
+              });
+              
+              sortedResults.forEach((r, idx) => {
+                  r.skipped = false; // Always clear skipped flag if we have times
+                  if (r.time !== null && r.time !== '') {
+                      r.place = idx + 1;
+                  } else {
+                      r.place = null;
+                  }
+              });
+          } else {
+              // If no times (e.g. Skip Heat), clear all places
+              sortedResults.forEach(r => {
+                  r.place = null;
+              });
+          }
+
+          const result = await updateHeatResultMutation({
+              heatId,
+              results: JSON.stringify(sortedResults)
+          });
+          if (result.error) throw result.error;
+
+          reExecute({ requestPolicy: 'network-only' });
+          
+          // Round completion check logic can be simplified or moved to sub-component
+          // For now we'll just re-fetch and let the user decide
+           
+          if (activeHeatId === heatId) {
+              setActiveHeatId(null);
+          }
+      } catch (e) {
+          console.error("Failed to update results", e);
+          showAlert("Failed to update results.", "Error");
+      }
+  }, [heats, updateHeatResultMutation, reExecute, activeHeatId, showAlert]);
+
+  const handleReorderHeats = useCallback(async (updates: { heat_id: number, new_heat_number: number }[]) => {
+    try {
+      const formattedUpdates = updates.map(u => ({
+        heatId: u.heat_id,
+        newHeatNumber: u.new_heat_number
+      }));
+      const result = await reorderHeatsMutation({ heatUpdates: formattedUpdates });
+      if (result.error) throw result.error;
+      reExecute({ requestPolicy: 'network-only' });
+    } catch (e) {
+      console.error("Failed to reorder heats", e);
+      showAlert("Failed to reorder heats.", "Error");
+    }
+  }, [reorderHeatsMutation, reExecute, showAlert]);
+
+  const handleRunHeat = useCallback(async (heat: Heat, shouldStart: boolean = true) => {
     // Check if heat already has results or was skipped
     const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
     const hasResults = results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
@@ -382,74 +527,8 @@ export default function RaceControl() {
             setActiveHeatId(null);
         }
     }
-  };
+  }, [heats, updateHeatResultMutation, reExecute, handleReorderHeats, activeHeatId, navigate, id, showToast]);
 
-  const handleUpdateResult = async (heatId: number, results: LaneResult[]) => {
-      try {
-          const heat = heats.find((h: Heat) => h.id === heatId);
-          if (!heat) return;
-
-          const sortedResults = [...results];
-          
-          // Only assign places if at least one racer has a time
-          const hasAnyTime = sortedResults.some(r => r.time !== null && r.time !== '');
-          
-          if (hasAnyTime) {
-              sortedResults.sort((a, b) => {
-                  const tA = a.time ? (typeof a.time === 'number' ? a.time : parseFloat(a.time)) : 9999;
-                  const tB = b.time ? (typeof b.time === 'number' ? b.time : parseFloat(b.time)) : 9999;
-                  return tA - tB;
-              });
-              
-              sortedResults.forEach((r, idx) => {
-                  r.skipped = false; // Always clear skipped flag if we have times
-                  if (r.time !== null && r.time !== '') {
-                      r.place = idx + 1;
-                  } else {
-                      r.place = null;
-                  }
-              });
-          } else {
-              // If no times (e.g. Skip Heat), clear all places
-              sortedResults.forEach(r => {
-                  r.place = null;
-              });
-          }
-
-          const result = await updateHeatResultMutation({
-              heatId,
-              results: JSON.stringify(sortedResults)
-          });
-          if (result.error) throw result.error;
-
-          reExecute({ requestPolicy: 'network-only' });
-          
-          // Round completion check logic can be simplified or moved to sub-component
-          // For now we'll just re-fetch and let the user decide
-           
-          if (activeHeatId === heatId) {
-              setActiveHeatId(null);
-          }
-      } catch (e) {
-          console.error("Failed to update results", e);
-          showAlert("Failed to update results.", "Error");
-      }
-  };
-
-  const handleReorderHeats = async (updates: { heat_id: number, new_heat_number: number }[]) => {
-    try {
-      const formattedUpdates = updates.map(u => ({
-        heatId: u.heat_id,
-        newHeatNumber: u.new_heat_number
-      }));
-      const result = await reorderHeatsMutation({ heatUpdates: formattedUpdates });
-      if (result.error) throw result.error;
-      reExecute({ requestPolicy: 'network-only' });
-    } catch (e: unknown) {
-      console.error("Failed to reorder heats", e);
-      throw e;
-    }
-  };
 
   const getRacerName = (id: number) => {
       if (id < 0) {
@@ -504,12 +583,12 @@ export default function RaceControl() {
       });
   }, [sortedHeatsEx, activeExecutionHeat]);
 
-  const handleNextHeat = () => {
+  const handleNextHeat = useCallback(() => {
       setRoundSummary(null);
       if (nextExecutionHeat) {
           setSelectedHeatId(nextExecutionHeat.id);
       }
-  };
+  }, [nextExecutionHeat]);
 
   const currentRoundHeats = useMemo(() => {
     if (!activeExecutionHeat) return [];

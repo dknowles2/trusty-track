@@ -122,32 +122,6 @@ class Heat:
 
 
 @strawberry.type
-class Round:
-    """
-    Represents a single round of racing.
-    """
-
-    id: int
-    race_id: int
-    round_number: int
-    name: Optional[str]
-    scheduling_strategy: str
-    advancement_source: Optional[str]
-    advancement_num_racers: Optional[int]
-
-    @strawberry.field
-    def heats(self, info: Info) -> list[Heat]:
-        """Get all heats in this round."""
-        return (
-            info.context["db"]
-            .query(models.Heat)
-            .filter(models.Heat.round_id == self.id)
-            .order_by(models.Heat.heat_number)
-            .all()
-        )
-
-
-@strawberry.type
 class AdvancementRacer:
     """
     Represents a racer eligible for advancement to a championship round.
@@ -175,6 +149,37 @@ class AdvancementStatus:
     advancing_racers: list[AdvancementRacer]
     source: Optional[str]
     num_racers: Optional[int]
+
+
+@strawberry.type
+class Round:
+    """
+    Represents a single round of racing.
+    """
+
+    id: int
+    race_id: int
+    round_number: int
+    name: Optional[str]
+    scheduling_strategy: str
+    advancement_source: Optional[str]
+    advancement_num_racers: Optional[int]
+
+    @strawberry.field
+    def heats(self, info: Info) -> list[Heat]:
+        """Get all heats in this round."""
+        return (
+            info.context["db"]
+            .query(models.Heat)
+            .filter(models.Heat.round_id == self.id)
+            .order_by(models.Heat.heat_number)
+            .all()
+        )
+
+    @strawberry.field
+    def advancement_status(self, info: Info) -> AdvancementStatus:
+        """Check if a round is ready to advance."""
+        return typing.cast(Any, Query().advancement_status(info, self.race_id, self.id))
 
 
 @strawberry.type
