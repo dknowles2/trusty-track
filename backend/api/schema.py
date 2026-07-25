@@ -11,7 +11,7 @@ import typing
 import uuid
 from collections.abc import AsyncGenerator, Iterable
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
 import pillow_heif
 import strawberry
@@ -839,6 +839,49 @@ class FreeRaceLaneAssignmentInput:
 
     lane: int
     racer_id: Optional[int] = None  # None = empty lane
+
+
+@strawberry.input
+class HeatLaneInput:
+    """One lane of a heat being written (#5).
+
+    The write-path counterpart of :class:`HeatLane`, and the replacement for
+    handing the server a JSON string it had to trust. ``racerId`` and
+    ``placeholderSlot`` are mutually exclusive; a lane with neither is empty.
+    """
+
+    lane: int
+    racer_id: Optional[int] = None
+    placeholder_slot: Optional[int] = None
+    time: Optional[float] = None
+    place: Optional[int] = None
+    skipped: bool = False
+
+
+def _lanes_from_input(
+    lane_inputs: list[HeatLaneInput], stored: str | None
+) -> list[lanes.Lane]:
+    """Structured input as :class:`~backend.domain.lanes.Lane` objects.
+
+    Keys the blob carries but nothing models are taken from *stored* — a client
+    that cannot see them cannot send them back, and dropping them silently is
+    how the ``skipped`` flag used to get lost.
+    """
+    updates = [
+        lanes.Lane(
+            lane=item.lane,
+            racer_id=(
+                -item.placeholder_slot
+                if item.placeholder_slot is not None
+                else item.racer_id
+            ),
+            time=item.time,
+            place=item.place,
+            extra={"skipped": True} if item.skipped else {},
+        )
+        for item in lane_inputs
+    ]
+    return lanes.carry_extras(updates, lanes.parse(stored))
 
 
 @strawberry.type
@@ -1806,10 +1849,24 @@ class Mutation:
     # Heat Mutations
     @strawberry.mutation
     async def update_heat_result(
-        self, info: Info, heat_id: int, results: str
+        self,
+        info: Info,
+        heat_id: int,
+        # Named `lanes` on the wire; the local name would shadow the domain
+        # module this resolver uses.
+        lanes_input: Annotated[list[HeatLaneInput], strawberry.argument(name="lanes")],
     ) -> Optional[Heat]:
-        """Update results for a heat."""
+        """Update results for a heat.
+
+        Took a JSON string until #5. The server could not tell a malformed blob
+        from an empty heat, and every client had to know that an undecided
+        championship slot was a negative racer id.
+        """
         db = info.context["db"]
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if heat is None:
+            return None
+        results = lanes.serialize(_lanes_from_input(lanes_input, heat.lane_results))
         updated_heat = typing.cast(Any, crud.record_heat_result(db, heat_id, results))
         if updated_heat:
             await _publish_race_state(
@@ -2260,14 +2317,24 @@ class Mutation:
         self,
         info: Info,
         heat_id: int,
-        results: str,  # JSON string, same shape as lane_assignments + time/place
+        lanes_input: Annotated[list[HeatLaneInput], strawberry.argument(name="lanes")],
     ) -> Optional[FreeRaceHeat]:
-        """Record timing results for a free race heat."""
+        """Record timing results for a free race heat.
+
+        Took a JSON string until #5, and answered a malformed one with a silent
+        null — the operator saw a heat that would not record and no reason why.
+        """
         db = info.context["db"]
-        try:
-            lane_results = json.loads(results)
-        except (json.JSONDecodeError, TypeError):
+        heat = (
+            db.query(models.FreeRaceHeat)
+            .filter(models.FreeRaceHeat.id == heat_id)
+            .first()
+        )
+        if heat is None:
             return None
+        lane_results = [
+            lane.to_dict() for lane in _lanes_from_input(lanes_input, heat.lane_results)
+        ]
         updated = typing.cast(
             Any, crud.update_free_race_heat_result(db, heat_id, lane_results)
         )

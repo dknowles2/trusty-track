@@ -8,6 +8,8 @@ import Icon from '@mdi/react';
 import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiArrowRight } from '@mdi/js';
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../../management/components/RacerAvatar';
+import type { Lane, LaneInput } from '../types';
+import { toInput } from '../lanes';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { useAlert } from '../../../context/AlertContext';
 
@@ -35,18 +37,18 @@ interface FreeRaceExecutionProps {
   debugMode?: boolean;
 }
 
-interface LaneResult {
-  lane: number;
-  racer_id: number | null;
-  time: number | null;
-  place: number | null;
-}
-
 const RECORD_FREE_RACE_RESULT = `
-  mutation RecordFreeRaceResult($heatId: Int!, $results: String!) {
-    recordFreeRaceResult(heatId: $heatId, results: $results) {
+  mutation RecordFreeRaceResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+    recordFreeRaceResult(heatId: $heatId, lanes: $lanes) {
       id
-      laneResults
+      lanes {
+        lane
+        racerId
+        placeholderSlot
+        time
+        place
+        skipped
+      }
     }
   }
 `;
@@ -66,11 +68,11 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   onRunAnother,
 }) => {
   const { showConfirm } = useAlert();
-  const [results, setResults] = useState<LaneResult[] | null>(null);
+  const [results, setResults] = useState<Lane[] | null>(null);
   const lastPreparedIdRef = useRef<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
+  const [editingResults, setEditingResults] = useState<LaneInput[]>([]);
 
   const [, recordResult] = useMutation(RECORD_FREE_RACE_RESULT);
   const [, deleteFreeRaceHeat] = useMutation(DELETE_FREE_RACE_HEAT);
@@ -84,18 +86,31 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
         freeRaceHeat(heatId: $heatId) {
           id
           laneResults
+          lanes {
+            lane
+            racerId
+            placeholderSlot
+            time
+            place
+            skipped
+          }
         }
       }
     `,
     variables: { heatId },
   });
 
+  // `laneResults` is still what says whether the heat has been *recorded* —
+  // `lanes` is populated from the assignments the moment the heat is created,
+  // so it cannot answer that on its own. It goes when #6 merges the two heat
+  // tables and a heat gains a real status.
+  const heatSub = heatSubResult.data?.freeRaceHeat;
   const [prevLaneResults, setPrevLaneResults] = useState<string | undefined>(undefined);
-  const currentLaneResults = heatSubResult.data?.freeRaceHeat?.laneResults;
+  const currentLaneResults = heatSub?.laneResults;
 
   if (currentLaneResults !== prevLaneResults) {
     setPrevLaneResults(currentLaneResults);
-    setResults(currentLaneResults ? JSON.parse(currentLaneResults) : null);
+    setResults(currentLaneResults ? (heatSub?.lanes ?? []) : null);
   }
 
   // Subscribe to timer status
@@ -150,13 +165,15 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   }, [isRunning]);
 
   const openEditModal = () => {
-    const base = results
-      ? results
+    const base: LaneInput[] = results
+      ? results.map(toInput)
       : laneAssignments.map((a) => ({
         lane: a.lane,
-        racer_id: a.racerId,
-        time: null as number | null,
-        place: null as number | null,
+        racerId: a.racerId,
+        placeholderSlot: null,
+        time: null,
+        place: null,
+        skipped: false,
       }));
     setEditingResults(base.map((r) => ({ ...r })));
     setIsEditModalOpen(true);
@@ -165,7 +182,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   const handleSaveEdit = async () => {
     // Re-sort by time and assign places
     const withTimes = editingResults.filter(
-      (r) => r.racer_id !== null && r.time !== null
+      (r) => r.racerId != null && r.time != null
     );
     withTimes.sort((a, b) => (a.time ?? 9999) - (b.time ?? 9999));
     withTimes.forEach((r, idx) => { r.place = idx + 1; });
@@ -175,16 +192,9 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
       return found ?? { ...r, place: null };
     });
 
-    const res = await recordResult({
-      heatId,
-      results: JSON.stringify(finalResults),
-    });
+    const res = await recordResult({ heatId, lanes: finalResults });
 
-    if (res.data?.recordFreeRaceResult?.laneResults) {
-      setResults(JSON.parse(res.data.recordFreeRaceResult.laneResults));
-    } else {
-      setResults(finalResults);
-    }
+    setResults(res.data?.recordFreeRaceResult?.lanes ?? finalResults);
 
     setIsEditModalOpen(false);
   };
@@ -231,7 +241,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
 
   const pendingResults = subResult.data?.timerStatus?.status?.pendingResults ?? [];
 
-  const laneResultMap: Record<number, LaneResult> = {};
+  const laneResultMap: Record<number, Lane> = {};
   if (results) {
     results.forEach((r) => { laneResultMap[r.lane] = r; });
   } else {
@@ -239,9 +249,11 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     pendingResults.forEach((r: { lane: number; time: number | null; place: number | null }) => {
       laneResultMap[r.lane] = {
         lane: r.lane,
-        racer_id: laneAssignments.find(a => a.lane === r.lane)?.racerId ?? null,
+        racerId: laneAssignments.find(a => a.lane === r.lane)?.racerId ?? null,
+        placeholderSlot: null,
         time: r.time,
         place: r.place,
+        skipped: false,
       };
     });
   }
@@ -484,7 +496,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
             <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ minWidth: '60px', fontWeight: 'bold', color: '#666' }}>Lane {r.lane}</span>
               <span style={{ flex: 1 }}>
-                {r.racer_id === null ? <em style={{ color: '#999' }}>(empty)</em> : getRacerDisplay(r.racer_id)}
+                {r.racerId == null ? <em style={{ color: '#999' }}>(empty)</em> : getRacerDisplay(r.racerId)}
               </span>
               <input
                 type="number"
@@ -498,7 +510,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                 }}
                 placeholder="Time (s)"
                 style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc', width: '120px', textAlign: 'right' }}
-                disabled={r.racer_id === null}
+                disabled={r.racerId == null}
               />
             </div>
           ))}

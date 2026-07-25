@@ -1,6 +1,7 @@
 import json
 
 from backend.db import crud, schemas
+from backend.tests.helpers import record_heat_result
 
 
 def test_full_advancement_flow(client, db):
@@ -58,7 +59,7 @@ def test_full_advancement_flow(client, db):
     round1_id = int(rounds[0]["id"])
     round2_id = int(rounds[1]["id"])
 
-    # 3. Verify placeholders in Round 2 via CRUD (or GQL query if preferred, but verification logic checks DB)
+    # 3. Verify placeholders in Round 2 via CRUD (the check reads the DB)
     heats_r2 = crud.get_heats(db, race_id)
     heats_r2 = [h for h in heats_r2 if h.round_id == round2_id]
     assert (
@@ -103,21 +104,11 @@ def test_full_advancement_flow(client, db):
                 res["time"] = 3.0
             else:
                 res["time"] = 4.0
-            res["place"] = (
-                1  # Place logic is computed by frontend usually or ignored if using Times?
-            )
+            # Place is recomputed by scoring for TIMED races; any value will do.
+            res["place"] = 1
             # Actually scoring.py calculates score based on strategy. Default is TIMED.
 
-        # Use mutation to update
-        results_str = json.dumps(lane_res).replace('"', '\\"')
-        mutation_update = f"""
-        mutation {{
-            updateHeatResult(heatId: {h.id}, results: "{results_str}") {{
-                id
-            }}
-        }}
-        """
-        client.post("/graphql", json={"query": mutation_update})
+        record_heat_result(client, h.id, lane_res)
 
     # 6. Check Status: Should be READY
     status = client.post("/graphql", json={"query": query_status}).json()["data"][

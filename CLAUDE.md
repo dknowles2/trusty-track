@@ -185,9 +185,17 @@ lanes { lane racerId placeholderSlot time place skipped }
 
 It separates the things the blob conflated: a placeholder slot is `placeholderSlot`, not a negative `racerId`; `skipped` is a field; `time` is always a number, never the string the frontend sometimes wrote.
 
-On the frontend, every screen reads `lanes` and asks about a heat through the named predicates in `features/racing/lanes.ts` (`hasRun`, `hasTimes`, `wasSkipped`, `byPlace`) rather than re-deriving them. Build heat fixtures with `features/racing/testFixtures.ts` — it keeps `lanes` and `laneResults` consistent, so a test cannot describe a heat the server could never send.
+**Writing is structured too.** `updateHeatResult` and `recordFreeRaceResult` take `[HeatLaneInput!]!` — the same fields, so what a screen reads is what it sends back:
 
-**Writing still goes through `laneResults`.** `updateHeatResult` and `recordFreeRaceResult` take the JSON string, so `RaceExecution` and `FreeRaceExecution` keep an editable draft in that shape; those are the only `JSON.parse` sites left. Modify the existing blob rather than rebuilding it from `lanes` — it round-trips keys the backend does not model, and re-encoding placeholders as negative ids would put that trick back in the client. Step 5 of #5 replaces this with structured input.
+```graphql
+mutation($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+  updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+}
+```
+
+The blob is still the storage format; `_lanes_from_input` in `schema.py` converts, and `lanes.carry_extras` preserves any key the blob holds that nothing models — a client cannot send back what it cannot see. `skipped` is deliberately *not* carried: it is modelled, so an update that omits it is un-skipping the heat.
+
+On the frontend, no code parses lane JSON any more. Screens read `lanes`, ask about a heat through the named predicates in `features/racing/lanes.ts` (`hasRun`, `hasTimes`, `wasSkipped`, `byPlace`), and send changes back with `toInput` / `cleared`. Build heat fixtures with `features/racing/testFixtures.ts`.
 
 ### ⚠️ Heat IDs are not unique across tables
 

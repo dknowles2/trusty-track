@@ -52,7 +52,6 @@ export const RACE_STATE_CHANGED_SUBSCRIPTION = `
         heatNumber
         roundNumber
         roundName
-        laneResults
         lanes {
           lane
           racerId

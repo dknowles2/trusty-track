@@ -1,6 +1,7 @@
 import json
 
 from backend.db import crud, schemas
+from backend.tests.helpers import record_heat_result
 
 
 def test_auto_advancement_with_placeholders(client, db):
@@ -75,7 +76,7 @@ def test_auto_advancement_with_placeholders(client, db):
     # 2. Run all General Heats (manually update via GraphQL)
     gen_heats = [h for h in crud.get_heats(db, race.id) if h.round_id == gen_round.id]
 
-    for i, heat in enumerate(gen_heats):
+    for heat in gen_heats:
         current_results = json.loads(heat.lane_results)
         for lane_res in current_results:
             racer_id = lane_res.get("racer_id")
@@ -83,15 +84,7 @@ def test_auto_advancement_with_placeholders(client, db):
                 lane_res["time"] = 1.0 + (racer_id * 0.1)
                 lane_res["place"] = 1
 
-        results_str = json.dumps(current_results).replace('"', '\\"')
-        mutation_update = f"""
-        mutation {{
-            updateHeatResult(heatId: {heat.id}, results: "{results_str}") {{
-                id
-            }}
-        }}
-        """
-        client.post("/graphql", json={"query": mutation_update})
+        record_heat_result(client, heat.id, current_results)
 
     # 3. Verify Championship Advancement - Manual Advance required
     mutation_advance = f"""

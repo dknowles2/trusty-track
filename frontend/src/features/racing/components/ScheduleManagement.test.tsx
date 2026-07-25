@@ -55,8 +55,8 @@ vi.mock('@dnd-kit/utilities', () => ({
 
 describe('ScheduleManagement', () => {
     const mockHeats: Heat[] = [
-        { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
-        { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, laneResults: '[]', lanes: [], roundName: 'Round 1' }
+        { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Round 1' },
+        { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, lanes: [], roundName: 'Round 1' }
     ];
     const mockGetRacerName = vi.fn((id) => `Racer ${id}`);
     const mockOnAddRound = vi.fn();
@@ -213,9 +213,9 @@ describe('ScheduleManagement', () => {
 
     it('displays heats sorted by heat_number', () => {
         const unsortedHeats: Heat[] = [
-            { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, laneResults: '[]', lanes: [], roundName: 'Round 1' },
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
-            { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, laneResults: '[]', lanes: [], roundName: 'Round 1' },
+            { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, lanes: [], roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Round 1' },
+            { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, lanes: [], roundName: 'Round 1' },
         ];
 
         render(
@@ -249,8 +249,8 @@ describe('ScheduleManagement', () => {
 
     it('groups heats by round correctly', () => {
         const multiRoundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
-            { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 2' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Round 1' },
+            { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, lanes: [], roundName: 'Round 2' },
         ];
 
         render(
@@ -327,7 +327,7 @@ describe('ScheduleManagement', () => {
 
     it('displays custom round name', () => {
         const namedRoundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundName: 'Semi-Finals', roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [] },
+            { id: 1, roundNumber: 1, roundName: 'Semi-Finals', roundId: 1, heatNumber: 1, lanes: [] },
         ];
 
         render(
@@ -360,7 +360,7 @@ describe('ScheduleManagement', () => {
     it('disables add round button if final round exists', () => {
         // The check for "final" in name is simple string match as per component logic
         const finalHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Final Round' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Final Round' },
         ];
         render(
             <AlertProvider>
@@ -391,7 +391,7 @@ describe('ScheduleManagement', () => {
     it('calls onDeleteRound when delete button is clicked', async () => {
         const user = (await import('@testing-library/user-event')).default.setup();
         const roundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Round 1' },
         ];
 
         render(
@@ -425,7 +425,7 @@ describe('ScheduleManagement', () => {
 
     it('disables delete button if round has results', () => {
         const heatsWithResults: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": 1, "lane": 1, "time": 3.45}]', lanes: [lane({ lane: 1, racerId: 1, time: 3.45 })], roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [lane({ lane: 1, racerId: 1, time: 3.45 })], roundName: 'Round 1' },
         ];
 
         render(
@@ -458,8 +458,8 @@ describe('ScheduleManagement', () => {
 
   it('disables delete button for general round if championship round exists', () => {
     const multiRoundHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'General' },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Finals' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'General' },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, lanes: [], roundName: 'Finals' },
     ];
 
     render(
@@ -492,7 +492,7 @@ describe('ScheduleManagement', () => {
 
   it('disables run button when heat has placeholders', () => {
     const heatsWithPlaceholders: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": -1, "lane": 1, "time": null}]', lanes: [lane({ lane: 1, placeholderSlot: 1 })], roundName: 'Round 1' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [lane({ lane: 1, placeholderSlot: 1 })], roundName: 'Round 1' },
     ];
 
     render(
@@ -525,8 +525,8 @@ describe('ScheduleManagement', () => {
 
   it('disables run button for upcoming rounds', () => {
     const multiRoundHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 2' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Round 1' },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, lanes: [], roundName: 'Round 2' },
     ];
 
     render(

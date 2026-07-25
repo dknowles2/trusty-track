@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend.api.main import app
 from backend.db import crud, models, schemas
+from backend.tests.helpers import RECORD_FREE_RACE_RESULT, lane_input
 
 client = TestClient(app)
 
@@ -150,24 +151,17 @@ def test_record_free_race_result_mutation(db: Session):
         db, race_id, [{"lane": 1, "racer_id": r1}, {"lane": 2, "racer_id": None}]
     )
 
-    results = json.dumps(
-        [
-            {"lane": 1, "racer_id": r1, "time": 3.1415, "place": 1},
-            {"lane": 2, "racer_id": None, "time": None, "place": None},
-        ]
-    )
+    lanes = [
+        lane_input({"lane": 1, "racer_id": r1, "time": 3.1415, "place": 1}),
+        lane_input({"lane": 2, "racer_id": None, "time": None, "place": None}),
+    ]
 
-    mutation = """
-    mutation($heatId: Int!, $results: String!) {
-        recordFreeRaceResult(heatId: $heatId, results: $results) {
-            id
-            laneResults
-        }
-    }
-    """
     resp = client.post(
         "/graphql",
-        json={"query": mutation, "variables": {"heatId": heat.id, "results": results}},
+        json={
+            "query": RECORD_FREE_RACE_RESULT,
+            "variables": {"heatId": heat.id, "lanes": lanes},
+        },
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -182,18 +176,11 @@ def test_record_free_race_result_mutation(db: Session):
 def test_record_free_race_result_invalid_heat_id(db: Session):
     _create_race_with_track(db)
 
-    mutation = """
-    mutation($heatId: Int!, $results: String!) {
-        recordFreeRaceResult(heatId: $heatId, results: $results) {
-            id
-        }
-    }
-    """
     resp = client.post(
         "/graphql",
         json={
-            "query": mutation,
-            "variables": {"heatId": 9999, "results": "[]"},
+            "query": RECORD_FREE_RACE_RESULT,
+            "variables": {"heatId": 9999, "lanes": []},
         },
     )
     assert resp.status_code == 200
@@ -255,11 +242,15 @@ def test_active_free_race_heat_returns_running_heat(db: Session):
 
 def test_prepare_heat_is_free_race_flag(db: Session):
     # Use GQL to create track so TimerManager is initialized
-    track_resp = client.post("/graphql", json={
-        "query": 'mutation { createTrack(track: {name: "Test Track", laneCount: 4, timerType: "FAKE"}) { id } }'
-    })
+    track_resp = client.post(
+        "/graphql",
+        json={
+            "query": 'mutation { createTrack(track: {name: "Test Track", '
+            'laneCount: 4, timerType: "FAKE"}) { id } }'
+        },
+    )
     track_id = track_resp.json()["data"]["createTrack"]["id"]
-    
+
     group = crud.create_group(db, schemas.GroupCreate(name="Test Group"))
     race = crud.create_race(
         db,
@@ -271,10 +262,10 @@ def test_prepare_heat_is_free_race_flag(db: Session):
             car_numbering_strategy="MANUAL",
         ),
     )
-    
+
     # Force creation of a FreeRaceHeat
     free_heat = crud.create_free_race_heat(db, race.id, [{"lane": 1, "racer_id": None}])
-    
+
     # Try to prepare it as a free race
     mutation = """
     mutation($heatId: Int!, $isFreeRace: Boolean!) {
@@ -282,8 +273,11 @@ def test_prepare_heat_is_free_race_flag(db: Session):
     }
     """
     resp = client.post(
-        "/graphql", 
-        json={"query": mutation, "variables": {"heatId": free_heat.id, "isFreeRace": True}}
+        "/graphql",
+        json={
+            "query": mutation,
+            "variables": {"heatId": free_heat.id, "isFreeRace": True},
+        },
     )
     assert resp.status_code == 200
     assert resp.json()["data"]["prepareHeat"] is True
@@ -296,7 +290,10 @@ def test_prepare_heat_is_free_race_flag(db: Session):
     """
     resp = client.post(
         "/graphql",
-        json={"query": mutation_start, "variables": {"heatId": free_heat.id, "isFreeRace": True}}
+        json={
+            "query": mutation_start,
+            "variables": {"heatId": free_heat.id, "isFreeRace": True},
+        },
     )
     assert resp.json()["data"]["fakeTimerStart"] is True
 
@@ -308,6 +305,9 @@ def test_prepare_heat_is_free_race_flag(db: Session):
     """
     resp = client.post(
         "/graphql",
-        json={"query": mutation_finish, "variables": {"heatId": free_heat.id, "isFreeRace": True}}
+        json={
+            "query": mutation_finish,
+            "variables": {"heatId": free_heat.id, "isFreeRace": True},
+        },
     )
     assert resp.json()["data"]["fakeTimerFinish"] is True

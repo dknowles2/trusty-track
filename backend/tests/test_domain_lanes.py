@@ -151,3 +151,55 @@ def test_real_racer_ids_excludes_placeholders_and_gaps():
         )
     )
     assert lanes.real_racer_ids(parsed) == [5, 9]
+
+
+# --------------------------------------------------------------------------- #
+# carry_extras — the write path (#5, step 5)                                    #
+# --------------------------------------------------------------------------- #
+
+
+def test_carry_extras_keeps_keys_the_client_cannot_send():
+    """Structured input names every key this module models. Anything else is
+    invisible to the client, so the update has to inherit it."""
+    stored = lanes.parse(_blob({"lane": 1, "racer_id": 5, "someFutureKey": "keep"}))
+    updates = [lanes.Lane(lane=1, racer_id=5, time=3.2, place=1)]
+
+    merged = lanes.carry_extras(updates, stored)
+
+    assert merged[0].extra == {"someFutureKey": "keep"}
+    assert (merged[0].time, merged[0].place) == (3.2, 1)
+
+
+def test_carry_extras_does_not_carry_skipped():
+    """`skipped` is modelled now, so an update that omits it is un-skipping the
+    heat. Carrying it would make a skipped heat impossible to re-run."""
+    stored = lanes.parse(_blob({"lane": 1, "racer_id": 5, "skipped": True}))
+    merged = lanes.carry_extras([lanes.Lane(lane=1, racer_id=5)], stored)
+    assert merged[0].extra == {}
+    assert not merged[0].skipped
+
+
+def test_carry_extras_prefers_the_update():
+    stored = lanes.parse(_blob({"lane": 1, "racer_id": 5, "note": "old"}))
+    updates = [lanes.Lane(lane=1, racer_id=5, extra={"note": "new"})]
+    assert lanes.carry_extras(updates, stored)[0].extra == {"note": "new"}
+
+
+def test_carry_extras_matches_on_lane_number():
+    """Lanes can be sent in any order, and a lane can change occupant."""
+    stored = lanes.parse(
+        _blob({"lane": 1, "racer_id": 5, "note": "one"}, {"lane": 2, "note": "two"})
+    )
+    updates = [lanes.Lane(lane=2, racer_id=9), lanes.Lane(lane=1, racer_id=5)]
+
+    merged = lanes.carry_extras(updates, stored)
+
+    assert [lane.lane for lane in merged] == [2, 1]
+    assert merged[0].extra == {"note": "two"}
+    assert merged[1].extra == {"note": "one"}
+
+
+def test_carry_extras_handles_a_lane_with_no_stored_counterpart():
+    merged = lanes.carry_extras([lanes.Lane(lane=3, racer_id=7)], [])
+    assert merged[0].extra == {}
+    assert merged[0].racer_id == 7

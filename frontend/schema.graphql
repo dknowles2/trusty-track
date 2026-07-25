@@ -102,6 +102,15 @@ type HeatLane {
   skipped: Boolean!
 }
 
+input HeatLaneInput {
+  lane: Int!
+  racerId: Int = null
+  placeholderSlot: Int = null
+  time: Float = null
+  place: Int = null
+  skipped: Boolean! = false
+}
+
 input HeatReorderItemInput {
   heatId: Int!
   newHeatNumber: Int!
@@ -192,7 +201,7 @@ type Mutation {
   fakeTimerStart(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
   prepareHeat(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
   fakeTimerFinish(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
-  updateHeatResult(heatId: Int!, results: String!): Heat
+  updateHeatResult(heatId: Int!, lanes: [HeatLaneInput!]!): Heat
   bulkAutoNumber(racerIds: [Int!]!): Int!
   bulkClearNumbers(racerIds: [Int!]!): Boolean!
   bulkCheckIn(racerIds: [Int!]!, passedInspection: Boolean! = true): Boolean!
@@ -207,7 +216,7 @@ type Mutation {
   createRound(raceId: Int!, roundData: RoundCreateInput!): [Round!]!
   reorderHeats(heatUpdates: [HeatReorderItemInput!]!): HeatReorderResponse!
   startFreeRaceHeat(raceId: Int!, laneAssignments: [FreeRaceLaneAssignmentInput!]!): FreeRaceHeat!
-  recordFreeRaceResult(heatId: Int!, results: String!): FreeRaceHeat
+  recordFreeRaceResult(heatId: Int!, lanes: [HeatLaneInput!]!): FreeRaceHeat
   uploadImage(dataUrl: String!): String!
 }
 

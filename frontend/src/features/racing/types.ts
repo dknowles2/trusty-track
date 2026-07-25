@@ -10,7 +10,7 @@
  * Regenerate with `npm run codegen` after changing the query or the backend
  * schema; a mismatch becomes a compile error rather than a runtime `undefined`.
  */
-import type { GetRaceControlDataQuery } from '../../gql/operations';
+import type { GetRaceControlDataQuery, HeatLaneInput } from '../../gql/operations';
 
 type RaceControlRace = NonNullable<GetRaceControlDataQuery['race']>;
 
@@ -49,17 +49,10 @@ export type AdvancementRacer = AdvancementStatus['advancingRacers'][number];
 export type Lane = Heat['lanes'][number];
 
 /**
- * One lane as the *write* path still shapes it — the entries of the
- * `laneResults` JSON string that `updateHeatResult` accepts.
+ * One lane as the mutations take it.
  *
- * Not schema-derived, because on the wire it is only a `String`. Read paths
- * should use {@link Lane}; this exists because mutations have not moved over
- * yet. It disappears in #5, step 5, when they take structured input.
+ * Schema-derived too, since #5 step 5 replaced the JSON string they used to
+ * accept. Deliberately the same fields as {@link Lane} — what a screen reads is
+ * what it sends back, with no encoding step in between.
  */
-export interface LaneResult {
-  lane: number;
-  racer_id: number | null;
-  time: number | string | null;
-  place: number | null;
-  skipped?: boolean;
-}
+export type LaneInput = HeatLaneInput;

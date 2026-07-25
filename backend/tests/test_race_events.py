@@ -20,6 +20,7 @@ from backend.api import schema as schema_module
 from backend.api.pubsub import pubsub
 from backend.api.schema import RaceChangeKind, schema
 from backend.db import crud, models, schemas
+from backend.tests.helpers import record_heat_result
 
 
 def _seed(db):
@@ -264,17 +265,12 @@ def test_recording_a_result_through_graphql_publishes_a_heat_payload(client, db)
 
     schema_module._publish_race_state = spy
     try:
-        results = json.dumps(
-            [{"lane": 1, "racer_id": racer.id, "time": 3.1, "place": 1}]
-        ).replace('"', '\\"')
-        response = client.post(
-            "/graphql",
-            json={
-                "query": f"mutation {{ updateHeatResult(heatId: {heat_id}, "
-                f'results: "{results}") {{ id }} }}'
-            },
+        data = record_heat_result(
+            client,
+            heat_id,
+            [{"lane": 1, "racer_id": racer.id, "time": 3.1, "place": 1}],
         )
-        assert response.json()["data"]["updateHeatResult"]["id"] == heat_id
+        assert data["updateHeatResult"]["id"] == heat_id
     finally:
         schema_module._publish_race_state = original
 

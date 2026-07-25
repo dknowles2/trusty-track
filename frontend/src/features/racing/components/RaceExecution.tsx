@@ -19,10 +19,17 @@ export type {
     Racer,
     AdvancementRacer,
     AdvancementStatus,
-    LaneResult,
+    LaneInput,
 } from '../types';
-import type { Heat, Racer, AdvancementStatus, LaneResult, Lane } from '../types';
-import { hasRun, hasTimes } from '../lanes';
+import type { Heat, Racer, AdvancementStatus, LaneInput, Lane } from '../types';
+import { hasRun, hasTimes, toInput } from '../lanes';
+
+/**
+ * A lane being edited by hand. `time` is held as text while the operator types
+ * — "3." is not a number yet, and coercing on every keystroke would fight them
+ * for the cursor. It becomes a number on save.
+ */
+type EditableLane = LaneInput & { timeText: string };
 
 interface RaceExecutionProps {
     activeExecutionHeat: Heat | null;
@@ -31,7 +38,7 @@ interface RaceExecutionProps {
     onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
     onNextHeat: () => void;
     getRacerName: (id: number) => string;
-    onUpdateResult: (heatId: number, results: LaneResult[]) => Promise<void>;
+    onUpdateResult: (heatId: number, lanes: LaneInput[]) => Promise<void>;
     timerType?: string | null;
     trackId?: number | null;
     racers: Record<number, Racer>;
@@ -63,7 +70,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     debugMode,
 }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingResults, setEditingResults] = useState<LaneResult[]>([]);
+    const [editingResults, setEditingResults] = useState<EditableLane[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [isRoundSummaryOpen, setIsRoundSummaryOpen] = useState(!!roundSummary);
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
@@ -82,12 +89,6 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [, abortHeat] = useMutation(ABORT_HEAT);
     const [, forceResults] = useMutation(FORCE_RESULTS);
 
-    // This screen edits a heat, so it keeps a working copy in the shape the
-    // mutation still accepts — the `laneResults` blob. Everything that only
-    // *asks* about the heat reads `lanes` instead. The two converge in #5,
-    // step 5, when `updateHeatResult` takes structured input.
-    const results: LaneResult[] = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
-
     const lanes = activeExecutionHeat?.lanes ?? [];
     const hasRecordedTimes = hasTimes(lanes);
     const isSkipped = lanes.some((l) => l.skipped);
@@ -95,24 +96,27 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const isRunning = timerState === 'RUNNING' || timerState === 'RESULTS_OVERDUE';
     const hasPlaceholders = lanes.some((l) => l.placeholderSlot !== null);
 
-    const laneResultMap: Record<number, LaneResult> = {};
+    const laneResultMap: Record<number, Lane> = {};
     const racerMapping: Record<number, number | null> = subResult.data?.timerStatus?.status?.racerByLane
         ? JSON.parse(subResult.data.timerStatus.status.racerByLane)
         : {};
 
     if (isCompleted) {
-        results.forEach((r: LaneResult) => { laneResultMap[r.lane] = r; });
+        lanes.forEach((l) => { laneResultMap[l.lane] = l; });
     } else {
         // First populate with assignments
-        results.forEach((r: LaneResult) => {
-            laneResultMap[r.lane] = { ...r, time: null, place: null };
+        lanes.forEach((l) => {
+            laneResultMap[l.lane] = { ...l, time: null, place: null };
         });
 
         // Then overlay pending results from timer
         pendingResults.forEach((r: { lane: number, time: number | null, place: number | null, racerId?: number | null }) => {
             laneResultMap[r.lane] = {
+                ...laneResultMap[r.lane],
                 lane: r.lane,
-                racer_id: r.racerId || racerMapping[r.lane] || laneResultMap[r.lane]?.racer_id || null,
+                racerId: r.racerId || racerMapping[r.lane] || laneResultMap[r.lane]?.racerId || null,
+                placeholderSlot: laneResultMap[r.lane]?.placeholderSlot ?? null,
+                skipped: false,
                 time: r.time,
                 place: r.place,
             };
@@ -254,19 +258,26 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     }
 
     const handleEditOpen = () => {
-        setEditingResults(JSON.parse(JSON.stringify(results))); // Deep copy
+        setEditingResults(lanes.map((l) => ({
+            ...toInput(l),
+            timeText: l.time === null ? '' : String(l.time),
+        })));
         setIsEditModalOpen(true);
     };
 
     const handleResultChange = (index: number, field: 'time' | 'place', value: string) => {
         const newResults = [...editingResults];
-        if (field === 'time') newResults[index].time = value;
+        if (field === 'time') newResults[index].timeText = value;
         else if (field === 'place') newResults[index].place = parseInt(value) || null;
         setEditingResults(newResults);
     };
 
     const handleSaveResults = async () => {
-        await onUpdateResult(activeExecutionHeat.id, editingResults);
+        const edited = editingResults.map(({ timeText, ...rest }) => {
+            const time = Number(timeText);
+            return { ...rest, time: timeText.trim() === '' || isNaN(time) ? null : time };
+        });
+        await onUpdateResult(activeExecutionHeat.id, edited);
         setIsEditModalOpen(false);
     };
 
@@ -280,8 +291,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             setAutoAdvanceCountdown(null);
 
             const currentHeatId = activeExecutionHeat.id;
-            const skippedResults = results.map((r: LaneResult) => ({
-                ...r,
+            const skippedResults = lanes.map((l) => ({
+                ...toInput(l),
                 time: null,
                 place: null,
                 skipped: true
@@ -415,8 +426,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         </div>
 
                         <div style={{ display: 'grid', gap: '15px' }}>
-                            {results.map((r) => {
-                                const racer = racers[r.racer_id || 0];
+                            {lanes.map((r) => {
+                                const racer = racers[r.racerId || 0];
                                 // Use mapped results for real-time updates
                                 const m = laneResultMap[r.lane] || r;
                                 return (
@@ -435,7 +446,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', marginRight: '15px', background: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                                                 <RacerAvatar
                                                     racer={{
-                                                        id: racer?.id || r.racer_id || 0,
+                                                        id: racer?.id || r.racerId || 0,
                                                         first_name: racer?.firstName || '',
                                                         last_name: racer?.lastName || '',
                                                         racer_image_url: racer?.racerImageUrl
@@ -446,7 +457,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>
-                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id || 0)}
+                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0))}
                                                 </div>
                                                 {racer && <div style={{ fontSize: '1rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
                                             </div>
@@ -843,12 +854,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {editingResults.map((r, idx) => (
                                 <tr key={r.lane} style={{ borderBottom: '1px solid #eee' }}>
                                     <td style={{ padding: '8px' }}>{r.lane}</td>
-                                    <td style={{ padding: '8px' }}>{getRacerName(r.racer_id || 0)}</td>
+                                    <td style={{ padding: '8px' }}>{getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0))}</td>
                                     <td style={{ padding: '8px' }}>
                                         <input
                                             type="number"
                                             step="0.0001"
-                                            value={r.time || ''}
+                                            value={r.timeText}
                                             onChange={(e) => handleResultChange(idx, 'time', e.target.value)}
                                             className="form-control"
                                             style={{ width: '100px' }}
