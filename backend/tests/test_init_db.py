@@ -12,6 +12,10 @@ client = TestClient(app)
 
 
 def test_startup_creates_tables():
+    # Dispose pooled connections before touching the file so none of them
+    # are left referencing the file we're about to delete out from under them.
+    engine.dispose()
+
     # Clean up any existing test DB
     db_path = Path("/tmp/trustytrack_test/trusty-track.db")
     if db_path.exists():
