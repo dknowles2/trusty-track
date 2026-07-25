@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 from backend.api.main import app, get_db
 from backend.db import crud, schemas
 from backend.db.database import Base
+from backend.db.lane_sync import lanes_out_of_sync
 
 # Use in-memory SQLite database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -41,6 +42,28 @@ def db_session(engine):
     finally:
         db.close()
         Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def heat_lanes_stay_in_sync(db_session):
+    """Assert `heat_lanes` still matches the blobs at the end of every test.
+
+    Issue #5, step two. The projection in `db/lane_sync.py` has to hold for
+    every path that writes a blob, and there are more of those than anyone can
+    enumerate — eight or so in `crud.py`, plus the free-race helpers, plus
+    `TimerManager` writing from outside the request lifecycle.
+
+    Rather than trying to list them, this makes the whole existing suite the
+    test: scheduling, advancement, result recording, racer deletion, free race
+    and the timer are all already covered, so a write site that forgets to go
+    through the ORM fails here instead of silently rotting the table.
+    """
+    yield
+    # Anything a test left pending is a change the listener has not seen yet;
+    # flushing it is what a request or a commit would have done anyway.
+    db_session.flush()
+    problems = lanes_out_of_sync(db_session)
+    assert not problems, "heat_lanes drifted from lane_results:\n" + "\n".join(problems)
 
 
 @pytest.fixture(scope="function", autouse=True)
