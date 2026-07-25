@@ -287,7 +287,7 @@ export type CurrentlyRacingSubscriptionSubscriptionVariables = Exact<{
 }>;
 
 
-export type CurrentlyRacingSubscriptionSubscription = { currentlyRacing: { id: number, heatNumber: number, globalHeatNumber: number, roundNumber: number, roundName: string | null, laneResults: string | null } | null };
+export type CurrentlyRacingSubscriptionSubscription = { currentlyRacing: { id: number, heatNumber: number, globalHeatNumber: number, roundNumber: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null }> } | null };
 
 export type TimingStatsSubscriptionSubscriptionVariables = Exact<{
   raceId: number;
@@ -301,7 +301,7 @@ export type ActiveFreeRaceHeatSubscriptionSubscriptionVariables = Exact<{
 }>;
 
 
-export type ActiveFreeRaceHeatSubscriptionSubscription = { activeFreeRaceHeat: { id: number, laneAssignments: string, laneResults: string | null, createdAt: string } | null };
+export type ActiveFreeRaceHeatSubscriptionSubscription = { activeFreeRaceHeat: { id: number, createdAt: string, lanes: Array<{ lane: number, racerId: number | null }> } | null };
 
 export type CreateRoundWizardMutationVariables = Exact<{
   raceId: number;
