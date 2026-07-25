@@ -94,11 +94,6 @@ export type WizardGeneralRoundInput = {
   type: string;
 };
 
-export type GraphQlConnectivityTestQueryVariables = Exact<{ [key: string]: never; }>;
-
-
-export type GraphQlConnectivityTestQuery = { races: Array<{ id: number, name: string }> };
-
 export type GetTracksQueryVariables = Exact<{ [key: string]: never; }>;
 
 
