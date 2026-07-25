@@ -21,12 +21,15 @@ class CarNumberingStrategy(str, enum.Enum):
 
 
 class HeatKind(str, enum.Enum):
-    """Which table a heat id refers to.
+    """Whether a heat counts toward standings.
 
-    ``Heat`` and ``FreeRaceHeat`` are separate tables with independent
-    autoincrement sequences, so their ids overlap. Anything holding a bare heat
-    id must also carry the kind — never infer it by looking the id up in one
-    table and falling back to the other.
+    ``FREE`` is an exhibition run: the timer records it and the audience display
+    shows it, but scoring, scheduling and advancement ignore it.
+
+    Historically this distinguished two *tables* with overlapping autoincrement
+    sequences, so a bare heat id was ambiguous and had to be carried around with
+    its kind (issue #4). Issue #6 makes it a column on the one table, which is
+    what makes an id unambiguous again.
     """
 
     OFFICIAL = "OFFICIAL"
@@ -241,16 +244,47 @@ class Round(Base):
 
 
 class Heat(Base):
+    """A heat, official or free (issue #6).
+
+    ``kind`` is the difference. A free race heat is a heat that does not count
+    toward standings — a flag, not a second table. Anything that reads heats for
+    scoring, scheduling, advancement or statistics must say so; see
+    :func:`official_heats`, which exists so the filter is hard to forget.
+    """
+
     __tablename__ = "heats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
-    round_id: Mapped[int] = mapped_column(Integer, ForeignKey("rounds.id"))
+    # Null for free race heats, which belong to no round.
+    round_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("rounds.id"), nullable=True
+    )
+    kind: Mapped[HeatKind] = mapped_column(
+        SAEnum(HeatKind),
+        default=HeatKind.OFFICIAL,
+        server_default="OFFICIAL",
+        index=True,
+    )
     heat_number: Mapped[int] = mapped_column(Integer)
     lane_results: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    # Free race heats are listed newest first; official heats order by round and
+    # heat number and leave this null.
+    created_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="heats")
-    round: Mapped["Round"] = relationship("Round", back_populates="heats")
+    round: Mapped[Optional["Round"]] = relationship("Round", back_populates="heats")
+
+
+def official_heats(query):
+    """Restrict a ``Heat`` query to the heats that count.
+
+    Free race heats live in the same table (#6), so every query that feeds
+    standings, scheduling, advancement or statistics has to exclude them. Naming
+    the filter makes its absence visible at the call site, which a bare
+    ``.filter(Heat.kind == ...)`` scattered 25 times does not.
+    """
+    return query.filter(Heat.kind == HeatKind.OFFICIAL)
 
 
 class FreeRaceHeat(Base):

@@ -26,7 +26,11 @@ def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
     if not race:
         return None
 
-    heats = db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
+    # Official heats only: free race results are exhibition runs and would
+    # distort every statistic here (#6).
+    heats = models.official_heats(
+        db.query(models.Heat).filter(models.Heat.race_id == race_id)
+    ).all()
     rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
     round_map = {r.id: r for r in rounds}
 

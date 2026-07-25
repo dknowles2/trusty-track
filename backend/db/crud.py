@@ -425,8 +425,14 @@ def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
 def get_heats(
     db: Session, race_id: int, round_id: int | None = None
 ) -> list[models.Heat]:
-    """Get all heats for a specific race, ordered by round and heat number."""
-    query = db.query(models.Heat).filter(models.Heat.race_id == race_id)
+    """Get all heats for a specific race, ordered by round and heat number.
+
+    Official heats only — free race heats share the table (#6) and belong to no
+    round, so they have no place in a schedule.
+    """
+    query = models.official_heats(
+        db.query(models.Heat).filter(models.Heat.race_id == race_id)
+    )
     if round_id:
         return (
             query.filter(models.Heat.round_id == round_id)

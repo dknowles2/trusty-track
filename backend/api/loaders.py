@@ -81,14 +81,17 @@ class RequestLoaders:
 
         Eager-loading ``round`` here is what keeps ``Heat.round_number`` and
         ``Heat.round_name`` from costing a query each.
+
+        Official heats only. Free race heats live in the same table (#6) and
+        every caller of this feeds a schedule, a leaderboard or an advancement
+        decision — none of which they belong in.
         """
         if race_id not in self._heats_by_race:
-            self._heats_by_race[race_id] = (
+            self._heats_by_race[race_id] = models.official_heats(
                 self._db.query(models.Heat)
                 .options(selectinload(models.Heat.round))
                 .filter(models.Heat.race_id == race_id)
-                .all()
-            )
+            ).all()
         return self._heats_by_race[race_id]
 
     def heats_for_round(self, race_id: int, round_id: int) -> list[models.Heat]:

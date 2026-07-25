@@ -16,6 +16,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, inspect, text
 
+from backend.tests.helpers import build_pre_alembic_database
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -52,46 +54,45 @@ def _alembic(data_dir: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 def _seed_pre_migration(db_path: Path, heats: list, free_heats: list = ()) -> None:
-    """Build a database at 0002 with blob data, ready to be migrated.
+    """Build a pre-Alembic database holding blob data, ready to be migrated.
 
-    Deliberately hand-rolled rather than built through the ORM: the ORM knows
-    about `heat_lanes`, and the point is to reproduce what a real pre-#5
-    database looks like on disk.
+    The schema comes from `0001_baseline` rather than a hand-written CREATE
+    TABLE. A minimal fixture that declares only the columns a test reads passes
+    until some later migration touches a column it left out, and then fails
+    looking like the migration is at fault — which is exactly what happened when
+    #6 made `heats.round_id` nullable.
     """
-    engine = create_engine(f"sqlite:///{db_path}")
-    with engine.begin() as conn:
-        # `groups` is what init_db() looks for to recognise a pre-Alembic
-        # database and stamp it rather than running the baseline over the top.
-        conn.execute(text("CREATE TABLE groups (id INTEGER PRIMARY KEY, name VARCHAR)"))
-        conn.execute(text("CREATE TABLE racers (id INTEGER PRIMARY KEY, name VARCHAR)"))
-        conn.execute(
-            text("CREATE TABLE heats (id INTEGER PRIMARY KEY, lane_results VARCHAR)")
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE free_race_heats (id INTEGER PRIMARY KEY, "
-                "lane_assignments VARCHAR, lane_results VARCHAR)"
-            )
-        )
+
+    def seed(conn):
         for racer_id in range(1, 20):
             conn.execute(
-                text("INSERT INTO racers (id, name) VALUES (:i, :n)"),
-                {"i": racer_id, "n": f"Racer {racer_id}"},
+                text(
+                    "INSERT INTO racers "
+                    "(id, race_id, first_name, last_name, car_passed_inspection) "
+                    "VALUES (:i, 1, 'Racer', :n, 0)"
+                ),
+                {"i": racer_id, "n": str(racer_id)},
             )
         for heat_id, blob in heats:
             conn.execute(
-                text("INSERT INTO heats (id, lane_results) VALUES (:i, :b)"),
+                text(
+                    "INSERT INTO heats (id, race_id, round_id, heat_number, "
+                    "lane_results) VALUES (:i, 1, 1, :i, :b)"
+                ),
                 {"i": heat_id, "b": blob},
             )
         for heat_id, assignments, results in free_heats:
             conn.execute(
                 text(
-                    "INSERT INTO free_race_heats (id, lane_assignments, lane_results) "
-                    "VALUES (:i, :a, :r)"
+                    "INSERT INTO free_race_heats (id, race_id, lane_assignments, "
+                    "lane_results, created_at) "
+                    "VALUES (:i, 1, :a, :r, '2026-01-01T00:00:00Z')"
                 ),
                 {"i": heat_id, "a": assignments, "r": results},
             )
-    engine.dispose()
+
+    built = build_pre_alembic_database(db_path.parent, seed=seed)
+    assert built == db_path
 
 
 def _lanes(db_path: Path, kind: str = "OFFICIAL", heat_id: int = 1) -> list[dict]:

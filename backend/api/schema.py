@@ -2654,9 +2654,9 @@ class Subscription:
             db = info.context["db"]
 
             def _get_on_deck():
-                heats = (
-                    db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
-                )
+                heats = models.official_heats(
+                    db.query(models.Heat).filter(models.Heat.race_id == race_id)
+                ).all()
                 # Sort by round number and heat number
                 sorted_heats = sorted(
                     heats, key=lambda h: (h.round.round_number, h.heat_number)
@@ -2701,9 +2701,9 @@ class Subscription:
             db = info.context["db"]
 
             def _get_current():
-                heats = (
-                    db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
-                )
+                heats = models.official_heats(
+                    db.query(models.Heat).filter(models.Heat.race_id == race_id)
+                ).all()
                 sorted_heats = sorted(
                     heats, key=lambda h: (h.round.round_number, h.heat_number)
                 )
@@ -2733,12 +2733,11 @@ class Subscription:
 
             def _get_timing_stats():
                 # Official heats
-                heats = (
+                heats = models.official_heats(
                     db.query(models.Heat)
                     .filter(models.Heat.race_id == race_id)
                     .join(models.Round)
-                    .all()
-                )
+                ).all()
                 completed_official = [
                     h
                     for h in heats
@@ -2806,7 +2805,7 @@ class Subscription:
                 else:
                     this_round = target_heat.round
                     before_count = (
-                        db.query(models.Heat)
+                        models.official_heats(db.query(models.Heat))
                         .join(models.Round, models.Heat.round_id == models.Round.id)
                         .filter(models.Heat.race_id == race_id)
                         .filter(
