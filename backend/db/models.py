@@ -294,3 +294,57 @@ class FreeRaceHeat(Base):
     def advancement_source(self) -> Optional[str]:
         """Get the advancement source from the related Round."""
         return self.round.advancement_source if self.round else None
+
+
+class HeatLane(Base):
+    """One lane of one heat: an assignment, and possibly a result.
+
+    Replaces the ``lane_results`` JSON blob, which encoded the schedule, the
+    results, the placeholders for unadvanced championship slots, and the heat's
+    status all in one string with no foreign key to a racer (issue #5).
+
+    Identity
+    --------
+    ``heat_id`` is qualified by ``kind`` because ``heats`` and
+    ``free_race_heats`` are still separate tables with overlapping
+    autoincrement sequences. It is therefore deliberately **not** a foreign key
+    yet — it cannot reference two tables at once. Issue #6 folds those tables
+    together, after which this becomes a real FK and ``kind`` moves onto the
+    heat itself.
+
+    Placeholders
+    ------------
+    An unadvanced championship slot has ``racer_id`` null and
+    ``placeholder_slot`` set to 1, 2, 3… The blob encoded these as *negative*
+    racer ids, which a real foreign key cannot express. The slot is scheduling
+    data in its own right — PPC decides which slot races in which lane when the
+    round is created, long before anyone has qualified — so it has to be
+    stored, not derived.
+
+    A row with neither is an empty lane in a short heat.
+    """
+
+    __tablename__ = "heat_lanes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    heat_id: Mapped[int] = mapped_column(Integer, index=True)
+    kind: Mapped[HeatKind] = mapped_column(
+        SAEnum(HeatKind), default=HeatKind.OFFICIAL, index=True
+    )
+    lane: Mapped[int] = mapped_column(Integer)
+
+    racer_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("racers.id"), nullable=True
+    )
+    placeholder_slot: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Kept as a float rather than the blob's mixed float/string. A recorded 0.0
+    # means the timer saw a start but never a finish; scoring turns that into a
+    # DNF penalty.
+    time_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    place: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Set by the operator UI when a heat is passed over rather than run.
+    skipped: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
