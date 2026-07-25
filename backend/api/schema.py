@@ -63,6 +63,30 @@ def _loaders(info: Info) -> RequestLoaders:
     return loaders
 
 
+def _free_race_heats(db: Session, race_id: int, recorded: bool) -> list[models.Heat]:
+    """A race's free heats, newest first, split on whether they have been run.
+
+    Since #6 a free heat holds its schedule in ``lane_results`` from the moment
+    it is created, just as an official heat does, so "has it been run" is no
+    longer a null check on a column and cannot be asked in SQL of a JSON blob.
+    Free heats are few and short-lived, so the scan is cheap.
+    """
+    heats = (
+        db.query(models.Heat)
+        .filter(
+            models.Heat.race_id == race_id,
+            models.Heat.kind == models.HeatKind.FREE,
+        )
+        .order_by(models.Heat.id.desc())
+        .all()
+    )
+    return [
+        heat
+        for heat in heats
+        if lanes.has_results(lanes.parse(heat.lane_results)) is recorded
+    ]
+
+
 def _as_heat_lanes(rows: Iterable[models.HeatLane]) -> list["HeatLane"]:
     """``heat_lanes`` rows as the GraphQL type."""
     return [
@@ -78,13 +102,10 @@ def _as_heat_lanes(rows: Iterable[models.HeatLane]) -> list["HeatLane"]:
     ]
 
 
-def _heat_lanes(
-    info: Info, obj: Any, heat_id: int, kind: models.HeatKind
-) -> list["HeatLane"]:
+def _heat_lanes(info: Info, obj: Any, heat_id: int) -> list["HeatLane"]:
     """Resolve a heat's lanes, from a snapshot if it brought its own.
 
-    Defined here rather than as a method so both heat types share it — they are
-    two tables only until issue #6 merges them.
+    Defined here rather than as a method so both GraphQL heat types share it.
 
     ``obj`` is whatever is standing in for the heat. Events published to
     subscribers carry a detached :class:`_HeatSnapshot` with its lanes already
@@ -94,7 +115,7 @@ def _heat_lanes(
     captured = getattr(obj, "captured_lanes", None)
     if captured is not None:
         return captured
-    return _as_heat_lanes(_loaders(info).lanes_for_heat(obj.race_id, heat_id, kind))
+    return _as_heat_lanes(_loaders(info).lanes_for_heat(obj.race_id, heat_id))
 
 
 @strawberry.type
@@ -149,7 +170,7 @@ class Heat:
     @strawberry.field
     def lanes(self, info: Info) -> list[HeatLane]:
         """This heat's lanes, in lane order."""
-        return _heat_lanes(info, self, self.id, models.HeatKind.OFFICIAL)
+        return _heat_lanes(info, self, self.id)
 
     @strawberry.field
     def round_number(self) -> int:
@@ -807,22 +828,32 @@ class Group:
 
 @strawberry.type
 class FreeRaceHeat:
-    """A heat run in Free Race mode. Results do not affect standings."""
+    """A heat run in Free Race mode. Results do not affect standings.
+
+    Backed by a ``Heat`` row with ``kind = FREE`` since #6; the separate table
+    is gone. Kept as its own GraphQL type because the free race screens ask
+    different questions of it than the race-control screens ask of a heat.
+    """
 
     id: int
     race_id: int
-    lane_assignments: str  # JSON
-    lane_results: Optional[str]  # JSON, null until completed
     created_at: str
 
     @strawberry.field
     def lanes(self, info: Info) -> list[HeatLane]:
-        """This heat's lanes, in lane order.
+        """This heat's lanes, in lane order."""
+        return _heat_lanes(info, self, self.id)
 
-        Free race keeps the schedule and the results in two columns; the table
-        holds the merge, so an unrun lane still reports who is in it.
+    @strawberry.field
+    def recorded(self) -> bool:
+        """Whether a result has been recorded.
+
+        Replaces testing ``laneResults`` for null. A free race heat used to keep
+        its schedule and its results in two columns, so an unrecorded heat had
+        no results at all; now it holds its schedule in the same place an
+        official heat does, and the question is whether anything was timed.
         """
-        return _heat_lanes(info, self, self.id, models.HeatKind.FREE)
+        return lanes.has_results(lanes.parse(self.lane_results))
 
 
 @strawberry.type
@@ -1056,22 +1087,19 @@ class Query:
 
     @strawberry.field
     def active_free_race_heat(self, info: Info, race_id: int) -> Optional[FreeRaceHeat]:
+        """The most recently started free race heat with no result yet.
+
+        None if nothing is in progress. Used by the Observation page to show
+        exhibition heats.
+
+        "No result yet" used to be a null ``lane_results`` column. Since #6 a
+        free heat holds its schedule there from the moment it is created, like
+        an official one, so the question is whether any lane was timed — which
+        cannot be asked in SQL of a JSON blob, hence the scan. Free heats are
+        few and short-lived.
         """
-        Return the most recently started FreeRaceHeat whose results have not yet
-        been recorded (lane_results is null). Returns None if no heat is in
-        progress. Used by the Observation page to show exhibition heats.
-        """
-        return typing.cast(
-            Any,
-            info.context["db"]
-            .query(models.FreeRaceHeat)
-            .filter(
-                models.FreeRaceHeat.race_id == race_id,
-                models.FreeRaceHeat.lane_results.is_(None),
-            )
-            .order_by(models.FreeRaceHeat.id.desc())
-            .first(),
-        )
+        unrun = _free_race_heats(info.context["db"], race_id, recorded=False)
+        return typing.cast(Any, unrun[0]) if unrun else None
 
     @strawberry.field
     def random_free_race_lanes(
@@ -1565,11 +1593,7 @@ class Mutation:
     async def delete_free_race_heat(self, info: Info, heat_id: int) -> bool:
         """Delete a single free race heat."""
         db = info.context["db"]
-        heat = (
-            db.query(models.FreeRaceHeat)
-            .filter(models.FreeRaceHeat.id == heat_id)
-            .first()
-        )
+        heat = crud.get_free_race_heat(db, heat_id)
         race_id = heat.race_id if heat else None
         try:
             result = crud.delete_free_race_heat(db, heat_id)
@@ -1662,11 +1686,7 @@ class Mutation:
         db = info.context["db"]
 
         if is_free_race:
-            free_heat = (
-                db.query(models.FreeRaceHeat)
-                .filter(models.FreeRaceHeat.id == heat_id)
-                .first()
-            )
+            free_heat = crud.get_free_race_heat(db, heat_id)
             if not free_heat:
                 return False
             race_id = free_heat.race_id
@@ -1690,7 +1710,10 @@ class Mutation:
 
     @strawberry.mutation
     async def prepare_heat(
-        self, info: Info, heat_id: int, is_free_race: bool = False
+        self,
+        info: Info,
+        heat_id: int,
+        is_free_race: bool = False,  # noqa: ARG002
     ) -> bool:
         """Arm the timer for a heat (all timer types).
 
@@ -1698,82 +1721,46 @@ class Mutation:
         TimerManager.prepare_heat() which sends device commands and transitions
         to ARMED state. For the fake timer no serial commands are sent but the
         state still advances.
+
+        ``is_free_race`` is accepted and ignored: heat ids are unique across
+        both kinds since #6, so the kind is read off the heat rather than
+        trusted from the caller. Callers still pass it.
         """
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        heat = None
-        free_heat = None
-
-        if is_free_race:
-            free_heat = (
-                db.query(models.FreeRaceHeat)
-                .filter(models.FreeRaceHeat.id == heat_id)
-                .first()
-            )
-            if not free_heat:
-                return False
-            race = (
-                db.query(models.Race)
-                .filter(models.Race.id == free_heat.race_id)
-                .first()
-            )
-            lane_results = (
-                json.loads(free_heat.lane_assignments)
-                if free_heat.lane_assignments
-                else []
-            )
-        else:
-            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if not heat:
-                return False
-            race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
-            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
-
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if not heat:
+            return False
+        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
         if race is None or race.track_id is None:
             return False
         mgr = timer_managers.get(race.track_id)
         if mgr is None:
             return False
 
-        # Compute lane mask and racer mapping
         lane_mask = 0
-        racer_by_lane = {}
-        if is_free_race:
-            # For free races, only arm assigned lanes if any exist.
-            # Otherwise arm all lanes on the track so the timer captures everything.
-            occupied_lanes = [
-                lr["lane"] for lr in lane_results if lr.get("racer_id") is not None
-            ]
-            if occupied_lanes:
-                for lr in lane_results:
-                    if lr.get("racer_id") is not None:
-                        lane = lr["lane"]
-                        lane_mask |= 1 << (lane - 1)
-                        racer_by_lane[lane] = lr["racer_id"]
-            else:
-                track = (
-                    db.query(models.Track)
-                    .filter(models.Track.id == race.track_id)
-                    .first()
-                )
-                if track:
-                    lane_mask = (1 << track.lane_count) - 1
-        else:
-            # For official heats, compute lane mask from occupied
-            # (non-null racer_id) lanes
-            for lr in lane_results:
-                if lr.get("racer_id") is not None:
-                    lane = lr["lane"]
-                    lane_mask |= 1 << (lane - 1)
-                    racer_by_lane[lane] = lr["racer_id"]
+        racer_by_lane: dict[int, Optional[int]] = {}
+        for lane in lanes.parse(heat.lane_results):
+            if lane.racer_id is not None:
+                lane_mask |= 1 << (lane.lane - 1)
+                racer_by_lane[lane.lane] = lane.racer_id
+
+        if lane_mask == 0 and heat.kind is models.HeatKind.FREE:
+            # A free heat with nobody assigned arms the whole track: the point
+            # of an exhibition run is to time whatever is on it.
+            track = (
+                db.query(models.Track).filter(models.Track.id == race.track_id).first()
+            )
+            if track:
+                lane_mask = (1 << track.lane_count) - 1
 
         if lane_mask == 0:
             return False
 
         await mgr.prepare_heat(
             heat_id=heat_id,
-            kind=models.HeatKind.FREE if is_free_race else models.HeatKind.OFFICIAL,
+            kind=heat.kind,
             lane_mask=lane_mask,
             racer_by_lane=racer_by_lane,
         )
@@ -1781,7 +1768,10 @@ class Mutation:
 
     @strawberry.mutation
     async def fake_timer_finish(
-        self, info: Info, heat_id: int, is_free_race: bool = False
+        self,
+        info: Info,
+        heat_id: int,
+        is_free_race: bool = False,  # noqa: ARG002
     ) -> bool:
         """Generate random results and record them for the fake timer (RUNNING → IDLE).
 
@@ -1789,34 +1779,17 @@ class Mutation:
         them, assigns placements, then injects LaneResult events into the
         TimerManager. The manager records results through the same path as a
         real timer. Returns False if the timer is not in RUNNING state.
+
+        ``is_free_race`` is accepted and ignored — see ``prepare_heat``.
         """
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        if is_free_race:
-            # Check FreeRaceHeat
-            free_heat = (
-                db.query(models.FreeRaceHeat)
-                .filter(models.FreeRaceHeat.id == heat_id)
-                .first()
-            )
-            if not free_heat:
-                return False
-            race_id = free_heat.race_id
-            lane_results = (
-                json.loads(free_heat.lane_assignments)
-                if free_heat.lane_assignments
-                else []
-            )
-        else:
-            # Official Heat
-            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if not heat:
-                return False
-            race_id = heat.race_id
-            lane_results = json.loads(heat.lane_results) if heat.lane_results else []
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if not heat:
+            return False
 
-        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
         if race is None or race.track_id is None:
             return False
         mgr = timer_managers.get(race.track_id)
@@ -1825,7 +1798,11 @@ class Mutation:
         if mgr._state != TimerState.RUNNING or mgr._active_heat_id != heat_id:
             return False
 
-        occupied = [lr["lane"] for lr in lane_results if lr.get("racer_id") is not None]
+        occupied = [
+            lane.lane
+            for lane in lanes.parse(heat.lane_results)
+            if lane.racer_id is not None
+        ]
         if not occupied:
             # If no racers are assigned (e.g., anonymous free race),
             # generate results for all lanes.
@@ -2325,11 +2302,7 @@ class Mutation:
         null — the operator saw a heat that would not record and no reason why.
         """
         db = info.context["db"]
-        heat = (
-            db.query(models.FreeRaceHeat)
-            .filter(models.FreeRaceHeat.id == heat_id)
-            .first()
-        )
+        heat = crud.get_free_race_heat(db, heat_id)
         if heat is None:
             return None
         lane_results = [
@@ -2442,10 +2415,7 @@ class _HeatSnapshot:
         self.captured_lanes = (
             _as_heat_lanes(
                 session.query(models.HeatLane)
-                .filter(
-                    models.HeatLane.kind == models.HeatKind.OFFICIAL,
-                    models.HeatLane.heat_id == heat.id,
-                )
+                .filter(models.HeatLane.heat_id == heat.id)
                 .order_by(models.HeatLane.lane)
                 .all()
             )
@@ -2751,13 +2721,7 @@ class Subscription:
                 )
 
                 # Free race heats
-                free_heats = (
-                    db.query(models.FreeRaceHeat)
-                    .filter(models.FreeRaceHeat.race_id == race_id)
-                    .filter(models.FreeRaceHeat.lane_results.is_not(None))
-                    .order_by(models.FreeRaceHeat.id.desc())
-                    .all()
-                )
+                free_heats = _free_race_heats(db, race_id, recorded=True)
 
                 # Pick the most recent one.
                 # Since we don't have a reliable cross-table timestamp for all,
@@ -2865,11 +2829,7 @@ class Subscription:
         db = info.context["db"]
 
         def _get_heat():
-            return (
-                db.query(models.FreeRaceHeat)
-                .filter(models.FreeRaceHeat.id == heat_id)
-                .first()
-            )
+            return crud.get_free_race_heat(db, heat_id)
 
         yield _get_heat()
         # Find race_id to subscribe to race_state changes
@@ -2893,15 +2853,8 @@ class Subscription:
             db = info.context["db"]
 
             def _get_active_free():
-                return (
-                    db.query(models.FreeRaceHeat)
-                    .filter(
-                        models.FreeRaceHeat.race_id == race_id,
-                        models.FreeRaceHeat.lane_results.is_(None),
-                    )
-                    .order_by(models.FreeRaceHeat.id.desc())
-                    .first()
-                )
+                unrun = _free_race_heats(db, race_id, recorded=False)
+                return unrun[0] if unrun else None
 
             yield _get_active_free()
             async for _ in stream:

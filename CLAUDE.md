@@ -124,7 +124,7 @@ Race            id, name, date_time, location, group_id, track_id,
   ├─ Round[]          (cascade delete)
   ├─ Heat[]
   ├─ RacingGroup[]
-  └─ FreeRaceHeat[]   (cascade delete)
+  └─ Heat[]           (both kinds; see `Heat.kind`)
 
 Den             id, race_id, name, color, rank,
                 car_number_range_start, car_number_range_end
@@ -138,9 +138,10 @@ RacingGroup     id, race_id, den_id?, name, car_number_range_*
 Round           id, race_id, round_number, name, scheduling_strategy,
                 advancement_source, advancement_num_racers, den_id?
 
-Heat            id, race_id, round_id, heat_number, lane_results (JSON string)
+Heat            id, race_id, round_id?, kind, heat_number, lane_results (JSON string),
+                created_at?
 
-FreeRaceHeat    id, race_id, lane_assignments (JSON), lane_results (JSON), created_at
+
 ```
 
 ### Enums (`backend/db/models.py`)
@@ -172,12 +173,12 @@ There is no foreign key from a lane to a racer. `updateHeatResult` takes the who
 
 The normalized `heat_lanes` table exists and is kept current. The blob is still the source of truth — everything **writes** the blob, and `backend/db/lane_sync.py` listens on the SQLAlchemy `Session` and projects those writes into the table, so no write site needs to know it exists. Two consequences:
 
-- **Write heats through the ORM.** A raw `UPDATE heats SET lane_results = ...`, or a bulk delete of a table other than `heats`/`free_race_heats`, bypasses the listener and silently rots the table.
+- **Write heats through the ORM.** A raw `UPDATE heats SET lane_results = ...`, or a bulk delete of a table other than `heats`, bypasses the listener and silently rots the table.
 - **`conftest.py` asserts `lane_sync.lanes_out_of_sync()` is empty after every test**, which is what makes the whole suite a test of the projection. If a change makes that fail, the projection is wrong — not the check.
 
-`heat_lanes.heat_id` is deliberately **not** a foreign key: heats live in two tables until issue #6 merges them, so the `kind` column carries the discriminator (see below) and `lane_sync` handles the cascade itself.
+`heat_lanes.heat_id` is a real foreign key since #6. `lane_sync` still cascades deletions itself, because a bulk `query(Heat).delete()` never loads the rows.
 
-**Reading: prefer `Heat.lanes` / `FreeRaceHeat.lanes` over `laneResults`.** The GraphQL read path is structured and comes from the table:
+**Reading: use `Heat.lanes` / `FreeRaceHeat.lanes`.** The GraphQL read path is structured and comes from the table:
 
 ```graphql
 lanes { lane racerId placeholderSlot time place skipped }
@@ -197,9 +198,15 @@ The blob is still the storage format; `_lanes_from_input` in `schema.py` convert
 
 On the frontend, no code parses lane JSON any more. Screens read `lanes`, ask about a heat through the named predicates in `features/racing/lanes.ts` (`hasRun`, `hasTimes`, `wasSkipped`, `byPlace`), and send changes back with `toInput` / `cleared`. Build heat fixtures with `features/racing/testFixtures.ts`.
 
-### ⚠️ Heat IDs are not unique across tables
+### ⚠️ Free race heats share the `heats` table
 
-`heats` and `free_race_heats` have independent autoincrement sequences, so their IDs overlap. **Anything holding a bare heat ID must also carry a `HeatKind`** — never infer the kind by looking an ID up in one table and falling back to the other. Doing exactly that used to write free-race times into official heats (issue #4). Issue #6 folds the two tables together.
+A free race heat is a `Heat` with `kind = FREE` and no `round_id` (issue #6). It is an exhibition run: the timer records it and the audience display shows it, but **scoring, scheduling, advancement and statistics must exclude it**.
+
+**Use `models.official_heats(query)`** rather than writing the filter out, so its absence is visible at the call site. The paths that depend on it are `crud.get_heats`, `loaders.heats_for_race`, `compute_race_stats`, and the `onDeck` / `currentlyRacing` / `timingStats` subscriptions; `test_heat_kind.py` inserts a free heat and checks each one. `delete_race` deliberately does *not* filter — it takes both.
+
+Heat IDs used to be ambiguous: `heats` and `free_race_heats` had independent autoincrement sequences, so anything holding a bare ID had to carry a `HeatKind` alongside it, and inferring the kind by looking an ID up in one table and falling back to the other wrote free-race times into official heats (issue #4). One table means one sequence, so an ID is unambiguous and code reads the kind off the heat rather than being told it.
+
+**"Has this heat been run" is one question for both kinds**: whether any lane holds a time (`lanes.has_results`). A free heat's schedule goes into `lane_results` when it is created, exactly as a generated official heat's does. `FreeRaceHeat.recorded` in GraphQL exposes this; it replaces testing `laneResults` for null.
 
 ---
 
@@ -273,7 +280,7 @@ Defined entirely in `backend/api/schema.py`.
   - **Subscriptions hold a context open for the whole connection.** If you add a subscription that re-reads the DB, call `_loaders(info).clear()` after `db.expire_all()`, or it will replay stale data to the audience displays.
 - **The domain layer (`backend/domain/`) imports no SQLAlchemy and no Strawberry.** Scheduling, scoring, and advancement are plain functions over plain values; `crud.py` and `services/` load rows, call them, and persist the answer. Put a *rule* there and its *I/O* in the caller. Keep it importable without a database — that is what lets `test_domain_scheduling.py` run every racer count from 2 to 20 against every lane count from 2 to 8 in under a second, which is how issue #26 was found.
   - Enum-ish values cross the boundary as plain strings. `ScoringStrategy` and friends are `str` enums whose values equal their names, so they pass through unchanged and there is no second copy of the vocabulary.
-- **Cascade deletes:** deleting a `Race` cascades to `Den`, `Round`, and `FreeRaceHeat`; deleting a `Round` cascades to its `Heat`s.
+- **Cascade deletes:** deleting a `Race` cascades to `Den` and `Round`, and removes its heats of both kinds; deleting a `Round` cascades to its `Heat`s.
 - **Scoring is always computed on demand** in `services/scoring.py`. There is no stored leaderboard.
 - **Data directory** defaults to `~/.trustytrack`; override with `TRUSTYTRACK_DATA_DIR`. Images land in `uploads/` there and are served from `/static/<filename>`.
 - **The unified server** serves `frontend/dist` with an SPA catch-all. Health check at `/health`.
@@ -343,7 +350,6 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 | Issue | Area |
 | --- | --- |
 | #5 | Normalize `lane_results` into a `heat_lanes` table |
-| #6 | Fold `FreeRaceHeat` into `Heat` |
 | #7 | Server-owned `HeatSession` as the single source of truth for live race state |
 | #12 | Subscriptions should carry payloads instead of triggering full refetches |
 | #13 | Model the race-day flow as an explicit state machine |

@@ -60,10 +60,9 @@ export type DenStat = {
 export type FreeRaceHeat = {
   createdAt: Scalars['String']['output'];
   id: Scalars['Int']['output'];
-  laneAssignments: Scalars['String']['output'];
-  laneResults?: Maybe<Scalars['String']['output']>;
   lanes: Array<HeatLane>;
   raceId: Scalars['Int']['output'];
+  recorded: Scalars['Boolean']['output'];
 };
 
 export type FreeRaceLaneAssignment = {

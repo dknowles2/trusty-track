@@ -64,10 +64,10 @@ def _heat(db, race, blob):
     return heat
 
 
-def _lanes(db, heat_id, kind=models.HeatKind.OFFICIAL):
+def _lanes(db, heat_id):
     return (
         db.query(models.HeatLane)
-        .filter(models.HeatLane.heat_id == heat_id, models.HeatLane.kind == kind)
+        .filter(models.HeatLane.heat_id == heat_id)
         .order_by(models.HeatLane.lane)
         .all()
     )
@@ -203,7 +203,7 @@ def test_free_race_results_take_the_same_input(client, db, race, racer):
         },
     )
 
-    rows = _lanes(db, heat.id, models.HeatKind.FREE)
+    rows = _lanes(db, heat.id)
     assert [row.time_seconds for row in rows] == [3.14, None]
 
 

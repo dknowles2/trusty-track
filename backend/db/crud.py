@@ -4,6 +4,7 @@ import json
 import random
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.domain import advancement, lanes, scheduling
@@ -180,11 +181,6 @@ def delete_race(db: Session, race_id: int) -> bool:
     # However, if heats are linked to race directly as well...
     # Heat model has race_id.
     db.query(models.Heat).filter(models.Heat.race_id == race_id).delete()
-
-    # Free race heats
-    db.query(models.FreeRaceHeat).filter(
-        models.FreeRaceHeat.race_id == race_id
-    ).delete()
 
     db.delete(race)
     db.commit()
@@ -384,35 +380,26 @@ def _remove_racer_from_regular_heats(db: Session, racer_ids: set[int], round_id:
 
 
 def _remove_racer_from_free_heats(db: Session, racer_ids: set[int], race_id: int):
-    """Nullify lane entries for deleted racers in free race heats of a race."""
+    """Nullify lane entries for deleted racers in a race's free heats."""
     free_heats = (
-        db.query(models.FreeRaceHeat)
-        .filter(models.FreeRaceHeat.race_id == race_id)
+        db.query(models.Heat)
+        .filter(
+            models.Heat.race_id == race_id,
+            models.Heat.kind == models.HeatKind.FREE,
+        )
         .all()
     )
-    for fh in free_heats:
+    for heat in free_heats:
+        heat_lanes = lanes.parse(heat.lane_results)
         modified = False
-        # Update assignments
-        assignments = json.loads(fh.lane_assignments)
-        for lane in assignments:
-            if lane.get("racer_id") in racer_ids:
-                lane["racer_id"] = None
+        for lane in heat_lanes:
+            if lane.racer_id in racer_ids:
+                lane.racer_id = None
+                lane.time = None
+                lane.place = None
                 modified = True
         if modified:
-            fh.lane_assignments = json.dumps(assignments)
-
-        # Update results if they exist
-        if fh.lane_results:
-            results = json.loads(fh.lane_results)
-            results_modified = False
-            for lane in results:
-                if lane.get("racer_id") in racer_ids:
-                    lane["racer_id"] = None
-                    lane["time"] = None
-                    lane["place"] = None
-                    results_modified = True
-            if results_modified:
-                fh.lane_results = json.dumps(results)
+            heat.lane_results = lanes.serialize(heat_lanes)
 
 
 def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
@@ -552,11 +539,9 @@ def delete_heat(db: Session, heat_id: int) -> bool:
 
 def delete_free_race_heat(db: Session, heat_id: int) -> bool:
     """Delete a free race heat. Only if it hasn't been run."""
-    heat = (
-        db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
-    )
+    heat = get_free_race_heat(db, heat_id)
     if heat:
-        if heat.lane_results:
+        if lanes.has_results(lanes.parse(heat.lane_results)):
             raise ValueError("Cannot delete free race heat: it has results.")
         db.delete(heat)
         db.commit()
@@ -1051,13 +1036,21 @@ def create_free_race_heat(
     db: Session,
     race_id: int,
     lane_assignments: list[dict],
-) -> models.FreeRaceHeat:
-    """Create a new FreeRaceHeat with the given lane assignments."""
+) -> models.Heat:
+    """Create a free race heat from the given lane assignments.
+
+    The assignments go straight into ``lane_results`` with no times, exactly as
+    a generated official heat does. "Has this been run" is then one question for
+    both kinds — whether any lane holds a time (#6).
+    """
     from datetime import datetime, timezone
 
-    heat = models.FreeRaceHeat(
+    heat = models.Heat(
         race_id=race_id,
-        lane_assignments=json.dumps(lane_assignments),
+        round_id=None,
+        kind=models.HeatKind.FREE,
+        heat_number=_next_free_heat_number(db, race_id),
+        lane_results=json.dumps(lane_assignments),
         created_at=datetime.now(timezone.utc).isoformat(),
     )
     db.add(heat)
@@ -1066,15 +1059,43 @@ def create_free_race_heat(
     return heat
 
 
+def _next_free_heat_number(db: Session, race_id: int) -> int:
+    """Free heats have no round, so this is only a label — but it should count."""
+    highest = (
+        db.query(func.max(models.Heat.heat_number))
+        .filter(
+            models.Heat.race_id == race_id,
+            models.Heat.kind == models.HeatKind.FREE,
+        )
+        .scalar()
+    )
+    return (highest or 0) + 1
+
+
+def get_free_race_heat(db: Session, heat_id: int) -> models.Heat | None:
+    """One free race heat by id.
+
+    The ``kind`` check is not paranoia: it is what stops a free-race mutation
+    reaching an official heat now that they share an id space. Before #6 the two
+    tables had overlapping ids and this went wrong for real (#4).
+    """
+    return (
+        db.query(models.Heat)
+        .filter(
+            models.Heat.id == heat_id,
+            models.Heat.kind == models.HeatKind.FREE,
+        )
+        .first()
+    )
+
+
 def update_free_race_heat_result(
     db: Session,
     heat_id: int,
     lane_results: list[dict],
-) -> models.FreeRaceHeat | None:
-    """Record results for a FreeRaceHeat."""
-    heat = (
-        db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
-    )
+) -> models.Heat | None:
+    """Record results for a free race heat."""
+    heat = get_free_race_heat(db, heat_id)
     if heat is None:
         return None
     heat.lane_results = json.dumps(lane_results)
@@ -1087,12 +1108,15 @@ def get_free_race_heats(
     db: Session,
     race_id: int,
     limit: int = 10,
-) -> list[models.FreeRaceHeat]:
-    """Get the most recent FreeRaceHeats for a race, newest first."""
+) -> list[models.Heat]:
+    """The most recent free race heats for a race, newest first."""
     return (
-        db.query(models.FreeRaceHeat)
-        .filter(models.FreeRaceHeat.race_id == race_id)
-        .order_by(models.FreeRaceHeat.id.desc())
+        db.query(models.Heat)
+        .filter(
+            models.Heat.race_id == race_id,
+            models.Heat.kind == models.HeatKind.FREE,
+        )
+        .order_by(models.Heat.id.desc())
         .limit(limit)
         .all()
     )

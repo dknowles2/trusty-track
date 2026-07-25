@@ -80,7 +80,11 @@ mutation UpdateHeatResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
 
 RECORD_FREE_RACE_RESULT = """
 mutation RecordFreeRaceResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
-  recordFreeRaceResult(heatId: $heatId, lanes: $lanes) { id laneResults }
+  recordFreeRaceResult(heatId: $heatId, lanes: $lanes) {
+    id
+    recorded
+    lanes { lane racerId time place }
+  }
 }
 """
 

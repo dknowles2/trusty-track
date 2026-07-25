@@ -204,9 +204,7 @@ async def test_a_heat_payload_carries_its_lanes(db):
 
     # What `Heat.lanes` calls. `info=None` proves it needs no session.
     snapshot = events[0].heat
-    lanes = schema_module._heat_lanes(
-        None, snapshot, snapshot.id, models.HeatKind.OFFICIAL
-    )
+    lanes = schema_module._heat_lanes(None, snapshot, snapshot.id)
     assert [lane.lane for lane in lanes] == [1, 2]
     assert (lanes[0].racer_id, lanes[0].time, lanes[0].place) == (racer_id, 3.25, 1)
     assert (lanes[1].racer_id, lanes[1].placeholder_slot) == (None, 1)

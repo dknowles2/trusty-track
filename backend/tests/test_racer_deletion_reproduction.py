@@ -144,10 +144,8 @@ def test_delete_racer_nullifies_free_heat(db):
     db.commit()
 
     # Free heat should be nullified
-    free_heat = (
-        db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == free_id).first()
-    )
-    assignments = json.loads(free_heat.lane_assignments)
+    free_heat = db.query(models.Heat).filter(models.Heat.id == free_id).first()
+    assignments = json.loads(free_heat.lane_results)
     assert assignments[0]["racer_id"] is None, (
         "Deleted racer should be nullified in free heat"
     )

@@ -49,10 +49,9 @@ type DenStat {
 type FreeRaceHeat {
   id: Int!
   raceId: Int!
-  laneAssignments: String!
-  laneResults: String
   createdAt: String!
   lanes: [HeatLane!]!
+  recorded: Boolean!
 }
 
 type FreeRaceLaneAssignment {

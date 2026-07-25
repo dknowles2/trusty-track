@@ -43,7 +43,7 @@ class RequestLoaders:
         self._global_heat_numbers: dict[int, dict[int, int]] = {}
         self._tracks: dict[int, models.Track | None] = {}
         self._groups: dict[int, models.Group | None] = {}
-        self._lanes: dict[tuple[int, str], dict[int, list[models.HeatLane]]] = {}
+        self._lanes: dict[int, dict[int, list[models.HeatLane]]] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -128,32 +128,28 @@ class RequestLoaders:
             )
         return self._racers_by_race[race_id]
 
-    def lanes_for_heat(
-        self, race_id: int, heat_id: int, kind: models.HeatKind
-    ) -> list[models.HeatLane]:
+    def lanes_for_heat(self, race_id: int, heat_id: int) -> list[models.HeatLane]:
         """One heat's lanes, from a single query covering the whole race.
 
-        ``heat_lanes`` has no ``race_id`` and cannot have a foreign key to a
-        heat while heats live in two tables (issue #6), so the batch is scoped
-        by joining whichever heat table the ``kind`` names.
+        Both kinds in one batch: they are one table now (#6), and a screen that
+        shows free heats shows them alongside official ones.
+
+        ``heat_lanes`` has no ``race_id`` of its own, so the batch is scoped by
+        joining ``heats``.
         """
-        key = (race_id, kind.value)
-        if key not in self._lanes:
-            heats = (
-                models.Heat if kind is models.HeatKind.OFFICIAL else models.FreeRaceHeat
-            )
+        if race_id not in self._lanes:
             rows = (
                 self._db.query(models.HeatLane)
-                .join(heats, heats.id == models.HeatLane.heat_id)
-                .filter(models.HeatLane.kind == kind, heats.race_id == race_id)
+                .join(models.Heat, models.Heat.id == models.HeatLane.heat_id)
+                .filter(models.Heat.race_id == race_id)
                 .order_by(models.HeatLane.lane)
                 .all()
             )
             by_heat: dict[int, list[models.HeatLane]] = {}
             for row in rows:
                 by_heat.setdefault(row.heat_id, []).append(row)
-            self._lanes[key] = by_heat
-        return self._lanes[key].get(heat_id, [])
+            self._lanes[race_id] = by_heat
+        return self._lanes[race_id].get(heat_id, [])
 
     def track_by_id(self, track_id: int) -> models.Track | None:
         if track_id not in self._tracks:

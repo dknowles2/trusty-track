@@ -95,17 +95,30 @@ def _seed_pre_migration(db_path: Path, heats: list, free_heats: list = ()) -> No
     assert built == db_path
 
 
-def _lanes(db_path: Path, kind: str = "OFFICIAL", heat_id: int = 1) -> list[dict]:
+def _free_heat_id(tmp_path: Path) -> int:
+    """The id a folded free race heat ended up with (#6 renumbers them)."""
+    engine = create_engine(f"sqlite:///{tmp_path / 'trusty-track.db'}")
+    try:
+        with engine.connect() as conn:
+            return conn.execute(
+                text("SELECT id FROM heats WHERE kind = 'FREE' ORDER BY id")
+            ).scalar()
+    finally:
+        engine.dispose()
+
+
+def _lanes(db_path: Path, heat_id: int = 1) -> list[dict]:
+    """This heat's lanes. `heat_id` is the id in `heats` after all migrations —
+    free race heats were renumbered when #6 folded them in."""
     engine = create_engine(f"sqlite:///{db_path}")
     try:
         with engine.connect() as conn:
             rows = conn.execute(
                 text(
                     "SELECT lane, racer_id, placeholder_slot, time_seconds, place, "
-                    "skipped FROM heat_lanes WHERE kind = :k AND heat_id = :h "
-                    "ORDER BY lane"
+                    "skipped FROM heat_lanes WHERE heat_id = :h ORDER BY lane"
                 ),
-                {"k": kind, "h": heat_id},
+                {"h": heat_id},
             )
             return [dict(r._mapping) for r in rows]
     finally:
@@ -213,7 +226,7 @@ def test_free_race_heats_merge_assignments_with_results(tmp_path):
     _seed_pre_migration(tmp_path / "trusty-track.db", [], [(1, assignments, results)])
     assert _init_db(tmp_path).returncode == 0
 
-    rows = _lanes(tmp_path / "trusty-track.db", kind="FREE", heat_id=1)
+    rows = _lanes(tmp_path / "trusty-track.db", heat_id=_free_heat_id(tmp_path))
     assert len(rows) == 2, "both lanes should be present"
     assert rows[0]["time_seconds"] == 3.2, "the recorded result wins"
     assert rows[1]["time_seconds"] is None, "an unrun lane keeps its assignment"
@@ -225,12 +238,13 @@ def test_free_race_results_stored_as_the_string_null(tmp_path):
     _seed_pre_migration(tmp_path / "trusty-track.db", [], [(1, assignments, "null")])
     assert _init_db(tmp_path).returncode == 0
 
-    rows = _lanes(tmp_path / "trusty-track.db", kind="FREE", heat_id=1)
+    rows = _lanes(tmp_path / "trusty-track.db", heat_id=_free_heat_id(tmp_path))
     assert len(rows) == 1 and rows[0]["racer_id"] == 5
 
 
-def test_official_and_free_heats_with_the_same_id_stay_separate(tmp_path):
-    """The two tables have independent autoincrement sequences (issue #4)."""
+def test_official_and_free_heats_land_in_separate_rows(tmp_path):
+    """Their ids collided in the old two-table schema (#4); #6 renumbers the
+    free heats as it folds them in, so the lanes must follow the right one."""
     official = json.dumps([{"lane": 1, "racer_id": 2, "time": 9.0}])
     free = json.dumps([{"lane": 1, "racer_id": 3, "time": 1.0}])
     _seed_pre_migration(
@@ -238,8 +252,9 @@ def test_official_and_free_heats_with_the_same_id_stay_separate(tmp_path):
     )
     assert _init_db(tmp_path).returncode == 0
 
-    assert _lanes(tmp_path / "trusty-track.db", "OFFICIAL", 1)[0]["racer_id"] == 2
-    assert _lanes(tmp_path / "trusty-track.db", "FREE", 1)[0]["racer_id"] == 3
+    assert _lanes(tmp_path / "trusty-track.db", 1)[0]["racer_id"] == 2
+    rows = _lanes(tmp_path / "trusty-track.db", _free_heat_id(tmp_path))
+    assert rows[0]["racer_id"] == 3
 
 
 def test_downgrade_drops_the_table_and_leaves_the_blobs_alone(tmp_path):

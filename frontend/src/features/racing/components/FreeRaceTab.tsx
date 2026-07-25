@@ -28,7 +28,6 @@ const START_FREE_RACE_HEAT = `
   mutation StartFreeRaceHeat($raceId: Int!, $laneAssignments: [FreeRaceLaneAssignmentInput!]!) {
     startFreeRaceHeat(raceId: $raceId, laneAssignments: $laneAssignments) {
       id
-      laneAssignments
     }
   }
 `;
