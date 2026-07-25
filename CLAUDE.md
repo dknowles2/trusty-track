@@ -1,49 +1,50 @@
 # Trusty Track — Agent Guide
 
-Trusty Track is a race management system for Cub Scout Pinewood Derby events. It covers the full event lifecycle: racer registration, den/group management, check-in, heat scheduling, race execution, and standings display.
+Trusty Track is a race management system for Cub Scout Pinewood Derby events. It covers the full event lifecycle: racer registration, den/group management, check-in, heat scheduling, race execution, hardware timer integration, audience displays, and standings.
+
+It is designed to run as a **single process on a machine at the venue** (often a Raspberry Pi), serving one operator plus a few read-only display screens over the local network.
 
 ## Quick orientation
 
 | Layer    | Tech                                            | Entry point            |
 | -------- | ----------------------------------------------- | ---------------------- |
-| Backend  | Python, FastAPI, SQLAlchemy, Strawberry GraphQL | `backend/main.py`      |
-| Frontend | TypeScript, React 18, Vite, urql                | `frontend/src/App.tsx` |
-| Database | SQLite, auto-created in `~/.trustytrack`        | `trusty-track.db`      |
+| Backend  | Python, FastAPI, SQLAlchemy, Strawberry GraphQL | `backend/api/main.py`  |
+| Frontend | TypeScript, React 19, Vite, urql                | `frontend/src/App.tsx` |
+| Database | SQLite in `~/.trustytrack`, Alembic migrations  | `trusty-track.db`      |
 
-The GraphQL endpoint at `/graphql` is the primary interface between frontend and backend. There is also a small REST endpoint (`POST /upload/`) for file uploads.
+`/graphql` is the primary interface between frontend and backend. There is also a small REST endpoint (`POST /upload/`) for file uploads and a WebSocket at `/ws/timer/{track_id}` for browser-proxied serial timers.
 
-**Full Stack (Production/Single Process)**:
+**Full stack (production / single process):**
 
 ```bash
-./scripts/install.sh   # Installs dependencies & builds frontend
-./scripts/serve.sh     # Starts unified server on http://localhost:8005
+./scripts/install.sh
 ```
 
-**Development (Two processes)**:
+```bash
+./scripts/serve.sh
+```
 
-- **Backend**: `cd backend && uvicorn main:app --reload`
-- **Frontend**: `cd frontend && npm run dev`
-- **One-command Dev**: `./scripts/run_dev.sh`
+**Development (two processes):**
+
+```bash
+./scripts/run_dev.sh
+```
 
 **Tests:**
 
 ```bash
-cd backend && pytest          # backend unit/integration tests
-cd frontend && npm test       # frontend unit tests (vitest)
+cd backend && pytest
 ```
-
-**Pre-commit Hooks:**
-
-The project uses `pre-commit` to ensure code quality. It runs automatically on `git commit`.
 
 ```bash
-pre-commit install            # manually install hooks
-pre-commit run --all-files     # run all checks manually
+cd frontend && npm test
 ```
 
-Checks include:
-- **Python:** Ruff (linting/formatting), Pytest
-- **Frontend:** ESLint, Vitest (related only), Build check
+**Pre-commit hooks** run Ruff, pytest, ESLint, Vitest, and a frontend build on `git commit`:
+
+```bash
+pre-commit install
+```
 
 ---
 
@@ -51,164 +52,178 @@ Checks include:
 
 ```
 backend/
-  main.py           # FastAPI app, CORS, file upload REST endpoint, DB init
-  models.py         # SQLAlchemy ORM models (all DB tables)
-  schema.py         # Strawberry GraphQL schema — all queries and mutations
-  crud.py           # DB helper functions called from schema.py resolvers
-  scoring.py        # Leaderboard / scoring calculations
-  schemas.py        # Pydantic input/response models
-  database.py       # SQLAlchemy engine and session setup
-  image_processing.py
-  populate.py       # Generates test data (used via populateRace mutation)
-  test_*.py         # pytest test files
-  uploads/          # Uploaded racer/car photos stored here
+  api/
+    main.py           # FastAPI app, CORS, uploads, timer WebSocket, SPA serving
+    schema.py         # Strawberry GraphQL schema — queries, mutations, subscriptions
+    loaders.py        # Per-operation query cache (see "Loaders" below)
+    pubsub.py         # In-process async pub/sub backing subscriptions
+  db/
+    models.py         # SQLAlchemy ORM models
+    crud.py           # DB helpers + heat generation + advancement cascade
+    database.py       # Engine, session, Alembic-backed init_db()
+    schemas.py        # Pydantic input/response models
+    populate.py       # Test data generator (populateRace mutation)
+  migrations/         # Alembic environment and versions
+  services/
+    scoring.py        # Leaderboard and advancement calculations
+    stats.py          # Race statistics
+    image_processing.py
+    timer/
+      manager.py      # TimerManager: one per track; state machine + result recording
+      state_machine.py
+      devices/        # base.py, fake.py, microwizard.py
+  tests/              # pytest suite
+  uploads/            # legacy; runtime uploads go to the data dir
 
 frontend/src/
-  App.tsx                     # React Router config, auth-gate for system init
-  pages/
-    Home.tsx                  # Race list, create race
-    SystemSettings.tsx        # First-run wizard (group + track setup)
-    RaceDetails.tsx           # Racer roster, den management, check-in (~60 KB, largest file)
-    RaceControl.tsx           # Schedule management + race execution
-    Observation.tsx           # Audience display screens
-    Standings.tsx             # Final leaderboard
-  components/
-    race-control/
-      ScheduleManagement.tsx
-      RaceExecution.tsx
-      RoundWizard.tsx
-      FakeTimerMole.tsx
-    DenManager.tsx
-    RacerForm.tsx
-    ImportRacersModal.tsx
-    Leaderboard.tsx
-    CameraCapture.tsx
-    Navigation.tsx
-  graphql/
-    raceDetails.ts            # gql query/mutation strings (some queries also inline in pages)
-  api/
-    graphqlClient.ts          # urql client, proxies to http://127.0.0.1:8005/graphql
-  context/
-    AlertContext.tsx          # App-wide alert/toast system
+  App.tsx                     # Routes + first-run config gate
+  features/
+    core/                     # Navigation, shared queries
+    management/               # Home, RaceDetails, racer/den forms, imports
+    racing/                   # RaceControl, RaceExecution, scheduling, free race, timer UI
+    observation/              # Audience display
+    stats/                    # Standings, RaceStats, Leaderboard
+    settings/                 # SystemSettings first-run wizard
+  gql/                        # GENERATED — do not edit (see below)
+  components/ui/              # Modal, CameraCapture
+  context/                    # AlertContext, SerialProxyContext
+  utils/
+  schema.graphql              # GENERATED from the backend schema
 
-docs/
-  development.md              # Dev environment setup
-  scheduling-algorithms.md    # PPC algorithm description
-  fake-timer.md               # Fake timer documentation
+scripts/
+  export_schema.py            # Dumps Strawberry SDL for codegen
+  install.sh, serve.sh, run_dev.sh, install-pi.sh
 
-tasks/                        # Planned future work (not yet implemented)
+docs/                         # mkdocs site
+tasks/                        # Plans for unimplemented work
 ```
+
+Each `features/<area>/` slice holds its own `pages/`, `components/`, and `graphql/queries.ts`.
 
 ---
 
 ## Data model
 
 ```
-Group           id, name
+Group           id, name, debug_mode
   └─ Race[]
 
 Track           id, name, lane_count, length_feet, timer_type, serial_port
   └─ Race[]
 
 Race            id, name, date_time, location, group_id, track_id,
-                car_numbering_strategy, scoring_strategy, championship_trophies
-  ├─ Den[]
+                car_numbering_strategy, global_start_number, scoring_strategy,
+                championship_trophies, rules_configuration, auto_advance_heat
+  ├─ Den[]            (cascade delete)
   ├─ Racer[]
-  ├─ Round[]
+  ├─ Round[]          (cascade delete)
   ├─ Heat[]
-  └─ RacingGroup[]
+  ├─ RacingGroup[]
+  └─ FreeRaceHeat[]   (cascade delete)
 
 Den             id, race_id, name, color, rank,
                 car_number_range_start, car_number_range_end
-  └─ Racer[]
 
-Racer           id, race_id, den_id (nullable), racing_group_id (nullable),
+Racer           id, race_id, den_id?, racing_group_id?,
                 first_name, last_name, car_number, car_name, car_weight,
                 car_passed_inspection, racer_image_url, car_image_url
 
-RacingGroup     id, race_id, den_id (nullable), name,
-                car_number_range_start, car_number_range_end
-  └─ Racer[]
+RacingGroup     id, race_id, den_id?, name, car_number_range_*
 
 Round           id, race_id, round_number, name, scheduling_strategy,
-                advancement_source ("PACK"|"DEN"|null), advancement_num_racers
-  └─ Heat[]
+                advancement_source, advancement_num_racers, den_id?
 
-Heat            id, race_id, round_id, heat_number,
-                lane_results (JSON string)
+Heat            id, race_id, round_id, heat_number, lane_results (JSON string)
+
+FreeRaceHeat    id, race_id, lane_assignments (JSON), lane_results (JSON), created_at
 ```
 
-`lane_results` format (stored as JSON string in Heat.lane_results):
+### Enums (`backend/db/models.py`)
+
+| Enum                   | Values                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| `CarNumberingStrategy` | `PER_GROUP`, `GLOBAL`, `MANUAL`                                              |
+| `HeatKind`             | `OFFICIAL`, `FREE`                                                           |
+| `Rank`                 | `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER`        |
+| `SchedulingStrategy`   | `PPC`                                                                        |
+| `ScoringStrategy`      | `TIMED` (avg time), `POINTS` (sum of placements) — lower is better for both  |
+| `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`                           |
+
+### ⚠️ `lane_results` is a JSON string doing four jobs
 
 ```json
 [{"lane": 1, "racer_id": 10, "time": 3.452, "place": 2}, ...]
 ```
 
-### Enums (defined in `backend/models.py`)
+It encodes **the schedule** (who is in which lane), **the results** (time, place), **placeholders** for unadvanced championship slots (as *negative* racer IDs: `-1`, `-2`, …), and **heat status** (inferred by scanning for a non-null `time` or a `skipped` flag).
 
-| Enum                   | Values                                                                       |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `CarNumberingStrategy` | `PER_GROUP`, `GLOBAL`, `MANUAL`                                              |
-| `Rank`                 | `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER`        |
-| `SchedulingStrategy`   | `PPC` (Perfect-N rotation)                                                   |
-| `ScoringStrategy`      | `TIMED` (avg time, lower=better), `POINTS` (sum of placements, lower=better) |
-| `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`                           |
+There is no foreign key from a lane to a racer. Parse with `json.loads()`, serialize with `json.dumps()`. `updateHeatResult` takes the whole array as an opaque string and overwrites.
+
+**This is known technical debt** — see issue #5, which normalizes it into a `heat_lanes` table. Don't build new abstractions on top of the blob; prefer adding to `crud.py` helpers that already parse it.
+
+### ⚠️ Heat IDs are not unique across tables
+
+`heats` and `free_race_heats` have independent autoincrement sequences, so their IDs overlap. **Anything holding a bare heat ID must also carry a `HeatKind`** — never infer the kind by looking an ID up in one table and falling back to the other. Doing exactly that used to write free-race times into official heats (issue #4). Issue #6 folds the two tables together.
+
+---
+
+## Database migrations
+
+Schema changes use **Alembic**. `init_db()` runs `alembic upgrade head` at startup; if migrations fail, startup fails.
+
+**After changing `models.py` you must generate a migration:**
+
+```bash
+uv run alembic revision --autogenerate -m "describe the change"
+```
+
+Review the generated file, then apply it and confirm there's no drift:
+
+```bash
+uv run alembic upgrade head
+```
+
+```bash
+uv run alembic check
+```
+
+`alembic check` compares `models.py` against the **target database**, so it reports `Target database is not up to date` if you haven't upgraded first.
+
+`backend/tests/test_migrations.py::test_migrations_reproduce_the_models` runs that check in CI, so a model change without a migration **fails the build**.
+
+Databases created before Alembic are detected at startup (app tables present, no `alembic_version`), stamped at `0001_baseline`, and upgraded forward.
 
 ---
 
 ## GraphQL API
 
-All queries and mutations are defined in `backend/schema.py`. The frontend calls them via urql (see `frontend/src/graphql/` and inline `gql` strings in page components).
+Defined entirely in `backend/api/schema.py`.
 
-### Queries
+**Queries:** `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `version`
 
-| Query                                | Description                                               |
-| ------------------------------------ | --------------------------------------------------------- |
-| `races(skip, limit)`                 | List all races                                            |
-| `race(raceId)`                       | Full race with nested dens, racers, rounds, heats         |
-| `racers(raceId?, skip, limit)`       | Racer list, optionally filtered by race                   |
-| `racer(racerId)`                     | Single racer                                              |
-| `tracks()`                           | All track configurations                                  |
-| `groups()`                           | All organizations                                         |
-| `initialConfig()`                    | Whether system has been configured (used by router guard) |
-| `rounds(raceId)`                     | Rounds for a race                                         |
-| `advancementStatus(raceId, roundId)` | Whether round has enough results to advance               |
+**Mutations:**
 
-### Mutations
+- Race: `createRace`, `updateRace`, `deleteRace`
+- Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
+- Bulk: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
+- Den: `createDen`, `updateDen`, `deleteDen`
+- Track: `createTrack`, `updateTrack`, `deleteTrack`
+- Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`
+- Timer: `prepareHeat`, `abortHeat`, `forceResults`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
+- Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
+- System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`
 
-**Race:**
-`createRace`, `updateRace`, `deleteRace`
+**Subscriptions:** `raceStateChanged`, `timerStatus`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`
 
-**Racer:**
-`createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
+### Adding a mutation
 
-**Bulk racer ops:**
-`bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`
-
-**Den:**
-`createDen`, `updateDen`, `deleteDen`
-
-**Track:**
-`createTrack`, `updateTrack`, `deleteTrack`
-
-**Round/Heat:**
-`createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `advanceRound`,
-`updateHeatResult`, `reorderHeats`
-
-**System:**
-`createInitialConfig`, `updateInitialConfig`
-
-**Data:**
-`importRacers` (CSV), `uploadImage` (base64 → stores file → returns URL), `populateRace` (test data)
-
-### Adding a new mutation
-
-1. Add resolver method to `Query` or `Mutation` class in `backend/schema.py`
-2. Decorator: `@strawberry.mutation` (or `@strawberry.field` for queries)
-3. DB session from: `db: Session = info.context["db"]`
-4. Call `crud.py` helpers; add new helpers there for non-trivial DB work
-5. Add corresponding `gql` string in `frontend/src/graphql/` or inline in the relevant page
-6. Call with `useMutation` from urql
+1. Add a resolver to `Mutation` in `backend/api/schema.py` (`@strawberry.mutation`)
+2. Get the session with `db = info.context["db"]`
+3. Call `crud.py` helpers; add new helpers there for non-trivial DB work
+4. `await _publish_race_state(race_id)` if the change affects race state
+5. Add the `gql` document to the relevant `features/*/graphql/queries.ts`
+6. **Regenerate types:** `cd frontend && npm run codegen`
+7. Call it with `useMutation` from urql
 
 ---
 
@@ -216,95 +231,92 @@ All queries and mutations are defined in `backend/schema.py`. The frontend calls
 
 ### Backend
 
-- **GraphQL context**: every resolver receives `info: Info`; get the DB session with `db = info.context["db"]`.
-- **Pydantic schemas** (`schemas.py`) are for input validation and REST responses. GraphQL types are Strawberry types defined directly in `schema.py`.
-- **Cascade deletes**: deleting a `Race` cascades to its `Den`, `Round`, `Heat` records. Deleting a `Round` cascades to its `Heat` records.
-- **Scoring** is always computed on-demand in `scoring.py`; there is no cached/stored leaderboard column.
-- **Unified Server**: The backend serves `frontend/dist` static files and uses a catch-all route for SPA fallback. Health check is at `/health`.
-- **Data Directory**: Default storage is `~/.trustytrack`. Override with `TRUSTYTRACK_DATA_DIR` env var.
-- **Images**: The frontend sends base64-encoded image data to `uploadImage` mutation or `POST /upload/`. Files land in the `uploads/` subdirectory of the data dir. URLs of the form `/static/<filename>` are stored in `racer_image_url` / `car_image_url`.
+- **GraphQL context** carries `db`, `timer_managers`, and `loaders`.
+- **Strawberry types are duck-typed shells.** Resolvers return raw SQLAlchemy ORM objects and Strawberry reads attributes off them. `self` inside a field resolver is the ORM object, not the Strawberry type.
+- **Loaders (`api/loaders.py`).** Because of the above, every relationship used to be a fresh query per row. Use `_loaders(info)` in field resolvers rather than querying directly — it caches per operation. `backend/tests/test_query_counts.py` fails the build if query counts regress or start scaling with heat count.
+  - **Subscriptions hold a context open for the whole connection.** If you add a subscription that re-reads the DB, call `_loaders(info).clear()` after `db.expire_all()`, or it will replay stale data to the audience displays.
+- **Cascade deletes:** deleting a `Race` cascades to `Den`, `Round`, and `FreeRaceHeat`; deleting a `Round` cascades to its `Heat`s.
+- **Scoring is always computed on demand** in `services/scoring.py`. There is no stored leaderboard.
+- **Data directory** defaults to `~/.trustytrack`; override with `TRUSTYTRACK_DATA_DIR`. Images land in `uploads/` there and are served from `/static/<filename>`.
+- **The unified server** serves `frontend/dist` with an SPA catch-all. Health check at `/health`.
 
 ### Frontend
 
-- **urql request policy**: mutations trigger a re-fetch using `'network-only'` to ensure fresh data.
-- **Alert system**: use the `useAlert()` hook (from `AlertContext`) to show success/error toasts — do not use `window.alert`.
-- **GraphQL strings**: prefer adding queries/mutations to `frontend/src/graphql/raceDetails.ts` rather than inlining large `gql` blocks inside components.
-- **Styling**: CSS custom properties for theme colors — `var(--scouting-blue)` (#003F87), `var(--gold)` (#FCD116). Use the existing CSS class naming style (e.g., `.race-details`, `.racer-table`). Standard border-radius is 12px.
-- **Drag-and-drop**: heat reordering uses `@dnd-kit`. See `ScheduleManagement.tsx` for the pattern.
+- **Generated types.** `src/gql/` and `frontend/schema.graphql` are generated — never edit them. Run `npm run codegen` after any backend schema change; CI fails if they're stale. See `src/gql/README.md`.
+- **Prefer deriving view types** from generated operation types rather than hand-writing interfaces. See `features/racing/types.ts`.
+- **Write documents with urql's `gql` tag**, give every operation a **unique name**, and codegen will type it. Plain template literals still work at runtime but get no types.
+- **urql request policy:** mutations re-fetch with `'network-only'`.
+- **Alerts:** use `useAlert()` from `AlertContext`. Never `window.alert`.
+- **Styling:** CSS custom properties defined in `src/index.css` — `var(--scouting-blue)` (#003F87), `var(--cub-scouting-gold)` (#FCD116). Existing class naming (`.race-details`, `.racer-table`). Standard border-radius 12px.
+- **Drag and drop:** `@dnd-kit`, see `ScheduleManagement.tsx`.
 
 ---
 
 ## Business logic highlights
 
-### Heat scheduling (PPC / Perfect-N)
+### Heat scheduling (PPC)
 
-Described in `docs/scheduling-algorithms.md`. Each racer races in every lane exactly once per round. The algorithm generates the minimum number of heats to satisfy this. Logic lives in `backend/crud.py` (heat generation functions).
+`docs/scheduling-algorithms.md`. Each racer races in every lane exactly once per round; the algorithm generates the minimum heats to satisfy that. Lives in `crud._generate_ppc` / `crud.generate_heats_for_round`.
 
-### Scoring strategies
+### Scoring
 
-Defined in `backend/scoring.py`:
+`services/scoring.py`. `TIMED` averages heat times (a recorded `0.0` is treated as a 9.999s DNF penalty); `POINTS` sums placements. Both are lower-is-better. `get_leaderboard(db, race_id)` returns sorted standings.
 
-- **TIMED**: average of all heat times. Racers with no recorded time are ranked last.
-- **POINTS**: sum of placement values across heats (1st = 1 point). Lower total = better rank.
-
-`get_leaderboard(db, race_id)` returns a sorted list of `(racer, score)` tuples.
+Note that `get_leaderboard` with no `round_id` spans **all** heats in the race, so championship heats blend into prelim averages. Whether that is intended is an open question — see issue #17.
 
 ### Championship advancement
 
-`advanceRound` mutation and `get_advancing_racers()` in `scoring.py`:
+`advanceRound` and `scoring.get_advancing_racers()`:
 
-- `advancement_source = "PACK"`: top N racers overall advance.
-- `advancement_source = "DEN"`: top N racers from _each_ den advance.
+- `advancement_source = "PACK"` — top N overall
+- `advancement_source = "DEN"` — top N from each den
+- `advancement_source = "ROUND:<id>"` — top N from that round
 
-### Car numbering strategies
+`crud.record_heat_result` cascades: it calls `invalidate_future_rounds` and `trigger_auto_advancements` on **every** heat result.
 
-- `PER_GROUP`: each den has a number range (e.g., 100–199); `bulkAutoNumber` fills within the range.
-- `GLOBAL`: sequential across all racers from a configurable start.
-- `MANUAL`: user assigns numbers individually; auto-number is disabled.
+### Car numbering
 
-### System initialization gate
+`PER_GROUP` fills within each den's range; `GLOBAL` numbers sequentially from `global_start_number`; `MANUAL` disables auto-numbering.
 
-`App.tsx` calls `initialConfig()` on load. If no config exists, all routes redirect to `/system-settings`. This is the first-run wizard that creates the `Group` and `Track` records.
+### Timer integration
 
----
+One `TimerManager` per track, created at startup in `main.py`'s lifespan. Devices implement `services/timer/devices/base.py`. Three connectivity modes: fake, backend-direct serial, and browser-proxied serial over WebSocket. The manager owns byte framing, the state machine, and result recording, and publishes state through `pubsub`.
 
-## Common task guidance
+**`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
 
-**Add a new field to an existing model:**
+### First-run gate
 
-1. Add column to the SQLAlchemy model in `backend/models.py`
-2. Add field to the Strawberry type and/or Pydantic schema in `backend/schema.py` / `backend/schemas.py`
-3. Update relevant `create`/`update` mutations in `backend/schema.py` and CRUD helpers in `backend/crud.py`
-4. Update the GraphQL fragment/query in `frontend/src/graphql/raceDetails.ts` or the relevant page
-5. Update the UI component to display/edit the new field
-
-**Add a new page:**
-
-1. Create component in `frontend/src/pages/`
-2. Add route in `frontend/src/App.tsx`
-3. Add navigation link in `frontend/src/components/Navigation.tsx` if appropriate
-
-**Add a new backend test:**
-
-- Follow the pattern in `backend/test_*.py`
-- Tests use a fresh in-memory SQLite database per test (see conftest / setup in existing test files)
-- Use the FastAPI `TestClient` for HTTP/GraphQL requests
-
-**Working with heat results:**
-
-- `Heat.lane_results` is stored as a JSON string — parse with `json.loads()` / serialize with `json.dumps()`
-- The `updateHeatResult` mutation accepts the full lane results array and overwrites the field
+`App.tsx` queries `initialConfig()`; if the system is unconfigured, all routes redirect to `/system-settings`, which creates the `Group` and `Track`.
 
 ---
 
-## Not yet implemented (see `tasks/`)
+## Known architectural debt
 
-The `tasks/` directory contains implementation plans for features that do not exist yet:
+An architecture review is tracked in **issue #18**. Before making a substantial change, check whether it overlaps:
 
-- **Observation subscriptions** (`tasks/observation/`) — real-time WebSocket updates; currently the observation page polls or uses static data
-- **Printables** (`tasks/printables/`) — QR codes, pit passes, driver's licenses
-- **Free racing** (`tasks/free-race/`) — casual practice heats outside the main competition
-- **Timer integration** (`tasks/timers/`) — DerbyNet serial protocol for hardware timers
-- **Installation packaging** (`tasks/install/`) — Raspberry Pi, Docker, desktop app distribution (from source is complete)
+| Issue | Area |
+| --- | --- |
+| #5 | Normalize `lane_results` into a `heat_lanes` table |
+| #6 | Fold `FreeRaceHeat` into `Heat` |
+| #7 | Server-owned `HeatSession` as the single source of truth for live race state |
+| #8 | Extract a pure domain layer for scheduling/scoring/advancement |
+| #9 | `TimerManager` bypasses the request session |
+| #12 | Subscriptions should carry payloads instead of triggering full refetches |
+| #13 | Model the race-day flow as an explicit state machine |
+| #14 | Whether GraphQL is still the right choice |
+| #15 | No authentication on mutations; CORS misconfigured |
+| #17 | Decide scoring scope (prelim vs championship) |
 
-Do not assume these features exist when modifying related code.
+Don't entrench conventions these issues are removing — particularly the `lane_results` blob (#5) and the negative-ID placeholder trick.
+
+---
+
+## Implementation plans (`docs/tasks/`)
+
+Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `free-race`, `graphql`, `improvements`, `install`, `observation`, `printables`, `stats`, `timers`.
+
+**Most of these are already built.** Free racing, observation subscriptions, hardware timers, the GraphQL migration, and race stats have all landed — the plan files remain as design notes, not a backlog. `printables` (QR codes, pit passes, driver's licenses) is the main area still unimplemented.
+
+Check the code before assuming anything in `docs/tasks/` is outstanding.
+
+`TODO.md` at the repo root is a mostly-completed feature checklist.

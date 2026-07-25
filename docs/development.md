@@ -70,11 +70,17 @@ Schema changes are managed with **Alembic**. `init_db()` runs `alembic upgrade h
 uv run alembic revision --autogenerate -m "describe the change"
 ```
 
-Review the generated file before committing — autogenerate is a good first draft, not a finished migration. Then verify there is no remaining drift:
+Review the generated file before committing — autogenerate is a good first draft, not a finished migration. Then apply it and verify there is no remaining drift:
+
+```bash
+uv run alembic upgrade head
+```
 
 ```bash
 uv run alembic check
 ```
+
+`alembic check` compares the models against the **target database**, so it reports `Target database is not up to date` if you have not upgraded first.
 
 `backend/tests/test_migrations.py::test_migrations_reproduce_the_models` runs that same check in CI, so a model change without a matching migration fails the build.
 
