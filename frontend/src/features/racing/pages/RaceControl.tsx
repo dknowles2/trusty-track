@@ -240,7 +240,7 @@ export default function RaceControl() {
             if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
             return a.heatNumber - b.heatNumber;
           });
-          
+
           const firstUncompleted = sorted.find((h: Heat) => {
               const results = h.laneResults ? JSON.parse(h.laneResults) : [];
               return !results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
@@ -262,13 +262,13 @@ export default function RaceControl() {
     // Monitor for round completions and advancement
     // We only show the modal when a round transitions to "ready and advanced" (placeholders resolved)
     const advancedIds = race.rounds
-      .filter(r => 
-          r.advancementStatus.requiresAdvancement && 
-          r.advancementStatus.isReady && 
+      .filter((r: Round) =>
+          r.advancementStatus.requiresAdvancement &&
+          r.advancementStatus.isReady &&
           r.advancementStatus.alreadyAdvanced
       )
-      .map(r => r.id);
-    
+      .map((r: Round) => r.id);
+
     if (!advancementInitialized) {
         setSeenAdvancedRoundIds(advancedIds);
         setAdvancementInitialized(true);
@@ -285,13 +285,13 @@ export default function RaceControl() {
     }
 
     // Find any ID in advancedIds that we haven't "seen" yet
-    const newlyAdvancedId = advancedIds.find(id => !seenAdvancedRoundIds.includes(id));
-    
+    const newlyAdvancedId = advancedIds.find((id: number) => !seenAdvancedRoundIds.includes(id));
+
     if (newlyAdvancedId !== undefined) {
       // Mark all currently advanced IDs as seen to avoid re-triggering
       setSeenAdvancedRoundIds(advancedIds);
-      
-      const round = race.rounds.find(r => r.id === newlyAdvancedId);
+
+      const round = race.rounds.find((r: Round) => r.id === newlyAdvancedId);
       if (round) {
         setRoundSummary({ ...round.advancementStatus, roundId: round.id });
       }
@@ -320,9 +320,9 @@ export default function RaceControl() {
           generalType: config.generalType || 'PACK'
         }
       });
-      
+
       if (result.error) throw result.error;
-      
+
       reExecute({ requestPolicy: 'network-only' });
       setSelectedHeatId(null);
     } catch (e: unknown) {
@@ -339,7 +339,7 @@ export default function RaceControl() {
       setGenerating(true);
       const result = await regenerateRoundMutation({ roundId });
       if (result.error) throw result.error;
-      
+
       reExecute({ requestPolicy: 'network-only' });
       setSelectedHeatId(null);
       if (!silent) {
@@ -359,7 +359,7 @@ export default function RaceControl() {
       setGenerating(true);
       const result = await deleteRoundMutation({ roundId });
       if (result.error) throw result.error;
-      
+
       reExecute({ requestPolicy: 'network-only' });
       setSelectedHeatId(null);
       showToast("Round deleted successfully.", "success");
@@ -385,7 +385,7 @@ export default function RaceControl() {
       setGenerating(true);
       const result = await deleteHeatMutation({ heatId });
       if (result.error) throw result.error;
-      
+
       reExecute({ requestPolicy: 'network-only' });
       if (selectedHeatId === heatId) {
         setSelectedHeatId(null);
@@ -406,17 +406,17 @@ export default function RaceControl() {
           if (!heat) return;
 
           const sortedResults = [...results];
-          
+
           // Only assign places if at least one racer has a time
           const hasAnyTime = sortedResults.some(r => r.time !== null && r.time !== '');
-          
+
           if (hasAnyTime) {
               sortedResults.sort((a, b) => {
                   const tA = a.time ? (typeof a.time === 'number' ? a.time : parseFloat(a.time)) : 9999;
                   const tB = b.time ? (typeof b.time === 'number' ? b.time : parseFloat(b.time)) : 9999;
                   return tA - tB;
               });
-              
+
               sortedResults.forEach((r, idx) => {
                   r.skipped = false; // Always clear skipped flag if we have times
                   if (r.time !== null && r.time !== '') {
@@ -439,10 +439,10 @@ export default function RaceControl() {
           if (result.error) throw result.error;
 
           reExecute({ requestPolicy: 'network-only' });
-          
+
           // Round completion check logic can be simplified or moved to sub-component
           // For now we'll just re-fetch and let the user decide
-           
+
           if (activeHeatId === heatId) {
               setActiveHeatId(null);
           }
@@ -471,18 +471,18 @@ export default function RaceControl() {
     // Check if heat already has results or was skipped
     const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
     const hasResults = results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
-    
+
     if (hasResults) {
         // Clear results locally first (Optimistic UI Update would be complex with urql, so we just clear on server)
         const emptyResults = results.map((r: { lane: number; racer_id: number }) => ({ ...r, time: null, place: null, skipped: false }));
-        
+
         try {
             const result = await updateHeatResultMutation({
                 heatId: heat.id,
                 results: JSON.stringify(emptyResults)
             });
             if (result.error) throw result.error;
-            
+
             reExecute({ requestPolicy: 'network-only' });
             setRoundSummary(null); // Clear any summary
         } catch (error) {
@@ -497,7 +497,7 @@ export default function RaceControl() {
         const roundHeats = heats
           .filter((h: Heat) => h.roundId === heat.roundId)
           .sort((a: Heat, b: Heat) => a.heatNumber - b.heatNumber);
-        
+
         const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => {
             const results = h.laneResults ? JSON.parse(h.laneResults) : [];
             return !(results.length > 0 && results.some((r: { time: number | string | null }) => r.time !== null));
@@ -512,7 +512,7 @@ export default function RaceControl() {
                 heat_id: h.id,
                 new_heat_number: idx + 1
             }));
-            
+
             try {
                 await handleReorderHeats(updates);
             } catch (e) {
@@ -557,17 +557,17 @@ export default function RaceControl() {
       return a.heatNumber - b.heatNumber;
     }).map((h: Heat, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
   }, [heats]);
-  
-  const activeExecutionHeat = selectedHeatId 
+
+  const activeExecutionHeat = selectedHeatId
       ? sortedHeatsEx.find((h: Heat) => h.id === selectedHeatId)
       : (sortedHeatsEx.length > 0 ? sortedHeatsEx[0] : null);
-      
-  const currentIndex = activeExecutionHeat 
-      ? sortedHeatsEx.findIndex((h: Heat) => h.id === activeExecutionHeat.id) 
+
+  const currentIndex = activeExecutionHeat
+      ? sortedHeatsEx.findIndex((h: Heat) => h.id === activeExecutionHeat.id)
       : -1;
-      
-  const nextExecutionHeat = currentIndex !== -1 && currentIndex + 1 < sortedHeatsEx.length 
-      ? sortedHeatsEx[currentIndex + 1] 
+
+  const nextExecutionHeat = currentIndex !== -1 && currentIndex + 1 < sortedHeatsEx.length
+      ? sortedHeatsEx[currentIndex + 1]
       : null;
 
   const completedPreviousHeats = useMemo(() => {
@@ -635,17 +635,17 @@ export default function RaceControl() {
     <div className="container" style={{ padding: '20px' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 style={{ margin: 0 }}>Race Control</h1>
-        
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px', justifyContent: 'center' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
-                <button 
+                <button
                     onClick={() => navigate(`/race/${id}/control/schedule`)}
-                     style={{ 
-                        padding: '6px 16px', 
+                     style={{
+                        padding: '6px 16px',
                         fontSize: '0.95rem',
                         whiteSpace: 'nowrap',
-                        borderRadius: '20px', 
-                        border: 'none', 
+                        borderRadius: '20px',
+                        border: 'none',
                         background: viewMode === 'SCHEDULE' ? 'white' : 'transparent',
                         boxShadow: viewMode === 'SCHEDULE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                         fontWeight: viewMode === 'SCHEDULE' ? 'bold' : 'normal',
@@ -765,7 +765,7 @@ export default function RaceControl() {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <span style={{ color: '#888', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
-                            <button 
+                            <button
                                 onClick={() => handleRunHeat(heat)}
                                 style={{
                                     padding: '4px 10px',

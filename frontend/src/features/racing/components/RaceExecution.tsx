@@ -126,8 +126,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const hasPlaceholders = results.some((r: LaneResult) => r.racer_id !== null && r.racer_id < 0);
 
     const laneResultMap: Record<number, LaneResult> = {};
-    const racerMapping: Record<number, number | null> = subResult.data?.timerStatus?.status?.racerByLane 
-        ? JSON.parse(subResult.data.timerStatus.status.racerByLane) 
+    const racerMapping: Record<number, number | null> = subResult.data?.timerStatus?.status?.racerByLane
+        ? JSON.parse(subResult.data.timerStatus.status.racerByLane)
         : {};
 
     if (isCompleted) {
@@ -172,6 +172,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             setLastOpenedRoundId(null);
             setIsRoundSummaryOpen(false);
         }
+        // Deliberately depend on roundId, not the whole roundSummary object, to avoid
+        // re-firing on every new object reference with the same round (infinite-render guard).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [roundSummary?.roundId, lastOpenedRoundId]);
 
     // Tracking for auto-prepare to avoid race conditions
@@ -676,7 +679,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 <Icon path={mdiTrophy} size={2} color="var(--cub-scouting-gold)" style={{ marginBottom: '10px' }} />
                                 <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>End of Round</div>
                                 <div style={{ fontSize: '0.9rem', color: '#888', marginTop: '5px' }}>
-                                    {nextExecutionHeat 
+                                    {nextExecutionHeat
                                         ? `Next: ${nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}`
                                         : "Race Complete!"}
                                 </div>
@@ -693,25 +696,25 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         return (
                                                                                         <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid #f5f5f5' }}>
                                                                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#999', width: '30px' }}>L{r.lane}</div>
-                                                                                            
+
                                                                                             <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                                                 {racer?.carImageUrl ? (
-                                                                                                    <img 
-                                                                                                        src={racer.carImageUrl} 
-                                                                                                        alt={`Car #${racer.carNumber}`} 
+                                                                                                    <img
+                                                                                                        src={racer.carImageUrl}
+                                                                                                        alt={`Car #${racer.carNumber}`}
                                                                                                         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', border: '1px solid #eee' }}
                                                                                                     />
                                                                                                 ) : (
-                                                                                                    <div style={{ 
-                                                                                                        width: '100%', 
-                                                                                                        height: '100%', 
-                                                                                                        background: 'var(--cub-scouting-gold)', 
-                                                                                                        color: 'var(--scouting-blue)', 
-                                                                                                        borderRadius: '50%', 
-                                                                                                        display: 'flex', 
+                                                                                                    <div style={{
+                                                                                                        width: '100%',
+                                                                                                        height: '100%',
+                                                                                                        background: 'var(--cub-scouting-gold)',
+                                                                                                        color: 'var(--scouting-blue)',
+                                                                                                        borderRadius: '50%',
+                                                                                                        display: 'flex',
                                                                                                         flexDirection: 'column',
-                                                                                                        alignItems: 'center', 
-                                                                                                        justifyContent: 'center', 
+                                                                                                        alignItems: 'center',
+                                                                                                        justifyContent: 'center',
                                                                                                         fontWeight: 'bold',
                                                                                                         border: '1px solid #d4af37',
                                                                                                         boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)'
@@ -721,7 +724,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                                     </div>
                                                                                                 )}
                                                                                             </div>
-                                                                                            
+
                                                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                                                 <div style={{ fontWeight: '600', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                                                                     {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id || 0)}
@@ -731,7 +734,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                                 )}
                                                                                             </div>
                                                                                         </div>
-                                            
+
                                         );
                                     })}
                                 </div>

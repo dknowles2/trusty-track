@@ -13,9 +13,22 @@ from sqlalchemy.pool import StaticPool
 from backend.api.main import app, get_db
 from backend.db import crud, schemas
 from backend.db.database import Base
+from backend.db.database import init_db as init_real_db
 
 # Use in-memory SQLite database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _init_real_db_schema():
+    """
+    TimerManager persists heat results via backend.db.database.SessionLocal
+    directly (it's a background service, not a per-request dependency), so it
+    bypasses the get_db override below and writes to the real, file-backed
+    test database. Create its schema once up front so those writes always
+    land on a table that exists, regardless of test collection order.
+    """
+    init_real_db()
 
 
 @pytest.fixture(scope="session")
@@ -34,8 +47,8 @@ def db_session(engine):
     in-memory engine, destroys it afterwards.
     """
     Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = TestingSessionLocal()
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = testing_session_local()
     try:
         yield db
     finally:
@@ -68,7 +81,7 @@ def db(db_session):
 
 
 @pytest.fixture(scope="function")
-def client(db_session):
+def client(db_session):  # noqa: ARG001 - depended on for fixture ordering
     """
     Exposes a TestClient that can be used by tests.
     """
