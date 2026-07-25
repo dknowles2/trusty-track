@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery, useMutation, useSubscription, gql } from 'urql';
+import { useQuery, useMutation, gql } from 'urql';
+import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { arrayMove } from '@dnd-kit/sortable';
-import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../../core/graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
 import { ScheduleManagement } from '../components/ScheduleManagement';
 import { RaceExecution } from '../components/RaceExecution';
@@ -163,15 +163,10 @@ export default function RaceControl() {
   const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
   const [, updateRaceMutation] = useMutation(UPDATE_RACE_MUTATION);
 
-  // Subscribe to race state changes so all tabs stay in sync.
-  // Any mutation — from this tab or another — triggers a fresh fetch.
-  useSubscription(
-    { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId: id }, pause: !id || isNaN(id) },
-    (_prev, _data) => {
-      reExecute({ requestPolicy: 'network-only' });
-      return _data;
-    }
-  );
+  // Keep every open tab in sync. Heat results and check-ins arrive with the
+  // updated entity and merge into the normalized cache; only structural
+  // changes cost a refetch. See useRaceStateChanged.
+  useRaceStateChanged(id, () => reExecute({ requestPolicy: 'network-only' }));
 
   const { data, fetching } = result;
   const race = data?.race;

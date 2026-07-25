@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery, useSubscription } from 'urql';
+import { useQuery } from 'urql';
+import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import RaceModeToggle from '../../racing/components/RaceModeToggle';
 import {
   BarChart,
@@ -14,7 +15,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { GET_RACE_STATS } from '../graphql/queries';
-import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../../core/graphql/queries';
 import './RaceStats.css';
 
 // ---- Types ----
@@ -169,13 +169,7 @@ export default function RaceStats() {
     pause: !id || isNaN(id),
   });
 
-  useSubscription(
-    { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId: id }, pause: !id || isNaN(id) },
-    (_prev, data) => {
-      reExecute({ requestPolicy: 'network-only' });
-      return data;
-    }
-  );
+  useRaceStateChanged(id, () => reExecute({ requestPolicy: 'network-only' }));
 
   const [sortKey, setSortKey] = useState<SortKey>('meanTime');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');

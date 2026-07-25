@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery, useMutation, useSubscription } from 'urql';
+import { useQuery, useMutation } from 'urql';
+import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 
 import { useAlert } from '../../../context/AlertContext';
 
@@ -14,13 +15,12 @@ import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
 import RaceModeToggle from '../../racing/components/RaceModeToggle';
 import Icon from '@mdi/react';
-import { 
+import {
   mdiMagnify, mdiNumeric,
   mdiChevronDown, mdiLightningBolt, mdiFileUpload,
   mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera
 } from '@mdi/js';
 import * as GQL from '../graphql/queries';
-import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../../core/graphql/queries';
 
 interface GQLDen {
     id: number;
@@ -57,7 +57,7 @@ export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
   const parsedRaceId = useMemo(() => raceId ? parseInt(raceId) : 0, [raceId]);
   const { showAlert, showConfirm } = useAlert();
-  
+
   // GraphQL Queries
   const [raceDetailsResult, reexecuteRaceDetails] = useQuery({
     query: GQL.GET_RACE_DETAILS,
@@ -65,13 +65,10 @@ export default function RaceDetails() {
     pause: !parsedRaceId,
   });
 
-  // Subscribe to race state changes so all tabs stay in sync.
-  useSubscription(
-    { query: RACE_STATE_CHANGED_SUBSCRIPTION, variables: { raceId: parsedRaceId }, pause: !parsedRaceId },
-    (_prev, _data) => {
-      reexecuteRaceDetails({ requestPolicy: 'network-only' });
-      return _data;
-    }
+  // Keep every open tab in sync; see useRaceStateChanged for which changes
+  // still need a refetch.
+  useRaceStateChanged(parsedRaceId, () =>
+    reexecuteRaceDetails({ requestPolicy: 'network-only' })
   );
 
   const { data, fetching } = raceDetailsResult;
@@ -131,9 +128,9 @@ export default function RaceDetails() {
   }, [data]);
 
   const tracks = useMemo(() => data?.tracks || [], [data]);
-  
+
   const loading = fetching && !data;
-  
+
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -141,7 +138,7 @@ export default function RaceDetails() {
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
   const [racerFormTitle, setRacerFormTitle] = useState('Add New Racer');
   const [racerFormSubmitLabel, setRacerFormSubmitLabel] = useState('Save Racer');
-  
+
   const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
 
   // Populate Modal
@@ -154,7 +151,7 @@ export default function RaceDetails() {
 
   // Race Edit State
   const [isEditingRace, setIsEditingRace] = useState(false);
-  
+
   // Roster View State
   const [isGroupedByDen, setIsGroupedByDen] = useState(false);
   const [isAddRacerDropdownOpen, setIsAddRacerDropdownOpen] = useState(false);
@@ -223,7 +220,7 @@ export default function RaceDetails() {
         "Delete",
         "danger"
     );
-    
+
     if (!confirmed) {
         return;
     }
@@ -232,7 +229,7 @@ export default function RaceDetails() {
         const result = await deleteRaceMutation({ id: parsedRaceId });
         if (result.error) throw result.error;
         // Redirect to home
-        window.location.href = '/'; 
+        window.location.href = '/';
     } catch (e: unknown) {
         console.error("Failed to delete race", e);
         showAlert("Failed to delete race", "Error");
@@ -253,7 +250,7 @@ export default function RaceDetails() {
       setRacerFormSubmitLabel('Save Check-in');
       setShowRacerForm(true);
   };
-  
+
   const [, createRacerMutation] = useMutation(GQL.CREATE_RACER);
   const [, updateRacerMutation] = useMutation(GQL.UPDATE_RACER);
 
@@ -298,9 +295,9 @@ export default function RaceDetails() {
   };
 
   const toggleSelectRacer = (racerId: number) => {
-    setSelectedRacerIds(prev => 
-      prev.includes(racerId) 
-        ? prev.filter(id => id !== racerId) 
+    setSelectedRacerIds(prev =>
+      prev.includes(racerId)
+        ? prev.filter(id => id !== racerId)
         : [...prev, racerId]
     );
   };
@@ -396,15 +393,15 @@ export default function RaceDetails() {
       showAlert("Failed to delete racers", "Error");
     }
   };
-  
+
   const handleMoveDenMouseEnter = () => {
     if (moveDenTimeoutRef.current) clearTimeout(moveDenTimeoutRef.current);
-    
+
     // Calculate which side has more room, defaulting to right
     if (denMenuContainerRef.current) {
         const rect = denMenuContainerRef.current.getBoundingClientRect();
         const spaceOnRight = window.innerWidth - rect.right;
-        
+
         // Default to right, flip to left only if it doesn't fit on the right
         if (spaceOnRight >= 190) {
             setDenMenuSide('right');
@@ -428,7 +425,7 @@ export default function RaceDetails() {
   const filteredRacers = racers.filter(racer => {
       const searchLower = searchTerm.toLowerCase();
       const denName = dens.find(d => d.id === racer.den_id)?.name || '';
-      
+
       return (
           (racer.first_name || '').toLowerCase().includes(searchLower) ||
           (racer.last_name || '').toLowerCase().includes(searchLower) ||
@@ -442,23 +439,23 @@ export default function RaceDetails() {
     const isSelected = selectedRacerIds.includes(racer.id);
 
     return (
-      <div key={racer.id} className="racer-card" style={{ 
+      <div key={racer.id} className="racer-card" style={{
           backgroundColor: isSelected ? '#f0f7ff' : 'white',
           borderColor: isSelected ? '#3b82f6' : '#eee'
       }}>
               <div className="racer-card-header">
-                  <RacerAvatar 
-                      racer={racer} 
-                      size="60px" 
-                      className="racer-card-photo" 
+                  <RacerAvatar
+                      racer={racer}
+                      size="60px"
+                      className="racer-card-photo"
                       style={{ marginRight: '15px' }}
                   />
               <div className="racer-card-name-group">
                   <span className="racer-card-name">{racer.first_name} {racer.last_name}</span>
                   <span className="racer-card-number">Car #{racer.car_number || '-'}</span>
               </div>
-              <input 
-                  type="checkbox" 
+              <input
+                  type="checkbox"
                   checked={isSelected}
                   onChange={() => toggleSelectRacer(racer.id)}
                   style={{ transform: 'scale(1.2)', marginLeft: '10px' }}
@@ -469,9 +466,9 @@ export default function RaceDetails() {
               <span className="racer-card-label">Den</span>
               <div className="racer-card-value">
                   {racer.den_id ? (
-                      <span style={{ 
-                          padding: '2px 8px', 
-                          borderRadius: '12px', 
+                      <span style={{
+                          padding: '2px 8px',
+                          borderRadius: '12px',
                           backgroundColor: den?.color || '#eee',
                           color: getContrastColor(den?.color || '#eee'),
                           fontSize: '0.75rem',
@@ -484,11 +481,11 @@ export default function RaceDetails() {
           </div>
 
           <div className="racer-card-actions">
-              <button 
+              <button
                   onClick={() => handleCheckInClick(racer)}
                   className="secondary-btn"
-                  style={{ 
-                      background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)', 
+                  style={{
+                      background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)',
                       borderColor: racer.car_passed_inspection ? '#4caf50' : '#ddd',
                       color: racer.car_passed_inspection ? '#2e7d32' : 'var(--scouting-blue)',
                       display: 'flex',
@@ -585,31 +582,31 @@ export default function RaceDetails() {
                     }}
                 />
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px', borderRight: '1px solid #eee', height: '24px', marginRight: '4px' }}>
                 <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 500 }}>Group by Den</span>
                 <label className="toggle-switch small">
-                    <input 
-                        type="checkbox" 
-                        checked={isGroupedByDen} 
-                        onChange={e => setIsGroupedByDen(e.target.checked)} 
+                    <input
+                        type="checkbox"
+                        checked={isGroupedByDen}
+                        onChange={e => setIsGroupedByDen(e.target.checked)}
                     />
                     <span className="slider"></span>
                 </label>
             </div>
-            
+
             <button className="secondary-btn" onClick={() => setShowDenManager(true)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}>
                 <Icon path={mdiAccountGroup} size={0.7} /> Manage Dens
             </button>
-            
+
             <div className="dropdown" style={{ position: 'relative' }}>
-                <button 
-                    className="secondary-btn" 
+                <button
+                    className="secondary-btn"
                     onClick={() => setIsBulkMenuOpen(!isBulkMenuOpen)}
                     disabled={selectedRacerIds.length === 0}
-                    style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: '4px',
                         padding: '6px 12px',
                         fontSize: '0.85rem',
@@ -624,35 +621,35 @@ export default function RaceDetails() {
                 </button>
                 {isBulkMenuOpen && (
                     <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '180px', overflow: 'visible' }}>
-                        <button 
-                            onClick={handleBulkAutoNumber} 
+                        <button
+                            onClick={handleBulkAutoNumber}
                             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             data-testid="bulk-auto-number-btn"
                         >
                             <Icon path={mdiNumeric} size={0.7} /> Auto number
                         </button>
-                        <button 
-                            onClick={handleBulkClearNumbers} 
+                        <button
+                            onClick={handleBulkClearNumbers}
                             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             data-testid="bulk-clear-numbers-btn"
                         >
                             <Icon path={mdiPlus} size={0.7} style={{ transform: 'rotate(45deg)' }} /> Clear numbers
                         </button>
-                        <button 
-                            onClick={handleBulkCheckIn} 
+                        <button
+                            onClick={handleBulkCheckIn}
                             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             data-testid="bulk-check-in-btn"
                         >
                             <Icon path={mdiCheckDecagram} size={0.7} /> Bulk Check-In
                         </button>
-                        <div 
+                        <div
                             ref={denMenuContainerRef}
                             style={{ position: 'relative' }}
                             onMouseEnter={handleMoveDenMouseEnter}
                             onMouseLeave={handleMoveDenMouseLeave}
                         >
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); }} 
+                            <button
+                                onClick={(e) => { e.stopPropagation(); }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between', width: '100%' }}
                                 data-testid="bulk-move-to-den-expand-btn"
                             >
@@ -662,18 +659,18 @@ export default function RaceDetails() {
                                 <Icon path={mdiChevronDown} size={0.6} style={{ transform: 'rotate(-90deg)' }} />
                             </button>
                             {isMoveToDenOpen && (
-                                <div className="dropdown-content" style={{ 
-                                    display: 'block', 
-                                    position: 'absolute', 
-                                    [denMenuSide === 'left' ? 'right' : 'left']: '100%', 
-                                    top: 0, 
+                                <div className="dropdown-content" style={{
+                                    display: 'block',
+                                    position: 'absolute',
+                                    [denMenuSide === 'left' ? 'right' : 'left']: '100%',
+                                    top: 0,
                                     margin: 0,
                                     boxShadow: denMenuSide === 'left' ? '-2px 2px 10px rgba(0,0,0,0.1)' : '2px 2px 10px rgba(0,0,0,0.1)'
                                 }}>
                                     {dens.map(den => (
-                                        <button 
-                                            key={den.id} 
-                                            onClick={() => handleBulkMoveToDen(den.id)} 
+                                        <button
+                                            key={den.id}
+                                            onClick={() => handleBulkMoveToDen(den.id)}
                                             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                                             data-testid={`bulk-move-to-den-${den.id}`}
                                         >
@@ -685,8 +682,8 @@ export default function RaceDetails() {
                                 </div>
                             )}
                         </div>
-                        <button 
-                            onClick={handleBulkDelete} 
+                        <button
+                            onClick={handleBulkDelete}
                             style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d32f2f' }}
                             data-testid="bulk-delete-btn"
                         >
@@ -709,8 +706,8 @@ export default function RaceDetails() {
                     <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}>
                         <Icon path={mdiPlus} size={0.7} /> Add Racer
                     </button>
-                    <button 
-                        className="secondary-btn split-btn-arrow" 
+                    <button
+                        className="secondary-btn split-btn-arrow"
                         style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', padding: '6px 8px', height: '32px' }}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -721,12 +718,12 @@ export default function RaceDetails() {
                     </button>
                 </div>
                 {isAddRacerDropdownOpen && (
-                    <div 
-                        className="dropdown-content" 
+                    <div
+                        className="dropdown-content"
                         style={{ display: 'block' }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <button 
+                        <button
                             onClick={() => {
                                 setShowPopulateModal(true);
                                 setIsAddRacerDropdownOpen(false);
@@ -756,8 +753,8 @@ export default function RaceDetails() {
                 <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
                     <tr>
                         <th style={{ padding: '12px', textAlign: 'center', width: '40px' }}>
-                            <input 
-                                type="checkbox" 
+                            <input
+                                type="checkbox"
                                 data-testid="select-all-header"
                                 checked={selectedRacerIds.length > 0 && selectedRacerIds.length === filteredRacers.length}
                                 ref={el => {
@@ -800,16 +797,16 @@ export default function RaceDetails() {
                             const den = dens.find(d => d.id === group.denId);
                             const denName = group.denId === -1 ? "Unassigned" : (den?.name || 'Unknown Den');
                             const denColor = group.denId === -1 ? "#eee" : (den?.color || '#eee');
-                            
+
                             return (
                                 <>
                                     <tr key={`header-${group.denId}`} className="group-row" style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
                                         <td colSpan={7} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                                            <span style={{ 
-                                                display: 'inline-block', 
-                                                width: '12px', 
-                                                height: '12px', 
-                                                borderRadius: '50%', 
+                                            <span style={{
+                                                display: 'inline-block',
+                                                width: '12px',
+                                                height: '12px',
+                                                borderRadius: '50%',
                                                 backgroundColor: denColor,
                                                 marginRight: '8px'
                                             }}></span>
@@ -817,22 +814,22 @@ export default function RaceDetails() {
                                         </td>
                                     </tr>
                                     {group.items.map(racer => (
-                                         <tr 
-                                            key={racer.id} 
+                                         <tr
+                                            key={racer.id}
                                             className="racer-row"
-                                            style={{ 
+                                            style={{
                                                 borderBottom: '1px solid #eee',
-                                                backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined 
+                                                backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined
                                             }}
                                          >
                                              <td data-label="Select" style={{ padding: '12px', textAlign: 'center' }}>
-                                                <input 
-                                                    type="checkbox" 
+                                                <input
+                                                    type="checkbox"
                                                     className="row-checkbox"
                                                     data-testid={`racer-select-${racer.id}`}
                                                     checked={selectedRacerIds.includes(racer.id)}
                                                     onChange={() => toggleSelectRacer(racer.id)}
-                                                    style={{ 
+                                                    style={{
                                                         transform: 'scale(1.1)',
                                                         opacity: selectedRacerIds.includes(racer.id) ? 1 : 0
                                                     }}
@@ -840,9 +837,9 @@ export default function RaceDetails() {
                                             </td>
                                             <td data-label="Car #" style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
                                             <td data-label="Photo" style={{ padding: '12px', textAlign: 'center' }}>
-                                                <RacerAvatar 
-                                                    racer={racer} 
-                                                    size="40px" 
+                                                <RacerAvatar
+                                                    racer={racer}
+                                                    size="40px"
                                                     style={{ margin: '0 auto', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                                                 />
                                             </td>
@@ -850,9 +847,9 @@ export default function RaceDetails() {
                                             <td data-label="Last Name" style={{ padding: '12px' }}>{racer.last_name}</td>
                                             <td data-label="Den" style={{ padding: '12px' }}>
                                                 {racer.den_id ? (
-                                                    <span style={{ 
-                                                        padding: '4px 8px', 
-                                                        borderRadius: '12px', 
+                                                    <span style={{
+                                                        padding: '4px 8px',
+                                                        borderRadius: '12px',
                                                         backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
                                                         color: getContrastColor(dens.find(d => d.id === racer.den_id)?.color || '#eee'),
                                                         fontSize: '0.85rem',
@@ -863,11 +860,11 @@ export default function RaceDetails() {
                                                 ) : '-'}
                                             </td>
                                             <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
-                                                <button 
+                                                <button
                                                     onClick={() => handleCheckInClick(racer)}
-                                                    style={{ 
-                                                        background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)', 
-                                                        border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`, 
+                                                    style={{
+                                                        background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)',
+                                                        border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`,
                                                         borderRadius: '20px',
                                                         padding: '6px 12px',
                                                         cursor: 'pointer',
@@ -895,23 +892,23 @@ export default function RaceDetails() {
                     ) : (
                         // Standard View
                           filteredRacers.map(racer => (
-                            <tr 
-                                key={racer.id} 
+                            <tr
+                                key={racer.id}
                                 className="racer-row"
-                                style={{ 
+                                style={{
                                     borderBottom: '1px solid #eee',
                                     backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined
                                 }}
                             >
                                 <td data-label="Select" style={{ padding: '12px', textAlign: 'center' }}>
                                     <span className="cell-value">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             className="row-checkbox"
                                             data-testid={`racer-select-${racer.id}`}
                                             checked={selectedRacerIds.includes(racer.id)}
                                             onChange={() => toggleSelectRacer(racer.id)}
-                                            style={{ 
+                                            style={{
                                                 transform: 'scale(1.1)',
                                                 opacity: selectedRacerIds.includes(racer.id) ? 1 : 0
                                             }}
@@ -921,9 +918,9 @@ export default function RaceDetails() {
                                 <td data-label="Car #" style={{ padding: '12px' }}><span className="cell-value">{racer.car_number || '-'}</span></td>
                                 <td data-label="Photo" style={{ padding: '12px', textAlign: 'center' }}>
                                     <span className="cell-value">
-                                        <RacerAvatar 
-                                            racer={racer} 
-                                            size="40px" 
+                                        <RacerAvatar
+                                            racer={racer}
+                                            size="40px"
                                             style={{ margin: '0 auto', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                                         />
                                     </span>
@@ -933,9 +930,9 @@ export default function RaceDetails() {
                                 <td data-label="Den" style={{ padding: '12px' }}>
                                     <span className="cell-value">
                                         {racer.den_id ? (
-                                            <span style={{ 
-                                                padding: '4px 8px', 
-                                                borderRadius: '12px', 
+                                            <span style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '12px',
                                                 backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
                                                 color: getContrastColor(dens.find(d => d.id === racer.den_id)?.color || '#eee'),
                                                 fontSize: '0.85rem',
@@ -948,11 +945,11 @@ export default function RaceDetails() {
                                 </td>
                                 <td data-label="Status/Edit" style={{ padding: '12px', textAlign: 'center' }}>
                                     <span className="cell-value" style={{ display: 'flex', justifyContent: 'center' }}>
-                                        <button 
+                                        <button
                                             onClick={() => handleCheckInClick(racer)}
-                                            style={{ 
-                                                background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)', 
-                                                border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`, 
+                                            style={{
+                                                background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)',
+                                                border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`,
                                                 borderRadius: '20px',
                                                 padding: '6px 12px',
                                                 cursor: 'pointer',
@@ -1005,7 +1002,7 @@ export default function RaceDetails() {
                   const den = dens.find(d => d.id === group.denId);
                   const denName = group.denId === -1 ? "Unassigned" : (den?.name || 'Unknown Den');
                   const denColor = group.denId === -1 ? "#eee" : (den?.color || '#eee');
-                  
+
                   return (
                       <div key={`mobile-group-${group.denId}`}>
                           <div className="mobile-den-header" style={{ borderLeftColor: denColor }}>
@@ -1043,7 +1040,7 @@ export default function RaceDetails() {
         title="Manage Dens"
       >
           {race ? (
-             <DenManager 
+             <DenManager
                 raceId={race.id}
                 onUpdate={refreshData}
               />
@@ -1081,7 +1078,7 @@ export default function RaceDetails() {
                   Generate fake racers to test your race setup. You can specify how many racers to add.
                   They will be assigned random names, ranks, and images.
               </p>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <label htmlFor="pop-count" style={{ fontWeight: 'bold' }}>Number of Racers:</label>
                   <input
@@ -1097,47 +1094,47 @@ export default function RaceDetails() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                      <input 
-                          type="checkbox" 
-                          checked={popAddRacerPhotos} 
-                          onChange={(e) => setPopAddRacerPhotos(e.target.checked)} 
+                      <input
+                          type="checkbox"
+                          checked={popAddRacerPhotos}
+                          onChange={(e) => setPopAddRacerPhotos(e.target.checked)}
                       />
                       Add Racer Photos
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                      <input 
-                          type="checkbox" 
-                          checked={popAddCarPhotos} 
-                          onChange={(e) => setPopAddCarPhotos(e.target.checked)} 
+                      <input
+                          type="checkbox"
+                          checked={popAddCarPhotos}
+                          onChange={(e) => setPopAddCarPhotos(e.target.checked)}
                       />
                       Add Car Photos
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                      <input 
-                          type="checkbox" 
-                          checked={popAssignDens} 
-                          onChange={(e) => setPopAssignDens(e.target.checked)} 
+                      <input
+                          type="checkbox"
+                          checked={popAssignDens}
+                          onChange={(e) => setPopAssignDens(e.target.checked)}
                       />
                       Assign to Dens
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                      <input 
-                          type="checkbox" 
-                          checked={popCheckIn} 
-                          onChange={(e) => setPopCheckIn(e.target.checked)} 
+                      <input
+                          type="checkbox"
+                          checked={popCheckIn}
+                          onChange={(e) => setPopCheckIn(e.target.checked)}
                       />
                       Check In Automatically
                   </label>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '1rem' }}>
-                  <button 
+                  <button
                     onClick={async () => {
                         if (populateCount <= 0) {
                             showAlert("Please enter a valid count > 0", "Invalid Input");
                             return;
                         }
-                        
+
                         const btn = document.getElementById('do-populate-btn');
                         if (btn) {
                             btn.textContent = '⏳ Generating...';
@@ -1173,8 +1170,8 @@ export default function RaceDetails() {
                   >
                       Generate
                   </button>
-                  <button 
-                    onClick={() => setShowPopulateModal(false)} 
+                  <button
+                    onClick={() => setShowPopulateModal(false)}
                     style={{ backgroundColor: '#e0e0e0', color: '#666', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
                   >
                     Cancel

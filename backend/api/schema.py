@@ -1165,7 +1165,7 @@ class Mutation:
         racer_in = schemas.RacerCreate(**typing.cast(Any, strawberry.asdict(racer)))
         new_racer = typing.cast(Any, crud.create_racer(db, racer_in))
         await _publish_race_state(
-            new_racer.race_id, kind=RaceChangeKind.RACER, racer=new_racer
+            new_racer.race_id, kind=RaceChangeKind.ROSTER, racer=new_racer
         )
         return new_racer
 
@@ -1195,7 +1195,7 @@ class Mutation:
         race_id = racer.race_id if racer else None
         result = crud.delete_racer(db, racer_id=id) is not None
         if race_id:
-            await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
+            await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return result
 
     @strawberry.mutation
@@ -1859,7 +1859,7 @@ class Mutation:
         )
         crud.bulk_move_racers_to_den(db, racer_ids, den_id)
         if racer:
-            await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
+            await _publish_race_state(racer.race_id, kind=RaceChangeKind.ROSTER)
         return True
 
     @strawberry.mutation
@@ -1874,7 +1874,7 @@ class Mutation:
         race_id = racer.race_id if racer else None
         crud.bulk_delete_racers(db, racer_ids)
         if race_id:
-            await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
+            await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return True
 
     @strawberry.mutation
@@ -2141,7 +2141,8 @@ class Mutation:
             crud.create_racer(db, racer_in)
             count += 1
 
-        await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
+        # An import creates racers, so the roster list changed.
+        await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return count
 
     @strawberry.mutation
@@ -2298,8 +2299,15 @@ class RaceChangeKind(enum.Enum):
 
     #: A heat's results were recorded, cleared, or edited. Carries ``heat``.
     HEAT_RESULT = "HEAT_RESULT"
-    #: A racer was created, edited, checked in, or moved. Carries ``racer``.
+    #: Fields changed on an existing racer — checked in, renamed, renumbered,
+    #: photographed. Carries ``racer`` when a single one changed. Crucially this
+    #: does *not* change which racers exist or which den they are in, so a
+    #: normalized client cache can merge the payload without refetching a list.
     RACER = "RACER"
+    #: Racers were added or removed, or moved between dens. ``Race.racers`` and
+    #: ``Den.racers`` membership changed, which no payload can express — a
+    #: client has to re-read the list.
+    ROSTER = "ROSTER"
     #: Heats or rounds were created, regenerated, reordered, or deleted. The
     #: shape of the schedule changed, so a refetch is genuinely warranted.
     SCHEDULE = "SCHEDULE"

@@ -112,7 +112,7 @@ describe('RaceDetails', () => {
             { id: 1, first_name: 'John', last_name: 'Doe', car_number: 101, den_id: 1, car_passed_inspection: false },
             { id: 2, first_name: 'Jane', last_name: 'Smith', car_number: 102, den_id: 2, car_passed_inspection: true },
         ];
-        
+
         const mockDens = [
             { id: 1, name: 'Tigers', color: 'orange' },
             { id: 2, name: 'Wolves', color: 'red' },
@@ -121,10 +121,10 @@ describe('RaceDetails', () => {
         (useQuery as any).mockReturnValue([{
             data: {
                 race: {
-                    id: 1, 
-                    name: 'Test Race', 
+                    id: 1,
+                    name: 'Test Race',
                     dateTime: '2024-03-15T10:00:00',
-                    racers: mockRacers.map(r => ({ 
+                    racers: mockRacers.map(r => ({
                         id: r.id,
                         firstName: r.first_name,
                         lastName: r.last_name,
@@ -278,7 +278,7 @@ describe('RaceDetails', () => {
         });
 
         act(() => {
-            capturedHandler!(undefined, { raceStateChanged: { raceId: 1, changedAt: '2026-01-01T00:00:00Z' } });
+            capturedHandler!(undefined, { raceStateChanged: { raceId: 1, changedAt: '2026-01-01T00:00:00Z', kind: 'SCHEDULE' } });
         });
 
         expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });

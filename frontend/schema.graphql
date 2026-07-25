@@ -262,6 +262,7 @@ type Race {
 enum RaceChangeKind {
   HEAT_RESULT
   RACER
+  ROSTER
   SCHEDULE
   RACE_SETTINGS
   OTHER

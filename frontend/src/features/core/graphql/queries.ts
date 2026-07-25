@@ -28,11 +28,40 @@ export const INITIAL_CONFIG_QUERY = `
   }
 `;
 
+/**
+ * Selecting the `heat` and `racer` payloads is what lets the normalized cache
+ * merge a change instead of the page re-querying itself. The fields listed here
+ * are the ones the pages actually render, so a merge leaves no gaps.
+ */
 export const RACE_STATE_CHANGED_SUBSCRIPTION = `
   subscription RaceStateChanged($raceId: Int!) {
     raceStateChanged(raceId: $raceId) {
       raceId
       changedAt
+      kind
+      roundId
+      heat {
+        id
+        raceId
+        roundId
+        heatNumber
+        roundNumber
+        roundName
+        laneResults
+      }
+      racer {
+        id
+        raceId
+        firstName
+        lastName
+        carNumber
+        carName
+        carWeight
+        carPassedInspection
+        racerImageUrl
+        carImageUrl
+        denId
+      }
     }
   }
 `;
