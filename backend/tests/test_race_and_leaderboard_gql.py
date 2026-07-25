@@ -1,6 +1,5 @@
-import json
-
 from backend.db import crud, schemas
+from backend.tests.helpers import record_heat_result
 
 
 def test_race_mutations_and_leaderboard(client, db):
@@ -14,7 +13,9 @@ def test_race_mutations_and_leaderboard(client, db):
     # 2. Create Race
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Original Race", groupId: {group.id}, trackId: {track.id}}}) {{
+        createRace(race: {{
+            name: "Original Race", groupId: {group.id}, trackId: {track.id}
+        }}) {{
             id
             name
         }}
@@ -28,7 +29,9 @@ def test_race_mutations_and_leaderboard(client, db):
     # 3. Update Race
     mutation_update_race = f"""
     mutation {{
-        updateRace(id: {race_id}, race: {{name: "Updated Race", location: "Stadium"}}) {{
+        updateRace(
+            id: {race_id}, race: {{name: "Updated Race", location: "Stadium"}}
+        ) {{
             name
             location
         }}
@@ -90,18 +93,7 @@ def test_race_mutations_and_leaderboard(client, db):
         {"lane": 1, "racer_id": racer_ids[0], "time": 3.45, "place": 1},
         {"lane": 2, "racer_id": racer_ids[1], "time": 3.50, "place": 2},
     ]
-    results_str = json.dumps(results_data).replace(
-        '"', '\\"'
-    )  # Escape quotes for GQL string
-
-    mutation_result = f"""
-    mutation {{
-        updateHeatResult(heatId: {heat_id}, results: "{results_str}") {{
-            id
-        }}
-    }}
-    """
-    client.post("/graphql", json={"query": mutation_result})
+    record_heat_result(client, heat_id, results_data)
 
     # 5. Query Leaderboard
     query_leaderboard = f"""
@@ -154,7 +146,9 @@ def test_bulk_move_to_den_null(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Bulk Den Race", groupId: {group.id}, trackId: {track.id}}}) {{
+        createRace(race: {{
+            name: "Bulk Den Race", groupId: {group.id}, trackId: {track.id}
+        }}) {{
             id
         }}
     }}

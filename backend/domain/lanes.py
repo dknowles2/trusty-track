@@ -33,6 +33,11 @@ from typing import Any
 #: Keys :class:`Lane` models directly; everything else round-trips via ``extra``.
 _KNOWN_KEYS = ("lane", "racer_id", "time", "place")
 
+#: Keys carried in ``extra`` that the GraphQL write path now states explicitly.
+#: :func:`carry_extras` must not restore these from the stored blob — an update
+#: that omits ``skipped`` is saying the heat is no longer skipped.
+_STRUCTURED_KEYS = ("skipped",)
+
 
 @dataclass
 class Lane:
@@ -166,6 +171,37 @@ def is_complete(lanes: Sequence[Lane]) -> bool:
 def real_racer_ids(lanes: Iterable[Lane]) -> list[int]:
     """Assigned, non-placeholder racer ids, in lane order."""
     return [lane.racer_id for lane in lanes if lane.is_real_racer]
+
+
+def carry_extras(updates: Sequence[Lane], stored: Sequence[Lane]) -> list[Lane]:
+    """Return *updates* with each lane's unmodelled keys taken from *stored*.
+
+    Structured input names every field this module models, so rebuilding a blob
+    from it is lossless for everything we know about — but the blob has always
+    carried keys we do not model, and a client that cannot see them cannot send
+    them back. Matching on lane number keeps them.
+
+    ``skipped`` is deliberately *not* carried: it is modelled now, so an update
+    that omits it means the operator un-skipped the heat.
+    """
+    extras = {lane.lane: lane.extra for lane in stored}
+    merged = []
+    for update in updates:
+        carried = {
+            key: value
+            for key, value in extras.get(update.lane, {}).items()
+            if key not in update.extra and key not in _STRUCTURED_KEYS
+        }
+        merged.append(
+            Lane(
+                lane=update.lane,
+                racer_id=update.racer_id,
+                time=update.time,
+                place=update.place,
+                extra={**carried, **update.extra},
+            )
+        )
+    return merged
 
 
 def resolve_placeholders(lanes: Sequence[Lane], racer_ids: Sequence[int]) -> bool:

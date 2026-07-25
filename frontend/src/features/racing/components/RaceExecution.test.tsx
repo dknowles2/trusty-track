@@ -44,10 +44,6 @@ describe('RaceExecution', () => {
         roundId: 1,
         heatNumber: 1,
         roundName: "Round 1",
-        laneResults: JSON.stringify([
-            { lane: 1, racer_id: 101, time: '3.5', place: 1 },
-            { lane: 2, racer_id: 102, time: '3.6', place: 2 }
-        ]),
         lanes: [
             lane({ lane: 1, racerId: 101, time: 3.5, place: 1 }),
             lane({ lane: 2, racerId: 102, time: 3.6, place: 2 }),
@@ -157,7 +153,8 @@ describe('RaceExecution', () => {
             expect(mockOnUpdateResult).toHaveBeenCalled();
             const args = mockOnUpdateResult.mock.calls[0];
             expect(args[0]).toBe(1);
-            expect(args[1][0].time).toBe('4.0');
+            // A number, not the '4.0' the blob used to carry (#5).
+            expect(args[1][0].time).toBe(4);
         });
     });
 
@@ -175,7 +172,6 @@ describe('RaceExecution', () => {
                 {...defaultProps}
                 activeExecutionHeat={{
                     ...mockHeat,
-                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
                     lanes: [lane({ lane: 1, racerId: 101 })],
                 }}
             />
@@ -190,7 +186,6 @@ describe('RaceExecution', () => {
                 {...defaultProps}
                 activeExecutionHeat={{
                     ...mockHeat,
-                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
                     lanes: [lane({ lane: 1, racerId: 101 })],
                 }}
             />
@@ -205,7 +200,6 @@ describe('RaceExecution', () => {
                 {...defaultProps}
                 activeExecutionHeat={{
                     ...mockHeat,
-                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
                     lanes: [lane({ lane: 1, racerId: 101 })],
                 }}
             />
@@ -288,9 +282,6 @@ describe('RaceExecution', () => {
             roundId: 2,
             heatNumber: 1,
             roundName: "Finals",
-            laneResults: JSON.stringify([
-                { lane: 1, racer_id: -1, time: null, place: null }
-            ]),
             lanes: [lane({ lane: 1, placeholderSlot: 1 })],
         };
 
@@ -333,7 +324,6 @@ describe('RaceExecution', () => {
             ...mockHeat,
             id: 2,
             heatNumber: 2,
-            laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
             lanes: [lane({ lane: 1, racerId: 101 })]
         };
 
@@ -359,7 +349,6 @@ describe('RaceExecution', () => {
 
         const clearedHeat: Heat = {
             ...mockHeat,
-            laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
             lanes: [lane({ lane: 1, racerId: 101 })]
         };
 

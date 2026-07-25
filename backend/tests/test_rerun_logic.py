@@ -2,6 +2,7 @@ import json
 import uuid
 
 from backend.db import crud, schemas
+from backend.tests.helpers import record_heat_result
 
 
 def get_unique_name(prefix: str) -> str:
@@ -82,15 +83,7 @@ def test_rerun_last_heat_clears_next_round(client, db):
             lane["time"] = 1.0 + (i * 0.1)
             results.append(lane)
 
-        results_str = json.dumps(results).replace('"', '\\"')
-        mutation_update = f"""
-        mutation {{
-            updateHeatResult(heatId: {heat.id}, results: "{results_str}") {{
-                id
-            }}
-        }}
-        """
-        client.post("/graphql", json={"query": mutation_update})
+        record_heat_result(client, heat.id, results)
 
     # 6. Verify Championship Round is Populated - Manually Advance
     mutation_advance = f"""
@@ -114,15 +107,7 @@ def test_rerun_last_heat_clears_next_round(client, db):
     for r in results:
         r["time"] = None
 
-    results_str = json.dumps(results).replace('"', '\\"')
-    mutation_update_clear = f"""
-    mutation {{
-        updateHeatResult(heatId: {last_heat.id}, results: "{results_str}") {{
-            id
-        }}
-    }}
-    """
-    client.post("/graphql", json={"query": mutation_update_clear})
+    record_heat_result(client, last_heat.id, results)
 
     # 8. Assert Championship Round is Cleared
     db.expire_all()

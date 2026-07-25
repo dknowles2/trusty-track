@@ -9,8 +9,8 @@ import { RaceExecution } from '../components/RaceExecution';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import Icon from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
-import type { Heat, Racer, Round, AdvancementStatus, LaneResult, Lane } from '../types';
-import { hasRun, hasTimes, byPlace } from '../lanes';
+import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
+import { hasRun, hasTimes, byPlace, cleared } from '../lanes';
 
 const GET_RACE_CONTROL_DATA = gql`
   query GetRaceControlData($id: Int!) {
@@ -46,7 +46,6 @@ const GET_RACE_CONTROL_DATA = gql`
         roundNumber
         roundId
         roundName
-        laneResults
         lanes {
           lane
           racerId
@@ -120,8 +119,8 @@ const REORDER_HEATS_MUTATION = gql`
 `;
 
 const UPDATE_HEAT_RESULT_MUTATION = gql`
-  mutation UpdateHeatResult($heatId: Int!, $results: String!) {
-    updateHeatResult(heatId: $heatId, results: $results) {
+  mutation UpdateHeatResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+    updateHeatResult(heatId: $heatId, lanes: $lanes) {
       id
     }
   }
@@ -353,30 +352,22 @@ export default function RaceControl() {
     }
   };
 
-  const handleUpdateResult = useCallback(async (heatId: number, results: LaneResult[]) => {
+  const handleUpdateResult = useCallback(async (heatId: number, results: LaneInput[]) => {
       try {
           const heat = heats.find((h: Heat) => h.id === heatId);
           if (!heat) return;
 
-          const sortedResults = [...results];
+          const sortedResults = results.map(r => ({ ...r }));
 
           // Only assign places if at least one racer has a time
-          const hasAnyTime = sortedResults.some(r => r.time !== null && r.time !== '');
+          const hasAnyTime = sortedResults.some(r => r.time !== null);
 
           if (hasAnyTime) {
-              sortedResults.sort((a, b) => {
-                  const tA = a.time ? (typeof a.time === 'number' ? a.time : parseFloat(a.time)) : 9999;
-                  const tB = b.time ? (typeof b.time === 'number' ? b.time : parseFloat(b.time)) : 9999;
-                  return tA - tB;
-              });
+              sortedResults.sort((a, b) => (a.time ?? 9999) - (b.time ?? 9999));
 
               sortedResults.forEach((r, idx) => {
                   r.skipped = false; // Always clear skipped flag if we have times
-                  if (r.time !== null && r.time !== '') {
-                      r.place = idx + 1;
-                  } else {
-                      r.place = null;
-                  }
+                  r.place = r.time !== null ? idx + 1 : null;
               });
           } else {
               // If no times (e.g. Skip Heat), clear all places
@@ -387,7 +378,7 @@ export default function RaceControl() {
 
           const result = await updateHeatResultMutation({
               heatId,
-              results: JSON.stringify(sortedResults)
+              lanes: sortedResults,
           });
           if (result.error) throw result.error;
 
@@ -423,17 +414,10 @@ export default function RaceControl() {
   const handleRunHeat = useCallback(async (heat: Heat, shouldStart: boolean = true) => {
     if (hasRun(heat.lanes)) {
         // Clear results locally first (Optimistic UI Update would be complex with urql, so we just clear on server)
-        // Built by editing the blob rather than rebuilding it from `lanes`: the
-        // blob round-trips keys we do not model, and re-encoding placeholders as
-        // negative ids here would put that trick back in the client. The write
-        // path moves to structured input in #5, step 5.
-        const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-        const emptyResults = results.map((r: { lane: number; racer_id: number }) => ({ ...r, time: null, place: null, skipped: false }));
-
         try {
             const result = await updateHeatResultMutation({
                 heatId: heat.id,
-                results: JSON.stringify(emptyResults)
+                lanes: cleared(heat.lanes),
             });
             if (result.error) throw result.error;
 

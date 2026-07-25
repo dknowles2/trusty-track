@@ -6,10 +6,10 @@
  * test, and they had drifted: some counted a skipped heat as run and some did
  * not. Naming them makes the difference deliberate rather than accidental.
  *
- * Reads only. Mutations still take the `laneResults` JSON string, so the
- * screens that write a heat still build that blob — see #5, step 5.
+ * Also the conversion to `HeatLaneInput` for the write path, which is a
+ * near-identity — the read and write shapes match on purpose.
  */
-import type { Lane } from './types';
+import type { Lane, LaneInput } from './types';
 
 /** A lane with a recorded time. */
 export const hasTime = (lane: Lane): boolean => lane.time !== null;
@@ -43,3 +43,23 @@ export const byPlace = (lanes: readonly Lane[]): Lane[] =>
  * been decided yet — `placeholderSlot` tells those apart when it matters.
  */
 export const racerIdIn = (lane: Lane): number | null => lane.racerId;
+
+/**
+ * A lane as the mutation takes it.
+ *
+ * Field-for-field the same as {@link Lane}, but spelt out rather than spread:
+ * the cache attaches `__typename` to what it hands back, and GraphQL rejects an
+ * input object carrying a field the type does not declare.
+ */
+export const toInput = (lane: Lane): LaneInput => ({
+  lane: lane.lane,
+  racerId: lane.racerId,
+  placeholderSlot: lane.placeholderSlot,
+  time: lane.time,
+  place: lane.place,
+  skipped: lane.skipped,
+});
+
+/** The same lanes with any result removed — what re-running a heat sends. */
+export const cleared = (lanes: readonly Lane[]): LaneInput[] =>
+  lanes.map((lane) => ({ ...toInput(lane), time: null, place: null, skipped: false }));

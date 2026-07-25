@@ -20,12 +20,11 @@ vi.mock('../components/RaceExecution', () => ({
             {activeExecutionHeat && <div data-testid="active-heat-id">{activeExecutionHeat.id}</div>}
             <button onClick={() => onRunHeat({
                 id: 1,
-                heatNumber: 1,
-                laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]), lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }]
+                heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }]
             }, true)}>Run Heat 1</button>
             <button onClick={() => {
                 // Simulate finishing heat
-                onUpdateResult(1, [{ lane: 1, time: 4.5, place: 1 }]);
+                onUpdateResult(1, [{ lane: 1, racerId: 1, placeholderSlot: null, time: 4.5, place: 1, skipped: false }]);
             }}>Finish Heat 1</button>
             <div data-testid="timer-type">{timerType}</div>
         </div>
@@ -80,8 +79,8 @@ describe('RaceControl Page', () => {
                 { id: 102, firstName: 'C', lastName: 'D', carNumber: 102 }
             ],
             heats: [
-                { id: 1, roundNumber: 1, heatNumber: 1, laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]), lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] }, // Completed heat
-                { id: 2, roundNumber: 1, heatNumber: 2, laneResults: '[]', lanes: [] }
+                { id: 1, roundNumber: 1, heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] }, // Completed heat
+                { id: 2, roundNumber: 1, heatNumber: 2, lanes: [] }
             ]
         }
     };
@@ -134,10 +133,12 @@ describe('RaceControl Page', () => {
             expect(mockUpdateHeatResultMutation).toHaveBeenCalled();
         });
 
-        expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith(expect.objectContaining({
+        // Re-running sends the same lanes with every result cleared — no JSON
+        // string to pattern-match any more (#5).
+        expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith({
             heatId: 1,
-            results: expect.stringMatching(/\[.*"time":null.*\]|\[\]/)
-        }));
+            lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: null, place: null, skipped: false }],
+        });
     });
 
     it('clears activeHeatId when results are updated (finish heat)', async () => {
@@ -167,10 +168,10 @@ describe('RaceControl Page', () => {
              expect(mockUpdateHeatResultMutation).toHaveBeenCalled();
         });
 
-        expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith(expect.objectContaining({
+        expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith({
             heatId: 1,
-            results: expect.stringMatching(/.*"time":4.5.*/)
-        }));
+            lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 4.5, place: 1, skipped: false }],
+        });
     });
 
     it('propagates laneCount from initial config', async () => {

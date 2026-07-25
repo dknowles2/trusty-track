@@ -1,12 +1,14 @@
-import json
-
 import pytest
 
 from backend.db import crud, schemas
+from backend.tests.helpers import record_heat_result
 
 
 def _setup_race(client, db):
-    """Create group, track, race, 2 dens, 4 racers. Returns (race_id, racer_ids, den_ids)."""
+    """Create group, track, race, 2 dens, 4 racers.
+
+    Returns (race_id, racer_ids, den_ids).
+    """
     group = crud.create_group(db, schemas.GroupCreate(name="Stats Test Group"))
     track = crud.create_track(db, schemas.TrackCreate(name="Stats Track", lane_count=4))
 
@@ -35,7 +37,10 @@ def _setup_race(client, db):
             json={
                 "query": f"""
                 mutation {{
-                    createDen(raceId: {race_id}, den: {{ name: "{name}", color: "{color}" }}) {{ id }}
+                    createDen(
+                        raceId: {race_id},
+                        den: {{ name: "{name}", color: "{color}" }}
+                    ) {{ id }}
                 }}
                 """
             },
@@ -101,18 +106,7 @@ def _create_round_and_get_heats(client, race_id):
 
 def _record_heat_result(client, heat_id, results):
     """Record results for a heat. results is a list of dicts."""
-    results_str = json.dumps(results).replace('"', '\\"')
-    resp = client.post(
-        "/graphql",
-        json={
-            "query": f"""
-            mutation {{
-                updateHeatResult(heatId: {heat_id}, results: "{results_str}") {{ id }}
-            }}
-            """
-        },
-    )
-    assert resp.status_code == 200
+    record_heat_result(client, heat_id, results)
 
 
 RACE_STATS_QUERY = """
@@ -132,7 +126,9 @@ query GetRaceStats($raceId: Int!) {
     }
     highlights { type roundName heatNumber racerName time margin }
     denStats { denId denName denColor racerCount avgScore bestRacerName }
-    heatResults { roundName heatNumber lane carNumber racerFirstName racerLastName time place }
+    heatResults {
+      roundName heatNumber lane carNumber racerFirstName racerLastName time place
+    }
   }
 }
 """
@@ -228,7 +224,7 @@ def test_race_stats_multiple_heats(client, db):
     heats = _create_round_and_get_heats(client, race_id)
 
     # Record results in 2 heats for racer 0 (times: 3.0, 4.0 → mean 3.5, std_dev ~0.5)
-    for i, (h, t1, t2) in enumerate(zip(heats[:2], [3.0, 4.0], [3.5, 4.5])):
+    for h, t1, t2 in zip(heats[:2], [3.0, 4.0], [3.5, 4.5]):
         _record_heat_result(
             client,
             h["id"],
@@ -252,7 +248,7 @@ def test_race_stats_multiple_heats(client, db):
     assert r0["stdDev"] == pytest.approx(0.5, abs=0.001)
 
 
-def test_race_stats_returns_none_for_missing_race(client, db):
+def test_race_stats_returns_none_for_missing_race(client):
     """raceStats returns null for a non-existent race ID."""
     resp = client.post(
         "/graphql",

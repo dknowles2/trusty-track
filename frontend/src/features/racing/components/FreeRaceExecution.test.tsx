@@ -3,6 +3,20 @@ import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useMutation, useSubscription } from 'urql';
 import { FreeRaceExecution } from './FreeRaceExecution';
+import { lane } from '../testFixtures';
+
+/**
+ * A free race heat the backend has recorded a result for.
+ *
+ * `laneResults` is what marks it recorded — `lanes` is populated from the
+ * assignments the moment the heat is created, so it cannot say that on its own.
+ * Its contents no longer matter to the component, only its presence.
+ */
+const recordedHeat = (lanes: (Partial<Parameters<typeof lane>[0]> & { lane: number })[]) => ({
+  id: 42,
+  laneResults: '[]',
+  lanes: lanes.map(lane),
+});
 
 const mockShowConfirm = vi.fn();
 vi.mock('../../../context/AlertContext', () => ({
@@ -69,11 +83,11 @@ describe('FreeRaceExecution', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     mockPrepareHeat.mockResolvedValue({ data: { prepareHeat: true } });
-    mockRecordResult.mockResolvedValue({ data: { recordFreeRaceResult: { id: 42, laneResults: '[]' } } });
+    mockRecordResult.mockResolvedValue({ data: { recordFreeRaceResult: { id: 42, lanes: [] } } });
     mockResetTimer.mockResolvedValue({ data: { resetTimer: true } });
-    
+
     (useMutation as any).mockImplementation((query: any) => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('RecordFreeRaceResult')) return [{}, mockRecordResult];
@@ -130,11 +144,10 @@ describe('FreeRaceExecution', () => {
       }
       if (qStr.includes('FreeRaceHeat')) {
         return [{ data: { freeRaceHeat: {
-          id: 42,
-          laneResults: JSON.stringify([
-            { lane: 1, racer_id: 101, time: 3.142, place: 1 },
-            { lane: 2, racer_id: 102, time: 3.5, place: 2 },
-            { lane: 3, racer_id: null, time: null, place: null },
+          ...recordedHeat([
+            { lane: 1, racerId: 101, time: 3.142, place: 1 },
+            { lane: 2, racerId: 102, time: 3.5, place: 2 },
+            { lane: 3 },
           ])
         } } }];
       }
@@ -152,8 +165,7 @@ describe('FreeRaceExecution', () => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('FreeRaceHeat')) {
         return [{ data: { freeRaceHeat: {
-          id: 42,
-          laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: 3.142, place: 1 }])
+          ...recordedHeat([{ lane: 1, racerId: 101, time: 3.142, place: 1 }])
         } } }];
       }
       return [{ data: null }];
@@ -171,8 +183,7 @@ describe('FreeRaceExecution', () => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('FreeRaceHeat')) {
         return [{ data: { freeRaceHeat: {
-          id: 42,
-          laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: 3.142, place: 1 }])
+          ...recordedHeat([{ lane: 1, racerId: 101, time: 3.142, place: 1 }])
         } } }];
       }
       return [{ data: null }];
@@ -187,13 +198,12 @@ describe('FreeRaceExecution', () => {
 
   it('Edit modal allows saving corrected times and calls mutation', () => {
     mockRecordResult.mockResolvedValue({ data: { recordFreeRaceResult: { id: 42 } } });
-    
+
     (useSubscription as any).mockImplementation(({ query }: any) => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('FreeRaceHeat')) {
         return [{ data: { freeRaceHeat: {
-          id: 42,
-          laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: 3.142, place: 1 }])
+          ...recordedHeat([{ lane: 1, racerId: 101, time: 3.142, place: 1 }])
         } } }];
       }
       return [{ data: null }];
@@ -220,21 +230,20 @@ describe('FreeRaceExecution', () => {
       }
       if (qStr.includes('FreeRaceHeat')) {
         return [{ data: { freeRaceHeat: {
-          id: 42,
-          laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: 3.142, place: 1 }])
+          ...recordedHeat([{ lane: 1, racerId: 101, time: 3.142, place: 1 }])
         } } }];
       }
       return [{ data: null }];
     });
 
     render(<FreeRaceExecution {...defaultProps} trackId={1} />);
-    
+
     // Should see "Reset Heat" button
     const btn = screen.getByRole('button', { name: /Reset Heat/i });
     expect(btn).toBeInTheDocument();
-    
+
     fireEvent.click(btn);
-    
+
     await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
     await waitFor(() => expect(mockRecordResult).toHaveBeenCalledWith({
       heatId: 42,
@@ -242,7 +251,7 @@ describe('FreeRaceExecution', () => {
     }));
     await waitFor(() => expect(mockResetTimer).toHaveBeenCalledWith({ trackId: 1 }));
     await waitFor(() => expect(mockPrepareHeat).toHaveBeenCalledWith({ heatId: 42, isFreeRace: true }));
-    
+
     // Should NOT have called onRunAnother (stay on page)
     expect(mockOnRunAnother).not.toHaveBeenCalled();
   });

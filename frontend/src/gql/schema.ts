@@ -113,6 +113,15 @@ export type HeatLane = {
   time?: Maybe<Scalars['Float']['output']>;
 };
 
+export type HeatLaneInput = {
+  lane: Scalars['Int']['input'];
+  place?: InputMaybe<Scalars['Int']['input']>;
+  placeholderSlot?: InputMaybe<Scalars['Int']['input']>;
+  racerId?: InputMaybe<Scalars['Int']['input']>;
+  skipped?: Scalars['Boolean']['input'];
+  time?: InputMaybe<Scalars['Float']['input']>;
+};
+
 export type HeatReorderItemInput = {
   heatId: Scalars['Int']['input'];
   newHeatNumber: Scalars['Int']['input'];
@@ -390,7 +399,7 @@ export type MutationReconnectTimerArgs = {
 
 export type MutationRecordFreeRaceResultArgs = {
   heatId: Scalars['Int']['input'];
-  results: Scalars['String']['input'];
+  lanes: Array<HeatLaneInput>;
 };
 
 
@@ -423,7 +432,7 @@ export type MutationUpdateDenArgs = {
 
 export type MutationUpdateHeatResultArgs = {
   heatId: Scalars['Int']['input'];
-  results: Scalars['String']['input'];
+  lanes: Array<HeatLaneInput>;
 };
 
 
