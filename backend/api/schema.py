@@ -17,6 +17,7 @@ import strawberry
 from sqlalchemy.orm import Session
 from strawberry.types import Info
 
+from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
@@ -32,6 +33,19 @@ from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
 pillow_heif.register_heif_opener()
+
+
+def _loaders(info: Info) -> RequestLoaders:
+    """Per-operation loader cache.
+
+    Contexts built outside the HTTP path (tests, some tooling) may not carry
+    one, so fall back to a fresh instance bound to this operation's session.
+    """
+    loaders = info.context.get("loaders")
+    if loaders is None:
+        loaders = RequestLoaders(info.context["db"])
+        info.context["loaders"] = loaders
+    return loaders
 
 
 @strawberry.type
@@ -59,48 +73,19 @@ class Heat:
     lane_results: Optional[str]
 
     @strawberry.field
-    def round_number(self, info: Info) -> int:
-        round_obj = (
-            info.context["db"]
-            .query(models.Round)
-            .filter(models.Round.id == self.round_id)
-            .first()
-        )
-        return round_obj.round_number if round_obj else 0
+    def round_number(self) -> int:
+        # `self` is the ORM Heat; the round is eagerly loaded by the resolvers
+        # that return heats, so this costs nothing.
+        return self.round.round_number if self.round else 0
 
     @strawberry.field
-    def round_name(self, info: Info) -> Optional[str]:
-        round_obj = (
-            info.context["db"]
-            .query(models.Round)
-            .filter(models.Round.id == self.round_id)
-            .first()
-        )
-        return round_obj.name if round_obj else None
+    def round_name(self) -> Optional[str]:
+        return self.round.name if self.round else None
 
     @strawberry.field
     def global_heat_number(self, info: Info) -> int:
-        db = info.context["db"]
-        this_round = (
-            db.query(models.Round).filter(models.Round.id == self.round_id).first()
-        )
-        if not this_round:
-            return self.heat_number
-
-        before_count = (
-            db.query(models.Heat)
-            .join(models.Round, models.Heat.round_id == models.Round.id)
-            .filter(models.Heat.race_id == self.race_id)
-            .filter(
-                (models.Round.round_number < this_round.round_number)
-                | (
-                    (models.Round.round_number == this_round.round_number)
-                    & (models.Heat.heat_number < self.heat_number)
-                )
-            )
-            .count()
-        )
-        return before_count + 1
+        number = _loaders(info).global_heat_number(self.race_id, self.id)
+        return number if number is not None else self.heat_number
 
     @strawberry.field
     def parsed_results(self) -> list[LaneResult]:
@@ -168,13 +153,7 @@ class Round:
     @strawberry.field
     def heats(self, info: Info) -> list[Heat]:
         """Get all heats in this round."""
-        return (
-            info.context["db"]
-            .query(models.Heat)
-            .filter(models.Heat.round_id == self.id)
-            .order_by(models.Heat.heat_number)
-            .all()
-        )
+        return typing.cast(Any, _loaders(info).heats_for_round(self.race_id, self.id))
 
     @strawberry.field
     def advancement_status(self, info: Info) -> AdvancementStatus:
@@ -522,12 +501,7 @@ class Racer:
         """Get the den this racer belongs to, if any."""
         if not self.den_id:
             return None
-        return (
-            info.context["db"]
-            .query(models.Den)
-            .filter(models.Den.id == self.den_id)
-            .first()
-        )
+        return typing.cast(Any, _loaders(info).den_by_id(self.race_id, self.den_id))
 
 
 @strawberry.type
@@ -551,8 +525,7 @@ class Race:
     @strawberry.field
     def leaderboard(self, info: Info) -> list[LeaderboardEntry]:
         """Get the current leaderboard for this race."""
-        standings = scoring.get_leaderboard(info.context["db"], self.id)
-        return [LeaderboardEntry(**s) for s in standings]
+        return [LeaderboardEntry(**s) for s in _loaders(info).leaderboard(self.id)]
 
     @strawberry.field
     def registered_count(self, info: Info) -> int:
@@ -580,82 +553,39 @@ class Race:
     @strawberry.field
     def dens(self, info: Info) -> list[Den]:
         """Get all dens associated with this race."""
-        return (
-            info.context["db"]
-            .query(models.Den)
-            .filter(models.Den.race_id == self.id)
-            .all()
-        )
+        return typing.cast(Any, _loaders(info).dens_for_race(self.id))
 
     @strawberry.field
     def racers(self, info: Info) -> list[Racer]:
         """Get all racers registered for this race."""
-        return (
-            info.context["db"]
-            .query(models.Racer)
-            .filter(models.Racer.race_id == self.id)
-            .all()
-        )
+        return typing.cast(Any, _loaders(info).racers_for_race(self.id))
 
     @strawberry.field
     def scheduled_racer_ids(self, info: Info) -> list[int]:
         """Get IDs of all racers scheduled in any official heats of this race."""
-        db = info.context["db"]
-        heats = db.query(models.Heat).filter(models.Heat.race_id == self.id).all()
-        ids = set()
-        for h in heats:
-            if h.lane_results:
-                try:
-                    results = json.loads(h.lane_results)
-                    for r in results:
-                        if r.get("racer_id") is not None:
-                            ids.add(r["racer_id"])
-                except (json.JSONDecodeError, TypeError):
-                    continue
-        return sorted(ids)
+        return _loaders(info).scheduled_racer_ids(self.id)
 
     @strawberry.field
     def group(self, info: Info) -> "Group":
         """Get the organization group that owns this race."""
-        return (
-            info.context["db"]
-            .query(models.Group)
-            .filter(models.Group.id == self.group_id)
-            .first()
-        )
+        return typing.cast(Any, _loaders(info).group_by_id(self.group_id))
 
     @strawberry.field
     def rounds(self, info: Info) -> list[Round]:
         """Get all rounds for this race."""
-        return (
-            info.context["db"]
-            .query(models.Round)
-            .filter(models.Round.race_id == self.id)
-            .order_by(models.Round.round_number)
-            .all()
-        )
+        return typing.cast(Any, _loaders(info).rounds_for_race(self.id))
 
     @strawberry.field
     def heats(self, info: Info) -> list[Heat]:
         """Get all heats for this race."""
-        return (
-            info.context["db"]
-            .query(models.Heat)
-            .filter(models.Heat.race_id == self.id)
-            .all()
-        )
+        return typing.cast(Any, _loaders(info).heats_for_race(self.id))
 
     @strawberry.field
     def track(self, info: Info) -> Optional["Track"]:
         """Get the track configuration for this race."""
         if not self.track_id:
             return None
-        return (
-            info.context["db"]
-            .query(models.Track)
-            .filter(models.Track.id == self.track_id)
-            .first()
-        )
+        return typing.cast(Any, _loaders(info).track_by_id(self.track_id))
 
 
 @strawberry.type
@@ -927,14 +857,21 @@ class Query:
     ) -> AdvancementStatus:
         """Check if a round is ready to advance."""
         db = info.context["db"]
-        round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+        loaders = _loaders(info)
+        round_obj = next(
+            (r for r in loaders.rounds_for_race(race_id) if r.id == round_id), None
+        )
+        if not round_obj:
+            round_obj = (
+                db.query(models.Round).filter(models.Round.id == round_id).first()
+            )
         if not round_obj:
             raise ValueError("Round not found")
 
         requires_advancement = round_obj.advancement_source is not None
 
         # Logic replicated from main.py's get_round_advancement_status
-        heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+        heats = loaders.heats_for_round(race_id, round_id)
         already_advanced = True
         for heat in heats:
             if heat.lane_results:
@@ -946,19 +883,12 @@ class Query:
             if not already_advanced:
                 break
 
-        all_rounds = (
-            db.query(models.Round)
-            .filter(models.Round.race_id == race_id)
-            .order_by(models.Round.round_number)
-            .all()
-        )
+        all_rounds = loaders.rounds_for_race(race_id)
 
         is_ready = True
         for r in all_rounds:
             if r.round_number < round_obj.round_number:
-                previous_heats = (
-                    db.query(models.Heat).filter(models.Heat.round_id == r.id).all()
-                )
+                previous_heats = loaders.heats_for_round(race_id, r.id)
                 for ph in previous_heats:
                     if not ph.lane_results:
                         is_ready = False
@@ -980,21 +910,20 @@ class Query:
                 break
 
         advancing_racers = []
-        standings = scoring.get_leaderboard(db, race_id)
+        standings = loaders.leaderboard(race_id)
 
         adv_source = round_obj.advancement_source
         adv_num = round_obj.advancement_num_racers
 
         if not requires_advancement:
-            next_round = (
-                db.query(models.Round)
-                .filter(
-                    models.Round.race_id == race_id,
-                    models.Round.round_number > round_obj.round_number,
-                    models.Round.advancement_source.is_not(None),
-                )
-                .order_by(models.Round.round_number.asc())
-                .first()
+            next_round = next(
+                (
+                    r
+                    for r in all_rounds
+                    if r.round_number > round_obj.round_number
+                    and r.advancement_source is not None
+                ),
+                None,
             )
 
             if next_round:
@@ -2432,6 +2361,7 @@ class Subscription:
             yield [LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)]
             async for _ in stream:
                 db.expire_all()
+                _loaders(info).clear()
                 db.commit()
                 yield [
                     LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)
@@ -2480,6 +2410,7 @@ class Subscription:
             yield _get_on_deck()
             async for _ in stream:
                 db.expire_all()
+                _loaders(info).clear()
                 db.commit()
                 yield _get_on_deck()
 
@@ -2510,6 +2441,7 @@ class Subscription:
             yield _get_current()
             async for _ in stream:
                 db.expire_all()
+                _loaders(info).clear()
                 db.commit()
                 yield _get_current()
 
@@ -2621,6 +2553,7 @@ class Subscription:
             yield _get_timing_stats()
             async for _ in stream:
                 db.expire_all()
+                _loaders(info).clear()
                 db.commit()
                 yield _get_timing_stats()
 
@@ -2643,6 +2576,7 @@ class Subscription:
             yield _get_rounds()
             async for _ in stream:
                 db.expire_all()
+                _loaders(info).clear()
                 db.commit()
                 yield _get_rounds()
 
@@ -2669,6 +2603,7 @@ class Subscription:
         async with pubsub.subscribe(f"race_state:{heat.race_id}") as stream:
             async for _ in stream:
                 db.expire_all()
+                _loaders(info).clear()
                 db.commit()
                 yield _get_heat()
 
@@ -2694,6 +2629,7 @@ class Subscription:
             yield _get_active_free()
             async for _ in stream:
                 db.expire_all()
+                _loaders(info).clear()
                 db.commit()
                 yield _get_active_free()
 
