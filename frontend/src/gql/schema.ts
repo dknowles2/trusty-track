@@ -573,6 +573,7 @@ export type RaceChangeKind =
   | 'OTHER'
   | 'RACER'
   | 'RACE_SETTINGS'
+  | 'ROSTER'
   | 'SCHEDULE';
 
 export type RaceInput = {

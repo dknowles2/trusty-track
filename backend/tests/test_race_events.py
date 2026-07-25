@@ -176,7 +176,8 @@ def test_the_subscription_exposes_kind_and_payloads():
     for field in ("kind: RaceChangeKind!", "heat: Heat", "racer: Racer"):
         assert field in sdl, f"missing {field} in RaceStateChangedEvent"
     assert "enum RaceChangeKind" in sdl
-    for value in ("HEAT_RESULT", "RACER", "SCHEDULE", "RACE_SETTINGS", "OTHER"):
+    kinds = ("HEAT_RESULT", "RACER", "ROSTER", "SCHEDULE", "RACE_SETTINGS", "OTHER")
+    for value in kinds:
         assert value in sdl
 
 

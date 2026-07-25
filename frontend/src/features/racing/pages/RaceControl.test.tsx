@@ -61,7 +61,7 @@ import { AlertProvider } from '../../../context/AlertContext';
 
 describe('RaceControl Page', () => {
     const mockRaceId = '1';
-    
+
     // Mock Data
     const mockRaceData = {
         race: {
@@ -88,7 +88,7 @@ describe('RaceControl Page', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        
+
         // Default mock for useQuery
         (useQuery as any).mockReturnValue([{
             data: mockRaceData,
@@ -155,7 +155,7 @@ describe('RaceControl Page', () => {
                 </MemoryRouter>
             </AlertProvider>
         );
-        
+
         await waitFor(() => expect(screen.getByRole('button', { name: /Schedule/i })).toBeInTheDocument());
         fireEvent.click(screen.getByRole('button', { name: /^\s*Race\s*$/i }));
 
@@ -166,7 +166,7 @@ describe('RaceControl Page', () => {
         await waitFor(() => {
              expect(mockUpdateHeatResultMutation).toHaveBeenCalled();
         });
-        
+
         expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith(expect.objectContaining({
             heatId: 1,
             results: expect.stringMatching(/.*"time":4.5.*/)
@@ -296,9 +296,59 @@ describe('RaceControl Page', () => {
 
         // Simulate a subscription event arriving
         act(() => {
-            capturedHandler!(undefined, { raceStateChanged: { raceId: 1, changedAt: '2024-01-01T00:00:00Z' } });
+            capturedHandler!(undefined, { raceStateChanged: { raceId: 1, changedAt: '2024-01-01T00:00:00Z', kind: 'SCHEDULE' } });
         });
 
         expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
+    });
+
+    it('does NOT refetch when a heat result arrives with its payload', async () => {
+        // Issue #12: the normalized cache merges the heat, so re-querying the
+        // whole page is wasted work. This is the case that regresses silently —
+        // if the predicate breaks, everything still *works*, just slowly.
+        let capturedHandler: ((prev: any, data: any) => any) | undefined;
+        const mockReExecute = vi.fn();
+
+        (useQuery as any).mockReturnValue([{
+            data: mockRaceData,
+            fetching: false,
+            error: null
+        }, mockReExecute]);
+
+        (useSubscription as any).mockImplementation(
+            (_opts: any, handler: (prev: any, data: any) => any) => {
+                capturedHandler = handler;
+                return [{ data: undefined }, vi.fn()];
+            }
+        );
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => {
+            expect(capturedHandler).toBeDefined();
+        });
+
+        mockReExecute.mockClear();
+
+        act(() => {
+            capturedHandler!(undefined, {
+                raceStateChanged: {
+                    raceId: 1,
+                    changedAt: '2024-01-01T00:00:00Z',
+                    kind: 'HEAT_RESULT',
+                    heat: { id: 42 },
+                },
+            });
+        });
+
+        expect(mockReExecute).not.toHaveBeenCalled();
     });
 });
