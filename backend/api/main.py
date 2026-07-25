@@ -29,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
+from backend.api.loaders import RequestLoaders
 from backend.api.schema import schema
 from backend.db import models
 from backend.db.database import UPLOAD_DIR, SessionLocal, init_db
@@ -108,8 +109,12 @@ app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 
 async def get_graphql_context(db: Session = Depends(get_db)) -> dict:
-    """Provide the database session and timer managers as GraphQL context."""
-    return {"db": db, "timer_managers": TIMER_MANAGERS}
+    """Provide the database session, timer managers, and per-operation loaders."""
+    return {
+        "db": db,
+        "timer_managers": TIMER_MANAGERS,
+        "loaders": RequestLoaders(db),
+    }
 
 
 graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)
