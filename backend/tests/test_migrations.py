@@ -128,6 +128,38 @@ def test_legacy_database_is_adopted_without_data_loss(tmp_path, already_has_debu
         engine.dispose()
 
 
+def test_legacy_database_with_empty_alembic_version_is_adopted(tmp_path):
+    """An empty `alembic_version` table must not be mistaken for "already managed".
+
+    Alembic creates that table as soon as anything reads the version — a bare
+    `alembic check` is enough — leaving it present but with no row. Detecting
+    legacy databases by the table's presence therefore skipped the stamp and
+    then ran the baseline migration against tables that already existed,
+    failing with "table groups already exists" at startup.
+    """
+    db = tmp_path / "trusty-track.db"
+    engine = create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE groups (id INTEGER PRIMARY KEY, name VARCHAR)"))
+        conn.execute(text("INSERT INTO groups (id, name) VALUES (1, 'Pack 7')"))
+        # Present but empty, exactly as Alembic leaves it after a read.
+        conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
+    engine.dispose()
+
+    result = _run_init_db(tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    assert _revision(db) is not None, "database was left unversioned"
+    assert "debug_mode" in _column_names(db, "groups")
+
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.connect() as conn:
+            assert conn.execute(text("select name from groups")).scalar() == "Pack 7"
+    finally:
+        engine.dispose()
+
+
 def test_migrations_reproduce_the_models(tmp_path):
     """`alembic check` must find no drift between the chain and models.py.
 

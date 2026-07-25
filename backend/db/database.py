@@ -70,12 +70,22 @@ def _alembic_config():
 
 
 def _is_legacy_database(connection) -> bool:
-    """True if this database predates Alembic: has our tables, but no version."""
-    tables = set(inspect(connection).get_table_names())
-    if "alembic_version" in tables:
+    """True if this database has our tables but is not under Alembic control.
+
+    Deliberately tests for a recorded *revision*, not for the presence of the
+    ``alembic_version`` table. Alembic creates that table empty as soon as
+    anything reads the version — a bare ``alembic check`` is enough — so a
+    database can have the table with no row in it. Treating that as "already
+    managed" skips the stamp and then tries to run the baseline migration
+    against tables that already exist, which fails with
+    "table groups already exists" and takes the app down at startup.
+    """
+    from alembic.runtime.migration import MigrationContext
+
+    if MigrationContext.configure(connection).get_current_revision() is not None:
         return False
     # "groups" is in the very first schema this app ever shipped.
-    return "groups" in tables
+    return "groups" in set(inspect(connection).get_table_names())
 
 
 def init_db() -> None:

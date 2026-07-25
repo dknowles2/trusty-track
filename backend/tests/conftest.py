@@ -13,22 +13,9 @@ from sqlalchemy.pool import StaticPool
 from backend.api.main import app, get_db
 from backend.db import crud, schemas
 from backend.db.database import Base
-from backend.db.database import init_db as init_real_db
 
 # Use in-memory SQLite database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _init_real_db_schema():
-    """
-    TimerManager persists heat results via backend.db.database.SessionLocal
-    directly (it's a background service, not a per-request dependency), so it
-    bypasses the get_db override below and writes to the real, file-backed
-    test database. Create its schema once up front so those writes always
-    land on a table that exists, regardless of test collection order.
-    """
-    init_real_db()
 
 
 @pytest.fixture(scope="session")
@@ -72,6 +59,36 @@ def override_get_db(db_session):
     app.dependency_overrides[get_db] = _get_db_override
     yield
     app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def timer_session_factory(db_session, monkeypatch):
+    """Point TimerManager's result recording at the test database.
+
+    TimerManager records from a background task rather than a request, so it
+    takes a session factory instead of importing one. Handing it the test
+    session keeps the whole suite on a single in-memory database — previously
+    these writes went to a separate, file-backed database that had to be
+    created up front by its own session-scoped fixture.
+
+    The returned session ignores close(): the db_session fixture owns its
+    lifetime, and the manager closes the session it is handed.
+    """
+
+    class _NonClosingSession:
+        def __getattr__(self, name):
+            return getattr(db_session, name)
+
+        def close(self):
+            pass
+
+    factory = _NonClosingSession
+
+    # Covers managers built with the default factory...
+    monkeypatch.setattr("backend.services.timer.manager.SessionLocal", factory)
+    # ...and those built mid-request, which take it from the GraphQL context.
+    monkeypatch.setattr("backend.api.main.SessionLocal", factory)
+    return factory
 
 
 @pytest.fixture(scope="function")

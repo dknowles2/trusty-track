@@ -66,7 +66,7 @@ async def lifespan(_app: FastAPI):
 
     logger.info("Initializing timer managers...")
     try:
-        await initialize_timer_managers(TIMER_MANAGERS)
+        await initialize_timer_managers(TIMER_MANAGERS, session_factory=SessionLocal)
         logger.info("Timer managers ready: %s", list(TIMER_MANAGERS.keys()))
     except Exception as e:
         logger.error(f"Failed to initialize timer managers: {e}")
@@ -114,6 +114,9 @@ async def get_graphql_context(db: Session = Depends(get_db)) -> dict:
         "db": db,
         "timer_managers": TIMER_MANAGERS,
         "loaders": RequestLoaders(db),
+        # Managers created mid-request (e.g. by createTrack) need a factory for
+        # their own background writes; tests override this.
+        "session_factory": SessionLocal,
     }
 
 
