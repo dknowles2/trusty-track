@@ -2,6 +2,7 @@
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Leaderboard from './Leaderboard';
 import { useQuery, useSubscription } from 'urql';
 
@@ -118,5 +119,81 @@ describe('Leaderboard', () => {
     expect(screen.getByText('Points')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.queryByText('5.000s')).not.toBeInTheDocument();
+  });
+});
+
+describe('Leaderboard round scope (issue #17)', () => {
+  const entries = [
+    {
+      racerId: 1, firstName: 'Pre', lastName: 'Lim', carNumber: 1,
+      denName: 'Tigers', score: 3.2, heatsCompleted: 4, rank: 1,
+    },
+  ];
+  const champEntries = [
+    {
+      racerId: 2, firstName: 'Champ', lastName: 'Winner', carNumber: 2,
+      denName: 'Wolves', score: 2.9, heatsCompleted: 1, rank: 1,
+    },
+  ];
+
+  const withRounds = (rounds: unknown[]) => ({
+    id: 1,
+    scoringStrategy: 'TIMED',
+    rounds,
+  });
+
+  it('shows no scope selector when the race has no championship rounds', () => {
+    (useQuery as any).mockReturnValue([{
+      data: { race: withRounds([{ id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null }]) },
+      fetching: false, error: null,
+    }, vi.fn()]);
+    (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
+
+    render(<Leaderboard raceId={1} />);
+    expect(screen.queryByLabelText('Standings scope')).toBeNull();
+  });
+
+  it('explains the scope when championship rounds exist', () => {
+    (useQuery as any).mockReturnValue([{
+      data: { race: withRounds([
+        { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
+        { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'PACK' },
+      ]) },
+      fetching: false, error: null,
+    }, vi.fn()]);
+    (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
+
+    render(<Leaderboard raceId={1} />);
+    expect(screen.getByLabelText('Standings scope')).toBeTruthy();
+    expect(screen.getByText(/cover the preliminary rounds/i)).toBeTruthy();
+    // Only championship rounds are offered — the prelim view is "Overall".
+    expect(screen.getByRole('option', { name: 'Finals' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Prelim' })).toBeNull();
+  });
+
+  it('renders the round query results once a championship round is picked', async () => {
+    const user = userEvent.setup();
+    (useQuery as any).mockImplementation(({ pause }: { pause?: boolean }) =>
+      pause === true || pause === undefined
+        ? [{
+            data: { race: withRounds([
+              { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
+              { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'PACK' },
+            ]) },
+            fetching: false, error: null,
+          }, vi.fn()]
+        : [{ data: { race: { id: 1, leaderboard: champEntries } }, fetching: false, error: null }, vi.fn()]
+    );
+    (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
+
+    render(<Leaderboard raceId={1} />);
+    expect(screen.getByText('Pre Lim')).toBeTruthy();
+
+    await user.selectOptions(screen.getByLabelText('Standings scope'), '2');
+
+    expect(screen.getByText('Champ Winner')).toBeTruthy();
+    expect(screen.queryByText('Pre Lim')).toBeNull();
+    // The explanatory note belongs to the overall view only.
+    expect(screen.queryByText(/cover the preliminary rounds/i)).toBeNull();
   });
 });

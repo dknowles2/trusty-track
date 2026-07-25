@@ -275,7 +275,9 @@ Greedy alone finds a *maximal* matching, not a *maximum* one, so it used to stra
 
 Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` averages heat times (a recorded `0.0` is treated as a 9.999s DNF penalty); `POINTS` sums placements. Both are lower-is-better. `get_leaderboard(db, race_id)` returns sorted standings.
 
-Note that `get_leaderboard` with no `round_id` spans **all** heats in the race, so championship heats blend into prelim averages. Whether that is intended is an open question — see issue #17.
+**Standings cover preliminary rounds only** — rounds with no `advancement_source`. Settled in #17. A championship field is chosen *from* the standings, so folding championship results back in is circular: `record_heat_result` re-runs advancement on every result, so a final-round time could change who was supposed to be in the final. It also mixes populations, since a championship average is taken against the fastest cars rather than the whole field.
+
+`get_leaderboard(db, race_id)` is prelim-scoped by default. Pass `round_id` for one round (this is how the UI shows championship results) or `scope=ALL` for the pre-#17 whole-race average. The `Race.leaderboard` GraphQL field takes `roundId` and `includeAllRounds` to match.
 
 ### Championship advancement
 
@@ -318,7 +320,6 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 | #13 | Model the race-day flow as an explicit state machine |
 | #14 | Whether GraphQL is still the right choice |
 | #15 | No authentication on mutations; CORS misconfigured |
-| #17 | Decide scoring scope (prelim vs championship) |
 | #26 | PPC scheduler strands lanes, giving some racers fewer heats |
 
 Don't entrench conventions these issues are removing — particularly the `lane_results` blob (#5) and the negative-ID placeholder trick.

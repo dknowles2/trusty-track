@@ -562,6 +562,12 @@ export type Race = {
   trackId?: Maybe<Scalars['Int']['output']>;
 };
 
+
+export type RaceLeaderboardArgs = {
+  includeAllRounds?: Scalars['Boolean']['input'];
+  roundId?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type RaceInput = {
   carNumberingStrategy?: Scalars['String']['input'];
   championshipTrophies?: Scalars['Int']['input'];

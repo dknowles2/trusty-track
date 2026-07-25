@@ -22,6 +22,7 @@ from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
 from backend.domain import lanes
+from backend.domain import scoring as domain_scoring
 from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.devices.base import (
@@ -630,9 +631,27 @@ class Race:
     auto_advance_heat: bool
 
     @strawberry.field
-    def leaderboard(self, info: Info) -> list[LeaderboardEntry]:
-        """Get the current leaderboard for this race."""
-        return [LeaderboardEntry(**s) for s in _loaders(info).leaderboard(self.id)]
+    def leaderboard(
+        self,
+        info: Info,
+        round_id: Optional[int] = None,
+        include_all_rounds: bool = False,
+    ) -> list[LeaderboardEntry]:
+        """Standings for this race.
+
+        By default these are **prelim standings** — championship rounds are
+        excluded, because a championship field is chosen *from* the standings
+        and folding its results back in is circular (issue #17).
+
+        Pass ``roundId`` for a single round's standings, which is how the UI
+        shows championship results. ``includeAllRounds: true`` restores the
+        pre-#17 whole-race average.
+        """
+        scope = domain_scoring.ALL if include_all_rounds else domain_scoring.PRELIM
+        return [
+            LeaderboardEntry(**s)
+            for s in _loaders(info).leaderboard(self.id, round_id=round_id, scope=scope)
+        ]
 
     @strawberry.field
     def registered_count(self, info: Info) -> int:
