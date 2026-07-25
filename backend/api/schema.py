@@ -1746,7 +1746,10 @@ class Mutation:
             return False
 
         await mgr.prepare_heat(
-            heat_id=heat_id, lane_mask=lane_mask, racer_by_lane=racer_by_lane
+            heat_id=heat_id,
+            kind=models.HeatKind.FREE if is_free_race else models.HeatKind.OFFICIAL,
+            lane_mask=lane_mask,
+            racer_by_lane=racer_by_lane,
         )
         return True
 
@@ -1801,9 +1804,7 @@ class Mutation:
             # If no racers are assigned (e.g., anonymous free race),
             # generate results for all lanes.
             track = (
-                db.query(models.Track)
-                .filter(models.Track.id == race.track_id)
-                .first()
+                db.query(models.Track).filter(models.Track.id == race.track_id).first()
             )
             if not track:
                 return False

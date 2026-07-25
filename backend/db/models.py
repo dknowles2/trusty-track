@@ -20,6 +20,19 @@ class CarNumberingStrategy(str, enum.Enum):
     MANUAL = "MANUAL"
 
 
+class HeatKind(str, enum.Enum):
+    """Which table a heat id refers to.
+
+    ``Heat`` and ``FreeRaceHeat`` are separate tables with independent
+    autoincrement sequences, so their ids overlap. Anything holding a bare heat
+    id must also carry the kind — never infer it by looking the id up in one
+    table and falling back to the other.
+    """
+
+    OFFICIAL = "OFFICIAL"
+    FREE = "FREE"
+
+
 class Rank(str, enum.Enum):
     LION = "LION"
     TIGER = "TIGER"
