@@ -190,6 +190,7 @@ export default function RaceControl() {
 
   // Reset state when raceId changes
   useEffect(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on raceId change
       setActiveHeatId(null);
       setSelectedHeatId(null);
       setRoundSummary(null);
@@ -247,6 +248,7 @@ export default function RaceControl() {
           });
 
           if (firstUncompleted) {
+              // eslint-disable-next-line react-hooks/set-state-in-effect -- derives selection from loaded heats
               setSelectedHeatId(firstUncompleted.id);
           } else if (sorted.length > 0) {
               setSelectedHeatId(sorted[sorted.length - 1].id);
@@ -270,6 +272,7 @@ export default function RaceControl() {
       .map((r: Round) => r.id);
 
     if (!advancementInitialized) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init from loaded rounds
         setSeenAdvancedRoundIds(advancedIds);
         setAdvancementInitialized(true);
         return;
