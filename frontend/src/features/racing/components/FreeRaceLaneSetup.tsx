@@ -45,7 +45,7 @@ interface Racer {
   firstName: string;
   lastName: string;
   carNumber: number | null;
-  racerImageUrl?: string;
+  racerImageUrl?: string | null;
 }
 
 type Mode = 'random' | 'manual';

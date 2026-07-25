@@ -35,8 +35,8 @@ vi.mock('./FakeTimerMole', () => ({
 }));
 
 describe('RaceExecution', () => {
-    const mockHeat: Heat = { 
-        id: 1, 
+    const mockHeat: Heat = {
+        id: 1,
         roundNumber: 1,
         roundId: 1,
         heatNumber: 1,
@@ -44,12 +44,14 @@ describe('RaceExecution', () => {
         laneResults: JSON.stringify([
             { lane: 1, racer_id: 101, time: '3.5', place: 1 },
             { lane: 2, racer_id: 102, time: '3.6', place: 2 }
-        ]) 
+        ])
     };
 
+    // Shaped to match what the GetRaceControlData query actually returns —
+    // every selected field is present, nullable ones explicitly null.
     const mockRacers = {
-        101: { id: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racerImageUrl: 'http://example.com/racer101.jpg' },
-        102: { id: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2 }
+        101: { id: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racerImageUrl: 'http://example.com/racer101.jpg', carImageUrl: null },
+        102: { id: 102, firstName: 'Jane', lastName: 'Smith', carNumber: 2, racerImageUrl: null, carImageUrl: null }
     };
 
     const mockGetRacerName = vi.fn((id: number) => (mockRacers as any)[id] ? `${(mockRacers as any)[id].firstName} ${(mockRacers as any)[id].lastName}` : `Racer ${id}`);
@@ -76,7 +78,7 @@ describe('RaceExecution', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        
+
         mockMutationFn.mockResolvedValue({ data: { prepareHeat: true } });
         (useMutation as any).mockReturnValue([{}, mockMutationFn]);
 
@@ -91,7 +93,7 @@ describe('RaceExecution', () => {
 
     it('renders race execution message if no active heat', () => {
         render(
-            <RaceExecution 
+            <RaceExecution
                 {...defaultProps}
                 activeExecutionHeat={null}
             />
@@ -101,7 +103,7 @@ describe('RaceExecution', () => {
 
     it('renders current heat details and racer image', () => {
         render(
-            <RaceExecution 
+            <RaceExecution
                 {...defaultProps}
             />
         );
@@ -113,7 +115,7 @@ describe('RaceExecution', () => {
 
     it('shows Edit button when heat is completed', () => {
         render(
-            <RaceExecution 
+            <RaceExecution
                 {...defaultProps}
             />
         );
@@ -122,7 +124,7 @@ describe('RaceExecution', () => {
 
     it('opens modal when Edit button is clicked', () => {
         render(
-            <RaceExecution 
+            <RaceExecution
                {...defaultProps}
             />
         );
@@ -133,17 +135,17 @@ describe('RaceExecution', () => {
 
     it('calls onUpdateResult when saving edited results', async () => {
         render(
-            <RaceExecution 
+            <RaceExecution
                 {...defaultProps}
             />
         );
         fireEvent.click(screen.getByText('Edit'));
-        
+
         const inputs = screen.getAllByRole('spinbutton');
         fireEvent.change(inputs[0], { target: { value: '4.0' } });
-        
+
         fireEvent.click(screen.getByText('Save Results'));
-        
+
         await waitFor(() => {
             expect(mockOnUpdateResult).toHaveBeenCalled();
             const args = mockOnUpdateResult.mock.calls[0];
@@ -215,26 +217,26 @@ describe('RaceExecution', () => {
         };
 
         render(
-            <RaceExecution 
+            <RaceExecution
                 {...defaultProps}
                 roundSummary={mockSummary}
             />
         );
-        
+
         const modal = screen.getByTestId('mock-modal');
         expect(within(modal).getByText('Round Complete!')).toBeInTheDocument();
     });
 
     it('renders round progress and remaining heats correctly', () => {
         render(
-            <RaceExecution 
+            <RaceExecution
                 {...defaultProps}
                 nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 2 }}
                 totalHeatsInRound={10}
                 remainingHeatsInRound={4}
             />
         );
-        
+
         expect(screen.getByText('Round Progress')).toBeInTheDocument();
         expect(screen.getByText('6 of 10 Heats Completed')).toBeInTheDocument();
         expect(screen.getByText('4 Heats Remaining')).toBeInTheDocument();
@@ -245,12 +247,12 @@ describe('RaceExecution', () => {
             { roundNumber: 2, roundName: "Finals", totalHeats: 1 }
         ];
         render(
-            <RaceExecution 
+            <RaceExecution
                 {...defaultProps}
                 upcomingRounds={mockUpcomingRounds}
             />
         );
-        
+
         expect(screen.getByText('Upcoming Rounds')).toBeInTheDocument();
         expect(screen.getByText('Finals')).toBeInTheDocument();
         expect(screen.getByText('1 Heat Scheduled')).toBeInTheDocument();
@@ -258,13 +260,13 @@ describe('RaceExecution', () => {
 
     it('shows "End of Round" in On Deck when next heat is in a different round', () => {
         render(
-            <RaceExecution 
+            <RaceExecution
                 {...defaultProps}
                 activeExecutionHeat={{ ...mockHeat, roundId: 1 }}
                 nextExecutionHeat={{ ...mockHeat, id: 2, heatNumber: 1, roundId: 2, roundNumber: 2, roundName: null }}
             />
         );
-        
+
         expect(screen.getByText('End of Round')).toBeInTheDocument();
         expect(screen.getByText(/Next: Round 2/)).toBeInTheDocument();
     });

@@ -6,7 +6,7 @@ export interface RacerOption {
   firstName: string;
   lastName: string;
   carNumber?: number | null;
-  racerImageUrl?: string;
+  racerImageUrl?: string | null;
 }
 
 interface ComboboxProps {
@@ -29,7 +29,7 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
-  
+
     const [prevValue, setPrevValue] = useState(value);
 
   // Keep input text in sync when external value changes (e.g. on initial render)

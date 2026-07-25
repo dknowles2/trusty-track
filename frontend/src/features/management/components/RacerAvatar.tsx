@@ -7,7 +7,7 @@ interface RacerAvatarProps {
         id: number;
         first_name: string;
         last_name: string;
-        racer_image_url?: string;
+        racer_image_url?: string | null;
     };
     size?: string;
     className?: string;
@@ -19,17 +19,17 @@ const RacerAvatar: React.FC<RacerAvatarProps> = ({ racer, size = '60px', classNa
 
     if (racer_image_url) {
         return (
-            <img 
-                src={racer_image_url} 
-                alt={`${first_name} ${last_name}`} 
+            <img
+                src={racer_image_url}
+                alt={`${first_name} ${last_name}`}
                 className={className}
-                style={{ 
-                    width: size, 
-                    height: size, 
-                    borderRadius: '50%', 
+                style={{
+                    width: size,
+                    height: size,
+                    borderRadius: '50%',
                     objectFit: 'cover',
-                    ...style 
-                }} 
+                    ...style
+                }}
             />
         );
     }
@@ -39,21 +39,21 @@ const RacerAvatar: React.FC<RacerAvatarProps> = ({ racer, size = '60px', classNa
     const initials = getInitials(first_name, last_name);
 
     return (
-        <div 
+        <div
             className={className}
-            style={{ 
-                width: size, 
-                height: size, 
-                borderRadius: '50%', 
-                backgroundColor, 
+            style={{
+                width: size,
+                height: size,
+                borderRadius: '50%',
+                backgroundColor,
                 color,
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                fontSize: `calc(${size} * 0.4)`, 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: `calc(${size} * 0.4)`,
                 fontWeight: 'bold',
                 userSelect: 'none',
-                ...style 
+                ...style
             }}
             title={`${first_name} ${last_name}`.trim()}
         >
