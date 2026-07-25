@@ -40,7 +40,7 @@ vi.mock('urql', async (importOriginal) => {
 
 describe('RaceControl Reordering on Run', () => {
     const mockRaceId = '1';
-    
+
     const mockRaceData = {
         race: {
             id: 1,
@@ -49,9 +49,9 @@ describe('RaceControl Reordering on Run', () => {
             dens: [],
             racers: [],
             heats: [
-                { id: 1, roundId: 10, roundNumber: 1, heatNumber: 1, laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]) }, // Completed
-                { id: 2, roundId: 10, roundNumber: 1, heatNumber: 2, laneResults: '[]' }, // Next
-                { id: 3, roundId: 10, roundNumber: 1, heatNumber: 3, laneResults: '[]' }  // Future
+                { id: 1, roundId: 10, roundNumber: 1, heatNumber: 1, laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]), lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] }, // Completed
+                { id: 2, roundId: 10, roundNumber: 1, heatNumber: 2, laneResults: '[]', lanes: [] }, // Next
+                { id: 3, roundId: 10, roundNumber: 1, heatNumber: 3, laneResults: '[]', lanes: [] }  // Future
             ]
         }
     };

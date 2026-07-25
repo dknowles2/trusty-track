@@ -31,11 +31,30 @@ export type AdvancementStatus = Round['advancementStatus'] & {
 export type AdvancementRacer = AdvancementStatus['advancingRacers'][number];
 
 /**
- * One lane within a heat's `laneResults` JSON blob.
+ * One lane of a heat, as the backend now reports it (#5).
  *
- * Not schema-derived: `laneResults` is a JSON string on the wire, so the
- * backend's GraphQL type says nothing about its contents. See #5 — once lanes
- * are normalised into a table this becomes a real generated type.
+ * Schema-derived, unlike the `laneResults` JSON blob it replaces — that was a
+ * string on the wire, so the GraphQL type said nothing about its contents and
+ * every screen re-declared its own guess at the shape.
+ *
+ * Three things it fixes:
+ *
+ * - `time` is a number. The blob sometimes held `"3.45"`, so every reader had
+ *   to coerce, and the ones that forgot compared strings.
+ * - An undecided championship slot is `placeholderSlot`, not a negative
+ *   `racerId`. Readers no longer need to know that encoding to filter it out,
+ *   and an empty lane is finally distinguishable from an unfilled one.
+ * - `skipped` is a field rather than an untyped extra key.
+ */
+export type Lane = Heat['lanes'][number];
+
+/**
+ * One lane as the *write* path still shapes it — the entries of the
+ * `laneResults` JSON string that `updateHeatResult` accepts.
+ *
+ * Not schema-derived, because on the wire it is only a `String`. Read paths
+ * should use {@link Lane}; this exists because mutations have not moved over
+ * yet. It disappears in #5, step 5, when they take structured input.
  */
 export interface LaneResult {
   lane: number;

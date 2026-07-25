@@ -9,13 +9,13 @@ import os
 import random
 import typing
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterable
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 import pillow_heif
 import strawberry
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 from strawberry.types import Info
 
 from backend.api.loaders import RequestLoaders
@@ -63,14 +63,8 @@ def _loaders(info: Info) -> RequestLoaders:
     return loaders
 
 
-def _heat_lanes(
-    info: Info, race_id: int, heat_id: int, kind: models.HeatKind
-) -> list["HeatLane"]:
-    """Rows from ``heat_lanes`` as the GraphQL type.
-
-    Defined here rather than as a method so both heat types share it — they are
-    two tables only until issue #6 merges them.
-    """
+def _as_heat_lanes(rows: Iterable[models.HeatLane]) -> list["HeatLane"]:
+    """``heat_lanes`` rows as the GraphQL type."""
     return [
         HeatLane(
             lane=row.lane,
@@ -80,8 +74,27 @@ def _heat_lanes(
             place=row.place,
             skipped=row.skipped,
         )
-        for row in _loaders(info).lanes_for_heat(race_id, heat_id, kind)
+        for row in rows
     ]
+
+
+def _heat_lanes(
+    info: Info, obj: Any, heat_id: int, kind: models.HeatKind
+) -> list["HeatLane"]:
+    """Resolve a heat's lanes, from a snapshot if it brought its own.
+
+    Defined here rather than as a method so both heat types share it — they are
+    two tables only until issue #6 merges them.
+
+    ``obj`` is whatever is standing in for the heat. Events published to
+    subscribers carry a detached :class:`_HeatSnapshot` with its lanes already
+    captured, because by the time a subscriber renders it there is no session
+    left to load them from.
+    """
+    captured = getattr(obj, "captured_lanes", None)
+    if captured is not None:
+        return captured
+    return _as_heat_lanes(_loaders(info).lanes_for_heat(obj.race_id, heat_id, kind))
 
 
 @strawberry.type
@@ -136,7 +149,7 @@ class Heat:
     @strawberry.field
     def lanes(self, info: Info) -> list[HeatLane]:
         """This heat's lanes, in lane order."""
-        return _heat_lanes(info, self.race_id, self.id, models.HeatKind.OFFICIAL)
+        return _heat_lanes(info, self, self.id, models.HeatKind.OFFICIAL)
 
     @strawberry.field
     def round_number(self) -> int:
@@ -809,7 +822,7 @@ class FreeRaceHeat:
         Free race keeps the schedule and the results in two columns; the table
         holds the merge, so an unrun lane still reports who is in it.
         """
-        return _heat_lanes(info, self.race_id, self.id, models.HeatKind.FREE)
+        return _heat_lanes(info, self, self.id, models.HeatKind.FREE)
 
 
 @strawberry.type
@@ -2331,7 +2344,15 @@ class _HeatSnapshot:
     duck-typed shells, so a plain object with the right attributes serves.
     """
 
-    __slots__ = ("id", "race_id", "round_id", "heat_number", "lane_results", "round")
+    __slots__ = (
+        "id",
+        "race_id",
+        "round_id",
+        "heat_number",
+        "lane_results",
+        "round",
+        "captured_lanes",
+    )
 
     def __init__(self, heat: models.Heat) -> None:
         self.id = heat.id
@@ -2344,6 +2365,25 @@ class _HeatSnapshot:
             _RoundSnapshot(heat.round.round_number, heat.round.name)
             if heat.round
             else None
+        )
+        # `Heat.lanes` reads through this. Resolved now, while a session still
+        # exists — and it must be, not left to the subscriber: the normalized
+        # client cache merges this payload into the heat it already holds, so a
+        # payload that omitted `lanes` would leave the old lanes in place and
+        # the screen would show a result against a stale schedule.
+        session = object_session(heat)
+        self.captured_lanes = (
+            _as_heat_lanes(
+                session.query(models.HeatLane)
+                .filter(
+                    models.HeatLane.kind == models.HeatKind.OFFICIAL,
+                    models.HeatLane.heat_id == heat.id,
+                )
+                .order_by(models.HeatLane.lane)
+                .all()
+            )
+            if session is not None
+            else []
         )
 
 

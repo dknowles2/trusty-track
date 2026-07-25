@@ -21,7 +21,7 @@ vi.mock('../components/RaceExecution', () => ({
             <button onClick={() => onRunHeat({
                 id: 1,
                 heatNumber: 1,
-                laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }])
+                laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]), lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }]
             }, true)}>Run Heat 1</button>
             <button onClick={() => {
                 // Simulate finishing heat
@@ -80,8 +80,8 @@ describe('RaceControl Page', () => {
                 { id: 102, firstName: 'C', lastName: 'D', carNumber: 102 }
             ],
             heats: [
-                { id: 1, roundNumber: 1, heatNumber: 1, laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]) }, // Completed heat
-                { id: 2, roundNumber: 1, heatNumber: 2, laneResults: '[]' }
+                { id: 1, roundNumber: 1, heatNumber: 1, laneResults: JSON.stringify([{ lane: 1, time: 3.5, place: 1 }]), lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] }, // Completed heat
+                { id: 2, roundNumber: 1, heatNumber: 2, laneResults: '[]', lanes: [] }
             ]
         }
     };

@@ -22,16 +22,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useAlert } from '../../../context/AlertContext';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
+import type { Heat, Lane } from '../types';
+import { hasRun, hasTimes } from '../lanes';
 
-export interface Heat {
-  id: number;
-  roundNumber: number;
-  roundName: string | null;
-  roundId: number;
-  heatNumber: number;
-  laneResults: string; // JSON
-  globalHeatNumber?: number;
-}
+// Re-exported rather than redeclared: this used to be a hand-written copy that
+// nothing tied to the schema, and it drifted the moment `lanes` was added.
+export type { Heat };
 
 interface ScheduleManagementProps {
   raceId: number;
@@ -72,10 +68,10 @@ interface SortableHeatRowProps {
   laneCount: number;
 }
 
-const getDisplayName = (id: number | null, getRacerName: (id: number) => string) => {
-  if (id === null) return "Empty";
-  if (id < 0) return `Placeholder ${Math.abs(id)}`;
-  return getRacerName(id);
+const getDisplayName = (lane: Lane, getRacerName: (id: number) => string) => {
+  if (lane.placeholderSlot !== null) return `Placeholder ${lane.placeholderSlot}`;
+  if (lane.racerId === null) return "Empty";
+  return getRacerName(lane.racerId);
 };
 
 const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
@@ -88,11 +84,11 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   onDeleteHeat,
   laneCount
 }) => {
-  const laneResults: { lane: number; racer_id: number | null; time: number | string | null; skipped?: boolean }[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-  const hasRecordedTimes = laneResults.length > 0 && laneResults.some((r) => r.time !== null && r.time !== '');
-  const isSkipped = laneResults.length > 0 && laneResults.some((r) => r.skipped);
-  const isCompleted = hasRecordedTimes || isSkipped;
-  const hasPlaceholders = laneResults.some((r) => r.racer_id !== null && r.racer_id !== null && r.racer_id < 0);
+  const lanes = heat.lanes;
+  const hasRecordedTimes = hasTimes(lanes);
+  const isSkipped = lanes.some((l) => l.skipped);
+  const isCompleted = hasRun(lanes);
+  const hasPlaceholders = lanes.some((l) => l.placeholderSlot !== null);
 
   // Disable dragging if heat is running, reordering is in progress, or heat has results
   const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes;
@@ -118,10 +114,10 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   };
 
   const isRunDisabled = isRunning || hasPlaceholders || isUpcoming;
-  const runBtnTitle = hasPlaceholders 
-    ? "Racers not yet determined for this round" 
-    : isUpcoming 
-      ? "Complete previous rounds first" 
+  const runBtnTitle = hasPlaceholders
+    ? "Racers not yet determined for this round"
+    : isUpcoming
+      ? "Complete previous rounds first"
       : "";
 
   return (
@@ -148,12 +144,12 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
       </td>
       {Array.from({ length: laneCount }).map((_, i) => {
         const laneNum = i + 1;
-        const result = laneResults.find((r) => r.lane === laneNum);
+        const result = lanes.find((l) => l.lane === laneNum);
         return (
           <td key={laneNum} style={{ padding: '8px 12px', borderLeft: '1px solid #f0f0f0' }}>
             {result ? (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{getDisplayName(result.racer_id, getRacerName)}</span>
+                <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{getDisplayName(result, getRacerName)}</span>
                 {result.time != null && (
                   <span style={{ fontSize: '0.75rem', color: 'var(--scouting-blue)', fontFamily: 'monospace' }}>
                     {Number(result.time).toFixed(4)}s
@@ -253,13 +249,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   const sortedRoundIds = Object.keys(rounds)
     .map(Number)
     .sort((a, b) => (rounds[a][0]?.roundNumber || 0) - (rounds[b][0]?.roundNumber || 0));
-  
-  const firstUncompletedRoundId = sortedRoundIds.find(roundId => {
-    return rounds[roundId].some(heat => {
-      const results: { time: number | string | null }[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-      return !(results.length > 0 && results.some((r) => r.time !== null));
-    });
-  }) || (sortedRoundIds.length > 0 ? sortedRoundIds[sortedRoundIds.length - 1] : 0);
+
+  const firstUncompletedRoundId = sortedRoundIds.find(roundId =>
+    rounds[roundId].some(heat => !hasTimes(heat.lanes))
+  ) || (sortedRoundIds.length > 0 ? sortedRoundIds[sortedRoundIds.length - 1] : 0);
 
   const hasGeneralRound = Object.values(rounds).some(roundHeats => {
       // In GraphQL we might need a better way to identify general rounds
@@ -327,7 +320,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
         if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
         return a.heatNumber - b.heatNumber;
     }).map((h, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
-    
+
     setLocalHeats(optimisticHeats);
 
     // Prepare original order for undo
@@ -339,7 +332,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     setReordering(true);
     try {
       await onReorderHeats(newHeatUpdates);
-      
+
       showToast('Heat order updated', 'success', {
         label: 'Undo',
         onClick: async () => {
@@ -379,11 +372,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
                 disabled={generating || reordering || sortedRoundIds.some(r => (rounds[r][0]?.roundName || '').toLowerCase().includes('final'))}
-                style={{ 
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)', 
-                  whiteSpace: 'nowrap', 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                style={{
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: '5px',
                 }}
             >
@@ -426,7 +419,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           }}>
             <p style={{ fontSize: '1.1rem', margin: '0 0 10px 0' }}>No rounds yet</p>
             <p style={{ fontSize: '0.9rem', margin: '0 0 20px 0' }}>Creating your race schedule is easy. Use the wizard to generate all rounds in seconds.</p>
-            <button 
+            <button
                 className="primary-btn"
                 onClick={() => setIsWizardOpen(true)}
                 style={{ background: '#4caf50', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
@@ -447,16 +440,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             {sortedRoundIds.map(roundId => {
               const roundHeats = [...(rounds[roundId] || [])].sort((a, b) => a.heatNumber - b.heatNumber);
               const roundNum = roundHeats[0]?.roundNumber || 0;
-              const isAnyStarted = roundHeats.some(h => {
-                if (!h.laneResults) return false;
-                const res: { time: number | string | null }[] = JSON.parse(h.laneResults);
-                return res.some((r) => r.time !== null);
-              });
-              
-              const uncompletedHeats = roundHeats.filter(h => {
-                const results: { time: number | string | null; skipped?: boolean }[] = h.laneResults ? JSON.parse(h.laneResults) : [];
-                return !results.some((r) => (r.time !== null && r.time !== '') || r.skipped);
-              }).length;
+              const isAnyStarted = roundHeats.some(h => hasTimes(h.lanes));
+              const uncompletedHeats = roundHeats.filter(h => !hasRun(h.lanes)).length;
               const totalHeats = roundHeats.length;
 
               return (
@@ -467,10 +452,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                   boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                   border: '1px solid #eee'
                 }}>
-                  <div style={{ 
-                    display: 'flex', 
+                  <div style={{
+                    display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center', 
+                    alignItems: 'center',
                     marginBottom: '20px',
                     width: '100%',
                     gap: '20px',
@@ -478,9 +463,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     paddingBottom: '15px'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                      <h2 style={{ 
-                        margin: 0, 
-                        color: 'var(--scouting-blue)', 
+                      <h2 style={{
+                        margin: 0,
+                        color: 'var(--scouting-blue)',
                         textAlign: 'left',
                         fontSize: '1.5rem'
                       }}>
@@ -505,10 +490,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           disabled={generating || reordering}
                           aria-label={`Regenerate ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           style={{
-                            padding: '6px 16px', 
+                            padding: '6px 16px',
                             fontSize: '0.85rem',
-                            display: 'flex', 
-                            alignItems: 'center', 
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '6px'
                           }}
                         >
@@ -522,17 +507,17 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           disabled={generating || reordering || isAnyStarted || roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))}
                           aria-label={`Delete ${roundHeats[0]?.roundName || `Round ${roundNum}`}`}
                           title={
-                              isAnyStarted 
-                                ? "Cannot delete round: it has heats with results" 
+                              isAnyStarted
+                                ? "Cannot delete round: it has heats with results"
                                 : roundNum < Math.max(...sortedRoundIds.map(rid => rounds[rid][0]?.roundNumber || 0))
                                   ? "Cannot delete general round: championship rounds are already scheduled"
                                   : undefined
                           }
                           style={{
-                            padding: '6px 16px', 
+                            padding: '6px 16px',
                             fontSize: '0.85rem',
-                            display: 'flex', 
-                            alignItems: 'center', 
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '6px',
                             color: '#d32f2f',
                             background: '#fff0f0'
