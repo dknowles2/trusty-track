@@ -17,6 +17,7 @@ dependencies = [
     "pyserial",
     "cryptography",
     "python-dotenv",
+    "alembic>=1.16.5",
 ]
 readme = "README.md"
 requires-python = ">=3.9"

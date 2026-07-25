@@ -1,9 +1,14 @@
+import logging
 import os
+import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -27,37 +32,77 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+# Revision that the pre-Alembic schema corresponds to. Databases created before
+# migrations existed are stamped here and then upgraded forward.
+LEGACY_BASELINE_REVISION = "0001_baseline"
+
+
+def _migrations_dir() -> Path:
+    """Locate the bundled migrations directory.
+
+    Works both from a source checkout and from inside a PyInstaller bundle,
+    where data files are unpacked under ``sys._MEIPASS``.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "backend" / "migrations"  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent.parent / "migrations"
+
+
+def _alembic_config():
+    """Build an Alembic config in code, so no alembic.ini is needed at runtime."""
+    from alembic.config import Config
+
+    migrations = _migrations_dir()
+    if not migrations.is_dir():
+        raise RuntimeError(
+            f"Database migrations directory not found at {migrations}. "
+            "The installation is incomplete; refusing to start rather than "
+            "risk running against an unmigrated database."
+        )
+
+    config = Config()
+    config.set_main_option("script_location", str(migrations))
+    config.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
+    # env.py reconfigures logging from alembic.ini when run via the CLI; the
+    # application owns its own logging setup, so tell it not to.
+    config.attributes["skip_logging_config"] = True
+    return config
+
+
+def _is_legacy_database(connection) -> bool:
+    """True if this database predates Alembic: has our tables, but no version."""
+    tables = set(inspect(connection).get_table_names())
+    if "alembic_version" in tables:
+        return False
+    # "groups" is in the very first schema this app ever shipped.
+    return "groups" in tables
+
 
 def init_db() -> None:
-    """Initialize the database by creating all tables."""
-    Base.metadata.create_all(bind=engine)
+    """Bring the database schema up to date.
 
-    # Migrate older databases to include new columns
-    from sqlalchemy import text
+    Replaces the old ``create_all()`` plus hand-rolled ``ALTER TABLE``. Unlike
+    that approach, this actually migrates existing databases, and it raises
+    rather than swallowing failures — a half-migrated database that appears to
+    start normally is worse than a clear refusal to start.
+    """
+    from alembic import command
+    from alembic.runtime.migration import MigrationContext
 
-    with engine.connect() as conn:
-        try:
-            # Check if debug_mode exists in groups table
-            if engine.driver == "pysqlite" or "sqlite" in engine.url.drivername:
-                res = conn.execute(text("PRAGMA table_info(groups)")).fetchall()
-                columns = [r[1] for r in res]
-                if columns and "debug_mode" not in columns:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE groups ADD COLUMN debug_mode BOOLEAN DEFAULT 0"
-                        )
-                    )
-                    conn.commit()
-            else:
-                # Generic check for other DBs (Postgres, etc.)
-                # This is more complex without Alembic, but we'll try basic approach.
-                conn.execute(
-                    text(
-                        "ALTER TABLE groups ADD COLUMN IF NOT EXISTS "
-                        "debug_mode BOOLEAN DEFAULT FALSE"
-                    )
-                )
-                conn.commit()
-        except Exception:
-            # If groups table doesn't exist yet, metadata.create_all handled it.
-            pass
+    config = _alembic_config()
+
+    with engine.begin() as connection:
+        if _is_legacy_database(connection):
+            logger.info(
+                "Existing pre-Alembic database detected; stamping it at %s "
+                "before upgrading.",
+                LEGACY_BASELINE_REVISION,
+            )
+            config.attributes["connection"] = connection
+            command.stamp(config, LEGACY_BASELINE_REVISION)
+
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
+
+        current = MigrationContext.configure(connection).get_current_revision()
+        logger.info("Database schema is at revision %s", current)
