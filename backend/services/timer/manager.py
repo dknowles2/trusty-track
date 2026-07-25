@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 import serial
+from sqlalchemy.orm import Session
 
 from backend.api.pubsub import pubsub
 from backend.db import crud, models
@@ -77,10 +78,26 @@ class TimerStatus:
     racer_by_lane: dict[int, Optional[int]] = field(default_factory=dict)
 
 
+SessionFactory = Callable[[], Session]
+
+
 class TimerManager:
-    def __init__(self, track_id: int, device: TimerDevice) -> None:
+    def __init__(
+        self,
+        track_id: int,
+        device: TimerDevice,
+        session_factory: Optional[SessionFactory] = None,
+    ) -> None:
+        """Create a manager for one track.
+
+        ``session_factory`` produces the session used to persist results. It is
+        injected rather than imported because recording happens on a background
+        task, outside any request — so tests need to point it at their own
+        database instead of the process-wide one.
+        """
         self._track_id = track_id
         self._device = device
+        self._session_factory: SessionFactory = session_factory or SessionLocal
         self._buf: bytes = b""
         self._active_heat_id: Optional[int] = None
         self._active_heat_kind: Optional[models.HeatKind] = None
@@ -560,7 +577,7 @@ class TimerManager:
             )
             return
 
-        db = SessionLocal()
+        db = self._session_factory()
         try:
             if kind is models.HeatKind.OFFICIAL:
                 heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
@@ -811,9 +828,17 @@ class TimerManager:
         await self.handle_disconnect()
 
 
-async def initialize_timer_managers(registry: dict[int, TimerManager]) -> None:
-    """Query all Track records and create a TimerManager for each."""
-    db = SessionLocal()
+async def initialize_timer_managers(
+    registry: dict[int, TimerManager],
+    session_factory: Optional[SessionFactory] = None,
+) -> None:
+    """Query all Track records and create a TimerManager for each.
+
+    ``session_factory`` is handed to every manager it creates, so callers (and
+    tests) can control which database results are recorded to.
+    """
+    session_factory = session_factory or SessionLocal
+    db = session_factory()
     try:
         tracks = db.query(models.Track).all()
         for track in tracks:
@@ -824,7 +849,7 @@ async def initialize_timer_managers(registry: dict[int, TimerManager]) -> None:
                 # target device; real connection logic is wired in Phase 2/3.
                 device = MicroWizardDevice()
 
-            manager = TimerManager(track.id, device)
+            manager = TimerManager(track.id, device, session_factory=session_factory)
             registry[track.id] = manager
             logger.info(
                 "TimerManager created for track %d (%s) with device %s",

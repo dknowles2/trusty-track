@@ -35,6 +35,18 @@ from backend.services.timer.state_machine import TimerState
 pillow_heif.register_heif_opener()
 
 
+def _session_factory(info: Info):
+    """Session factory for TimerManagers created during a request.
+
+    They persist results from a background task, so they cannot reuse the
+    request's session. Falls back to the process-wide factory for contexts
+    built outside the HTTP path.
+    """
+    from backend.db.database import SessionLocal
+
+    return info.context.get("session_factory") or SessionLocal
+
+
 def _loaders(info: Info) -> RequestLoaders:
     """Per-operation loader cache.
 
@@ -1242,7 +1254,9 @@ class Mutation:
                 device = FakeTimerDevice()
             else:
                 device = MicroWizardDevice()
-            mgr = TimerManager(new_track.id, device)
+            mgr = TimerManager(
+                new_track.id, device, session_factory=_session_factory(info)
+            )
             timer_managers[new_track.id] = mgr
 
         return new_track
@@ -1882,7 +1896,9 @@ class Mutation:
                     if track.timer_type == models.TimerType.FAKE
                     else MicroWizardDevice()
                 )
-                timer_managers[track.id] = TimerManager(track.id, device)
+                timer_managers[track.id] = TimerManager(
+                    track.id, device, session_factory=_session_factory(info)
+                )
 
         # Link existing races if any
         if tracks:
@@ -1973,7 +1989,9 @@ class Mutation:
                 else:
                     device = MicroWizardDevice()
 
-                mgr = TimerManager(new_track.id, device)
+                mgr = TimerManager(
+                    new_track.id, device, session_factory=_session_factory(info)
+                )
                 timer_managers[new_track.id] = mgr
                 if (
                     new_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND

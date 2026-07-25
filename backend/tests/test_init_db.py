@@ -12,6 +12,14 @@ client = TestClient(app)
 
 
 def test_startup_creates_tables():
+    """Exercise the real startup path against the real, file-backed database.
+
+    This is the one test that deliberately touches the file database in
+    TRUSTYTRACK_DATA_DIR; everything else runs on the in-memory session. Don't
+    add a session-scoped fixture to pre-create that schema — TimerManager now
+    takes an injected session factory, so nothing else needs the file database
+    to exist.
+    """
     # Dispose pooled connections before touching the file so none of them
     # are left referencing the file we're about to delete out from under them.
     engine.dispose()
