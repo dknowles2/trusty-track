@@ -249,7 +249,9 @@ def test_downgrade_drops_the_table_and_leaves_the_blobs_alone(tmp_path):
     assert _init_db(tmp_path).returncode == 0
     assert _lanes(db_path) != []
 
-    result = _alembic(tmp_path, "downgrade", "-1")
+    # Named rather than "-1": this test is about *this* migration, and a later
+    # one being added should not silently point it at something else.
+    result = _alembic(tmp_path, "downgrade", "0002_debug_mode")
     assert result.returncode == 0, result.stderr
 
     engine = create_engine(f"sqlite:///{db_path}")
@@ -271,7 +273,7 @@ def test_upgrading_again_after_a_downgrade_reproduces_the_rows(tmp_path):
     assert _init_db(tmp_path).returncode == 0
     before = _lanes(db_path)
 
-    assert _alembic(tmp_path, "downgrade", "-1").returncode == 0
+    assert _alembic(tmp_path, "downgrade", "0002_debug_mode").returncode == 0
     assert _alembic(tmp_path, "upgrade", "head").returncode == 0
 
     assert _lanes(db_path) == before
