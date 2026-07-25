@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from backend.api.main import TIMER_MANAGERS
-from backend.db import crud, schemas
+from backend.db import crud, models, schemas
 from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
@@ -75,7 +75,9 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
         # Mock _record_results to avoid needing a full Heat DB record
         manager._record_results = AsyncMock()
 
-        await manager.prepare_heat(heat_id=1, lane_mask=0b11)
+        await manager.prepare_heat(
+            heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11
+        )
         assert manager._state == TimerState.ARMED
 
         # Expect: MG MC MD ME MF LR

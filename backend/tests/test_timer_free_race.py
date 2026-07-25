@@ -35,7 +35,9 @@ async def test_free_race_heat_recording_in_manager(db):
     manager = TimerManager(track_id=track.id, device=device)
 
     # Arm for the free race heat
-    await manager.prepare_heat(heat_id=heat_id, lane_mask=0b01)
+    await manager.prepare_heat(
+        heat_id=heat_id, kind=models.HeatKind.FREE, lane_mask=0b01
+    )
 
     # Mock SessionLocal to return 'db' but ignore close()
     mock_session = MagicMock()
@@ -106,7 +108,9 @@ async def test_official_heat_recording_in_manager(db):
     device = FakeTimerDevice()
     manager = TimerManager(track_id=track.id, device=device)
 
-    await manager.prepare_heat(heat_id=heat_id, lane_mask=0b01)
+    await manager.prepare_heat(
+        heat_id=heat_id, kind=models.HeatKind.OFFICIAL, lane_mask=0b01
+    )
 
     mock_session = MagicMock()
     mock_session.query = db.query

@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from backend.db import models
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.devices.microwizard import MicroWizardDevice
@@ -249,7 +250,7 @@ async def test_prepare_heat_transitions_to_armed():
     device = FakeTimerDevice()
     manager = TimerManager(track_id=1, device=device)
 
-    await manager.prepare_heat(heat_id=1, lane_mask=0b11)
+    await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11)
 
     assert manager._state == TimerState.ARMED
     assert manager._active_heat_id == 1
@@ -262,7 +263,7 @@ async def test_inject_race_started_transitions_to_running():
     device = FakeTimerDevice()
     manager = TimerManager(track_id=1, device=device)
 
-    await manager.prepare_heat(heat_id=1, lane_mask=0b11)
+    await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11)
     assert manager._state == TimerState.ARMED
 
     await manager.inject_event(RaceStarted())
@@ -277,7 +278,7 @@ async def test_partial_lane_results_stay_running():
     manager._record_results = AsyncMock()
 
     # lane_mask 0b11 = lanes 1 and 2 expected
-    await manager.prepare_heat(heat_id=1, lane_mask=0b11)
+    await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11)
     await manager.inject_event(RaceStarted())
     assert manager._state == TimerState.RUNNING
 
@@ -295,7 +296,7 @@ async def test_all_lanes_reported_calls_record_results():
     manager._record_results = AsyncMock()
 
     # lane_mask 0b11 = lanes 1 and 2 expected
-    await manager.prepare_heat(heat_id=1, lane_mask=0b11)
+    await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11)
     await manager.inject_event(RaceStarted())
 
     await manager.inject_event(LaneResult(lane=1, time_seconds=3.5, place=1))
@@ -316,7 +317,7 @@ async def test_zero_lane_mask_does_not_trigger_record_results():
     # lane_mask=0 means no lanes are expected; the manager's guard is:
     #   if expected_lanes and expected_lanes.issubset(...)
     # An empty set is falsy, so _record_results is never called automatically.
-    await manager.prepare_heat(heat_id=1, lane_mask=0)
+    await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0)
     await manager.inject_event(RaceStarted())
     assert manager._state == TimerState.RUNNING
 
@@ -332,7 +333,7 @@ async def test_abort_heat_from_armed_returns_to_idle():
     device = FakeTimerDevice()
     manager = TimerManager(track_id=1, device=device)
 
-    await manager.prepare_heat(heat_id=1, lane_mask=0b11)
+    await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11)
     assert manager._state == TimerState.ARMED
 
     await manager.abort_heat()
@@ -442,7 +443,9 @@ async def test_fake_timer_finish_via_inject_events():
     manager._record_results = AsyncMock()
 
     # 2-lane heat
-    await manager.prepare_heat(heat_id=42, lane_mask=0b11)
+    await manager.prepare_heat(
+        heat_id=42, kind=models.HeatKind.OFFICIAL, lane_mask=0b11
+    )
     await manager.inject_event(RaceStarted())
 
     # lane 2 faster (place 1), lane 1 slower (place 2)

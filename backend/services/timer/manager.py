@@ -83,6 +83,7 @@ class TimerManager:
         self._device = device
         self._buf: bytes = b""
         self._active_heat_id: Optional[int] = None
+        self._active_heat_kind: Optional[models.HeatKind] = None
         self._lane_mask: int = 0
         self._pending_results: dict[int, LaneResult] = {}
         self._racer_by_lane: dict[int, Optional[int]] = {}
@@ -191,6 +192,7 @@ class TimerManager:
         """Manually reset the timer to IDLE state, clearing buffers and active heat."""
         async with self._event_lock:
             self._active_heat_id = None
+            self._active_heat_kind = None
             self._buf = b""
             self._pending_results = {}
             self._racer_by_lane = {}
@@ -199,12 +201,18 @@ class TimerManager:
     async def prepare_heat(
         self,
         heat_id: int,
+        kind: models.HeatKind,
         lane_mask: int,
         racer_by_lane: Optional[dict[int, Optional[int]]] = None,
     ) -> None:
-        """Arm the timer for a heat. Sends device commands and transitions to ARMED."""
+        """Arm the timer for a heat. Sends device commands and transitions to ARMED.
+
+        ``kind`` is required: heat ids are only unique within their own table, so
+        the caller must say which table this id belongs to.
+        """
         async with self._event_lock:
             self._active_heat_id = heat_id
+            self._active_heat_kind = kind
             self._lane_mask = lane_mask
             self._pending_results = {}
             self._racer_by_lane = racer_by_lane or {}
@@ -215,6 +223,7 @@ class TimerManager:
         """Abort the current heat. Sends device reset commands and returns to IDLE."""
         async with self._event_lock:
             self._active_heat_id = None
+            self._active_heat_kind = None
             self._pending_results = {}
             self._racer_by_lane = {}
             await self._send_commands(self._device.abort_commands())
@@ -536,17 +545,31 @@ class TimerManager:
     async def _record_results(self) -> None:
         """Persist accumulated lane results to the database and notify subscribers."""
         heat_id = self._active_heat_id
+        kind = self._active_heat_kind
         if heat_id is None:
             logger.error(
                 "Timer %d: _record_results called with no active heat", self._track_id
             )
             return
+        if kind is None:
+            logger.error(
+                "Timer %d: _record_results called for heat %d with no heat kind; "
+                "refusing to guess which table it belongs to",
+                self._track_id,
+                heat_id,
+            )
+            return
 
         db = SessionLocal()
         try:
-            # Try official Heat first
-            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if heat:
+            if kind is models.HeatKind.OFFICIAL:
+                heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+                if not heat:
+                    logger.error(
+                        "Timer %d: official heat %d not found", self._track_id, heat_id
+                    )
+                    return
+
                 # Official Heat: lane_results contains both assignments and results
                 existing = json.loads(heat.lane_results) if heat.lane_results else []
 
@@ -562,7 +585,8 @@ class TimerManager:
                     updated_results.append(new_entry)
 
                 logger.info(
-                    "Timer %d: recording %d timer results into %d heat lanes for heat %d",
+                    "Timer %d: recording %d timer results into %d heat lanes "
+                    "for heat %d",
                     self._track_id,
                     len(self._pending_results),
                     len(updated_results),
@@ -571,7 +595,6 @@ class TimerManager:
                 crud.record_heat_result(db, heat_id, json.dumps(updated_results))
                 race_id = heat.race_id
             else:
-                # Check FreeRaceHeat
                 free_heat = (
                     db.query(models.FreeRaceHeat)
                     .filter(models.FreeRaceHeat.id == heat_id)
@@ -579,13 +602,14 @@ class TimerManager:
                 )
                 if not free_heat:
                     logger.error(
-                        "Timer %d: heat %d not found in official or free race heats",
+                        "Timer %d: free race heat %d not found",
                         self._track_id,
                         heat_id,
                     )
                     return
 
-                # FreeRaceHeat: lane_assignments is the source of truth for who is in which lane
+                # FreeRaceHeat: lane_assignments is the source of truth for
+                # who is in which lane
                 existing = (
                     json.loads(free_heat.lane_assignments)
                     if free_heat.lane_assignments
@@ -624,6 +648,7 @@ class TimerManager:
         await _publish_race_state(race_id)
 
         self._active_heat_id = None
+        self._active_heat_kind = None
         self._running_since = None
         # Note: we do NOT clear self._pending_results here so they remain available
         # in the status (IDLE state) until the next heat is prepared.
@@ -708,8 +733,8 @@ class TimerManager:
                         # Check state again inside lock
                         if self._state == TimerState.RUNNING:
                             logger.warning(
-                                "Timer %d: no results received within %.0fs of gate open; "
-                                "device has likely reset silently",
+                                "Timer %d: no results received within %.0fs of "
+                                "gate open; device has likely reset silently",
                                 self._track_id,
                                 timeout,
                             )
