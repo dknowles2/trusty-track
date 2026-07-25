@@ -160,6 +160,20 @@ def test_legacy_database_with_empty_alembic_version_is_adopted(tmp_path):
         engine.dispose()
 
 
+def _alembic_check(data_dir: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, "-m", "alembic", "check"],
+        cwd=REPO_ROOT,
+        env={
+            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "TRUSTYTRACK_DATA_DIR": str(data_dir),
+            "HOME": str(data_dir),
+        },
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_migrations_reproduce_the_models(tmp_path):
     """`alembic check` must find no drift between the chain and models.py.
 
@@ -168,8 +182,30 @@ def test_migrations_reproduce_the_models(tmp_path):
     """
     assert _run_init_db(tmp_path).returncode == 0
 
+    result = _alembic_check(tmp_path)
+    assert result.returncode == 0, (
+        "models.py and the migration chain have drifted. Generate a migration "
+        "with `alembic revision --autogenerate -m '<description>'`.\n\n"
+        f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
+    )
+
+
+def _build_pre_alembic_database(tmp_path: Path, debug_mode: str | None) -> Path:
+    """A database as the pre-Alembic ``create_all()`` would have left it.
+
+    Built by running the baseline migration and then removing `alembic_version`,
+    rather than by hand: `0001_baseline` *is* the schema `create_all()` produced,
+    so this cannot drift from what it claims to reproduce. The minimal
+    `groups`-only fixture the other legacy tests use is fine for checking that
+    data survives, but it describes a database that never existed, so comparing
+    its schema to the models proves nothing.
+
+    ``debug_mode`` is the column definition the old hand-rolled ALTER left
+    behind, or None for an install where that statement silently failed.
+    """
+    db = tmp_path / "trusty-track.db"
     result = subprocess.run(
-        [sys.executable, "-m", "alembic", "check"],
+        [sys.executable, "-m", "alembic", "upgrade", "0001_baseline"],
         cwd=REPO_ROOT,
         env={
             "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
@@ -179,11 +215,79 @@ def test_migrations_reproduce_the_models(tmp_path):
         capture_output=True,
         text=True,
     )
+    assert result.returncode == 0, result.stderr
+
+    engine = create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        # Un-manage it: this is what a database from before migrations looks like.
+        conn.execute(text("DROP TABLE alembic_version"))
+        if debug_mode:
+            conn.execute(text(f"ALTER TABLE groups ADD COLUMN debug_mode {debug_mode}"))
+        conn.execute(text("INSERT INTO groups (id, name) VALUES (1, 'Pack 42')"))
+    engine.dispose()
+    return db
+
+
+@pytest.mark.parametrize(
+    "legacy_debug_mode",
+    [
+        pytest.param(None, id="the old ALTER never ran"),
+        pytest.param("BOOLEAN DEFAULT 0", id="the old ALTER ran, leaving it nullable"),
+        pytest.param("BOOLEAN DEFAULT 0 NOT NULL", id="already correct"),
+    ],
+)
+def test_an_adopted_database_ends_up_with_the_same_schema(tmp_path, legacy_debug_mode):
+    """A migrated legacy install must be indistinguishable from a fresh one.
+
+    Issue #32. `test_migrations_reproduce_the_models` only ever checked a
+    *freshly created* database, so it was blind to the one path most likely to
+    produce drift — and it did: `groups.debug_mode` stayed nullable wherever the
+    old hand-rolled ALTER had already run, because 0002 skips the column when it
+    is present and cannot know how it was declared.
+
+    Adopted and fresh installs converging is the whole promise of #3. If they
+    do not, `alembic check` reports drift on a real user's database that is
+    nobody's fault, which teaches people to ignore it.
+    """
+    db = _build_pre_alembic_database(tmp_path, legacy_debug_mode)
+
+    assert _run_init_db(tmp_path).returncode == 0
+
+    result = _alembic_check(tmp_path)
     assert result.returncode == 0, (
-        "models.py and the migration chain have drifted. Generate a migration "
-        "with `alembic revision --autogenerate -m '<description>'`.\n\n"
+        "an adopted database does not match models.py, so it differs from a "
+        "fresh install.\n\n"
         f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
     )
+
+    # And the data is still there — a schema fix that copies the table is only
+    # safe if it brings the rows with it.
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.connect() as conn:
+            assert conn.execute(text("select name from groups")).scalar() == "Pack 42"
+    finally:
+        engine.dispose()
+
+
+def test_a_null_debug_mode_is_settled_before_the_column_is_tightened(tmp_path):
+    """Nothing writes NULL today, but the column has accepted it for as long as
+    those installs have existed, and NOT NULL cannot be applied over one."""
+    db = _build_pre_alembic_database(tmp_path, "BOOLEAN")
+    engine = create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE groups SET debug_mode = NULL"))
+    engine.dispose()
+
+    result = _run_init_db(tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.connect() as conn:
+            assert conn.execute(text("select debug_mode from groups")).scalar() == 0
+    finally:
+        engine.dispose()
 
 
 def test_init_db_raises_when_migrations_are_missing(tmp_path, monkeypatch):
