@@ -52,8 +52,7 @@ type FreeRaceHeat {
   laneAssignments: String!
   laneResults: String
   createdAt: String!
-  parsedAssignments: [LaneResult!]!
-  parsedResults: [LaneResult!]!
+  lanes: [HeatLane!]!
 }
 
 type FreeRaceLaneAssignment {
@@ -78,10 +77,10 @@ type Heat {
   roundId: Int!
   heatNumber: Int!
   laneResults: String
+  lanes: [HeatLane!]!
   roundNumber: Int!
   roundName: String
   globalHeatNumber: Int!
-  parsedResults: [LaneResult!]!
 }
 
 type HeatHighlight {
@@ -92,6 +91,15 @@ type HeatHighlight {
   racerName: String
   time: Float
   margin: Float
+}
+
+type HeatLane {
+  lane: Int!
+  racerId: Int
+  placeholderSlot: Int
+  time: Float
+  place: Int
+  skipped: Boolean!
 }
 
 input HeatReorderItemInput {

@@ -49,6 +49,13 @@ query($id: Int!) {
 }
 """
 
+# The same page once it reads the structured lanes instead of the blob (#5).
+RACE_CONTROL_LANES_QUERY = RACE_CONTROL_QUERY.replace(
+    "heats { id heatNumber roundNumber roundId roundName laneResults }",
+    "heats { id heatNumber roundNumber roundId roundName "
+    "lanes { lane racerId placeholderSlot time place skipped } }",
+)
+
 OBSERVATION_QUERY = """
 query($id: Int!) {
   race(raceId: $id) {
@@ -160,6 +167,27 @@ def test_race_control_query_count(client, populated_race):
         f"RaceControl page load issued {counter.count} SQL queries for "
         f"60 racers / 3 rounds / 45 heats. This should not grow with the "
         f"number of heats — check for a field resolver querying per row."
+    )
+
+
+def test_heat_lanes_cost_one_query_for_the_whole_race(client, populated_race):
+    """`Heat.lanes` reads a table, so it is the obvious place for an N+1.
+
+    Held to the blob's own budget: reading 45 heats' lanes out of `heat_lanes`
+    must not cost more than reading the same data out of the JSON column did.
+    """
+    with _QueryCounter() as blob:
+        _run(client, RACE_CONTROL_QUERY, populated_race.id)
+    with _QueryCounter() as table:
+        body = _run(client, RACE_CONTROL_LANES_QUERY, populated_race.id)
+
+    heats = body["data"]["race"]["heats"]
+    assert sum(len(h["lanes"]) for h in heats) == 180, (
+        "45 heats of 4 lanes; a cheap query that returns nothing proves nothing"
+    )
+    assert table.count <= blob.count + 1, (
+        f"Reading lanes from the table cost {table.count} queries against "
+        f"{blob.count} for the blob; the per-race batch is not batching."
     )
 
 

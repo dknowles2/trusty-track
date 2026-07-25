@@ -63,6 +63,27 @@ def _loaders(info: Info) -> RequestLoaders:
     return loaders
 
 
+def _heat_lanes(
+    info: Info, race_id: int, heat_id: int, kind: models.HeatKind
+) -> list["HeatLane"]:
+    """Rows from ``heat_lanes`` as the GraphQL type.
+
+    Defined here rather than as a method so both heat types share it — they are
+    two tables only until issue #6 merges them.
+    """
+    return [
+        HeatLane(
+            lane=row.lane,
+            racer_id=row.racer_id,
+            placeholder_slot=row.placeholder_slot,
+            time=row.time_seconds,
+            place=row.place,
+            skipped=row.skipped,
+        )
+        for row in _loaders(info).lanes_for_heat(race_id, heat_id, kind)
+    ]
+
+
 @strawberry.type
 class LaneResult:
     """
@@ -73,6 +94,31 @@ class LaneResult:
     racer_id: Optional[int]
     time: Optional[float]
     place: Optional[int]
+
+
+@strawberry.type
+class HeatLane:
+    """One lane of one heat, read from the ``heat_lanes`` table.
+
+    The structured replacement for picking apart the ``laneResults`` JSON string
+    on the client (issue #5). Two things the blob conflated are separate here:
+
+    - an empty lane and an undecided championship slot are both ``racerId:
+      null``, told apart by ``placeholderSlot`` — the blob encoded the slot as a
+      *negative* ``racer_id``, which clients had to know to filter out;
+    - ``skipped`` is a real field rather than a key the backend carried around
+      without reading.
+
+    ``laneResults`` still exists and is still what mutations accept. This is the
+    read path only.
+    """
+
+    lane: int
+    racer_id: Optional[int]
+    placeholder_slot: Optional[int]
+    time: Optional[float]
+    place: Optional[int]
+    skipped: bool
 
 
 @strawberry.type
@@ -88,6 +134,11 @@ class Heat:
     lane_results: Optional[str]
 
     @strawberry.field
+    def lanes(self, info: Info) -> list[HeatLane]:
+        """This heat's lanes, in lane order."""
+        return _heat_lanes(info, self.race_id, self.id, models.HeatKind.OFFICIAL)
+
+    @strawberry.field
     def round_number(self) -> int:
         # `self` is the ORM Heat; the round is eagerly loaded by the resolvers
         # that return heats, so this costs nothing.
@@ -101,24 +152,6 @@ class Heat:
     def global_heat_number(self, info: Info) -> int:
         number = _loaders(info).global_heat_number(self.race_id, self.id)
         return number if number is not None else self.heat_number
-
-    @strawberry.field
-    def parsed_results(self) -> list[LaneResult]:
-        if not self.lane_results:
-            return []
-        try:
-            data = json.loads(self.lane_results)
-            return [
-                LaneResult(
-                    lane=r.get("lane"),
-                    racer_id=r.get("racer_id"),
-                    time=r.get("time"),
-                    place=r.get("place"),
-                )
-                for r in data
-            ]
-        except (json.JSONDecodeError, TypeError):
-            return []
 
 
 @strawberry.type
@@ -770,42 +803,13 @@ class FreeRaceHeat:
     created_at: str
 
     @strawberry.field
-    def parsed_assignments(self) -> list[LaneResult]:
-        """Parse lane_assignments JSON into LaneResult objects."""
-        if not self.lane_assignments:
-            return []
-        try:
-            data = json.loads(self.lane_assignments)
-            return [
-                LaneResult(
-                    lane=r.get("lane"),
-                    racer_id=r.get("racer_id"),
-                    time=r.get("time"),
-                    place=r.get("place"),
-                )
-                for r in data
-            ]
-        except (json.JSONDecodeError, TypeError):
-            return []
+    def lanes(self, info: Info) -> list[HeatLane]:
+        """This heat's lanes, in lane order.
 
-    @strawberry.field
-    def parsed_results(self) -> list[LaneResult]:
-        """Parse lane_results JSON into LaneResult objects."""
-        if not self.lane_results:
-            return []
-        try:
-            data = json.loads(self.lane_results)
-            return [
-                LaneResult(
-                    lane=r.get("lane"),
-                    racer_id=r.get("racer_id"),
-                    time=r.get("time"),
-                    place=r.get("place"),
-                )
-                for r in data
-            ]
-        except (json.JSONDecodeError, TypeError):
-            return []
+        Free race keeps the schedule and the results in two columns; the table
+        holds the merge, so an unrun lane still reports who is in it.
+        """
+        return _heat_lanes(info, self.race_id, self.id, models.HeatKind.FREE)
 
 
 @strawberry.type

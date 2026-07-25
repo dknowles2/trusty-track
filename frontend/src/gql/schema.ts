@@ -62,8 +62,7 @@ export type FreeRaceHeat = {
   id: Scalars['Int']['output'];
   laneAssignments: Scalars['String']['output'];
   laneResults?: Maybe<Scalars['String']['output']>;
-  parsedAssignments: Array<LaneResult>;
-  parsedResults: Array<LaneResult>;
+  lanes: Array<HeatLane>;
   raceId: Scalars['Int']['output'];
 };
 
@@ -88,7 +87,7 @@ export type Heat = {
   heatNumber: Scalars['Int']['output'];
   id: Scalars['Int']['output'];
   laneResults?: Maybe<Scalars['String']['output']>;
-  parsedResults: Array<LaneResult>;
+  lanes: Array<HeatLane>;
   raceId: Scalars['Int']['output'];
   roundId: Scalars['Int']['output'];
   roundName?: Maybe<Scalars['String']['output']>;
@@ -103,6 +102,15 @@ export type HeatHighlight = {
   roundName: Scalars['String']['output'];
   time?: Maybe<Scalars['Float']['output']>;
   type: Scalars['String']['output'];
+};
+
+export type HeatLane = {
+  lane: Scalars['Int']['output'];
+  place?: Maybe<Scalars['Int']['output']>;
+  placeholderSlot?: Maybe<Scalars['Int']['output']>;
+  racerId?: Maybe<Scalars['Int']['output']>;
+  skipped: Scalars['Boolean']['output'];
+  time?: Maybe<Scalars['Float']['output']>;
 };
 
 export type HeatReorderItemInput = {

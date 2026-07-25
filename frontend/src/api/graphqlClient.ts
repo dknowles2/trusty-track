@@ -32,6 +32,7 @@ export const EMBEDDED_TYPES = [
   'DenStat',
   'FreeRaceLaneAssignment',
   'HeatHighlight',
+  'HeatLane',
   'HeatReorderResponse',
   'HeatResultRow',
   'InitialConfigStatus',

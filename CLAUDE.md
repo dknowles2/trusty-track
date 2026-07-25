@@ -170,12 +170,20 @@ There is no foreign key from a lane to a racer. `updateHeatResult` takes the who
 
 #### The `heat_lanes` shadow table
 
-The normalized `heat_lanes` table exists and is kept current, but **nothing reads it yet** — the blob is still the source of truth. `backend/db/lane_sync.py` listens on the SQLAlchemy `Session` and projects every blob write into it, so no write site needs to know the table exists. Two consequences:
+The normalized `heat_lanes` table exists and is kept current. The blob is still the source of truth — everything **writes** the blob, and `backend/db/lane_sync.py` listens on the SQLAlchemy `Session` and projects those writes into the table, so no write site needs to know it exists. Two consequences:
 
 - **Write heats through the ORM.** A raw `UPDATE heats SET lane_results = ...`, or a bulk delete of a table other than `heats`/`free_race_heats`, bypasses the listener and silently rots the table.
 - **`conftest.py` asserts `lane_sync.lanes_out_of_sync()` is empty after every test**, which is what makes the whole suite a test of the projection. If a change makes that fail, the projection is wrong — not the check.
 
 `heat_lanes.heat_id` is deliberately **not** a foreign key: heats live in two tables until issue #6 merges them, so the `kind` column carries the discriminator (see below) and `lane_sync` handles the cascade itself.
+
+**Reading: prefer `Heat.lanes` / `FreeRaceHeat.lanes` over `laneResults`.** The GraphQL read path is structured and comes from the table:
+
+```graphql
+lanes { lane racerId placeholderSlot time place skipped }
+```
+
+It separates the things the blob conflated: a placeholder slot is `placeholderSlot`, not a negative `racerId`; `skipped` is a field; `time` is always a number, never the string the frontend sometimes wrote. `laneResults` is still exposed and is still what mutations accept — the frontend has not moved over yet.
 
 ### ⚠️ Heat IDs are not unique across tables
 
