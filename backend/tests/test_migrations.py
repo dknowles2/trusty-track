@@ -12,6 +12,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, inspect, text
 
+from backend.tests.helpers import build_pre_alembic_database
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -99,18 +101,13 @@ def test_legacy_database_is_adopted_without_data_loss(tmp_path, already_has_debu
     Covers both variants in the wild: the old hand-rolled ALTER either ran
     (column present) or silently failed (column absent).
     """
-    db = tmp_path / "trusty-track.db"
-    engine = create_engine(f"sqlite:///{db}")
-    debug_col = ", debug_mode BOOLEAN DEFAULT 0" if already_has_debug_mode else ""
-    with engine.begin() as conn:
-        # A minimal stand-in for the pre-Alembic schema.
-        conn.execute(
-            text(
-                f"CREATE TABLE groups (id INTEGER PRIMARY KEY, name VARCHAR{debug_col})"
-            )
-        )
-        conn.execute(text("INSERT INTO groups (id, name) VALUES (1, 'Pack 42')"))
-    engine.dispose()
+    db = build_pre_alembic_database(
+        tmp_path,
+        legacy_debug_mode="BOOLEAN DEFAULT 0" if already_has_debug_mode else None,
+        seed=lambda conn: conn.execute(
+            text("INSERT INTO groups (id, name) VALUES (1, 'Pack 42')")
+        ),
+    )
 
     result = _run_init_db(tmp_path)
     assert result.returncode == 0, result.stderr
@@ -137,14 +134,13 @@ def test_legacy_database_with_empty_alembic_version_is_adopted(tmp_path):
     then ran the baseline migration against tables that already existed,
     failing with "table groups already exists" at startup.
     """
-    db = tmp_path / "trusty-track.db"
-    engine = create_engine(f"sqlite:///{db}")
-    with engine.begin() as conn:
-        conn.execute(text("CREATE TABLE groups (id INTEGER PRIMARY KEY, name VARCHAR)"))
+
+    def seed(conn):
         conn.execute(text("INSERT INTO groups (id, name) VALUES (1, 'Pack 7')"))
         # Present but empty, exactly as Alembic leaves it after a read.
         conn.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
-    engine.dispose()
+
+    db = build_pre_alembic_database(tmp_path, seed=seed)
 
     result = _run_init_db(tmp_path)
     assert result.returncode == 0, result.stderr
@@ -190,44 +186,6 @@ def test_migrations_reproduce_the_models(tmp_path):
     )
 
 
-def _build_pre_alembic_database(tmp_path: Path, debug_mode: str | None) -> Path:
-    """A database as the pre-Alembic ``create_all()`` would have left it.
-
-    Built by running the baseline migration and then removing `alembic_version`,
-    rather than by hand: `0001_baseline` *is* the schema `create_all()` produced,
-    so this cannot drift from what it claims to reproduce. The minimal
-    `groups`-only fixture the other legacy tests use is fine for checking that
-    data survives, but it describes a database that never existed, so comparing
-    its schema to the models proves nothing.
-
-    ``debug_mode`` is the column definition the old hand-rolled ALTER left
-    behind, or None for an install where that statement silently failed.
-    """
-    db = tmp_path / "trusty-track.db"
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "0001_baseline"],
-        cwd=REPO_ROOT,
-        env={
-            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
-            "TRUSTYTRACK_DATA_DIR": str(tmp_path),
-            "HOME": str(tmp_path),
-        },
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
-
-    engine = create_engine(f"sqlite:///{db}")
-    with engine.begin() as conn:
-        # Un-manage it: this is what a database from before migrations looks like.
-        conn.execute(text("DROP TABLE alembic_version"))
-        if debug_mode:
-            conn.execute(text(f"ALTER TABLE groups ADD COLUMN debug_mode {debug_mode}"))
-        conn.execute(text("INSERT INTO groups (id, name) VALUES (1, 'Pack 42')"))
-    engine.dispose()
-    return db
-
-
 @pytest.mark.parametrize(
     "legacy_debug_mode",
     [
@@ -249,7 +207,13 @@ def test_an_adopted_database_ends_up_with_the_same_schema(tmp_path, legacy_debug
     do not, `alembic check` reports drift on a real user's database that is
     nobody's fault, which teaches people to ignore it.
     """
-    db = _build_pre_alembic_database(tmp_path, legacy_debug_mode)
+    db = build_pre_alembic_database(
+        tmp_path,
+        legacy_debug_mode=legacy_debug_mode,
+        seed=lambda conn: conn.execute(
+            text("INSERT INTO groups (id, name) VALUES (1, 'Pack 42')")
+        ),
+    )
 
     assert _run_init_db(tmp_path).returncode == 0
 
@@ -273,11 +237,13 @@ def test_an_adopted_database_ends_up_with_the_same_schema(tmp_path, legacy_debug
 def test_a_null_debug_mode_is_settled_before_the_column_is_tightened(tmp_path):
     """Nothing writes NULL today, but the column has accepted it for as long as
     those installs have existed, and NOT NULL cannot be applied over one."""
-    db = _build_pre_alembic_database(tmp_path, "BOOLEAN")
-    engine = create_engine(f"sqlite:///{db}")
-    with engine.begin() as conn:
-        conn.execute(text("UPDATE groups SET debug_mode = NULL"))
-    engine.dispose()
+    db = build_pre_alembic_database(
+        tmp_path,
+        legacy_debug_mode="BOOLEAN",
+        seed=lambda conn: conn.execute(
+            text("INSERT INTO groups (id, name, debug_mode) VALUES (1, 'Pack', NULL)")
+        ),
+    )
 
     result = _run_init_db(tmp_path)
     assert result.returncode == 0, result.stderr

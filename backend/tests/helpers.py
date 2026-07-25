@@ -1,6 +1,76 @@
-"""Shared helpers for the GraphQL tests."""
+"""Shared helpers for the tests."""
 
+import subprocess
+import sys
+from collections.abc import Callable
+from pathlib import Path
 from typing import Any
+
+from sqlalchemy import create_engine, text
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _alembic(data_dir: Path, *args: str) -> subprocess.CompletedProcess:
+    """Run the Alembic CLI against a given data directory.
+
+    A subprocess because ``backend.db.database`` resolves its engine and paths
+    at import time from the environment.
+    """
+    return subprocess.run(
+        [sys.executable, "-m", "alembic", *args],
+        cwd=REPO_ROOT,
+        env={
+            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "TRUSTYTRACK_DATA_DIR": str(data_dir),
+            "HOME": str(data_dir),
+        },
+        capture_output=True,
+        text=True,
+    )
+
+
+def build_pre_alembic_database(
+    tmp_path: Path,
+    *,
+    legacy_debug_mode: str | None = None,
+    seed: Callable | None = None,
+) -> Path:
+    """A database as the pre-Alembic ``create_all()`` would have left it.
+
+    Built by running the baseline migration and then removing
+    ``alembic_version``, rather than by hand. ``0001_baseline`` *is* the schema
+    ``create_all()`` produced, so this cannot drift from what it claims to
+    reproduce.
+
+    Hand-rolled minimal fixtures were what these tests used before, and they
+    were a standing trap: a fixture that creates ``heats (id, lane_results)``
+    passes until a migration touches a column it left out, and then fails in a
+    way that looks like the migration is broken. Issue #32 was found the same
+    way.
+
+    Args:
+        legacy_debug_mode: the column definition the old hand-rolled ALTER left
+            on ``groups.debug_mode``, or None for an install where it never ran.
+        seed: called with an open connection to insert rows.
+    """
+    db = tmp_path / "trusty-track.db"
+    result = _alembic(tmp_path, "upgrade", "0001_baseline")
+    assert result.returncode == 0, result.stderr
+
+    engine = create_engine(f"sqlite:///{db}")
+    with engine.begin() as conn:
+        # Un-manage it: this is what a database from before migrations looks like.
+        conn.execute(text("DROP TABLE alembic_version"))
+        if legacy_debug_mode:
+            conn.execute(
+                text(f"ALTER TABLE groups ADD COLUMN debug_mode {legacy_debug_mode}")
+            )
+        if seed is not None:
+            seed(conn)
+    engine.dispose()
+    return db
+
 
 UPDATE_HEAT_RESULT = """
 mutation UpdateHeatResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
