@@ -40,16 +40,22 @@ def generate_ppc(
     """Build a PPC schedule: one heat per racer, each racer once per lane.
 
     Lane 1 is seeded with every racer, which is what fixes the heat count at
-    ``len(racer_ids)``. Each remaining lane is then filled greedily, preferring
-    a racer who has not yet raced in that lane and choosing among those the one
-    who has faced the current heat's occupants least often. The result is not
-    guaranteed optimal — it is a *partial* perfect chart — but for the sizes a
-    pack race actually runs it lands very close.
+    ``len(racer_ids)``. Each remaining lane is then filled by :func:`_fill_lane`,
+    which places every racer exactly once and prefers, for each heat, whoever has
+    faced that heat's current occupants least often.
 
-    Where the constraint cannot be met (fewer racers than lanes, or the greedy
-    choice painting itself into a corner) the algorithm relaxes to "just not
-    already in this heat", and failing even that leaves the lane empty rather
-    than double-booking a racer.
+    Guarantees:
+
+    * no racer appears twice in a heat
+    * no racer appears twice in a lane
+    * every heat is full — ``min(len(racer_ids), lane_count)`` racers
+
+    The last one only became true with the fix for issue #26. Opponent variety
+    remains a heuristic: this is a *partial* perfect chart, not an optimal one,
+    though for the sizes a pack race runs it lands close.
+
+    A heat is short only when the field itself is smaller than the track is
+    wide; three racers cannot fill four lanes.
 
     ``rng`` is injectable so tests can pin the shuffle; production passes
     nothing and gets the module-level generator.
@@ -73,53 +79,148 @@ def generate_ppc(
     for i in range(p_count):
         heat_matrix[i][0] = p_ids[i]
 
-    # Which lanes each racer has been assigned so far.
-    occupied_lanes: dict[int, set[int]] = {p_id: {0} for p_id in p_ids}
-
     for j in range(1, lane_count):
         available_racers = list(p_ids)
         rng.shuffle(available_racers)
-
-        for i in range(p_count):
-            current_heat_racers = [
-                heat_matrix[i][k] for k in range(j) if heat_matrix[i][k] is not None
-            ]
-
-            # Preferred: hasn't raced this lane, isn't already in this heat.
-            candidates = [
-                r
-                for r in available_racers
-                if j not in occupied_lanes[r] and r not in current_heat_racers
-            ]
-            if not candidates:
-                # Relaxed: allow a lane repeat rather than leaving a gap.
-                candidates = [
-                    r for r in available_racers if r not in current_heat_racers
-                ]
-
-            best_racer = None
-            min_score = float("inf")
-            for r in candidates:
-                # Prefer the racer who has met these opponents fewest times.
-                score = sum(matchups[r][other] for other in current_heat_racers)
-                if score < min_score:
-                    min_score = score
-                    best_racer = r
-
-            if best_racer is None:
-                continue
-
-            heat_matrix[i][j] = best_racer
-            available_racers.remove(best_racer)
-            occupied_lanes[best_racer].add(j)
-            for other in current_heat_racers:
-                matchups[best_racer][other] += 1
-                matchups[other][best_racer] += 1
+        _fill_lane(heat_matrix, j, available_racers, matchups)
 
     return [
         HeatPlan(heat_number=start_heat_number + i, lanes=tuple(heat_matrix[i]))
         for i in range(p_count)
     ]
+
+
+def _fill_lane(
+    heat_matrix: list[list[int | None]],
+    lane_index: int,
+    available_racers: list[int],
+    matchups: dict[int, dict[int, int]],
+) -> None:
+    """Assign one racer to ``lane_index`` in each heat, and record who met whom.
+
+    This is a bipartite matching between heats and racers: racer ``r`` may take
+    heat ``i``'s slot only if ``r`` is not already racing in heat ``i``. Every
+    racer is available for exactly one slot in this lane.
+
+    Greedy alone finds a *maximal* matching, not a *maximum* one — it can strand
+    the last heat, whose only remaining candidate is a racer already in it. That
+    left a lane empty and gave one racer a heat fewer than everyone else, which
+    under POINTS scoring made their score better (issue #26). So the greedy pass
+    runs first, for its opponent-variety heuristic, and then augmenting paths
+    repair whatever it stranded.
+    """
+    heat_count = len(heat_matrix)
+
+    def occupants(heat_index: int) -> list[int]:
+        return [
+            heat_matrix[heat_index][k]
+            for k in range(lane_index)
+            if heat_matrix[heat_index][k] is not None
+        ]
+
+    heat_occupants = [occupants(i) for i in range(heat_count)]
+
+    def record(racer: int, heat_index: int, sign: int) -> None:
+        for other in heat_occupants[heat_index]:
+            matchups[racer][other] += sign
+            matchups[other][racer] += sign
+
+    # Greedy: for each heat in turn, take whoever has met its occupants least.
+    # Matchups are updated as we go, not at the end of the lane — a racer placed
+    # in heat 1 must look less attractive for heat 2 if they would meet the same
+    # opponents again. Deferring the update measurably worsens variety.
+    racer_of_heat: dict[int, int] = {}
+    heat_of_racer: dict[int, int] = {}
+    unclaimed = list(available_racers)
+
+    for i in range(heat_count):
+        present = heat_occupants[i]
+        best_racer = None
+        min_score = float("inf")
+        for r in unclaimed:
+            if r in present:
+                continue
+            score = sum(matchups[r][other] for other in present)
+            if score < min_score:
+                min_score = score
+                best_racer = r
+
+        if best_racer is None:
+            continue
+
+        racer_of_heat[i] = best_racer
+        heat_of_racer[best_racer] = i
+        unclaimed.remove(best_racer)
+        record(best_racer, i, +1)
+
+    # Repair: hand any stranded heat a racer by displacing an earlier
+    # assignment down a chain that ends at someone still unclaimed.
+    stranded = [i for i in range(heat_count) if i not in racer_of_heat]
+    if stranded:
+        before = dict(racer_of_heat)
+        try:
+            for i in stranded:
+                _augment(
+                    i, heat_occupants, matchups, racer_of_heat, heat_of_racer, set()
+                )
+        except RecursionError:
+            # An augmenting chain is at most one link per heat, so this needs a
+            # field in the high hundreds — far past any pack race. If it ever
+            # does happen, a short heat is a much better outcome than heat
+            # generation dying in the middle of an event, so keep whatever the
+            # greedy pass managed and carry on.
+            racer_of_heat = {
+                heat_index: racer
+                for heat_index, racer in racer_of_heat.items()
+                if heat_of_racer.get(racer) == heat_index
+            }
+
+        # Re-book the meetings the repair moved around.
+        for heat_index, racer in before.items():
+            if racer_of_heat.get(heat_index) != racer:
+                record(racer, heat_index, -1)
+        for heat_index, racer in racer_of_heat.items():
+            if before.get(heat_index) != racer:
+                record(racer, heat_index, +1)
+
+    for i, racer in racer_of_heat.items():
+        heat_matrix[i][lane_index] = racer
+
+
+def _augment(
+    heat_index: int,
+    heat_occupants: list[list[int]],
+    matchups: dict[int, dict[int, int]],
+    racer_of_heat: dict[int, int],
+    heat_of_racer: dict[int, int],
+    tried: set[int],
+) -> bool:
+    """Kuhn's augmenting path: find this heat a racer, displacing others if need be.
+
+    Candidates are visited in the same order the greedy pass prefers — fewest
+    prior meetings first — so a repair does not undo the variety heuristic any
+    more than it has to.
+    """
+    present = heat_occupants[heat_index]
+    candidates = sorted(
+        (r for r in matchups if r not in present and r not in tried),
+        key=lambda r: (sum(matchups[r][other] for other in present), r),
+    )
+
+    for racer in candidates:
+        tried.add(racer)
+        holder = heat_of_racer.get(racer)
+        # If someone holds this racer, the recursive call re-matches *them* to a
+        # different racer first — which is what frees this one up. It also
+        # rewrites racer_of_heat[holder] on the way out, so there is nothing to
+        # unassign here.
+        if holder is None or _augment(
+            holder, heat_occupants, matchups, racer_of_heat, heat_of_racer, tried
+        ):
+            racer_of_heat[heat_index] = racer
+            heat_of_racer[racer] = heat_index
+            return True
+    return False
 
 
 def placeholder_ids(count: int) -> list[int]:

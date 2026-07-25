@@ -269,7 +269,7 @@ Defined entirely in `backend/api/schema.py`.
 
 Lane 1 is seeded with every racer, which fixes the heat count at one per racer; remaining lanes are filled greedily, preferring a racer who has not yet run that lane and has met the current occupants least often.
 
-⚠️ **It is not currently true that every racer races every lane.** The greedy fill can strand a lane, so roughly 1 in 4 four-lane schedules gives one racer a heat fewer — which under `POINTS` scoring makes their score *better*. See issue #26; `test_domain_scheduling.py` has the property marked `xfail(strict=True)`.
+Greedy alone finds a *maximal* matching, not a *maximum* one, so it used to strand a lane in roughly 1 in 4 four-lane schedules — giving one racer a heat fewer, which under `POINTS` scoring made their score *better*. Fixed in #26 by repairing the greedy result with augmenting paths. `test_domain_scheduling.py` holds the properties; **every heat is full** is the one that regressed silently for a long time, so keep it.
 
 ### Scoring
 
