@@ -568,6 +568,13 @@ export type RaceLeaderboardArgs = {
   roundId?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type RaceChangeKind =
+  | 'HEAT_RESULT'
+  | 'OTHER'
+  | 'RACER'
+  | 'RACE_SETTINGS'
+  | 'SCHEDULE';
+
 export type RaceInput = {
   carNumberingStrategy?: Scalars['String']['input'];
   championshipTrophies?: Scalars['Int']['input'];
@@ -582,7 +589,11 @@ export type RaceInput = {
 
 export type RaceStateChangedEvent = {
   changedAt: Scalars['String']['output'];
+  heat?: Maybe<Heat>;
+  kind: RaceChangeKind;
   raceId: Scalars['Int']['output'];
+  racer?: Maybe<Racer>;
+  roundId?: Maybe<Scalars['Int']['output']>;
 };
 
 export type RaceStats = {

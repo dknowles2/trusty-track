@@ -259,6 +259,14 @@ type Race {
   track: Track
 }
 
+enum RaceChangeKind {
+  HEAT_RESULT
+  RACER
+  SCHEDULE
+  RACE_SETTINGS
+  OTHER
+}
+
 input RaceInput {
   name: String!
   dateTime: String = null
@@ -274,6 +282,10 @@ input RaceInput {
 type RaceStateChangedEvent {
   raceId: Int!
   changedAt: String!
+  kind: RaceChangeKind!
+  heat: Heat
+  racer: Racer
+  roundId: Int
 }
 
 type RaceStats {

@@ -2,6 +2,7 @@ import asyncio
 import base64
 import contextlib
 import csv
+import enum
 import io
 import json
 import os
@@ -1136,7 +1137,7 @@ class Mutation:
         """Create a new race."""
         race_in = schemas.RaceCreate(**typing.cast(Any, strawberry.asdict(race)))
         new_race = typing.cast(Any, crud.create_race(info.context["db"], race_in))
-        await _publish_race_state(new_race.id)
+        await _publish_race_state(new_race.id, kind=RaceChangeKind.RACE_SETTINGS)
         return new_race
 
     @strawberry.mutation
@@ -1163,7 +1164,9 @@ class Mutation:
         db = info.context["db"]
         racer_in = schemas.RacerCreate(**typing.cast(Any, strawberry.asdict(racer)))
         new_racer = typing.cast(Any, crud.create_racer(db, racer_in))
-        await _publish_race_state(new_racer.race_id)
+        await _publish_race_state(
+            new_racer.race_id, kind=RaceChangeKind.RACER, racer=new_racer
+        )
         return new_racer
 
     @strawberry.mutation
@@ -1179,7 +1182,9 @@ class Mutation:
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
         if updated:
-            await _publish_race_state(updated.race_id)
+            await _publish_race_state(
+                updated.race_id, kind=RaceChangeKind.RACER, racer=updated
+            )
         return updated
 
     @strawberry.mutation
@@ -1190,7 +1195,7 @@ class Mutation:
         race_id = racer.race_id if racer else None
         result = crud.delete_racer(db, racer_id=id) is not None
         if race_id:
-            await _publish_race_state(race_id)
+            await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return result
 
     @strawberry.mutation
@@ -1215,7 +1220,9 @@ class Mutation:
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
         if updated:
-            await _publish_race_state(updated.race_id)
+            await _publish_race_state(
+                updated.race_id, kind=RaceChangeKind.RACER, racer=updated
+            )
         return updated
 
     # Den Mutations
@@ -1432,7 +1439,7 @@ class Mutation:
             raise e
 
         db.commit()
-        await _publish_race_state(race_id)
+        await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
         return typing.cast(Any, created_rounds)
 
     @strawberry.mutation
@@ -1461,7 +1468,9 @@ class Mutation:
             )
             heats.extend(new_heats)
 
-        await _publish_race_state(round_obj.race_id)
+        await _publish_race_state(
+            round_obj.race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_obj.id
+        )
         return typing.cast(Any, heats)
 
     @strawberry.mutation
@@ -1475,7 +1484,7 @@ class Mutation:
         except ValueError:
             return False
         if race_id:
-            await _publish_race_state(race_id)
+            await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
         return result
 
     @strawberry.mutation
@@ -1489,7 +1498,7 @@ class Mutation:
         except ValueError:
             return False
         if race_id:
-            await _publish_race_state(race_id)
+            await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
         return result
 
     @strawberry.mutation
@@ -1523,7 +1532,9 @@ class Mutation:
         if not winner_ids:
             return 0
         crud.resolve_round_placeholders(db, round_id, winner_ids)
-        await _publish_race_state(race_id)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_id
+        )
         return len(winner_ids)
 
     # Timer Mutations
@@ -1784,7 +1795,12 @@ class Mutation:
         db = info.context["db"]
         updated_heat = typing.cast(Any, crud.record_heat_result(db, heat_id, results))
         if updated_heat:
-            await _publish_race_state(updated_heat.race_id)
+            await _publish_race_state(
+                updated_heat.race_id,
+                kind=RaceChangeKind.HEAT_RESULT,
+                heat=updated_heat,
+                round_id=updated_heat.round_id,
+            )
         return updated_heat
 
     # Bulk Mutations
@@ -1798,7 +1814,7 @@ class Mutation:
         if not racer:
             return 0
         count = crud.auto_number_racers(db, racer.race_id, racer_ids)
-        await _publish_race_state(racer.race_id)
+        await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
         return count
 
     @strawberry.mutation
@@ -1812,7 +1828,7 @@ class Mutation:
         )
         crud.bulk_clear_car_numbers(db, racer_ids)
         if racer:
-            await _publish_race_state(racer.race_id)
+            await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
         return True
 
     @strawberry.mutation
@@ -1827,7 +1843,7 @@ class Mutation:
         if not racer:
             return False
         crud.bulk_check_in_racers(db, racer_ids, passed_inspection)
-        await _publish_race_state(racer.race_id)
+        await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
         return True
 
     @strawberry.mutation
@@ -1843,7 +1859,7 @@ class Mutation:
         )
         crud.bulk_move_racers_to_den(db, racer_ids, den_id)
         if racer:
-            await _publish_race_state(racer.race_id)
+            await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
         return True
 
     @strawberry.mutation
@@ -1858,7 +1874,7 @@ class Mutation:
         race_id = racer.race_id if racer else None
         crud.bulk_delete_racers(db, racer_ids)
         if race_id:
-            await _publish_race_state(race_id)
+            await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return True
 
     @strawberry.mutation
@@ -1882,7 +1898,7 @@ class Mutation:
             .first()
         )
         if racer:
-            await _publish_race_state(racer.race_id)
+            await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
         return count
 
     @strawberry.mutation
@@ -2029,7 +2045,7 @@ class Mutation:
         # Notify active races
         race = db.query(models.Race).first()
         if race:
-            await _publish_race_state(race.id)
+            await _publish_race_state(race.id, kind=RaceChangeKind.RACE_SETTINGS)
 
         from backend.version import __version__ as _version
 
@@ -2125,7 +2141,7 @@ class Mutation:
             crud.create_racer(db, racer_in)
             count += 1
 
-        await _publish_race_state(race_id)
+        await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return count
 
     @strawberry.mutation
@@ -2156,7 +2172,7 @@ class Mutation:
                     crud.generate_heats_for_round(
                         db, round_obj.id, clear_existing=(i == 0)
                     )
-                await _publish_race_state(race_id)
+                await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
                 return [typing.cast(Any, round_obj)]
             else:
                 # Championship Round (Placeholder)
@@ -2178,7 +2194,7 @@ class Mutation:
                         num_placeholders=round_data.advancement_num_racers or 0,
                         clear_existing=(i == 0),
                     )
-                await _publish_race_state(race_id)
+                await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
                 return [typing.cast(Any, round_obj)]
         except ValueError as e:
             raise ValueError(str(e)) from None
@@ -2196,7 +2212,9 @@ class Mutation:
         updated_heats = crud.reorder_heats(db, updates)
         # Determine race_id from the first updated heat
         if updated_heats:
-            await _publish_race_state(updated_heats[0].race_id)
+            await _publish_race_state(
+                updated_heats[0].race_id, kind=RaceChangeKind.SCHEDULE
+            )
         return HeatReorderResponse(
             updated_count=len(updated_heats), heats=typing.cast(Any, updated_heats)
         )
@@ -2270,12 +2288,103 @@ class Mutation:
         return f"/static/{filename}"
 
 
+@strawberry.enum
+class RaceChangeKind(enum.Enum):
+    """What kind of change a ``RaceStateChangedEvent`` describes.
+
+    Subscribers use this to decide whether they care. Editing a racer's name
+    during check-in should not make the stats page re-query the race.
+    """
+
+    #: A heat's results were recorded, cleared, or edited. Carries ``heat``.
+    HEAT_RESULT = "HEAT_RESULT"
+    #: A racer was created, edited, checked in, or moved. Carries ``racer``.
+    RACER = "RACER"
+    #: Heats or rounds were created, regenerated, reordered, or deleted. The
+    #: shape of the schedule changed, so a refetch is genuinely warranted.
+    SCHEDULE = "SCHEDULE"
+    #: Race-level settings changed — name, scoring strategy, trophies.
+    RACE_SETTINGS = "RACE_SETTINGS"
+    #: Something changed that has not been classified yet. Treat as "refetch".
+    OTHER = "OTHER"
+
+
+class _HeatSnapshot:
+    """A detached copy of a Heat, safe to resolve after the request ends.
+
+    Events are published from a mutation whose session is closed before any
+    subscriber renders the payload, and the subscription resolves fields in its
+    own context. Handing out a live ORM object across that boundary risks a
+    ``DetachedInstanceError`` on the first lazy load. Strawberry types here are
+    duck-typed shells, so a plain object with the right attributes serves.
+    """
+
+    __slots__ = ("id", "race_id", "round_id", "heat_number", "lane_results", "round")
+
+    def __init__(self, heat: models.Heat) -> None:
+        self.id = heat.id
+        self.race_id = heat.race_id
+        self.round_id = heat.round_id
+        self.heat_number = heat.heat_number
+        self.lane_results = heat.lane_results
+        # `Heat.round_number` and `Heat.round_name` read through this.
+        self.round = (
+            _RoundSnapshot(heat.round.round_number, heat.round.name)
+            if heat.round
+            else None
+        )
+
+
+class _RoundSnapshot:
+    __slots__ = ("round_number", "name")
+
+    def __init__(self, round_number: int, name: Optional[str]) -> None:
+        self.round_number = round_number
+        self.name = name
+
+
+class _RacerSnapshot:
+    """A detached copy of a Racer. See :class:`_HeatSnapshot`."""
+
+    __slots__ = (
+        "id",
+        "first_name",
+        "last_name",
+        "car_number",
+        "car_name",
+        "car_passed_inspection",
+        "car_weight",
+        "racer_image_url",
+        "car_image_url",
+        "den_id",
+        "race_id",
+    )
+
+    def __init__(self, racer: models.Racer) -> None:
+        for field in self.__slots__:
+            setattr(self, field, getattr(racer, field))
+
+
 @strawberry.type
 class RaceStateChangedEvent:
-    """Event emitted whenever a race's state is modified by a mutation."""
+    """Event emitted whenever a race's state is modified by a mutation.
+
+    ``kind`` says what changed and the matching payload field carries it, so a
+    subscriber can apply the change instead of re-querying the whole race. The
+    payloads are typed as the real ``Heat`` and ``Racer`` types on purpose: a
+    normalized client cache keys on ``__typename`` plus ``id``, so an event can
+    merge straight into the entity a query already put there.
+
+    Older clients that only read ``raceId`` keep working — the extra fields are
+    additive, and ``OTHER`` still means "something changed, refetch".
+    """
 
     race_id: int
     changed_at: str  # ISO 8601 UTC timestamp
+    kind: RaceChangeKind = RaceChangeKind.OTHER
+    heat: Optional[Heat] = None
+    racer: Optional[Racer] = None
+    round_id: Optional[int] = None
 
 
 @strawberry.type
@@ -2301,17 +2410,37 @@ class TimingStats:
     lanes: list[TimingStatsLane]
 
 
-async def _publish_race_state(race_id: int) -> None:
+async def _publish_race_state(
+    race_id: int,
+    kind: RaceChangeKind = RaceChangeKind.OTHER,
+    heat: Optional[models.Heat] = None,
+    racer: Optional[models.Racer] = None,
+    round_id: Optional[int] = None,
+) -> None:
     """Publish a RaceStateChangedEvent for *race_id* on the pub/sub bus.
+
+    Pass the ORM object that changed and it is snapshotted here, so callers do
+    not have to think about the session lifetime. ``kind`` defaults to ``OTHER``,
+    which means every unclassified call site keeps its current behaviour.
 
     Args:
         race_id: ID of the race whose state changed.
+        kind: What sort of change this was.
+        heat: The heat that changed, for ``HEAT_RESULT``.
+        racer: The racer that changed, for ``RACER``.
+        round_id: The round affected, where one is identifiable.
     """
     await pubsub.publish(
         f"race_state:{race_id}",
         RaceStateChangedEvent(
             race_id=race_id,
             changed_at=datetime.now(timezone.utc).isoformat(),
+            kind=kind,
+            heat=typing.cast(Any, _HeatSnapshot(heat)) if heat is not None else None,
+            racer=typing.cast(Any, _RacerSnapshot(racer))
+            if racer is not None
+            else None,
+            round_id=round_id,
         ),
     )
 
