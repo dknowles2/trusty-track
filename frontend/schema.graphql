@@ -247,7 +247,7 @@ type Race {
   championshipTrophies: Int!
   scoringStrategy: String!
   autoAdvanceHeat: Boolean!
-  leaderboard: [LeaderboardEntry!]!
+  leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   registeredCount: Int!
   checkedInCount: Int!
   dens: [Den!]!

@@ -26,6 +26,7 @@ from sqlalchemy import event
 from sqlalchemy.orm import Session, selectinload
 
 from backend.db import models
+from backend.domain import scoring as domain_scoring
 from backend.services import scoring
 
 
@@ -38,7 +39,7 @@ class RequestLoaders:
         self._heats_by_race: dict[int, list[models.Heat]] = {}
         self._dens_by_race: dict[int, list[models.Den]] = {}
         self._racers_by_race: dict[int, list[models.Racer]] = {}
-        self._leaderboards: dict[tuple[int, int | None], list[dict]] = {}
+        self._leaderboards: dict[tuple[int, int | None, str], list[dict]] = {}
         self._global_heat_numbers: dict[int, dict[int, int]] = {}
         self._tracks: dict[int, models.Track | None] = {}
         self._groups: dict[int, models.Group | None] = {}
@@ -140,17 +141,25 @@ class RequestLoaders:
     # Derived values                                                       #
     # ------------------------------------------------------------------ #
 
-    def leaderboard(self, race_id: int, round_id: int | None = None) -> list[dict]:
+    def leaderboard(
+        self,
+        race_id: int,
+        round_id: int | None = None,
+        scope: str = domain_scoring.PRELIM,
+    ) -> list[dict]:
         """Memoised leaderboard.
 
         ``advancementStatus`` is resolved once per round and each call used to
         recompute the whole-race leaderboard, re-parsing every heat's
         ``lane_results`` each time.
+
+        ``scope`` is part of the cache key: prelim-only and all-heats standings
+        are different answers and must not share an entry.
         """
-        key = (race_id, round_id)
+        key = (race_id, round_id, scope)
         if key not in self._leaderboards:
             self._leaderboards[key] = scoring.get_leaderboard(
-                self._db, race_id, round_id=round_id
+                self._db, race_id, round_id=round_id, scope=scope
             )
         return self._leaderboards[key]
 

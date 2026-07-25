@@ -22,6 +22,20 @@ from backend.domain.lanes import Lane
 TIMED = "TIMED"
 POINTS = "POINTS"
 
+#: Which rounds count toward the standings.
+#:
+#: ``PRELIM`` — only rounds with no ``advancement_source``. This is the default
+#: and the answer to issue #17. Championship rounds are a *result* of the
+#: standings, so folding them back in is circular: a championship time would
+#: move the very leaderboard that decided who was racing in it. It also mixes
+#: populations, since a championship average is taken against the fastest cars
+#: in the pack rather than the whole field.
+#:
+#: ``ALL`` — every heat in the race, which is what the app did before #17.
+#: Kept so a caller can ask for it deliberately.
+PRELIM = "PRELIM"
+ALL = "ALL"
+
 #: A time of zero (or less) means the timer saw a start but never a finish.
 #: Scored as a bad-but-finite result so one DNF does not erase a racer's
 #: standing entirely, and so ranking stays a total order.
