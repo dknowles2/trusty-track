@@ -17,9 +17,9 @@ added later.
 
 Direction of truth
 ------------------
-The blob is still authoritative. This module only projects it. Nothing reads
-``heat_lanes`` yet; when the readers switch over, this projection is what they
-will be reading, so :func:`lanes_out_of_sync` exists to prove the two agree.
+The blob is still authoritative. This module only projects it.
+:func:`lanes_out_of_sync` exists to prove the two agree, and ``conftest.py``
+asserts it after every test in the suite.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from backend.db import models
 from backend.domain import lanes as domain_lanes
 
 
-def _rows_for(heat_id: int, kind: models.HeatKind, parsed) -> list[dict]:
+def _rows_for(heat_id: int, parsed) -> list[dict]:
     """Project parsed lanes into ``heat_lanes`` rows."""
     rows = []
     for lane in parsed:
@@ -46,7 +46,6 @@ def _rows_for(heat_id: int, kind: models.HeatKind, parsed) -> list[dict]:
         rows.append(
             {
                 "heat_id": heat_id,
-                "kind": kind,
                 "lane": lane.lane,
                 "racer_id": racer_id,
                 "placeholder_slot": placeholder_slot,
@@ -58,29 +57,11 @@ def _rows_for(heat_id: int, kind: models.HeatKind, parsed) -> list[dict]:
     return rows
 
 
-def _free_race_lanes(heat: models.FreeRaceHeat):
-    """Free race keeps the schedule and the results in separate columns.
-
-    Where a lane appears in both, the result wins; a lane that was never run
-    keeps its assignment so the schedule is still visible.
-    """
-    merged: dict[Any, Any] = {}
-    for lane in domain_lanes.parse(heat.lane_assignments):
-        merged[lane.lane] = lane
-    for lane in domain_lanes.parse(heat.lane_results):
-        merged[lane.lane] = lane
-    return list(merged.values())
-
-
-def _project(session: Session, heat_id: int, kind: models.HeatKind, parsed) -> None:
+def _project(session: Session, heat_id: int, parsed) -> None:
     """Replace this heat's rows. Volumes are one row per lane, so a rewrite is
     simpler and no slower than diffing."""
-    session.execute(
-        delete(models.HeatLane).where(
-            models.HeatLane.heat_id == heat_id, models.HeatLane.kind == kind
-        )
-    )
-    rows = _rows_for(heat_id, kind, parsed)
+    session.execute(delete(models.HeatLane).where(models.HeatLane.heat_id == heat_id))
+    rows = _rows_for(heat_id, parsed)
     if rows:
         session.execute(insert(models.HeatLane), rows)
 
@@ -103,33 +84,13 @@ def _sync_heat_lanes(session: Session, _flush_context) -> None:
     """
     for obj in session.deleted:
         if isinstance(obj, models.Heat):
-            _project(session, obj.id, models.HeatKind.OFFICIAL, [])
-        elif isinstance(obj, models.FreeRaceHeat):
-            _project(session, obj.id, models.HeatKind.FREE, [])
+            _project(session, obj.id, [])
 
     for obj in list(session.new) + list(session.dirty):
         if obj in session.deleted:
             continue
         if isinstance(obj, models.Heat) and _blob_changed(obj, "lane_results"):
-            _project(
-                session,
-                obj.id,
-                models.HeatKind.OFFICIAL,
-                domain_lanes.parse(obj.lane_results),
-            )
-        elif isinstance(obj, models.FreeRaceHeat) and _blob_changed(
-            obj, "lane_results", "lane_assignments"
-        ):
-            _project(session, obj.id, models.HeatKind.FREE, _free_race_lanes(obj))
-
-
-#: Which ``heat_lanes.kind`` each heat table projects into. ``heat_id`` cannot
-#: be a real foreign key while heats live in two tables (issue #6), so nothing
-#: at the database level removes a heat's lanes when the heat goes.
-_HEAT_TABLES = {
-    models.Heat.__table__: models.HeatKind.OFFICIAL,
-    models.FreeRaceHeat.__table__: models.HeatKind.FREE,
-}
+            _project(session, obj.id, domain_lanes.parse(obj.lane_results))
 
 
 @event.listens_for(Session, "do_orm_execute")
@@ -145,21 +106,20 @@ def _cascade_bulk_heat_deletes(state) -> None:
     """
     if not state.is_delete:
         return
+    # By name, not identity: the statement carries its own copy of the table.
     table = getattr(state.statement, "table", None)
-    kind = _HEAT_TABLES.get(table)
-    if kind is None:
+    if table is None or table.name != models.Heat.__tablename__:
         return
 
+    # Built from the statement's table so the criteria keep referring to the
+    # same columns they were compiled against.
     doomed = select(table.c.id)
     where = state.statement.whereclause
     if where is not None:
         doomed = doomed.where(where)
 
     state.session.execute(
-        delete(models.HeatLane).where(
-            models.HeatLane.kind == kind,
-            models.HeatLane.heat_id.in_(doomed),
-        ),
+        delete(models.HeatLane).where(models.HeatLane.heat_id.in_(doomed)),
         state.parameters or {},
     )
 
@@ -179,25 +139,22 @@ def lanes_out_of_sync(session: Session) -> list[str]:
     """
     problems: list[str] = []
 
-    rows_by_heat: dict[tuple, dict] = {}
+    rows_by_heat: dict[int, dict] = {}
     for row in session.query(models.HeatLane).all():
-        rows_by_heat.setdefault((row.kind, row.heat_id), {})[row.lane] = row
+        rows_by_heat.setdefault(row.heat_id, {})[row.lane] = row
 
-    def compare(heat_id: int, kind: models.HeatKind, parsed: Iterable) -> None:
-        rows = rows_by_heat.get((kind, heat_id), {})
+    def compare(heat_id: int, parsed: Iterable) -> None:
+        rows = rows_by_heat.get(heat_id, {})
         parsed = list(parsed)
         if len(rows) != len(parsed):
             problems.append(
-                f"{kind.value} heat {heat_id}: {len(rows)} rows vs "
-                f"{len(parsed)} lanes in the blob"
+                f"heat {heat_id}: {len(rows)} rows vs {len(parsed)} lanes in the blob"
             )
             return
         for lane in parsed:
             row = rows.get(lane.lane)
             if row is None:
-                problems.append(
-                    f"{kind.value} heat {heat_id}: lane {lane.lane} missing"
-                )
+                problems.append(f"heat {heat_id}: lane {lane.lane} missing")
                 continue
             expected_racer = lane.racer_id if (lane.racer_id or 0) > 0 else None
             expected_slot = abs(lane.racer_id) if (lane.racer_id or 0) < 0 else None
@@ -217,21 +174,15 @@ def lanes_out_of_sync(session: Session) -> list[str]:
             )
             if actual != expected:
                 problems.append(
-                    f"{kind.value} heat {heat_id} lane {lane.lane}: "
-                    f"row={actual} blob={expected}"
+                    f"heat {heat_id} lane {lane.lane}: row={actual} blob={expected}"
                 )
 
-    seen: set[tuple] = set()
+    seen: set[int] = set()
     for heat in session.query(models.Heat).all():
-        seen.add((models.HeatKind.OFFICIAL, heat.id))
-        compare(
-            heat.id, models.HeatKind.OFFICIAL, domain_lanes.parse(heat.lane_results)
-        )
-    for heat in session.query(models.FreeRaceHeat).all():
-        seen.add((models.HeatKind.FREE, heat.id))
-        compare(heat.id, models.HeatKind.FREE, _free_race_lanes(heat))
+        seen.add(heat.id)
+        compare(heat.id, domain_lanes.parse(heat.lane_results))
 
-    for kind, heat_id in rows_by_heat.keys() - seen:
-        problems.append(f"{kind.value} heat {heat_id}: rows for a heat that is gone")
+    for heat_id in rows_by_heat.keys() - seen:
+        problems.append(f"heat {heat_id}: rows for a heat that is gone")
 
     return problems

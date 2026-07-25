@@ -61,11 +61,7 @@ async def test_free_race_heat_recording_in_manager(db):
 
         # Verify DB update
         db.expire_all()
-        updated_heat = (
-            db.query(models.FreeRaceHeat)
-            .filter(models.FreeRaceHeat.id == heat_id)
-            .first()
-        )
+        updated_heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
         assert updated_heat.lane_results is not None
         results = json.loads(updated_heat.lane_results)
         assert results[0]["lane"] == 1

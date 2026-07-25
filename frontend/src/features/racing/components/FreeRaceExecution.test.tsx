@@ -8,13 +8,12 @@ import { lane } from '../testFixtures';
 /**
  * A free race heat the backend has recorded a result for.
  *
- * `laneResults` is what marks it recorded — `lanes` is populated from the
- * assignments the moment the heat is created, so it cannot say that on its own.
- * Its contents no longer matter to the component, only its presence.
+ * `recorded` is what marks it run — `lanes` holds the schedule from the moment
+ * the heat is created, so it cannot say that on its own (#6).
  */
 const recordedHeat = (lanes: (Partial<Parameters<typeof lane>[0]> & { lane: number })[]) => ({
   id: 42,
-  laneResults: '[]',
+  recorded: true,
   lanes: lanes.map(lane),
 });
 

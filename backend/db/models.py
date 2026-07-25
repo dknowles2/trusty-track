@@ -138,10 +138,8 @@ class Race(Base):
     rounds: Mapped[list["Round"]] = relationship(
         "Round", back_populates="race", cascade="all, delete-orphan"
     )
+    # Both kinds; `Heat.kind` distinguishes them (#6).
     heats: Mapped[list["Heat"]] = relationship("Heat", back_populates="race")
-    free_race_heats: Mapped[list["FreeRaceHeat"]] = relationship(
-        "FreeRaceHeat", back_populates="race", cascade="all, delete-orphan"
-    )
 
 
 class RacingGroup(Base):
@@ -287,49 +285,6 @@ def official_heats(query):
     return query.filter(Heat.kind == HeatKind.OFFICIAL)
 
 
-class FreeRaceHeat(Base):
-    """A single heat run in Free Race mode. Never affects official standings."""
-
-    __tablename__ = "free_race_heats"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
-    # JSON array: [{"lane": 1, "racer_id": 42, "time": 3.141, "place": 1}, ...]
-    # racer_id may be None for empty lanes.
-    lane_assignments: Mapped[str] = mapped_column(String)
-    # JSON array of results, same shape as lane_assignments but with
-    # time/place filled in. Null until the heat is completed.
-    lane_results: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    created_at: Mapped[str] = mapped_column(String)  # ISO-8601 timestamp
-
-    race: Mapped["Race"] = relationship("Race", back_populates="free_race_heats")
-
-    @property
-    def round_number(self) -> int:
-        """Get the round number from the related Round."""
-        return self.round.round_number if self.round else 0
-
-    @property
-    def round_name(self) -> Optional[str]:
-        """Get the round name from the related Round."""
-        return self.round.name if self.round else None
-
-    @property
-    def total_participants(self) -> int:
-        """Get the total number of participants in this round."""
-        return self.round.total_participants if self.round else 0
-
-    @property
-    def advancement_num_racers(self) -> Optional[int]:
-        """Get the number of racers to advance to this round."""
-        return self.round.advancement_num_racers if self.round else None
-
-    @property
-    def advancement_source(self) -> Optional[str]:
-        """Get the advancement source from the related Round."""
-        return self.round.advancement_source if self.round else None
-
-
 class HeatLane(Base):
     """One lane of one heat: an assignment, and possibly a result.
 
@@ -339,12 +294,9 @@ class HeatLane(Base):
 
     Identity
     --------
-    ``heat_id`` is qualified by ``kind`` because ``heats`` and
-    ``free_race_heats`` are still separate tables with overlapping
-    autoincrement sequences. It is therefore deliberately **not** a foreign key
-    yet — it cannot reference two tables at once. Issue #6 folds those tables
-    together, after which this becomes a real FK and ``kind`` moves onto the
-    heat itself.
+    ``heat_id`` is a real foreign key. It could not be one until #6 folded
+    ``free_race_heats`` into ``heats``, because it would have had to reference
+    two tables with overlapping autoincrement sequences at once.
 
     Placeholders
     ------------
@@ -361,10 +313,7 @@ class HeatLane(Base):
     __tablename__ = "heat_lanes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    heat_id: Mapped[int] = mapped_column(Integer, index=True)
-    kind: Mapped[HeatKind] = mapped_column(
-        SAEnum(HeatKind), default=HeatKind.OFFICIAL, index=True
-    )
+    heat_id: Mapped[int] = mapped_column(Integer, ForeignKey("heats.id"), index=True)
     lane: Mapped[int] = mapped_column(Integer)
 
     racer_id: Mapped[Optional[int]] = mapped_column(

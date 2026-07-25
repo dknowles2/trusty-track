@@ -49,7 +49,7 @@ describe('FreeRaceTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStartMutation.mockResolvedValue({
-      data: { startFreeRaceHeat: { id: 99, laneAssignments: '[]' } },
+      data: { startFreeRaceHeat: { id: 99 } },
     });
     (useMutation as any).mockReturnValue([{}, mockStartMutation]);
   });

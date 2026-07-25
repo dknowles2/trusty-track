@@ -79,9 +79,10 @@ def test_fresh_database_is_fully_migrated(tmp_path):
         "racing_groups",
         "rounds",
         "heats",
-        "free_race_heats",
+        "heat_lanes",
         "alembic_version",
     } <= tables
+    assert "free_race_heats" not in tables, "folded into heats by #6"
     assert "debug_mode" in _column_names(db, "groups")
 
 

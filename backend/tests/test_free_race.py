@@ -2,7 +2,7 @@ import json
 
 from sqlalchemy.orm import Session
 
-from backend.db import crud, schemas
+from backend.db import crud, models, schemas
 
 
 def _create_race(db: Session) -> int:
@@ -46,8 +46,12 @@ def test_create_free_race_heat(db: Session):
     heat = crud.create_free_race_heat(db, race_id, assignments)
     assert heat.id is not None
     assert heat.race_id == race_id
-    assert heat.lane_results is None
-    parsed = json.loads(heat.lane_assignments)
+    # The schedule goes straight into `lane_results` with no times, exactly as
+    # a generated official heat does (#6). "Has it run" is then one question
+    # for both kinds.
+    assert heat.kind is models.HeatKind.FREE
+    assert heat.round_id is None
+    parsed = json.loads(heat.lane_results)
     assert len(parsed) == 2
     assert parsed[0]["lane"] == 1
     assert parsed[0]["racer_id"] == 1

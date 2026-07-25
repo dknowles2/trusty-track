@@ -7,7 +7,6 @@ Shared by all connectivity modes (fake, backend-direct, frontend-proxy).
 
 import asyncio
 import contextlib
-import json
 import logging
 import re
 from collections import deque
@@ -22,6 +21,7 @@ from sqlalchemy.orm import Session
 from backend.api.pubsub import pubsub
 from backend.db import crud, models
 from backend.db.database import SessionLocal
+from backend.domain import lanes
 
 # Circular import handled by importing inside methods or using full module path
 # from backend.api.schema import _publish_race_state
@@ -224,8 +224,10 @@ class TimerManager:
     ) -> None:
         """Arm the timer for a heat. Sends device commands and transitions to ARMED.
 
-        ``kind`` is required: heat ids are only unique within their own table, so
-        the caller must say which table this id belongs to.
+        ``kind`` is no longer load-bearing — heat ids are unique across both
+        kinds since #6, and recording reads the kind off the heat. It is kept on
+        the signature because callers still pass it and the state is useful in
+        the status payload.
         """
         async with self._event_lock:
             self._active_heat_id = heat_id
@@ -562,100 +564,49 @@ class TimerManager:
     async def _record_results(self) -> None:
         """Persist accumulated lane results to the database and notify subscribers."""
         heat_id = self._active_heat_id
-        kind = self._active_heat_kind
         if heat_id is None:
             logger.error(
                 "Timer %d: _record_results called with no active heat", self._track_id
             )
             return
-        if kind is None:
-            logger.error(
-                "Timer %d: _record_results called for heat %d with no heat kind; "
-                "refusing to guess which table it belongs to",
-                self._track_id,
-                heat_id,
-            )
-            return
 
         db = self._session_factory()
         try:
-            if kind is models.HeatKind.OFFICIAL:
-                heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-                if not heat:
-                    logger.error(
-                        "Timer %d: official heat %d not found", self._track_id, heat_id
-                    )
-                    return
+            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+            if not heat:
+                logger.error("Timer %d: heat %d not found", self._track_id, heat_id)
+                return
 
-                # Official Heat: lane_results contains both assignments and results
-                existing = json.loads(heat.lane_results) if heat.lane_results else []
+            # One path for both kinds since #6. A free race heat used to keep
+            # its schedule in `lane_assignments` and this had to know that;
+            # both now hold it in `lane_results`, written when the heat is
+            # created and filled in here.
+            heat_lanes = lanes.parse(heat.lane_results)
+            for lane in heat_lanes:
+                result = self._pending_results.get(lane.lane)
+                if result is not None:
+                    lane.time = result.time_seconds
+                    lane.place = result.place
 
-                # Update a COPY of existing entries with timer results to be safe
-                updated_results = []
-                for entry in existing:
-                    new_entry = dict(entry)
-                    lane = new_entry.get("lane")
-                    if lane in self._pending_results:
-                        res = self._pending_results[lane]
-                        new_entry["time"] = res.time_seconds
-                        new_entry["place"] = res.place
-                    updated_results.append(new_entry)
+            logger.info(
+                "Timer %d: recording %d timer results into %d lanes of %s heat %d",
+                self._track_id,
+                len(self._pending_results),
+                len(heat_lanes),
+                heat.kind.value.lower(),
+                heat_id,
+            )
 
-                logger.info(
-                    "Timer %d: recording %d timer results into %d heat lanes "
-                    "for heat %d",
-                    self._track_id,
-                    len(self._pending_results),
-                    len(updated_results),
-                    heat_id,
+            if heat.kind is models.HeatKind.FREE:
+                # Deliberately not `record_heat_result`: that re-runs
+                # advancement, and an exhibition run must not move a
+                # championship field.
+                crud.update_free_race_heat_result(
+                    db, heat_id, [lane.to_dict() for lane in heat_lanes]
                 )
-                crud.record_heat_result(db, heat_id, json.dumps(updated_results))
-                race_id = heat.race_id
             else:
-                free_heat = (
-                    db.query(models.FreeRaceHeat)
-                    .filter(models.FreeRaceHeat.id == heat_id)
-                    .first()
-                )
-                if not free_heat:
-                    logger.error(
-                        "Timer %d: free race heat %d not found",
-                        self._track_id,
-                        heat_id,
-                    )
-                    return
-
-                # FreeRaceHeat: lane_assignments is the source of truth for
-                # who is in which lane
-                existing = (
-                    json.loads(free_heat.lane_assignments)
-                    if free_heat.lane_assignments
-                    else []
-                )
-
-                # Create results list based on assignments
-                updated_results = []
-                for entry in existing:
-                    new_entry = dict(entry)
-                    lane = new_entry.get("lane")
-                    if lane in self._pending_results:
-                        res = self._pending_results[lane]
-                        new_entry["time"] = res.time_seconds
-                        new_entry["place"] = res.place
-                    else:
-                        # Ensure time/place keys exist even if no result
-                        new_entry.setdefault("time", None)
-                        new_entry.setdefault("place", None)
-                    updated_results.append(new_entry)
-
-                logger.info(
-                    "Timer %d: updating %d free race heat results for heat %d",
-                    self._track_id,
-                    len(self._pending_results),
-                    heat_id,
-                )
-                crud.update_free_race_heat_result(db, heat_id, updated_results)
-                race_id = free_heat.race_id
+                crud.record_heat_result(db, heat_id, lanes.serialize(heat_lanes))
+            race_id = heat.race_id
         finally:
             db.close()
 

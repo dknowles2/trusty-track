@@ -53,10 +53,10 @@ def _racers(db: Session, race_id: int, count: int) -> list[int]:
     return ids
 
 
-def _lanes(db: Session, heat_id: int, kind=models.HeatKind.OFFICIAL):
+def _lanes(db: Session, heat_id: int):
     return (
         db.query(models.HeatLane)
-        .filter(models.HeatLane.heat_id == heat_id, models.HeatLane.kind == kind)
+        .filter(models.HeatLane.heat_id == heat_id)
         .order_by(models.HeatLane.lane)
         .all()
     )
@@ -217,7 +217,7 @@ def test_free_race_heats_project_assignments_then_results(db: Session):
     )
     db.commit()
 
-    rows = _lanes(db, heat.id, models.HeatKind.FREE)
+    rows = _lanes(db, heat.id)
     assert [r.racer_id for r in rows] == racer_ids
     assert all(r.time_seconds is None for r in rows)
 
@@ -231,7 +231,7 @@ def test_free_race_heats_project_assignments_then_results(db: Session):
     )
     db.commit()
 
-    rows = _lanes(db, heat.id, models.HeatKind.FREE)
+    rows = _lanes(db, heat.id)
     assert [r.time_seconds for r in rows] == [3.1, 3.4]
 
 
@@ -249,10 +249,8 @@ def test_an_official_and_a_free_heat_sharing_an_id_stay_apart(db: Session):
     official = db.query(models.Heat).filter(models.Heat.id == free.id).one_or_none()
     assert official is not None, "the ids should collide for this test to mean anything"
 
-    assert len(_lanes(db, free.id, models.HeatKind.FREE)) == 1
-    assert len(_lanes(db, official.id, models.HeatKind.OFFICIAL)) == len(
-        json.loads(official.lane_results)
-    )
+    assert len(_lanes(db, free.id)) == 1
+    assert len(_lanes(db, official.id)) == len(json.loads(official.lane_results))
 
 
 def test_the_verifier_reports_drift_rather_than_hiding_it(db: Session):

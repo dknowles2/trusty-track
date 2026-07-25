@@ -41,6 +41,7 @@ const RECORD_FREE_RACE_RESULT = `
   mutation RecordFreeRaceResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
     recordFreeRaceResult(heatId: $heatId, lanes: $lanes) {
       id
+      recorded
       lanes {
         lane
         racerId
@@ -85,7 +86,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
       subscription FreeRaceHeat($heatId: Int!) {
         freeRaceHeat(heatId: $heatId) {
           id
-          laneResults
+          recorded
           lanes {
             lane
             racerId
@@ -100,17 +101,16 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     variables: { heatId },
   });
 
-  // `laneResults` is still what says whether the heat has been *recorded* —
-  // `lanes` is populated from the assignments the moment the heat is created,
-  // so it cannot answer that on its own. It goes when #6 merges the two heat
-  // tables and a heat gains a real status.
+  // A free heat holds its schedule in `lanes` from the moment it is created, so
+  // `lanes` alone cannot say whether it has been *run*. `recorded` answers that
+  // — the server checks whether anything was timed (#6).
   const heatSub = heatSubResult.data?.freeRaceHeat;
-  const [prevLaneResults, setPrevLaneResults] = useState<string | undefined>(undefined);
-  const currentLaneResults = heatSub?.laneResults;
+  const [prevRecorded, setPrevRecorded] = useState<boolean | undefined>(undefined);
+  const currentRecorded: boolean | undefined = heatSub?.recorded;
 
-  if (currentLaneResults !== prevLaneResults) {
-    setPrevLaneResults(currentLaneResults);
-    setResults(currentLaneResults ? (heatSub?.lanes ?? []) : null);
+  if (currentRecorded !== prevRecorded) {
+    setPrevRecorded(currentRecorded);
+    setResults(currentRecorded ? (heatSub?.lanes ?? []) : null);
   }
 
   // Subscribe to timer status

@@ -1,11 +1,16 @@
-"""Regression tests for heat-id collisions between official and free-race heats.
+"""Heat ids are unique across official and free race heats.
 
-``heats`` and ``free_race_heats`` are separate tables with independent
-autoincrement sequences, so their ids overlap from the first row. Anything
-holding a bare heat id must also carry the kind. Previously the TimerManager
-inferred the kind by looking the id up in ``heats`` first and falling back to
-``free_race_heats``, which meant a free-race run wrote its times into whichever
-official heat happened to share its id.
+Once upon a time (#4) they were not. ``heats`` and ``free_race_heats`` were
+separate tables with independent autoincrement sequences, so their ids
+overlapped from the first row, and the TimerManager inferred which one an id
+meant by looking it up in ``heats`` first and falling back to the other. A
+free-race run therefore wrote its times into whichever official heat happened to
+share its id.
+
+The fix at the time was to carry a `HeatKind` alongside every bare heat id. #6
+removed the need for that: one table, one sequence, so an id is unambiguous.
+These tests hold the invariant that made the class of bug impossible, rather
+than the workaround that made it survivable.
 """
 
 import json
@@ -44,50 +49,58 @@ def _build_race(db):
     return group, track, race
 
 
-@pytest.mark.anyio
-async def test_free_race_run_does_not_touch_colliding_official_heat(db):
-    """A free-race heat must not write into an official heat with the same id."""
-    _, track, race = _build_race(db)
-
-    official_racers = [
-        crud.create_racer(
-            db,
-            schemas.RacerCreate(first_name=n, last_name="Official", race_id=race.id),
-        )
-        for n in ("Ava", "Ben")
-    ]
-    free_racers = [
-        crud.create_racer(
-            db, schemas.RacerCreate(first_name=n, last_name="Free", race_id=race.id)
-        )
-        for n in ("Cal", "Dee")
-    ]
-
+def _official_heat(db, race, racers):
     round_obj = crud.create_round(db, race_id=race.id, round_number=1)
-    official = models.Heat(
+    heat = models.Heat(
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
         lane_results=json.dumps(
             [
-                {
-                    "lane": 1,
-                    "racer_id": official_racers[0].id,
-                    "time": None,
-                    "place": None,
-                },
-                {
-                    "lane": 2,
-                    "racer_id": official_racers[1].id,
-                    "time": None,
-                    "place": None,
-                },
+                {"lane": 1, "racer_id": racers[0].id, "time": None, "place": None},
+                {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
             ]
         ),
     )
-    db.add(official)
+    db.add(heat)
     db.commit()
+    return heat
 
+
+def _racers(db, race, *names):
+    return [
+        crud.create_racer(
+            db, schemas.RacerCreate(first_name=n, last_name="R", race_id=race.id)
+        )
+        for n in names
+    ]
+
+
+def test_an_official_and_a_free_heat_never_share_an_id(db):
+    """The structural fix. Two tables meant two sequences; one table cannot
+    issue the same id twice."""
+    _, _, race = _build_race(db)
+    racers = _racers(db, race, "Ava", "Ben")
+
+    official = _official_heat(db, race, racers)
+    free = crud.create_free_race_heat(
+        db, race.id, [{"lane": 1, "racer_id": racers[0].id}]
+    )
+
+    assert official.id != free.id
+    assert official.kind is models.HeatKind.OFFICIAL
+    assert free.kind is models.HeatKind.FREE
+
+
+@pytest.mark.anyio
+async def test_a_free_race_run_leaves_official_heats_alone(db):
+    """The user-visible guarantee, still worth stating even though it is now
+    hard to break: an exhibition run records nowhere but itself."""
+    _, track, race = _build_race(db)
+    official_racers = _racers(db, race, "Ava", "Ben")
+    free_racers = _racers(db, race, "Cal", "Dee")
+
+    official = _official_heat(db, race, official_racers)
     free = crud.create_free_race_heat(
         db,
         race.id,
@@ -97,16 +110,9 @@ async def test_free_race_run_does_not_touch_colliding_official_heat(db):
         ],
     )
 
-    # The precondition this test exists for: the ids actually collide.
-    assert official.id == free.id, (
-        "expected the two tables' autoincrement sequences to collide; "
-        "if this stops being true the test needs different fixture data"
-    )
-    heat_id = free.id
-
     manager = TimerManager(track_id=track.id, device=FakeTimerDevice())
     await manager.prepare_heat(
-        heat_id=heat_id, kind=models.HeatKind.FREE, lane_mask=0b11
+        heat_id=free.id, kind=models.HeatKind.FREE, lane_mask=0b11
     )
 
     with (
@@ -123,59 +129,30 @@ async def test_free_race_run_does_not_touch_colliding_official_heat(db):
     assert manager._state == TimerState.IDLE
     db.expire_all()
 
-    # The free heat got the results.
-    recorded_free = (
-        db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
-    )
-    assert recorded_free.lane_results is not None
-    free_results = json.loads(recorded_free.lane_results)
-    assert [r["time"] for r in free_results] == [3.111, 3.222]
+    recorded = db.query(models.Heat).filter(models.Heat.id == free.id).first()
+    assert [r["time"] for r in json.loads(recorded.lane_results)] == [3.111, 3.222]
 
-    # The official heat with the same id was untouched.
-    untouched = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-    official_results = json.loads(untouched.lane_results)
-    assert all(r["time"] is None for r in official_results), (
+    untouched = db.query(models.Heat).filter(models.Heat.id == official.id).first()
+    results = json.loads(untouched.lane_results)
+    assert all(r["time"] is None for r in results), (
         f"free-race results leaked into an official heat: {untouched.lane_results}"
     )
-    assert all(r["place"] is None for r in official_results)
 
 
 @pytest.mark.anyio
-async def test_official_run_does_not_touch_colliding_free_heat(db):
-    """The mirror case: an official heat must not write into a free heat."""
+async def test_an_official_run_leaves_free_heats_alone(db):
+    """The mirror case."""
     _, track, race = _build_race(db)
-
-    racers = [
-        crud.create_racer(
-            db, schemas.RacerCreate(first_name=n, last_name="R", race_id=race.id)
-        )
-        for n in ("Eve", "Fay")
-    ]
+    racers = _racers(db, race, "Eve", "Fay")
 
     free = crud.create_free_race_heat(
         db, race.id, [{"lane": 1, "racer_id": racers[0].id}]
     )
-    round_obj = crud.create_round(db, race_id=race.id, round_number=1)
-    official = models.Heat(
-        race_id=race.id,
-        round_id=round_obj.id,
-        heat_number=1,
-        lane_results=json.dumps(
-            [
-                {"lane": 1, "racer_id": racers[0].id, "time": None, "place": None},
-                {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
-            ]
-        ),
-    )
-    db.add(official)
-    db.commit()
-
-    assert official.id == free.id
-    heat_id = official.id
+    official = _official_heat(db, race, racers)
 
     manager = TimerManager(track_id=track.id, device=FakeTimerDevice())
     await manager.prepare_heat(
-        heat_id=heat_id, kind=models.HeatKind.OFFICIAL, lane_mask=0b11
+        heat_id=official.id, kind=models.HeatKind.OFFICIAL, lane_mask=0b11
     )
 
     with (
@@ -190,43 +167,47 @@ async def test_official_run_does_not_touch_colliding_free_heat(db):
         await manager.inject_event(LaneResult(lane=2, time_seconds=4.5, place=2))
 
     db.expire_all()
-    recorded = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    recorded = db.query(models.Heat).filter(models.Heat.id == official.id).first()
     assert [r["time"] for r in json.loads(recorded.lane_results)] == [4.0, 4.5]
 
-    untouched_free = (
-        db.query(models.FreeRaceHeat).filter(models.FreeRaceHeat.id == heat_id).first()
-    )
-    assert untouched_free.lane_results is None
+    untouched = db.query(models.Heat).filter(models.Heat.id == free.id).first()
+    # An unrun free heat holds only its schedule, with no time key at all.
+    assert all(r.get("time") is None for r in json.loads(untouched.lane_results))
 
 
 @pytest.mark.anyio
-async def test_record_results_refuses_to_guess_without_a_kind(db):
-    """With no kind set, recording must abort rather than fall back to a lookup."""
+async def test_recording_reads_the_kind_off_the_heat(db):
+    """Not from whatever the caller said.
+
+    The old failure was the manager *guessing* the kind from an ambiguous id.
+    It no longer guesses or asks: a free heat records as a free heat even if the
+    caller armed the timer claiming otherwise, which is what stops a
+    mislabelled call re-running championship advancement.
+    """
     _, track, race = _build_race(db)
-    round_obj = crud.create_round(db, race_id=race.id, round_number=1)
-    official = models.Heat(
-        race_id=race.id,
-        round_id=round_obj.id,
-        heat_number=1,
-        lane_results=json.dumps(
-            [{"lane": 1, "racer_id": None, "time": None, "place": None}]
-        ),
+    racers = _racers(db, race, "Gus", "Hal")
+    free = crud.create_free_race_heat(
+        db, race.id, [{"lane": 1, "racer_id": racers[0].id}]
     )
-    db.add(official)
-    db.commit()
 
     manager = TimerManager(track_id=track.id, device=FakeTimerDevice())
-    # Simulate legacy/corrupt state: an id with no kind alongside it.
-    manager._active_heat_id = official.id
-    manager._active_heat_kind = None
-    manager._pending_results = {1: LaneResult(lane=1, time_seconds=3.0, place=1)}
+    # Deliberately the wrong kind.
+    await manager.prepare_heat(
+        heat_id=free.id, kind=models.HeatKind.OFFICIAL, lane_mask=0b1
+    )
 
-    with patch(
-        "backend.services.timer.manager.SessionLocal",
-        return_value=_mock_session(db),
+    with (
+        patch("backend.api.schema._publish_race_state", new_callable=AsyncMock),
+        patch(
+            "backend.services.timer.manager.SessionLocal",
+            return_value=_mock_session(db),
+        ),
+        patch("backend.db.crud.record_heat_result") as official_path,
     ):
-        await manager._record_results()
+        await manager.inject_event(RaceStarted())
+        await manager.inject_event(LaneResult(lane=1, time_seconds=3.0, place=1))
 
+    official_path.assert_not_called()
     db.expire_all()
-    unchanged = db.query(models.Heat).filter(models.Heat.id == official.id).first()
-    assert json.loads(unchanged.lane_results)[0]["time"] is None
+    recorded = db.query(models.Heat).filter(models.Heat.id == free.id).first()
+    assert json.loads(recorded.lane_results)[0]["time"] == 3.0

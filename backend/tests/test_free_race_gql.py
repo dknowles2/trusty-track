@@ -1,5 +1,3 @@
-import json
-
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -115,9 +113,9 @@ def test_start_free_race_heat_mutation(db: Session):
         startFreeRaceHeat(raceId: $raceId, laneAssignments: $laneAssignments) {
             id
             raceId
-            laneAssignments
-            laneResults
+            recorded
             createdAt
+            lanes { lane racerId time }
         }
     }
     """
@@ -137,9 +135,9 @@ def test_start_free_race_heat_mutation(db: Session):
     heat = data["data"]["startFreeRaceHeat"]
     assert heat["id"] is not None
     assert heat["raceId"] == race_id
-    assert heat["laneResults"] is None
-    parsed = json.loads(heat["laneAssignments"])
-    assert len(parsed) == 4
+    assert heat["recorded"] is False
+    assert len(heat["lanes"]) == 4
+    assert all(lane["time"] is None for lane in heat["lanes"])
 
 
 def test_record_free_race_result_mutation(db: Session):
@@ -168,9 +166,9 @@ def test_record_free_race_result_mutation(db: Session):
     assert "errors" not in data, data.get("errors")
     updated = data["data"]["recordFreeRaceResult"]
     assert updated["id"] == heat.id
-    parsed = json.loads(updated["laneResults"])
-    assert parsed[0]["time"] == 3.1415
-    assert parsed[0]["place"] == 1
+    assert updated["recorded"] is True
+    assert updated["lanes"][0]["time"] == 3.1415
+    assert updated["lanes"][0]["place"] == 1
 
 
 def test_record_free_race_result_invalid_heat_id(db: Session):
@@ -224,7 +222,7 @@ def test_active_free_race_heat_returns_running_heat(db: Session):
     query($raceId: Int!) {
         activeFreeRaceHeat(raceId: $raceId) {
             id
-            laneResults
+            recorded
         }
     }
     """
@@ -237,7 +235,7 @@ def test_active_free_race_heat_returns_running_heat(db: Session):
     active = data["data"]["activeFreeRaceHeat"]
     assert active is not None
     assert active["id"] == heat.id
-    assert active["laneResults"] is None
+    assert active["recorded"] is False
 
 
 def test_prepare_heat_is_free_race_flag(db: Session):

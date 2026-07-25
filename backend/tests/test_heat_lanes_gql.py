@@ -27,8 +27,7 @@ FREE_LANES_QUERY = """
 query($id: Int!) {
   freeRaceHeats(raceId: $id) {
     id
-    laneAssignments
-    laneResults
+    recorded
     lanes { lane racerId placeholderSlot time place skipped }
   }
 }
@@ -199,8 +198,8 @@ def test_lanes_agree_with_the_blob_they_replace(client, db, race, racers):
 
 
 def test_free_race_lanes_merge_the_schedule_and_the_results(client, db, race, racers):
-    """Free race splits those across two columns; the table holds the merge, so
-    a lane that has not run still reports who is in it."""
+    """A lane that has not run still reports who is in it: a free heat holds
+    its schedule in the same place an official one does (#6)."""
     heat = crud.create_free_race_heat(
         db,
         race.id,
@@ -209,10 +208,17 @@ def test_free_race_lanes_merge_the_schedule_and_the_results(client, db, race, ra
             {"lane": 2, "racer_id": racers[1].id},
         ],
     )
+    # Recording replaces the lanes wholesale, as it does for an official heat —
+    # so a caller sends every lane, including the ones with no time. Before #6
+    # the schedule lived in its own column and survived a partial write; it does
+    # not now, and the timer and the UI both send the full set.
     crud.update_free_race_heat_result(
         db,
         heat.id,
-        [{"lane": 1, "racer_id": racers[0].id, "time": 3.2, "place": 1}],
+        [
+            {"lane": 1, "racer_id": racers[0].id, "time": 3.2, "place": 1},
+            {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
+        ],
     )
     db.commit()
 
@@ -221,17 +227,17 @@ def test_free_race_lanes_merge_the_schedule_and_the_results(client, db, race, ra
     assert [lane["time"] for lane in lanes] == [3.2, None]
 
 
-def test_an_official_and_a_free_heat_sharing_an_id_do_not_bleed(
+def test_an_official_and_a_free_heat_can_no_longer_share_an_id(
     client, db, race, racers
 ):
-    """The two tables have independent id sequences (issue #4), and `heat_lanes`
-    holds both — so the `kind` filter is load-bearing."""
+    """The collision that caused #4 is now structurally impossible: one table,
+    one sequence."""
     official = _heat(db, race, [{"lane": 1, "racer_id": racers[0].id, "time": 9.9}])
     free = crud.create_free_race_heat(
         db, race.id, [{"lane": 1, "racer_id": racers[1].id}]
     )
     db.commit()
-    assert official.id == free.id, "ids must collide for this test to mean anything"
+    assert official.id != free.id
 
     official_lanes = _run(client, LANES_QUERY, race.id)["race"]["heats"][0]["lanes"]
     free_lanes = _run(client, FREE_LANES_QUERY, race.id)["freeRaceHeats"][0]["lanes"]
