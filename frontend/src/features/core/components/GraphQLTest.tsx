@@ -1,7 +1,7 @@
 import { useQuery, gql } from 'urql';
 
 const RACES_QUERY = gql`
-  query {
+  query GraphQLConnectivityTest {
     races {
       id
       name

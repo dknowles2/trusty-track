@@ -1,0 +1,459 @@
+type AdvancementRacer {
+  racerId: Int!
+  firstName: String!
+  lastName: String!
+  carNumber: Int
+  denName: String!
+  score: Float!
+  rank: Int!
+  isAdvancing: Boolean!
+}
+
+type AdvancementStatus {
+  isReady: Boolean!
+  requiresAdvancement: Boolean!
+  alreadyAdvanced: Boolean!
+  advancingRacers: [AdvancementRacer!]!
+  source: String
+  numRacers: Int
+}
+
+type Den {
+  id: Int!
+  name: String!
+  color: String!
+  rank: String
+  raceId: Int!
+  carNumberRangeStart: Int
+  carNumberRangeEnd: Int
+  racers: [Racer!]!
+}
+
+input DenInput {
+  name: String!
+  color: String! = "#000000"
+  rank: String = null
+  carNumberRangeStart: Int = null
+  carNumberRangeEnd: Int = null
+}
+
+type DenStat {
+  denId: Int!
+  denName: String!
+  denColor: String!
+  racerCount: Int!
+  avgScore: Float
+  bestRacerName: String
+}
+
+type FreeRaceHeat {
+  id: Int!
+  raceId: Int!
+  laneAssignments: String!
+  laneResults: String
+  createdAt: String!
+  parsedAssignments: [LaneResult!]!
+  parsedResults: [LaneResult!]!
+}
+
+type FreeRaceLaneAssignment {
+  lane: Int!
+  racerId: Int
+}
+
+input FreeRaceLaneAssignmentInput {
+  lane: Int!
+  racerId: Int = null
+}
+
+type Group {
+  id: Int!
+  name: String!
+  races: [Race!]!
+}
+
+type Heat {
+  id: Int!
+  raceId: Int!
+  roundId: Int!
+  heatNumber: Int!
+  laneResults: String
+  roundNumber: Int!
+  roundName: String
+  globalHeatNumber: Int!
+  parsedResults: [LaneResult!]!
+}
+
+type HeatHighlight {
+  type: String!
+  roundName: String!
+  heatNumber: Int!
+  globalHeatNumber: Int!
+  racerName: String
+  time: Float
+  margin: Float
+}
+
+input HeatReorderItemInput {
+  heatId: Int!
+  newHeatNumber: Int!
+}
+
+type HeatReorderResponse {
+  updatedCount: Int!
+  heats: [Heat!]!
+}
+
+type HeatResultRow {
+  roundName: String!
+  heatNumber: Int!
+  globalHeatNumber: Int!
+  lane: Int!
+  carNumber: Int
+  racerFirstName: String!
+  racerLastName: String!
+  time: Float
+  place: Int
+}
+
+input InitialConfigInput {
+  groupName: String!
+  debugMode: Boolean! = false
+  tracks: [TrackInput!]!
+}
+
+type InitialConfigStatus {
+  initialized: Boolean!
+  version: String!
+  groupName: String
+  debugMode: Boolean!
+  tracks: [Track!]!
+  currentRaceId: Int
+}
+
+type LaneResult {
+  lane: Int!
+  racerId: Int
+  time: Float
+  place: Int
+}
+
+type LaneTimeStat {
+  lane: Int!
+  avgTime: Float
+  heatCount: Int!
+  relativeAdvantagePct: Float
+}
+
+type LeaderboardEntry {
+  racerId: Int!
+  firstName: String!
+  lastName: String!
+  carNumber: Int
+  denId: Int
+  denName: String!
+  score: Float!
+  heatsCompleted: Int!
+  racerImageUrl: String
+  rank: Int!
+}
+
+type Mutation {
+  createRace(race: RaceInput!): Race!
+  updateRace(id: Int!, race: RaceUpdateInput!): Race
+  deleteRace(id: Int!): Boolean!
+  createRacer(racer: RacerInput!): Racer!
+  updateRacer(id: Int!, racer: RacerInput!): Racer
+  deleteRacer(id: Int!): Boolean!
+  checkInRacer(id: Int!, passedInspection: Boolean!, weight: Float, racerImageUrl: String = null, carImageUrl: String = null): Racer
+  createDen(raceId: Int!, den: DenInput!): Den!
+  updateDen(id: Int!, den: DenInput!): Den
+  deleteDen(id: Int!): Boolean!
+  createTrack(track: TrackInput!): Track!
+  updateTrack(id: Int!, track: TrackInput!): Track
+  deleteTrack(id: Int!): Boolean!
+  createRoundWizard(raceId: Int!, config: WizardConfigurationInput!): [Round!]!
+  regenerateRound(roundId: Int!): [Heat!]!
+  deleteRound(roundId: Int!): Boolean!
+  deleteHeat(heatId: Int!): Boolean!
+  deleteFreeRaceHeat(heatId: Int!): Boolean!
+  advanceRound(raceId: Int!, roundId: Int!): Int!
+  reconnectTimer(trackId: Int!): Boolean!
+  abortHeat(trackId: Int!): Boolean!
+  forceResults(trackId: Int!): Boolean!
+  fakeTimerStart(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
+  prepareHeat(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
+  fakeTimerFinish(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
+  updateHeatResult(heatId: Int!, results: String!): Heat
+  bulkAutoNumber(racerIds: [Int!]!): Int!
+  bulkClearNumbers(racerIds: [Int!]!): Boolean!
+  bulkCheckIn(racerIds: [Int!]!, passedInspection: Boolean! = true): Boolean!
+  bulkMoveToDen(racerIds: [Int!]!, denId: Int): Boolean!
+  bulkDeleteRacers(racerIds: [Int!]!): Boolean!
+  bulkAssignPhotos(assignments: [PhotoAssignmentInput!]!): Int!
+  createInitialConfig(config: InitialConfigInput!): InitialConfigStatus!
+  resetTimer(trackId: Int!): Boolean!
+  updateInitialConfig(config: InitialConfigInput!): InitialConfigStatus!
+  populateRace(raceId: Int!, config: PopulateTestDataInput!): String!
+  importRacers(raceId: Int!, csvData: String!): Int!
+  createRound(raceId: Int!, roundData: RoundCreateInput!): [Round!]!
+  reorderHeats(heatUpdates: [HeatReorderItemInput!]!): HeatReorderResponse!
+  startFreeRaceHeat(raceId: Int!, laneAssignments: [FreeRaceLaneAssignmentInput!]!): FreeRaceHeat!
+  recordFreeRaceResult(heatId: Int!, results: String!): FreeRaceHeat
+  uploadImage(dataUrl: String!): String!
+}
+
+input PhotoAssignmentInput {
+  racerId: Int!
+  url: String!
+  photoType: String!
+}
+
+input PopulateTestDataInput {
+  count: Int! = 10
+  addRacerPhotos: Boolean! = true
+  addCarPhotos: Boolean! = true
+  assignDens: Boolean! = true
+  checkIn: Boolean! = false
+}
+
+type Query {
+  races(skip: Int! = 0, limit: Int! = 100): [Race!]!
+  version: String!
+  race(raceId: Int!): Race
+  racers(raceId: Int = null, skip: Int! = 0, limit: Int! = 100): [Racer!]!
+  racer(racerId: Int!): Racer
+  tracks: [Track!]!
+  groups: [Group!]!
+  initialConfig: InitialConfigStatus!
+  rounds(raceId: Int!): [Round!]!
+  advancementStatus(raceId: Int!, roundId: Int!): AdvancementStatus!
+  freeRaceHeats(raceId: Int!, limit: Int! = 10): [FreeRaceHeat!]!
+  activeFreeRaceHeat(raceId: Int!): FreeRaceHeat
+  randomFreeRaceLanes(raceId: Int!): [FreeRaceLaneAssignment!]!
+  timerStatus(trackId: Int!): TimerStatus
+  raceStats(raceId: Int!): RaceStats
+}
+
+type Race {
+  id: Int!
+  name: String!
+  dateTime: String
+  location: String
+  groupId: Int!
+  trackId: Int
+  carNumberingStrategy: String!
+  globalStartNumber: Int!
+  championshipTrophies: Int!
+  scoringStrategy: String!
+  autoAdvanceHeat: Boolean!
+  leaderboard: [LeaderboardEntry!]!
+  registeredCount: Int!
+  checkedInCount: Int!
+  dens: [Den!]!
+  racers: [Racer!]!
+  scheduledRacerIds: [Int!]!
+  group: Group!
+  rounds: [Round!]!
+  heats: [Heat!]!
+  track: Track
+}
+
+input RaceInput {
+  name: String!
+  dateTime: String = null
+  location: String = null
+  groupId: Int! = 1
+  trackId: Int!
+  scoringStrategy: String! = "TIMED"
+  carNumberingStrategy: String! = "MANUAL"
+  globalStartNumber: Int! = 1
+  championshipTrophies: Int! = 3
+}
+
+type RaceStateChangedEvent {
+  raceId: Int!
+  changedAt: String!
+}
+
+type RaceStats {
+  raceId: Int!
+  raceName: String!
+  scoringStrategy: String!
+  totalHeatsScheduled: Int!
+  totalHeatsCompleted: Int!
+  totalRacers: Int!
+  laneStats: [LaneTimeStat!]!
+  racerStats: [RacerStat!]!
+  highlights: [HeatHighlight!]!
+  denStats: [DenStat!]!
+  heatResults: [HeatResultRow!]!
+}
+
+input RaceUpdateInput {
+  name: String = null
+  dateTime: String = null
+  location: String = null
+  trackId: Int = null
+  scoringStrategy: String = null
+  carNumberingStrategy: String = null
+  globalStartNumber: Int = null
+  championshipTrophies: Int = null
+  autoAdvanceHeat: Boolean = null
+}
+
+type Racer {
+  id: Int!
+  firstName: String!
+  lastName: String!
+  carNumber: Int
+  carName: String
+  carPassedInspection: Boolean!
+  carWeight: Float
+  racerImageUrl: String
+  carImageUrl: String
+  denId: Int
+  raceId: Int!
+  den: Den
+}
+
+input RacerInput {
+  firstName: String!
+  lastName: String!
+  carNumber: Int = null
+  denId: Int = null
+  carName: String = null
+  carPassedInspection: Boolean! = false
+  carWeight: Float = null
+  racerImageUrl: String = null
+  carImageUrl: String = null
+  raceId: Int = null
+}
+
+type RacerStat {
+  racerId: Int!
+  firstName: String!
+  lastName: String!
+  carNumber: Int
+  denName: String!
+  heatsCompleted: Int!
+  heatsScheduled: Int!
+  minTime: Float
+  maxTime: Float
+  meanTime: Float
+  stdDev: Float
+  timesPerLane: [TimesPerLane!]!
+}
+
+type Round {
+  id: Int!
+  raceId: Int!
+  roundNumber: Int!
+  name: String
+  schedulingStrategy: String!
+  advancementSource: String
+  advancementNumRacers: Int
+  heats: [Heat!]!
+  advancementStatus: AdvancementStatus!
+}
+
+input RoundCreateInput {
+  schedulingStrategy: String! = "PPC"
+  name: String = null
+  advancementSource: String = null
+  advancementNumRacers: Int = null
+  runsPerLane: Int! = 1
+  generalType: String! = "PACK"
+}
+
+type SerialLogEntry {
+  direction: String!
+  data: String!
+  timestamp: String!
+}
+
+type Subscription {
+  timerStatus(trackId: Int!): TimerStateChangedEvent!
+  raceStateChanged(raceId: Int!): RaceStateChangedEvent!
+  leaderboard(raceId: Int!): [LeaderboardEntry!]!
+  onDeck(raceId: Int!): [Racer!]!
+  currentlyRacing(raceId: Int!): Heat
+  timingStats(raceId: Int!): TimingStats
+  heats(raceId: Int!): [Round!]!
+  freeRaceHeat(heatId: Int!): FreeRaceHeat
+  activeFreeRaceHeat(raceId: Int!): FreeRaceHeat
+}
+
+type TimerStateChangedEvent {
+  trackId: Int!
+  status: TimerStatus!
+  changedAt: String!
+}
+
+type TimerStatus {
+  state: String!
+  deviceName: String
+  laneCount: Int
+  activeHeatId: Int
+  lastError: String
+  pendingResults: [LaneResult!]!
+  serialLog: [SerialLogEntry!]!
+  racerByLane: String
+}
+
+type TimesPerLane {
+  lane: Int!
+  avgTime: Float
+}
+
+type TimingStats {
+  heatId: Int!
+  roundName: String!
+  heatNumber: Int!
+  globalHeatNumber: Int!
+  lanes: [TimingStatsLane!]!
+}
+
+type TimingStatsLane {
+  laneNumber: Int!
+  racerName: String!
+  carName: String
+  time: Float
+  place: Int
+  racerImageUrl: String
+}
+
+type Track {
+  id: Int!
+  name: String!
+  laneCount: Int!
+  lengthFeet: Int
+  timerType: String!
+  serialPort: String
+  races: [Race!]!
+}
+
+input TrackInput {
+  name: String! = "Main Track"
+  laneCount: Int! = 4
+  lengthFeet: Int = null
+  timerType: String! = "FAKE"
+  serialPort: String = null
+}
+
+input WizardChampionshipRoundInput {
+  name: String! = "Championship Round"
+  source: String! = "PACK"
+  numTopRacers: Int! = 3
+  runsPerLane: Int! = 1
+}
+
+input WizardConfigurationInput {
+  generalRound: WizardGeneralRoundInput!
+  championshipRounds: [WizardChampionshipRoundInput!]!
+}
+
+input WizardGeneralRoundInput {
+  type: String!
+  runsPerLane: Int! = 1
+}

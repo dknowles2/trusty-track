@@ -11,54 +11,17 @@ import RacerAvatar from '../../management/components/RacerAvatar';
 import Icon from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
 
-export interface Heat {
-    id: number;
-    roundNumber: number;
-    roundId: number;
-    heatNumber: number;
-    roundName: string | null;
-    laneResults: string; // JSON
-    globalHeatNumber?: number;
-}
-
-export interface Racer {
-    id: number;
-    firstName: string;
-    lastName: string;
-    carNumber: number;
-    racerImageUrl?: string;
-    carImageUrl?: string;
-}
-
-export interface AdvancementRacer {
-    racerId: number;
-    firstName: string;
-    lastName: string;
-    carNumber: number | null;
-    denName: string;
-    score: number;
-    rank: number;
-    isAdvancing: boolean;
-}
-
-export interface AdvancementStatus {
-    isReady: boolean;
-    requiresAdvancement: boolean;
-    alreadyAdvanced: boolean;
-    advancingRacers: AdvancementRacer[];
-    source: string | null;
-    numRacers: number | null;
-    roundId?: number;
-}
-
-export interface LaneResult {
-    lane: number;
-    racer_id: number | null;
-    time: number | string | null;
-    place: number | null;
-    skipped?: boolean;
-}
-
+// These types are derived from the generated GraphQL operation types in
+// ../types. They are re-exported here because several components already
+// import them from this module.
+export type {
+    Heat,
+    Racer,
+    AdvancementRacer,
+    AdvancementStatus,
+    LaneResult,
+} from '../types';
+import type { Heat, Racer, AdvancementStatus, LaneResult } from '../types';
 
 interface RaceExecutionProps {
     activeExecutionHeat: Heat | null;

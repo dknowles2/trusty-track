@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery, useMutation, useSubscription } from 'urql';
+import { useQuery, useMutation, useSubscription, gql } from 'urql';
 import { arrayMove } from '@dnd-kit/sortable';
 import { RACE_STATE_CHANGED_SUBSCRIPTION } from '../../core/graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
@@ -9,9 +9,9 @@ import { RaceExecution } from '../components/RaceExecution';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import Icon from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
-import { LaneResult } from '../components/RaceExecution';
+import type { Heat, Racer, Round, AdvancementStatus, LaneResult } from '../types';
 
-const GET_RACE_CONTROL_DATA = `
+const GET_RACE_CONTROL_DATA = gql`
   query GetRaceControlData($id: Int!) {
     initialConfig {
       debugMode
@@ -74,7 +74,7 @@ const GET_RACE_CONTROL_DATA = `
   }
 `;
 
-const CREATE_ROUND_MUTATION = `
+const CREATE_ROUND_MUTATION = gql`
   mutation CreateRound($raceId: Int!, $roundData: RoundCreateInput!) {
     createRound(raceId: $raceId, roundData: $roundData) {
       id
@@ -82,7 +82,7 @@ const CREATE_ROUND_MUTATION = `
   }
 `;
 
-const REGENERATE_ROUND_MUTATION = `
+const REGENERATE_ROUND_MUTATION = gql`
   mutation RegenerateRound($roundId: Int!) {
     regenerateRound(roundId: $roundId) {
       id
@@ -90,19 +90,19 @@ const REGENERATE_ROUND_MUTATION = `
   }
 `;
 
-const DELETE_ROUND_MUTATION = `
+const DELETE_ROUND_MUTATION = gql`
   mutation DeleteRound($roundId: Int!) {
     deleteRound(roundId: $roundId)
   }
 `;
 
-const DELETE_HEAT_MUTATION = `
+const DELETE_HEAT_MUTATION = gql`
   mutation DeleteHeat($heatId: Int!) {
     deleteHeat(heatId: $heatId)
   }
 `;
 
-const REORDER_HEATS_MUTATION = `
+const REORDER_HEATS_MUTATION = gql`
   mutation ReorderHeats($heatUpdates: [HeatReorderItemInput!]!) {
     reorderHeats(heatUpdates: $heatUpdates) {
       updatedCount
@@ -110,7 +110,7 @@ const REORDER_HEATS_MUTATION = `
   }
 `;
 
-const UPDATE_HEAT_RESULT_MUTATION = `
+const UPDATE_HEAT_RESULT_MUTATION = gql`
   mutation UpdateHeatResult($heatId: Int!, $results: String!) {
     updateHeatResult(heatId: $heatId, results: $results) {
       id
@@ -118,62 +118,14 @@ const UPDATE_HEAT_RESULT_MUTATION = `
   }
 `;
 
-const UPDATE_RACE_MUTATION = `
-  mutation UpdateRace($id: Int!, $race: RaceUpdateInput!) {
+const UPDATE_RACE_MUTATION = gql`
+  mutation UpdateRaceAutoAdvance($id: Int!, $race: RaceUpdateInput!) {
     updateRace(id: $id, race: $race) {
       id
       autoAdvanceHeat
     }
   }
 `;
-
-interface Heat {
-  id: number;
-  roundNumber: number;
-  roundId: number;
-  heatNumber: number;
-  roundName: string | null;
-  laneResults: string;
-  globalHeatNumber?: number;
-}
-
-interface Racer {
-  id: number;
-  firstName: string;
-  lastName: string;
-  carNumber: number;
-  racerImageUrl?: string;
-  carImageUrl?: string;
-}
-
-interface AdvancementRacer {
-    racerId: number;
-    firstName: string;
-    lastName: string;
-    carNumber: number | null;
-    denName: string;
-    score: number;
-    rank: number;
-    isAdvancing: boolean;
-}
-
-interface AdvancementStatus {
-    isReady: boolean;
-    requiresAdvancement: boolean;
-    alreadyAdvanced: boolean;
-    advancingRacers: AdvancementRacer[];
-    source: string | null;
-    numRacers: number | null;
-    roundId?: number;
-}
-
-interface Round {
-  id: number;
-  roundNumber: number;
-  name: string | null;
-  advancementSource: string | null;
-  advancementStatus: AdvancementStatus;
-}
 
 export default function RaceControl() {
   const { showAlert, showConfirm, showToast } = useAlert();

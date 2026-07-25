@@ -6,6 +6,8 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc && vite build",
+        "codegen": "cd .. && uv run python scripts/export_schema.py && cd frontend && graphql-codegen --config codegen.ts",
+        "codegen:check": "npm run codegen && git diff --exit-code -- schema.graphql src/gql",
         "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
         "preview": "vite preview",
         "test": "vitest",
@@ -27,6 +29,10 @@
         "urql": "^5.0.1"
     },
     "devDependencies": {
+        "@graphql-codegen/cli": "^7.2.0",
+        "@graphql-codegen/import-types-preset": "^4.0.1",
+        "@graphql-codegen/typescript": "^6.1.0",
+        "@graphql-codegen/typescript-operations": "^6.1.2",
         "@playwright/test": "^1.58.1",
         "@testing-library/jest-dom": "^6.9.1",
         "@testing-library/react": "^16.3.2",

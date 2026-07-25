@@ -22,7 +22,7 @@ interface RacerSummary {
   firstName: string;
   lastName: string;
   carNumber: number | null;
-  racerImageUrl?: string;
+  racerImageUrl?: string | null;
 }
 
 interface FreeRaceExecutionProps {
