@@ -63,9 +63,14 @@ backend/
     database.py       # Engine, session, Alembic-backed init_db()
     schemas.py        # Pydantic input/response models
     populate.py       # Test data generator (populateRace mutation)
+  domain/             # Pure rules — no SQLAlchemy, no Strawberry (see below)
+    lanes.py          # Lane value object + the lane_results JSON codec
+    scheduling.py     # PPC algorithm
+    scoring.py        # TIMED / POINTS aggregation and ranking
+    advancement.py    # Who advances; when a round is rebuilt
   migrations/         # Alembic environment and versions
   services/
-    scoring.py        # Leaderboard and advancement calculations
+    scoring.py        # Leaderboard and advancement, wired to the DB
     stats.py          # Race statistics
     image_processing.py
     timer/
@@ -157,9 +162,11 @@ FreeRaceHeat    id, race_id, lane_assignments (JSON), lane_results (JSON), creat
 
 It encodes **the schedule** (who is in which lane), **the results** (time, place), **placeholders** for unadvanced championship slots (as *negative* racer IDs: `-1`, `-2`, …), and **heat status** (inferred by scanning for a non-null `time` or a `skipped` flag).
 
-There is no foreign key from a lane to a racer. Parse with `json.loads()`, serialize with `json.dumps()`. `updateHeatResult` takes the whole array as an opaque string and overwrites.
+There is no foreign key from a lane to a racer. `updateHeatResult` takes the whole array as an opaque string and overwrites.
 
-**This is known technical debt** — see issue #5, which normalizes it into a `heat_lanes` table. Don't build new abstractions on top of the blob; prefer adding to `crud.py` helpers that already parse it.
+**Use `backend/domain/lanes.py`, not `json.loads`.** `lanes.parse()` and `lanes.serialize()` are the only sanctioned way in or out of the blob, and they round-trip losslessly — the frontend writes a `skipped` key the backend never reads, and any parse/modify/write cycle that drops it makes a skipped heat look unrun. `lanes.py` is also the single file issue #5 replaces when this becomes a `heat_lanes` table, so new `json.loads(heat.lane_results)` calls make that migration larger.
+
+**This is known technical debt** — see issue #5. Don't build new abstractions on top of the blob.
 
 ### ⚠️ Heat IDs are not unique across tables
 
@@ -235,6 +242,8 @@ Defined entirely in `backend/api/schema.py`.
 - **Strawberry types are duck-typed shells.** Resolvers return raw SQLAlchemy ORM objects and Strawberry reads attributes off them. `self` inside a field resolver is the ORM object, not the Strawberry type.
 - **Loaders (`api/loaders.py`).** Because of the above, every relationship used to be a fresh query per row. Use `_loaders(info)` in field resolvers rather than querying directly — it caches per operation. `backend/tests/test_query_counts.py` fails the build if query counts regress or start scaling with heat count.
   - **Subscriptions hold a context open for the whole connection.** If you add a subscription that re-reads the DB, call `_loaders(info).clear()` after `db.expire_all()`, or it will replay stale data to the audience displays.
+- **The domain layer (`backend/domain/`) imports no SQLAlchemy and no Strawberry.** Scheduling, scoring, and advancement are plain functions over plain values; `crud.py` and `services/` load rows, call them, and persist the answer. Put a *rule* there and its *I/O* in the caller. Keep it importable without a database — that is what lets `test_domain_scheduling.py` run every racer count from 2 to 20 against every lane count from 2 to 8 in under a second, which is how issue #26 was found.
+  - Enum-ish values cross the boundary as plain strings. `ScoringStrategy` and friends are `str` enums whose values equal their names, so they pass through unchanged and there is no second copy of the vocabulary.
 - **Cascade deletes:** deleting a `Race` cascades to `Den`, `Round`, and `FreeRaceHeat`; deleting a `Round` cascades to its `Heat`s.
 - **Scoring is always computed on demand** in `services/scoring.py`. There is no stored leaderboard.
 - **Data directory** defaults to `~/.trustytrack`; override with `TRUSTYTRACK_DATA_DIR`. Images land in `uploads/` there and are served from `/static/<filename>`.
@@ -256,23 +265,29 @@ Defined entirely in `backend/api/schema.py`.
 
 ### Heat scheduling (PPC)
 
-`docs/scheduling-algorithms.md`. Each racer races in every lane exactly once per round; the algorithm generates the minimum heats to satisfy that. Lives in `crud._generate_ppc` / `crud.generate_heats_for_round`.
+`docs/scheduling-algorithms.md`. The algorithm is `domain/scheduling.py`; `crud.generate_heats_for_round` decides who is in the field and writes the rows.
+
+Lane 1 is seeded with every racer, which fixes the heat count at one per racer; remaining lanes are filled greedily, preferring a racer who has not yet run that lane and has met the current occupants least often.
+
+⚠️ **It is not currently true that every racer races every lane.** The greedy fill can strand a lane, so roughly 1 in 4 four-lane schedules gives one racer a heat fewer — which under `POINTS` scoring makes their score *better*. See issue #26; `test_domain_scheduling.py` has the property marked `xfail(strict=True)`.
 
 ### Scoring
 
-`services/scoring.py`. `TIMED` averages heat times (a recorded `0.0` is treated as a 9.999s DNF penalty); `POINTS` sums placements. Both are lower-is-better. `get_leaderboard(db, race_id)` returns sorted standings.
+Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` averages heat times (a recorded `0.0` is treated as a 9.999s DNF penalty); `POINTS` sums placements. Both are lower-is-better. `get_leaderboard(db, race_id)` returns sorted standings.
 
 Note that `get_leaderboard` with no `round_id` spans **all** heats in the race, so championship heats blend into prelim averages. Whether that is intended is an open question — see issue #17.
 
 ### Championship advancement
 
-`advanceRound` and `scoring.get_advancing_racers()`:
+Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.get_advancing_racers()`.
 
 - `advancement_source = "PACK"` — top N overall
 - `advancement_source = "DEN"` — top N from each den
 - `advancement_source = "ROUND:<id>"` — top N from that round
 
 `crud.record_heat_result` cascades: it calls `invalidate_future_rounds` and `trigger_auto_advancements` on **every** heat result.
+
+**The invalidation rule**, since it is easy to get wrong: recording *or clearing* a result in round N resets the field of every later championship round back to placeholders, because the standings they were drawn from just moved. A later round that has **already been raced** is left alone — a stale field the operator can see and fix beats silently wiping heats people ran. General rounds are never invalidated; their field is the roster.
 
 ### Car numbering
 
@@ -299,13 +314,12 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 | #5 | Normalize `lane_results` into a `heat_lanes` table |
 | #6 | Fold `FreeRaceHeat` into `Heat` |
 | #7 | Server-owned `HeatSession` as the single source of truth for live race state |
-| #8 | Extract a pure domain layer for scheduling/scoring/advancement |
-| #9 | `TimerManager` bypasses the request session |
 | #12 | Subscriptions should carry payloads instead of triggering full refetches |
 | #13 | Model the race-day flow as an explicit state machine |
 | #14 | Whether GraphQL is still the right choice |
 | #15 | No authentication on mutations; CORS misconfigured |
 | #17 | Decide scoring scope (prelim vs championship) |
+| #26 | PPC scheduler strands lanes, giving some racers fewer heats |
 
 Don't entrench conventions these issues are removing — particularly the `lane_results` blob (#5) and the negative-ID placeholder trick.
 
