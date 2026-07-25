@@ -21,6 +21,7 @@ from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
+from backend.domain import lanes
 from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.devices.base import (
@@ -148,6 +149,100 @@ class AdvancementStatus:
     num_racers: Optional[int]
 
 
+def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementStatus:
+    """Whether a round can advance, and who would advance if it did.
+
+    A plain function rather than a resolver because both ``Query`` and ``Round``
+    expose it. ``Round.advancement_status`` used to instantiate ``Query()`` and
+    call the method on it, with a cast to silence the resulting type error.
+    """
+    db = info.context["db"]
+    loaders = _loaders(info)
+
+    round_obj = next(
+        (r for r in loaders.rounds_for_race(race_id) if r.id == round_id), None
+    )
+    if not round_obj:
+        round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if not round_obj:
+        raise ValueError("Round not found")
+
+    requires_advancement = round_obj.advancement_source is not None
+
+    # This round has been advanced once no placeholder slots remain.
+    already_advanced = not any(
+        lane.is_placeholder
+        for heat in loaders.heats_for_round(race_id, round_id)
+        for lane in lanes.parse(heat.lane_results)
+    )
+
+    all_rounds = loaders.rounds_for_race(race_id)
+
+    # Ready when every earlier round has a result for every real racer. Note
+    # this accepts a place without a time, which is how a POINTS race records
+    # results — hence not domain `is_complete`, which requires a time.
+    def _earlier_heats_finished() -> bool:
+        for r in all_rounds:
+            if r.round_number >= round_obj.round_number:
+                continue
+            for heat in loaders.heats_for_round(race_id, r.id):
+                if not heat.lane_results:
+                    return False
+                for lane in lanes.parse(heat.lane_results):
+                    if lane.is_real_racer and lane.time is None and lane.place is None:
+                        return False
+        return True
+
+    is_ready = _earlier_heats_finished()
+
+    adv_source = round_obj.advancement_source
+    adv_num = round_obj.advancement_num_racers
+
+    if not requires_advancement:
+        # A general round shows the field for whichever championship round comes
+        # next, so the operator can see who is on track to advance.
+        next_round = next(
+            (
+                r
+                for r in all_rounds
+                if r.round_number > round_obj.round_number
+                and r.advancement_source is not None
+            ),
+            None,
+        )
+        if next_round:
+            requires_advancement = True
+            adv_source = next_round.advancement_source
+            adv_num = next_round.advancement_num_racers
+
+    winner_ids: set[int] = set()
+    if requires_advancement:
+        winner_ids = set(scoring.get_advancing_racers(db, race_id, adv_source, adv_num))
+
+    advancing_racers = [
+        AdvancementRacer(
+            racer_id=entry["racer_id"],
+            first_name=entry["first_name"],
+            last_name=entry["last_name"],
+            car_number=entry.get("car_number"),
+            den_name=entry["den_name"],
+            score=entry["score"],
+            rank=entry["rank"],
+            is_advancing=entry["racer_id"] in winner_ids,
+        )
+        for entry in loaders.leaderboard(race_id)
+    ]
+
+    return AdvancementStatus(
+        is_ready=is_ready,
+        requires_advancement=requires_advancement,
+        already_advanced=already_advanced,
+        advancing_racers=advancing_racers,
+        source=adv_source,
+        num_racers=adv_num,
+    )
+
+
 @strawberry.type
 class Round:
     """
@@ -170,7 +265,7 @@ class Round:
     @strawberry.field
     def advancement_status(self, info: Info) -> AdvancementStatus:
         """Check if a round is ready to advance."""
-        return typing.cast(Any, Query().advancement_status(info, self.race_id, self.id))
+        return _advancement_status(info, self.race_id, self.id)
 
 
 @strawberry.type
@@ -868,109 +963,7 @@ class Query:
         self, info: Info, race_id: int, round_id: int
     ) -> AdvancementStatus:
         """Check if a round is ready to advance."""
-        db = info.context["db"]
-        loaders = _loaders(info)
-        round_obj = next(
-            (r for r in loaders.rounds_for_race(race_id) if r.id == round_id), None
-        )
-        if not round_obj:
-            round_obj = (
-                db.query(models.Round).filter(models.Round.id == round_id).first()
-            )
-        if not round_obj:
-            raise ValueError("Round not found")
-
-        requires_advancement = round_obj.advancement_source is not None
-
-        # Logic replicated from main.py's get_round_advancement_status
-        heats = loaders.heats_for_round(race_id, round_id)
-        already_advanced = True
-        for heat in heats:
-            if heat.lane_results:
-                results = json.loads(heat.lane_results)
-                for res in results:
-                    if res.get("racer_id") is not None and res.get("racer_id") < 0:
-                        already_advanced = False
-                        break
-            if not already_advanced:
-                break
-
-        all_rounds = loaders.rounds_for_race(race_id)
-
-        is_ready = True
-        for r in all_rounds:
-            if r.round_number < round_obj.round_number:
-                previous_heats = loaders.heats_for_round(race_id, r.id)
-                for ph in previous_heats:
-                    if not ph.lane_results:
-                        is_ready = False
-                        break
-                    results = json.loads(ph.lane_results)
-                    for res in results:
-                        if (
-                            res.get("racer_id") is not None
-                            and res.get("racer_id") > 0
-                            and res.get("time") is None
-                            and res.get("place") is None
-                        ):
-                            is_ready = False
-                            break
-
-                    if not is_ready:
-                        break
-            if not is_ready:
-                break
-
-        advancing_racers = []
-        standings = loaders.leaderboard(race_id)
-
-        adv_source = round_obj.advancement_source
-        adv_num = round_obj.advancement_num_racers
-
-        if not requires_advancement:
-            next_round = next(
-                (
-                    r
-                    for r in all_rounds
-                    if r.round_number > round_obj.round_number
-                    and r.advancement_source is not None
-                ),
-                None,
-            )
-
-            if next_round:
-                requires_advancement = True
-                adv_source = next_round.advancement_source
-                adv_num = next_round.advancement_num_racers
-
-        winner_ids = set()
-        if requires_advancement:
-            winner_ids = set(
-                scoring.get_advancing_racers(db, race_id, adv_source, adv_num)
-            )
-
-        for s_data in standings:
-            advancing_racers.append(
-                AdvancementRacer(
-                    racer_id=s_data["racer_id"],
-                    first_name=s_data["first_name"],
-                    last_name=s_data["last_name"],
-                    car_number=s_data.get("car_number"),
-                    den_name=s_data["den_name"],
-                    score=s_data["score"],
-                    rank=s_data["rank"],
-                    is_advancing=s_data["racer_id"] in winner_ids,
-                )
-            )
-
-        return AdvancementStatus(
-            is_ready=is_ready,
-            requires_advancement=requires_advancement,
-            already_advanced=already_advanced,
-            advancing_racers=advancing_racers,
-            source=adv_source,
-            num_racers=adv_num,
-        )
+        return _advancement_status(info, race_id, round_id)
 
     @strawberry.field
     def free_race_heats(
