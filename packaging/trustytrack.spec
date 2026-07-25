@@ -11,6 +11,10 @@ added_files = [
     ('../frontend/dist', 'frontend/dist'),
     ('../backend/assets', 'backend/assets'),
     ('../frontend/src/assets/logo_transparent.png', 'assets'),
+    # Alembic loads migration scripts from disk at runtime, so they have to be
+    # shipped as data. backend.db.database._migrations_dir() looks for them
+    # here under sys._MEIPASS.
+    ('../backend/migrations', 'backend/migrations'),
 ]
 
 hidden_imports = [
@@ -26,6 +30,12 @@ hidden_imports = [
     'uvicorn.lifespan.on',
     'backend.api.main',
     'engineio.async_drivers.uvicorn', # Often needed for uvicorn + websockets
+    # backend.db.database imports these lazily inside init_db(), so PyInstaller's
+    # static analysis does not pick them up.
+    'alembic',
+    'alembic.command',
+    'alembic.config',
+    'alembic.runtime.migration',
 ]
 
 if sys.platform == 'darwin':

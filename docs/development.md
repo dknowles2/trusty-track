@@ -58,7 +58,41 @@ pytest test_main.py
 
 ### 4. Database
 
-The application uses **SQLite**. The database file `trusty-track.db` will be automatically created in the root directory upon first run.
+The application uses **SQLite**. The database file `trusty-track.db` is created in the data directory (`~/.trustytrack` by default, override with `TRUSTYTRACK_DATA_DIR`) on first run.
+
+#### Migrations
+
+Schema changes are managed with **Alembic**. `init_db()` runs `alembic upgrade head` on startup, so a running app always has an up-to-date schema. If migrations fail, startup fails — a half-migrated database that appears to start normally is worse than a clear error.
+
+**After changing anything in `models.py`, generate a migration:**
+
+```bash
+uv run alembic revision --autogenerate -m "describe the change"
+```
+
+Review the generated file before committing — autogenerate is a good first draft, not a finished migration. Then verify there is no remaining drift:
+
+```bash
+uv run alembic check
+```
+
+`backend/tests/test_migrations.py::test_migrations_reproduce_the_models` runs that same check in CI, so a model change without a matching migration fails the build.
+
+Other useful commands:
+
+```bash
+uv run alembic current
+```
+
+```bash
+uv run alembic history
+```
+
+```bash
+uv run alembic downgrade -1
+```
+
+**Databases created before Alembic was adopted** are detected on startup (application tables present, no `alembic_version` table), stamped at `0001_baseline`, and then upgraded forward. Migration `0002` checks whether `groups.debug_mode` already exists before adding it, because the old hand-rolled `ALTER TABLE` may or may not have succeeded on any given install.
 
 ## 🎨 Frontend Development
 
