@@ -183,7 +183,11 @@ The normalized `heat_lanes` table exists and is kept current. The blob is still 
 lanes { lane racerId placeholderSlot time place skipped }
 ```
 
-It separates the things the blob conflated: a placeholder slot is `placeholderSlot`, not a negative `racerId`; `skipped` is a field; `time` is always a number, never the string the frontend sometimes wrote. `laneResults` is still exposed and is still what mutations accept — the frontend has not moved over yet.
+It separates the things the blob conflated: a placeholder slot is `placeholderSlot`, not a negative `racerId`; `skipped` is a field; `time` is always a number, never the string the frontend sometimes wrote.
+
+On the frontend, every screen reads `lanes` and asks about a heat through the named predicates in `features/racing/lanes.ts` (`hasRun`, `hasTimes`, `wasSkipped`, `byPlace`) rather than re-deriving them. Build heat fixtures with `features/racing/testFixtures.ts` — it keeps `lanes` and `laneResults` consistent, so a test cannot describe a heat the server could never send.
+
+**Writing still goes through `laneResults`.** `updateHeatResult` and `recordFreeRaceResult` take the JSON string, so `RaceExecution` and `FreeRaceExecution` keep an editable draft in that shape; those are the only `JSON.parse` sites left. Modify the existing blob rather than rebuilding it from `lanes` — it round-trips keys the backend does not model, and re-encoding placeholders as negative ids would put that trick back in the client. Step 5 of #5 replaces this with structured input.
 
 ### ⚠️ Heat IDs are not unique across tables
 

@@ -21,7 +21,8 @@ export type {
     AdvancementStatus,
     LaneResult,
 } from '../types';
-import type { Heat, Racer, AdvancementStatus, LaneResult } from '../types';
+import type { Heat, Racer, AdvancementStatus, LaneResult, Lane } from '../types';
+import { hasRun, hasTimes } from '../lanes';
 
 interface RaceExecutionProps {
     activeExecutionHeat: Heat | null;
@@ -81,12 +82,18 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [, abortHeat] = useMutation(ABORT_HEAT);
     const [, forceResults] = useMutation(FORCE_RESULTS);
 
+    // This screen edits a heat, so it keeps a working copy in the shape the
+    // mutation still accepts — the `laneResults` blob. Everything that only
+    // *asks* about the heat reads `lanes` instead. The two converge in #5,
+    // step 5, when `updateHeatResult` takes structured input.
     const results: LaneResult[] = activeExecutionHeat?.laneResults ? JSON.parse(activeExecutionHeat.laneResults) : [];
-    const hasRecordedTimes = results.length > 0 && results.some((r: LaneResult) => r.time !== null && r.time !== '');
-    const isSkipped = results.length > 0 && results.some((r: LaneResult) => r.skipped);
-    const isCompleted = results.length > 0 && (hasRecordedTimes || isSkipped);
+
+    const lanes = activeExecutionHeat?.lanes ?? [];
+    const hasRecordedTimes = hasTimes(lanes);
+    const isSkipped = lanes.some((l) => l.skipped);
+    const isCompleted = hasRun(lanes);
     const isRunning = timerState === 'RUNNING' || timerState === 'RESULTS_OVERDUE';
-    const hasPlaceholders = results.some((r: LaneResult) => r.racer_id !== null && r.racer_id < 0);
+    const hasPlaceholders = lanes.some((l) => l.placeholderSlot !== null);
 
     const laneResultMap: Record<number, LaneResult> = {};
     const racerMapping: Record<number, number | null> = subResult.data?.timerStatus?.status?.racerByLane
@@ -654,8 +661,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>{nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}</span>
                                 </div>
                                 <div style={{ display: 'grid', gap: '12px' }}>
-                                    {(nextExecutionHeat.laneResults ? JSON.parse(nextExecutionHeat.laneResults) : []).map((r: LaneResult) => {
-                                        const racer = racers[r.racer_id || 0];
+                                    {nextExecutionHeat.lanes.map((r: Lane) => {
+                                        const racer = racers[r.racerId || 0];
                                         return (
                                                                                         <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid #f5f5f5' }}>
                                                                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#999', width: '30px' }}>L{r.lane}</div>
@@ -690,7 +697,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                                                 <div style={{ fontWeight: '600', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racer_id || 0)}
+                                                                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0))}
                                                                                                 </div>
                                                                                                 {racer?.carNumber && (
                                                                                                     <div style={{ fontSize: '0.85rem', color: '#888' }}>Car #{racer.carNumber}</div>

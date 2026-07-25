@@ -37,7 +37,11 @@ export const CurrentlyRacingSubscription = gql`
       globalHeatNumber
       roundNumber
       roundName
-      laneResults
+      lanes {
+        lane
+        racerId
+        placeholderSlot
+      }
     }
   }
 `;
@@ -65,9 +69,11 @@ export const ActiveFreeRaceHeatSubscription = gql`
   subscription ActiveFreeRaceHeatSubscription($raceId: Int!) {
     activeFreeRaceHeat(raceId: $raceId) {
       id
-      laneAssignments
-      laneResults
       createdAt
+      lanes {
+        lane
+        racerId
+      }
     }
   }
 `;

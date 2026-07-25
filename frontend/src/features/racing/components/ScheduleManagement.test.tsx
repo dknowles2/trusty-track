@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
+import { lane } from '../testFixtures';
 import { AlertProvider } from '../../../context/AlertContext';
 
 // Mock urql
@@ -54,8 +55,8 @@ vi.mock('@dnd-kit/utilities', () => ({
 
 describe('ScheduleManagement', () => {
     const mockHeats: Heat[] = [
-        { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
-        { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, laneResults: '[]', roundName: 'Round 1' }
+        { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
+        { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, laneResults: '[]', lanes: [], roundName: 'Round 1' }
     ];
     const mockGetRacerName = vi.fn((id) => `Racer ${id}`);
     const mockOnAddRound = vi.fn();
@@ -73,10 +74,10 @@ describe('ScheduleManagement', () => {
     it('renders the add round button', () => {
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={[]} 
-                    generating={false} 
+                    heats={[]}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -99,10 +100,10 @@ describe('ScheduleManagement', () => {
     it('displays heats grouped by round', () => {
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={mockHeats} 
-                    generating={false} 
+                    heats={mockHeats}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -127,10 +128,10 @@ describe('ScheduleManagement', () => {
     it('opens modal when add round button is clicked', () => {
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={[]} 
-                    generating={false} 
+                    heats={[]}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -155,10 +156,10 @@ describe('ScheduleManagement', () => {
     it('calls onRunHeat when run button is clicked', () => {
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={mockHeats} 
-                    generating={false} 
+                    heats={mockHeats}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -184,10 +185,10 @@ describe('ScheduleManagement', () => {
     it('renders heats in a table', () => {
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={mockHeats} 
-                    generating={false} 
+                    heats={mockHeats}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -212,17 +213,17 @@ describe('ScheduleManagement', () => {
 
     it('displays heats sorted by heat_number', () => {
         const unsortedHeats: Heat[] = [
-            { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, laneResults: '[]', roundName: 'Round 1' },
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
-            { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, laneResults: '[]', roundName: 'Round 1' },
+            { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, laneResults: '[]', lanes: [], roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
+            { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, laneResults: '[]', lanes: [], roundName: 'Round 1' },
         ];
 
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={unsortedHeats} 
-                    generating={false} 
+                    heats={unsortedHeats}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -248,16 +249,16 @@ describe('ScheduleManagement', () => {
 
     it('groups heats by round correctly', () => {
         const multiRoundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
-            { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', roundName: 'Round 2' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
+            { id: 3, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 2' },
         ];
 
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={multiRoundHeats} 
-                    generating={false} 
+                    heats={multiRoundHeats}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -283,10 +284,10 @@ describe('ScheduleManagement', () => {
         const user = (await import('@testing-library/user-event')).default.setup();
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={[]} 
-                    generating={false} 
+                    heats={[]}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -303,17 +304,17 @@ describe('ScheduleManagement', () => {
                 />
             </AlertProvider>
         );
-        
+
         // Open modal
         await user.click(screen.getByText('Add Round'));
-        
+
         // Fill name
         const nameInput = screen.getByLabelText(/Round Name/i);
         await user.type(nameInput, 'Semi-Finals');
-        
+
         // Submit
         await user.click(screen.getByRole('button', { name: /Create Round/i }));
-        
+
         expect(mockOnAddRound).toHaveBeenCalledWith({
             name: 'Semi-Finals',
             schedulingStrategy: 'PPC',
@@ -326,15 +327,15 @@ describe('ScheduleManagement', () => {
 
     it('displays custom round name', () => {
         const namedRoundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundName: 'Semi-Finals', roundId: 1, heatNumber: 1, laneResults: '[]' },
+            { id: 1, roundNumber: 1, roundName: 'Semi-Finals', roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [] },
         ];
 
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={namedRoundHeats} 
-                    generating={false} 
+                    heats={namedRoundHeats}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -359,14 +360,14 @@ describe('ScheduleManagement', () => {
     it('disables add round button if final round exists', () => {
         // The check for "final" in name is simple string match as per component logic
         const finalHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Final Round' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Final Round' },
         ];
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={finalHeats} 
-                    generating={false} 
+                    heats={finalHeats}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -390,15 +391,15 @@ describe('ScheduleManagement', () => {
     it('calls onDeleteRound when delete button is clicked', async () => {
         const user = (await import('@testing-library/user-event')).default.setup();
         const roundHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
         ];
-        
+
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={roundHeats} 
-                    generating={false} 
+                    heats={roundHeats}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -415,24 +416,24 @@ describe('ScheduleManagement', () => {
                 />
             </AlertProvider>
         );
-        
+
         const deleteBtn = screen.getByLabelText(/delete round 1/i);
         await user.click(deleteBtn);
-        
+
         expect(mockOnDeleteRound).toHaveBeenCalledWith(1);
     });
 
     it('disables delete button if round has results', () => {
         const heatsWithResults: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": 1, "lane": 1, "time": 3.45}]', roundName: 'Round 1' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": 1, "lane": 1, "time": 3.45}]', lanes: [lane({ lane: 1, racerId: 1, time: 3.45 })], roundName: 'Round 1' },
         ];
-        
+
         render(
             <AlertProvider>
-                <ScheduleManagement 
+                <ScheduleManagement
                     raceId={1}
-                    heats={heatsWithResults} 
-                    generating={false} 
+                    heats={heatsWithResults}
+                    generating={false}
                     activeHeatId={null}
                     onAddRound={mockOnAddRound}
                     onRegenerateRound={mockOnRegenerateRound}
@@ -449,7 +450,7 @@ describe('ScheduleManagement', () => {
                 />
             </AlertProvider>
         );
-        
+
         const deleteBtn = screen.getByLabelText(/delete round 1/i);
         expect(deleteBtn).toBeDisabled();
         expect(deleteBtn).toHaveAttribute('title', 'Cannot delete round: it has heats with results');
@@ -457,16 +458,16 @@ describe('ScheduleManagement', () => {
 
   it('disables delete button for general round if championship round exists', () => {
     const multiRoundHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'General' },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', roundName: 'Finals' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'General' },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Finals' },
     ];
-    
+
     render(
       <AlertProvider>
-        <ScheduleManagement 
+        <ScheduleManagement
           raceId={1}
-          heats={multiRoundHeats} 
-          generating={false} 
+          heats={multiRoundHeats}
+          generating={false}
           activeHeatId={null}
           onAddRound={mockOnAddRound}
           onRegenerateRound={mockOnRegenerateRound}
@@ -483,7 +484,7 @@ describe('ScheduleManagement', () => {
         />
       </AlertProvider>
     );
-    
+
     const deleteBtn = screen.getByLabelText(/delete general/i);
     expect(deleteBtn).toBeDisabled();
     expect(deleteBtn).toHaveAttribute('title', 'Cannot delete general round: championship rounds are already scheduled');
@@ -491,7 +492,7 @@ describe('ScheduleManagement', () => {
 
   it('disables run button when heat has placeholders', () => {
     const heatsWithPlaceholders: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": -1, "lane": 1, "time": null}]', roundName: 'Round 1' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[{"racer_id": -1, "lane": 1, "time": null}]', lanes: [lane({ lane: 1, placeholderSlot: 1 })], roundName: 'Round 1' },
     ];
 
     render(
@@ -524,8 +525,8 @@ describe('ScheduleManagement', () => {
 
   it('disables run button for upcoming rounds', () => {
     const multiRoundHeats: Heat[] = [
-      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', roundName: 'Round 1' },
-      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', roundName: 'Round 2' },
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 1' },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, laneResults: '[]', lanes: [], roundName: 'Round 2' },
     ];
 
     render(
@@ -554,7 +555,7 @@ describe('ScheduleManagement', () => {
     // Round 1 Run button should be enabled
     const runButtons = screen.getAllByText('Run');
     expect(runButtons[0]).not.toBeDisabled();
-    
+
     // Round 2 Run button should be disabled as Round 1 is not complete
     expect(runButtons[1]).toBeDisabled();
     expect(runButtons[1]).toHaveAttribute('title', 'Complete previous rounds first');

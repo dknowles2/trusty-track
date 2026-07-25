@@ -9,7 +9,8 @@ import { RaceExecution } from '../components/RaceExecution';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import Icon from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
-import type { Heat, Racer, Round, AdvancementStatus, LaneResult } from '../types';
+import type { Heat, Racer, Round, AdvancementStatus, LaneResult, Lane } from '../types';
+import { hasRun, hasTimes, byPlace } from '../lanes';
 
 const GET_RACE_CONTROL_DATA = gql`
   query GetRaceControlData($id: Int!) {
@@ -46,6 +47,14 @@ const GET_RACE_CONTROL_DATA = gql`
         roundId
         roundName
         laneResults
+        lanes {
+          lane
+          racerId
+          placeholderSlot
+          time
+          place
+          skipped
+        }
       }
       rounds {
         id
@@ -188,10 +197,7 @@ export default function RaceControl() {
             return a.heatNumber - b.heatNumber;
           });
 
-          const firstUncompleted = sorted.find((h: Heat) => {
-              const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-              return !results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
-          });
+          const firstUncompleted = sorted.find((h: Heat) => !hasRun(h.lanes));
 
           if (firstUncompleted) {
               setSelectedHeatId(firstUncompleted.id);
@@ -415,12 +421,13 @@ export default function RaceControl() {
   }, [reorderHeatsMutation, reExecute, showAlert]);
 
   const handleRunHeat = useCallback(async (heat: Heat, shouldStart: boolean = true) => {
-    // Check if heat already has results or was skipped
-    const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-    const hasResults = results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
-
-    if (hasResults) {
+    if (hasRun(heat.lanes)) {
         // Clear results locally first (Optimistic UI Update would be complex with urql, so we just clear on server)
+        // Built by editing the blob rather than rebuilding it from `lanes`: the
+        // blob round-trips keys we do not model, and re-encoding placeholders as
+        // negative ids here would put that trick back in the client. The write
+        // path moves to structured input in #5, step 5.
+        const results = heat.laneResults ? JSON.parse(heat.laneResults) : [];
         const emptyResults = results.map((r: { lane: number; racer_id: number }) => ({ ...r, time: null, place: null, skipped: false }));
 
         try {
@@ -445,10 +452,9 @@ export default function RaceControl() {
           .filter((h: Heat) => h.roundId === heat.roundId)
           .sort((a: Heat, b: Heat) => a.heatNumber - b.heatNumber);
 
-        const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => {
-            const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-            return !(results.length > 0 && results.some((r: { time: number | string | null }) => r.time !== null));
-        });
+        // Deliberately not `hasRun`: a skipped heat still counts as somewhere to
+        // jump back to.
+        const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => !hasTimes(h.lanes));
 
         const targetIndex = roundHeats.findIndex((h: Heat) => h.id === heat.id);
 
@@ -486,6 +492,14 @@ export default function RaceControl() {
       return `${r.firstName} ${r.lastName} (#${r.carNumber})`;
   };
 
+  // The same question asked of a structured lane, where an undecided
+  // championship slot is a field rather than a negative id.
+  const laneRacerName = (lane: Lane) => {
+      if (lane.placeholderSlot !== null) return `Top ${lane.placeholderSlot}`;
+      if (lane.racerId === null) return '—';
+      return getRacerName(lane.racerId);
+  };
+
   const location = useLocation();
   const viewMode = location.pathname.includes('/control/race')
     ? 'EXECUTION'
@@ -519,11 +533,7 @@ export default function RaceControl() {
 
   const completedPreviousHeats = useMemo(() => {
     return [...sortedHeatsEx]
-      .filter((h: Heat) => {
-        if (h.id === activeExecutionHeat?.id) return false;
-        const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-        return results.length > 0 && results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
-      })
+      .filter((h: Heat) => h.id !== activeExecutionHeat?.id && hasRun(h.lanes))
       .sort((a: Heat, b: Heat) => {
         if (b.roundNumber !== a.roundNumber) return b.roundNumber - a.roundNumber;
         return b.heatNumber - a.heatNumber;
@@ -544,10 +554,7 @@ export default function RaceControl() {
 
   const totalHeatsInRound = currentRoundHeats.length;
   const remainingHeatsInRound = useMemo(() => {
-    return currentRoundHeats.filter((h: Heat) => {
-      const results = h.laneResults ? JSON.parse(h.laneResults) : [];
-      return !results.some((r: { time: number | string | null; skipped?: boolean }) => (r.time !== null && r.time !== '') || r.skipped);
-    }).length;
+    return currentRoundHeats.filter((h: Heat) => !hasRun(h.lanes)).length;
   }, [currentRoundHeats]);
 
   const upcomingRounds = useMemo(() => {
@@ -691,22 +698,21 @@ export default function RaceControl() {
                 <h3 style={{ marginBottom: '12px', color: '#555', fontWeight: 600 }}>Previous Heats</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {completedPreviousHeats.map((heat: Heat) => {
-                    const heatResults: { lane: number; time: number | string | null; skipped?: boolean; place?: number; racer_id: number }[] = heat.laneResults ? JSON.parse(heat.laneResults) : [];
-                    const isSkipped = heatResults.some((r) => r.skipped);
-                    const hasTimes = heatResults.some((r) => r.time !== null && r.time !== '');
-                    const sorted = [...heatResults].sort((a, b) => (a.place ?? 99) - (b.place ?? 99));
+                    const isSkipped = heat.lanes.some((l) => l.skipped);
+                    const timed = hasTimes(heat.lanes);
+                    const sorted = byPlace(heat.lanes);
                     return (
                       <div key={heat.id} style={{
                         background: 'white',
                         borderRadius: '12px',
                         padding: '14px 20px',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                        borderLeft: isSkipped && !hasTimes ? '4px solid #f44336' : '4px solid #4caf50'
+                        borderLeft: isSkipped && !timed ? '4px solid #f44336' : '4px solid #4caf50'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.globalHeatNumber ?? heat.heatNumber}</span>
-                            {isSkipped && !hasTimes && (
+                            {isSkipped && !timed && (
                                 <span style={{ background: '#ffebee', color: '#c62828', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Skipped</span>
                             )}
                           </div>
@@ -717,7 +723,7 @@ export default function RaceControl() {
                                 style={{
                                     padding: '4px 10px',
                                     fontSize: '0.8rem',
-                                    background: isSkipped && !hasTimes ? 'var(--cub-scouting-gold)' : '#f5f5f5',
+                                    background: isSkipped && !timed ? 'var(--cub-scouting-gold)' : '#f5f5f5',
                                     border: '1px solid #ddd',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
@@ -727,8 +733,8 @@ export default function RaceControl() {
                                     fontWeight: 'bold'
                                 }}
                             >
-                                <Icon path={isSkipped && !hasTimes ? mdiPlay : mdiRefresh} size={0.6} />
-                                {isSkipped && !hasTimes ? 'Run' : 'Re-Run'}
+                                <Icon path={isSkipped && !timed ? mdiPlay : mdiRefresh} size={0.6} />
+                                {isSkipped && !timed ? 'Run' : 'Re-Run'}
                             </button>
                           </div>
                         </div>
@@ -748,7 +754,7 @@ export default function RaceControl() {
                                 flexShrink: 0
                               }}>{r.place ?? '–'}</span>
                               <span style={{ color: '#888', minWidth: '52px', fontSize: '0.85rem' }}>Lane {r.lane}</span>
-                              <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{getRacerName(r.racer_id)}</span>
+                              <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r)}</span>
                               <span style={{ fontFamily: 'monospace', color: '#444', flexShrink: 0 }}>{r.time != null ? `${Number(r.time).toFixed(4)}s` : '–'}</span>
                             </div>
                           ))}

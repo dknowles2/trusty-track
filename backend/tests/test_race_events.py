@@ -155,6 +155,63 @@ async def test_the_payload_survives_the_session_closing(db):
 
 
 @pytest.mark.anyio
+async def test_a_heat_payload_carries_its_lanes(db):
+    """The structured lanes have to travel with the event (#5).
+
+    The client cache merges this payload into the heat it already holds. A
+    payload that omitted `lanes` would leave the previous ones in place, and the
+    screen would show a new result against a stale schedule — which is exactly
+    the failure the payloads were introduced to avoid.
+    """
+    race = _seed(db)
+    racer = crud.create_racer(
+        db, schemas.RacerCreate(first_name="Dee", last_name="D", race_id=race.id)
+    )
+    round_obj = crud.create_round(db, race_id=race.id, round_number=1)
+    heat = models.Heat(
+        race_id=race.id,
+        round_id=round_obj.id,
+        heat_number=1,
+        lane_results=json.dumps(
+            [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": -1}]
+        ),
+    )
+    db.add(heat)
+    db.commit()
+
+    results = json.dumps(
+        [
+            {"lane": 1, "racer_id": racer.id, "time": 3.25, "place": 1},
+            {"lane": 2, "racer_id": -1},
+        ]
+    )
+
+    async def act():
+        crud.record_heat_result(db, heat.id, results)
+        await schema_module._publish_race_state(
+            race.id,
+            kind=RaceChangeKind.HEAT_RESULT,
+            heat=db.query(models.Heat).get(heat.id),
+        )
+
+    events = await _capture(race.id, act)
+    racer_id = racer.id
+
+    # As above: the session is gone before a subscriber renders this.
+    db.expunge_all()
+    db.close()
+
+    # What `Heat.lanes` calls. `info=None` proves it needs no session.
+    snapshot = events[0].heat
+    lanes = schema_module._heat_lanes(
+        None, snapshot, snapshot.id, models.HeatKind.OFFICIAL
+    )
+    assert [lane.lane for lane in lanes] == [1, 2]
+    assert (lanes[0].racer_id, lanes[0].time, lanes[0].place) == (racer_id, 3.25, 1)
+    assert (lanes[1].racer_id, lanes[1].placeholder_slot) == (None, 1)
+
+
+@pytest.mark.anyio
 async def test_unclassified_publishes_still_say_something_changed(db):
     """Call sites that were not classified keep working, as OTHER."""
     race = _seed(db)

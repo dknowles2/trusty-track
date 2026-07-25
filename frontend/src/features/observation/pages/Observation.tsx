@@ -5,10 +5,10 @@ import Icon from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import TimerStatusBadge from '../../racing/components/timer/TimerStatusBadge';
-import { 
-  LeaderboardSubscription, 
-  OnDeckSubscription, 
-  CurrentlyRacingSubscription, 
+import {
+  LeaderboardSubscription,
+  OnDeckSubscription,
+  CurrentlyRacingSubscription,
   TimingStatsSubscription,
   ActiveFreeRaceHeatSubscription
 } from '../graphql/queries';
@@ -43,14 +43,14 @@ export default function Observation() {
   const { raceId } = useParams<{ raceId: string }>();
   const [searchParams] = useSearchParams();
   const id = parseInt(raceId || '0');
-  
+
   const isProjectorMode = searchParams.get('projector') === 'true';
   const shouldCycle = searchParams.get('cycle') === 'true';
   const cycleInterval = parseInt(searchParams.get('cycle_interval') || '10000');
-  
+
   const initialView = (searchParams.get('view') as 'standings' | 'timing') || 'standings';
   const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(initialView);
-  
+
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
   const [overlayData, setOverlayData] = useState<{
     lanes: {
@@ -174,25 +174,17 @@ export default function Observation() {
   const activeFreeRace = activeFreeRaceData?.activeFreeRaceHeat;
 
   const isExhibition = !officialCurrentHeat && activeFreeRace;
-  
+
+  // A lane with no `racerId` is either empty or an undecided championship slot;
+  // either way there is no one to put on the screen, so both drop out here.
+  const racersInLanes = (lanes: readonly { racerId?: number | null }[]) =>
+    lanes.map((l) => (l.racerId == null ? undefined : racersMap[l.racerId])).filter(Boolean) as Racer[];
+
   const currentHeatRacers = useMemo(() => {
-    if (officialCurrentHeat?.laneResults) {
-      try {
-        const assignments = JSON.parse(officialCurrentHeat.laneResults);
-        return assignments.map((a: { racer_id: number }) => racersMap[a.racer_id]).filter(Boolean);
-      } catch {
-        return [];
-      }
-    }
-    if (isExhibition && activeFreeRace?.laneAssignments) {
-      try {
-        const assignments = JSON.parse(activeFreeRace.laneAssignments);
-        return assignments.map((a: { racer_id: number }) => racersMap[a.racer_id]).filter(Boolean);
-      } catch {
-        return [];
-      }
-    }
+    if (officialCurrentHeat) return racersInLanes(officialCurrentHeat.lanes);
+    if (isExhibition && activeFreeRace) return racersInLanes(activeFreeRace.lanes);
     return [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officialCurrentHeat, isExhibition, activeFreeRace, racersMap]);
 
   if (!id || isNaN(id)) return <div className="container" style={{ padding: '20px' }}>Invalid Race ID</div>;
@@ -201,23 +193,23 @@ export default function Observation() {
     const isEmpty = racers.length === 0;
 
     return (
-      <div className="heat-card" style={{ 
-        flex: 1, 
-        minWidth: '300px', 
-        background: isEmpty ? '#f5f5f5' : 'white', 
-        borderRadius: '8px', 
-        padding: '20px', 
-        boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(0,0,0,0.1)', 
+      <div className="heat-card" style={{
+        flex: 1,
+        minWidth: '300px',
+        background: isEmpty ? '#f5f5f5' : 'white',
+        borderRadius: '8px',
+        padding: '20px',
+        boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(0,0,0,0.1)',
         borderTop: `5px solid ${isNext ? '#999' : '#d32f2f'}`,
         opacity: isEmpty ? 0.7 : 1,
         textAlign: isEmpty ? 'center' : 'left'
       }}>
-        <h2 className="heat-card-title" style={{ 
-          marginTop: 0, 
-          fontSize: '1.5rem', 
-          color: isNext ? '#666' : '#333', 
-          display: 'flex', 
-          alignItems: 'center', 
+        <h2 className="heat-card-title" style={{
+          marginTop: 0,
+          fontSize: '1.5rem',
+          color: isNext ? '#666' : '#333',
+          display: 'flex',
+          alignItems: 'center',
           gap: '10px',
           justifyContent: isEmpty ? 'center' : 'flex-start'
         }}>
@@ -242,7 +234,7 @@ export default function Observation() {
             <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#666', marginLeft: 'auto' }}>({heatInfo})</span>
           )}
         </h2>
-        
+
         {isEmpty ? (
           <p>No heat scheduled</p>
         ) : (
@@ -250,7 +242,7 @@ export default function Observation() {
             {racers.map((racer: Racer, idx: number) => (
               <div key={racer.id || idx} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
                 <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {idx + 1}</div>
-                <RacerAvatar 
+                <RacerAvatar
                   racer={{
                     id: racer.id,
                     first_name: racer.firstName,
@@ -282,8 +274,8 @@ export default function Observation() {
         <h1 className="overlay-title">Heat Results</h1>
         <div className="overlay-results-list">
           {sortedLanes.map((lane, idx) => (
-            <div 
-              key={lane.laneNumber} 
+            <div
+              key={lane.laneNumber}
               className={`overlay-result-item ${lane.place === 1 ? 'first-place' : lane.place === 2 ? 'second-place' : lane.place === 3 ? 'third-place' : ''}`}
               style={{ animationDelay: `${idx * 0.1}s` }}
             >
@@ -295,7 +287,7 @@ export default function Observation() {
                   {lane.place === 1 ? '1st' : lane.place === 2 ? '2nd' : lane.place === 3 ? '3rd' : (lane.place || '-')}
                 </span>
               </div>
-              <RacerAvatar 
+              <RacerAvatar
                 racer={{
                   id: 0,
                   first_name: lane.racerName,
@@ -328,7 +320,7 @@ export default function Observation() {
           {initialData?.race?.track?.id && (
             <TimerStatusBadge trackId={initialData.race.track.id} />
           )}
-          <button 
+          <button
             onClick={() => window.open(`${window.location.pathname}?projector=true`, '_blank')}
             style={{
               padding: '10px 20px',
@@ -350,23 +342,23 @@ export default function Observation() {
 
         <div className="heat-cards-layout" style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
           {renderHeatCard(
-            "Now Racing", 
-            currentHeatRacers, 
-            false, 
-            mdiFire, 
+            "Now Racing",
+            currentHeatRacers,
+            false,
+            mdiFire,
             officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}` : undefined,
             isExhibition
           )}
           {renderHeatCard(
-            "On Deck", 
-            nextHeatRacers, 
-            true, 
+            "On Deck",
+            nextHeatRacers,
+            true,
             mdiChevronDoubleRight
           )}
         </div>
 
         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
-          <button 
+          <button
             onClick={() => setActiveTab('standings')}
             style={{
               padding: '10px 20px',
@@ -383,7 +375,7 @@ export default function Observation() {
             <Icon path={mdiTrophy} size={0.8} />
             Standings
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('timing')}
             style={{
               padding: '10px 20px',
@@ -401,7 +393,7 @@ export default function Observation() {
             Timing Stats
           </button>
         </div>
-        
+
         {activeTab === 'standings' ? (
           <div className="standings-table-wrapper" style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -423,7 +415,7 @@ export default function Observation() {
                       </td>
                       <td className="standing-racer" style={{ padding: '15px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                          <RacerAvatar 
+                          <RacerAvatar
                             racer={{
                               id: s.racerId,
                               first_name: racer?.firstName || '',
@@ -465,13 +457,13 @@ export default function Observation() {
                   {[...lastHeatResults.lanes]
                     .sort((a, b) => (a.place || 99) - (b.place || 99))
                     .map((lane) => (
-                    <div 
-                      key={lane.laneNumber} 
+                    <div
+                      key={lane.laneNumber}
                       className="timing-list-item"
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        padding: '20px', 
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '20px',
                         background: lane.place === 1 ? 'rgba(212, 175, 55, 0.1)' : '#f9f9f9',
                         borderRadius: '12px',
                         borderLeft: `10px solid ${lane.place === 1 ? '#d4af37' : '#ddd'}`
@@ -512,7 +504,7 @@ export default function Observation() {
         </div>
       );
     }
-    
+
     return (
       <div style={{ display: 'flex', height: '100%', gap: '2vmin' }}>
         {racers.map((racer: Racer, idx: number) => (
@@ -521,9 +513,9 @@ export default function Observation() {
             <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: '#fff', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
               {racer.firstName} {racer.lastName}
             </div>
-            
+
             {/* Priority 2: Picture */}
-            <RacerAvatar 
+            <RacerAvatar
               racer={{
                 id: racer.id,
                 first_name: racer.firstName,
@@ -533,7 +525,7 @@ export default function Observation() {
               size={isNowRacing ? "16vmin" : "12vmin"}
               style={{ margin: '0 auto', border: '0.4vmin solid white', boxShadow: '0 0.5vmin 1vmin rgba(0,0,0,0.3)' }}
             />
-            
+
             {/* Priority 3: Lane Number (Only prominent for Now Racing, very small or omitted for On Deck) */}
             <div className="projector-racer-lane-car" style={{ marginTop: '1.5vmin', display: 'flex', flexDirection: 'column', gap: '0.5vmin' }}>
               <div style={{ color: isNowRacing ? '#bbb' : '#666', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}>
@@ -557,11 +549,11 @@ export default function Observation() {
   return (
     <div className="container projector-mode" style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
       {renderResultsOverlay()}
-      
+
       <div className="projector-grid" style={{ display: 'flex', flex: '1', gap: '3vmin', height: '100%' }}>
         {/* Left Column: Active and Upcoming Heats */}
         <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '3vmin', boxSizing: 'border-box' }}>
-          
+
           {/* Now Racing */}
           <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #d32f2f', boxSizing: 'border-box' }}>
             <h2 style={{ fontSize: '4vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid #333', marginBottom: '2vmin' }}>
@@ -611,7 +603,7 @@ export default function Observation() {
                         </td>
                         <td className="projector-standings-racer-col" style={{ padding: '1.5vmin', width: '55%' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5vmin', minWidth: 0 }}>
-                            <RacerAvatar 
+                            <RacerAvatar
                               racer={{
                                 id: s.racerId,
                                 first_name: racer?.firstName || '',
@@ -651,7 +643,7 @@ export default function Observation() {
                 No results yet.
               </div>
             )}
-            
+
             {/* Empty rows filler if less than 5 to keep height consistent */}
             {top5Standings.length > 0 && top5Standings.length < 5 && Array.from({ length: 5 - top5Standings.length }).map((_, i) => (
                <div key={`empty-${i}`} style={{ flex: 1, borderTop: '1px dashed #333', minHeight: '8vmin' }}></div>

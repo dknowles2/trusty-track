@@ -3,6 +3,7 @@ import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useMutation, useSubscription } from 'urql';
 import { RaceExecution, Heat } from './RaceExecution';
+import { lane } from '../testFixtures';
 
 vi.mock('urql', async (importOriginal) => {
   const actual = await importOriginal<typeof import('urql')>();
@@ -35,6 +36,8 @@ vi.mock('./FakeTimerMole', () => ({
 }));
 
 describe('RaceExecution', () => {
+    // `time` arrives as a string in `laneResults` on purpose — real databases
+    // hold both — while `lanes` reports it as the number it always was.
     const mockHeat: Heat = {
         id: 1,
         roundNumber: 1,
@@ -44,7 +47,11 @@ describe('RaceExecution', () => {
         laneResults: JSON.stringify([
             { lane: 1, racer_id: 101, time: '3.5', place: 1 },
             { lane: 2, racer_id: 102, time: '3.6', place: 2 }
-        ])
+        ]),
+        lanes: [
+            lane({ lane: 1, racerId: 101, time: 3.5, place: 1 }),
+            lane({ lane: 2, racerId: 102, time: 3.6, place: 2 }),
+        ],
     };
 
     // Shaped to match what the GetRaceControlData query actually returns —
@@ -168,7 +175,8 @@ describe('RaceExecution', () => {
                 {...defaultProps}
                 activeExecutionHeat={{
                     ...mockHeat,
-                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
+                    lanes: [lane({ lane: 1, racerId: 101 })],
                 }}
             />
         );
@@ -182,7 +190,8 @@ describe('RaceExecution', () => {
                 {...defaultProps}
                 activeExecutionHeat={{
                     ...mockHeat,
-                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
+                    lanes: [lane({ lane: 1, racerId: 101 })],
                 }}
             />
         );
@@ -196,7 +205,8 @@ describe('RaceExecution', () => {
                 {...defaultProps}
                 activeExecutionHeat={{
                     ...mockHeat,
-                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+                    laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
+                    lanes: [lane({ lane: 1, racerId: 101 })],
                 }}
             />
         );
@@ -280,7 +290,8 @@ describe('RaceExecution', () => {
             roundName: "Finals",
             laneResults: JSON.stringify([
                 { lane: 1, racer_id: -1, time: null, place: null }
-            ])
+            ]),
+            lanes: [lane({ lane: 1, placeholderSlot: 1 })],
         };
 
         render(
@@ -322,7 +333,8 @@ describe('RaceExecution', () => {
             ...mockHeat,
             id: 2,
             heatNumber: 2,
-            laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+            laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
+            lanes: [lane({ lane: 1, racerId: 101 })]
         };
 
         rerender(
@@ -347,7 +359,8 @@ describe('RaceExecution', () => {
 
         const clearedHeat: Heat = {
             ...mockHeat,
-            laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }])
+            laneResults: JSON.stringify([{ lane: 1, racer_id: 101, time: null, place: null }]),
+            lanes: [lane({ lane: 1, racerId: 101 })]
         };
 
         rerender(

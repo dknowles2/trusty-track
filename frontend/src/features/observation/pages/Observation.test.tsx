@@ -5,10 +5,10 @@ import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import Observation from './Observation';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
-import { 
-    LeaderboardSubscription, 
-    OnDeckSubscription, 
-    CurrentlyRacingSubscription, 
+import {
+    LeaderboardSubscription,
+    OnDeckSubscription,
+    CurrentlyRacingSubscription,
     TimingStatsSubscription,
     ActiveFreeRaceHeatSubscription
 } from '../graphql/queries';
@@ -43,7 +43,7 @@ describe('Observation Page', () => {
 
     const setupMocks = (overrides: any = {}) => {
         (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
-        
+
         const defaultSubs = {
             leaderboard: [],
             onDeck: [],
@@ -65,9 +65,9 @@ describe('Observation Page', () => {
 
     it('displays Now Racing and On Deck heats correctly', async () => {
         setupMocks({
-            currentlyRacing: { 
-                id: 2, roundNumber: 1, heatNumber: 2, 
-                laneResults: JSON.stringify([{ lane: 1, racer_id: 2 }]) 
+            currentlyRacing: {
+                id: 2, roundNumber: 1, heatNumber: 2,
+                lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
             },
             onDeck: [
                 { id: 3, firstName: 'Mater', lastName: 'Tow', carNumber: 1, racerImageUrl: null }
@@ -113,8 +113,7 @@ describe('Observation Page', () => {
         setupMocks({
             activeFreeRaceHeat: {
                 id: 99,
-                laneAssignments: JSON.stringify([{ lane: 1, racer_id: 1 }]),
-                laneResults: null,
+                lanes: [{ lane: 1, racerId: 1 }],
             }
         });
 
@@ -135,13 +134,13 @@ describe('Observation Page', () => {
 
     it('official heat takes priority over free race heat', async () => {
         setupMocks({
-            currentlyRacing: { 
-                id: 2, roundNumber: 1, heatNumber: 2, 
-                laneResults: JSON.stringify([{ lane: 1, racer_id: 2 }]) 
+            currentlyRacing: {
+                id: 2, roundNumber: 1, heatNumber: 2,
+                lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
             },
             activeFreeRaceHeat: {
                 id: 99,
-                laneAssignments: JSON.stringify([{ lane: 1, racer_id: 1 }]),
+                lanes: [{ lane: 1, racerId: 1 }],
             }
         });
 
@@ -245,14 +244,14 @@ describe('Observation Page', () => {
         // Overlay should be visible
         expect(screen.getByText('Heat Results')).toBeInTheDocument();
         expect(screen.getByText('Speedy McQueen')).toBeInTheDocument();
-        
+
         // Check for trophy icons (by checking if the Icon component renders an SVG, implicitly)
         // Or better, check for the color style which distinguishes the trophies
         const firstPlaceRow = screen.getByText('Speedy McQueen').closest('.overlay-result-item');
         expect(firstPlaceRow).toHaveClass('first-place');
         // The trophy icon is inside .overlay-rank. We can check if it exists.
         // Since we can't easily check for the specific SVG path without more setup, we'll assume class presence and structure implies it.
-        
+
         // We can check if the image is passed to RacerAvatar
         // RacerAvatar renders an img tag if racerImageUrl is present.
         const avatarImg = screen.getByAltText('Speedy McQueen');
