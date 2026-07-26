@@ -1764,7 +1764,7 @@ class Mutation:
         )
         if not winner_ids:
             return 0
-        crud.resolve_round_placeholders(db, round_id, winner_ids)
+        crud.populate_round_field(db, round_id, winner_ids)
         await _publish_race_state(
             race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_id
         )

@@ -12,8 +12,10 @@ from backend.domain.advancement import (
     AdvancementRule,
     Standing,
     advancing_racer_ids,
+    field_is_short,
     is_round_complete,
     may_rebuild,
+    placeholder_slots,
     rounds_to_invalidate,
     should_populate,
 )
@@ -195,3 +197,52 @@ def test_an_unraced_round_may_be_rebuilt():
 
 def test_a_round_with_no_heats_may_be_rebuilt():
     assert may_rebuild([])
+
+
+def _placeholder_round(slots: int, lanes_per_heat: int = 4) -> list[list[Lane]]:
+    """A championship round as generated: one heat per slot, all placeholders.
+
+    Every heat holds every slot, in a rotation, which is what PPC produces —
+    so a slot nobody qualifies for is missing from *every* heat, not one.
+    """
+    ids = [-(i + 1) for i in range(slots)]
+    return [
+        [
+            Lane(lane=lane + 1, racer_id=ids[(heat + lane) % slots])
+            for lane in range(min(lanes_per_heat, slots))
+        ]
+        for heat in range(slots)
+    ]
+
+
+def test_every_open_slot_is_counted_once():
+    """Across heats, not per heat — the same slot appears in all of them."""
+    assert placeholder_slots(_placeholder_round(4)) == {-1, -2, -3, -4}
+
+
+def test_real_racers_are_not_slots():
+    heat = [[Lane(lane=1, racer_id=7), Lane(lane=2, racer_id=-1)]]
+    assert placeholder_slots(heat) == {-1}
+
+
+def test_an_empty_lane_is_not_a_slot():
+    """An unfilled lane and an undecided one are different things."""
+    assert placeholder_slots([[Lane(lane=1, racer_id=None)]]) == set()
+
+
+def test_a_field_matching_the_slots_is_not_short():
+    assert not field_is_short(_placeholder_round(4), advancing_count=4)
+
+
+def test_a_field_smaller_than_the_slots_is_short():
+    """Issue #48: a den of three cannot supply a top four."""
+    assert field_is_short(_placeholder_round(4), advancing_count=3)
+
+
+def test_one_qualifier_is_still_short():
+    assert field_is_short(_placeholder_round(4), advancing_count=1)
+
+
+def test_a_round_holding_no_slots_is_never_short():
+    """An already-resolved round has nothing left to strand."""
+    assert not field_is_short([[Lane(lane=1, racer_id=7)]], advancing_count=1)

@@ -178,3 +178,34 @@ def may_rebuild(heats_lanes: Iterable[Sequence]) -> bool:
     from backend.domain import lanes as lanes_module
 
     return not any(lanes_module.has_results(lanes) for lanes in heats_lanes)
+
+
+def placeholder_slots(heats_lanes: Iterable[Sequence]) -> set[int]:
+    """Every distinct placeholder slot the round is still holding open.
+
+    Counted from the heats rather than from ``advancement_num_racers``, because
+    the two disagree for a ``DEN`` round — that one has ``num_racers`` slots
+    *per den* — and what matters here is what was actually generated.
+    """
+    return {
+        lane.racer_id for lanes in heats_lanes for lane in lanes if lane.is_placeholder
+    }
+
+
+def field_is_short(heats_lanes: Iterable[Sequence], advancing_count: int) -> bool:
+    """Fewer racers qualified than the round was built to hold.
+
+    Issue #48. ``advancement_num_racers`` is a *request* — "top four" — but a
+    den with three racers in it can only ever supply three. The round's heats
+    are generated from the request, before anyone has qualified, so the surplus
+    slots are placeholders that no advancement will ever fill.
+
+    Left alone they are fatal rather than untidy: ``heat_session.phase`` reports
+    ``NOT_READY`` while any placeholder remains, and the operator screen offers
+    no controls at all in that state. The round cannot be run, edited or
+    skipped, on race day, in front of everyone.
+
+    So the answer is not to fill the slots but to stop pretending they exist —
+    the caller rebuilds the round for the field that actually qualified.
+    """
+    return advancing_count < len(placeholder_slots(heats_lanes))
