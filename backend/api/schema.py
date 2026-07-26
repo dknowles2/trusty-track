@@ -1652,14 +1652,7 @@ class Mutation:
                 db.flush()  # Ensure the round ID is generated
                 previous_champ_round_id = round_obj.id
 
-                num_placeholders = champ_cfg.num_top_racers
-                if adv_source == "DEN":
-                    den_count = (
-                        db.query(models.Den)
-                        .filter(models.Den.race_id == race_id)
-                        .count()
-                    )
-                    num_placeholders = champ_cfg.num_top_racers * den_count
+                num_placeholders = crud.round_field_size(db, round_obj)
                 # Championship rounds: 1 run per lane
                 for i in range(1):
                     crud.generate_heats_for_round(
@@ -2392,7 +2385,7 @@ class Mutation:
                     crud.generate_heats_for_round(
                         db,
                         round_obj.id,
-                        num_placeholders=round_data.advancement_num_racers or 0,
+                        num_placeholders=crud.round_field_size(db, round_obj),
                         clear_existing=(i == 0),
                     )
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)

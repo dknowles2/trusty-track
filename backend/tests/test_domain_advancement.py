@@ -13,6 +13,7 @@ from backend.domain.advancement import (
     Standing,
     advancing_racer_ids,
     field_is_short,
+    field_size,
     is_round_complete,
     may_rebuild,
     placeholder_slots,
@@ -246,3 +247,29 @@ def test_one_qualifier_is_still_short():
 def test_a_round_holding_no_slots_is_never_short():
     """An already-resolved round has nothing left to strand."""
     assert not field_is_short([[Lane(lane=1, racer_id=7)]], advancing_count=1)
+
+
+def test_a_pack_field_is_the_number_asked_for():
+    rule = AdvancementRule(source="PACK", num_racers=4)
+    assert field_size(rule, den_count=3) == 4
+
+
+def test_a_den_field_is_that_many_per_den():
+    """#52: the detail that was copied correctly once and wrong twice."""
+    rule = AdvancementRule(source="DEN", num_racers=2)
+    assert field_size(rule, den_count=3) == 6
+
+
+def test_a_round_scoped_field_is_the_number_asked_for():
+    rule = AdvancementRule(source="ROUND:7", num_racers=3)
+    assert field_size(rule, den_count=5) == 3
+
+
+def test_a_den_field_with_no_dens_is_empty():
+    """Not a crash, and not the unmultiplied count either."""
+    assert field_size(AdvancementRule(source="DEN", num_racers=2), den_count=0) == 0
+
+
+def test_no_racer_count_means_no_slots():
+    assert field_size(AdvancementRule(source="PACK", num_racers=None), 0) == 0
+    assert field_size(AdvancementRule(source="DEN", num_racers=None), 3) == 0

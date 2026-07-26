@@ -180,6 +180,23 @@ def may_rebuild(heats_lanes: Iterable[Sequence]) -> bool:
     return not any(lanes_module.has_results(lanes) for lanes in heats_lanes)
 
 
+def field_size(rule: AdvancementRule, den_count: int) -> int:
+    """How many slots a round drawing on this rule needs.
+
+    Issue #52. ``num_racers`` is per *den* when the source is ``DEN`` and
+    absolute otherwise, which is the sort of detail that gets copied correctly
+    once and then not. It was in four places: right in ``createRoundWizard``,
+    right in ``revert_round_to_placeholders`` (which nothing called), and wrong
+    in both ``createRound`` and ``invalidate_future_rounds`` — so recording any
+    preliminary heat shrank a DEN final to a fraction of its field and dropped
+    racers who had qualified for it.
+
+    ``den_count`` is only read for ``DEN``; callers may pass 0 otherwise.
+    """
+    num_racers = rule.num_racers or 0
+    return num_racers * den_count if rule.source == DEN else num_racers
+
+
 def placeholder_slots(heats_lanes: Iterable[Sequence]) -> set[int]:
     """Every distinct placeholder slot the round is still holding open.
 
