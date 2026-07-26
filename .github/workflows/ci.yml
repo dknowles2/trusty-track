@@ -23,15 +23,14 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      # Scoped to the Python trees rather than `.`, to match what the
-      # pre-commit hooks lint (`types: [python]`). Bare `ruff format` also
-      # rewrites Python blocks inside the `docs/tasks/*.md` design notes, which
-      # is not wanted.
+      # The whole repo, not a list of directories — a hand-maintained list is
+      # how a gate quietly stops covering things. `docs` is excluded in
+      # pyproject.toml; everything else Python, wherever it lands, is linted.
       - name: Lint
-        run: uv run ruff check backend scripts packaging
+        run: uv run ruff check .
 
       - name: Format
-        run: uv run ruff format --check backend scripts packaging
+        run: uv run ruff format --check .
 
   backend-test:
     name: Backend Tests (Python ${{ matrix.python-version }})
