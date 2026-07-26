@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
@@ -11,6 +11,7 @@ import Icon from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
 import { hasRun, hasTimes, byPlace, cleared } from '../lanes';
+import { observeAdvanced, type SeenRounds } from '../roundCompletion';
 
 const GET_RACE_CONTROL_DATA = gql`
   query GetRaceControlData($id: Int!) {
@@ -145,16 +146,21 @@ export default function RaceControl() {
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
-  const [seenAdvancedRoundIds, setSeenAdvancedRoundIds] = useState<number[]>([]);
-  const [advancementInitialized, setAdvancementInitialized] = useState(false);
+
+  // Which rounds we had already seen decided (#13). A ref rather than state:
+  // it is bookkeeping for the detector and nothing renders from it. Keeping it
+  // in state is what forced the old effect to depend on its own output and
+  // defer half its work to the next pass.
+  const seenAdvancedRounds = useRef<SeenRounds>(null);
 
   // Reset state when raceId changes
   useEffect(() => {
       setActiveHeatId(null);
       setSelectedHeatId(null);
       setRoundSummary(null);
-      setSeenAdvancedRoundIds([]);
-      setAdvancementInitialized(false);
+      // Back to "never looked", so the new race's already-decided rounds are
+      // history rather than a summary for whoever navigated here.
+      seenAdvancedRounds.current = null;
   }, [id]);
 
   const [result, reExecute] = useQuery({
@@ -211,8 +217,8 @@ export default function RaceControl() {
   useEffect(() => {
     if (fetching || !race?.rounds) return;
 
-    // Monitor for round completions and advancement
-    // We only show the modal when a round transitions to "ready and advanced" (placeholders resolved)
+    // A round is decided once its placeholders have been resolved into the
+    // racers who advanced.
     const advancedIds = race.rounds
       .filter((r: Round) =>
           r.advancementStatus.requiresAdvancement &&
@@ -221,34 +227,15 @@ export default function RaceControl() {
       )
       .map((r: Round) => r.id);
 
-    if (!advancementInitialized) {
-        setSeenAdvancedRoundIds(advancedIds);
-        setAdvancementInitialized(true);
-        return;
+    const { seen, completedRoundId } = observeAdvanced(seenAdvancedRounds.current, advancedIds);
+    seenAdvancedRounds.current = seen;
+    if (completedRoundId === null) return;
+
+    const round = race.rounds.find((r: Round) => r.id === completedRoundId);
+    if (round) {
+      setRoundSummary({ ...round.advancementStatus, roundId: round.id });
     }
-
-    // If a round was previously seen as advanced, but now it is NOT advanced (e.g. re-run of last heat),
-    // remove it from seen list so it can trigger again when completed.
-    const stillAdvancedIds = seenAdvancedRoundIds.filter(id => advancedIds.includes(id));
-    if (stillAdvancedIds.length !== seenAdvancedRoundIds.length) {
-        setSeenAdvancedRoundIds(stillAdvancedIds);
-        // Important: we return here so the next effect run (after state update) handles the "newly advanced" case
-        return;
-    }
-
-    // Find any ID in advancedIds that we haven't "seen" yet
-    const newlyAdvancedId = advancedIds.find((id: number) => !seenAdvancedRoundIds.includes(id));
-
-    if (newlyAdvancedId !== undefined) {
-      // Mark all currently advanced IDs as seen to avoid re-triggering
-      setSeenAdvancedRoundIds(advancedIds);
-
-      const round = race.rounds.find((r: Round) => r.id === newlyAdvancedId);
-      if (round) {
-        setRoundSummary({ ...round.advancementStatus, roundId: round.id });
-      }
-    }
-  }, [race?.rounds, fetching, advancementInitialized, seenAdvancedRoundIds]);
+  }, [race?.rounds, fetching]);
 
   const handleAddRound = async (config: {
     schedulingStrategy?: string;

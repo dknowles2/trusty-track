@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSubscription, useMutation } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { FakeTimerMole } from './FakeTimerMole';
@@ -22,7 +22,9 @@ export type {
     LaneInput,
 } from '../types';
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
+import type { HeatPhase } from '../../../gql/operations';
 import { hasRun, hasTimes, toInput } from '../lanes';
+import { useRaceFlow } from '../useRaceFlow';
 
 /**
  * A lane being edited by hand. `time` is held as text while the operator types
@@ -72,10 +74,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<EditableLane[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
-    const [isRoundSummaryOpen, setIsRoundSummaryOpen] = useState(!!roundSummary);
-    const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
     const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
-    const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // The live view, assembled by the server (#7). What used to be here was a
     // merge of the heat's stored lanes with `timerStatus.pendingResults`,
@@ -101,127 +100,62 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const liveLanes: LiveLane[] = session?.lanes ?? storedLanes.map((l) => ({ ...l, pending: false }));
 
     const timerState: string = session?.timerState ?? 'IDLE';
-    // `phase` is the server's answer and wins. The fallbacks are the same
-    // predicates it computes from — `hasRun` is what `is_recorded` was ported
-    // from — not a second opinion, just a synchronous one for the first render.
-    const isCompleted = session ? session.phase === 'RECORDED' : hasRun(storedLanes);
-    const hasPlaceholders = session
-        ? session.phase === 'NOT_READY'
-        : storedLanes.some((l) => l.placeholderSlot !== null);
+
+    // One phase, three questions. The server's answer wins; the fallback is the
+    // same rule `domain/heat_session.phase` applies, in the same order, for the
+    // first render before the subscription answers. It cannot produce RUNNING,
+    // which is correct — that needs the timer, and without a session there is
+    // no timer to ask.
+    const phase: HeatPhase = session?.phase ?? (
+        !activeExecutionHeat ? 'NO_HEAT'
+        : storedLanes.some((l) => l.placeholderSlot !== null) ? 'NOT_READY'
+        : hasRun(storedLanes) ? 'RECORDED'
+        : 'WAITING'
+    );
+    const isCompleted = phase === 'RECORDED';
+    const hasPlaceholders = phase === 'NOT_READY';
     // From the phase, not the device. A recorded heat whose timer has not caught
     // up used to show "Racing..." over its own saved results — the phase settles
     // that (RECORDED outranks RUNNING) and the screen no longer has to.
-    const isRunning = session
-        ? session.phase === 'RUNNING'
-        : timerState === 'RUNNING' || timerState === 'RESULTS_OVERDUE';
+    const isRunning = phase === 'RUNNING';
 
     const hasRecordedTimes = hasTimes(storedLanes);
     const isSkipped = storedLanes.some((l) => l.skipped);
 
-    // Reset timer state when it stops
-    const [prevIsRunning, setPrevIsRunning] = useState(isRunning);
-    useEffect(() => {
-        if (isRunning !== prevIsRunning) {
-            setPrevIsRunning(isRunning);
-            if (!isRunning) {
-                setElapsedSeconds(0);
-            }
-        }
-    }, [isRunning, prevIsRunning]);
-
-    // Sync round summary state: only open if we transition to a non-null summary for a NEW round
-    const [lastOpenedRoundId, setLastOpenedRoundId] = useState<number | null>(null);
-    useEffect(() => {
-        if (roundSummary) {
-            if (roundSummary.roundId !== lastOpenedRoundId) {
-                setLastOpenedRoundId(roundSummary.roundId || null);
-                setIsRoundSummaryOpen(true);
-            }
-        } else if (lastOpenedRoundId !== null) {
-            setLastOpenedRoundId(null);
-            setIsRoundSummaryOpen(false);
-        }
-        // Deliberately depend on roundId, not the whole roundSummary object, to avoid
-        // re-firing on every new object reference with the same round (infinite-render guard).
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [roundSummary?.roundId, lastOpenedRoundId]);
-
-    // Tracking for auto-prepare to avoid race conditions
-    const lastPreparedIdRef = useRef<number | null>(null);
-    const wasCompletedRef = useRef<boolean>(false);
-
-    // Sync auto-advance state
-    const shouldResetAutoAdvance = !autoAdvanceHeat || !hasRecordedTimes || !nextExecutionHeat || (roundSummary && isRoundSummaryOpen) || hasPlaceholders;
-    useEffect(() => {
-        if (shouldResetAutoAdvance && autoAdvanceCountdown !== null) {
-            setAutoAdvanceCountdown(null);
-        }
-    }, [shouldResetAutoAdvance, autoAdvanceCountdown]);
-
-    // Auto-prepare heat when a new heatId is provided or results cleared
-    useEffect(() => {
-        const idChanged = activeExecutionHeat?.id !== lastPreparedIdRef.current;
-        const resultsCleared = wasCompletedRef.current && !isCompleted;
-
-        if (timerState === 'IDLE' && !isCompleted && !hasPlaceholders && activeExecutionHeat?.id) {
-            if (idChanged || resultsCleared) {
-                prepareHeat({ heatId: activeExecutionHeat.id });
-                lastPreparedIdRef.current = activeExecutionHeat.id;
-            }
-        }
-        wasCompletedRef.current = isCompleted;
-        // Only run when heatId changes, on mount, or when results are cleared (re-run/un-skip)
-    }, [activeExecutionHeat?.id, hasPlaceholders, isCompleted, prepareHeat, timerState]);
-
-    const onNextHeatRef = useRef(onNextHeat);
-    useEffect(() => {
-        onNextHeatRef.current = onNextHeat;
-    }, [onNextHeat]);
+    // The race-day flow (#13). What used to be six mutually-guarding effects
+    // with two refs, a mirror state and an `eslint-disable` is now one machine
+    // in `raceFlow.ts`, tested without rendering. This component supplies what
+    // it can see and performs what comes back.
+    const flow = useRaceFlow(
+        {
+            heatId: activeExecutionHeat?.id ?? null,
+            phase,
+            timerState,
+            hasRecordedTimes,
+            hasNextHeat: !!nextExecutionHeat,
+            autoAdvanceEnabled: autoAdvanceHeat,
+            hasRoundSummary: !!roundSummary,
+            roundSummaryId: roundSummary?.roundId ?? null,
+        },
+        {
+            onPrepareHeat: (heatId) => { prepareHeat({ heatId }); },
+            onAdvance: onNextHeat,
+        },
+    );
+    const autoAdvanceCountdown = flow.countdown;
+    const isRoundSummaryOpen = flow.screen.kind === 'ROUND_SUMMARY';
 
     useEffect(() => {
-        // Only trigger auto-advance countdown if we have actual recorded times.
-        // For skipped heats, we advance immediately in the handler.
-        if (shouldResetAutoAdvance) {
-            if (autoAdvanceTimeoutRef.current) {
-                clearTimeout(autoAdvanceTimeoutRef.current);
-                autoAdvanceTimeoutRef.current = null;
-            }
-            return;
-        }
-
-        setAutoAdvanceCountdown(10);
+        if (!isRunning) return;
+        const startTime = Date.now();
         const interval = setInterval(() => {
-            setAutoAdvanceCountdown(prev => {
-                if (prev === null || prev <= 1) {
-                    clearInterval(interval);
-                    return null;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        autoAdvanceTimeoutRef.current = setTimeout(() => {
-            onNextHeatRef.current();
-        }, 10000);
+            setElapsedSeconds((Date.now() - startTime) / 1000);
+        }, 100);
+        // Resetting on the way out replaces a second effect that mirrored
+        // `isRunning` into `prevIsRunning` purely to notice the same edge.
         return () => {
             clearInterval(interval);
-            if (autoAdvanceTimeoutRef.current) {
-                clearTimeout(autoAdvanceTimeoutRef.current);
-                autoAdvanceTimeoutRef.current = null;
-            }
-        };
-    }, [shouldResetAutoAdvance]);
-
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isRunning) {
-            const startTime = Date.now();
-            interval = setInterval(() => {
-                const now = Date.now();
-                setElapsedSeconds((now - startTime) / 1000);
-            }, 100);
-        }
-        return () => {
-            if (interval) clearInterval(interval);
+            setElapsedSeconds(0);
         };
     }, [isRunning]);
 
@@ -278,12 +212,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const handleSkipHeat = async () => {
         if (window.confirm("Are you sure you want to skip this heat? No results will be recorded.")) {
-            // Clear auto-advance timeout if it's running
-            if (autoAdvanceTimeoutRef.current) {
-                clearTimeout(autoAdvanceTimeoutRef.current);
-                autoAdvanceTimeoutRef.current = null;
-            }
-            setAutoAdvanceCountdown(null);
+            // A skip advances through the handler below rather than waiting out
+            // the countdown, so call the countdown off first.
+            flow.cancelCountdown();
 
             const currentHeatId = activeExecutionHeat.id;
             const skippedResults = storedLanes.map((l) => ({
@@ -333,11 +264,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             className="primary-btn"
                                             onClick={() => {
-                                                if (autoAdvanceTimeoutRef.current) {
-                                                    clearTimeout(autoAdvanceTimeoutRef.current);
-                                                    autoAdvanceTimeoutRef.current = null;
-                                                }
-                                                setAutoAdvanceCountdown(null);
+                                                flow.cancelCountdown();
                                                 onNextHeat();
                                             }}
                                             style={{
@@ -356,13 +283,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         </button>
                                         {autoAdvanceCountdown !== null && (
                                             <button
-                                                onClick={() => {
-                                                    if (autoAdvanceTimeoutRef.current) {
-                                                        clearTimeout(autoAdvanceTimeoutRef.current);
-                                                        autoAdvanceTimeoutRef.current = null;
-                                                    }
-                                                    setAutoAdvanceCountdown(null);
-                                                }}
+                                                onClick={flow.cancelCountdown}
                                                 style={{
                                                     padding: '6px 14px',
                                                     fontSize: '0.9rem',
@@ -754,7 +675,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             {/* Round Summary Modal */}
             <Modal
                 isOpen={!!roundSummary && isRoundSummaryOpen}
-                onClose={() => setIsRoundSummaryOpen(false)}
+                onClose={flow.dismissSummary}
                 title="Round Complete!"
             >
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
