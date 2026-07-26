@@ -10,10 +10,10 @@ import contextlib
 import logging
 import re
 from collections import deque
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any
 
 import serial
 from sqlalchemy.orm import Session
@@ -69,13 +69,13 @@ class SerialLogEntry:
 @dataclass
 class TimerStatus:
     state: str
-    device_name: Optional[str]
-    lane_count: Optional[int]
-    active_heat_id: Optional[int]
-    last_error: Optional[str]
+    device_name: str | None
+    lane_count: int | None
+    active_heat_id: int | None
+    last_error: str | None
     pending_results: list[dict[str, Any]] = field(default_factory=list)
     serial_log: list[SerialLogEntry] = field(default_factory=list)
-    racer_by_lane: dict[int, Optional[int]] = field(default_factory=dict)
+    racer_by_lane: dict[int, int | None] = field(default_factory=dict)
 
 
 SessionFactory = Callable[[], Session]
@@ -86,7 +86,7 @@ class TimerManager:
         self,
         track_id: int,
         device: TimerDevice,
-        session_factory: Optional[SessionFactory] = None,
+        session_factory: SessionFactory | None = None,
     ) -> None:
         """Create a manager for one track.
 
@@ -99,18 +99,18 @@ class TimerManager:
         self._device = device
         self._session_factory: SessionFactory = session_factory or SessionLocal
         self._buf: bytes = b""
-        self._active_heat_id: Optional[int] = None
-        self._active_heat_kind: Optional[models.HeatKind] = None
+        self._active_heat_id: int | None = None
+        self._active_heat_kind: models.HeatKind | None = None
         self._lane_mask: int = 0
         self._pending_results: dict[int, LaneResult] = {}
-        self._racer_by_lane: dict[int, Optional[int]] = {}
-        self._last_error: Optional[str] = None
+        self._racer_by_lane: dict[int, int | None] = {}
+        self._last_error: str | None = None
         self._write_fn: Callable[[bytes], Awaitable[None]] = self._noop_write
-        self._serial: Optional[serial.Serial] = None
-        self._read_task: Optional[asyncio.Task] = None
-        self._direct_port: Optional[str] = None
-        self._watchdog_task: Optional[asyncio.Task] = None
-        self._running_since: Optional[float] = None
+        self._serial: serial.Serial | None = None
+        self._read_task: asyncio.Task | None = None
+        self._direct_port: str | None = None
+        self._watchdog_task: asyncio.Task | None = None
+        self._running_since: float | None = None
         self._event_lock = asyncio.Lock()
         self._serial_log: deque = deque(maxlen=MAX_SERIAL_LOG)
         # Queue of (command, expected_response_pattern) for commands that have
@@ -220,7 +220,7 @@ class TimerManager:
         heat_id: int,
         kind: models.HeatKind,
         lane_mask: int,
-        racer_by_lane: Optional[dict[int, Optional[int]]] = None,
+        racer_by_lane: dict[int, int | None] | None = None,
     ) -> None:
         """Arm the timer for a heat. Sends device commands and transitions to ARMED.
 
@@ -781,7 +781,7 @@ class TimerManager:
 
 async def initialize_timer_managers(
     registry: dict[int, TimerManager],
-    session_factory: Optional[SessionFactory] = None,
+    session_factory: SessionFactory | None = None,
 ) -> None:
     """Query all Track records and create a TimerManager for each.
 

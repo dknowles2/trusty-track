@@ -22,18 +22,17 @@ Create Date: 2026-07-25
 """
 
 from collections.abc import Sequence
-from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0004_debug_mode_notnull"
-down_revision: Union[str, Sequence[str], None] = "0003_heat_lanes"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "0003_heat_lanes"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
-def _debug_mode_column() -> Union[dict, None]:
+def _debug_mode_column() -> dict | None:
     inspector = sa.inspect(op.get_bind())
     if "groups" not in set(inspector.get_table_names()):
         return None

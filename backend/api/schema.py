@@ -126,9 +126,9 @@ class LaneResult:
     """
 
     lane: int
-    racer_id: Optional[int]
-    time: Optional[float]
-    place: Optional[int]
+    racer_id: int | None
+    time: float | None
+    place: int | None
 
 
 @strawberry.type
@@ -150,10 +150,10 @@ class HeatLane:
     """
 
     lane: int
-    racer_id: Optional[int]
-    placeholder_slot: Optional[int]
-    time: Optional[float]
-    place: Optional[int]
+    racer_id: int | None
+    placeholder_slot: int | None
+    time: float | None
+    place: int | None
     skipped: bool
 
 
@@ -167,7 +167,7 @@ class Heat:
     race_id: int
     round_id: int
     heat_number: int
-    lane_results: Optional[str]
+    lane_results: str | None
 
     @strawberry.field
     def lanes(self, info: Info) -> list[HeatLane]:
@@ -181,7 +181,7 @@ class Heat:
         return self.round.round_number if self.round else 0
 
     @strawberry.field
-    def round_name(self) -> Optional[str]:
+    def round_name(self) -> str | None:
         return self.round.name if self.round else None
 
     @strawberry.field
@@ -199,7 +199,7 @@ class AdvancementRacer:
     racer_id: int
     first_name: str
     last_name: str
-    car_number: Optional[int]
+    car_number: int | None
     den_name: str
     score: float
     rank: int
@@ -216,8 +216,8 @@ class AdvancementStatus:
     requires_advancement: bool
     already_advanced: bool
     advancing_racers: list[AdvancementRacer]
-    source: Optional[str]
-    num_racers: Optional[int]
+    source: str | None
+    num_racers: int | None
 
 
 def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementStatus:
@@ -323,10 +323,10 @@ class Round:
     id: int
     race_id: int
     round_number: int
-    name: Optional[str]
+    name: str | None
     scheduling_strategy: str
-    advancement_source: Optional[str]
-    advancement_num_racers: Optional[int]
+    advancement_source: str | None
+    advancement_num_racers: int | None
 
     @strawberry.field
     def heats(self, info: Info) -> list[Heat]:
@@ -347,10 +347,10 @@ class InitialConfigStatus:
 
     initialized: bool
     version: str
-    group_name: Optional[str] = None
+    group_name: str | None = None
     debug_mode: bool = False
     tracks: list["Track"] = strawberry.field(default_factory=list)
-    current_race_id: Optional[int] = None
+    current_race_id: int | None = None
 
 
 @strawberry.input
@@ -372,14 +372,14 @@ class RacerInput:
 
     first_name: str
     last_name: str
-    car_number: Optional[int] = None
-    den_id: Optional[int] = None
-    car_name: Optional[str] = None
+    car_number: int | None = None
+    den_id: int | None = None
+    car_name: str | None = None
     car_passed_inspection: bool = False
-    car_weight: Optional[float] = None
-    racer_image_url: Optional[str] = None
-    car_image_url: Optional[str] = None
-    race_id: Optional[int] = None
+    car_weight: float | None = None
+    racer_image_url: str | None = None
+    car_image_url: str | None = None
+    race_id: int | None = None
 
 
 @strawberry.input
@@ -390,9 +390,9 @@ class DenInput:
 
     name: str
     color: str = "#000000"
-    rank: Optional[str] = None
-    car_number_range_start: Optional[int] = None
-    car_number_range_end: Optional[int] = None
+    rank: str | None = None
+    car_number_range_start: int | None = None
+    car_number_range_end: int | None = None
 
 
 @strawberry.input
@@ -402,8 +402,8 @@ class RaceInput:
     """
 
     name: str
-    date_time: Optional[str] = None
-    location: Optional[str] = None
+    date_time: str | None = None
+    location: str | None = None
     group_id: int = 1
     track_id: int
     scoring_strategy: str = "TIMED"
@@ -418,15 +418,15 @@ class RaceUpdateInput:
     Input type for updating an existing race event.
     """
 
-    name: Optional[str] = None
-    date_time: Optional[str] = None
-    location: Optional[str] = None
-    track_id: Optional[int] = None
-    scoring_strategy: Optional[str] = None
-    car_numbering_strategy: Optional[str] = None
-    global_start_number: Optional[int] = None
-    championship_trophies: Optional[int] = None
-    auto_advance_heat: Optional[bool] = None
+    name: str | None = None
+    date_time: str | None = None
+    location: str | None = None
+    track_id: int | None = None
+    scoring_strategy: str | None = None
+    car_numbering_strategy: str | None = None
+    global_start_number: int | None = None
+    championship_trophies: int | None = None
+    auto_advance_heat: bool | None = None
 
 
 @strawberry.input
@@ -437,9 +437,9 @@ class TrackInput:
 
     name: str = "Main Track"
     lane_count: int = 4
-    length_feet: Optional[int] = None
+    length_feet: int | None = None
     timer_type: str = "FAKE"
-    serial_port: Optional[str] = None
+    serial_port: str | None = None
 
 
 @strawberry.input
@@ -479,7 +479,7 @@ class TimesPerLane:
     """Average time a racer recorded in a specific lane."""
 
     lane: int
-    avg_time: Optional[float]
+    avg_time: float | None
 
 
 @strawberry.type
@@ -489,14 +489,14 @@ class RacerStat:
     racer_id: int
     first_name: str
     last_name: str
-    car_number: Optional[int]
+    car_number: int | None
     den_name: str
     heats_completed: int
     heats_scheduled: int
-    min_time: Optional[float]
-    max_time: Optional[float]
-    mean_time: Optional[float]
-    std_dev: Optional[float]
+    min_time: float | None
+    max_time: float | None
+    mean_time: float | None
+    std_dev: float | None
     times_per_lane: list[TimesPerLane]
 
 
@@ -505,9 +505,9 @@ class LaneTimeStat:
     """Fairness statistics for a single lane."""
 
     lane: int
-    avg_time: Optional[float]
+    avg_time: float | None
     heat_count: int
-    relative_advantage_pct: Optional[float]
+    relative_advantage_pct: float | None
 
 
 @strawberry.type
@@ -518,9 +518,9 @@ class HeatHighlight:
     round_name: str
     heat_number: int
     global_heat_number: int
-    racer_name: Optional[str]
-    time: Optional[float]
-    margin: Optional[float]
+    racer_name: str | None
+    time: float | None
+    margin: float | None
 
 
 @strawberry.type
@@ -531,8 +531,8 @@ class DenStat:
     den_name: str
     den_color: str
     racer_count: int
-    avg_score: Optional[float]
-    best_racer_name: Optional[str]
+    avg_score: float | None
+    best_racer_name: str | None
 
 
 @strawberry.type
@@ -543,11 +543,11 @@ class HeatResultRow:
     heat_number: int
     global_heat_number: int
     lane: int
-    car_number: Optional[int]
+    car_number: int | None
     racer_first_name: str
     racer_last_name: str
-    time: Optional[float]
-    place: Optional[int]
+    time: float | None
+    place: int | None
 
 
 @strawberry.type
@@ -576,12 +576,12 @@ class LeaderboardEntry:
     racer_id: int
     first_name: str
     last_name: str
-    car_number: Optional[int]
-    den_id: Optional[int]
+    car_number: int | None
+    den_id: int | None
     den_name: str
     score: float
     heats_completed: int
-    racer_image_url: Optional[str]
+    racer_image_url: str | None
     rank: int
 
 
@@ -592,10 +592,10 @@ class Den:
     id: int
     name: str
     color: str
-    rank: Optional[str]
+    rank: str | None
     race_id: int
-    car_number_range_start: Optional[int]
-    car_number_range_end: Optional[int]
+    car_number_range_start: int | None
+    car_number_range_end: int | None
 
     @strawberry.field
     def racers(self, info: Info) -> list["Racer"]:
@@ -633,9 +633,9 @@ class RoundCreateInput:
     """Input for creating a new race round."""
 
     scheduling_strategy: str = "PPC"
-    name: Optional[str] = None
-    advancement_source: Optional[str] = None
-    advancement_num_racers: Optional[int] = None
+    name: str | None = None
+    advancement_source: str | None = None
+    advancement_num_racers: int | None = None
     runs_per_lane: int = 1
     general_type: str = "PACK"
 
@@ -665,17 +665,17 @@ class Racer:
     id: int
     first_name: str
     last_name: str
-    car_number: Optional[int]
-    car_name: Optional[str]
+    car_number: int | None
+    car_name: str | None
     car_passed_inspection: bool
-    car_weight: Optional[float]
-    racer_image_url: Optional[str]
-    car_image_url: Optional[str]
-    den_id: Optional[int]
+    car_weight: float | None
+    racer_image_url: str | None
+    car_image_url: str | None
+    den_id: int | None
     race_id: int
 
     @strawberry.field
-    def den(self, info: Info) -> Optional[Den]:
+    def den(self, info: Info) -> Den | None:
         """Get the den this racer belongs to, if any."""
         if not self.den_id:
             return None
@@ -690,10 +690,10 @@ class Race:
 
     id: int
     name: str
-    date_time: Optional[str]
-    location: Optional[str]
+    date_time: str | None
+    location: str | None
     group_id: int
-    track_id: Optional[int]
+    track_id: int | None
     car_numbering_strategy: str
     global_start_number: int
     championship_trophies: int
@@ -704,7 +704,7 @@ class Race:
     def leaderboard(
         self,
         info: Info,
-        round_id: Optional[int] = None,
+        round_id: int | None = None,
         include_all_rounds: bool = False,
     ) -> list[LeaderboardEntry]:
         """Standings for this race.
@@ -793,9 +793,9 @@ class Track:
     id: int
     name: str
     lane_count: int
-    length_feet: Optional[int]
+    length_feet: int | None
     timer_type: str
-    serial_port: Optional[str]
+    serial_port: str | None
 
     @strawberry.field
     def races(self, info: Info) -> list[Race]:
@@ -863,7 +863,7 @@ class FreeRaceLaneAssignment:
     """A single lane assignment returned from a query."""
 
     lane: int
-    racer_id: Optional[int]
+    racer_id: int | None
 
 
 @strawberry.input
@@ -871,7 +871,7 @@ class FreeRaceLaneAssignmentInput:
     """A single lane assignment for a free race heat."""
 
     lane: int
-    racer_id: Optional[int] = None  # None = empty lane
+    racer_id: int | None = None  # None = empty lane
 
 
 @strawberry.input
@@ -884,10 +884,10 @@ class HeatLaneInput:
     """
 
     lane: int
-    racer_id: Optional[int] = None
-    placeholder_slot: Optional[int] = None
-    time: Optional[float] = None
-    place: Optional[int] = None
+    racer_id: int | None = None
+    placeholder_slot: int | None = None
+    time: float | None = None
+    place: int | None = None
     skipped: bool = False
 
 
@@ -931,13 +931,13 @@ class TimerStatus:
     """Current state of the timer for a track."""
 
     state: str
-    device_name: Optional[str]
-    lane_count: Optional[int]
-    active_heat_id: Optional[int]
-    last_error: Optional[str]
+    device_name: str | None
+    lane_count: int | None
+    active_heat_id: int | None
+    last_error: str | None
     pending_results: list[LaneResult] = strawberry.field(default_factory=list)
     serial_log: list[SerialLogEntry] = strawberry.field(default_factory=list)
-    racer_by_lane: Optional[str] = None  # JSON mapping of lane -> racer_id
+    racer_by_lane: str | None = None  # JSON mapping of lane -> racer_id
 
 
 #: The domain's phase enum, published as-is. Wrapped from here rather than
@@ -958,10 +958,10 @@ class LiveLane:
     """
 
     lane: int
-    racer_id: Optional[int]
-    placeholder_slot: Optional[int]
-    time: Optional[float]
-    place: Optional[int]
+    racer_id: int | None
+    placeholder_slot: int | None
+    time: float | None
+    place: int | None
     skipped: bool
     pending: bool
 
@@ -978,7 +978,7 @@ class HeatSession:
     """
 
     track_id: int
-    heat_id: Optional[int]
+    heat_id: int | None
     phase: HeatPhase
     #: The device's own state (``IDLE``, ``ARMED``, ``FAULT``…), which is a
     #: different question from :attr:`phase` and still worth showing.
@@ -1026,7 +1026,7 @@ def _build_heat_session(
     db: Session,
     timer_managers: Mapping[int, Any],
     track_id: int,
-    heat_id: Optional[int] = None,
+    heat_id: int | None = None,
 ) -> HeatSession:
     """Assemble the live view of a track from the heat and the timer.
 
@@ -1131,13 +1131,13 @@ class Query:
             return "unknown"
 
     @strawberry.field
-    def race(self, info: Info, race_id: int) -> Optional[Race]:
+    def race(self, info: Info, race_id: int) -> Race | None:
         """Get a single race by ID."""
         return typing.cast(Any, crud.get_race(info.context["db"], race_id=race_id))
 
     @strawberry.field
     def racers(
-        self, info: Info, race_id: Optional[int] = None, skip: int = 0, limit: int = 100
+        self, info: Info, race_id: int | None = None, skip: int = 0, limit: int = 100
     ) -> list[Racer]:
         """Get a list of racers, optionally filtering by race_id."""
         return typing.cast(
@@ -1148,7 +1148,7 @@ class Query:
         )
 
     @strawberry.field
-    def racer(self, info: Info, racer_id: int) -> Optional[Racer]:
+    def racer(self, info: Info, racer_id: int) -> Racer | None:
         """Get a single racer by ID."""
         return typing.cast(
             Any,
@@ -1216,7 +1216,7 @@ class Query:
         )
 
     @strawberry.field
-    def active_free_race_heat(self, info: Info, race_id: int) -> Optional[FreeRaceHeat]:
+    def active_free_race_heat(self, info: Info, race_id: int) -> FreeRaceHeat | None:
         """The most recently started free race heat with no result yet.
 
         None if nothing is in progress. Used by the Observation page to show
@@ -1250,7 +1250,7 @@ class Query:
         ]
 
     @strawberry.field
-    def timer_status(self, info: Info, track_id: int) -> Optional[TimerStatus]:
+    def timer_status(self, info: Info, track_id: int) -> TimerStatus | None:
         """Return the current timer state for a track."""
         timer_managers = info.context.get("timer_managers", {})
         mgr = timer_managers.get(track_id)
@@ -1260,7 +1260,7 @@ class Query:
 
     @strawberry.field
     def heat_session(
-        self, info: Info, track_id: int, heat_id: Optional[int] = None
+        self, info: Info, track_id: int, heat_id: int | None = None
     ) -> HeatSession:
         """The live view of a track: the heat, merged with the timer (#7).
 
@@ -1278,7 +1278,7 @@ class Query:
         )
 
     @strawberry.field
-    def race_stats(self, info: Info, race_id: int) -> Optional[RaceStats]:
+    def race_stats(self, info: Info, race_id: int) -> RaceStats | None:
         """Get racer stats, lane fairness, and highlights for a race."""
         from backend.services import stats as race_stats_module
 
@@ -1378,7 +1378,7 @@ class Mutation:
         return new_race
 
     @strawberry.mutation
-    def update_race(self, info: Info, id: int, race: RaceUpdateInput) -> Optional[Race]:
+    def update_race(self, info: Info, id: int, race: RaceUpdateInput) -> Race | None:
         """Update an existing race."""
         db = info.context["db"]
         data = strawberry.asdict(race)
@@ -1409,7 +1409,7 @@ class Mutation:
     @strawberry.mutation
     async def update_racer(
         self, info: Info, id: int, racer: RacerInput
-    ) -> Optional[Racer]:
+    ) -> Racer | None:
         """Update an existing racer."""
         db = info.context["db"]
         data = strawberry.asdict(racer)
@@ -1441,10 +1441,10 @@ class Mutation:
         info: Info,
         id: int,
         passed_inspection: bool,
-        weight: Optional[float],
-        racer_image_url: Optional[str] = None,
-        car_image_url: Optional[str] = None,
-    ) -> Optional[Racer]:
+        weight: float | None,
+        racer_image_url: str | None = None,
+        car_image_url: str | None = None,
+    ) -> Racer | None:
         """Check in a racer."""
         db = info.context["db"]
         racer_update = schemas.RacerUpdate(
@@ -1473,7 +1473,7 @@ class Mutation:
         return new_den
 
     @strawberry.mutation
-    async def update_den(self, info: Info, id: int, den: DenInput) -> Optional[Den]:
+    async def update_den(self, info: Info, id: int, den: DenInput) -> Den | None:
         """Update an existing den."""
         db = info.context["db"]
         den_update = schemas.DenUpdate(**typing.cast(Any, strawberry.asdict(den)))
@@ -1520,7 +1520,7 @@ class Mutation:
     @strawberry.mutation
     async def update_track(
         self, info: Info, id: int, track: TrackInput
-    ) -> Optional[Track]:
+    ) -> Track | None:
         """Update an existing track."""
         db = info.context["db"]
         db_track = crud.get_track(db, id)
@@ -1889,7 +1889,7 @@ class Mutation:
             return False
 
         lane_mask = 0
-        racer_by_lane: dict[int, Optional[int]] = {}
+        racer_by_lane: dict[int, int | None] = {}
         for lane in lanes.parse(heat.lane_results):
             if lane.racer_id is not None:
                 lane_mask |= 1 << (lane.lane - 1)
@@ -1981,7 +1981,7 @@ class Mutation:
         # Named `lanes` on the wire; the local name would shadow the domain
         # module this resolver uses.
         lanes_input: Annotated[list[HeatLaneInput], strawberry.argument(name="lanes")],
-    ) -> Optional[Heat]:
+    ) -> Heat | None:
         """Update results for a heat.
 
         Took a JSON string until #5. The server could not tell a malformed blob
@@ -2048,7 +2048,7 @@ class Mutation:
 
     @strawberry.mutation
     async def bulk_move_to_den(
-        self, info: Info, racer_ids: list[int], den_id: Optional[int]
+        self, info: Info, racer_ids: list[int], den_id: int | None
     ) -> bool:
         """Bulk move racers to a den."""
         db = info.context["db"]
@@ -2444,7 +2444,7 @@ class Mutation:
         info: Info,
         heat_id: int,
         lanes_input: Annotated[list[HeatLaneInput], strawberry.argument(name="lanes")],
-    ) -> Optional[FreeRaceHeat]:
+    ) -> FreeRaceHeat | None:
         """Record timing results for a free race heat.
 
         Took a JSON string until #5, and answered a malformed one with a silent
@@ -2576,7 +2576,7 @@ class _HeatSnapshot:
 class _RoundSnapshot:
     __slots__ = ("round_number", "name")
 
-    def __init__(self, round_number: int, name: Optional[str]) -> None:
+    def __init__(self, round_number: int, name: str | None) -> None:
         self.round_number = round_number
         self.name = name
 
@@ -2620,9 +2620,9 @@ class RaceStateChangedEvent:
     race_id: int
     changed_at: str  # ISO 8601 UTC timestamp
     kind: RaceChangeKind = RaceChangeKind.OTHER
-    heat: Optional[Heat] = None
-    racer: Optional[Racer] = None
-    round_id: Optional[int] = None
+    heat: Heat | None = None
+    racer: Racer | None = None
+    round_id: int | None = None
 
 
 @strawberry.type
@@ -2631,10 +2631,10 @@ class TimingStatsLane:
 
     lane_number: int
     racer_name: str
-    car_name: Optional[str]
-    time: Optional[float]
-    place: Optional[int]
-    racer_image_url: Optional[str]
+    car_name: str | None
+    time: float | None
+    place: int | None
+    racer_image_url: str | None
 
 
 @strawberry.type
@@ -2651,9 +2651,9 @@ class TimingStats:
 async def _publish_race_state(
     race_id: int,
     kind: RaceChangeKind = RaceChangeKind.OTHER,
-    heat: Optional[models.Heat] = None,
-    racer: Optional[models.Racer] = None,
-    round_id: Optional[int] = None,
+    heat: models.Heat | None = None,
+    racer: models.Racer | None = None,
+    round_id: int | None = None,
 ) -> None:
     """Publish a RaceStateChangedEvent for *race_id* on the pub/sub bus.
 
@@ -2740,7 +2740,7 @@ class Subscription:
 
     @strawberry.subscription
     async def heat_session(
-        self, info: Info, track_id: int, heat_id: Optional[int] = None
+        self, info: Info, track_id: int, heat_id: int | None = None
     ) -> AsyncGenerator[HeatSession, None]:
         """Subscribe to the live view of a track (#7).
 
@@ -2852,7 +2852,7 @@ class Subscription:
     @strawberry.subscription
     async def currently_racing(
         self, info: Info, race_id: int
-    ) -> AsyncGenerator[Optional[Heat], None]:
+    ) -> AsyncGenerator[Heat | None, None]:
         """Subscribe to the current heat for a specific race."""
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]
@@ -2883,7 +2883,7 @@ class Subscription:
     @strawberry.subscription
     async def timing_stats(
         self, info: Info, race_id: int
-    ) -> AsyncGenerator[Optional[TimingStats], None]:
+    ) -> AsyncGenerator[TimingStats | None, None]:
         """Subscribe to the most recently completed heat's timing results."""
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]
@@ -3011,7 +3011,7 @@ class Subscription:
     @strawberry.subscription
     async def free_race_heat(
         self, info: Info, heat_id: int
-    ) -> AsyncGenerator[Optional[FreeRaceHeat], None]:
+    ) -> AsyncGenerator[FreeRaceHeat | None, None]:
         """Subscribe to updates for a specific free race heat."""
         db = info.context["db"]
 
@@ -3034,7 +3034,7 @@ class Subscription:
     @strawberry.subscription
     async def active_free_race_heat(
         self, info: Info, race_id: int
-    ) -> AsyncGenerator[Optional[FreeRaceHeat], None]:
+    ) -> AsyncGenerator[FreeRaceHeat | None, None]:
         """Subscribe to the active (uncompleted) free race heat for a specific race."""
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]

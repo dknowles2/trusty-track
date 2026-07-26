@@ -8,9 +8,8 @@ and enforced by swallowing a ``ValueError``. The rules are written down here.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import Callable
 
 PACK = "PACK"
 DEN = "DEN"

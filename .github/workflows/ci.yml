@@ -8,8 +8,16 @@ on:
 
 jobs:
   backend-test:
-    name: Backend Tests
+    name: Backend Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor and the ceiling. 3.10 is what `requires-python` promises and
+        # what `install-pi.sh` runs on — Debian's system interpreter, not a uv
+        # download — so it has to be tested rather than merely declared. 3.12 is
+        # what `install.sh`, the Dockerfile and the release builds pin.
+        python-version: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v4
 
@@ -18,7 +26,7 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: uv sync

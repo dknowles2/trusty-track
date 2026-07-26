@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from .models import (
@@ -14,9 +12,9 @@ from .models import (
 class TrackBase(BaseModel):
     name: str = "Main Track"
     lane_count: int = 4
-    length_feet: Optional[int] = None
+    length_feet: int | None = None
     timer_type: TimerType = TimerType.FAKE
-    serial_port: Optional[str] = None
+    serial_port: str | None = None
 
 
 class PopulateTestDataRequest(BaseModel):
@@ -30,9 +28,9 @@ class PopulateTestDataRequest(BaseModel):
 class DenBase(BaseModel):
     name: str
     color: str = "#000000"
-    rank: Optional[Rank] = None
-    car_number_range_start: Optional[int] = None
-    car_number_range_end: Optional[int] = None
+    rank: Rank | None = None
+    car_number_range_start: int | None = None
+    car_number_range_end: int | None = None
 
 
 class DenCreate(DenBase):
@@ -40,11 +38,11 @@ class DenCreate(DenBase):
 
 
 class DenUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-    rank: Optional[Rank] = None
-    car_number_range_start: Optional[int] = None
-    car_number_range_end: Optional[int] = None
+    name: str | None = None
+    color: str | None = None
+    rank: Rank | None = None
+    car_number_range_start: int | None = None
+    car_number_range_end: int | None = None
 
 
 class Den(DenBase):
@@ -72,40 +70,40 @@ class InitialConfigCreate(BaseModel):
 
 class InitialConfigStatus(BaseModel):
     initialized: bool
-    group_name: Optional[str] = None
+    group_name: str | None = None
     debug_mode: bool = False
     tracks: list[Track] = []
-    current_race_id: Optional[int] = None
+    current_race_id: int | None = None
 
 
 class RacerBase(BaseModel):
     first_name: str
     last_name: str
-    car_number: Optional[int] = None
-    den_id: Optional[int] = None
-    car_name: Optional[str] = None
+    car_number: int | None = None
+    den_id: int | None = None
+    car_name: str | None = None
     car_passed_inspection: bool = False
-    car_weight: Optional[float] = None
-    racer_image_url: Optional[str] = None
-    car_image_url: Optional[str] = None
-    racing_group_id: Optional[int] = None
+    car_weight: float | None = None
+    racer_image_url: str | None = None
+    car_image_url: str | None = None
+    racing_group_id: int | None = None
 
 
 class RacerCreate(RacerBase):
-    race_id: Optional[int] = None
+    race_id: int | None = None
 
 
 class RacerUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    car_number: Optional[int] = None
-    den_id: Optional[int] = None
-    car_name: Optional[str] = None
-    car_passed_inspection: Optional[bool] = None
-    car_weight: Optional[float] = None
-    racer_image_url: Optional[str] = None
-    car_image_url: Optional[str] = None
-    racing_group_id: Optional[int] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    car_number: int | None = None
+    den_id: int | None = None
+    car_name: str | None = None
+    car_passed_inspection: bool | None = None
+    car_weight: float | None = None
+    racer_image_url: str | None = None
+    car_image_url: str | None = None
+    racing_group_id: int | None = None
 
 
 class Racer(RacerBase):
@@ -117,9 +115,9 @@ class Racer(RacerBase):
 
 class RacingGroupBase(BaseModel):
     name: str
-    den_id: Optional[int] = None
-    car_number_range_start: Optional[int] = None
-    car_number_range_end: Optional[int] = None
+    den_id: int | None = None
+    car_number_range_start: int | None = None
+    car_number_range_end: int | None = None
 
 
 class RacingGroupCreate(RacingGroupBase):
@@ -136,13 +134,13 @@ class RacingGroup(RacingGroupBase):
 
 class RaceBase(BaseModel):
     name: str
-    date_time: Optional[str] = None
-    location: Optional[str] = None
+    date_time: str | None = None
+    location: str | None = None
     car_numbering_strategy: CarNumberingStrategy = CarNumberingStrategy.MANUAL
     global_start_number: int = 1
     championship_trophies: int = 3
     scoring_strategy: ScoringStrategy = ScoringStrategy.TIMED
-    rules_configuration: Optional[str] = None
+    rules_configuration: str | None = None
 
     @field_validator("name")
     @classmethod
@@ -156,20 +154,20 @@ class RaceCreate(RaceBase):
     group_id: int
     track_id: int
     name: str
-    date_time: Optional[str] = None
-    location: Optional[str] = None
+    date_time: str | None = None
+    location: str | None = None
 
 
 class RaceUpdate(BaseModel):
-    name: Optional[str] = None
-    track_id: Optional[int] = None
-    date_time: Optional[str] = None
-    location: Optional[str] = None
-    scoring_strategy: Optional[ScoringStrategy] = None
-    car_numbering_strategy: Optional[CarNumberingStrategy] = None
-    global_start_number: Optional[int] = None
-    championship_trophies: Optional[int] = None
-    auto_advance_heat: Optional[bool] = None
+    name: str | None = None
+    track_id: int | None = None
+    date_time: str | None = None
+    location: str | None = None
+    scoring_strategy: ScoringStrategy | None = None
+    car_numbering_strategy: CarNumberingStrategy | None = None
+    global_start_number: int | None = None
+    championship_trophies: int | None = None
+    auto_advance_heat: bool | None = None
 
 
 class Race(RaceBase):
@@ -202,15 +200,15 @@ class Group(GroupBase):
 
 class RoundBase(BaseModel):
     round_number: int = 1
-    name: Optional[str] = None
+    name: str | None = None
     scheduling_strategy: SchedulingStrategy = SchedulingStrategy.PPC
-    den_id: Optional[int] = None
+    den_id: int | None = None
 
 
 class RoundCreate(RoundBase):
     race_id: int
-    advancement_source: Optional[str] = None
-    advancement_num_racers: Optional[int] = None
+    advancement_source: str | None = None
+    advancement_num_racers: int | None = None
     runs_per_lane: int = 1
     general_type: str = (
         "PACK"  # Only used if advancement_source is None: "PACK" or "DEN"
@@ -218,21 +216,21 @@ class RoundCreate(RoundBase):
 
 
 class RoundUpdate(BaseModel):
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class Round(RoundBase):
     id: int
     race_id: int
-    advancement_source: Optional[str] = None
-    advancement_num_racers: Optional[int] = None
+    advancement_source: str | None = None
+    advancement_num_racers: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class HeatBase(BaseModel):
     heat_number: int
-    lane_results: Optional[str] = (
+    lane_results: str | None = (
         None  # JSON string: [{"lane": 1, "racer_id": 10, "time": 3.45}, ...]
     )
 
@@ -247,9 +245,9 @@ class Heat(HeatBase):
     race_id: int
     round_id: int
     round_number: int  # Computed from related Round
-    round_name: Optional[str] = None  # Computed from related Round
-    advancement_num_racers: Optional[int] = None  # Computed from related Round
-    advancement_source: Optional[str] = None  # Computed from related Round
+    round_name: str | None = None  # Computed from related Round
+    advancement_num_racers: int | None = None  # Computed from related Round
+    advancement_source: str | None = None  # Computed from related Round
     total_participants: int = 0  # Computed from related Round
 
     model_config = ConfigDict(from_attributes=True)
@@ -279,7 +277,7 @@ class AdvancementRacer(BaseModel):
     racer_id: int
     first_name: str
     last_name: str
-    car_number: Optional[int]
+    car_number: int | None
     den_name: str
     score: float
     rank: int
@@ -291,8 +289,8 @@ class AdvancementStatus(BaseModel):
     requires_advancement: bool
     already_advanced: bool
     advancing_racers: list[AdvancementRacer] = []
-    source: Optional[str] = None
-    num_racers: Optional[int] = None
+    source: str | None = None
+    num_racers: int | None = None
 
 
 class WizardGeneralRound(BaseModel):
@@ -317,4 +315,4 @@ class BulkRacerActionRequest(BaseModel):
 
 
 class BulkRacerMoveRequest(BulkRacerActionRequest):
-    den_id: Optional[int] = None
+    den_id: int | None = None

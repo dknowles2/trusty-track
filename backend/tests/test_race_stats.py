@@ -224,7 +224,7 @@ def test_race_stats_multiple_heats(client, db):
     heats = _create_round_and_get_heats(client, race_id)
 
     # Record results in 2 heats for racer 0 (times: 3.0, 4.0 → mean 3.5, std_dev ~0.5)
-    for h, t1, t2 in zip(heats[:2], [3.0, 4.0], [3.5, 4.5]):
+    for h, t1, t2 in zip(heats[:2], [3.0, 4.0], [3.5, 4.5], strict=True):
         _record_heat_result(
             client,
             h["id"],

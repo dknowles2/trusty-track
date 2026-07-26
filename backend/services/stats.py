@@ -7,7 +7,6 @@ den comparisons, highlights, and exportable heat results for a race.
 
 import json
 import math
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -16,7 +15,7 @@ from backend.db import crud, models
 DNF_PENALTY = 9.999
 
 
-def compute_race_stats(db: Session, race_id: int) -> Optional[dict]:
+def compute_race_stats(db: Session, race_id: int) -> dict | None:
     """
     Top-level entry point for race statistics.
 
@@ -282,12 +281,12 @@ def _compute_highlights(heats_with_rounds: list, racer_map: dict) -> list:
     """
     Find fastest heat and closest race highlights.
     """
-    fastest_time: Optional[float] = None
-    fastest_heat_data: Optional[dict] = None
-    fastest_racer_name: Optional[str] = None
+    fastest_time: float | None = None
+    fastest_heat_data: dict | None = None
+    fastest_racer_name: str | None = None
 
-    closest_margin: Optional[float] = None
-    closest_heat_data: Optional[dict] = None
+    closest_margin: float | None = None
+    closest_heat_data: dict | None = None
 
     for item in heats_with_rounds:
         heat = item["heat"]
