@@ -561,6 +561,55 @@ class TimerManager:
                 current_place = i + 1
             res.place = current_place
 
+    def _armed_heat_is_stale(self, db: Session) -> str | None:
+        """Why the armed heat is no longer the one we armed, or ``None``.
+
+        Pure lookup, no state change, so it serves both the record path and
+        :meth:`revalidate_armed_heat`.
+        """
+        heat_id = self._active_heat_id
+        if heat_id is None:
+            return None
+
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if heat is None:
+            return f"Heat {heat_id} no longer exists"
+
+        # Absent means *unknown*, not "no racers" — a caller that did not
+        # supply a mapping has given us nothing to compare against.
+        armed = self._racer_by_lane
+        if not armed:
+            return None
+
+        current = {
+            lane.lane: lane.racer_id
+            for lane in lanes.parse(heat.lane_results)
+            if lane.racer_id is not None
+        }
+        if current != armed:
+            return (
+                f"Heat {heat_id} changed while it was armed "
+                f"(lanes were {armed}, are now {current})"
+            )
+        return None
+
+    async def revalidate_armed_heat(self, db: Session) -> str | None:
+        """Disarm now if the armed heat has changed underneath us.
+
+        Recording already refuses a stale heat, but only once the cars have
+        run — the operator finds out after the fact, with a set of times they
+        must now key in by hand. Calling this after anything that rewrites
+        heats moves that discovery to the moment it happens, while the track
+        is still empty.
+
+        Returns the reason it disarmed, or ``None`` if nothing was wrong.
+        """
+        reason = self._armed_heat_is_stale(db)
+        if reason is None:
+            return None
+        await self._abandon_run(f"{reason} — the heat has been disarmed")
+        return reason
+
     async def _abandon_run(self, reason: str) -> None:
         """Give up on the armed heat without writing anything to it.
 
@@ -603,27 +652,12 @@ class TimerManager:
 
         db = self._session_factory()
         try:
-            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if not heat:
-                await self._abandon_run(
-                    f"Heat {heat_id} no longer exists — results not recorded"
-                )
+            stale = self._armed_heat_is_stale(db)
+            if stale is not None:
+                await self._abandon_run(f"{stale} — results not recorded")
                 return
 
-            # The heat may not be the one we armed even when the id resolves.
-            # See :meth:`_abandon_run`.
-            armed = self._racer_by_lane
-            current = {
-                lane.lane: lane.racer_id
-                for lane in lanes.parse(heat.lane_results)
-                if lane.racer_id is not None
-            }
-            if armed and current != armed:
-                await self._abandon_run(
-                    f"Heat {heat_id} changed while it was armed "
-                    f"(lanes were {armed}, are now {current}) — results not recorded"
-                )
-                return
+            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
 
             # One path for both kinds since #6. A free race heat used to keep
             # its schedule in `lane_assignments` and this had to know that;

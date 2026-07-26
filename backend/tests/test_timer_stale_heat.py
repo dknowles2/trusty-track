@@ -7,6 +7,7 @@ corrects a preliminary time has the row replaced while the cars are on the
 track.
 """
 
+import asyncio
 import json
 
 import pytest
@@ -134,17 +135,19 @@ async def _finish(mgr: TimerManager) -> None:
 
 @pytest.mark.anyio
 async def test_a_deleted_heat_does_not_wedge_the_timer(db: Session):
-    """It used to return early, leaving RUNNING on a heat that was gone."""
-    race, r1, r2 = _setup(db, "wedge", extra_round=True)
-    for heat in crud.get_heats(db, race.id, round_id=r1.id):
-        _run_heat(db, heat)
+    """It used to return early, leaving RUNNING on a heat that was gone.
 
-    target = crud.get_heats(db, race.id, round_id=r2.id)[0]
+    Invalidation no longer deletes the row (#50 follow-up — see
+    `test_invalidation_keeps_the_armed_heat_id`), so the heat is deleted
+    outright here. That path is still live: `deleteHeat`, `deleteRound`, and
+    the regeneration fallback when a round's shape changes.
+    """
+    race, r1, _ = _setup(db, "wedge", extra_round=True)
+    target = crud.get_heats(db, race.id, round_id=r1.id)[0]
     mgr = await _arm(db, target)
 
-    # Correcting a preliminary time regenerates the championship round.
-    _run_heat(db, crud.get_heats(db, race.id, round_id=r1.id)[0], offset=0.5)
-    assert target.id not in [h.id for h in crud.get_heats(db, race.id, round_id=r2.id)]
+    db.delete(target)
+    db.commit()
 
     await _finish(mgr)
 
@@ -152,6 +155,26 @@ async def test_a_deleted_heat_does_not_wedge_the_timer(db: Session):
     assert status.state == TimerState.IDLE.value
     assert status.active_heat_id is None
     assert status.last_error and "no longer exists" in status.last_error
+
+
+@pytest.mark.anyio
+async def test_invalidation_keeps_the_armed_heat_id(db: Session):
+    """The row survives a rebuild now, so the id cannot dangle or be reused.
+
+    This is what removes the *silent* failure. A surviving row still has its
+    field re-drawn, which the lane check catches — but it can no longer be a
+    different heat wearing the same id.
+    """
+    race, r1, r2 = _setup(db, "stable", extra_round=True)
+    for heat in crud.get_heats(db, race.id, round_id=r1.id):
+        _run_heat(db, heat)
+
+    before = [h.id for h in crud.get_heats(db, race.id, round_id=r2.id)]
+
+    # Correcting a preliminary time invalidates the championship round.
+    _run_heat(db, crud.get_heats(db, race.id, round_id=r1.id)[0], offset=0.5)
+
+    assert [h.id for h in crud.get_heats(db, race.id, round_id=r2.id)] == before
 
 
 @pytest.mark.anyio
@@ -273,3 +296,153 @@ async def test_arming_without_a_racer_mapping_still_records(db: Session):
     after = db.query(models.Heat).filter(models.Heat.id == target.id).one()
     assert lanes.has_results(lanes.parse(after.lane_results))
     assert mgr.status().state == TimerState.IDLE.value
+
+
+class TestProactiveDisarm:
+    """Telling the operator before the cars run, not after (#50 follow-up).
+
+    Recording already refuses a stale heat, but only once a run has happened
+    and the times have to be keyed in by hand. The mutations that rewrite heats
+    now disarm the timer at the moment they do it, while the track is empty.
+
+    Driven through GraphQL rather than through `revalidate_armed_heat`: the
+    thing being added is the call, so a test that invokes the method directly
+    passes whether or not the resolver makes it.
+    """
+
+    @pytest.fixture(autouse=True)
+    def registry(self):
+        """Own `TIMER_MANAGERS` for each test — it is process-wide."""
+        from backend.api.main import TIMER_MANAGERS
+
+        saved = dict(TIMER_MANAGERS)
+        TIMER_MANAGERS.clear()
+        yield TIMER_MANAGERS
+        TIMER_MANAGERS.clear()
+        TIMER_MANAGERS.update(saved)
+
+    def _arm_on_registry(self, db: Session, registry, race, heat):
+        # `asyncio.run`, not `get_event_loop` — the anyio tests above have
+        # already closed the loop that would return, and these tests are sync
+        # because `TestClient` is. Arming touches `_event_lock`; nothing on the
+        # revalidate path does, so a throwaway loop here is safe.
+        racer_by_lane = {
+            lane.lane: lane.racer_id
+            for lane in lanes.parse(heat.lane_results)
+            if lane.racer_id is not None
+        }
+        mgr = TimerManager(
+            track_id=race.track_id,
+            device=FakeTimerDevice(),
+            session_factory=lambda: db,
+        )
+        asyncio.run(
+            mgr.prepare_heat(
+                heat.id,
+                models.HeatKind.OFFICIAL,
+                lane_mask=0b1111,
+                racer_by_lane=racer_by_lane,
+            )
+        )
+        registry[race.track_id] = mgr
+        return mgr
+
+    def test_correcting_a_prelim_disarms_a_stale_championship_heat(
+        self, client, db: Session, registry
+    ):
+        race, r1, r2 = _setup(db, "disarm", extra_round=False)
+        for heat in crud.get_heats(db, race.id, round_id=r1.id):
+            _run_heat(db, heat)
+        db.commit()
+
+        target = crud.get_heats(db, race.id, round_id=r2.id)[0]
+        mgr = self._arm_on_registry(db, registry, race, target)
+        assert mgr.status().state == TimerState.ARMED.value
+
+        # Re-record the prelim with the order flipped, which re-fields the final.
+        prelim = crud.get_heats(db, race.id, round_id=r1.id)[0]
+        payload = [
+            {
+                "lane": lane.lane,
+                "racerId": lane.racer_id,
+                "placeholderSlot": None,
+                "time": 9.0 - (lane.racer_id or 0) / 100.0,
+                "place": lane.lane,
+            }
+            for lane in lanes.parse(prelim.lane_results)
+        ]
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                    mutation Update($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+                        updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+                    }
+                """,
+                "variables": {"heatId": prelim.id, "lanes": payload},
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json().get("errors") is None, resp.json()
+
+        status = mgr.status()
+        assert status.state == TimerState.IDLE.value
+        assert status.active_heat_id is None
+        assert status.last_error and "disarmed" in status.last_error
+
+    def test_deleting_the_armed_heat_disarms_it(self, client, db: Session, registry):
+        race, r1, _ = _setup(db, "deleted", extra_round=False)
+        db.commit()
+        target = crud.get_heats(db, race.id, round_id=r1.id)[0]
+        mgr = self._arm_on_registry(db, registry, race, target)
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": "mutation D($heatId: Int!) { deleteHeat(heatId: $heatId) }",
+                "variables": {"heatId": target.id},
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json().get("errors") is None, resp.json()
+
+        status = mgr.status()
+        assert status.state == TimerState.IDLE.value
+        assert status.last_error and "no longer exists" in status.last_error
+
+    def test_an_untouched_heat_stays_armed(self, client, db: Session, registry):
+        """The guard must not disarm the operator mid-race for no reason."""
+        race, r1, _ = _setup(db, "untouched", extra_round=False)
+        db.commit()
+        heats = crud.get_heats(db, race.id, round_id=r1.id)
+        target, other = heats[0], heats[1]
+        mgr = self._arm_on_registry(db, registry, race, target)
+
+        # Record a *different* heat in the same round. Nothing re-fields the
+        # armed one — a general round's field is the roster.
+        payload = [
+            {
+                "lane": lane.lane,
+                "racerId": lane.racer_id,
+                "placeholderSlot": None,
+                "time": 3.0 + lane.lane / 10,
+                "place": lane.lane,
+            }
+            for lane in lanes.parse(other.lane_results)
+        ]
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                    mutation Update($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+                        updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+                    }
+                """,
+                "variables": {"heatId": other.id, "lanes": payload},
+            },
+        )
+        assert resp.json().get("errors") is None, resp.json()
+
+        status = mgr.status()
+        assert status.state == TimerState.ARMED.value
+        assert status.active_heat_id == target.id
