@@ -207,32 +207,26 @@ class Round(Base):
 
     @property
     def total_participants(self) -> int:
-        """Calculate the total number of participants in this round."""
-        if not self.advancement_source:
-            # For general rounds, count unique racers in heats
-            import json
+        """How many racers this round is sized for.
 
-            racer_ids = set()
+        For a championship round that is :func:`advancement.field_size`, not a
+        sixth copy of it (#52). This property held the rule correctly while two
+        of its four siblings had it wrong, which is exactly how that goes.
+        """
+        from backend.domain import advancement, lanes
+
+        if not self.advancement_source:
+            # A general round's field is whoever is actually in its heats.
+            racer_ids: set[int] = set()
             for heat in self.heats:
-                if heat.lane_results:
-                    try:
-                        results = json.loads(heat.lane_results)
-                        for r in results:
-                            rid = r.get("racer_id")
-                            if rid is not None:
-                                racer_ids.add(rid)
-                    except Exception:
-                        pass
+                racer_ids.update(lanes.real_racer_ids(lanes.parse(heat.lane_results)))
             return len(racer_ids)
 
-        # For championship rounds
-        if self.advancement_source == "PACK":
-            return self.advancement_num_racers or 0
-        elif self.advancement_source == "DEN":
-            # Count dens in this race
-            den_count = len(self.race.dens) if self.race else 0
-            return (self.advancement_num_racers or 0) * den_count
-        return self.advancement_num_racers or 0
+        rule = advancement.AdvancementRule(
+            source=self.advancement_source, num_racers=self.advancement_num_racers
+        )
+        den_count = len(self.race.dens) if self.race else 0
+        return advancement.field_size(rule, den_count)
 
 
 class Heat(Base):
