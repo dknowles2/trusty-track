@@ -48,6 +48,35 @@ export const TIMER_STATUS_SUBSCRIPTION = gql`
   }
 `;
 
+/**
+ * The live view of a track: the heat merged with the timer, assembled by the
+ * server (#7).
+ *
+ * Replaces reconciling `timerStatus.pendingResults` against the heat's stored
+ * lanes in a render function. `pending` is the field that made the merge worth
+ * moving — it says a time came from the timer and is not saved yet, which an
+ * abort can still take away.
+ */
+export const HEAT_SESSION_SUBSCRIPTION = gql`
+  subscription HeatSession($trackId: Int!, $heatId: Int) {
+    heatSession(trackId: $trackId, heatId: $heatId) {
+      trackId
+      heatId
+      phase
+      timerState
+      lanes {
+        lane
+        racerId
+        placeholderSlot
+        time
+        place
+        skipped
+        pending
+      }
+    }
+  }
+`;
+
 export const PREPARE_HEAT = gql`
   mutation PrepareHeat($heatId: Int!, $isFreeRace: Boolean = false) {
     prepareHeat(heatId: $heatId, isFreeRace: $isFreeRace)
