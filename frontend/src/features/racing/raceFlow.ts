@@ -56,8 +56,17 @@ export interface Observation {
     readonly hasNextHeat: boolean;
     /** The race's `autoAdvanceHeat` setting. */
     readonly autoAdvanceEnabled: boolean;
-    /** A round whose field has just been decided, or `null`. */
-    readonly completedRoundId: number | null;
+    /**
+     * A round's field has just been decided.
+     *
+     * Separate from {@link roundSummaryId} because `AdvancementStatus.roundId`
+     * is optional — it is attached client-side when the summary is raised — so
+     * "no summary" and "a summary carrying no id" are different things that a
+     * single nullable number cannot tell apart.
+     */
+    readonly hasRoundSummary: boolean;
+    /** Which round that is, when it says. */
+    readonly roundSummaryId: number | null;
 }
 
 /** What the operator is looking at. Exactly one of these is true. */
@@ -77,10 +86,29 @@ export interface FlowState {
      */
     readonly preparedHeatId: number | null;
     /**
-     * The last round we raised a summary for. Replaces `lastOpenedRoundId`,
-     * and is why dismissing the modal does not immediately reopen it.
+     * Whether the summary now on offer has already been raised once. Together
+     * with {@link summarisedRoundId} this replaces `lastOpenedRoundId`, and it
+     * is why dismissing the modal does not immediately reopen it.
+     *
+     * The old code compared ids alone, so a summary carrying no `roundId`
+     * compared `undefined !== null` forever and re-opened on every render.
+     * Harmless in production, where `RaceControl` always attaches one — but it
+     * is the kind of thing that only shows up when something else changes.
      */
+    readonly haveSummarised: boolean;
+    /** Which round that was, when it said. */
     readonly summarisedRoundId: number | null;
+    /**
+     * The heat whose countdown the operator called off, if any.
+     *
+     * Cancelling has to be sticky, or the next observation would start it
+     * again — nothing about the world changed when the operator clicked. It is
+     * scoped to a heat rather than latched forever so that moving on gets a
+     * countdown back. The old code got this by accident: the countdown effect
+     * was keyed on `shouldResetAutoAdvance`, which cancelling did not alter,
+     * so the effect simply never re-ran.
+     */
+    readonly countdownCancelledFor: number | null;
     /** The last thing we were told. Kept so dismissal can re-decide. */
     readonly observed: Observation | null;
 }
@@ -93,7 +121,8 @@ export type FlowCommand =
 export type FlowEvent =
     | { readonly type: 'OBSERVED'; readonly observation: Observation }
     | { readonly type: 'TICK' }
-    | { readonly type: 'SUMMARY_DISMISSED' };
+    | { readonly type: 'SUMMARY_DISMISSED' }
+    | { readonly type: 'COUNTDOWN_CANCELLED' };
 
 export interface FlowResult {
     readonly state: FlowState;
@@ -103,7 +132,9 @@ export interface FlowResult {
 export const initialFlowState: FlowState = {
     screen: { kind: 'WATCHING' },
     preparedHeatId: null,
+    haveSummarised: false,
     summarisedRoundId: null,
+    countdownCancelledFor: null,
     observed: null,
 };
 
@@ -111,6 +142,7 @@ export const initialFlowState: FlowState = {
 export const observe = (observation: Observation): FlowEvent => ({ type: 'OBSERVED', observation });
 export const tick = (): FlowEvent => ({ type: 'TICK' });
 export const dismissSummary = (): FlowEvent => ({ type: 'SUMMARY_DISMISSED' });
+export const cancelCountdown = (): FlowEvent => ({ type: 'COUNTDOWN_CANCELLED' });
 
 /**
  * Should the countdown to the next heat be running?
@@ -136,9 +168,14 @@ const shouldCountDown = (observation: Observation): boolean =>
  * the countdown the summary was suppressing — which is what the old code did,
  * by way of `shouldResetAutoAdvance` flipping back.
  */
-const settle = (screen: Screen, observation: Observation): Screen => {
+const settle = (screen: Screen, observation: Observation, cancelledFor: number | null): Screen => {
     if (screen.kind === 'ROUND_SUMMARY') return screen;
-    if (!shouldCountDown(observation)) return { kind: 'WATCHING' };
+    const cancelled = cancelledFor !== null && cancelledFor === observation.heatId;
+    if (cancelled || !shouldCountDown(observation)) {
+        // Returning the *same* object when nothing changed, not an equal one.
+        // React renders on identity, and this runs on every server payload.
+        return screen.kind === 'WATCHING' ? screen : { kind: 'WATCHING' };
+    }
     // Already counting: leave it alone. Restarting on every observation would
     // mean a heat that keeps re-rendering never advances.
     if (screen.kind === 'COUNTING_DOWN') return screen;
@@ -165,22 +202,36 @@ const observed = (state: FlowState, observation: Observation): FlowResult => {
     }
 
     // A round's field has just been decided. Raise it once.
+    let haveSummarised = state.haveSummarised;
     let summarisedRoundId = state.summarisedRoundId;
     let screen = state.screen;
-    if (observation.completedRoundId !== null) {
-        if (observation.completedRoundId !== summarisedRoundId) {
-            summarisedRoundId = observation.completedRoundId;
-            screen = { kind: 'ROUND_SUMMARY', roundId: observation.completedRoundId };
+    if (observation.hasRoundSummary) {
+        if (!haveSummarised || observation.roundSummaryId !== summarisedRoundId) {
+            haveSummarised = true;
+            summarisedRoundId = observation.roundSummaryId;
+            screen = { kind: 'ROUND_SUMMARY', roundId: observation.roundSummaryId };
         }
-    } else if (summarisedRoundId !== null) {
+    } else if (haveSummarised) {
         // The round stopped being decided — a result was cleared behind us.
         // Drop the summary and forget it, so completing it again re-raises.
+        haveSummarised = false;
         summarisedRoundId = null;
         if (screen.kind === 'ROUND_SUMMARY') screen = { kind: 'WATCHING' };
     }
 
+    // A cancellation only covers the heat it was made against.
+    const countdownCancelledFor =
+        state.countdownCancelledFor === observation.heatId ? state.countdownCancelledFor : null;
+
     return {
-        state: { screen: settle(screen, observation), preparedHeatId, summarisedRoundId, observed: observation },
+        state: {
+            screen: settle(screen, observation, countdownCancelledFor),
+            preparedHeatId,
+            haveSummarised,
+            summarisedRoundId,
+            countdownCancelledFor,
+            observed: observation,
+        },
         commands,
     };
 };
@@ -213,7 +264,24 @@ export function reduce(state: FlowState, event: FlowEvent): FlowResult {
             // this one, and it should not spring back on the next observation.
             const screen: Screen = { kind: 'WATCHING' };
             return {
-                state: { ...state, screen: state.observed ? settle(screen, state.observed) : screen },
+                state: {
+                    ...state,
+                    screen: state.observed
+                        ? settle(screen, state.observed, state.countdownCancelledFor)
+                        : screen,
+                },
+                commands: [],
+            };
+        }
+
+        case 'COUNTDOWN_CANCELLED': {
+            if (state.screen.kind !== 'COUNTING_DOWN') return { state, commands: [] };
+            return {
+                state: {
+                    ...state,
+                    screen: { kind: 'WATCHING' },
+                    countdownCancelledFor: state.observed?.heatId ?? null,
+                },
                 commands: [],
             };
         }

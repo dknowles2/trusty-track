@@ -469,4 +469,119 @@ describe('RaceExecution', () => {
 
         expect(mockMutationFn).toHaveBeenCalledWith({ heatId: 1 });
     });
+
+    /**
+     * The wiring only (#13). What the machine *decides* is covered in
+     * `raceFlow.test.ts` without rendering; these check that the component
+     * feeds it the right observation and performs what comes back.
+     */
+    describe('the race-day flow comes from one machine (#13)', () => {
+        // A recorded heat with somewhere to go, which is the countdown's
+        // precondition. `mockHeat` already holds times.
+        const withNextHeat = {
+            ...defaultProps,
+            autoAdvanceHeat: true,
+            nextExecutionHeat: { ...mockHeat, id: 2, heatNumber: 2 },
+        };
+
+        it('counts down on the Next Heat button when auto-advance is on', () => {
+            render(<RaceExecution {...withNextHeat} />);
+            expect(screen.getByText(/Next Heat \(10s\)/)).toBeInTheDocument();
+        });
+
+        it('does not count down when auto-advance is off', () => {
+            render(<RaceExecution {...withNextHeat} autoAdvanceHeat={false} />);
+            expect(screen.getByText(/Next Heat/)).toBeInTheDocument();
+            expect(screen.queryByText(/Next Heat \(\d+s\)/)).not.toBeInTheDocument();
+        });
+
+        it('advances when the countdown runs out', () => {
+            vi.useFakeTimers();
+            try {
+                render(<RaceExecution {...withNextHeat} />);
+                expect(mockOnNextHeat).not.toHaveBeenCalled();
+                vi.advanceTimersByTime(10_000);
+                expect(mockOnNextHeat).toHaveBeenCalledTimes(1);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('calling the countdown off keeps it off', () => {
+            // The regression this guards: cancelling changes nothing the server
+            // can see, so a machine that re-decided purely from the observation
+            // would start counting again on the very next payload. The old code
+            // avoided it by accident — its effect was keyed on a boolean that
+            // cancelling did not touch.
+            vi.useFakeTimers();
+            try {
+                const { rerender } = render(<RaceExecution {...withNextHeat} />);
+                fireEvent.click(screen.getByText('Cancel'));
+                expect(screen.queryByText(/Next Heat \(\d+s\)/)).not.toBeInTheDocument();
+
+                rerender(<RaceExecution {...withNextHeat} />);
+                vi.advanceTimersByTime(30_000);
+
+                expect(screen.queryByText(/Next Heat \(\d+s\)/)).not.toBeInTheDocument();
+                expect(mockOnNextHeat).not.toHaveBeenCalled();
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('does not advance past the last heat of a round', () => {
+            // Not observable through the button — with no next heat the button
+            // is not rendered at all — but very observable through whether the
+            // race moves on by itself. Without this, the component could pass a
+            // constant `hasNextHeat` and nothing would notice.
+            vi.useFakeTimers();
+            try {
+                render(<RaceExecution {...withNextHeat} nextExecutionHeat={null} />);
+                vi.advanceTimersByTime(30_000);
+                expect(mockOnNextHeat).not.toHaveBeenCalled();
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('a skipped heat is not held behind the countdown', () => {
+            // Skipped heats advance through their own handler. RECORDED with no
+            // times is the shape, so the countdown must read the times rather
+            // than the phase.
+            const skipped: Heat = {
+                ...mockHeat,
+                lanes: [
+                    lane({ lane: 1, racerId: 101, skipped: true }),
+                    lane({ lane: 2, racerId: 102, skipped: true }),
+                ],
+            };
+            vi.useFakeTimers();
+            try {
+                render(<RaceExecution {...withNextHeat} activeExecutionHeat={skipped} />);
+                expect(screen.queryByText(/Next Heat \(\d+s\)/)).not.toBeInTheDocument();
+                vi.advanceTimersByTime(30_000);
+                expect(mockOnNextHeat).not.toHaveBeenCalled();
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('a round summary suppresses the countdown', () => {
+            render(
+                <RaceExecution
+                    {...withNextHeat}
+                    roundSummary={{
+                        isReady: true,
+                        requiresAdvancement: true,
+                        alreadyAdvanced: false,
+                        advancingRacers: [],
+                        source: 'PACK',
+                        numRacers: 0,
+                        roundId: 1,
+                    } as any}
+                />
+            );
+            expect(screen.queryByText(/Next Heat \(\d+s\)/)).not.toBeInTheDocument();
+        });
+    });
 });

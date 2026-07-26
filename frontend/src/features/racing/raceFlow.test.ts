@@ -8,6 +8,7 @@
 import { describe, test, expect } from 'vitest';
 import {
     AUTO_ADVANCE_SECONDS,
+    cancelCountdown,
     dismissSummary,
     initialFlowState,
     observe,
@@ -27,7 +28,7 @@ const seen = (overrides: Partial<Observation> = {}): Observation => ({
     hasRecordedTimes: false,
     hasNextHeat: true,
     autoAdvanceEnabled: true,
-    completedRoundId: null,
+    hasRoundSummary: false, roundSummaryId: null,
     ...overrides,
 });
 
@@ -210,9 +211,50 @@ describe('the auto-advance countdown', () => {
     });
 });
 
+describe('calling off the countdown', () => {
+    test('it stops', () => {
+        const result = run([observe(recorded()), tick(), cancelCountdown()]);
+        expect(result.state.screen).toEqual({ kind: 'WATCHING' });
+    });
+
+    test('and never advances', () => {
+        const events = [observe(recorded()), cancelCountdown(), ...Array(20).fill(tick())];
+        expect(commandsOf(events)).toEqual([]);
+    });
+
+    test('it stays cancelled when the same heat is observed again', () => {
+        // Nothing about the world changed when the operator clicked, so the
+        // next server payload must not start it again. The old code got this
+        // by accident — its effect was keyed on a boolean cancelling did not
+        // touch, so it simply never re-ran.
+        const result = run([observe(recorded()), cancelCountdown(), observe(recorded())]);
+        expect(result.state.screen).toEqual({ kind: 'WATCHING' });
+    });
+
+    test('moving to the next heat gets a countdown back', () => {
+        // Cancelling is scoped to one heat, not latched for the event.
+        const result = run([
+            observe(recorded({ heatId: 1 })),
+            cancelCountdown(),
+            observe(seen({ heatId: 2, timerState: 'IDLE' })),
+            observe(recorded({ heatId: 2 })),
+        ]);
+        expect(result.state.screen).toEqual({
+            kind: 'COUNTING_DOWN',
+            secondsLeft: AUTO_ADVANCE_SECONDS,
+        });
+    });
+
+    test('cancelling when nothing is counting changes nothing', () => {
+        const before = run([observe(seen())]);
+        const after = reduce(before.state, cancelCountdown());
+        expect(after.state).toBe(before.state);
+    });
+});
+
 describe('the round summary', () => {
     test('a decided round raises it', () => {
-        expect(run([observe(recorded({ completedRoundId: 3 }))]).state.screen).toEqual({
+        expect(run([observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 }))]).state.screen).toEqual({
             kind: 'ROUND_SUMMARY',
             roundId: 3,
         });
@@ -221,20 +263,20 @@ describe('the round summary', () => {
     test('it suppresses the countdown', () => {
         // Both preconditions hold — recorded, times, a next heat — and the
         // summary still wins, because the screen can only be one thing.
-        const result = run([observe(recorded({ completedRoundId: 3 }))]);
+        const result = run([observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 }))]);
         expect(result.state.screen.kind).toBe('ROUND_SUMMARY');
     });
 
     test('a countdown cannot run behind it', () => {
-        const events = [observe(recorded({ completedRoundId: 3 })), ...Array(20).fill(tick())];
+        const events = [observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 })), ...Array(20).fill(tick())];
         expect(commandsOf(events)).toEqual([]);
     });
 
     test('seeing the same round again does not re-raise it', () => {
         const result = run([
-            observe(recorded({ completedRoundId: 3 })),
+            observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 })),
             dismissSummary(),
-            observe(recorded({ completedRoundId: 3 })),
+            observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 })),
         ]);
         expect(result.state.screen.kind).not.toBe('ROUND_SUMMARY');
     });
@@ -242,7 +284,7 @@ describe('the round summary', () => {
     test('dismissing it releases the countdown it was holding', () => {
         // The old code got here by `shouldResetAutoAdvance` flipping back.
         // Keeping the last observation is what lets dismissal re-decide.
-        const result = run([observe(recorded({ completedRoundId: 3 })), dismissSummary()]);
+        const result = run([observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 })), dismissSummary()]);
         expect(result.state.screen).toEqual({
             kind: 'COUNTING_DOWN',
             secondsLeft: AUTO_ADVANCE_SECONDS,
@@ -251,7 +293,7 @@ describe('the round summary', () => {
 
     test('dismissing with nothing to advance to just watches', () => {
         const result = run([
-            observe(recorded({ completedRoundId: 3, hasNextHeat: false })),
+            observe(recorded({ hasRoundSummary: true, roundSummaryId: 3, hasNextHeat: false })),
             dismissSummary(),
         ]);
         expect(result.state.screen).toEqual({ kind: 'WATCHING' });
@@ -259,9 +301,9 @@ describe('the round summary', () => {
 
     test('a later round raises its own summary', () => {
         const result = run([
-            observe(recorded({ completedRoundId: 3 })),
+            observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 })),
             dismissSummary(),
-            observe(recorded({ completedRoundId: 4 })),
+            observe(recorded({ hasRoundSummary: true, roundSummaryId: 4 })),
         ]);
         expect(result.state.screen).toEqual({ kind: 'ROUND_SUMMARY', roundId: 4 });
     });
@@ -270,18 +312,18 @@ describe('the round summary', () => {
         // Re-running the last heat of a round un-decides its field. When the
         // operator finishes it a second time the summary should come back.
         const result = run([
-            observe(recorded({ completedRoundId: 3 })),
+            observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 })),
             dismissSummary(),
-            observe(seen({ completedRoundId: null, timerState: 'IDLE' })),
-            observe(recorded({ completedRoundId: 3 })),
+            observe(seen({ hasRoundSummary: false, roundSummaryId: null, timerState: 'IDLE' })),
+            observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 })),
         ]);
         expect(result.state.screen).toEqual({ kind: 'ROUND_SUMMARY', roundId: 3 });
     });
 
     test('a round un-deciding while its summary is open closes it', () => {
         const result = run([
-            observe(recorded({ completedRoundId: 3 })),
-            observe(seen({ completedRoundId: null, timerState: 'IDLE' })),
+            observe(recorded({ hasRoundSummary: true, roundSummaryId: 3 })),
+            observe(seen({ hasRoundSummary: false, roundSummaryId: null, timerState: 'IDLE' })),
         ]);
         expect(result.state.screen).toEqual({ kind: 'WATCHING' });
     });
@@ -301,7 +343,7 @@ describe('the round summary', () => {
         // The summary covers the screen, not the track. The next heat should
         // be armed and waiting when the operator closes it.
         expect(
-            commandsOf([observe(seen({ heatId: 9, timerState: 'IDLE', completedRoundId: 3 }))]),
+            commandsOf([observe(seen({ heatId: 9, timerState: 'IDLE', hasRoundSummary: true, roundSummaryId: 3 }))]),
         ).toEqual([{ type: 'PREPARE_HEAT', heatId: 9 }]);
     });
 });
