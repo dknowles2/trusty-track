@@ -8,8 +8,6 @@ the answer for callers.
 Scoring is always computed on demand — there is no stored leaderboard.
 """
 
-from typing import Optional
-
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models
@@ -18,9 +16,7 @@ from backend.domain import lanes as domain_lanes
 from backend.domain import scoring as domain_scoring
 
 
-def _scoring_heats(
-    db: Session, race_id: int, round_id: Optional[int], scope: str
-) -> list:
+def _scoring_heats(db: Session, race_id: int, round_id: int | None, scope: str) -> list:
     """The heats that count, given a round filter and a scope.
 
     An explicit ``round_id`` always wins — asking for one round's standings
@@ -50,7 +46,7 @@ def _scoring_heats(
 def calculate_racer_scores(
     db: Session,
     race_id: int,
-    round_id: Optional[int] = None,
+    round_id: int | None = None,
     scope: str = domain_scoring.PRELIM,
 ) -> dict[int, dict[str, float]]:
     """Per-racer aggregate scores for a race, optionally limited to one round.
@@ -74,7 +70,7 @@ def calculate_racer_scores(
 def get_leaderboard(
     db: Session,
     race_id: int,
-    round_id: Optional[int] = None,
+    round_id: int | None = None,
     scope: str = domain_scoring.PRELIM,
 ) -> list[dict]:
     """Current standings, best first, each entry carrying a 1-indexed ``rank``.

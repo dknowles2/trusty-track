@@ -20,7 +20,7 @@ dependencies = [
     "alembic>=1.16.5",
 ]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [dependency-groups]
 dev = [
@@ -42,7 +42,7 @@ testpaths = ["backend/tests"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "ARG"]

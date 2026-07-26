@@ -52,14 +52,12 @@ class Den(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, index=True)
     color: Mapped[str] = mapped_column(String, default="#000000")
-    rank: Mapped[Optional[Rank]] = mapped_column(
+    rank: Mapped[Rank | None] = mapped_column(
         SAEnum(Rank), default=Rank.OTHER, nullable=True
     )
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
-    car_number_range_start: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
-    car_number_range_end: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    car_number_range_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    car_number_range_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="dens")
     racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="den")
@@ -94,11 +92,11 @@ class Track(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, index=True, default="Main Track")
     lane_count: Mapped[int] = mapped_column(Integer, default=4)
-    length_feet: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    length_feet: Mapped[int | None] = mapped_column(Integer, nullable=True)
     timer_type: Mapped[TimerType] = mapped_column(
         SAEnum(TimerType), default=TimerType.FAKE
     )
-    serial_port: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    serial_port: Mapped[str | None] = mapped_column(String, nullable=True)
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="track")
 
@@ -108,12 +106,12 @@ class Race(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"))
-    track_id: Mapped[Optional[int]] = mapped_column(
+    track_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("tracks.id"), nullable=True
     )
     name: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
-    date_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    location: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    date_time: Mapped[str | None] = mapped_column(String, nullable=True)
+    location: Mapped[str | None] = mapped_column(String, nullable=True)
     car_numbering_strategy: Mapped[CarNumberingStrategy] = mapped_column(
         SAEnum(CarNumberingStrategy), default=CarNumberingStrategy.MANUAL
     )
@@ -123,7 +121,7 @@ class Race(Base):
     scoring_strategy: Mapped[ScoringStrategy] = mapped_column(
         SAEnum(ScoringStrategy), default=ScoringStrategy.TIMED
     )
-    rules_configuration: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    rules_configuration: Mapped[str | None] = mapped_column(String, nullable=True)
     auto_advance_heat: Mapped[bool] = mapped_column(Boolean, default=False)
 
     group: Mapped["Group"] = relationship("Group", back_populates="races")
@@ -148,13 +146,11 @@ class RacingGroup(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
     name: Mapped[str] = mapped_column(String)
-    den_id: Mapped[Optional[int]] = mapped_column(
+    den_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("dens.id"), nullable=True
     )
-    car_number_range_start: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
-    car_number_range_end: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    car_number_range_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    car_number_range_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="racing_groups")
     racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="racing_group")
@@ -167,16 +163,16 @@ class Racer(Base):
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
     first_name: Mapped[str] = mapped_column(String)
     last_name: Mapped[str] = mapped_column(String)
-    car_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    car_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    car_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    car_name: Mapped[str | None] = mapped_column(String, nullable=True)
     car_passed_inspection: Mapped[bool] = mapped_column(Boolean, default=False)
-    car_weight: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    racer_image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    car_image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    racing_group_id: Mapped[Optional[int]] = mapped_column(
+    car_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    racer_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    car_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    racing_group_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("racing_groups.id"), nullable=True
     )
-    den_id: Mapped[Optional[int]] = mapped_column(
+    den_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("dens.id"), nullable=True
     )
 
@@ -193,15 +189,13 @@ class Round(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
     round_number: Mapped[int] = mapped_column(Integer)
-    name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
     scheduling_strategy: Mapped[SchedulingStrategy] = mapped_column(
         SAEnum(SchedulingStrategy), default=SchedulingStrategy.PPC
     )
-    advancement_source: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    advancement_num_racers: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
-    den_id: Mapped[Optional[int]] = mapped_column(
+    advancement_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    advancement_num_racers: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    den_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("dens.id"), nullable=True
     )
 
@@ -255,7 +249,7 @@ class Heat(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
     # Null for free race heats, which belong to no round.
-    round_id: Mapped[Optional[int]] = mapped_column(
+    round_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("rounds.id"), nullable=True
     )
     kind: Mapped[HeatKind] = mapped_column(
@@ -265,10 +259,10 @@ class Heat(Base):
         index=True,
     )
     heat_number: Mapped[int] = mapped_column(Integer)
-    lane_results: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    lane_results: Mapped[str | None] = mapped_column(String, nullable=True)
     # Free race heats are listed newest first; official heats order by round and
     # heat number and leave this null.
-    created_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[str | None] = mapped_column(String, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="heats")
     round: Mapped[Optional["Round"]] = relationship("Round", back_populates="heats")
@@ -316,16 +310,16 @@ class HeatLane(Base):
     heat_id: Mapped[int] = mapped_column(Integer, ForeignKey("heats.id"), index=True)
     lane: Mapped[int] = mapped_column(Integer)
 
-    racer_id: Mapped[Optional[int]] = mapped_column(
+    racer_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("racers.id"), nullable=True
     )
-    placeholder_slot: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    placeholder_slot: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Kept as a float rather than the blob's mixed float/string. A recorded 0.0
     # means the timer saw a start but never a finish; scoring turns that into a
     # DNF penalty.
-    time_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    place: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    time_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    place: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Set by the operator UI when a heat is passed over rather than run.
     skipped: Mapped[bool] = mapped_column(

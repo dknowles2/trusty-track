@@ -19,15 +19,15 @@ Create Date: 2026-07-25
 import json
 import logging
 from collections.abc import Sequence
-from typing import Any, Union
+from typing import Any
 
 import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0003_heat_lanes"
-down_revision: Union[str, Sequence[str], None] = "0002_debug_mode"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "0002_debug_mode"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 logger = logging.getLogger("alembic.runtime.migration")
 
@@ -52,7 +52,7 @@ def _decode(raw: Any) -> list[dict]:
     return [item for item in value if isinstance(item, dict)]
 
 
-def _as_float(value: Any) -> Union[float, None]:
+def _as_float(value: Any) -> float | None:
     """The blob stored times as floats or strings depending on who wrote them."""
     if value is None:
         return None

@@ -27,15 +27,15 @@ Create Date: 2026-07-25
 import json
 import logging
 from collections.abc import Sequence
-from typing import Any, Union
+from typing import Any
 
 import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0006_fold_free_heats"
-down_revision: Union[str, Sequence[str], None] = "0005_heat_kind"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "0005_heat_kind"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 logger = logging.getLogger("alembic.runtime.migration")
 
@@ -74,7 +74,7 @@ def _merge(assignments: Any, results: Any) -> str:
     return json.dumps(list(merged.values()))
 
 
-def _split(blob: Any) -> tuple[str, Union[str, None]]:
+def _split(blob: Any) -> tuple[str, str | None]:
     """The inverse of :func:`_merge`, for the downgrade.
 
     ``lane_results`` is null unless something was timed — that is what the

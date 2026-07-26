@@ -1,7 +1,7 @@
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 
 @dataclass
@@ -26,7 +26,7 @@ class DeviceError:
     message: str
 
 
-TimerEvent = Union[RaceStarted, LaneResult, GateClosed, DeviceError]
+TimerEvent = RaceStarted | LaneResult | GateClosed | DeviceError
 
 
 class TimerDevice(ABC):
@@ -38,7 +38,7 @@ class TimerDevice(ABC):
     immediate_chars: ClassVar[list[bytes]] = []
     # If set, the manager will transition to RESULTS_OVERDUE if no results are
     # received within this many seconds of the race starting. None means no timeout.
-    result_timeout_seconds: ClassVar[Optional[float]] = None
+    result_timeout_seconds: ClassVar[float | None] = None
 
     def expected_response_for(self, _command: bytes) -> "re.Pattern[bytes] | None":
         """Return the regex pattern that should match the device's response to

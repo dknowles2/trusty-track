@@ -1,6 +1,5 @@
 import logging
 import re
-from typing import Optional
 
 from .base import GateClosed, LaneResult, RaceStarted, TimerDevice, TimerEvent
 
@@ -81,7 +80,7 @@ class MicroWizardDevice(TimerDevice):
     # Lane-mask commands MA–MF are matched dynamically below.
     _STAR_ACK_CMDS: frozenset[bytes] = frozenset([b"N1", b"N2", b"LR"])
 
-    def expected_response_for(self, command: bytes) -> "Optional[re.Pattern[bytes]]":
+    def expected_response_for(self, command: bytes) -> "re.Pattern[bytes] | None":
         cmd = command.strip().upper()
         if cmd == b"MG":
             return _ACK_RE
