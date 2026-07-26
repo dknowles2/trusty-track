@@ -561,6 +561,37 @@ class TimerManager:
                 current_place = i + 1
             res.place = current_place
 
+    async def _abandon_run(self, reason: str) -> None:
+        """Give up on the armed heat without writing anything to it.
+
+        A heat id is not a stable handle. ``invalidate_future_rounds``
+        regenerates every later championship round on *every* earlier result,
+        deleting the heat rows and inserting new ones, so an operator who arms
+        a championship heat and then corrects a preliminary time has the row
+        replaced underneath the armed timer. Two things then went wrong:
+
+        * The id may no longer exist. ``_record_results`` returned early
+          without resetting anything, leaving the timer stuck in RUNNING on a
+          heat that was gone — "Racing..." forever, and the run's times lost
+          with only a log line to say so.
+        * Worse, the id may be *reused*. SQLite hands a rowid back when the
+          deleted rows were the highest, so the lookup succeeds and returns a
+          different heat — one whose lanes have been re-drawn from the new
+          standings. Recording then attributed each lane's time to whichever
+          racer now occupies that lane. Silent, and wrong about who won.
+
+        So this resets the timer to IDLE and says why, rather than writing.
+        ``_pending_results`` is deliberately kept, exactly as a successful
+        record does, so the times stay in the status for the operator to enter
+        by hand instead of vanishing.
+        """
+        logger.error("Timer %d: %s", self._track_id, reason)
+        self._last_error = reason
+        self._active_heat_id = None
+        self._active_heat_kind = None
+        self._running_since = None
+        await self._transition(TimerState.IDLE)
+
     async def _record_results(self) -> None:
         """Persist accumulated lane results to the database and notify subscribers."""
         heat_id = self._active_heat_id
@@ -574,7 +605,24 @@ class TimerManager:
         try:
             heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
             if not heat:
-                logger.error("Timer %d: heat %d not found", self._track_id, heat_id)
+                await self._abandon_run(
+                    f"Heat {heat_id} no longer exists — results not recorded"
+                )
+                return
+
+            # The heat may not be the one we armed even when the id resolves.
+            # See :meth:`_abandon_run`.
+            armed = self._racer_by_lane
+            current = {
+                lane.lane: lane.racer_id
+                for lane in lanes.parse(heat.lane_results)
+                if lane.racer_id is not None
+            }
+            if armed and current != armed:
+                await self._abandon_run(
+                    f"Heat {heat_id} changed while it was armed "
+                    f"(lanes were {armed}, are now {current}) — results not recorded"
+                )
                 return
 
             # One path for both kinds since #6. A free race heat used to keep
