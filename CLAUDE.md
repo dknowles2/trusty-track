@@ -346,6 +346,8 @@ One `TimerManager` per track, created at startup in `main.py`'s lifespan. Device
 
 **`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
 
+**A heat id is not a stable handle** (#50). `invalidate_future_rounds` deletes and recreates the heat rows of every later championship round on *every* earlier result, so a heat armed on the timer can vanish — or, since SQLite reuses rowids, come back as a different heat holding a different field. `_record_results` therefore checks the heat's current lane assignment against the `racer_by_lane` it was armed with and calls `_abandon_run` on a mismatch rather than writing. `racer_by_lane` being absent means *unknown*, not *no racers*, so the check sits out when the caller did not supply one.
+
 ### What is on the track right now
 
 `heatSession(trackId, heatId)` merges the heat row (schedule, and results once saved) with the `TimerManager`'s pending lane times, and reports a `phase` — `NO_HEAT`, `NOT_READY`, `WAITING`, `RUNNING`, `RECORDED`. The rule is `domain/heat_session.py`; the resolver loads the two sides and calls it.
