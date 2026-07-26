@@ -398,7 +398,6 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 | --- | --- |
 | #14 | Whether GraphQL is still the right choice — a question to revisit, not scheduled work. The case is materially weaker since #10, #11 and #12 |
 | #15 | No authentication on mutations; CORS misconfigured. **Deferred by decision** — it adds a prompt to the operator flow |
-| #45 | Ruff runs in pre-commit but not in CI, so findings accumulate in untouched files |
 
 **Closed, and load-bearing — don't undo them:**
 
@@ -413,6 +412,7 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 | #13 | The race-day flow is one machine in `features/racing/raceFlow.ts`, not effects |
 | #17 | Standings cover preliminary rounds only |
 | #26 | The PPC scheduler fills every lane; `test_domain_scheduling.py` holds the properties |
+| #45 | `ruff check` and `ruff format --check` gate CI over `backend scripts packaging`. Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
 
 ---
 

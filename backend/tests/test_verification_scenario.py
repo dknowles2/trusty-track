@@ -7,7 +7,7 @@ def get_unique_name(prefix: str) -> str:
     return f"{prefix} {uuid.uuid4()}"
 
 
-def test_verification_scenario(client, db):
+def test_verification_scenario(db):
     """
     Replicates setup_verification.py logic in a test.
     1. Initialize config

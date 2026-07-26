@@ -48,7 +48,7 @@ def get_server_executable() -> Path:
 
 
 def wait_for_server(proc: subprocess.Popen, timeout: int = STARTUP_TIMEOUT) -> bool:
-    """Poll /health until the server responds, the process dies, or the timeout expires."""
+    """Poll /health until the server responds, the process dies, or it times out."""
     deadline = time.time() + timeout
     while time.time() < deadline:
         # If the process has already exited, no point waiting further.

@@ -9,12 +9,11 @@ import json
 from typing import Any
 
 import pytest
-import strawberry
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.api.pubsub import _PubSub
-from backend.api.schema import Mutation, Query, Subscription
+from backend.api.schema import Subscription
 from backend.db.models import (
     Base,
     Group,
@@ -34,22 +33,19 @@ def db_session():
         "sqlite:///:memory:", connect_args={"check_same_thread": False}
     )
     Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = Session()
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session = session_factory()
     try:
         yield session
     finally:
         session.close()
 
 
-@pytest.fixture()
-def test_schema():
-    """Return the full strawberry schema with subscriptions."""
-    return strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)
-
-
 def _seed_race(db_session: Any) -> tuple[int, int, int]:
-    """Seed a race with two racers and two heats. Returns (race_id, heat1_id, heat2_id)."""
+    """Seed a race with two racers and two heats.
+
+    Returns (race_id, heat1_id, heat2_id).
+    """
     group = Group(name="Test Pack")
     db_session.add(group)
     db_session.flush()
@@ -111,7 +107,7 @@ def _seed_race(db_session: Any) -> tuple[int, int, int]:
 
 
 @pytest.mark.anyio
-async def test_leaderboard_subscription(db_session, test_schema) -> None:
+async def test_leaderboard_subscription(db_session) -> None:
     race_id, h1_id, _ = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
@@ -156,7 +152,7 @@ async def test_leaderboard_subscription(db_session, test_schema) -> None:
 
 
 @pytest.mark.anyio
-async def test_on_deck_subscription(db_session, test_schema) -> None:
+async def test_on_deck_subscription(db_session) -> None:
     race_id, h1_id, h2_id = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
@@ -177,7 +173,8 @@ async def test_on_deck_subscription(db_session, test_schema) -> None:
 
     async def _trigger():
         await asyncio.sleep(0.1)
-        # Record result for h1, making h2 "current" and the one after h2 (none) "on deck"
+        # Record result for h1, making h2 "current" and the one after h2
+        # (none) "on deck"
         from backend.db.crud import record_heat_result
 
         record_heat_result(
@@ -203,7 +200,7 @@ async def test_on_deck_subscription(db_session, test_schema) -> None:
 
 
 @pytest.mark.anyio
-async def test_currently_racing_subscription(db_session, test_schema) -> None:
+async def test_currently_racing_subscription(db_session) -> None:
     race_id, h1_id, h2_id = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
@@ -246,7 +243,7 @@ async def test_currently_racing_subscription(db_session, test_schema) -> None:
 
 
 @pytest.mark.anyio
-async def test_timing_stats_subscription(db_session, test_schema) -> None:
+async def test_timing_stats_subscription(db_session) -> None:
     race_id, h1_id, _ = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod
@@ -291,7 +288,7 @@ async def test_timing_stats_subscription(db_session, test_schema) -> None:
 
 
 @pytest.mark.anyio
-async def test_heats_subscription(db_session, test_schema) -> None:
+async def test_heats_subscription(db_session) -> None:
     race_id, _, _ = _seed_race(db_session)
     local_pubsub = _PubSub()
     import backend.api.schema as schema_mod

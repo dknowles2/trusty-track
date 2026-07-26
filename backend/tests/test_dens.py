@@ -30,7 +30,10 @@ def test_delete_den_logic(client, db):
     den_name = get_unique_name("DeleteMe")
     mutation_create = f"""
     mutation {{
-        createDen(den: {{name: "{den_name}", color: "#000000", rank: "LION"}}, raceId: {race_id}) {{
+        createDen(
+            den: {{name: "{den_name}", color: "#000000", rank: "LION"}}
+            raceId: {race_id}
+        ) {{
             id
             name
             raceId
@@ -83,7 +86,10 @@ def test_edit_den_logic(client, db):
     den_name = get_unique_name("EditMe")
     mutation_create = f"""
     mutation {{
-        createDen(den: {{name: "{den_name}", color: "#111111", rank: "WOLF"}}, raceId: {race_id}) {{
+        createDen(
+            den: {{name: "{den_name}", color: "#111111", rank: "WOLF"}}
+            raceId: {race_id}
+        ) {{
             id
             name
         }}
@@ -96,7 +102,10 @@ def test_edit_den_logic(client, db):
     new_name = get_unique_name("EditedDen")
     mutation_update = f"""
     mutation {{
-        updateDen(id: {den_id}, den: {{name: "{new_name}", color: "#222222", rank: "WOLF"}}) {{
+        updateDen(
+            id: {den_id}
+            den: {{name: "{new_name}", color: "#222222", rank: "WOLF"}}
+        ) {{
             name
             color
             rank

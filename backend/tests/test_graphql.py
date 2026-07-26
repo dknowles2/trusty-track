@@ -6,7 +6,7 @@ from backend.db import crud, schemas
 
 
 def test_graphql_package_not_shadowed() -> None:
-    """Regression test: ensure no local file named 'graphql.py' shadows the graphql PyPI package.
+    """Ensure no local file named 'graphql.py' shadows the graphql PyPI package.
 
     If a file named 'graphql.py' exists in the backend package, it will shadow
     the 'graphql' PyPI package that strawberry depends on, causing a circular
@@ -55,7 +55,9 @@ def test_create_and_query_race(client, db):
     # 2. Create a race via GraphQL
     mutation = f"""
     mutation {{
-        createRace(race: {{ name: "GraphQL Race", groupId: {group_id}, trackId: {track_id} }}) {{
+        createRace(
+            race: {{ name: "GraphQL Race", groupId: {group_id}, trackId: {track_id} }}
+        ) {{
             id
             name
             groupId

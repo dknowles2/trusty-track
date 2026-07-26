@@ -56,7 +56,8 @@ def test_track_crud(client, db):
     """
     resp = client.post("/graphql", json={"query": query_tracks})
     tracks = resp.json()["data"]["tracks"]
-    # There might be default tracks from other tests if DB persists (it shouldn't in memory)
+    # There might be default tracks from other tests if DB persists
+    # (it shouldn't in memory)
     # But just let's check our tracks are there
     t_ids = [int(t["id"]) for t in tracks]
     assert int(track_a_id) in t_ids
@@ -65,7 +66,10 @@ def test_track_crud(client, db):
     # 4. Update track
     mutation_update = f"""
     mutation {{
-        updateTrack(id: {track_a_id}, track: {{name: "Updated Track A", laneCount: 2}}) {{
+        updateTrack(
+            id: {track_a_id}
+            track: {{name: "Updated Track A", laneCount: 2}}
+        ) {{
             name
             laneCount
         }}
@@ -80,7 +84,13 @@ def test_track_crud(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Race on Track B", groupId: {group.id}, trackId: {track_b_id}}}) {{
+        createRace(
+            race: {{
+                name: "Race on Track B"
+                groupId: {group.id}
+                trackId: {track_b_id}
+            }}
+        ) {{
             id
             trackId
         }}
@@ -126,7 +136,9 @@ def test_race_track_association_update(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Update Race", groupId: {group.id}, trackId: {t1.id}}}) {{
+        createRace(
+            race: {{name: "Update Race", groupId: {group.id}, trackId: {t1.id}}}
+        ) {{
             id
             trackId
         }}
@@ -153,7 +165,7 @@ def test_race_track_association_update(client, db):
     assert data["track"]["name"] == "T2"
 
 
-def test_update_track_serial_port(client, db):
+def test_update_track_serial_port(client):
     # 1. Create a track
     mutation_create = """
     mutation {

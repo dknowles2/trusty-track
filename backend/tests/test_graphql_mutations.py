@@ -13,7 +13,9 @@ def test_racer_mutations(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Racer Race", groupId: {group.id}, trackId: {track.id}}}) {{
+        createRace(
+            race: {{name: "Racer Race", groupId: {group.id}, trackId: {track.id}}}
+        ) {{
             id
         }}
     }}
@@ -191,7 +193,9 @@ def test_den_mutations(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Den Race", groupId: {group.id}, trackId: {track.id}}}) {{
+        createRace(
+            race: {{name: "Den Race", groupId: {group.id}, trackId: {track.id}}}
+        ) {{
             id
         }}
     }}
@@ -302,7 +306,9 @@ def test_round_wizard_and_advance(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Wizard Race", groupId: {group.id}, trackId: {track.id}}}) {{
+        createRace(
+            race: {{name: "Wizard Race", groupId: {group.id}, trackId: {track.id}}}
+        ) {{
             id
         }}
     }}
@@ -390,7 +396,9 @@ def test_bulk_mutations(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Bulk Race", groupId: {group.id}, trackId: {track.id}}}) {{
+        createRace(
+            race: {{name: "Bulk Race", groupId: {group.id}, trackId: {track.id}}}
+        ) {{
             id
         }}
     }}
@@ -501,7 +509,9 @@ def test_bulk_mutations_with_variables(client, db):
             "/graphql",
             json={
                 "query": """
-                mutation CreateRacer($racer: RacerInput!) { createRacer(racer: $racer) { id } }
+                mutation CreateRacer($racer: RacerInput!) {
+                    createRacer(racer: $racer) { id }
+                }
                 """,
                 "variables": {
                     "racer": {
@@ -520,7 +530,9 @@ def test_bulk_mutations_with_variables(client, db):
         "/graphql",
         json={
             "query": """
-            mutation UpdateRace($id: Int!, $race: RaceUpdateInput!) { updateRace(id: $id, race: $race) { id } }
+            mutation UpdateRace($id: Int!, $race: RaceUpdateInput!) {
+                updateRace(id: $id, race: $race) { id }
+            }
             """,
             "variables": {"id": race_id, "race": {"carNumberingStrategy": "GLOBAL"}},
         },
@@ -530,7 +542,10 @@ def test_bulk_mutations_with_variables(client, db):
     resp = client.post(
         "/graphql",
         json={
-            "query": "mutation BulkAutoNumber($racerIds: [Int!]!) { bulkAutoNumber(racerIds: $racerIds) }",
+            "query": (
+                "mutation BulkAutoNumber($racerIds: [Int!]!) "
+                "{ bulkAutoNumber(racerIds: $racerIds) }"
+            ),
             "variables": {"racerIds": racer_ids},
         },
     )
@@ -541,7 +556,11 @@ def test_bulk_mutations_with_variables(client, db):
     resp = client.post(
         "/graphql",
         json={
-            "query": "mutation BulkCheckIn($racerIds: [Int!]!, $passedInspection: Boolean!) { bulkCheckIn(racerIds: $racerIds, passedInspection: $passedInspection) }",
+            "query": (
+                "mutation BulkCheckIn($racerIds: [Int!]!, $passedInspection: Boolean!) "
+                "{ bulkCheckIn(racerIds: $racerIds, "
+                "passedInspection: $passedInspection) }"
+            ),
             "variables": {"racerIds": racer_ids, "passedInspection": True},
         },
     )
@@ -552,7 +571,10 @@ def test_bulk_mutations_with_variables(client, db):
     resp = client.post(
         "/graphql",
         json={
-            "query": "mutation BulkClearNumbers($racerIds: [Int!]!) { bulkClearNumbers(racerIds: $racerIds) }",
+            "query": (
+                "mutation BulkClearNumbers($racerIds: [Int!]!) "
+                "{ bulkClearNumbers(racerIds: $racerIds) }"
+            ),
             "variables": {"racerIds": racer_ids},
         },
     )
@@ -564,7 +586,9 @@ def test_bulk_mutations_with_variables(client, db):
         "/graphql",
         json={
             "query": """
-            mutation CreateDen($raceId: Int!, $den: DenInput!) { createDen(raceId: $raceId, den: $den) { id } }
+            mutation CreateDen($raceId: Int!, $den: DenInput!) {
+                createDen(raceId: $raceId, den: $den) { id }
+            }
             """,
             "variables": {
                 "raceId": race_id,
@@ -577,7 +601,10 @@ def test_bulk_mutations_with_variables(client, db):
     resp = client.post(
         "/graphql",
         json={
-            "query": "mutation BulkMoveToDen($racerIds: [Int!]!, $denId: Int) { bulkMoveToDen(racerIds: $racerIds, denId: $denId) }",
+            "query": (
+                "mutation BulkMoveToDen($racerIds: [Int!]!, $denId: Int) "
+                "{ bulkMoveToDen(racerIds: $racerIds, denId: $denId) }"
+            ),
             "variables": {"racerIds": racer_ids, "denId": den_id},
         },
     )
@@ -588,7 +615,10 @@ def test_bulk_mutations_with_variables(client, db):
     resp = client.post(
         "/graphql",
         json={
-            "query": "mutation BulkDeleteRacers($racerIds: [Int!]!) { bulkDeleteRacers(racerIds: $racerIds) }",
+            "query": (
+                "mutation BulkDeleteRacers($racerIds: [Int!]!) "
+                "{ bulkDeleteRacers(racerIds: $racerIds) }"
+            ),
             "variables": {"racerIds": racer_ids},
         },
     )

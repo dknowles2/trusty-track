@@ -7,6 +7,32 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      # Scoped to the Python trees rather than `.`, to match what the
+      # pre-commit hooks lint (`types: [python]`). Bare `ruff format` also
+      # rewrites Python blocks inside the `docs/tasks/*.md` design notes, which
+      # is not wanted.
+      - name: Lint
+        run: uv run ruff check backend scripts packaging
+
+      - name: Format
+        run: uv run ruff format --check backend scripts packaging
+
   backend-test:
     name: Backend Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest

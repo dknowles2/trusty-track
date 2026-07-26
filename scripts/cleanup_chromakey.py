@@ -2,6 +2,11 @@ import sys
 
 from PIL import Image
 
+# Target colors. At module scope because that is what they are — constants, not
+# working values the function computes.
+PURE_GREEN = (0, 255, 0)
+PURE_WHITE = (255, 255, 255)
+
 
 def cleanup_chromakey(input_path: str, output_path: str):
     """
@@ -12,17 +17,14 @@ def cleanup_chromakey(input_path: str, output_path: str):
     pixels = img.load()
     width, height = img.size
 
-    # Target colors
-    PURE_GREEN = (0, 255, 0)
-    PURE_WHITE = (255, 255, 255)
-
     for y in range(height):
         for x in range(width):
             r, g, b = pixels[x, y]
 
             # Identify green-ish (background)
             # We look for high green and low red/blue
-            # The prompt requested #00FF00, so any pixel where G is dominant and R/B are low
+            # The prompt requested #00FF00, so any pixel where G is dominant
+            # and R/B are low
             if g > 150 and r < 100 and b < 100:
                 pixels[x, y] = PURE_GREEN
                 continue

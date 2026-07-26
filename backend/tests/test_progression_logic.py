@@ -101,7 +101,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
     racers = crud.get_racers(db, race_id=race.id)
     # Sort by ID to match creation order
     racers.sort(key=lambda x: x.id)
-    fast_racers = set([r.id for r in racers[:8]])
+    fast_racers = {r.id for r in racers[:8]}
 
     for heat in r1_heats:
         results = json.loads(heat.lane_results)
@@ -143,7 +143,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
 
     # 6. Run Round 2
     # Racers 0-3 get fast times (0.5s), others get slow (1.5s)
-    fastest_racers = set([r.id for r in racers[:4]])
+    fastest_racers = {r.id for r in racers[:4]}
 
     for heat in r2_heats:
         results = json.loads(heat.lane_results)
