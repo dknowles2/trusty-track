@@ -21,6 +21,13 @@ export type HeatLaneInput = {
   time?: number | null | undefined;
 };
 
+export type HeatPhase =
+  | 'NOT_READY'
+  | 'NO_HEAT'
+  | 'RECORDED'
+  | 'RUNNING'
+  | 'WAITING';
+
 export type HeatReorderItemInput = {
   heatId: number;
   newHeatNumber: number;
@@ -342,6 +349,14 @@ export type TimerStatusSubscriptionVariables = Exact<{
 
 
 export type TimerStatusSubscription = { timerStatus: { status: { state: string, deviceName: string | null, laneCount: number | null, activeHeatId: number | null, lastError: string | null, racerByLane: string | null, pendingResults: Array<{ lane: number, time: number | null, place: number | null, racerId: number | null }>, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
+
+export type HeatSessionSubscriptionVariables = Exact<{
+  trackId: number;
+  heatId?: number | null | undefined;
+}>;
+
+
+export type HeatSessionSubscription = { heatSession: { trackId: number, heatId: number | null, phase: Types.HeatPhase, timerState: string, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean, pending: boolean }> } };
 
 export type PrepareHeatMutationVariables = Exact<{
   heatId: number;

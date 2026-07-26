@@ -351,7 +351,9 @@ Two things it settles, because they were getting it wrong in a render function:
 
 Also a subscription. It watches **two** channels — `timer_state:{track_id}` for lane times and arming, and `race_state:{race_id}` for a result being saved, which is what turns `RUNNING` into `RECORDED` and never comes from the timer. `pubsub.subscribe` takes several channels for this.
 
-This is issue #7, steps one and two — the frontend still merges in `RaceExecution.tsx`, and deleting that block is step three. Don't add a second merge site; extend `domain/heat_session.py`.
+`RaceExecution.tsx` renders from it and merges nothing (issue #7). **`phase` is the answer to "what is this heat doing", not `timerState`** — a recorded heat whose timer has not caught up must not show as racing. Screens read `HeatSession` / `LiveLane` from `features/racing/types.ts`; the stored `heat.lanes` are what *edits and skips write against*, since those change the record rather than the live view.
+
+Don't reintroduce a merge on the client; extend `domain/heat_session.py` instead.
 
 ### First-run gate
 

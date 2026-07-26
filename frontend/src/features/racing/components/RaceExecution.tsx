@@ -5,7 +5,7 @@ import { FakeTimerMole } from './FakeTimerMole';
 import { HardwareTimerMole } from './HardwareTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
-import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../graphql/queries';
+import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../graphql/queries';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import Icon from '@mdi/react';
@@ -21,7 +21,7 @@ export type {
     AdvancementStatus,
     LaneInput,
 } from '../types';
-import type { Heat, Racer, AdvancementStatus, LaneInput, Lane } from '../types';
+import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import { hasRun, hasTimes, toInput } from '../lanes';
 
 /**
@@ -77,51 +77,46 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
     const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // The live view, assembled by the server (#7). What used to be here was a
+    // merge of the heat's stored lanes with `timerStatus.pendingResults`,
+    // recomputed on every render.
     const [subResult] = useSubscription({
-        query: TIMER_STATUS_SUBSCRIPTION,
-        variables: { trackId: trackId ?? 0 },
+        query: HEAT_SESSION_SUBSCRIPTION,
+        variables: { trackId: trackId ?? 0, heatId: activeExecutionHeat?.id ?? null },
         pause: !trackId,
     });
-    const timerState: string = subResult.data?.timerStatus?.status?.state ?? 'IDLE';
-    const pendingResults = subResult.data?.timerStatus?.status?.pendingResults ?? [];
+    const session = subResult.data?.heatSession;
 
     const [, prepareHeat] = useMutation(PREPARE_HEAT);
     const [, abortHeat] = useMutation(ABORT_HEAT);
     const [, forceResults] = useMutation(FORCE_RESULTS);
 
-    const lanes = activeExecutionHeat?.lanes ?? [];
-    const hasRecordedTimes = hasTimes(lanes);
-    const isSkipped = lanes.some((l) => l.skipped);
-    const isCompleted = hasRun(lanes);
-    const isRunning = timerState === 'RUNNING' || timerState === 'RESULTS_OVERDUE';
-    const hasPlaceholders = lanes.some((l) => l.placeholderSlot !== null);
+    // What is saved. Editing and skipping write against this, not against the
+    // live view — an operator overriding a result is changing the record.
+    const storedLanes = activeExecutionHeat?.lanes ?? [];
 
-    const laneResultMap: Record<number, Lane> = {};
-    const racerMapping: Record<number, number | null> = subResult.data?.timerStatus?.status?.racerByLane
-        ? JSON.parse(subResult.data.timerStatus.status.racerByLane)
-        : {};
+    // What to show. Identical to the stored lanes until the timer reports
+    // something, which is why falling back to them costs nothing on the first
+    // render before the subscription answers.
+    const liveLanes: LiveLane[] = session?.lanes ?? storedLanes.map((l) => ({ ...l, pending: false }));
 
-    if (isCompleted) {
-        lanes.forEach((l) => { laneResultMap[l.lane] = l; });
-    } else {
-        // First populate with assignments
-        lanes.forEach((l) => {
-            laneResultMap[l.lane] = { ...l, time: null, place: null };
-        });
+    const timerState: string = session?.timerState ?? 'IDLE';
+    // `phase` is the server's answer and wins. The fallbacks are the same
+    // predicates it computes from — `hasRun` is what `is_recorded` was ported
+    // from — not a second opinion, just a synchronous one for the first render.
+    const isCompleted = session ? session.phase === 'RECORDED' : hasRun(storedLanes);
+    const hasPlaceholders = session
+        ? session.phase === 'NOT_READY'
+        : storedLanes.some((l) => l.placeholderSlot !== null);
+    // From the phase, not the device. A recorded heat whose timer has not caught
+    // up used to show "Racing..." over its own saved results — the phase settles
+    // that (RECORDED outranks RUNNING) and the screen no longer has to.
+    const isRunning = session
+        ? session.phase === 'RUNNING'
+        : timerState === 'RUNNING' || timerState === 'RESULTS_OVERDUE';
 
-        // Then overlay pending results from timer
-        pendingResults.forEach((r: { lane: number, time: number | null, place: number | null, racerId?: number | null }) => {
-            laneResultMap[r.lane] = {
-                ...laneResultMap[r.lane],
-                lane: r.lane,
-                racerId: r.racerId || racerMapping[r.lane] || laneResultMap[r.lane]?.racerId || null,
-                placeholderSlot: laneResultMap[r.lane]?.placeholderSlot ?? null,
-                skipped: false,
-                time: r.time,
-                place: r.place,
-            };
-        });
-    }
+    const hasRecordedTimes = hasTimes(storedLanes);
+    const isSkipped = storedLanes.some((l) => l.skipped);
 
     // Reset timer state when it stops
     const [prevIsRunning, setPrevIsRunning] = useState(isRunning);
@@ -258,7 +253,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     }
 
     const handleEditOpen = () => {
-        setEditingResults(lanes.map((l) => ({
+        setEditingResults(storedLanes.map((l) => ({
             ...toInput(l),
             timeText: l.time === null ? '' : String(l.time),
         })));
@@ -291,7 +286,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             setAutoAdvanceCountdown(null);
 
             const currentHeatId = activeExecutionHeat.id;
-            const skippedResults = lanes.map((l) => ({
+            const skippedResults = storedLanes.map((l) => ({
                 ...toInput(l),
                 time: null,
                 place: null,
@@ -426,10 +421,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         </div>
 
                         <div style={{ display: 'grid', gap: '15px' }}>
-                            {lanes.map((r) => {
+                            {liveLanes.map((r) => {
                                 const racer = racers[r.racerId || 0];
-                                // Use mapped results for real-time updates
-                                const m = laneResultMap[r.lane] || r;
                                 return (
                                     <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: '#f9f9f9', borderRadius: '8px', borderLeft: '5px solid #ddd' }}>
                                         <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {r.lane}</div>
@@ -437,8 +430,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <div style={{
                                             flex: 1,
                                             padding: '10px 15px',
-                                            background: m.place === 1 ? 'rgba(252, 209, 22, 0.1)' : 'transparent',
-                                            border: m.place === 1 ? '1px solid var(--cub-scouting-gold)' : '1px solid transparent',
+                                            background: r.place === 1 ? 'rgba(252, 209, 22, 0.1)' : 'transparent',
+                                            border: r.place === 1 ? '1px solid var(--cub-scouting-gold)' : '1px solid transparent',
                                             borderRadius: '8px',
                                             display: 'flex',
                                             alignItems: 'center'
@@ -464,9 +457,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                                                 <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                    {m.time ? `${Number(m.time).toFixed(4)}s` : '--'}
+                                                    {r.time ? `${Number(r.time).toFixed(4)}s` : '--'}
                                                 </div>
-                                                {m.place !== null && (
+                                                {r.place !== null && (
                                                     <div style={{
                                                         display: 'flex',
                                                         flexDirection: 'column',
@@ -474,24 +467,24 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                         width: '60px',
                                                         padding: '5px',
                                                         borderRadius: '8px',
-                                                        background: m.place === 1 ? 'var(--cub-scouting-gold)' :
-                                                            m.place === 2 ? '#e0e0e0' :
-                                                                m.place === 3 ? '#d7a48d' : 'transparent',
-                                                        color: m.place === 1 ? 'var(--scouting-blue)' : 'inherit',
-                                                        boxShadow: m.place <= 3 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
+                                                        background: r.place === 1 ? 'var(--cub-scouting-gold)' :
+                                                            r.place === 2 ? '#e0e0e0' :
+                                                                r.place === 3 ? '#d7a48d' : 'transparent',
+                                                        color: r.place === 1 ? 'var(--scouting-blue)' : 'inherit',
+                                                        boxShadow: r.place <= 3 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
                                                     }}>
-                                                        {m.place <= 3 ? (
+                                                        {r.place <= 3 ? (
                                                             <Icon
                                                                 path={mdiTrophy}
                                                                 size={1}
-                                                                color={m.place === 1 ? 'var(--scouting-blue)' :
-                                                                    m.place === 2 ? '#757575' : '#8d6e63'}
+                                                                color={r.place === 1 ? 'var(--scouting-blue)' :
+                                                                    r.place === 2 ? '#757575' : '#8d6e63'}
                                                             />
                                                         ) : (
-                                                            <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{m.place}th</span>
+                                                            <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{r.place}th</span>
                                                         )}
-                                                        {m.place <= 3 && <span style={{ fontSize: '0.7rem', fontWeight: 'bold', lineHeight: 1 }}>
-                                                            {m.place === 1 ? '1st' : m.place === 2 ? '2nd' : '3rd'}
+                                                        {r.place <= 3 && <span style={{ fontSize: '0.7rem', fontWeight: 'bold', lineHeight: 1 }}>
+                                                            {r.place === 1 ? '1st' : r.place === 2 ? '2nd' : '3rd'}
                                                         </span>}
                                                     </div>
                                                 )}

@@ -85,14 +85,27 @@ describe('RaceExecution', () => {
         mockMutationFn.mockResolvedValue({ data: { prepareHeat: true } });
         (useMutation as any).mockReturnValue([{}, mockMutationFn]);
 
+        mockHeatSession(null);
+    });
+
+    /**
+     * Stand in for the `heatSession` subscription.
+     *
+     * `null` means it has not answered yet, which is the state of the very
+     * first render — the component falls back to the heat's stored lanes, and
+     * most tests here are about that saved state rather than about a heat in
+     * progress.
+     */
+    function mockHeatSession(session: any) {
         (useSubscription as any).mockImplementation(({ query }: any) => {
-            const qStr = JSON.stringify(query);
-            if (qStr.includes('TimerStatus')) {
-                return [{ data: { timerStatus: { status: { state: 'IDLE' } } } }];
+            if (JSON.stringify(query).includes('HeatSession')) {
+                return [{ data: { heatSession: session } }];
             }
             return [{ data: null }];
         });
-    });
+    }
+
+    const liveLane = (overrides: any) => ({ ...lane(overrides), pending: false, ...overrides });
 
     it('renders race execution message if no active heat', () => {
         render(
@@ -159,12 +172,12 @@ describe('RaceExecution', () => {
     });
 
     it('renders "Racing..." when timer state is RUNNING', () => {
-        (useSubscription as any).mockImplementation(({ query }: any) => {
-            const qStr = JSON.stringify(query);
-            if (qStr.includes('TimerStatus')) {
-                return [{ data: { timerStatus: { status: { state: 'RUNNING' } } } }];
-            }
-            return [{ data: null }];
+        mockHeatSession({
+            trackId: 1,
+            heatId: 1,
+            phase: 'RUNNING',
+            timerState: 'RUNNING',
+            lanes: [liveLane({ lane: 1, racerId: 101 })],
         });
 
         render(
@@ -178,6 +191,101 @@ describe('RaceExecution', () => {
         );
 
         expect(screen.getByText(/Racing.../)).toBeInTheDocument();
+    });
+
+    describe('the live view comes from the server (#7)', () => {
+        it('shows a lane time the timer has reported but nothing has saved', () => {
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'RUNNING',
+                timerState: 'RUNNING',
+                lanes: [
+                    liveLane({ lane: 1, racerId: 101, time: 3.101, place: 1, pending: true }),
+                    liveLane({ lane: 2, racerId: 102 }),
+                ],
+            });
+
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    activeExecutionHeat={{
+                        ...mockHeat,
+                        lanes: [
+                            lane({ lane: 1, racerId: 101 }),
+                            lane({ lane: 2, racerId: 102 }),
+                        ],
+                    }}
+                />
+            );
+
+            // The heat itself holds no times — this one exists only in the timer.
+            expect(screen.getByText('3.1010s')).toBeInTheDocument();
+            expect(screen.getByText('--')).toBeInTheDocument();
+        });
+
+        it('shows the saved results, not a timer that has not caught up', () => {
+            // The expensive one to get wrong: the heat is recorded and in the
+            // standings, so a stale pending report must not appear over it.
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'RECORDED',
+                timerState: 'RUNNING',
+                lanes: [
+                    liveLane({ lane: 1, racerId: 101, time: 3.5, place: 1 }),
+                    liveLane({ lane: 2, racerId: 102, time: 3.6, place: 2 }),
+                ],
+            });
+
+            render(<RaceExecution {...defaultProps} />);
+
+            expect(screen.getByText('3.5000s')).toBeInTheDocument();
+            expect(screen.queryByText(/Racing.../)).not.toBeInTheDocument();
+            expect(screen.getByText('Edit')).toBeInTheDocument();
+        });
+
+        it('believes the phase over its own copy of the heat', () => {
+            // The session arrives on its own channel, so it can be ahead: the
+            // timer has saved a result and `heatSession` says RECORDED while
+            // `activeExecutionHeat` still holds the pre-race lanes from the
+            // last query. Deriving "completed" locally would leave the operator
+            // staring at "Waiting for Timer..." over a heat that has finished.
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'RECORDED',
+                timerState: 'IDLE',
+                lanes: [liveLane({ lane: 1, racerId: 101, time: 3.5, place: 1 })],
+            });
+
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    activeExecutionHeat={{
+                        ...mockHeat,
+                        lanes: [lane({ lane: 1, racerId: 101 })],
+                    }}
+                />
+            );
+
+            expect(screen.getByText('Edit')).toBeInTheDocument();
+            expect(screen.queryByText('Waiting for Timer...')).not.toBeInTheDocument();
+        });
+
+        it('treats a NOT_READY phase as a championship round awaiting its field', () => {
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'NOT_READY',
+                timerState: 'IDLE',
+                lanes: [liveLane({ lane: 1, racerId: null, placeholderSlot: 1 })],
+            });
+
+            render(<RaceExecution {...defaultProps} />);
+
+            expect(screen.getByText('Round Not Ready')).toBeInTheDocument();
+        });
     });
 
     it('shows "Waiting for Timer..." message when IDLE and not completed', () => {
