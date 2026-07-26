@@ -31,19 +31,26 @@ class _PubSub:
 
     @asynccontextmanager
     async def subscribe(
-        self, channel: str
+        self, *channels: str
     ) -> AsyncGenerator[AsyncGenerator[Any, None], None]:
         """Async context manager that yields an async generator of payloads.
 
+        Pass more than one channel to receive from all of them on a single
+        stream, in arrival order. That is one queue on several channels rather
+        than several streams to interleave, which matters for a subscriber whose
+        answer depends on more than one source: `heatSession` recomputes from
+        the database on any event, and cares that something changed rather than
+        which thing did.
+
         Args:
-            channel: The channel name to subscribe to.
+            channels: The channel names to subscribe to.
 
         Yields:
-            An async generator that yields payloads published to *channel*.
+            An async generator that yields payloads published to any of them.
         """
         queue: asyncio.Queue[Any] = asyncio.Queue()
-        subscribers = self._subscribers.setdefault(channel, [])
-        subscribers.append(queue)
+        for channel in channels:
+            self._subscribers.setdefault(channel, []).append(queue)
         try:
 
             async def _stream() -> AsyncGenerator[Any, None]:
@@ -53,7 +60,10 @@ class _PubSub:
 
             yield _stream()
         finally:
-            subscribers.remove(queue)
+            for channel in channels:
+                # A channel repeated in *channels* registered the queue twice;
+                # remove() takes one each time, so the counts stay matched.
+                self._subscribers[channel].remove(queue)
 
 
 # Module-level singleton used by schema.py and tests.

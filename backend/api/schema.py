@@ -9,7 +9,7 @@ import os
 import random
 import typing
 import uuid
-from collections.abc import AsyncGenerator, Iterable
+from collections.abc import AsyncGenerator, Iterable, Mapping
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 
@@ -1022,6 +1022,52 @@ def _pending_lanes(status) -> list[domain_heat_session.PendingLane]:
     ]
 
 
+def _build_heat_session(
+    db: Session,
+    timer_managers: Mapping[int, Any],
+    track_id: int,
+    heat_id: Optional[int] = None,
+) -> HeatSession:
+    """Assemble the live view of a track from the heat and the timer.
+
+    A plain function rather than a method so the query and the subscription
+    answer identically — the subscription's whole job is to re-emit this, and
+    two copies of the assembly is how they would drift.
+    """
+    manager = timer_managers.get(track_id)
+    status = manager.status() if manager else None
+
+    if heat_id is None and status is not None:
+        heat_id = status.active_heat_id
+
+    heat = (
+        db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if heat_id is not None
+        else None
+    )
+    # A heat id that names nothing is NO_HEAT, not an error: the operator can
+    # delete a round while its heat is still armed.
+    stored = lanes.parse(heat.lane_results) if heat is not None else None
+
+    return HeatSession(
+        track_id=track_id,
+        heat_id=heat.id if heat is not None else None,
+        phase=domain_heat_session.phase(stored, status.state if status else None),
+        timer_state=status.state if status else "DISCONNECTED",
+        lanes=(
+            _live_lanes(
+                domain_heat_session.merge(
+                    stored,
+                    _pending_lanes(status),
+                    racer_by_lane=status.racer_by_lane if status else None,
+                )
+            )
+            if stored is not None
+            else []
+        ),
+    )
+
+
 @strawberry.type
 class TimerStateChangedEvent:
     """Event emitted whenever the timer state changes for a track."""
@@ -1224,38 +1270,11 @@ class Query:
         screen selects the next heat before arming it, so during that window
         only the caller knows.
         """
-        db = info.context["db"]
-        manager = info.context.get("timer_managers", {}).get(track_id)
-        status = manager.status() if manager else None
-
-        if heat_id is None and status is not None:
-            heat_id = status.active_heat_id
-
-        heat = (
-            db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if heat_id is not None
-            else None
-        )
-        # A heat id that names nothing is NO_HEAT, not an error: the operator
-        # can delete a round while its heat is still armed.
-        stored = lanes.parse(heat.lane_results) if heat is not None else None
-
-        return HeatSession(
-            track_id=track_id,
-            heat_id=heat.id if heat is not None else None,
-            phase=domain_heat_session.phase(stored, status.state if status else None),
-            timer_state=status.state if status else "DISCONNECTED",
-            lanes=(
-                _live_lanes(
-                    domain_heat_session.merge(
-                        stored,
-                        _pending_lanes(status),
-                        racer_by_lane=status.racer_by_lane if status else None,
-                    )
-                )
-                if stored is not None
-                else []
-            ),
+        return _build_heat_session(
+            info.context["db"],
+            info.context.get("timer_managers", {}),
+            track_id,
+            heat_id,
         )
 
     @strawberry.field
@@ -2718,6 +2737,44 @@ class Subscription:
                     ),
                     changed_at=datetime.now(timezone.utc).isoformat(),
                 )
+
+    @strawberry.subscription
+    async def heat_session(
+        self, info: Info, track_id: int, heat_id: Optional[int] = None
+    ) -> AsyncGenerator[HeatSession, None]:
+        """Subscribe to the live view of a track (#7).
+
+        Yields the current session immediately, then a fresh one on every event
+        that could change it. Two sources have to be watched, which is what
+        `pubsub.subscribe` takes several channels for:
+
+        - the **timer**, for lane times arriving, arming, and aborts;
+        - the **race**, for a result being saved or cleared — that is what turns
+          RUNNING into RECORDED, and it does not come from the timer.
+
+        The race is resolved once, from the heat this subscription is about.
+        Changing heat means changing `heatId`, which is a variable, so the
+        client opens a new subscription and the race is re-resolved with it.
+        """
+        db = info.context["db"]
+        timer_managers = info.context.get("timer_managers", {})
+
+        session = _build_heat_session(db, timer_managers, track_id, heat_id)
+        yield session
+
+        channels = [f"timer_state:{track_id}"]
+        if session.heat_id is not None:
+            heat = db.query(models.Heat).filter(models.Heat.id == session.heat_id).one()
+            channels.append(f"race_state:{heat.race_id}")
+
+        async with pubsub.subscribe(*channels) as stream:
+            async for _ in stream:
+                # A subscription holds one context for the whole connection, so
+                # without this it would answer from rows loaded when the socket
+                # opened and replay a stale heat forever.
+                db.expire_all()
+                _loaders(info).clear()
+                yield _build_heat_session(db, timer_managers, track_id, heat_id)
 
     @strawberry.subscription
     async def race_state_changed(

@@ -257,7 +257,7 @@ Defined entirely in `backend/api/schema.py`.
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`
 
-**Subscriptions:** `raceStateChanged`, `timerStatus`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`
+**Subscriptions:** `raceStateChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`
 
 ### Adding a mutation
 
@@ -349,7 +349,9 @@ Two things it settles, because they were getting it wrong in a render function:
 
 `phase` is *not* the timer's state (`ARMED`, `FAULT`…), which is about the device and is still reported separately as `timerState`.
 
-This is issue #7, step one — the frontend still merges in `RaceExecution.tsx`. Don't add a second merge site; extend `domain/heat_session.py`.
+Also a subscription. It watches **two** channels — `timer_state:{track_id}` for lane times and arming, and `race_state:{race_id}` for a result being saved, which is what turns `RUNNING` into `RECORDED` and never comes from the timer. `pubsub.subscribe` takes several channels for this.
+
+This is issue #7, steps one and two — the frontend still merges in `RaceExecution.tsx`, and deleting that block is step three. Don't add a second merge site; extend `domain/heat_session.py`.
 
 ### First-run gate
 

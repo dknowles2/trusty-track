@@ -430,6 +430,7 @@ type SerialLogEntry {
 
 type Subscription {
   timerStatus(trackId: Int!): TimerStateChangedEvent!
+  heatSession(trackId: Int!, heatId: Int = null): HeatSession!
   raceStateChanged(raceId: Int!): RaceStateChangedEvent!
   leaderboard(raceId: Int!): [LeaderboardEntry!]!
   onDeck(raceId: Int!): [Racer!]!

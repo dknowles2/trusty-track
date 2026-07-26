@@ -745,6 +745,7 @@ export type Subscription = {
   activeFreeRaceHeat?: Maybe<FreeRaceHeat>;
   currentlyRacing?: Maybe<Heat>;
   freeRaceHeat?: Maybe<FreeRaceHeat>;
+  heatSession: HeatSession;
   heats: Array<Round>;
   leaderboard: Array<LeaderboardEntry>;
   onDeck: Array<Racer>;
@@ -766,6 +767,12 @@ export type SubscriptionCurrentlyRacingArgs = {
 
 export type SubscriptionFreeRaceHeatArgs = {
   heatId: Scalars['Int']['input'];
+};
+
+
+export type SubscriptionHeatSessionArgs = {
+  heatId?: InputMaybe<Scalars['Int']['input']>;
+  trackId: Scalars['Int']['input'];
 };
 
 
