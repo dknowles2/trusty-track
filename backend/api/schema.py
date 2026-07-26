@@ -22,6 +22,7 @@ from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
+from backend.domain import heat_session as domain_heat_session
 from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
 from backend.services import scoring
@@ -143,8 +144,9 @@ class HeatLane:
     - ``skipped`` is a real field rather than a key the backend carried around
       without reading.
 
-    ``laneResults`` still exists and is still what mutations accept. This is the
-    read path only.
+    ``laneResults`` still exists as a field, but nothing on the client reads it
+    and the mutations take :class:`HeatLaneInput` — it is the storage format
+    showing through, and goes when #5 finishes.
     """
 
     lane: int
@@ -938,6 +940,88 @@ class TimerStatus:
     racer_by_lane: Optional[str] = None  # JSON mapping of lane -> racer_id
 
 
+#: The domain's phase enum, published as-is. Wrapped from here rather than
+#: decorated where it is defined, so `backend/domain` keeps importing no
+#: Strawberry — and wrapped rather than re-declared, so there is one copy of the
+#: vocabulary and a phase added there cannot be forgotten here.
+HeatPhase = strawberry.enum(domain_heat_session.Phase, name="HeatPhase")
+
+
+@strawberry.type
+class LiveLane:
+    """One lane of the heat on the track right now (#7).
+
+    The same shape as :class:`HeatLane`, plus ``pending``. The extra field is
+    the point: a time that came from the timer and is not in the database yet
+    can still be lost to an abort, and the operator screen has to be able to
+    say so rather than presenting it as final.
+    """
+
+    lane: int
+    racer_id: Optional[int]
+    placeholder_slot: Optional[int]
+    time: Optional[float]
+    place: Optional[int]
+    skipped: bool
+    pending: bool
+
+
+@strawberry.type
+class HeatSession:
+    """What is happening on a track right now — issue #7.
+
+    Three things knew part of this and nothing owned assembling it: the heat row
+    holds the schedule and any saved results, the ``TimerManager`` holds lane
+    times that have arrived but not landed, and ``RaceExecution.tsx`` merged the
+    two in its render function. The rule now lives in
+    :mod:`backend.domain.heat_session`; this is where it is served from.
+    """
+
+    track_id: int
+    heat_id: Optional[int]
+    phase: HeatPhase
+    #: The device's own state (``IDLE``, ``ARMED``, ``FAULT``…), which is a
+    #: different question from :attr:`phase` and still worth showing.
+    timer_state: str
+    lanes: list[LiveLane]
+
+
+def _live_lanes(merged: Iterable[domain_heat_session.LiveLane]) -> list[LiveLane]:
+    return [
+        LiveLane(
+            lane=lane.lane,
+            racer_id=lane.racer_id,
+            placeholder_slot=lane.placeholder_slot,
+            time=lane.time_seconds,
+            place=lane.place,
+            skipped=lane.skipped,
+            pending=lane.pending,
+        )
+        for lane in merged
+    ]
+
+
+def _pending_lanes(status) -> list[domain_heat_session.PendingLane]:
+    """The timer's unsaved reports, as the domain layer takes them.
+
+    ``racerId`` is left unset deliberately. Our devices report a lane and a
+    time, not a car — the racer comes from the mapping the timer was armed with,
+    which is passed to ``merge`` separately. Filling it in from that same
+    mapping here would make two of the domain's three sources one source wearing
+    a hat, which is what the frontend did.
+    """
+    if status is None:
+        return []
+    return [
+        domain_heat_session.PendingLane(
+            lane=result["lane"],
+            time_seconds=result["time"],
+            place=result["place"],
+        )
+        for result in status.pending_results
+    ]
+
+
 @strawberry.type
 class TimerStateChangedEvent:
     """Event emitted whenever the timer state changes for a track."""
@@ -1127,6 +1211,52 @@ class Query:
         if mgr is None:
             return None
         return _timer_status_from_manager(mgr)
+
+    @strawberry.field
+    def heat_session(
+        self, info: Info, track_id: int, heat_id: Optional[int] = None
+    ) -> HeatSession:
+        """The live view of a track: the heat, merged with the timer (#7).
+
+        ``heatId`` names the heat the caller is looking at. It is optional
+        because the timer already knows which heat it was armed for, and the
+        server answering on its own is the direction of #7 — but the operator
+        screen selects the next heat before arming it, so during that window
+        only the caller knows.
+        """
+        db = info.context["db"]
+        manager = info.context.get("timer_managers", {}).get(track_id)
+        status = manager.status() if manager else None
+
+        if heat_id is None and status is not None:
+            heat_id = status.active_heat_id
+
+        heat = (
+            db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+            if heat_id is not None
+            else None
+        )
+        # A heat id that names nothing is NO_HEAT, not an error: the operator
+        # can delete a round while its heat is still armed.
+        stored = lanes.parse(heat.lane_results) if heat is not None else None
+
+        return HeatSession(
+            track_id=track_id,
+            heat_id=heat.id if heat is not None else None,
+            phase=domain_heat_session.phase(stored, status.state if status else None),
+            timer_state=status.state if status else "DISCONNECTED",
+            lanes=(
+                _live_lanes(
+                    domain_heat_session.merge(
+                        stored,
+                        _pending_lanes(status),
+                        racer_by_lane=status.racer_by_lane if status else None,
+                    )
+                )
+                if stored is not None
+                else []
+            ),
+        )
 
     @strawberry.field
     def race_stats(self, info: Info, race_id: int) -> Optional[RaceStats]:

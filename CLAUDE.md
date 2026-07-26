@@ -68,6 +68,7 @@ backend/
     scheduling.py     # PPC algorithm
     scoring.py        # TIMED / POINTS aggregation and ranking
     advancement.py    # Who advances; when a round is rebuilt
+    heat_session.py   # What is on the track right now: heat + timer, merged
   migrations/         # Alembic environment and versions
   services/
     scoring.py        # Leaderboard and advancement, wired to the DB
@@ -242,7 +243,7 @@ Databases created before Alembic are detected at startup (app tables present, no
 
 Defined entirely in `backend/api/schema.py`.
 
-**Queries:** `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `version`
+**Queries:** `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `version`
 
 **Mutations:**
 
@@ -336,6 +337,19 @@ Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.g
 One `TimerManager` per track, created at startup in `main.py`'s lifespan. Devices implement `services/timer/devices/base.py`. Three connectivity modes: fake, backend-direct serial, and browser-proxied serial over WebSocket. The manager owns byte framing, the state machine, and result recording, and publishes state through `pubsub`.
 
 **`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
+
+### What is on the track right now
+
+`heatSession(trackId, heatId)` merges the heat row (schedule, and results once saved) with the `TimerManager`'s pending lane times, and reports a `phase` — `NO_HEAT`, `NOT_READY`, `WAITING`, `RUNNING`, `RECORDED`. The rule is `domain/heat_session.py`; the resolver loads the two sides and calls it.
+
+Two things it settles, because they were getting it wrong in a render function:
+
+- **A recorded heat ignores the timer.** Anything still pending belongs to a run that has already been superseded, and showing it would contradict the standings.
+- **`pending` is a field.** A time from the timer is not in the database and an abort still loses it, so the screen must not present it as final.
+
+`phase` is *not* the timer's state (`ARMED`, `FAULT`…), which is about the device and is still reported separately as `timerState`.
+
+This is issue #7, step one — the frontend still merges in `RaceExecution.tsx`. Don't add a second merge site; extend `domain/heat_session.py`.
 
 ### First-run gate
 
