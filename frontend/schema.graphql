@@ -110,6 +110,14 @@ input HeatLaneInput {
   skipped: Boolean! = false
 }
 
+enum HeatPhase {
+  NO_HEAT
+  NOT_READY
+  WAITING
+  RUNNING
+  RECORDED
+}
+
 input HeatReorderItemInput {
   heatId: Int!
   newHeatNumber: Int!
@@ -130,6 +138,14 @@ type HeatResultRow {
   racerLastName: String!
   time: Float
   place: Int
+}
+
+type HeatSession {
+  trackId: Int!
+  heatId: Int
+  phase: HeatPhase!
+  timerState: String!
+  lanes: [LiveLane!]!
 }
 
 input InitialConfigInput {
@@ -172,6 +188,16 @@ type LeaderboardEntry {
   heatsCompleted: Int!
   racerImageUrl: String
   rank: Int!
+}
+
+type LiveLane {
+  lane: Int!
+  racerId: Int
+  placeholderSlot: Int
+  time: Float
+  place: Int
+  skipped: Boolean!
+  pending: Boolean!
 }
 
 type Mutation {
@@ -248,6 +274,7 @@ type Query {
   activeFreeRaceHeat(raceId: Int!): FreeRaceHeat
   randomFreeRaceLanes(raceId: Int!): [FreeRaceLaneAssignment!]!
   timerStatus(trackId: Int!): TimerStatus
+  heatSession(trackId: Int!, heatId: Int = null): HeatSession!
   raceStats(raceId: Int!): RaceStats
 }
 

@@ -121,6 +121,13 @@ export type HeatLaneInput = {
   time?: InputMaybe<Scalars['Float']['input']>;
 };
 
+export type HeatPhase =
+  | 'NOT_READY'
+  | 'NO_HEAT'
+  | 'RECORDED'
+  | 'RUNNING'
+  | 'WAITING';
+
 export type HeatReorderItemInput = {
   heatId: Scalars['Int']['input'];
   newHeatNumber: Scalars['Int']['input'];
@@ -141,6 +148,14 @@ export type HeatResultRow = {
   racerLastName: Scalars['String']['output'];
   roundName: Scalars['String']['output'];
   time?: Maybe<Scalars['Float']['output']>;
+};
+
+export type HeatSession = {
+  heatId?: Maybe<Scalars['Int']['output']>;
+  lanes: Array<LiveLane>;
+  phase: HeatPhase;
+  timerState: Scalars['String']['output'];
+  trackId: Scalars['Int']['output'];
 };
 
 export type InitialConfigInput = {
@@ -183,6 +198,16 @@ export type LeaderboardEntry = {
   racerImageUrl?: Maybe<Scalars['String']['output']>;
   rank: Scalars['Int']['output'];
   score: Scalars['Float']['output'];
+};
+
+export type LiveLane = {
+  lane: Scalars['Int']['output'];
+  pending: Scalars['Boolean']['output'];
+  place?: Maybe<Scalars['Int']['output']>;
+  placeholderSlot?: Maybe<Scalars['Int']['output']>;
+  racerId?: Maybe<Scalars['Int']['output']>;
+  skipped: Scalars['Boolean']['output'];
+  time?: Maybe<Scalars['Float']['output']>;
 };
 
 export type Mutation = {
@@ -481,6 +506,7 @@ export type Query = {
   advancementStatus: AdvancementStatus;
   freeRaceHeats: Array<FreeRaceHeat>;
   groups: Array<Group>;
+  heatSession: HeatSession;
   initialConfig: InitialConfigStatus;
   race?: Maybe<Race>;
   raceStats?: Maybe<RaceStats>;
@@ -509,6 +535,12 @@ export type QueryAdvancementStatusArgs = {
 export type QueryFreeRaceHeatsArgs = {
   limit?: Scalars['Int']['input'];
   raceId: Scalars['Int']['input'];
+};
+
+
+export type QueryHeatSessionArgs = {
+  heatId?: InputMaybe<Scalars['Int']['input']>;
+  trackId: Scalars['Int']['input'];
 };
 
 
