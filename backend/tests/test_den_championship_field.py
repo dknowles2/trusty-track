@@ -288,3 +288,56 @@ def test_total_participants_uses_the_same_rule(db: Session):
     )
     db.flush()
     assert pack.total_participants == PER_DEN
+
+
+def test_invalidation_puts_an_advanced_round_back_to_placeholders(db: Session):
+    """What invalidation is *for*, and what nothing was checking.
+
+    Mutation-testing the in-place reset found that skipping the lane rewrite
+    altogether passed the whole suite: every existing test invalidated a round
+    that still held placeholders, so "reset it" and "leave it alone" looked the
+    same. This one advances the round first, so they cannot.
+    """
+    race, _ = _race(db, "reset")
+    r1, r2 = _rounds(db, race, "PACK", 4, slots=4)
+
+    _run_round(db, race, r1)
+    advanced = {
+        racer_id
+        for heat in crud.get_heats(db, race.id, round_id=r2.id)
+        for racer_id in lanes.real_racer_ids(lanes.parse(heat.lane_results))
+    }
+    assert advanced, "the round should hold real racers before we invalidate it"
+
+    crud.invalidate_future_rounds(db, race.id, 1)
+
+    assert len(_slots(db, race, r2)) == 4
+    assert not [
+        racer_id
+        for heat in crud.get_heats(db, race.id, round_id=r2.id)
+        for racer_id in lanes.real_racer_ids(lanes.parse(heat.lane_results))
+    ]
+
+
+def test_a_round_whose_shape_changed_is_regenerated(db: Session):
+    """In-place reset only works while the heat count matches.
+
+    Adding a den changes a DEN round's slot count, so the same rows cannot be
+    rewritten and the round has to be rebuilt properly.
+    """
+    race, _ = _race(db, "reshape")
+    _, r2 = _rounds(db, race, "DEN", PER_DEN, slots=DENS * PER_DEN)
+    assert len(crud.get_heats(db, race.id, round_id=r2.id)) == DENS * PER_DEN
+
+    crud.create_den(
+        db,
+        schemas.DenCreate(name="reshapeDenExtra", color="#000000", rank="WOLF"),
+        race.id,
+    )
+    db.commit()
+
+    crud.invalidate_future_rounds(db, race.id, 1)
+
+    expected = (DENS + 1) * PER_DEN
+    assert len(_slots(db, race, r2)) == expected
+    assert len(crud.get_heats(db, race.id, round_id=r2.id)) == expected

@@ -348,7 +348,11 @@ One `TimerManager` per track, created at startup in `main.py`'s lifespan. Device
 
 **`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
 
-**A heat id is not a stable handle** (#50). `invalidate_future_rounds` deletes and recreates the heat rows of every later championship round on *every* earlier result, so a heat armed on the timer can vanish — or, since SQLite reuses rowids, come back as a different heat holding a different field. `_record_results` therefore checks the heat's current lane assignment against the `racer_by_lane` it was armed with and calls `_abandon_run` on a mismatch rather than writing. `racer_by_lane` being absent means *unknown*, not *no racers*, so the check sits out when the caller did not supply one.
+**A heat id used to stop being a stable handle** (#50). `invalidate_future_rounds` rewrites the heats of every later championship round on *every* earlier result; when it did that by deleting and re-inserting, an armed heat could vanish — or, since SQLite reuses rowids, come back as a different heat holding a different field. Three things now hold:
+
+- **`_reset_heats_in_place` rewrites the existing rows** when the shape has not changed, so ids survive. It falls back to full regeneration only when the heat count differs (a den added to a `DEN` round, say).
+- **`_record_results` verifies before writing.** It compares the heat's current lane assignment against the `racer_by_lane` it was armed with and calls `_abandon_run` on a mismatch. `racer_by_lane` absent means *unknown*, not *no racers*, so the check sits out when the caller did not supply one.
+- **`_revalidate_timers(info)` disarms proactively.** Call it from any mutation that regenerates, deletes or re-fields heats — it is already on `updateHeatResult`, `regenerateRound`, `deleteRound`, `deleteHeat` and `advanceRound`. Without it the operator only finds out after a run, holding times they must key in by hand.
 
 ### What is on the track right now
 

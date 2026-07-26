@@ -737,6 +737,57 @@ def round_field_size(db: Session, round_obj: models.Round) -> int:
     return advancement.field_size(rule, den_count)
 
 
+def lane_count_for_race(db: Session, race_id: int) -> int:
+    """Lanes on the race's track, or four if it has none."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    return race.track.lane_count if race and race.track else 4
+
+
+def _reset_heats_in_place(
+    db: Session, round_id: int, p_ids: list[int], lane_count: int
+) -> bool:
+    """Rewrite a round's existing heats instead of replacing the rows (#50).
+
+    Deleting and inserting gives every heat a new id, and invalidation runs on
+    *every* earlier result — so a heat the operator is looking at, or that the
+    timer has armed, kept being swapped for a different row several times a
+    round. Worse on SQLite, which hands the old rowid back when the deleted
+    rows were the highest: the id then resolves to a heat holding a different
+    field, which is how a run could be recorded against the wrong racers.
+
+    The schedule for a given field size is deterministic, so when the shape has
+    not changed the same rows can simply be rewritten. Returns False when the
+    heat count differs and the caller has to regenerate properly.
+    """
+    existing = sorted(
+        db.query(models.Heat).filter(models.Heat.round_id == round_id).all(),
+        key=lambda h: h.heat_number,
+    )
+    if not existing:
+        return False
+
+    plans = scheduling.generate_ppc(p_ids, lane_count, start_heat_number=1)
+    if len(plans) != len(existing):
+        return False
+
+    for heat, plan in zip(existing, plans, strict=True):
+        # Belt and braces: every path that creates a round numbers its heats
+        # 1..N, and `existing` is sorted by that, so this is a no-op today.
+        # Mutation-testing confirms nothing catches its removal. Kept because
+        # the alternative is a silent mismatch between a heat's number and its
+        # schedule if some other path ever numbers differently.
+        heat.heat_number = plan.heat_number
+        # Through the ORM, so `lane_sync` projects it into `heat_lanes`.
+        heat.lane_results = lanes.serialize(
+            [
+                lanes.Lane(lane=index + 1, racer_id=racer_id)
+                for index, racer_id in enumerate(plan.lanes)
+            ]
+        )
+    db.commit()
+    return True
+
+
 def invalidate_future_rounds(db: Session, race_id: int, current_round_number: int):
     """Reset later championship rounds after a result in this one changes.
 
@@ -744,16 +795,25 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
     from, so their fields go back to placeholders and get re-advanced. A later
     round that has already been raced is left alone; see the rule as written out
     in :mod:`backend.domain.advancement`.
+
+    The reset rewrites the existing heats where it can, so their ids survive —
+    see :func:`_reset_heats_in_place`.
     """
     all_rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
+    lane_count = lane_count_for_race(db, race_id)
 
     for r in advancement.rounds_to_invalidate(all_rounds, current_round_number):
         if not advancement.may_rebuild(_round_heat_lanes(db, r.id)):
             continue
+        size = round_field_size(db, r)
+        if size > 0 and _reset_heats_in_place(
+            db, r.id, scheduling.placeholder_ids(size), lane_count
+        ):
+            continue
         generate_heats_for_round(
             db,
             r.id,
-            num_placeholders=round_field_size(db, r),
+            num_placeholders=size,
             clear_existing=True,
         )
 

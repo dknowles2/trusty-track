@@ -5,6 +5,7 @@ import csv
 import enum
 import io
 import json
+import logging
 import os
 import random
 import typing
@@ -35,6 +36,8 @@ from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
+
+logger = logging.getLogger(__name__)
 
 pillow_heif.register_heif_opener()
 
@@ -1363,6 +1366,25 @@ class Query:
         )
 
 
+async def _revalidate_timers(info: Info) -> None:
+    """Disarm any timer whose heat has just been rewritten underneath it (#50).
+
+    Call after anything that regenerates, deletes or re-fields heats. Recording
+    already refuses a stale heat, but only after the cars have run — this moves
+    the discovery to the moment it happens, while the track is still empty and
+    the operator can simply re-arm.
+
+    Every track is checked rather than the one that owns the changed race: a
+    manager knows which heat it armed, and asking it is cheaper than working
+    out which races each track could be running.
+    """
+    db = info.context["db"]
+    for mgr in info.context.get("timer_managers", {}).values():
+        reason = await mgr.revalidate_armed_heat(db)
+        if reason is not None:
+            logger.warning("Track %d disarmed: %s", mgr.track_id, reason)
+
+
 @strawberry.type
 class Mutation:
     """
@@ -1698,6 +1720,7 @@ class Mutation:
             )
             heats.extend(new_heats)
 
+        await _revalidate_timers(info)
         await _publish_race_state(
             round_obj.race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_obj.id
         )
@@ -1713,6 +1736,7 @@ class Mutation:
             result = crud.delete_round(db, round_id)
         except ValueError:
             return False
+        await _revalidate_timers(info)
         if race_id:
             await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
         return result
@@ -1727,6 +1751,7 @@ class Mutation:
             result = crud.delete_heat(db, heat_id)
         except ValueError:
             return False
+        await _revalidate_timers(info)
         if race_id:
             await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
         return result
@@ -1758,6 +1783,7 @@ class Mutation:
         if not winner_ids:
             return 0
         crud.populate_round_field(db, round_id, winner_ids)
+        await _revalidate_timers(info)
         await _publish_race_state(
             race_id, kind=RaceChangeKind.SCHEDULE, round_id=round_id
         )
@@ -1987,6 +2013,8 @@ class Mutation:
             return None
         results = lanes.serialize(_lanes_from_input(lanes_input, heat.lane_results))
         updated_heat = typing.cast(Any, crud.record_heat_result(db, heat_id, results))
+        # Recording here can re-field a later championship round (#50).
+        await _revalidate_timers(info)
         if updated_heat:
             await _publish_race_state(
                 updated_heat.race_id,
