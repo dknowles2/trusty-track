@@ -43,6 +43,9 @@ testpaths = ["backend/tests"]
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+# Design notes, not source. `ruff format` reformats Python blocks inside
+# Markdown, which would rewrite records of decisions already taken.
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "ARG"]

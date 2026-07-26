@@ -156,7 +156,7 @@ def test_convert_to_browser_safe_png_resizing() -> None:
 
 
 def test_convert_to_browser_safe_png_no_resize_if_small() -> None:
-    """Tests that convert_to_browser_safe_png doesn't resize or change small safe images."""
+    """convert_to_browser_safe_png leaves small, already-safe images alone."""
     import io
 
     from backend.services.image_processing import (

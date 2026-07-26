@@ -82,7 +82,8 @@ def remove_green_screen(
     blur_radius: float = 0.5,
 ) -> Image.Image:
     """
-    Removes the green screen from an image using soft-thresholding and morphological cleanup.
+    Removes the green screen from an image using soft-thresholding and
+    morphological cleanup.
 
     Args:
         image: The input PIL Image (RGB).
@@ -205,7 +206,8 @@ def convert_to_favicon(image: Image.Image, output_path: str) -> None:
     # Standard favicon sizes
     sizes = [(16, 16), (32, 32), (48, 48), (64, 64), (180, 180), (192, 192), (512, 512)]
 
-    # We need to ensure the image is in a mode that supports transparency if we want the favicon to be transparent
+    # We need to ensure the image is in a mode that supports transparency if we
+    # want the favicon to be transparent
     if image.mode != "RGBA":
         image = image.convert("RGBA")
 

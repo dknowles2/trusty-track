@@ -65,8 +65,8 @@ def test_generate_schedule_only_checked_in(client, db):
             generalType: "PACK"
         }}) {{
             id
-            heats {{ 
-                id 
+            heats {{
+                id
                 laneResults
             }}
         }}
@@ -76,7 +76,8 @@ def test_generate_schedule_only_checked_in(client, db):
 
     # REPRODUCTION: Currently this fails to fail. We want it to FAIL.
     # If the bug is present, resp.json()["data"]["createRound"] will have data.
-    # We want it to have an error "Not enough racers to generate a schedule (minimum 2 required)"
+    # We want it to have an error
+    # "Not enough racers to generate a schedule (minimum 2 required)"
 
     if "errors" in resp.json():
         assert "not enough racers" in resp.json()["errors"][0]["message"].lower()
@@ -97,7 +98,8 @@ def test_generate_schedule_only_checked_in(client, db):
         # If the bug is present, all 3 racers will be scheduled
         if len(all_racer_ids) > 1:
             pytest.fail(
-                f"Bug reproduced: Scheduled {len(all_racer_ids)} racers, but only 1 was checked in."
+                f"Bug reproduced: Scheduled {len(all_racer_ids)} racers, "
+                "but only 1 was checked in."
             )
 
 
@@ -137,8 +139,8 @@ def test_generate_schedule_multiple_checked_in(client, db):
             generalType: "PACK"
         }}) {{
             id
-            heats {{ 
-                id 
+            heats {{
+                id
                 laneResults
             }}
         }}

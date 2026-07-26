@@ -13,7 +13,9 @@ def test_populate_race(client, db):
 
     mutation_create = f"""
     mutation {{
-        createRace(race: {{name: "Populate Race", groupId: {group.id}, trackId: {track.id}}}) {{
+        createRace(
+            race: {{name: "Populate Race", groupId: {group.id}, trackId: {track.id}}}
+        ) {{
             id
         }}
     }}
@@ -55,7 +57,11 @@ def test_import_racers(client, db):
     )
     race_id = race.id
 
-    csv_content = "first_name,last_name,car_number,den\nAlice,Smith,101,Lions\nBob,Jones,102,Tigers"
+    csv_content = (
+        "first_name,last_name,car_number,den\n"
+        "Alice,Smith,101,Lions\n"
+        "Bob,Jones,102,Tigers"
+    )
 
     # 1. Import Racers
     mutation_import = f"""

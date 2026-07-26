@@ -29,6 +29,7 @@ from pathlib import Path
 
 try:
     from backend.version import __version__ as version
+
     TT_VERSION = version
 except ImportError:
     TT_VERSION = "unknown"
@@ -471,9 +472,10 @@ if __name__ == "__main__":
         error_msg = f"Error during startup: {str(e)}\n" + traceback.format_exc()
 
         # Log to /tmp/ for system visibility
-        with contextlib.suppress(Exception), open(
-            "/tmp/trustytrack_startup_error.log", "w"
-        ) as f:
+        with (
+            contextlib.suppress(Exception),
+            open("/tmp/trustytrack_startup_error.log", "w") as f,
+        ):
             f.write(error_msg)
 
         # Log to user home for easy access

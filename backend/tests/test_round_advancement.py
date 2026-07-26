@@ -98,7 +98,7 @@ def test_advancement_restricted_to_round(db: Session):
     winners_r2 = scoring.get_advancing_racers(
         db, race.id, r2.advancement_source, r2.advancement_num_racers
     )
-    assert set(winners_r2) == set([r.id for r in racers[:4]])
+    assert set(winners_r2) == {r.id for r in racers[:4]}
     crud.resolve_round_placeholders(db, r2.id, winners_r2)
     db.expire_all()
 
@@ -123,11 +123,11 @@ def test_advancement_restricted_to_round(db: Session):
     winners_r3 = scoring.get_advancing_racers(
         db, race.id, r3.advancement_source, r3.advancement_num_racers
     )
-    assert set(winners_r3) == set([racers[2].id, racers[3].id])
+    assert set(winners_r3) == {racers[2].id, racers[3].id}
 
     # Overall winners: 0,1 (avg (0.1+1.1)/2 = 0.6s) vs 2,3 (avg (1.0+0.8)/2 = 0.9s)
     winners_pack = scoring.get_advancing_racers(db, race.id, "PACK", 2)
-    assert set(winners_pack) == set([racers[0].id, racers[1].id])
+    assert set(winners_pack) == {racers[0].id, racers[1].id}
 
 
 def test_wizard_with_previous_round(client, db: Session):

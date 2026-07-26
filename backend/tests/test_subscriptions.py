@@ -8,12 +8,11 @@ import asyncio
 from typing import Any
 
 import pytest
-import strawberry
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.api.pubsub import _PubSub
-from backend.api.schema import Mutation, Query, RaceStateChangedEvent, Subscription
+from backend.api.schema import RaceStateChangedEvent
 from backend.db.models import Base
 
 # ---------------------------------------------------------------------------
@@ -28,18 +27,12 @@ def db_session():
         "sqlite:///:memory:", connect_args={"check_same_thread": False}
     )
     Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = Session()
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session = session_factory()
     try:
         yield session
     finally:
         session.close()
-
-
-@pytest.fixture()
-def test_schema():
-    """Return the full strawberry schema with subscriptions."""
-    return strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)
 
 
 # ---------------------------------------------------------------------------
@@ -119,9 +112,7 @@ def _seed_race(db_session: Any) -> tuple[int, int]:
 
 
 @pytest.mark.anyio
-async def test_race_state_changed_subscription_emits_event(
-    db_session, test_schema
-) -> None:
+async def test_race_state_changed_subscription_emits_event(db_session) -> None:
     """Subscription resolver emits an event after _publish_race_state is called.
 
     Tests the end-to-end flow: pubsub subscribe → _publish_race_state → event received.
@@ -169,7 +160,7 @@ async def test_race_state_changed_subscription_emits_event(
 
 
 @pytest.mark.anyio
-async def test_publish_race_state_delivers_to_subscriber(db_session) -> None:
+async def test_publish_race_state_delivers_to_subscriber() -> None:
     """_publish_race_state broadcasts to pubsub subscribers on the correct channel."""
     from backend.api.schema import _publish_race_state
 

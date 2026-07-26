@@ -11,7 +11,9 @@ def test_bulk_move_to_den(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Bulk Move Race", groupId: {group.id}, trackId: {track.id}}}) {{
+        createRace(
+            race: {{name: "Bulk Move Race", groupId: {group.id}, trackId: {track.id}}}
+        ) {{
             id
         }}
     }}
@@ -22,13 +24,15 @@ def test_bulk_move_to_den(client, db):
 
     # Create Racers
     racer_ids = []
-    for i in range(3):
+    for _ in range(3):
         resp = client.post(
             "/graphql",
             json={
                 "query": f"""
             mutation {{
-                createRacer(racer: {{firstName: "R{{i}}", lastName: "T", raceId: {race_id}}}) {{ id }}
+                createRacer(
+                    racer: {{firstName: "R{{i}}", lastName: "T", raceId: {race_id}}}
+                ) {{ id }}
             }}
         """
             },
@@ -79,7 +83,9 @@ def test_reorder_heats(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Reorder Race", groupId: {group.id}, trackId: {track.id}}}) {{ id }}
+        createRace(
+            race: {{name: "Reorder Race", groupId: {group.id}, trackId: {track.id}}}
+        ) {{ id }}
     }}
     """
     race_id = client.post("/graphql", json={"query": mutation_create_race}).json()[
@@ -92,7 +98,15 @@ def test_reorder_heats(client, db):
             "/graphql",
             json={
                 "query": f"""
-            mutation {{ createRacer(racer: {{firstName: "R{{i}}", lastName: "T", carNumber: {100 + i}, raceId: {race_id}, carPassedInspection: true}}) {{ id }} }}
+            mutation {{
+                createRacer(racer: {{
+                    firstName: "R{{i}}"
+                    lastName: "T"
+                    carNumber: {100 + i}
+                    raceId: {race_id}
+                    carPassedInspection: true
+                }}) {{ id }}
+            }}
         """
             },
         )
@@ -100,7 +114,10 @@ def test_reorder_heats(client, db):
     # Create Round & Heats
     mutation_create_round = f"""
     mutation {{
-        createRound(raceId: {race_id}, roundData: {{name: "R1", runsPerLane: 1, generalType: "PACK" }}) {{
+        createRound(
+            raceId: {race_id}
+            roundData: {{name: "R1", runsPerLane: 1, generalType: "PACK" }}
+        ) {{
             id
             heats {{ id heatNumber }}
         }}
@@ -151,7 +168,9 @@ def test_wizard_graphql_flow(client, db):
 
     mutation_create_race = f"""
     mutation {{
-        createRace(race: {{name: "Wizard GQL Race", groupId: {group.id}, trackId: {track.id}}}) {{ id }}
+        createRace(
+            race: {{name: "Wizard GQL Race", groupId: {group.id}, trackId: {track.id}}}
+        ) {{ id }}
     }}
     """
     race_id = client.post("/graphql", json={"query": mutation_create_race}).json()[
@@ -164,7 +183,15 @@ def test_wizard_graphql_flow(client, db):
             "/graphql",
             json={
                 "query": f"""
-            mutation {{ createRacer(racer: {{firstName: "R{{i}}", lastName: "T", carNumber: {100 + i}, raceId: {race_id}, carPassedInspection: true}}) {{ id }} }}
+            mutation {{
+                createRacer(racer: {{
+                    firstName: "R{{i}}"
+                    lastName: "T"
+                    carNumber: {100 + i}
+                    raceId: {race_id}
+                    carPassedInspection: true
+                }}) {{ id }}
+            }}
         """
             },
         )
@@ -174,7 +201,9 @@ def test_wizard_graphql_flow(client, db):
     mutation {{
         createRoundWizard(raceId: {race_id}, config: {{
             generalRound: {{ type: "PACK", runsPerLane: 1 }},
-            championshipRounds: [{{ name: "Finals", source: "PACK", numTopRacers: 3, runsPerLane: 1 }}]
+            championshipRounds: [
+                {{ name: "Finals", source: "PACK", numTopRacers: 3, runsPerLane: 1 }}
+            ]
         }}) {{
             id
             name
