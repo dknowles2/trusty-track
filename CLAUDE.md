@@ -87,6 +87,10 @@ frontend/src/
     core/                     # Navigation, shared queries
     management/               # Home, RaceDetails, racer/den forms, imports
     racing/                   # RaceControl, RaceExecution, scheduling, free race, timer UI
+      raceFlow.ts             #   the race-day machine — pure, no React
+      useRaceFlow.ts          #   its only wiring to React
+      roundCompletion.ts      #   noticing a round's field was decided
+      lanes.ts                #   predicates over a heat's lanes
     observation/              # Audience display
     stats/                    # Standings, RaceStats, Leaderboard
     settings/                 # SystemSettings first-run wizard
@@ -355,6 +359,29 @@ Also a subscription. It watches **two** channels — `timer_state:{track_id}` fo
 
 Don't reintroduce a merge on the client; extend `domain/heat_session.py` instead.
 
+### What the operator screen does between heats
+
+Issue #13. `RaceExecution.tsx` used to encode the race-day flow as six `useEffect`s guarding each other with mirror state, two refs, a derived boolean and an `eslint-disable react-hooks/exhaustive-deps`. It is now one machine in `features/racing/raceFlow.ts`, with `useRaceFlow.ts` as the only wiring.
+
+**`phase` is an input to this machine, not a state of it.** The issue originally proposed a client machine reading `IDLE → PREPARING → ARMED → RUNNING → RECORDED`, but that is the *heat's* state and the server has owned it since #7. What is left is genuinely local — a countdown to the next heat, and whether a round summary is up:
+
+```
+WATCHING ──recorded, times, a next heat, auto-advance on──> COUNTING_DOWN(n)
+COUNTING_DOWN ──n reaches 0──> ADVANCE_TO_NEXT_HEAT, back to WATCHING
+any ──a round's field is decided──> ROUND_SUMMARY ──dismissed──> WATCHING
+```
+
+The test for whether something belongs in `raceFlow.ts` rather than on the server: **it does not survive a refresh.**
+
+`reduce` returns commands (`PREPARE_HEAT`, `ADVANCE_TO_NEXT_HEAT`) rather than performing them, which is what makes race-day behaviour assertable without rendering — `raceFlow.test.ts` dispatches event sequences and touches no DOM. Put a *rule* there and its *I/O* in `useRaceFlow.ts`; if you find yourself writing an `if` about the race in the hook or the component, it is in the wrong file.
+
+Two things it settles that were previously accidents:
+
+- **Cancelling a countdown is sticky, scoped to the heat.** Nothing the server can see changed when the operator clicked, so a machine that re-decided purely from the observation would start counting again on the next payload. Moving to another heat gets a countdown back.
+- **A summary's presence and its id are separate fields.** `AdvancementStatus.roundId` is optional, so `hasRoundSummary` and `roundSummaryId` cannot be collapsed into one nullable number.
+
+`roundCompletion.ts` is the matching piece for `RaceControl.tsx`: there is no event for "a round's field was just decided", so it is recovered by comparing one query result against the last. `seen === null` means "first look", where every decided round is history rather than news.
+
 ### First-run gate
 
 `App.tsx` queries `initialConfig()`; if the system is unconfigured, all routes redirect to `/system-settings`, which creates the `Group` and `Track`.
@@ -363,19 +390,29 @@ Don't reintroduce a merge on the client; extend `domain/heat_session.py` instead
 
 ## Known architectural debt
 
-An architecture review is tracked in **issue #18**. Before making a substantial change, check whether it overlaps:
+An architecture review is tracked in **issue #18**. Before making a substantial change, check whether it overlaps.
+
+**Still open:**
 
 | Issue | Area |
 | --- | --- |
-| #5 | Normalize `lane_results` into a `heat_lanes` table |
-| #7 | Server-owned `HeatSession` as the single source of truth for live race state |
-| #12 | Subscriptions should carry payloads instead of triggering full refetches |
-| #13 | Model the race-day flow as an explicit state machine |
-| #14 | Whether GraphQL is still the right choice |
-| #15 | No authentication on mutations; CORS misconfigured |
-| #26 | PPC scheduler strands lanes, giving some racers fewer heats |
+| #14 | Whether GraphQL is still the right choice — a question to revisit, not scheduled work. The case is materially weaker since #10, #11 and #12 |
+| #15 | No authentication on mutations; CORS misconfigured. **Deferred by decision** — it adds a prompt to the operator flow |
+| #45 | Ruff runs in pre-commit but not in CI, so findings accumulate in untouched files |
 
-Don't entrench conventions these issues are removing — particularly the `lane_results` blob (#5) and the negative-ID placeholder trick.
+**Closed, and load-bearing — don't undo them:**
+
+| Issue | What it established |
+| --- | --- |
+| #5 | `lane_results` is normalized into `heat_lanes`; reads and writes are structured. No new `json.loads` on the blob |
+| #6 | Free race heats live in the `heats` table with `kind = FREE`. Use `models.official_heats(query)` |
+| #7 | The server owns the live heat view. Don't reintroduce a merge on the client |
+| #8 | `backend/domain/` is pure — no SQLAlchemy, no Strawberry |
+| #11 | Query counts are guarded by `test_query_counts.py` |
+| #12 | Subscriptions carry typed payloads into a normalized cache |
+| #13 | The race-day flow is one machine in `features/racing/raceFlow.ts`, not effects |
+| #17 | Standings cover preliminary rounds only |
+| #26 | The PPC scheduler fills every lane; `test_domain_scheduling.py` holds the properties |
 
 ---
 
