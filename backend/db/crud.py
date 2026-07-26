@@ -612,6 +612,7 @@ def generate_heats_for_round(
     existing_heats = (
         db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
     )
+    cleared = False
     if existing_heats and clear_existing:
         if not advancement.may_rebuild(
             lanes.parse(h.lane_results) for h in existing_heats
@@ -624,6 +625,7 @@ def generate_heats_for_round(
         for h in existing_heats:
             db.delete(h)
         db.flush()  # Ensure deletions are reflected before new generation
+        cleared = True
 
     if num_placeholders > 0:
         p_ids = scheduling.placeholder_ids(num_placeholders)
@@ -652,8 +654,11 @@ def generate_heats_for_round(
             )
         p_ids = [r.id for r in racers]
 
-    # Check if we have existing heats to determine starting heat number
-    start_heat_num = len(existing_heats) + 1 if existing_heats else 1
+    # Continue numbering after heats that are still there ("stacking"), but
+    # start again at 1 for heats we just deleted. `existing_heats` is the list
+    # from *before* the delete, so testing it alone renumbered a regenerated
+    # round to 5..8 instead of 1..4 — and left a gap in the race's numbering.
+    start_heat_num = len(existing_heats) + 1 if existing_heats and not cleared else 1
 
     # Generate heats using PPC strategy
     # TODO: support heat number offset for stacking
@@ -679,6 +684,32 @@ def resolve_round_placeholders(db: Session, round_id: int, racer_ids: list[int])
             heat.lane_results = lanes.serialize(heat_lanes)
 
     db.commit()
+
+
+def populate_round_field(db: Session, round_id: int, racer_ids: list[int]) -> None:
+    """Put the racers who qualified into a championship round.
+
+    Usually that means filling the placeholder slots in place. But
+    ``advancement_num_racers`` is a *request* — "top four" — and a den of three
+    cannot supply it, so a round can hold more slots than the race can ever
+    fill. Those surplus slots are not untidy, they are fatal: ``phase`` reports
+    ``NOT_READY`` while any placeholder remains and the operator screen has no
+    controls in that state (#48). So when the field is short, the round is
+    rebuilt for the racers that actually qualified.
+
+    A round that has **already been raced** is filled in place regardless. A
+    stale field the operator can see and fix beats silently wiping heats people
+    ran — the same rule ``invalidate_future_rounds`` follows.
+    """
+    if not racer_ids:
+        return
+
+    round_lanes = _round_heat_lanes(db, round_id)
+    short = advancement.field_is_short(round_lanes, len(racer_ids))
+    if short and advancement.may_rebuild(round_lanes):
+        generate_heats_for_round(db, round_id, racer_ids=racer_ids, clear_existing=True)
+    else:
+        resolve_round_placeholders(db, round_id, racer_ids)
 
 
 def _round_heat_lanes(db: Session, round_id: int) -> list[list[lanes.Lane]]:
@@ -756,10 +787,9 @@ def trigger_auto_advancements(db: Session, race_id: int, completed_round_id: int
         winner_ids = scoring.get_advancing_racers(
             db, race_id, r.advancement_source, r.advancement_num_racers
         )
-        if winner_ids:
-            # Resolving placeholders adds racers, not times, so this round is
-            # not complete afterwards and there is nothing to cascade into.
-            resolve_round_placeholders(db, r.id, winner_ids)
+        # Putting racers in adds no times, so the round is not complete
+        # afterwards and there is nothing to cascade into.
+        populate_round_field(db, r.id, winner_ids)
 
 
 def record_heat_result(
