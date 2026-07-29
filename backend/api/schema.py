@@ -67,6 +67,17 @@ def _loaders(info: Info) -> RequestLoaders:
     return loaders
 
 
+def _unfinished(heats: Iterable[models.Heat]) -> list[models.Heat]:
+    """The heats the race has not got to yet, in the order given.
+
+    "Not got to yet" is :func:`domain.lanes.is_finished` — a skipped heat counts
+    as done. The audience subscriptions used to test lane 0 of the blob for a
+    time, which meant a skipped heat stayed at the head of this list for the rest
+    of the event and pinned `currentlyRacing` to it (#55).
+    """
+    return [h for h in heats if not lanes.is_finished(lanes.parse(h.lane_results))]
+
+
 def _free_race_heats(db: Session, race_id: int, recorded: bool) -> list[models.Heat]:
     """A race's free heats, newest first, split on whether they have been run.
 
@@ -2839,20 +2850,12 @@ class Subscription:
                 sorted_heats = sorted(
                     heats, key=lambda h: (h.round.round_number, h.heat_number)
                 )
-                uncompleted = [
-                    h
-                    for h in sorted_heats
-                    if not h.lane_results
-                    or not json.loads(h.lane_results)
-                    or json.loads(h.lane_results)[0].get("time") is None
-                ]
+                uncompleted = _unfinished(sorted_heats)
                 if len(uncompleted) > 1:
                     next_heat = uncompleted[1]
-                    racer_ids = []
-                    results = json.loads(next_heat.lane_results)
-                    for r in results:
-                        if r.get("racer_id"):
-                            racer_ids.append(r["racer_id"])
+                    racer_ids = lanes.real_racer_ids(
+                        lanes.parse(next_heat.lane_results)
+                    )
                     racers = (
                         db.query(models.Racer)
                         .filter(models.Racer.id.in_(racer_ids))
@@ -2885,13 +2888,7 @@ class Subscription:
                 sorted_heats = sorted(
                     heats, key=lambda h: (h.round.round_number, h.heat_number)
                 )
-                uncompleted = [
-                    h
-                    for h in sorted_heats
-                    if not h.lane_results
-                    or not json.loads(h.lane_results)
-                    or json.loads(h.lane_results)[0].get("time") is None
-                ]
+                uncompleted = _unfinished(sorted_heats)
                 return uncompleted[0] if uncompleted else None
 
             yield _get_current()
@@ -2916,12 +2913,10 @@ class Subscription:
                     .filter(models.Heat.race_id == race_id)
                     .join(models.Round)
                 ).all()
+                # Times, not `is_finished`: this view shows a heat's results, and
+                # a skipped heat has none to show.
                 completed_official = [
-                    h
-                    for h in heats
-                    if h.lane_results
-                    and json.loads(h.lane_results)
-                    and json.loads(h.lane_results)[0].get("time") is not None
+                    h for h in heats if lanes.has_results(lanes.parse(h.lane_results))
                 ]
                 # Sort by round number and heat number, desc
                 completed_official.sort(
@@ -2949,25 +2944,25 @@ class Subscription:
                 if not target_heat:
                     return None
 
-                results = json.loads(target_heat.lane_results)
-                racer_ids = [r.get("racer_id") for r in results if r.get("racer_id")]
+                heat_lanes = lanes.parse(target_heat.lane_results)
+                racer_ids = lanes.real_racer_ids(heat_lanes)
                 racers = (
                     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).all()
                 )
                 racer_map = {r.id: r for r in racers}
 
                 lane_stats = []
-                for r in results:
-                    racer = racer_map.get(r.get("racer_id"))
+                for lane in heat_lanes:
+                    racer = racer_map.get(lane.racer_id)
                     lane_stats.append(
                         TimingStatsLane(
-                            lane_number=r.get("lane") or r.get("laneNumber"),
+                            lane_number=lane.lane,
                             racer_name=f"{racer.first_name} {racer.last_name}"
                             if racer
                             else "Unknown",
                             car_name=racer.car_name if racer else None,
-                            time=r.get("time"),
-                            place=r.get("place"),
+                            time=lane.seconds,
+                            place=lane.place,
                             racer_image_url=racer.racer_image_url if racer else None,
                         )
                     )

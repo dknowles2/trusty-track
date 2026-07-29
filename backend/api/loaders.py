@@ -20,12 +20,11 @@ data to the audience displays. ``clear()`` is also wired to the session's
 
 from __future__ import annotations
 
-import json
-
 from sqlalchemy import event
 from sqlalchemy.orm import Session, selectinload
 
 from backend.db import models
+from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
 from backend.services import scoring
 
@@ -211,15 +210,9 @@ class RequestLoaders:
 
     def scheduled_racer_ids(self, race_id: int) -> list[int]:
         """Ids of every racer appearing in any official heat of the race."""
-        ids = set()
+        ids: set[int] = set()
         for heat in self.heats_for_race(race_id):
-            if not heat.lane_results:
-                continue
-            try:
-                for lane in json.loads(heat.lane_results):
-                    racer_id = lane.get("racer_id")
-                    if racer_id is not None:
-                        ids.add(racer_id)
-            except (json.JSONDecodeError, TypeError):
-                continue
+            # `real_racer_ids`, not every non-null id: an unadvanced championship
+            # slot is a negative placeholder, and nobody is scheduled into it yet.
+            ids.update(lanes.real_racer_ids(lanes.parse(heat.lane_results)))
         return sorted(ids)

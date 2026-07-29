@@ -213,6 +213,19 @@ Heat IDs used to be ambiguous: `heats` and `free_race_heats` had independent aut
 
 **"Has this heat been run" is one question for both kinds**: whether any lane holds a time (`lanes.has_results`). A free heat's schedule goes into `lane_results` when it is created, exactly as a generated official heat's does. `FreeRaceHeat.recorded` in GraphQL exposes this; it replaces testing `laneResults` for null.
 
+#### Two predicates, and which one you want
+
+`lanes.has_results` and `lanes.is_finished` are deliberately different, and #55 was picking the wrong one:
+
+| Question | Predicate | Skipped heat |
+| --- | --- | --- |
+| Would rebuilding this lose a result? | `has_results` — any lane has a time | not finished; a skipped round may be regenerated |
+| Should the running order move on? | `is_finished` — any lane has a time **or** is skipped | finished; the operator is not coming back to it |
+
+Anything deciding **what is on the track or what is next** wants `is_finished` (`schema._unfinished` wraps it for the `onDeck` / `currentlyRacing` subscriptions). Anything guarding **the stored record** wants `has_results`. `timingStats` is the third case and wants `has_results` for its own reason: it displays results, and a skipped heat has none. `hasRun` in `features/racing/lanes.ts` is `is_finished`'s counterpart on the frontend.
+
+Both take parsed lanes. Outside `migrations/`, nothing reads the blob with `json.loads` any more — the three audience subscriptions and `loaders.scheduled_racer_ids` were the last holdouts, and each was wrong in the same way: they tested lane *index 0* for a time, so a skipped heat, or a heat whose first lane had been vacated by a deleted racer, pinned both wall displays one heat behind for the rest of the event.
+
 ---
 
 ## Database migrations
