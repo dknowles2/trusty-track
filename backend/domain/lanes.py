@@ -142,12 +142,28 @@ def has_results(lanes: Sequence[Lane]) -> bool:
     This is the check that guards regeneration: a round that has been raced must
     not be silently rebuilt underneath the operator.
 
-    Note it does **not** consider :attr:`Lane.skipped`. The operator UI treats a
-    skipped heat as run, but the backend never has, and making the guard
-    stricter here would change when regeneration is refused. Worth revisiting
-    alongside issue #13, which is where "what state is this heat in" belongs.
+    Note it does **not** consider :attr:`Lane.skipped` — see :func:`is_finished`
+    for the predicate that does. Making this one stricter would change when
+    regeneration is refused: a skipped round holds no times, so there is nothing
+    to lose by rebuilding it.
     """
     return any(lane.has_result for lane in lanes)
+
+
+def is_finished(lanes: Sequence[Lane]) -> bool:
+    """True if the race is done with this heat — raced, or passed over.
+
+    The counterpart to :func:`has_results`, and the difference between them is
+    the point. ``has_results`` asks "would rebuilding this lose a result", which
+    is a question about the stored record. This asks "should the displays move
+    on", which is a question about the running order: an operator who skipped a
+    heat is not coming back to it.
+
+    Matches ``hasRun`` in ``features/racing/lanes.ts``. Anything deciding what
+    is on the track or what is next wants this one; #55 is what happens when it
+    settles for the other.
+    """
+    return any(lane.has_result or lane.skipped for lane in lanes)
 
 
 def is_complete(lanes: Sequence[Lane]) -> bool:

@@ -661,7 +661,6 @@ def generate_heats_for_round(
     start_heat_num = len(existing_heats) + 1 if existing_heats and not cleared else 1
 
     # Generate heats using PPC strategy
-    # TODO: support heat number offset for stacking
     new_heats = _generate_ppc(
         db, race_id, round_id, p_ids, lane_count, start_heat_num=start_heat_num
     )
