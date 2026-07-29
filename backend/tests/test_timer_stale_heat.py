@@ -21,7 +21,15 @@ from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
 
-def _setup(db: Session, label: str, extra_round: bool):
+def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
+    """A race with a preliminary round and a top-4 `PACK` final.
+
+    ``racer_count`` matters to any test that needs correcting a preliminary to
+    actually re-field the final. With 6 racers and 4 finalists, no correction can
+    change more than 2 of them, so for some schedules the field is re-drawn
+    identically and the timer rightly stays armed — see #57. Ask for 8 when the
+    test's claim depends on the field changing.
+    """
     crud.create_initial_config(
         db,
         schemas.InitialConfigCreate(
@@ -43,7 +51,7 @@ def _setup(db: Session, label: str, extra_round: bool):
         schemas.RaceCreate(name=f"R{label}", group_id=group.id, track_id=track.id),
     )
     race = db.query(models.Race).filter(models.Race.name == f"R{label}").one()
-    for i in range(6):
+    for i in range(racer_count):
         crud.create_racer(
             db,
             schemas.RacerCreate(
@@ -350,12 +358,25 @@ class TestProactiveDisarm:
     def test_correcting_a_prelim_disarms_a_stale_championship_heat(
         self, client, db: Session, registry
     ):
-        race, r1, r2 = _setup(db, "disarm", extra_round=False)
+        # Eight racers, not the default six: the claim here is that a *changed*
+        # field disarms, so the correction has to change one. Four finalists out
+        # of six means any correction leaves at least two of them in the field,
+        # and for roughly one schedule in thirty the final was re-drawn
+        # identically — which correctly stays armed, so the test failed about one
+        # suite run in ten (#57). Eight racers over eight heats gives everyone
+        # four runs, so a single ~9s time takes an average from ~1.05 to ~3.0 and
+        # drops all four of a heat's racers out of the top four.
+        race, r1, r2 = _setup(db, "disarm", extra_round=False, racer_count=8)
         for heat in crud.get_heats(db, race.id, round_id=r1.id):
             _run_heat(db, heat)
         db.commit()
 
         target = crud.get_heats(db, race.id, round_id=r2.id)[0]
+        armed_field = {
+            lane.lane: lane.racer_id
+            for lane in lanes.parse(target.lane_results)
+            if lane.racer_id is not None
+        }
         mgr = self._arm_on_registry(db, registry, race, target)
         assert mgr.status().state == TimerState.ARMED.value
 
@@ -384,6 +405,17 @@ class TestProactiveDisarm:
         )
         assert resp.status_code == 200
         assert resp.json().get("errors") is None, resp.json()
+
+        # The precondition, asserted rather than assumed. Without this the test
+        # passes vacuously whenever the correction happens not to move anyone —
+        # which is what #57 was, and what a future change to `_setup` or to
+        # advancement could quietly reintroduce.
+        db.refresh(target)
+        assert {
+            lane.lane: lane.racer_id
+            for lane in lanes.parse(target.lane_results)
+            if lane.racer_id is not None
+        } != armed_field
 
         status = mgr.status()
         assert status.state == TimerState.IDLE.value
