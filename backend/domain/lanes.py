@@ -55,13 +55,33 @@ class Lane:
         return self.racer_id is None
 
     @property
+    def placeholder_slot(self) -> int | None:
+        """Which championship slot this lane holds, 1-based, or ``None``.
+
+        The blob encodes an unadvanced slot as a *negative* racer id, so slot 1
+        is ``-1``. Returning the slot rather than a bool is what lets callers
+        use it without repeating the sign convention — and what lets a type
+        checker see that a placeholder lane has an id at all.
+        """
+        racer_id = self.racer_id
+        if racer_id is None or racer_id >= 0:
+            return None
+        return -racer_id
+
+    @property
     def is_placeholder(self) -> bool:
         """An unadvanced championship slot, encoded as a negative id."""
-        return self.racer_id is not None and self.racer_id < 0
+        return self.placeholder_slot is not None
+
+    @property
+    def real_racer_id(self) -> int | None:
+        """The racer in this lane — ``None`` if it is empty or a placeholder."""
+        racer_id = self.racer_id
+        return racer_id if racer_id is not None and racer_id > 0 else None
 
     @property
     def is_real_racer(self) -> bool:
-        return self.racer_id is not None and self.racer_id > 0
+        return self.real_racer_id is not None
 
     @property
     def has_result(self) -> bool:
@@ -98,9 +118,10 @@ class Lane:
         return out
 
 
-def from_dict(raw: dict[str, Any]) -> Lane:
+def from_dict(raw: dict[str, Any], lane_number: int) -> Lane:
+    """One entry of the blob. ``lane_number`` is read and checked by :func:`parse`."""
     return Lane(
-        lane=raw.get("lane"),
+        lane=lane_number,
         racer_id=raw.get("racer_id"),
         time=raw.get("time"),
         place=raw.get("place"),
@@ -115,6 +136,12 @@ def parse(raw: str | None) -> list[Lane]:
     Callers throughout the codebase already treat "can't read it" as "no
     results" — a heat with a corrupt blob should show as unraced, not take down
     the audience display mid-event.
+
+    An entry without a whole-number ``lane`` is dropped for the same reason: the
+    lane number is the key everything else sorts, arms and displays by, and no
+    write path produces an entry without one. This is not in tension with the
+    round-trip promise above, which is about keys we do not *model* — an entry
+    that is not a lane is not one of those.
     """
     if not raw:
         return []
@@ -124,7 +151,17 @@ def parse(raw: str | None) -> list[Lane]:
         return []
     if not isinstance(decoded, list):
         return []
-    return [from_dict(item) for item in decoded if isinstance(item, dict)]
+
+    parsed = []
+    for item in decoded:
+        if not isinstance(item, dict):
+            continue
+        lane_number = item.get("lane")
+        # `bool` is an `int`; `{"lane": true}` is not lane 1.
+        if not isinstance(lane_number, int) or isinstance(lane_number, bool):
+            continue
+        parsed.append(from_dict(item, lane_number))
+    return parsed
 
 
 def serialize(lanes: Iterable[Lane]) -> str:
@@ -186,7 +223,7 @@ def is_complete(lanes: Sequence[Lane]) -> bool:
 
 def real_racer_ids(lanes: Iterable[Lane]) -> list[int]:
     """Assigned, non-placeholder racer ids, in lane order."""
-    return [lane.racer_id for lane in lanes if lane.is_real_racer]
+    return [racer_id for lane in lanes if (racer_id := lane.real_racer_id) is not None]
 
 
 def carry_extras(updates: Sequence[Lane], stored: Sequence[Lane]) -> list[Lane]:
@@ -231,9 +268,10 @@ def resolve_placeholders(lanes: Sequence[Lane], racer_ids: Sequence[int]) -> boo
     """
     modified = False
     for lane in lanes:
-        if not lane.is_placeholder:
+        slot = lane.placeholder_slot
+        if slot is None:
             continue
-        index = abs(lane.racer_id) - 1
+        index = slot - 1
         if index < len(racer_ids):
             lane.racer_id = racer_ids[index]
             modified = True

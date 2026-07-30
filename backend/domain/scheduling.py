@@ -58,13 +58,16 @@ def generate_ppc(
     wide; three racers cannot fill four lanes.
 
     ``rng`` is injectable so tests can pin the shuffle; production passes
-    nothing and gets the module-level generator.
+    nothing and gets a fresh generator. A fresh one rather than the module-level
+    functions: `random.shuffle` is a bound method of a hidden shared instance,
+    which is not a `Random` as far as a type checker is concerned, and nothing
+    here wants the global seed anyway.
     """
-    rng = rng or random
+    shuffle = (rng or random.Random()).shuffle
 
     # Copy: the caller's list must not be reordered under them.
     p_ids = list(racer_ids)
-    rng.shuffle(p_ids)
+    shuffle(p_ids)
     p_count = len(p_ids)
 
     # How many times each pair of racers has already met.
@@ -81,7 +84,7 @@ def generate_ppc(
 
     for j in range(1, lane_count):
         available_racers = list(p_ids)
-        rng.shuffle(available_racers)
+        shuffle(available_racers)
         _fill_lane(heat_matrix, j, available_racers, matchups)
 
     return [
@@ -113,9 +116,9 @@ def _fill_lane(
 
     def occupants(heat_index: int) -> list[int]:
         return [
-            heat_matrix[heat_index][k]
+            racer_id
             for k in range(lane_index)
-            if heat_matrix[heat_index][k] is not None
+            if (racer_id := heat_matrix[heat_index][k]) is not None
         ]
 
     heat_occupants = [occupants(i) for i in range(heat_count)]

@@ -203,3 +203,27 @@ def test_carry_extras_handles_a_lane_with_no_stored_counterpart():
     merged = lanes.carry_extras([lanes.Lane(lane=3, racer_id=7)], [])
     assert merged[0].extra == {}
     assert merged[0].racer_id == 7
+
+
+def test_an_entry_without_a_lane_number_is_dropped():
+    """`lane` is the key everything sorts, arms and displays by, and `Lane.lane`
+    is typed as one. No write path produces an entry without it, so a blob that
+    holds one is malformed — treated like the other malformed input above."""
+    assert lanes.parse(_blob({"racer_id": 5, "time": 3.1})) == []
+    assert lanes.parse(_blob({"lane": "one", "racer_id": 5})) == []
+    # `bool` is an `int`; `{"lane": true}` is not lane 1.
+    assert lanes.parse(_blob({"lane": True, "racer_id": 5})) == []
+
+
+def test_a_placeholder_reports_its_slot():
+    """The sign convention lives in one property rather than an `abs()` at each
+    call site."""
+    assert lanes.Lane(lane=1, racer_id=-3).placeholder_slot == 3
+    assert lanes.Lane(lane=1, racer_id=7).placeholder_slot is None
+    assert lanes.Lane(lane=1, racer_id=None).placeholder_slot is None
+
+
+def test_a_real_racer_reports_its_id():
+    assert lanes.Lane(lane=1, racer_id=7).real_racer_id == 7
+    assert lanes.Lane(lane=1, racer_id=-1).real_racer_id is None
+    assert lanes.Lane(lane=1, racer_id=None).real_racer_id is None
