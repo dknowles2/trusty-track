@@ -1,4 +1,18 @@
-# Task: Backend Printable Generation
+# Task: Backend Printable Generation [PARTLY BUILT]
+
+> **Step 2 is built** — `GET /api/printables/barcode/{racer_id}.png`, with
+> `services/printables.py` rendering and `domain/printables.py` owning what
+> the payload says.
+>
+> **Steps 3 and 4 are deliberately not being built as specified.** The
+> licence and the pit pass are HTML the browser prints, not server-rendered
+> PDFs: no PDF toolchain on a Raspberry Pi, the branding and layout already
+> live in the frontend, a sheet of sixty is a CSS grid rather than a page
+> composition problem, and the operator gets a print preview and a choice of
+> paper. See `02_frontend_print_ui.md`.
+>
+> Step 1's PDF library is therefore not needed; step 5's `printableUrl` is
+> not either, since the one URL is a fixed shape.
 
 ## Goal
 
