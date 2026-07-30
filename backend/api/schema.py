@@ -2907,42 +2907,36 @@ class Subscription:
             db = info.context["db"]
 
             def _get_timing_stats():
-                # Official heats
-                heats = models.official_heats(
-                    db.query(models.Heat)
-                    .filter(models.Heat.race_id == race_id)
-                    .join(models.Round)
-                ).all()
+                # Both kinds, ranked together. An exhibition run is the thing
+                # that just happened when it is the thing that just happened; a
+                # rule preferring official heats made free ones unreachable from
+                # the first result onward (#59).
+                #
                 # Times, not `is_finished`: this view shows a heat's results, and
                 # a skipped heat has none to show.
-                completed_official = [
-                    h for h in heats if lanes.has_results(lanes.parse(h.lane_results))
+                recorded = [
+                    h
+                    for h in db.query(models.Heat)
+                    .filter(models.Heat.race_id == race_id)
+                    .all()
+                    if lanes.has_results(lanes.parse(h.lane_results))
                 ]
-                # Sort by round number and heat number, desc
-                completed_official.sort(
-                    key=lambda h: (h.round.round_number, h.heat_number), reverse=True
-                )
-
-                # Free race heats
-                free_heats = _free_race_heats(db, race_id, recorded=True)
-
-                # Pick the most recent one.
-                # Since we don't have a reliable cross-table timestamp for all,
-                # we'll just check which one exists or is "later" in some sense.
-                # Prioritize official if both exist (most common case).
-                # Ideally Heat would have an 'updated_at' field.
-
-                target_heat = None
-                is_free = False
-
-                if completed_official:
-                    target_heat = completed_official[0]
-                elif free_heats:
-                    target_heat = free_heats[0]
-                    is_free = True
-
-                if not target_heat:
+                if not recorded:
                     return None
+
+                # `recorded_at` is when the result was saved, which is the only
+                # thing an official heat and a free one can be compared on.
+                # Rows recorded before the column existed hold null and fall back
+                # to schedule order, behind anything stamped.
+                def _most_recent(heat: models.Heat):
+                    return (
+                        heat.recorded_at or "",
+                        heat.round.round_number if heat.round else 0,
+                        heat.heat_number,
+                    )
+
+                target_heat = max(recorded, key=_most_recent)
+                is_free = target_heat.kind is models.HeatKind.FREE
 
                 heat_lanes = lanes.parse(target_heat.lane_results)
                 racer_ids = lanes.real_racer_ids(heat_lanes)

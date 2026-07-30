@@ -144,7 +144,7 @@ Round           id, race_id, round_number, name, scheduling_strategy,
                 advancement_source, advancement_num_racers, den_id?
 
 Heat            id, race_id, round_id?, kind, heat_number, lane_results (JSON string),
-                created_at?
+                created_at?, recorded_at?
 
 
 ```
@@ -223,6 +223,8 @@ Heat IDs used to be ambiguous: `heats` and `free_race_heats` had independent aut
 | Should the running order move on? | `is_finished` — any lane has a time **or** is skipped | finished; the operator is not coming back to it |
 
 Anything deciding **what is on the track or what is next** wants `is_finished` (`schema._unfinished` wraps it for the `onDeck` / `currentlyRacing` subscriptions). Anything guarding **the stored record** wants `has_results`. `timingStats` is the third case and wants `has_results` for its own reason: it displays results, and a skipped heat has none. `hasRun` in `features/racing/lanes.ts` is `is_finished`'s counterpart on the frontend.
+
+**`recorded_at` is when, and it is the only thing the two kinds can be ranked on together** (#59). `created_at` cannot: for a free heat it is roughly when it ran, for an official heat it is when the *round was generated*. Schedule order cannot either — it says nothing about a heat being re-recorded. `crud.stamp_recorded` keeps `recorded_at` non-null exactly when the heat holds a result, including clearing it on a re-run, and only the two result-recording functions call it: editing a schedule is not running a heat.
 
 Both take parsed lanes. Outside `migrations/`, nothing reads the blob with `json.loads` any more — the three audience subscriptions and `loaders.scheduled_racer_ids` were the last holdouts, and each was wrong in the same way: they tested lane *index 0* for a time, so a skipped heat, or a heat whose first lane had been vacated by a deleted racer, pinned both wall displays one heat behind for the rest of the event.
 
