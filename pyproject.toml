@@ -40,6 +40,55 @@ docs = [
 asyncio_mode = "auto"
 testpaths = ["backend/tests"]
 
+[tool.mypy]
+# No `python_version`. Pinning it to the 3.10 floor makes mypy parse every
+# third-party stub under 3.10 rules, and numpy's use `type` statements, which
+# are 3.12 syntax — the check dies before reaching our code. The floor is
+# covered where it belongs anyway: ruff's `target-version` for syntax, and a
+# real 3.10 job in CI that runs the tests.
+#
+# SQLAlchemy, Strawberry and Pillow are typed; pyserial and pillow-heif are not.
+ignore_missing_imports = true
+exclude = [
+    # Tests build malformed rows on purpose — a blob with a string time, a lane
+    # with no racer — which is the point of them.
+    "backend/tests/",
+    # A migration has to keep producing the same result years from now. Editing
+    # one to satisfy a checker is changing history, not fixing a bug.
+    "backend/migrations/versions/",
+]
+
+# The domain layer is where types carry their weight: plain functions over plain
+# values, no ORM rows, no framework. It is also where a wrong one is expensive —
+# `field_size` returning the wrong number is #52. Held to a stricter standard
+# than the rest, and clean.
+[[tool.mypy.overrides]]
+module = "backend.domain.*"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_return_any = true
+
+# Not clean yet. An exemption list rather than a list of what to *check*, so the
+# gate covers the tree by default: a new module is checked from the day it is
+# written, and this list can only shrink. Removing an entry is a good PR.
+#
+# Most of what is in here is Strawberry's duck-typing (resolvers return ORM rows
+# and `self` is not the type it is declared on), which is deliberate and would
+# need `type: ignore` rather than a fix. The rest is ordinary drift.
+[[tool.mypy.overrides]]
+module = [
+    "backend.api.schema",
+    "backend.db.crud",
+    "backend.db.models",
+    "backend.db.populate",
+    "backend.services.favicon_cli",
+    "backend.services.image_processing",
+    "backend.services.scoring",
+    "backend.services.stats",
+    "backend.services.timer.manager",
+]
+ignore_errors = true
+
 [tool.ruff]
 line-length = 88
 target-version = "py310"

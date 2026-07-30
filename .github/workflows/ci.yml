@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint:
-    name: Ruff
+    name: Lint & Types
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +31,13 @@ jobs:
 
       - name: Format
         run: uv run ruff format --check .
+
+      # Whole tree, with the not-yet-clean modules named as exemptions in
+      # pyproject.toml rather than the checked ones named here — so a new module
+      # is covered from the day it is written, and that list can only shrink.
+      # `backend/domain/` is held to the stricter settings.
+      - name: Types
+        run: uv run mypy backend
 
   backend-test:
     name: Backend Tests (Python ${{ matrix.python-version }})
