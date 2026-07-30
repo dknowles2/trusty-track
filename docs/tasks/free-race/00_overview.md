@@ -1,4 +1,11 @@
-# Free Race Mode — Overview
+# Free Race Mode — Overview [COMPLETED]
+
+> **Built**, with one difference from the description below: since #6 a free
+> race heat *is* a row in the `heats` table, with `kind = FREE` and no
+> `round_id`. Results are stored, not ephemeral. What the plan means by
+> "never affects the leaderboard" is enforced by `models.official_heats`.
+>
+> `06_documentation.md` is still outstanding — there is no `docs/free-race.md`.
 
 ## What Is Free Race Mode?
 

@@ -1,4 +1,6 @@
-# Install Channel 5: Release Pipeline (CI/CD)
+# Install Channel 5: Release Pipeline (CI/CD) [COMPLETED]
+
+> **Built.** `.github/workflows/release.yml`, triggered on tags.
 
 ## Audience
 

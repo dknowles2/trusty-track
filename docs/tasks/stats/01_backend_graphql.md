@@ -1,4 +1,6 @@
-# Task 1: Backend — Stats Module & GraphQL Query
+# Task 1: Backend — Stats Module & GraphQL Query [COMPLETED]
+
+> **Built.** `backend/services/stats.py` and `Query.race_stats`.
 
 ## Goal
 

@@ -1,4 +1,7 @@
-# Installation Packaging — Overview
+# Installation Packaging — Overview [COMPLETED]
+
+> **Built.** All five channels ship: source, Docker, Raspberry Pi, the
+> macOS/Windows desktop apps, and the tagged release pipeline.
 
 ## Goal
 

@@ -29,5 +29,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --only-group docs
 
+      # `--strict` turns a broken link or a missing image into a failed build.
+      # Without it, nine screenshots on the Race Setup page shipped broken for
+      # as long as the page has existed: mkdocs warned on every deploy and
+      # published anyway, and nobody reads a green job's log.
       - name: Build and deploy
-        run: uv run mkdocs gh-deploy --force
+        run: uv run mkdocs gh-deploy --force --strict

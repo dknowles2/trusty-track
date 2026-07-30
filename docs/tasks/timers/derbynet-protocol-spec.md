@@ -1,5 +1,8 @@
 # The Timer Protocol for DerbyNet
 
+> Reference material, not a task: the protocol this implementation was
+> written against.
+
 Most currently-available electronic pinewood derby timers communicate over a serial or USB
 connection to a host computer of some kind. DerbyNet interfaces with these timers by using a small
 java program, derby-timer.jar, to interact with the timer over the serial data link; derby-timer.jar

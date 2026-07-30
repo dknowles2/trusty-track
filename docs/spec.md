@@ -74,7 +74,7 @@ After a specific race has been initialized, we now need to know *who* is racing.
   - Last Name
   - (optional) Racing Group (if configured in the previous step)
   - Car Number
-    - Assigned based on the "Car numbering strategy" for the race. Shoud be auto-suggested but editable. 
+    - Assigned based on the "Car numbering strategy" for the race. Shoud be auto-suggested but editable.
   - (optional) Car Name
     - We don't expect this to be known when initially configuring racer details, but we want to allow the option
   - (optinal) Racer Picture
@@ -91,7 +91,7 @@ We need to allow multiple modes of racer import:
 
 #### Printables
 
-*Not yet implemented — see `tasks/printables/` for the full implementation plan.*
+*Not yet implemented — see `docs/tasks/printables/` for the full implementation plan.*
 
 Once all racers are input into the system, we should also provide the option to physically print some documents:
 
@@ -103,11 +103,11 @@ Once all racers are input into the system, we should also provide the option to 
 
 On "race day" (or sometimes before), operators need to verify which participants are eligible for racing. If the racers have been previously imported, this means verifying that each car is suitable for racing ("passed inspection") and then collecting any additional information (car name, racer picture, car picture). ✅ *Implemented via `CheckInModal` in `RaceDetails.tsx`.*
 
-If "Printables" were previously utilized, we want a race "check-in" operator to be able to scan the barcode or QR-code to look up the participant. This should not require additional hardware--if using a laptop or physical computer, the attached USB camera should be able to convert a barcode into a participant record; if using a mobile phone or tablet, the onboard camera should be able to do the same. *Not yet implemented — see `tasks/printables/03_frontend_check_in_scan.md`.*
+If "Printables" were previously utilized, we want a race "check-in" operator to be able to scan the barcode or QR-code to look up the participant. This should not require additional hardware--if using a laptop or physical computer, the attached USB camera should be able to convert a barcode into a participant record; if using a mobile phone or tablet, the onboard camera should be able to do the same. *Not yet implemented — see `docs/tasks/printables/03_frontend_check_in_scan.md`.*
 
 ### Race Operation
 
-When all participants have been checked in it's time to actually operate the race. We'll call the operator of this role "race control". 
+When all participants have been checked in it's time to actually operate the race. We'll call the operator of this role "race control".
 
 First, this operator needs to first determine a few things about the race:
 
@@ -140,15 +140,15 @@ A simple view of what racers are next to race. Can utilize all the data previous
 
 The current racers. Let the user decide which pictures are shown (racer or car or both)
 
-#### Timing Stats
+#### Timing Stats ✅
 
-The exact timing of the last / current heat. Basic details about the racers or their cars. *Not yet implemented — see `tasks/observation/03_timing_stats_view.md`.*
+The exact timing of the last / current heat. Basic details about the racers or their cars.
 
 #### Leaderboard ✅
 
 The current standings according to racing rules.
 
-#### Heats
+#### Heats ✅
 
 A view of who is expected to be racing, annotated with racer names & car names. Could include pictures if it makes sense in the visual representation.
 

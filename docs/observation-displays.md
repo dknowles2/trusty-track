@@ -99,8 +99,6 @@ _Projector Mode in a full-screen layout. Large text and high contrast make it ea
 
 After each heat finishes, a brief **results overlay** appears over the full screen for about 5 seconds, showing each racer's name, photo, placement, and finish time. It then fades away automatically, returning to the standing leaderboard view.
 
-![Heat Results Overlay](assets/screenshots/observation/08-heat-results-overlay.png)
-_The heat results overlay appears briefly after each race, highlighting placement and finish times in large text._
 
 ---
 

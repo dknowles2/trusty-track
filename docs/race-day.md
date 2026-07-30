@@ -301,4 +301,10 @@ Click **Edit** on the completed heat in the Race Execution view to manually corr
 
 ### We need to run a practice heat that doesn't count
 
-> **Coming Soon:** Free Race mode for practice and exhibition heats is a planned feature. It will allow running unofficial heats that don't affect standings.
+Use **Free Race**. A free race heat runs on the timer and appears on the audience display like any other, but it is invisible to standings, scheduling, advancement and statistics — so it cannot disturb the event.
+
+It is the right tool for a shake-down run before doors open, a parent's or sibling's car, a demonstration for a scout who wants to see the track work, and the fun heats at the end.
+
+From **Race Control**, switch to the Free Race view and choose who is in each lane. **Random** fills the lanes from the checked-in roster, which is usually what you want for an impromptu run; you can also pick racers by hand, and lanes may be left empty. Run it exactly as you would an official heat.
+
+Free race results are kept and listed newest first, so you can look back at what a car did in practice. Delete a heat when you no longer want it in the list. Nothing you do here changes anyone's standing.

@@ -1,4 +1,7 @@
-# Timer Integration: Implementation Plan
+# Timer Integration: Implementation Plan [COMPLETED]
+
+> **Built.** `backend/services/timer/` — `TimerManager`, the state machine,
+> and the fake, MicroWizard and browser-proxied devices.
 
 ## 1. Overview
 

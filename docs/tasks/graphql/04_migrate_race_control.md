@@ -1,4 +1,6 @@
-# Task 4: Migrate Race Control
+# Task 4: Migrate Race Control [COMPLETED]
+
+> **Built.** `features/racing/` reads and writes entirely over GraphQL.
 
 ## Goal
 
