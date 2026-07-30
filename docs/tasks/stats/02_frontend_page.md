@@ -1,4 +1,6 @@
-# Task 2: Frontend — Stats Page
+# Task 2: Frontend — Stats Page [COMPLETED]
+
+> **Built.** `frontend/src/features/stats/pages/RaceStats.tsx`.
 
 ## Goal
 

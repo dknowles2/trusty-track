@@ -6,7 +6,7 @@ This guide covers the essential steps to prepare your Pinewood Derby race roster
 
 Once you have created or selected a race from the Home page, you will be taken to the Race Details page. This is your central hub for roster management.
 
-![Race Details Overview](../assets/screenshots/race-setup/01-race-details-overview.png)
+![Race Details Overview](assets/screenshots/race-setup/01-race-details-overview.png)
 _The Race Details dashboard provides a summary of race settings and the current racer roster._
 
 ---
@@ -19,7 +19,7 @@ Dens (sometimes called Groups) are the sub-organizations within your race (e.g.,
 
 Click the **Manage Dens** button above the racer roster to open the Den Manager.
 
-![Den Manager UI](../assets/screenshots/race-setup/02-den-manager-ui.png)
+![Den Manager UI](assets/screenshots/race-setup/02-den-manager-ui.png)
 
 ### Adding a New Den
 
@@ -30,7 +30,7 @@ Click the **Manage Dens** button above the racer roster to open the Den Manager.
 5. (Optional) Select a **Rank Mapping** to automatically assign standardized ranks.
 6. Click **Add Den**.
 
-![Add Den Form](../assets/screenshots/race-setup/03-add-den-form.png)
+![Add Den Form](assets/screenshots/race-setup/03-add-den-form.png)
 
 ---
 
@@ -46,11 +46,11 @@ You can add racers one by one for small events or late registrations, or bulk-im
 4. Select the appropriate **Den**.
 5. Click **Save Racer**.
 
-![Add Racer Form](../assets/screenshots/race-setup/04-add-racer-form.png)
+![Add Racer Form](assets/screenshots/race-setup/04-add-racer-form.png)
 
 The racer will now appear in your roster.
 
-![Roster with Manual Entry](../assets/screenshots/race-setup/05-racer-list-manual.png)
+![Roster with Manual Entry](assets/screenshots/race-setup/05-racer-list-manual.png)
 
 ---
 
@@ -63,11 +63,11 @@ If you have a large roster (e.g., exported from Scoutbook or a spreadsheet), you
 3. Click **Select CSV File** and choose your file.
 4. Click **Import Racers**.
 
-![CSV Import Dialog](../assets/screenshots/race-setup/06-csv-import-dialog.png)
+![CSV Import Dialog](assets/screenshots/race-setup/06-csv-import-dialog.png)
 
 5. Trusty Track will automatically create any missing dens found in the CSV and assign racers to them.
 
-![Roster after Import](../assets/screenshots/race-setup/08-racer-list-after-import.png)
+![Roster after Import](assets/screenshots/race-setup/08-racer-list-after-import.png)
 
 ---
 
@@ -77,7 +77,7 @@ If you have a large roster (e.g., exported from Scoutbook or a spreadsheet), you
 
 Select one or more racers using the checkboxes on the left to enable the **Bulk Actions** menu.
 
-![Bulk Actions Menu](../assets/screenshots/race-setup/09-bulk-actions-menu.png)
+![Bulk Actions Menu](assets/screenshots/race-setup/09-bulk-actions-menu.png)
 
 From here, you can:
 
@@ -90,7 +90,7 @@ From here, you can:
 
 Before moving to the "Control" phase, review your roster to ensure every racer is assigned to the correct den and has a unique car number.
 
-![Final Roster Review](../assets/screenshots/race-setup/10-final-roster-review.png)
+![Final Roster Review](assets/screenshots/race-setup/10-final-roster-review.png)
 
 > [!TIP]
 > You can sort the roster by clicking on any column header (Car #, Name, or Den) to quickly spot missing data.

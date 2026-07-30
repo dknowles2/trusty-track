@@ -1,4 +1,9 @@
-# Task: Den Rank Assignment in UI
+# Task: Den Rank Assignment in UI [COMPLETED]
+
+> **Built.** `DenManager.tsx` has the rank selector on both the create and
+> edit forms and shows the rank beside each den; `rank` is on the `Den` type
+> and both mutations. The step 5 stretch goal — using rank for branding on
+> the observation and leaderboard views — is *not* built.
 
 ## Goal
 

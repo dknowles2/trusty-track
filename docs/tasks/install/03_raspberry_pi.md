@@ -1,4 +1,7 @@
-# Install Channel 3: Raspberry Pi (Appliance Mode)
+# Install Channel 3: Raspberry Pi (Appliance Mode) [COMPLETED]
+
+> **Built.** `scripts/install-pi.sh`, `scripts/trustytrack.service`, and
+> `docs/user/install-raspberry-pi.md`.
 
 ## Audience
 

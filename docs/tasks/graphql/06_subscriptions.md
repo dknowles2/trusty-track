@@ -1,4 +1,6 @@
-# Task 6: GraphQL Subscriptions for Real-Time Updates
+# Task 6: GraphQL Subscriptions for Real-Time Updates [COMPLETED]
+
+> **Built.** See the status block below.
 
 ## Status
 

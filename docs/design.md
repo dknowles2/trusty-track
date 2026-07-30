@@ -134,11 +134,11 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 **REST Endpoints (binary responses):**
 
 -   `POST /upload/` — File upload, returns URL.
--   `GET /api/printables/barcode/{racer_id}` — QR code PNG for check-in scanning. *(not yet implemented)*
+-   `GET /api/printables/barcode/{racer_id}` — QR code PNG for check-in scanning. *(not yet implemented — see `docs/tasks/printables/`)*
 -   `GET /api/printables/drivers_license/{racer_id}` — Driver's license PDF. *(not yet implemented)*
 -   `GET /api/printables/pit_pass/{racer_id}` — Pit pass PDF. *(not yet implemented)*
 
-**GraphQL Subscriptions (real-time observation):** *(not yet implemented — see `tasks/observation/`)*
+**GraphQL Subscriptions (real-time observation):**
 
 Delivered over the existing `/graphql` endpoint using the `graphql-ws` subprotocol. Clients use urql's `useSubscription` hook; no separate WebSocket URL is needed.
 

@@ -1,4 +1,8 @@
-# Install Channel 4: Desktop App (macOS + Windows)
+# Install Channel 4: Desktop App (macOS + Windows) [COMPLETED]
+
+> **Built.** `packaging/` — `trustytrack.spec`, `build-mac.sh`,
+> `build-windows.ps1`, `TrustyTrack.iss` — and the two `docs/user/install-*`
+> pages.
 
 ## Audience
 

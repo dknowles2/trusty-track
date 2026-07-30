@@ -1,4 +1,6 @@
-# Observation Feature Improvements Overview
+# Observation Feature Improvements Overview [COMPLETED]
+
+> **Built.** All four tasks below are complete.
 
 ## Background
 

@@ -1,4 +1,7 @@
-# Install Channel 2: Docker / Docker Compose
+# Install Channel 2: Docker / Docker Compose [COMPLETED]
+
+> **Built.** `Dockerfile`, `docker-compose.yml`, a `docker-build` job in CI,
+> a publish step in `release.yml`, and `docs/user/install-docker.md`.
 
 ## Audience
 

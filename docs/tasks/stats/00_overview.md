@@ -1,4 +1,7 @@
-# Race Statistics — Overview
+# Race Statistics — Overview [COMPLETED]
+
+> **Built.** `services/stats.py`, the `raceStats` query, and
+> `features/stats/pages/RaceStats.tsx` at `/race/:raceId/stats`.
 
 ## What Is the Stats Page?
 

@@ -1,4 +1,7 @@
-# Install Channel 6: User-Facing Installation Documentation
+# Install Channel 6: User-Facing Installation Documentation [COMPLETED]
+
+> **Built.** `docs/user/install.md` and the four per-channel pages, wired
+> into the mkdocs nav.
 
 ## Audience
 

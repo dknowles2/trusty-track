@@ -445,8 +445,14 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 
 Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `free-race`, `graphql`, `improvements`, `install`, `observation`, `printables`, `stats`, `timers`.
 
-**Most of these are already built.** Free racing, observation subscriptions, hardware timers, the GraphQL migration, and race stats have all landed — the plan files remain as design notes, not a backlog. `printables` (QR codes, pit passes, driver's licenses) is the main area still unimplemented.
+**Most of these are already built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, and all five install channels — and those files are design notes, not a backlog. Every plan verified as built now says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**: these four are the ones actually outstanding.
 
-Check the code before assuming anything in `docs/tasks/` is outstanding.
+| Outstanding | |
+| --- | --- |
+| `printables/*` | QR codes, driver's licenses, pit passes, and the check-in scan flow. Nothing built (#61) |
+| `improvements/02_csv_column_mapping.md` | CSV import still requires exact headers (#60) |
+| `free-race/06_documentation.md` | Free racing ships with no `docs/free-race.md` |
+
+Keep the markers honest — this is the index, and the point is that nobody has to re-derive it from the code. If you finish one, mark it.
 
 `TODO.md` at the repo root is a mostly-completed feature checklist.
