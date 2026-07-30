@@ -58,14 +58,20 @@ The racer will now appear in your roster.
 
 If you have a large roster (e.g., exported from Scoutbook or a spreadsheet), you can import it in seconds.
 
-1. Prepare a CSV file with racer information.
-2. Ensure your CSV file has headers for `First Name`, `Last Name`, `Car Number`, and `Den`. Trusty Track will automatically match these headers (even if you use spaces or different cases).
-3. Click **Select CSV File** and choose your file.
-4. Click **Import Racers**.
+Your file does not have to be in any particular format — you match its columns to the fields Trusty Track needs, so a roster exported from Scoutbook or a spreadsheet someone has been keeping by hand will both work as they are.
+
+1. Click **Select CSV File** and choose your file. If you are starting from scratch, use **download a template** for a file with the right columns already in it.
+2. Check the **Match your columns** section. Trusty Track guesses from your headers — `Scout First Name`, `Car #` and `first_name` are all recognised — but you can change any of them, or set one to **Not included**.
+
+    First Name and Last Name are required; Car Number, Car Name, Den and Passed Inspection are optional.
+
+3. Look over the **Preview**, which shows the first few rows exactly as they will be imported.
+4. Read any warnings. Trusty Track points out rows missing a name, car numbers that are not numbers, and car numbers used twice, before anything is saved.
+5. Click **Import Racers**.
 
 ![CSV Import Dialog](assets/screenshots/race-setup/06-csv-import-dialog.png)
 
-5. Trusty Track will automatically create any missing dens found in the CSV and assign racers to them.
+Any dens named in the file are created automatically and the racers assigned to them.
 
 ![Roster after Import](assets/screenshots/race-setup/08-racer-list-after-import.png)
 

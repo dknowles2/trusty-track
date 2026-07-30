@@ -67,6 +67,12 @@ def _loaders(info: Info) -> RequestLoaders:
     return loaders
 
 
+#: What a CSV column may say to mean "yes" for `car_passed_inspection`.
+#: The import UI normalizes to `yes` before sending; this covers a file posted
+#: to the mutation directly, and mirrors the same set in `csvMapping.ts`.
+_TRUTHY_CSV_VALUES = frozenset({"y", "yes", "true", "1", "x", "passed", "pass"})
+
+
 def _unfinished(heats: Iterable[models.Heat]) -> list[models.Heat]:
     """The heats the race has not got to yet, in the order given.
 
@@ -2357,6 +2363,8 @@ class Mutation:
             first_name = get_val(row, "first_name", "first")
             last_name = get_val(row, "last_name", "last")
             car_number = get_val(row, "car_number", "car_#", "number")
+            car_name = get_val(row, "car_name")
+            passed = get_val(row, "car_passed_inspection", "passed_inspection")
 
             if not first_name or not last_name:
                 continue
@@ -2367,6 +2375,11 @@ class Mutation:
                 car_number=int(car_number)
                 if car_number and car_number.isdigit()
                 else None,
+                car_name=car_name.strip() or None if car_name else None,
+                # The column mapping normalizes to yes/no before sending, but a
+                # file posted straight to the mutation can hold anything.
+                car_passed_inspection=bool(passed)
+                and passed.strip().lower() in _TRUTHY_CSV_VALUES,
                 den_id=den_id,
                 race_id=race_id,
             )

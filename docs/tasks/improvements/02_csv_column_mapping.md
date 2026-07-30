@@ -1,4 +1,10 @@
-# Task: CSV Import Column Mapping UI
+# Task: CSV Import Column Mapping UI [COMPLETED]
+
+> **Built.** `features/management/csvMapping.ts` does the parsing, guessing
+> and validation; `ImportRacersModal.tsx` is the form around it. The mapped
+> rows are written back out with the canonical headers, so `importRacers` is
+> unchanged apart from now reading `car_name` and `car_passed_inspection`,
+> which it had always parsed and never used.
 
 ## Goal
 
