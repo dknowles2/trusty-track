@@ -452,7 +452,6 @@ Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `f
 | Outstanding | |
 | --- | --- |
 | `printables/*` | QR codes, driver's licenses, pit passes, and the check-in scan flow. Nothing built (#61) |
-| `improvements/02_csv_column_mapping.md` | CSV import still requires exact headers (#60) |
 | `free-race/06_documentation.md` | Free racing ships with no `docs/free-race.md` |
 
 Keep the markers honest — this is the index, and the point is that nobody has to re-derive it from the code. If you finish one, mark it.
