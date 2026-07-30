@@ -257,6 +257,18 @@ class Heat(Base):
     # Free race heats are listed newest first; official heats order by round and
     # heat number and leave this null.
     created_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    # When a result was last recorded, ISO 8601 UTC. Null means no result — the
+    # two are kept in step by `crud.stamp_recorded`.
+    #
+    # This is the only ordering that compares an official heat against a free
+    # one. `created_at` cannot: for a free heat it is when the heat was made,
+    # which is near enough when it ran, but for an official heat it is when the
+    # round was generated, long before. Schedule order cannot either — it says
+    # nothing about when a heat was re-recorded. See #59.
+    #
+    # A string rather than a DateTime to match `created_at` in the same table.
+    # ISO 8601 UTC sorts lexicographically the same as chronologically.
+    recorded_at: Mapped[str | None] = mapped_column(String, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="heats")
     round: Mapped[Optional["Round"]] = relationship("Round", back_populates="heats")

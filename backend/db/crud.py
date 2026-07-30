@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import random
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import func
@@ -10,6 +11,24 @@ from sqlalchemy.orm import Session
 from backend.domain import advancement, lanes, scheduling
 
 from . import models, schemas
+
+
+def stamp_recorded(heat: models.Heat) -> None:
+    """Keep ``recorded_at`` in step with whether the heat holds a result.
+
+    Called from the two functions that record results, so a heat that is
+    re-recorded moves to the front of the running order and one whose result is
+    cleared (a re-run) leaves it. Nothing else touches the column: editing a
+    schedule is not running a heat, and #59 wants the order things happened in.
+
+    Kept next to the write rather than hooked onto the session like
+    ``lane_sync``: the projection there has to mirror every write, and this one
+    deliberately does not.
+    """
+    if lanes.has_results(lanes.parse(heat.lane_results)):
+        heat.recorded_at = datetime.now(timezone.utc).isoformat()
+    else:
+        heat.recorded_at = None
 
 
 def get_group(db: Session, group_id: int) -> models.Group | None:
@@ -883,6 +902,7 @@ def record_heat_result(
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
     if heat and results is not None:
         heat.lane_results = results
+        stamp_recorded(heat)
         db.commit()
         db.refresh(heat)
 
@@ -1166,6 +1186,7 @@ def update_free_race_heat_result(
     if heat is None:
         return None
     heat.lane_results = json.dumps(lane_results)
+    stamp_recorded(heat)
     db.commit()
     db.refresh(heat)
     return heat
