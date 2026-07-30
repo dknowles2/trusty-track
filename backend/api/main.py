@@ -19,6 +19,7 @@ from fastapi import (
     FastAPI,
     File,
     HTTPException,
+    Response,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
@@ -33,6 +34,7 @@ from backend.api.loaders import RequestLoaders
 from backend.api.schema import schema
 from backend.db import models
 from backend.db.database import UPLOAD_DIR, SessionLocal, init_db
+from backend.services import printables
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
 
@@ -135,6 +137,32 @@ async def health() -> dict:
     except ImportError:
         _version = "unknown"
     return {"status": "ok", "version": _version}
+
+
+@app.get("/api/printables/barcode/{racer_id}.png")
+def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
+    """The QR code that takes a check-in operator straight to this racer.
+
+    REST rather than GraphQL because the response is an image — the print page
+    puts it in an `<img src>` and the browser handles the rest, including
+    caching sixty of them while a sheet renders.
+
+    The rest of a printable — the pit pass, the licence, the sheet they sit on —
+    is HTML the browser prints. A QR code is the one part a page cannot draw
+    without another dependency, so it is the only part that comes from here.
+    """
+    racer = db.query(models.Racer).filter(models.Racer.id == racer_id).first()
+    if racer is None:
+        raise HTTPException(status_code=404, detail="Racer not found")
+
+    return Response(
+        content=printables.check_in_png(racer.race_id, racer.id),
+        media_type="image/png",
+        # The payload is derived from two ids that cannot change for a racer, so
+        # the image is immutable. Worth saying: a roster sheet is sixty of these
+        # and the operator will reprint it more than once.
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 # Mount static assets if the built frontend exists
