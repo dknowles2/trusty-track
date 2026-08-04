@@ -15,7 +15,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SCREENSHOT_DIR = path.resolve(__dirname, '../../docs/assets/screenshots/race-day');
+const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
 
 // Minimal valid 1×1 white JPEG (SOI + APP0 + DQT + SOF0 + DHT + SOS + EOI)
 const MINIMAL_JPEG = Buffer.from([
@@ -75,13 +75,13 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
 
         // ── Navigate to Home and create a race first ───────────────────────────
         await page.goto('/', { waitUntil: 'networkidle' });
-    
+
         if (page.url().includes('/system-settings')) {
             await page.getByLabel('Organization Name').fill('Bulk Test Pack');
             await page.getByRole('button', { name: 'Save Settings' }).click();
             await page.waitForURL('**/', { waitUntil: 'networkidle' });
         }
-    
+
         await page.getByRole('button', { name: /Create New Race/i }).click();
     await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('Bulk Upload Race');
     await page.getByRole('button', { name: 'Create Race' }).click();

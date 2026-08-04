@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 test('take screenshots', async ({ page }) => {
-  const screenshotsDir = path.resolve(__dirname, '../../docs/assets/screenshots');
+  const screenshotsDir = path.resolve(__dirname, '../../../docs/assets/screenshots');
   fs.mkdirSync(path.join(screenshotsDir, 'getting-started'), { recursive: true });
   fs.mkdirSync(path.join(screenshotsDir, 'race-setup'), { recursive: true });
 
@@ -70,11 +70,11 @@ test('take screenshots', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Save Racer' })).toBeVisible(); // Just waiting for form
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/04-add-racer-form.png') });
-  
+
   // Canceling the add racer manual flow since we will auto populate
   await page.getByRole('button', { name: /Cancel/i }).click();
   await page.waitForTimeout(300);
-  
+
   // Racer list manual view (emptyish view was already captured as 05-race-details-empty)
   // we will just take another empty shot
   await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/05-racer-list-manual.png') });
@@ -92,16 +92,16 @@ test('take screenshots', async ({ page }) => {
   await page.locator('.split-btn-arrow').click();
   await page.getByText(/Populate Test Data/i).click();
   await expect(page.getByRole('heading', { name: 'Populate Test Data' })).toBeVisible();
-  
+
   // Toggle "Check In Automatically" ON
   await page.getByLabel('Check In Automatically').click();
-  
+
   await page.getByRole('button', { name: 'Generate', exact: true }).click();
 
   // wait for it to generate and close modal
   await page.waitForResponse(response => response.url().includes('graphql') && response.status() === 200, { timeout: 30000 });
   await page.waitForTimeout(3000); // Give time for images to load
-  
+
   await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/08-racer-list-after-import.png') });
 
   // Open Bulk Actions

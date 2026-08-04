@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 
@@ -18,7 +18,7 @@ import Icon from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric,
   mdiChevronDown, mdiLightningBolt, mdiFileUpload,
-  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera
+  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter
 } from '@mdi/js';
 import * as GQL from '../graphql/queries';
 
@@ -57,6 +57,7 @@ export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
   const parsedRaceId = useMemo(() => raceId ? parseInt(raceId) : 0, [raceId]);
   const { showAlert, showConfirm } = useAlert();
+  const navigate = useNavigate();
 
   // GraphQL Queries
   const [raceDetailsResult, reexecuteRaceDetails] = useQuery({
@@ -699,6 +700,22 @@ export default function RaceDetails() {
                 style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}
             >
                 <Icon path={mdiCamera} size={0.7} /> Upload Photos
+            </button>
+
+            {/* The selection carries over, but an empty one is not an empty
+                print run — the print page reads it as the whole roster, which
+                is what "print the pit passes" means the morning of a race. */}
+            <button
+                className="secondary-btn"
+                onClick={() => navigate(
+                    selectedRacerIds.length > 0
+                        ? `/race/${parsedRaceId}/print?racers=${selectedRacerIds.join(',')}`
+                        : `/race/${parsedRaceId}/print`
+                )}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}
+            >
+                <Icon path={mdiPrinter} size={0.7} /> Print
+                {selectedRacerIds.length > 0 && ` (${selectedRacerIds.length})`}
             </button>
 
             <div className="dropdown" style={{ position: 'relative' }}>

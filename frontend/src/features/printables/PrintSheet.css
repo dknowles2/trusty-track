@@ -1,0 +1,314 @@
+/*
+ * Printables.
+ *
+ * The screen view is a preview of the paper, so the cards are sized in inches
+ * in both media and the only thing that changes when printing is what is
+ * around them. `--card-w`, `--card-h` and `--cols` are set inline by the page
+ * from the document spec, so the layout numbers have one home in TypeScript.
+ */
+
+@page {
+    size: letter;
+    margin: 0.5in;
+}
+
+.printables-page {
+    padding: 2rem;
+}
+
+.printables-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.printables-kinds {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.printables-kind {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: flex-start;
+    text-align: left;
+    padding: 10px 14px;
+    border: 2px solid #ddd;
+    border-radius: var(--border-radius);
+    background: white;
+    max-width: 260px;
+}
+
+.printables-kind[aria-pressed='true'] {
+    border-color: var(--scouting-blue);
+    background: #f0f7ff;
+}
+
+.printables-kind-label {
+    font-weight: bold;
+    color: var(--scouting-blue);
+}
+
+.printables-kind-blurb {
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+    color: #666;
+    font-weight: normal;
+}
+
+.printables-summary {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* The sheet itself. Same geometry on screen and on paper. */
+.print-sheets {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--card-w));
+    gap: 0.125in;
+    justify-content: center;
+}
+
+.print-card {
+    width: var(--card-w);
+    height: var(--card-h);
+    box-sizing: border-box;
+    overflow: hidden;
+    background: white;
+    border: 1px dashed #bbb; /* A cut line; see the print rule below. */
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    /* A card split over a page break is waste paper, not a layout quirk. */
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+/* --- Shared card furniture ------------------------------------------- */
+
+.print-card-header {
+    background: var(--scouting-blue);
+    color: white;
+    padding: 4px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 6px;
+    border-bottom: 3px solid var(--cub-scouting-gold);
+}
+
+.print-card-kind {
+    font-family: var(--font-header);
+    font-size: 0.62rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.print-card-race {
+    font-family: var(--font-header);
+    font-size: 0.72rem;
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.print-card-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.print-card-name {
+    font-family: var(--font-header);
+    font-weight: bold;
+    color: var(--scouting-blue);
+    line-height: 1.1;
+}
+
+.print-den-chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 12px;
+    font-size: 0.62rem;
+    font-weight: bold;
+}
+
+.print-photo {
+    object-fit: cover;
+    background: #eee;
+}
+
+.print-photo-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef2f7;
+    color: var(--scouting-blue);
+    font-family: var(--font-header);
+    font-weight: bold;
+}
+
+/* --- Pit pass --------------------------------------------------------- */
+
+.pit-pass .print-card-body {
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 8px;
+    text-align: center;
+}
+
+.pit-pass .print-photo,
+.pit-pass .print-photo-placeholder {
+    width: 1.3in;
+    height: 1.3in;
+    border-radius: 50%;
+    font-size: 1.8rem;
+}
+
+.pit-pass .print-card-name {
+    font-size: 1.15rem;
+}
+
+.pit-pass-car {
+    font-size: 0.78rem;
+    color: #444;
+}
+
+.pit-pass-footer {
+    margin-top: auto;
+    width: 100%;
+    border-top: 1px solid #eee;
+    padding-top: 4px;
+    font-size: 0.64rem;
+    color: #555;
+    line-height: 1.35;
+}
+
+/* --- Driver's licence -------------------------------------------------- */
+
+.drivers-license .print-card-body {
+    gap: 8px;
+    padding: 6px 8px;
+    align-items: center;
+}
+
+.drivers-license .print-photo,
+.drivers-license .print-photo-placeholder {
+    width: 0.85in;
+    height: 1.05in;
+    border-radius: 4px;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+}
+
+.drivers-license-fields {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.drivers-license .print-card-name {
+    font-size: 0.92rem;
+}
+
+.print-field-label {
+    font-family: var(--font-header);
+    font-size: 0.54rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #888;
+}
+
+.print-field-value {
+    font-size: 0.76rem;
+    color: #222;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.drivers-license-number {
+    font-family: var(--font-header);
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--scouting-blue);
+    line-height: 1;
+}
+
+/* --- Check-in code ----------------------------------------------------- */
+
+.check-in-code .print-card-body {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 5px;
+    text-align: center;
+}
+
+.check-in-code .print-qr {
+    width: 1.35in;
+    height: 1.35in;
+    /* A QR code is squares; smoothing them is what makes a scan fail. */
+    image-rendering: pixelated;
+}
+
+.check-in-code .print-card-name {
+    font-size: 0.8rem;
+}
+
+.check-in-code-number {
+    font-size: 0.68rem;
+    color: #555;
+}
+
+/* --- Paper ------------------------------------------------------------- */
+
+@media print {
+    /* Scoped to this page so printing anything else is unaffected. */
+    body:has(.print-sheets) nav,
+    body:has(.print-sheets) .no-print {
+        display: none !important;
+    }
+
+    body:has(.print-sheets) {
+        background: white;
+    }
+
+    .printables-page {
+        padding: 0;
+    }
+
+    .print-sheets {
+        gap: 0;
+        justify-content: start;
+    }
+
+    .print-card {
+        /* On screen the dashes show where to cut; on paper they would be ink
+         * across every card. The gap goes too, so trimmed cards butt up. */
+        border: none;
+        border-radius: 0;
+    }
+
+    /* Backgrounds are what the branding is made of; without this the header
+     * bar prints white on white in every browser's default. */
+    .print-card-header,
+    .print-den-chip,
+    .print-photo-placeholder {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

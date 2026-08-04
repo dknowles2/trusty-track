@@ -92,6 +92,8 @@ frontend/src/
       roundCompletion.ts      #   noticing a round's field was decided
       lanes.ts                #   predicates over a heat's lanes
     observation/              # Audience display
+    printables/               # Pit passes, driver's licences, check-in codes
+      documents.ts            #   card geometry and print order — pure, no React
     stats/                    # Standings, RaceStats, Leaderboard
     settings/                 # SystemSettings first-run wizard
   gql/                        # GENERATED — do not edit (see below)
@@ -410,6 +412,18 @@ Two things it settles that were previously accidents:
 
 `roundCompletion.ts` is the matching piece for `RaceControl.tsx`: there is no event for "a round's field was just decided", so it is recovered by comparing one query result against the last. `seen === null` means "first look", where every decided round is history rather than news.
 
+### Printables
+
+Pit passes, driver's licences and check-in codes. `/race/:raceId/print`, from the roster's **Print** button.
+
+**HTML the browser prints, not server-rendered PDFs** — the plan assumed PDFs. There is no PDF toolchain on a Pi, the branding already lives in the frontend, and a sheet of sixty is a CSS grid rather than a page-composition problem. The one thing a page cannot draw for itself is the QR code, so that is the only part the server renders: `GET /api/printables/barcode/{racer_id}.png`, registered **at both `/printables/...` and `/api/printables/...`** because the Vite dev proxy strips the prefix — the `/api`-only form works in production and 404s on the machine it is written on.
+
+**Sheet-first.** Nobody prints one pit pass; they print sixty before check-in opens. The page is the sheet, the roster's selection arrives on `?racers=`, and an *empty* selection means the whole roster rather than nothing.
+
+**The layout numbers live in `documents.ts`, not the stylesheet.** The page has to say "2 sheets of Letter" before the operator commits paper, so the card geometry is read by both TypeScript and CSS (as custom properties set inline) rather than kept in two places. `inPrintOrder` is the other rule worth knowing: car number ascending, unnumbered racers last — they are the ones still needing a number, which is easier to spot at the bottom of a stack than the middle.
+
+The payload is `TT1:<race_id>:<racer_id>` — versioned because these live on paper and get scanned by a later version of the app, race-scoped because a bare racer id from last year's derby resolves to whoever holds that id now. `domain/printables.py` owns encode and decode; the scanner will not re-derive it.
+
 ### First-run gate
 
 `App.tsx` queries `initialConfig()`; if the system is unconfigured, all routes redirect to `/system-settings`, which creates the `Group` and `Track`.
@@ -452,7 +466,7 @@ Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `f
 
 | Outstanding | |
 | --- | --- |
-| `printables/*` | QR codes, driver's licenses, pit passes, and the check-in scan flow. Nothing built (#61) |
+| `printables/03_frontend_check_in_scan.md` | Camera scanning at check-in. The rest of #61 is built: codes, print UI, `docs/printables.md` |
 | `free-race/06_documentation.md` | Free racing ships with no `docs/free-race.md` |
 
 Keep the markers honest — this is the index, and the point is that nobody has to re-derive it from the code. If you finish one, mark it.
