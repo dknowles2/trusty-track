@@ -467,12 +467,41 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 
 Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `free-race`, `graphql`, `improvements`, `install`, `observation`, `printables`, `stats`, `timers`.
 
-**Most of these are already built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, printables, and all five install channels — and those files are design notes, not a backlog. Every plan verified as built now says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**. One is outstanding:
+**All of them are built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, printables, and all five install channels — and those files are design notes, not a backlog. Every plan says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**: it means something is left, and right now nothing is.
 
-| Outstanding | |
-| --- | --- |
-| `free-race/06_documentation.md` | Free racing ships with no `docs/free-race.md` |
-
-Keep the markers honest — this is the index, and the point is that nobody has to re-derive it from the code. If you finish one, mark it.
+Keep the markers honest — this is the index, and the point is that nobody has to re-derive it from the code. If you finish one, mark it, and record the departures rather than leaving the plan describing a design that was not taken.
 
 `TODO.md` at the repo root is a mostly-completed feature checklist.
+
+---
+
+## Documentation
+
+**`docs/` is part of the change, not a follow-up.** The docs are published from `main` on every merge, so a stale page ships the moment the code does. Everything below has already gone wrong at least once.
+
+### What to update, by what you touched
+
+| Changed | Update |
+| --- | --- |
+| A screen the guides describe | The `docs/*.md` page for it — and **re-run its screenshot spec** |
+| GraphQL schema, a REST endpoint, a model field | `docs/design.md` §3.2 / §3.3 |
+| Something `spec.md` calls unimplemented | That line in `docs/spec.md` |
+| Behaviour a plan file describes | The `docs/tasks/**` header — mark it, or record the departure |
+| A feature worth a user's attention | `README.md`, `docs/index.md`, and `mkdocs.yml`'s nav |
+| A rule an agent needs | This file |
+
+### The screenshots
+
+They come from Playwright specs in `frontend/e2e/docs/` — `screenshots.spec.ts` (getting started, setup, race day), `screenshot-bulk-upload.spec.ts`, `screenshot-printables.spec.ts`, `screenshot-free-race.spec.ts`. Each builds its own data against a real backend:
+
+```bash
+cd frontend && npx playwright test --config=playwright.screenshots.config.ts e2e/docs/screenshot-printables.spec.ts
+```
+
+They write to `docs/assets/screenshots/`. That path was wrong in all three original specs — resolved one level short, into an untracked `frontend/docs/` — so regenerating a screenshot updated nothing and nobody noticed. If a run produces no diff, check where the files landed before concluding nothing changed.
+
+### What the gate does and does not catch
+
+`mkdocs build --strict` runs on every PR and catches a broken link or a missing image. **It cannot catch prose that is simply wrong**, which is the failure that actually happens. Three found in one audit: a "sort the roster by clicking a column header" tip for a table that has never been sortable, a check-in instruction pointing at the row rather than the button, and a paragraph describing a free-race history list that does not exist. Each was written accurately and then outlived its screen.
+
+So: when a change invalidates a page, **read the page**. Grepping for the feature name is not enough — the stale sentence usually does not mention it.

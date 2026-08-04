@@ -28,7 +28,7 @@ The backend will be developed in Python, leveraging a robust framework (e.g., Fa
 
 ### 3.1. Core Application Logic
 
--   **Race Management:** Scheduling algorithms for heats (Lane Rotation, Perfect-N), championship runoffs, and overall race progression.
+-   **Race Management:** Heat scheduling (PPC — see [Scheduling Algorithms](scheduling-algorithms.md)), championship advancement, and overall race progression. The rules live in `backend/domain/` as plain functions over plain values, with the database I/O in their callers.
 
 -   **Data Processing:** Coalescing race results, calculating standings based on predefined rules.
 -   **Configuration Management:** Handling global settings and race-specific configurations.
@@ -60,6 +60,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `championship_trophies` (int, number of top finishers for championship, default 3)
     -   `scoring_strategy` (Enum: `TIMED`, `POINTS` - default `TIMED`)
     -   `rules_configuration` (JSON string, optional)
+    -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)
     -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
 -   **`Den`**: Sub-divisions within a race (e.g., Den). Previously referred to as `RacingGroup` in early design — the implementation uses `Den` as the primary grouping concept.
     -   `id` (PK)
@@ -74,34 +75,42 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
 -   **`Racer`**: Participant details.
     -   `id` (PK)
     -   `race_id` (FK to Race)
+    -   `den_id` (FK to Den, optional) — the primary grouping
+    -   `racing_group_id` (FK to RacingGroup, optional)
     -   `first_name`
     -   `last_name`
     -   `car_number` (unique per race)
     -   `car_name` (optional)
+    -   `car_weight` (optional)
     -   `car_passed_inspection` (Boolean, default `false`)
     -   `racer_image_url` (optional)
     -   `car_image_url` (optional)
-    -   `racing_group_id` (FK to RacingGroup, optional)
 -   **`Round`**: A collection of heats within a race (e.g., "Den Round", "Championship").
     -   `id` (PK)
     -   `race_id` (FK to Race)
+    -   `den_id` (FK to Den, optional — a round scoped to one den)
     -   `round_number`
     -   `name` (optional display name)
     -   `scheduling_strategy` (Enum: `PPC`)
-    -   `advancement_source` (optional: `PACK` or `DEN`, for championship rounds)
-    -   `advancement_num_racers` (optional: how many racers advance per source)
+    -   `advancement_source` (optional: `PACK`, `DEN`, or `ROUND:<id>`)
+    -   `advancement_num_racers` (optional — **per den** when the source is `DEN`, absolute otherwise)
 
--   **`Heat`**: Individual race instances within a round.
+-   **`Heat`**: Individual race instances. Official heats belong to a round; free race heats do not.
     -   `id` (PK)
     -   `race_id` (FK to Race)
-    -   `round_id` (FK to Round)
+    -   `round_id` (FK to Round, **nullable** — null for a free race heat)
+    -   `kind` (Enum: `OFFICIAL`, `FREE`)
     -   `heat_number`
-    -   `lane_results` (JSON string containing array of `{racer_id, lane_number, time, place}`)
--   **`User`**: (Implicit requirement for authentication/authorization if multi-user)
-    -   `id` (PK)
-    -   `username`
-    -   `hashed_password`
-    -   `role` (e.g., `ADMIN`, `OPERATOR`, `OBSERVER`)
+    -   `lane_results` (JSON string: `[{lane, racer_id, time, place}]`)
+    -   `created_at` — when the row was written. For an official heat that is when its *round* was generated, not when it ran.
+    -   `recorded_at` — when a result was last recorded, cleared on a re-run. The only field the two heat kinds can be ranked on together.
+-   **`HeatLane`**: A normalized projection of `lane_results`, one row per lane.
+    -   `heat_id` (FK to Heat), `lane`, `racer_id`, `placeholder_slot`, `time`, `place`, `skipped`
+    -   The blob remains the source of truth and everything writes it; a SQLAlchemy session listener projects those writes into this table, so no write site has to know it exists. Reads — including the whole GraphQL read path — come from here.
+
+**Not implemented:** a `User` entity with authentication and roles. Mutations
+are unauthenticated and CORS is open, which is a deliberate deferral for a
+single-operator machine on a venue LAN — see issue #15.
 
 ### 3.3. API Design
 
@@ -118,35 +127,57 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `initialConfig()` — Initial configuration status (group + track).
 -   `rounds(raceId)` — List rounds for a race.
 -   `advancementStatus(raceId, roundId)` — Check round advancement eligibility.
+-   `raceStats(raceId)` — Lane fairness, per-racer aggregates, top moments, den comparison.
+-   `timerStatus(trackId)` — Device state for a track's timer.
+-   `heatSession(trackId, heatId)` — What is on the track right now (see below).
+-   `freeRaceHeats(raceId)`, `activeFreeRaceHeat(raceId)`, `randomFreeRaceLanes(raceId)`
+-   `version` — Running application version.
 
 **GraphQL Mutations:**
 
 -   Race: `createRace`, `updateRace`, `deleteRace`
 -   Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
--   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`
+-   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 -   Den: `createDen`, `updateDen`, `deleteDen`
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`
--   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `advanceRound`, `reorderHeats`
--   Heat: `updateHeatResult`
+-   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
+-   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
+-   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
+-   Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 -   Config: `createInitialConfig`, `updateInitialConfig`
 -   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data)
 
 **REST Endpoints (binary responses):**
 
 -   `POST /upload/` — File upload, returns URL.
--   `GET /api/printables/barcode/{racer_id}` — QR code PNG for check-in scanning. *(not yet implemented — see `docs/tasks/printables/`)*
--   `GET /api/printables/drivers_license/{racer_id}` — Driver's license PDF. *(not yet implemented)*
--   `GET /api/printables/pit_pass/{racer_id}` — Pit pass PDF. *(not yet implemented)*
+-   `GET /printables/barcode/{racer_id}.png` and `GET /api/printables/barcode/{racer_id}.png` — the check-in QR code. Registered at both paths because the Vite dev proxy strips the `/api` prefix; the payload is `TT1:<race_id>:<racer_id>`.
+
+The driver's licence and pit pass have **no endpoint**. They are HTML the
+browser prints, rendered by the frontend at `/race/:raceId/print` — there is no
+PDF toolchain on a Raspberry Pi, the branding already lives in the frontend,
+and a sheet of sixty is a CSS grid rather than a page-composition problem. The
+QR code is the one part a page cannot draw for itself, which is why it is the
+only part the server renders.
 
 **GraphQL Subscriptions (real-time observation):**
 
 Delivered over the existing `/graphql` endpoint using the `graphql-ws` subprotocol. Clients use urql's `useSubscription` hook; no separate WebSocket URL is needed.
 
+-   `subscription raceStateChanged(raceId)` — Anything that changed the race, for cache invalidation.
 -   `subscription leaderboard(raceId)` — Current standings, pushed on every heat result.
 -   `subscription onDeck(raceId)` — Next-up racers.
 -   `subscription currentlyRacing(raceId)` — Current heat racers and lane assignments.
--   `subscription timingStats(raceId)` — Per-lane timing for the last completed heat.
+-   `subscription timingStats(raceId)` — Per-lane timing for the most recently recorded heat, official or free.
 -   `subscription heats(raceId)` — Full round/heat list with completion status.
+-   `subscription timerStatus(trackId)` — Device state.
+-   `subscription heatSession(trackId, heatId)` — The merged live view; see below.
+-   `subscription freeRaceHeat(heatId)`, `subscription activeFreeRaceHeat(raceId)`
+
+**`heatSession` is where "what is on the track" is decided**, on the server.
+It merges the stored heat with the timer's pending lane times and reports a
+phase — `NO_HEAT`, `NOT_READY`, `WAITING`, `RUNNING`, `RECORDED` — so no screen
+has to re-derive it. A recorded heat ignores the timer, and a time that is only
+in the timer is flagged as pending rather than presented as final.
 
 ## 4. Frontend Design (React)
 
@@ -154,14 +185,15 @@ The frontend will be built using React, providing a dynamic and responsive user 
 
 ### 4.1. Technology Stack
 
--   **Framework:** React 18
+-   **Framework:** React 19
 -   **Language:** TypeScript
 -   **Build Tool:** Vite
 -   **Styling:** Plain CSS with CSS custom properties (BSA color palette defined as variables).
--   **State Management:** React Context API (`AlertContext` for notifications); component-local state via hooks.
+-   **State Management:** React Context API (`AlertContext` for notifications); component-local state via hooks. The race-day flow between heats is a pure state machine (`features/racing/raceFlow.ts`) rather than effects.
 -   **Routing:** React Router for navigation between pages.
--   **API Client:** `urql` GraphQL client for all data operations; native `fetch` for file uploads.
--   **Testing:** Jest + React Testing Library for unit/component tests; Playwright for end-to-end tests.
+-   **API Client:** `urql` with `@urql/exchange-graphcache` — subscriptions carry typed payloads into a normalized cache. Native `fetch` for file uploads.
+-   **Types:** `src/gql/` and `schema.graphql` are generated from the backend schema; CI fails if they are stale.
+-   **Testing:** Vitest + React Testing Library for unit/component tests; Playwright for end-to-end tests and for the documentation screenshots.
 
 ### 4.2. User Interfaces
 
@@ -174,7 +206,7 @@ The frontend will provide distinct interfaces tailored for different user journe
     -   Printable generation interface.
 -   **Check-In Interface:**
     -   Optimized for tablets and mobile phones.
-    -   Camera integration for barcode/QR scanning.
+    -   Camera scanning of printed check-in codes, using the browser's own `BarcodeDetector` — Chromium-only, with car-number entry alongside it on every browser.
     -   Quick toggles for `car_passed_inspection`.
     -   Forms for adding car name, racer/car pictures.
 -   **Race Control Interface:**
@@ -233,16 +265,17 @@ The design emphasizes intuitive user journeys and accessibility.
 -   **Race Configuration:** Interactive forms with real-time feedback on proposed changes (e.g., car numbering strategy impact).
 -   **Racer Details:** Flexible input options (bulk CSV, manual per-racer) with optional image uploads and auto-cropping.
 -   **Race Check-In:** Streamlined process using camera-based scanning for quick racer lookup.
--   **Printables:** Backend generates print-ready PDFs/images; frontend provides preview and download options.
+-   **Printables:** Sheet-first. The print page renders the whole sheet at paper size and the browser prints it; the operator's selection carries over from the roster, and an empty selection means the whole roster. Only the QR code comes from the backend.
 -   **Race Operation:** Clear visualization of race progression and simple controls.
 -   **Race Observation:** Real-time updates and high-visibility displays for various audience needs.
 
 ## 9. Future Considerations
 
+Since built: automated testing (backend and frontend suites plus Playwright,
+all gating CI) and a Docker image. Still open:
+
 -   **BSA Integration:** Potential integration with BSA systems for roster import/export.
 -   **Advanced Reporting:** More detailed race analytics and customizable reports.
--   **Cloud Deployment:** Dockerization and Kubernetes readiness for scalable cloud deployments.
 -   **Internationalization (i18n):** Support for multiple languages.
--   **Accessibility (WACG):** Ensure all UI components adhere to WCAG guidelines for inclusive design.
--   **Automated Testing:** Comprehensive unit, integration, and end-to-end tests for both backend and frontend.
--   **Security:** Implement authentication, authorization, input validation, and secure communication (HTTPS) from the outset.
+-   **Accessibility (WCAG):** Ensure all UI components adhere to WCAG guidelines for inclusive design.
+-   **Security:** Authentication and authorization on mutations, and a CORS policy narrower than `*`. Deferred by decision — it adds a prompt to a single-operator flow on a venue LAN — and tracked as issue #15.

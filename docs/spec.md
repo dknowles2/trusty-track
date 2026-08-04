@@ -91,7 +91,9 @@ We need to allow multiple modes of racer import:
 
 #### Printables
 
-*Not yet implemented — see `docs/tasks/printables/` for the full implementation plan.*
+✅ *Implemented — see the [Printables guide](printables.md). Printed as HTML from
+`/race/:raceId/print` rather than as server-rendered PDFs; only the QR code
+comes from the backend.*
 
 Once all racers are input into the system, we should also provide the option to physically print some documents:
 
@@ -103,7 +105,7 @@ Once all racers are input into the system, we should also provide the option to 
 
 On "race day" (or sometimes before), operators need to verify which participants are eligible for racing. If the racers have been previously imported, this means verifying that each car is suitable for racing ("passed inspection") and then collecting any additional information (car name, racer picture, car picture). ✅ *Implemented via `CheckInModal` in `RaceDetails.tsx`.*
 
-If "Printables" were previously utilized, we want a race "check-in" operator to be able to scan the barcode or QR-code to look up the participant. This should not require additional hardware--if using a laptop or physical computer, the attached USB camera should be able to convert a barcode into a participant record; if using a mobile phone or tablet, the onboard camera should be able to do the same. *Not yet implemented — see `docs/tasks/printables/03_frontend_check_in_scan.md`.*
+If "Printables" were previously utilized, we want a race "check-in" operator to be able to scan the barcode or QR-code to look up the participant. This should not require additional hardware--if using a laptop or physical computer, the attached USB camera should be able to convert a barcode into a participant record; if using a mobile phone or tablet, the onboard camera should be able to do the same. ✅ *Implemented via the **Scan** button on the roster. Decoding uses the browser's own `BarcodeDetector`, which is Chromium-only; other browsers get car-number entry, offered alongside the viewfinder everywhere.*
 
 ### Race Operation
 
