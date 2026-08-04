@@ -319,6 +319,13 @@ export type ActiveFreeRaceHeatSubscriptionSubscriptionVariables = Exact<{
 
 export type ActiveFreeRaceHeatSubscriptionSubscription = { activeFreeRaceHeat: { id: number, createdAt: string, lanes: Array<{ lane: number, racerId: number | null }> } | null };
 
+export type GetPrintablesQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetPrintablesQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, dens: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, carName: string | null, denId: number | null, racerImageUrl: string | null }> } | null };
+
 export type CreateRoundWizardMutationVariables = Exact<{
   raceId: number;
   config: Types.WizardConfigurationInput;
