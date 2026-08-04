@@ -73,19 +73,15 @@ warn_return_any = true
 # gate covers the tree by default: a new module is checked from the day it is
 # written, and this list can only shrink. Removing an entry is a good PR.
 #
-# Most of what is in here is Strawberry's duck-typing (resolvers return ORM rows
-# and `self` is not the type it is declared on), which is deliberate and would
-# need `type: ignore` rather than a fix. The rest is ordinary drift.
+# Down from nine. What is left is the hard part rather than the leftovers: two
+# of the three are dominated by Strawberry's duck-typing, where resolvers return
+# ORM rows and `self` is not the type it is declared on. That is deliberate and
+# wants `type: ignore` at each site rather than a fix, so it is worth doing on
+# purpose rather than in passing.
 [[tool.mypy.overrides]]
 module = [
     "backend.api.schema",
     "backend.db.crud",
-    "backend.db.models",
-    "backend.db.populate",
-    "backend.services.favicon_cli",
-    "backend.services.image_processing",
-    "backend.services.scoring",
-    "backend.services.stats",
     "backend.services.timer.manager",
 ]
 ignore_errors = true

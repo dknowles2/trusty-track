@@ -8,6 +8,8 @@ the answer for callers.
 Scoring is always computed on demand — there is no stored leaderboard.
 """
 
+from typing import NotRequired, TypedDict
+
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models
@@ -67,12 +69,32 @@ def calculate_racer_scores(
     return {racer_id: score.as_dict() for racer_id, score in scores.items()}
 
 
+class LeaderboardEntry(TypedDict):
+    """One row of the standings.
+
+    Typed because the entries are sorted on three of these fields and ranked on
+    the result; as a bare dict they are `object` to a checker, and `rank_key`
+    takes a float and two ints.
+    """
+
+    racer_id: int
+    first_name: str
+    last_name: str
+    car_number: int | None
+    den_id: int | None
+    den_name: str
+    score: float
+    heats_completed: int
+    racer_image_url: str | None
+    rank: NotRequired[int]
+
+
 def get_leaderboard(
     db: Session,
     race_id: int,
     round_id: int | None = None,
     scope: str = domain_scoring.PRELIM,
-) -> list[dict]:
+) -> list[LeaderboardEntry]:
     """Current standings, best first, each entry carrying a 1-indexed ``rank``.
 
     By default this covers **prelim rounds only** — rounds with no
@@ -95,7 +117,7 @@ def get_leaderboard(
         for d in db.query(models.Den).filter(models.Den.race_id == race_id).all()
     }
 
-    leaderboard = []
+    leaderboard: list[LeaderboardEntry] = []
     for racer_id, score_data in racer_scores.items():
         # Skips placeholders and anyone deleted since the heat was scheduled.
         racer = racer_map.get(racer_id)
@@ -105,17 +127,17 @@ def get_leaderboard(
         den = den_map.get(racer.den_id) if racer.den_id else None
 
         leaderboard.append(
-            {
-                "racer_id": racer_id,
-                "first_name": racer.first_name,
-                "last_name": racer.last_name,
-                "car_number": racer.car_number,
-                "den_id": racer.den_id,
-                "den_name": den.name if den else "Unknown",
-                "score": score_data["score"],
-                "heats_completed": score_data["heats_completed"],
-                "racer_image_url": racer.racer_image_url,
-            }
+            LeaderboardEntry(
+                racer_id=racer_id,
+                first_name=racer.first_name,
+                last_name=racer.last_name,
+                car_number=racer.car_number,
+                den_id=racer.den_id,
+                den_name=den.name if den else "Unknown",
+                score=score_data["score"],
+                heats_completed=int(score_data["heats_completed"]),
+                racer_image_url=racer.racer_image_url,
+            )
         )
 
     leaderboard.sort(
@@ -130,7 +152,7 @@ def get_leaderboard(
     return leaderboard
 
 
-def _standings_for(db: Session, race_id: int, rule) -> list[dict]:
+def _standings_for(db: Session, race_id: int, rule) -> list[LeaderboardEntry]:
     """The leaderboard a rule should be evaluated against.
 
     ``PACK`` and ``DEN`` read the default prelim-scoped standings, which is what

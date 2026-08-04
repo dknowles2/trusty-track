@@ -40,7 +40,8 @@ class AdvancementRule:
     """
 
     source: str
-    num_racers: int
+    #: ``None`` means no limit — everyone in the source advances.
+    num_racers: int | None
 
     @property
     def is_round_scoped(self) -> bool:

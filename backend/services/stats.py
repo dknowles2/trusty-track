@@ -6,6 +6,7 @@ den comparisons, highlights, and exportable heat results for a race.
 """
 
 import math
+from typing import Any, TypedDict
 
 from sqlalchemy.orm import Session
 
@@ -13,6 +14,35 @@ from backend.db import crud, models
 from backend.domain import lanes
 
 DNF_PENALTY = 9.999
+
+
+class LaneRow(TypedDict):
+    """One lane of one heat, as this module passes it around.
+
+    A `TypedDict` rather than a bare `dict` because the fields have different
+    types and the code indexes them by name: `racer_id` keys a dictionary,
+    `time` is arithmetic, and `round_name` is added later for display. Untyped,
+    a lane row is `dict[str, float | int | None]`, and every one of those uses
+    reads as a possible mistake.
+    """
+
+    lane: int
+    racer_id: int | None
+    time: float | None
+    place: int | None
+
+
+class ResultRow(LaneRow):
+    """A lane row with the round it belongs to, for the exportable tables."""
+
+    round_name: str
+
+
+class LaneAverage(TypedDict):
+    """A racer's average in one lane. ``None`` where they never ran it."""
+
+    lane: int
+    avg_time: float | None
 
 
 def compute_race_stats(db: Session, race_id: int) -> dict | None:
@@ -45,14 +75,17 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     )
     lane_count = track.lane_count if track else 4
 
+    def _round_number(heat: models.Heat) -> int:
+        """The round a heat sorts under, or 0 if it has none.
+
+        A heat whose round has been deleted still has to sort somewhere; it
+        used to dereference the missing round in the sort key.
+        """
+        round_obj = round_map.get(heat.round_id) if heat.round_id else None
+        return round_obj.round_number if round_obj else 0
+
     # Pre-calculate global heat numbers
-    sorted_heats = sorted(
-        heats,
-        key=lambda h: (
-            round_map.get(h.round_id).round_number if round_map.get(h.round_id) else 0,
-            h.heat_number,
-        ),
-    )
+    sorted_heats = sorted(heats, key=lambda h: (_round_number(h), h.heat_number))
     global_heat_map = {h.id: idx + 1 for idx, h in enumerate(sorted_heats)}
 
     total_heats_scheduled = len(heats)
@@ -61,9 +94,9 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     # racer_id -> count of heats they appear in (scheduled, with or without results)
     racer_heat_counts: dict[int, int] = {}
     # Enriched results from completed heats only (has at least one time)
-    all_results: list[dict] = []
+    all_results: list[ResultRow] = []
     # Completed heats with round context, for highlights and heat_results
-    heats_with_rounds: list[dict] = []
+    heats_with_rounds: list[dict[str, Any]] = []
 
     for heat in heats:
         if not heat.lane_results:
@@ -76,13 +109,13 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
         # `real_racer_id` is `None` for an unadvanced championship slot, which
         # the blob encodes as a negative id, and `seconds` is a number where the
         # stored time may be the string the frontend sometimes wrote.
-        results = [
-            {
-                "lane": parsed.lane,
-                "racer_id": parsed.real_racer_id,
-                "time": parsed.seconds,
-                "place": parsed.place,
-            }
+        results: list[LaneRow] = [
+            LaneRow(
+                lane=parsed.lane,
+                racer_id=parsed.real_racer_id,
+                time=parsed.seconds,
+                place=parsed.place,
+            )
             for parsed in lanes.parse(heat.lane_results)
         ]
 
@@ -95,26 +128,21 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
 
         # Count scheduled heats for each racer (regardless of completion)
         for r in results:
-            racer_id = r.get("racer_id")
+            racer_id = r["racer_id"]
             if racer_id:
                 racer_heat_counts[racer_id] = racer_heat_counts.get(racer_id, 0) + 1
 
         # A heat is "completed" if at least one racer has a recorded time
-        has_result = any(
-            r.get("time") is not None for r in results if r.get("racer_id")
-        )
+        has_result = any(r["time"] is not None for r in results if r["racer_id"])
         if not has_result:
             continue
 
         total_heats_completed += 1
 
         for r in results:
-            racer_id = r.get("racer_id")
-            if not racer_id:
+            if not r["racer_id"]:
                 continue
-            enriched = dict(r)
-            enriched["round_name"] = round_name
-            all_results.append(enriched)
+            all_results.append(ResultRow(**r, round_name=round_name))
 
         heats_with_rounds.append(
             {
@@ -250,6 +278,13 @@ def _compute_racer_stats(
         valid = [t for t in times if t < DNF_PENALTY]
         heats_completed = len(times)
 
+        min_time: float | None = None
+        max_time: float | None = None
+        mean_time: float | None = None
+        # `None` rather than 0 for a single heat: a standard deviation of one
+        # sample is not zero, it is undefined, and the column shows "—".
+        std_dev: float | None = None
+
         if times:
             min_time = min(valid) if valid else DNF_PENALTY
             max_time = max(times)
@@ -257,16 +292,12 @@ def _compute_racer_stats(
             if len(times) >= 2:
                 variance = sum((t - mean_time) ** 2 for t in times) / len(times)
                 std_dev = math.sqrt(variance)
-            else:
-                std_dev = None
-        else:
-            min_time = max_time = mean_time = std_dev = None
 
-        times_per_lane = []
+        times_per_lane: list[LaneAverage] = []
         for lane, lane_t in racer_lane_times[racer_id].items():
             avg = sum(lane_t) / len(lane_t) if lane_t else None
-            times_per_lane.append({"lane": lane, "avg_time": avg})
-        times_per_lane.sort(key=lambda x: x["lane"])
+            times_per_lane.append(LaneAverage(lane=lane, avg_time=avg))
+        times_per_lane.sort(key=lambda entry: entry["lane"])
 
         stats.append(
             {

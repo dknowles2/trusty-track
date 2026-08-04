@@ -124,7 +124,7 @@ def generate_fake_racers(
         # In a PyInstaller bundle, the root is sys._MEIPASS
         # Based on trustytrack.spec, backend/assets is placed at
         # sys._MEIPASS/backend/assets
-        backend_dir = Path(sys._MEIPASS) / "backend"
+        backend_dir = Path(sys._MEIPASS) / "backend"  # type: ignore[attr-defined]
     else:
         # Development mode: Path(__file__) is backend/db/populate.py
         backend_dir = Path(__file__).parent.parent

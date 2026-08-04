@@ -25,7 +25,7 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        img = Image.open(args.input)
+        img: Image.Image = Image.open(args.input)
 
         if not args.no_crop:
             print(f"Cropping {args.input} with padding {args.padding}...")
