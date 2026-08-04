@@ -130,18 +130,14 @@ Race            id, name, date_time, location, group_id, track_id,
   ├─ Den[]            (cascade delete)
   ├─ Racer[]
   ├─ Round[]          (cascade delete)
-  ├─ Heat[]
-  ├─ RacingGroup[]
   └─ Heat[]           (both kinds; see `Heat.kind`)
 
 Den             id, race_id, name, color, rank,
                 car_number_range_start, car_number_range_end
 
-Racer           id, race_id, den_id?, racing_group_id?,
+Racer           id, race_id, den_id?,
                 first_name, last_name, car_number, car_name, car_weight,
                 car_passed_inspection, racer_image_url, car_image_url
-
-RacingGroup     id, race_id, den_id?, name, car_number_range_*
 
 Round           id, race_id, round_number, name, scheduling_strategy,
                 advancement_source, advancement_num_racers, den_id?

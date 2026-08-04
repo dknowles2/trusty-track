@@ -86,7 +86,6 @@ class RacerBase(BaseModel):
     car_weight: float | None = None
     racer_image_url: str | None = None
     car_image_url: str | None = None
-    racing_group_id: int | None = None
 
 
 class RacerCreate(RacerBase):
@@ -103,31 +102,11 @@ class RacerUpdate(BaseModel):
     car_weight: float | None = None
     racer_image_url: str | None = None
     car_image_url: str | None = None
-    racing_group_id: int | None = None
 
 
 class Racer(RacerBase):
     id: int
     race_id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class RacingGroupBase(BaseModel):
-    name: str
-    den_id: int | None = None
-    car_number_range_start: int | None = None
-    car_number_range_end: int | None = None
-
-
-class RacingGroupCreate(RacingGroupBase):
-    pass
-
-
-class RacingGroup(RacingGroupBase):
-    id: int
-    race_id: int
-    racers: list[Racer] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -174,7 +153,6 @@ class Race(RaceBase):
     id: int
     group_id: int
     track_id: int
-    racing_groups: list[RacingGroup] = []
     racers: list[Racer] = []
     registered_count: int = 0
     checked_in_count: int = 0

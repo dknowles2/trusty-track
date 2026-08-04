@@ -126,9 +126,6 @@ class Race(Base):
 
     group: Mapped["Group"] = relationship("Group", back_populates="races")
     track: Mapped[Optional["Track"]] = relationship("Track", back_populates="races")
-    racing_groups: Mapped[list["RacingGroup"]] = relationship(
-        "RacingGroup", back_populates="race"
-    )
     racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="race")
     dens: Mapped[list["Den"]] = relationship(
         "Den", back_populates="race", cascade="all, delete-orphan"
@@ -138,22 +135,6 @@ class Race(Base):
     )
     # Both kinds; `Heat.kind` distinguishes them (#6).
     heats: Mapped[list["Heat"]] = relationship("Heat", back_populates="race")
-
-
-class RacingGroup(Base):
-    __tablename__ = "racing_groups"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
-    name: Mapped[str] = mapped_column(String)
-    den_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("dens.id"), nullable=True
-    )
-    car_number_range_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    car_number_range_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    race: Mapped["Race"] = relationship("Race", back_populates="racing_groups")
-    racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="racing_group")
 
 
 class Racer(Base):
@@ -169,17 +150,11 @@ class Racer(Base):
     car_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
     racer_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     car_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    racing_group_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("racing_groups.id"), nullable=True
-    )
     den_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("dens.id"), nullable=True
     )
 
     race: Mapped["Race"] = relationship("Race", back_populates="racers")
-    racing_group: Mapped[Optional["RacingGroup"]] = relationship(
-        "RacingGroup", back_populates="racers"
-    )
     den: Mapped[Optional["Den"]] = relationship("Den", back_populates="racers")
 
 
