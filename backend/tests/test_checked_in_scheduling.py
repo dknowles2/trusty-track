@@ -67,7 +67,7 @@ def test_generate_schedule_only_checked_in(client, db):
             id
             heats {{
                 id
-                laneResults
+                lanes {{ racerId }}
             }}
         }}
     }}
@@ -85,15 +85,14 @@ def test_generate_schedule_only_checked_in(client, db):
         # If it succeeded, check how many racers are in the heats
         data = resp.json()["data"]["createRound"]
         assert data is not None
-        import json
 
-        all_racer_ids = set()
-        for round_obj in data:
-            for heat in round_obj["heats"]:
-                results = json.loads(heat["laneResults"])
-                for r in results:
-                    if r["racer_id"] is not None:
-                        all_racer_ids.add(r["racer_id"])
+        all_racer_ids = {
+            lane["racerId"]
+            for round_obj in data
+            for heat in round_obj["heats"]
+            for lane in heat["lanes"]
+            if lane["racerId"] is not None
+        }
 
         # If the bug is present, all 3 racers will be scheduled
         if len(all_racer_ids) > 1:
@@ -141,7 +140,7 @@ def test_generate_schedule_multiple_checked_in(client, db):
             id
             heats {{
                 id
-                laneResults
+                lanes {{ racerId }}
             }}
         }}
     }}
@@ -150,15 +149,14 @@ def test_generate_schedule_multiple_checked_in(client, db):
     assert "errors" not in resp.json()
 
     data = resp.json()["data"]["createRound"]
-    import json
 
-    all_racer_ids = set()
-    for round_obj in data:
-        for heat in round_obj["heats"]:
-            results = json.loads(heat["laneResults"])
-            for r in results:
-                if r["racer_id"] is not None:
-                    all_racer_ids.add(r["racer_id"])
+    all_racer_ids = {
+        lane["racerId"]
+        for round_obj in data
+        for heat in round_obj["heats"]
+        for lane in heat["lanes"]
+        if lane["racerId"] is not None
+    }
 
     # Only 2 racers should be scheduled
     assert len(all_racer_ids) == 2, (

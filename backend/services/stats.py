@@ -5,12 +5,12 @@ This module provides functions to calculate per-racer stats, lane fairness,
 den comparisons, highlights, and exportable heat results for a race.
 """
 
-import json
 import math
 
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models
+from backend.domain import lanes
 
 DNF_PENALTY = 9.999
 
@@ -68,10 +68,23 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     for heat in heats:
         if not heat.lane_results:
             continue
-        try:
-            results = json.loads(heat.lane_results)
-        except (json.JSONDecodeError, TypeError):
-            continue
+        # Through `lanes.parse`, not `json.loads`: it is the only sanctioned
+        # reader of the blob (#5). Mostly that is consolidation — this module
+        # already coerced times with `float()` and skipped falsy racer ids — but
+        # the codec also refuses anything that is not a lane, where parsing here
+        # iterated it and took the whole stats page down with an AttributeError.
+        # `real_racer_id` is `None` for an unadvanced championship slot, which
+        # the blob encodes as a negative id, and `seconds` is a number where the
+        # stored time may be the string the frontend sometimes wrote.
+        results = [
+            {
+                "lane": parsed.lane,
+                "racer_id": parsed.real_racer_id,
+                "time": parsed.seconds,
+                "place": parsed.place,
+            }
+            for parsed in lanes.parse(heat.lane_results)
+        ]
 
         round_obj = round_map.get(heat.round_id)
         round_name = (
