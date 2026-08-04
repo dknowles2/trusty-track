@@ -8,7 +8,7 @@ the answer for callers.
 Scoring is always computed on demand — there is no stored leaderboard.
 """
 
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 
 from sqlalchemy.orm import Session
 
@@ -69,12 +69,12 @@ def calculate_racer_scores(
     return {racer_id: score.as_dict() for racer_id, score in scores.items()}
 
 
-class LeaderboardEntry(TypedDict):
-    """One row of the standings.
+class _LeaderboardRow(TypedDict):
+    """The fields every standings row carries.
 
-    Typed because the entries are sorted on three of these fields and ranked on
-    the result; as a bare dict they are `object` to a checker, and `rank_key`
-    takes a float and two ints.
+    Typed because the entries are sorted on three of them and ranked on the
+    result; as a bare dict they are `object` to a checker, and `rank_key` takes
+    a float and two ints.
     """
 
     racer_id: int
@@ -86,7 +86,15 @@ class LeaderboardEntry(TypedDict):
     score: float
     heats_completed: int
     racer_image_url: str | None
-    rank: NotRequired[int]
+
+
+class LeaderboardEntry(_LeaderboardRow, total=False):
+    """A row, plus the rank stamped on it after sorting.
+
+    Split rather than marked `NotRequired`, which is 3.11; the floor is 3.10.
+    """
+
+    rank: int
 
 
 def get_leaderboard(
