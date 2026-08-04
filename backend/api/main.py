@@ -139,6 +139,11 @@ async def health() -> dict:
     return {"status": "ok", "version": _version}
 
 
+# Both paths, for the same reason `/graphql` is mounted twice: the built
+# frontend asks for `/api/printables/...`, and the Vite dev proxy strips the
+# `/api` before forwarding. Registering only the `/api` form makes the print
+# page work in production and 404 in development, which is where it is written.
+@app.get("/printables/barcode/{racer_id}.png")
 @app.get("/api/printables/barcode/{racer_id}.png")
 def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
     """The QR code that takes a check-in operator straight to this racer.

@@ -12,6 +12,7 @@ import RaceControl from './features/racing/pages/RaceControl';
 import Observation from './features/observation/pages/Observation';
 import Standings from './features/stats/pages/Standings';
 import RaceStats from './features/stats/pages/RaceStats';
+import Printables from './features/printables/pages/Printables';
 
 import { INITIAL_CONFIG_QUERY } from './features/core/graphql/queries';
 
@@ -59,6 +60,7 @@ function App() {
                 <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
                 <Route path="/race/:raceId/standings" element={<ProtectedRoute><Standings /></ProtectedRoute>} />
                 <Route path="/race/:raceId/stats" element={<ProtectedRoute><RaceStats /></ProtectedRoute>} />
+                <Route path="/race/:raceId/print" element={<ProtectedRoute><Printables /></ProtectedRoute>} />
                 <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
                 <Route path="/race/:raceId/control/:tab?" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
                 <Route path="/race/:raceId/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />

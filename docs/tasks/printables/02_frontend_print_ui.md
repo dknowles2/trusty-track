@@ -1,4 +1,26 @@
-# Task: Frontend Printables UI
+# Task: Frontend Printables UI [COMPLETED]
+
+> Built as `features/printables/`, reachable from the roster's **Print**
+> button at `/race/:raceId/print`. User guide: `docs/printables.md`.
+>
+> **Sheet-first rather than card-first, which is the one real departure from
+> the steps below.** They describe a per-racer menu with a link per document
+> and a separate bulk option; nobody prints one pit pass, so the page is the
+> sheet, the roster's selection is carried in on `?racers=`, and an empty
+> selection means the whole roster rather than nothing. There is no per-racer
+> print menu at all.
+>
+> Two smaller consequences of the HTML-not-PDF decision in
+> `01_backend_generation.md`:
+>
+> - **No `barcode_sheet/{race_id}` endpoint** (step 2). A sheet is a CSS grid
+>   of the per-racer images the browser already caches.
+> - **No preview modal** (step 3). The page *is* the preview — the cards are
+>   sized in inches in both media, so what is on screen is the paper.
+>
+> The layout numbers live in `documents.ts`, not the stylesheet, because the
+> page has to say "2 sheets of Letter" before the operator commits paper to
+> it, and a card size kept in two places drifts.
 
 ## Goal
 

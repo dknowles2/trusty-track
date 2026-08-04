@@ -128,6 +128,16 @@ class TestEndpoint:
         assert response.headers["content-type"] == "image/png"
         assert response.content.startswith(PNG_MAGIC)
 
+    def test_it_answers_without_the_api_prefix_too(self, client, racer):
+        """The Vite dev proxy strips `/api` before forwarding, so the path the
+        backend sees in development is not the one the page asked for. Only the
+        prefixed form registered means the print page works in production and
+        404s on the machine it is written on."""
+        response = client.get(f"/printables/barcode/{racer.id}.png")
+
+        assert response.status_code == 200
+        assert response.content.startswith(PNG_MAGIC)
+
     def test_the_image_encodes_that_racer_in_that_race(self, client, racer):
         """Not just "a PNG came back" — the bytes have to be this racer's."""
         response = client.get(f"/api/printables/barcode/{racer.id}.png")
