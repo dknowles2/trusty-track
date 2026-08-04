@@ -1,9 +1,22 @@
-from pydantic import BaseModel, ConfigDict, field_validator
+"""Validated inputs for `crud`.
+
+**Inputs only.** These were once both halves of a REST API — request bodies and
+response bodies — and the response half outlived it: Strawberry types describe
+what goes out, so `schemas.Race`, `schemas.Heat` and the rest were built by
+nothing and read by nobody for as long as the GraphQL migration has been done.
+Twenty-one such classes were deleted, along with the `HeatReorder*`, `Wizard*`
+and `BulkRacer*` request models whose endpoints became mutations.
+
+What is left is what `crud` takes: a `*Create` or `*Update` per entity, and the
+`*Base` classes they share. If a new class here is not named for an input,
+check that something actually constructs it.
+"""
+
+from pydantic import BaseModel, field_validator
 
 from .models import (
     CarNumberingStrategy,
     Rank,
-    SchedulingStrategy,
     ScoringStrategy,
     TimerType,
 )
@@ -15,14 +28,6 @@ class TrackBase(BaseModel):
     length_feet: int | None = None
     timer_type: TimerType = TimerType.FAKE
     serial_port: str | None = None
-
-
-class PopulateTestDataRequest(BaseModel):
-    count: int = 10
-    add_racer_photos: bool = True
-    add_car_photos: bool = True
-    assign_dens: bool = True
-    check_in: bool = False
 
 
 class DenBase(BaseModel):
@@ -45,35 +50,14 @@ class DenUpdate(BaseModel):
     car_number_range_end: int | None = None
 
 
-class Den(DenBase):
-    id: int
-    race_id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class TrackCreate(TrackBase):
     pass
-
-
-class Track(TrackBase):
-    id: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class InitialConfigCreate(BaseModel):
     group_name: str
     debug_mode: bool = False
     tracks: list[TrackCreate]
-
-
-class InitialConfigStatus(BaseModel):
-    initialized: bool
-    group_name: str | None = None
-    debug_mode: bool = False
-    tracks: list[Track] = []
-    current_race_id: int | None = None
 
 
 class RacerBase(BaseModel):
@@ -102,13 +86,6 @@ class RacerUpdate(BaseModel):
     car_weight: float | None = None
     racer_image_url: str | None = None
     car_image_url: str | None = None
-
-
-class Racer(RacerBase):
-    id: int
-    race_id: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class RaceBase(BaseModel):
@@ -149,17 +126,6 @@ class RaceUpdate(BaseModel):
     auto_advance_heat: bool | None = None
 
 
-class Race(RaceBase):
-    id: int
-    group_id: int
-    track_id: int
-    racers: list[Racer] = []
-    registered_count: int = 0
-    checked_in_count: int = 0
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class GroupBase(BaseModel):
     name: str
     debug_mode: bool = False
@@ -169,41 +135,8 @@ class GroupCreate(GroupBase):
     pass
 
 
-class Group(GroupBase):
-    id: int
-    races: list[Race] = []
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class RoundBase(BaseModel):
-    round_number: int = 1
-    name: str | None = None
-    scheduling_strategy: SchedulingStrategy = SchedulingStrategy.PPC
-    den_id: int | None = None
-
-
-class RoundCreate(RoundBase):
-    race_id: int
-    advancement_source: str | None = None
-    advancement_num_racers: int | None = None
-    runs_per_lane: int = 1
-    general_type: str = (
-        "PACK"  # Only used if advancement_source is None: "PACK" or "DEN"
-    )
-
-
 class RoundUpdate(BaseModel):
     name: str | None = None
-
-
-class Round(RoundBase):
-    id: int
-    race_id: int
-    advancement_source: str | None = None
-    advancement_num_racers: int | None = None
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class HeatBase(BaseModel):
@@ -216,81 +149,3 @@ class HeatBase(BaseModel):
 class HeatCreate(HeatBase):
     race_id: int
     round_id: int
-
-
-class Heat(HeatBase):
-    id: int
-    race_id: int
-    round_id: int
-    round_number: int  # Computed from related Round
-    round_name: str | None = None  # Computed from related Round
-    advancement_num_racers: int | None = None  # Computed from related Round
-    advancement_source: str | None = None  # Computed from related Round
-    total_participants: int = 0  # Computed from related Round
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class HeatReorderItem(BaseModel):
-    """Single heat reorder operation."""
-
-    heat_id: int
-    new_heat_number: int
-
-
-class HeatReorderRequest(BaseModel):
-    """Request to reorder multiple heats within a round."""
-
-    heat_updates: list[HeatReorderItem]
-
-
-class HeatReorderResponse(BaseModel):
-    """Response after reordering heats."""
-
-    updated_count: int
-    heats: list[Heat]
-
-
-class AdvancementRacer(BaseModel):
-    racer_id: int
-    first_name: str
-    last_name: str
-    car_number: int | None
-    den_name: str
-    score: float
-    rank: int
-    is_advancing: bool = False
-
-
-class AdvancementStatus(BaseModel):
-    is_ready: bool
-    requires_advancement: bool
-    already_advanced: bool
-    advancing_racers: list[AdvancementRacer] = []
-    source: str | None = None
-    num_racers: int | None = None
-
-
-class WizardGeneralRound(BaseModel):
-    type: str  # "PACK" or "DEN"
-    runs_per_lane: int = 1
-
-
-class WizardChampionshipRound(BaseModel):
-    name: str = "Championship Round"
-    source: str = "PACK"  # "PACK" (Overall) or "DEN" (Each Den)
-    num_top_racers: int = 3
-    runs_per_lane: int = 1
-
-
-class WizardConfiguration(BaseModel):
-    general_round: WizardGeneralRound
-    championship_rounds: list[WizardChampionshipRound] = []
-
-
-class BulkRacerActionRequest(BaseModel):
-    racer_ids: list[int]
-
-
-class BulkRacerMoveRequest(BulkRacerActionRequest):
-    den_id: int | None = None
