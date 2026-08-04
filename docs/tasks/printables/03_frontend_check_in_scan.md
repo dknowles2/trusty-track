@@ -1,4 +1,26 @@
-# Task: Frontend Check-In Barcode/QR Scanning
+# Task: Frontend Check-In Barcode/QR Scanning [COMPLETED]
+
+> Built as `features/printables/components/CheckInScanner.tsx`, opened by the
+> roster's **Scan** button. `scanning.ts` holds the rules.
+>
+> **No scanning library was added** (step 1). Decoding uses the browser's own
+> `BarcodeDetector`, which is Chromium-only; Safari and Firefox get the manual
+> entry with a line saying why. The app already ships a browser-proxied serial
+> timer on the same trade, and a decode library is a dependency carried by
+> every operator to serve the ones not using Chrome. Decided with the
+> maintainer before building.
+>
+> **The manual entry is not a fallback** (step 4). It is on screen alongside
+> the viewfinder on every browser, because a creased code with a queue behind
+> the table is the common case, not the exotic one. It matches a car number
+> only when exactly one racer has it — manual numbering allows duplicates, and
+> picking the first would check in the wrong child.
+>
+> **A scan resolves to four outcomes, not racer-or-nothing**: the racer, not
+> one of ours, a code from another race, or a racer deleted since printing.
+> Each has a different next move for the operator. `TT1:<race>:<racer>` is
+> decoded by `scanning.ts`, a mirror of `backend/domain/printables.py`; both
+> pin the literal payload in a test so neither can drift alone.
 
 ## Goal
 
