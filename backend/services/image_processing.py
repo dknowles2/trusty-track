@@ -37,7 +37,7 @@ def convert_to_browser_safe_png(
     If the image is already a native format and within *max_size*, the original
     bytes are returned unchanged.
     """
-    img = Image.open(io.BytesIO(image_bytes))
+    img: Image.Image = Image.open(io.BytesIO(image_bytes))
 
     # Check if we need to resize or convert
     width, height = img.size

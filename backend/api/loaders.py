@@ -38,7 +38,9 @@ class RequestLoaders:
         self._heats_by_race: dict[int, list[models.Heat]] = {}
         self._dens_by_race: dict[int, list[models.Den]] = {}
         self._racers_by_race: dict[int, list[models.Racer]] = {}
-        self._leaderboards: dict[tuple[int, int | None, str], list[dict]] = {}
+        self._leaderboards: dict[
+            tuple[int, int | None, str], list[scoring.LeaderboardEntry]
+        ] = {}
         self._global_heat_numbers: dict[int, dict[int, int]] = {}
         self._tracks: dict[int, models.Track | None] = {}
         self._groups: dict[int, models.Group | None] = {}
@@ -173,7 +175,7 @@ class RequestLoaders:
         race_id: int,
         round_id: int | None = None,
         scope: str = domain_scoring.PRELIM,
-    ) -> list[dict]:
+    ) -> list[scoring.LeaderboardEntry]:
         """Memoised leaderboard.
 
         ``advancementStatus`` is resolved once per round and each call used to
