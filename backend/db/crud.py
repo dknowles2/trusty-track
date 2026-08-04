@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import random
 from datetime import datetime, timezone
-from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -190,10 +189,6 @@ def delete_race(db: Session, race_id: int) -> bool:
     # Actually, let's just delete the racers first.
     db.query(models.Racer).filter(models.Racer.race_id == race_id).delete()
 
-    # Racing groups also might need deletion?
-    # racing_groups: back_populates="race", no cascade.
-    db.query(models.RacingGroup).filter(models.RacingGroup.race_id == race_id).delete()
-
     # Heats?
     # heats: back_populates="race", no cascade in Race model.
     # But rounds delete heats via cascade.
@@ -309,32 +304,6 @@ def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None
     racer_data = racer.model_dump()
     if "race_id" in racer_data:
         del racer_data["race_id"]
-
-    den_id = racer_data.get("den_id")
-
-    # Handle Racing Group based on Den
-    if den_id:
-        den = get_den(db, den_id)
-        if den:
-            # Find or create racing group for this Den
-            racing_group = (
-                db.query(models.RacingGroup)
-                .filter(
-                    models.RacingGroup.race_id == race.id,
-                    models.RacingGroup.den_id == den_id,
-                )
-                .first()
-            )
-
-            if not racing_group:
-                racing_group = models.RacingGroup(
-                    race_id=race.id, name=f"{den.name}s", den_id=den_id
-                )
-                db.add(racing_group)
-                db.commit()
-                db.refresh(racing_group)
-
-            racer_data["racing_group_id"] = racing_group.id
 
     db_racer = models.Racer(**racer_data, race_id=race.id)
     db.add(db_racer)
@@ -1236,40 +1205,8 @@ def get_random_lane_assignments(
 
 
 def bulk_move_racers_to_den(db: Session, racer_ids: list[int], den_id: int | None):
-    # Need to handle potential racing group updates if we were strict about it,
-    # but create_racer handles it. For bulk move, let's just update den_id.
-    # If we want to be thorough, we should also update racing_group_id.
-    # However, the current logic seems to link them.
-
-    update_data: dict[Any, Any] = {"den_id": den_id}
-
-    # If den_id is provided, try to find a corresponding racing group
-    if den_id:
-        racer = db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).first()
-        if racer:
-            race_id = racer.race_id
-            den = db.query(models.Den).filter(models.Den.id == den_id).first()
-            if den:
-                racing_group = (
-                    db.query(models.RacingGroup)
-                    .filter(
-                        models.RacingGroup.race_id == race_id,
-                        models.RacingGroup.den_id == den_id,
-                    )
-                    .first()
-                )
-                if not racing_group:
-                    racing_group = models.RacingGroup(
-                        race_id=race_id, name=f"{den.name}s", den_id=den_id
-                    )
-                    db.add(racing_group)
-                    db.commit()
-                    db.refresh(racing_group)
-                update_data["racing_group_id"] = racing_group.id
-    else:
-        update_data["racing_group_id"] = None
-
+    """Reassign racers to a den, or to none."""
     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
-        update_data, synchronize_session=False
+        {"den_id": den_id}, synchronize_session=False
     )
     db.commit()

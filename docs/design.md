@@ -62,7 +62,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `rules_configuration` (JSON string, optional)
     -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)
     -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
--   **`Den`**: Sub-divisions within a race (e.g., Den). Previously referred to as `RacingGroup` in early design — the implementation uses `Den` as the primary grouping concept.
+-   **`Den`**: Sub-divisions within a race. Called `RacingGroup` in the early design; the implementation uses `Den` throughout, and the vestigial `racing_groups` table was dropped once it turned out to be written on every racer save and read by nothing.
     -   `id` (PK)
     -   `race_id` (FK to Race)
     -   `name`
@@ -71,12 +71,10 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `car_number_range_start` (if PER_GROUP)
     -   `car_number_range_end` (if PER_GROUP)
 
--   **`RacingGroup`**: Retained as a secondary grouping concept in the data model for round-level scheduling (e.g., grouping dens into a round). Most frontend interactions use `Den` directly.
 -   **`Racer`**: Participant details.
     -   `id` (PK)
     -   `race_id` (FK to Race)
     -   `den_id` (FK to Den, optional) — the primary grouping
-    -   `racing_group_id` (FK to RacingGroup, optional)
     -   `first_name`
     -   `last_name`
     -   `car_number` (unique per race)

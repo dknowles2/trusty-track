@@ -234,3 +234,45 @@ def test_heat_fields_do_not_scale_with_heat_count(client, populated_race, db):
         f"Adding 45 heats added {growth} SQL queries "
         f"({before.count} -> {after.count}); heat fields are still N+1."
     )
+
+
+def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
+    """Moving racers between dens is one UPDATE, whatever the count.
+
+    It used to be four more statements than that: a SELECT for a racer, one for
+    the den, one for the `racing_groups` row shadowing that den, and an INSERT
+    with its own commit the first time. That table was written on every save
+    and read by nothing, and was dropped in 0008 — this is the guard against
+    something like it growing back on a bulk path.
+    """
+    den = db.query(models.Den).filter(models.Den.race_id == populated_race.id).first()
+    racer_ids = [
+        r.id
+        for r in db.query(models.Racer)
+        .filter(models.Racer.race_id == populated_race.id)
+        .all()
+    ]
+
+    mutation = """
+    mutation($ids: [Int!]!, $denId: Int) {
+      bulkMoveToDen(racerIds: $ids, denId: $denId)
+    }
+    """
+    with _QueryCounter() as counter:
+        response = client.post(
+            "/graphql",
+            json={
+                "query": mutation,
+                "variables": {"ids": racer_ids, "denId": den.id},
+            },
+        )
+    assert response.status_code == 200, response.text
+    assert "errors" not in response.json(), response.json()
+
+    # Exactly the measured count rather than the usual bit of headroom: the
+    # behaviour this guards added a fixed handful of statements, so a ceiling
+    # with slack in it would not have caught it.
+    assert counter.count <= 3, (
+        f"Moving {len(racer_ids)} racers issued {counter.count} SQL statements; "
+        f"it should be the UPDATE and little else."
+    )
