@@ -18,8 +18,10 @@ import Icon from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric,
   mdiChevronDown, mdiLightningBolt, mdiFileUpload,
-  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter
+  mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
+  mdiQrcodeScan
 } from '@mdi/js';
+import CheckInScanner from '../../printables/components/CheckInScanner';
 import * as GQL from '../graphql/queries';
 
 interface GQLDen {
@@ -141,6 +143,7 @@ export default function RaceDetails() {
   const [racerFormSubmitLabel, setRacerFormSubmitLabel] = useState('Save Racer');
 
   const [showBulkPhotoUpload, setShowBulkPhotoUpload] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Populate Modal
   const [showPopulateModal, setShowPopulateModal] = useState(false);
@@ -250,6 +253,15 @@ export default function RaceDetails() {
       setRacerFormTitle('Racer Check In');
       setRacerFormSubmitLabel('Save Check-in');
       setShowRacerForm(true);
+  };
+
+  // A scan identifies a racer; from there it is the same check-in the operator
+  // would have reached by finding them in the roster.
+  const handleScanned = (racerId: number) => {
+      const racer = racers.find(r => r.id === racerId);
+      if (!racer) return;
+      setShowScanner(false);
+      handleCheckInClick(racer);
   };
 
   const [, createRacerMutation] = useMutation(GQL.CREATE_RACER);
@@ -696,6 +708,14 @@ export default function RaceDetails() {
 
             <button
                 className="secondary-btn"
+                onClick={() => setShowScanner(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}
+            >
+                <Icon path={mdiQrcodeScan} size={0.7} /> Scan
+            </button>
+
+            <button
+                className="secondary-btn"
                 onClick={() => setShowBulkPhotoUpload(true)}
                 style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}
             >
@@ -1048,6 +1068,23 @@ export default function RaceDetails() {
             onCancel={() => setShowRacerForm(false)}
             submitLabel={racerFormSubmitLabel}
         />
+      </Modal>
+
+      {/* Check-in Scanner Modal. Mounted only while open so the camera is
+          released the moment it closes. */}
+      <Modal
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        title="Scan to Check In"
+      >
+          {showScanner && (
+              <CheckInScanner
+                  raceId={parsedRaceId}
+                  racers={racers}
+                  onRacer={handleScanned}
+                  onClose={() => setShowScanner(false)}
+              />
+          )}
       </Modal>
 
       {/* Den Manager Modal */}

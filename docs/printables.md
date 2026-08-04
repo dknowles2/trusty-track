@@ -66,6 +66,35 @@ The code identifies **that racer at that race**. A code printed at last year's
 derby will not scan into this year's, which is deliberate: racer numbering
 starts over, and scanning the wrong child in at check-in is expensive.
 
+## Scanning at check-in
+
+Click **Scan** above the roster, hold a printed code up to the camera, and that
+racer's check-in opens.
+
+![The check-in scanner](assets/screenshots/printables/check-in-scanner.png)
+
+*(The green pattern above is a test camera — yours shows the real one.)*
+
+There is a **Car number** box under the viewfinder, and it works everywhere.
+Use it when a code is creased, the camera will not focus, or there is a queue.
+
+!!! note "Scanning needs Chrome or Edge"
+
+    QR decoding uses a browser feature only Chromium-based browsers have. In
+    Safari and Firefox the scanner opens without a viewfinder and the car
+    number box is the way in — everything else about check-in is the same.
+
+A few things the scanner will refuse, and what they mean:
+
+| What it says | What happened |
+| --- | --- |
+| That is not a Trusty Track code | Some other QR code — a product label, a poster |
+| That code is for a different race | A pass from another event, most likely last year's |
+| That code is for a racer who is no longer on this roster | The racer was deleted after the code was printed |
+
+The last two are why codes carry the race: without it, a pass from last year's
+derby would check in whoever holds that racer number today.
+
 ## Printing
 
 Click **Print** and your browser's own print dialogue opens. Two things worth

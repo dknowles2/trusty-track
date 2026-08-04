@@ -46,6 +46,13 @@ def racer(db, race):
 
 
 class TestPayload:
+    def test_the_payload_is_the_shape_the_scanner_expects(self):
+        """Pinned as a literal on both sides — `scanning.test.ts` asserts the
+        same string — because the frontend decodes it with its own copy of the
+        rule. A change here that is not made there stops every printed pass
+        from scanning."""
+        assert domain_printables.encode(3, 42) == "TT1:3:42"
+
     def test_a_code_reads_back_as_what_was_printed(self):
         assert domain_printables.decode(domain_printables.encode(3, 42)) == (
             domain_printables.CheckInCode(race_id=3, racer_id=42)

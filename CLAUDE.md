@@ -94,6 +94,7 @@ frontend/src/
     observation/              # Audience display
     printables/               # Pit passes, driver's licences, check-in codes
       documents.ts            #   card geometry and print order — pure, no React
+      scanning.ts             #   reading a scanned code back — pure, no React
     stats/                    # Standings, RaceStats, Leaderboard
     settings/                 # SystemSettings first-run wizard
   gql/                        # GENERATED — do not edit (see below)
@@ -422,7 +423,11 @@ Pit passes, driver's licences and check-in codes. `/race/:raceId/print`, from th
 
 **The layout numbers live in `documents.ts`, not the stylesheet.** The page has to say "2 sheets of Letter" before the operator commits paper, so the card geometry is read by both TypeScript and CSS (as custom properties set inline) rather than kept in two places. `inPrintOrder` is the other rule worth knowing: car number ascending, unnumbered racers last — they are the ones still needing a number, which is easier to spot at the bottom of a stack than the middle.
 
-The payload is `TT1:<race_id>:<racer_id>` — versioned because these live on paper and get scanned by a later version of the app, race-scoped because a bare racer id from last year's derby resolves to whoever holds that id now. `domain/printables.py` owns encode and decode; the scanner will not re-derive it.
+The payload is `TT1:<race_id>:<racer_id>` — versioned because these live on paper and get scanned by a later version of the app, race-scoped because a bare racer id from last year's derby resolves to whoever holds that id now. `domain/printables.py` owns encode and decode; `features/printables/scanning.ts` is its mirror on the frontend, and **both pin the literal payload in a test** so neither can drift alone.
+
+**Scanning is Chromium-only, by decision.** `CheckInScanner.tsx` decodes with the browser's own `BarcodeDetector` rather than adding a decode library — the same trade the browser-proxied serial timer already makes. Safari and Firefox get the car-number entry and a line saying why. That entry is **not** a fallback branch: it is on screen next to the viewfinder everywhere, because a creased code with a queue behind the table is the common case. It resolves only when exactly one racer holds the number — manual numbering allows duplicates, and picking the first would check in the wrong child.
+
+A scan has **four** outcomes, not racer-or-nothing (`scanning.resolveScan`): the racer, not one of ours, a code from another race, or a racer deleted since printing. They are separate because the operator's next move differs for each.
 
 ### First-run gate
 
@@ -462,11 +467,10 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 
 Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `free-race`, `graphql`, `improvements`, `install`, `observation`, `printables`, `stats`, `timers`.
 
-**Most of these are already built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, and all five install channels — and those files are design notes, not a backlog. Every plan verified as built now says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**: these four are the ones actually outstanding.
+**Most of these are already built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, printables, and all five install channels — and those files are design notes, not a backlog. Every plan verified as built now says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**. One is outstanding:
 
 | Outstanding | |
 | --- | --- |
-| `printables/03_frontend_check_in_scan.md` | Camera scanning at check-in. The rest of #61 is built: codes, print UI, `docs/printables.md` |
 | `free-race/06_documentation.md` | Free racing ships with no `docs/free-race.md` |
 
 Keep the markers honest — this is the index, and the point is that nobody has to re-derive it from the code. If you finish one, mark it.
