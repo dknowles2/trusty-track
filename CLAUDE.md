@@ -179,7 +179,7 @@ There is no foreign key from a lane to a racer. `updateHeatResult` takes the who
 
 #### The `heat_lanes` shadow table
 
-The normalized `heat_lanes` table exists and is kept current. The blob is still the source of truth — everything **writes** the blob, and `backend/db/lane_sync.py` listens on the SQLAlchemy `Session` and projects those writes into the table, so no write site needs to know it exists. Two consequences:
+The normalized `heat_lanes` table exists and is kept current. The blob is still the source of truth — everything **writes** the blob, and `backend/db/lane_sync.py` listens on the SQLAlchemy `Session` and projects those writes into the table, so no write site needs to know it exists. **Making the table authoritative is the remaining half of #5, tracked as #72** — until that lands, the wins it promised (a `COUNT` instead of a parse for round completion, a `GROUP BY` for scoring, the racer foreign key enforcing anything on write) are not available, and `crud._remove_racer_from_*` still hand-walk the blob doing what `ON DELETE SET NULL` would do. Two consequences:
 
 - **Write heats through the ORM.** A raw `UPDATE heats SET lane_results = ...`, or a bulk delete of a table other than `heats`, bypasses the listener and silently rots the table.
 - **`conftest.py` asserts `lane_sync.lanes_out_of_sync()` is empty after every test**, which is what makes the whole suite a test of the projection. If a change makes that fail, the projection is wrong — not the check.
@@ -193,6 +193,8 @@ lanes { lane racerId placeholderSlot time place skipped }
 ```
 
 It separates the things the blob conflated: a placeholder slot is `placeholderSlot`, not a negative `racerId`; `skipped` is a field; `time` is always a number, never the string the frontend sometimes wrote.
+
+**`laneResults` is gone from the schema.** The raw blob was handed out as a string alongside `lanes` while the client moved across, and has been removed — an API offering both invites new code to take the untyped one. The blob is still the storage format; nothing outside the backend sees it.
 
 **Writing is structured too.** `updateHeatResult` and `recordFreeRaceResult` take `[HeatLaneInput!]!` — the same fields, so what a screen reads is what it sends back:
 
@@ -229,7 +231,7 @@ Anything deciding **what is on the track or what is next** wants `is_finished` (
 
 **`recorded_at` is when, and it is the only thing the two kinds can be ranked on together** (#59). `created_at` cannot: for a free heat it is roughly when it ran, for an official heat it is when the *round was generated*. Schedule order cannot either — it says nothing about a heat being re-recorded. `crud.stamp_recorded` keeps `recorded_at` non-null exactly when the heat holds a result, including clearing it on a re-run, and only the two result-recording functions call it: editing a schedule is not running a heat.
 
-Both take parsed lanes. Outside `migrations/`, nothing reads the blob with `json.loads` any more — the three audience subscriptions and `loaders.scheduled_racer_ids` were the last holdouts, and each was wrong in the same way: they tested lane *index 0* for a time, so a skipped heat, or a heat whose first lane had been vacated by a deleted racer, pinned both wall displays one heat behind for the rest of the event.
+Both take parsed lanes. Outside `migrations/`, nothing reads the blob with `json.loads` any more. The three audience subscriptions and `loaders.scheduled_racer_ids` were wrong in the same way: they tested lane *index 0* for a time, so a skipped heat, or a heat whose first lane had been vacated by a deleted racer, pinned both wall displays one heat behind for the rest of the event. `services/stats.py` was the last holdout and outlived that claim being written here — it parsed the blob itself, which meant a heat whose `lane_results` was not a list of lanes took the whole stats page down rather than being skipped.
 
 ---
 
@@ -450,7 +452,7 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 
 | Issue | What it established |
 | --- | --- |
-| #5 | `lane_results` is normalized into `heat_lanes`; reads and writes are structured. No new `json.loads` on the blob |
+| #5 | `lane_results` is normalized into `heat_lanes`; reads and writes are structured, and `laneResults` is gone from the schema. No new `json.loads` on the blob. The blob is still what gets written; #72 is the flip |
 | #6 | Free race heats live in the `heats` table with `kind = FREE`. Use `models.official_heats(query)` |
 | #7 | The server owns the live heat view. Don't reintroduce a merge on the client |
 | #8 | `backend/domain/` is pure — no SQLAlchemy, no Strawberry |

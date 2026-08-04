@@ -28,7 +28,8 @@ query($id: Int!) {
     track { id laneCount timerType }
     dens { id name }
     racers { id firstName lastName carNumber racerImageUrl carImageUrl }
-    heats { id heatNumber roundNumber roundId roundName laneResults }
+    heats { id heatNumber roundNumber roundId roundName
+            lanes { lane racerId time place } }
     rounds {
       id
       roundNumber
@@ -49,9 +50,11 @@ query($id: Int!) {
 }
 """
 
-# The same page once it reads the structured lanes instead of the blob (#5).
+# The same page asking for every lane field there is. Selecting more of them
+# must not cost more queries — the lanes come from one load per race (#5).
 RACE_CONTROL_LANES_QUERY = RACE_CONTROL_QUERY.replace(
-    "heats { id heatNumber roundNumber roundId roundName laneResults }",
+    "heats { id heatNumber roundNumber roundId roundName\n"
+    "            lanes { lane racerId time place } }",
     "heats { id heatNumber roundNumber roundId roundName "
     "lanes { lane racerId placeholderSlot time place skipped } }",
 )
@@ -62,7 +65,8 @@ query($id: Int!) {
     id
     name
     leaderboard { racerId firstName lastName carNumber denName score rank }
-    heats { id heatNumber roundNumber roundName laneResults }
+    heats { id heatNumber roundNumber roundName
+            lanes { lane racerId time place } }
   }
 }
 """
@@ -173,21 +177,23 @@ def test_race_control_query_count(client, populated_race):
 def test_heat_lanes_cost_one_query_for_the_whole_race(client, populated_race):
     """`Heat.lanes` reads a table, so it is the obvious place for an N+1.
 
-    Held to the blob's own budget: reading 45 heats' lanes out of `heat_lanes`
-    must not cost more than reading the same data out of the JSON column did.
+    Asking for more of a lane must not cost more queries: both requests below
+    load the same 180 lanes, one selecting four fields and one selecting six,
+    and the lanes come from a single per-race batch either way.
     """
-    with _QueryCounter() as blob:
+    with _QueryCounter() as fewer_fields:
         _run(client, RACE_CONTROL_QUERY, populated_race.id)
-    with _QueryCounter() as table:
+    with _QueryCounter() as every_field:
         body = _run(client, RACE_CONTROL_LANES_QUERY, populated_race.id)
 
     heats = body["data"]["race"]["heats"]
     assert sum(len(h["lanes"]) for h in heats) == 180, (
         "45 heats of 4 lanes; a cheap query that returns nothing proves nothing"
     )
-    assert table.count <= blob.count + 1, (
-        f"Reading lanes from the table cost {table.count} queries against "
-        f"{blob.count} for the blob; the per-race batch is not batching."
+    assert every_field.count <= fewer_fields.count + 1, (
+        f"Selecting every lane field cost {every_field.count} queries against "
+        f"{fewer_fields.count} for four of them; the per-race batch is not "
+        f"batching."
     )
 
 

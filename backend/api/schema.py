@@ -164,9 +164,9 @@ class HeatLane:
     - ``skipped`` is a real field rather than a key the backend carried around
       without reading.
 
-    ``laneResults`` still exists as a field, but nothing on the client reads it
-    and the mutations take :class:`HeatLaneInput` — it is the storage format
-    showing through, and goes when #5 finishes.
+    This is the only lane read path. ``laneResults`` — the raw blob, handed out
+    as a string — was kept alongside it while the client moved over, and is
+    gone: an API that offers both invites new code to pick the untyped one.
     """
 
     lane: int
@@ -187,7 +187,6 @@ class Heat:
     race_id: int
     round_id: int
     heat_number: int
-    lane_results: str | None
 
     @strawberry.field
     def lanes(self, info: Info) -> list[HeatLane]:

@@ -1,8 +1,9 @@
 """`Heat.lanes` and `FreeRaceHeat.lanes` — the structured read path.
 
-Issue #5, step three. `laneResults` is still what mutations accept and still
-what the frontend reads; this adds the field that replaces it, so the two are
-checked against each other rather than in isolation.
+Issue #5. This is now the *only* lane read path: `laneResults`, the raw blob
+handed out as a string, has been removed from the schema. The blob is still the
+storage format, so these check the projection against what was stored — read
+from the row rather than through the API, since the API no longer offers it.
 """
 
 import json
@@ -16,7 +17,6 @@ query($id: Int!) {
   race(raceId: $id) {
     heats {
       id
-      laneResults
       lanes { lane racerId placeholderSlot time place skipped }
     }
   }
@@ -170,23 +170,19 @@ def test_lanes_track_the_blob_after_a_result_is_recorded(client, db, race, racer
 
 
 def test_lanes_agree_with_the_blob_they_replace(client, db, race, racers):
-    """The whole point of the step: the two read paths say the same thing."""
-    _heat(
-        db,
-        race,
-        [
-            {"lane": 1, "racer_id": racers[0].id, "time": 3.1, "place": 1},
-            {"lane": 2, "racer_id": None, "time": None, "place": None},
-            {"lane": 3, "racer_id": -1, "time": None, "place": None},
-            {"lane": 4, "racer_id": racers[1].id, "time": "3.9", "skipped": True},
-        ],
-    )
+    """The whole point of the step: the projection says what was stored."""
+    stored = [
+        {"lane": 1, "racer_id": racers[0].id, "time": 3.1, "place": 1},
+        {"lane": 2, "racer_id": None, "time": None, "place": None},
+        {"lane": 3, "racer_id": -1, "time": None, "place": None},
+        {"lane": 4, "racer_id": racers[1].id, "time": "3.9", "skipped": True},
+    ]
+    _heat(db, race, stored)
 
     heat = _run(client, LANES_QUERY, race.id)["race"]["heats"][0]
-    blob = json.loads(heat["laneResults"])
 
-    assert len(heat["lanes"]) == len(blob)
-    for lane, entry in zip(heat["lanes"], blob, strict=True):
+    assert len(heat["lanes"]) == len(stored)
+    for lane, entry in zip(heat["lanes"], stored, strict=True):
         assert lane["lane"] == entry["lane"]
         raw = entry.get("racer_id")
         assert lane["racerId"] == (raw if (raw or 0) > 0 else None)

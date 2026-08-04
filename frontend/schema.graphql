@@ -75,7 +75,6 @@ type Heat {
   raceId: Int!
   roundId: Int!
   heatNumber: Int!
-  laneResults: String
   lanes: [HeatLane!]!
   roundNumber: Int!
   roundName: String
