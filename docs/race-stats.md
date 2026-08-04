@@ -5,6 +5,10 @@ The Stats page gives you a deeper look at race performance — beyond just the f
 > [!NOTE]
 > **Prerequisite:** At least one heat must be completed before the Stats page shows data. If no heats have been run yet, the page will display "No heat results recorded yet."
 
+> [!NOTE]
+> [Free race](free-race.md) heats never appear here. Practice and exhibition
+> runs are excluded from every number on this page.
+
 ---
 
 ## Navigating to the Stats Page

@@ -1,4 +1,20 @@
-# Task 6: Documentation — Free Race Mode
+# Task 6: Documentation — Free Race Mode [COMPLETED]
+
+> Written as `docs/free-race.md`, with screenshots under
+> `docs/assets/screenshots/free-race/` rather than `docs/img/`, matching where
+> every other guide keeps them.
+>
+> **The screenshots are captured by a Playwright spec**
+> (`frontend/e2e/docs/screenshot-free-race.spec.ts`), not taken by hand as the
+> steps below describe. It builds its own race and its own fake-timer track, so
+> a re-run reproduces the same sheet rather than whatever happened to be in the
+> database — which is what makes a regenerated screenshot a real diff.
+>
+> The draft prose below was written from the plan rather than the screen and
+> got two things wrong: the button after a heat is **Next Heat**, not "Run
+> Another Free Race Heat", and there is **no free-race history list** — the
+> `freeRaceHeats` query exists but nothing renders it. `docs/race-day.md` had
+> repeated that second claim and has been corrected.
 
 ## Goal
 

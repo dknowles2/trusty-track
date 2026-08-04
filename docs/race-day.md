@@ -34,8 +34,8 @@ _The Race Details page on race day — some racers are checked in (green), other
 
 ### Checking In a Racer
 
-1. Find the racer in the list. You can scroll through the list or use the search/filter controls.
-2. Click the racer's row to open the **Check-In** modal.
+1. Find the racer in the list. Scroll, or use the search box above the roster — it matches on name, car number, and den.
+2. Click the **Check In** button at the end of their row to open the check-in form.
 3. Toggle **Car Passed Inspection** to mark the car as cleared to race.
 4. Optionally enter or update the **Car Name** if not already provided.
 5. Optionally enter the car's **weight** (in ounces) for documentation purposes.
@@ -53,12 +53,30 @@ _After saving, the racer's status updates to "Inspected" (green) in the list._
 
 ---
 
+### Scanning a Check-In Code
+
+If you printed check-in codes (see the [Printables guide](printables.md)), click
+**Scan** above the roster, hold a code up to the camera, and that racer's
+check-in form opens straight away — no searching a list of sixty.
+
+There is a **Car number** box under the viewfinder for a creased code or a
+camera that will not focus.
+
+> [!NOTE]
+> Scanning needs Chrome or Edge. In Safari and Firefox the panel opens without
+> a viewfinder and the car number box is the way in — check-in is otherwise
+> identical.
+
+---
+
 ### Tracking Check-In Progress
 
-The racer list shows inspection status for every racer. Use the sort controls to group racers by status — this makes it easy to see who still needs to be checked in.
+The racer list shows inspection status for every racer: green for inspected,
+gold for still pending. Turn on **Group by Den** to work through one den at a
+time, which is usually how families arrive.
 
-![Racer List Filtered by Inspection Status](assets/screenshots/race-day/05-check-in-progress.png)
-_Sort by inspection status to bring unchecked racers to the top. Here you can see a mix of inspected (green) and pending (yellow) rows._
+![Racer List Showing Inspection Status](assets/screenshots/race-day/05-check-in-progress.png)
+_The roster during check-in — a mix of inspected (green) and pending (gold) rows._
 
 ---
 
@@ -280,6 +298,15 @@ After all heats are complete, the **Standings** page shows the final ranked resu
 
 The Standings page is designed for the award ceremony — it can be displayed on a large screen or projector so everyone can see the final results.
 
+Use the round selector above the table to switch between **Overall (preliminary
+rounds)** and any single round.
+
+> [!NOTE]
+> Overall standings cover the **preliminary** rounds only. A championship field
+> is picked *from* those standings, so folding the final's times back into them
+> would change who was supposed to be in the final. Championship results are
+> shown by selecting that round.
+
 ![Final Standings Page](assets/screenshots/race-day/18-final-standings.png)
 _The final standings show placement, racer name, den, and average time for every racer. Den colors help organize the results._
 
@@ -307,4 +334,4 @@ It is the right tool for a shake-down run before doors open, a parent's or sibli
 
 From **Race Control**, switch to the Free Race view and choose who is in each lane. **Random** fills the lanes from the checked-in roster, which is usually what you want for an impromptu run; you can also pick racers by hand, and lanes may be left empty. Run it exactly as you would an official heat.
 
-Free race results are kept and listed newest first, so you can look back at what a car did in practice. Delete a heat when you no longer want it in the list. Nothing you do here changes anyone's standing.
+See the [Free Race guide](free-race.md) for the full walkthrough.

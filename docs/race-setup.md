@@ -99,4 +99,12 @@ Before moving to the "Control" phase, review your roster to ensure every racer i
 ![Final Roster Review](assets/screenshots/race-setup/10-final-roster-review.png)
 
 > [!TIP]
-> You can sort the roster by clicking on any column header (Car #, Name, or Den) to quickly spot missing data.
+> Turn on **Group by Den** above the roster to check each den in turn, and use the search box to find a racer by name, car number, or den.
+
+---
+
+## Printing for Race Day
+
+With the roster settled, print the paperwork before doors open — pit passes,
+driver's licences, and the check-in codes an operator can scan. See the
+[Printables guide](printables.md).

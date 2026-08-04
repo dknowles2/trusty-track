@@ -244,9 +244,22 @@ describe('FreeRaceExecution', () => {
     fireEvent.click(btn);
 
     await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
+    // The lane assignment survives; only the result goes. This used to send
+    // `results: 'null'` — a variable the mutation does not declare, so the
+    // required `lanes` was missing, the call failed, and the times stayed in
+    // the database while the screen showed an empty heat.
     await waitFor(() => expect(mockRecordResult).toHaveBeenCalledWith({
       heatId: 42,
-      results: 'null',
+      lanes: [
+        {
+          lane: 1,
+          racerId: 101,
+          placeholderSlot: null,
+          time: null,
+          place: null,
+          skipped: false,
+        },
+      ],
     }));
     await waitFor(() => expect(mockResetTimer).toHaveBeenCalledWith({ trackId: 1 }));
     await waitFor(() => expect(mockPrepareHeat).toHaveBeenCalledWith({ heatId: 42, isFreeRace: true }));

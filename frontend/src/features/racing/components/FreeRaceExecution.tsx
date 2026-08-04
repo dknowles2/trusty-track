@@ -9,7 +9,7 @@ import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiArrowRight } from
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import type { Lane, LaneInput } from '../types';
-import { toInput } from '../lanes';
+import { cleared, toInput } from '../lanes';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { useAlert } from '../../../context/AlertContext';
 
@@ -219,10 +219,12 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     );
     if (confirmed) {
       if (isCompleted) {
-        await recordResult({
-          heatId,
-          results: "null",
-        });
+        // `cleared` keeps the lane assignment and drops the times, which is
+        // what re-running means. This used to send `results: "null"`, left
+        // over from when the mutation took the blob as a string — the required
+        // `lanes` variable was simply missing, so the server kept the old
+        // times while the screen showed an empty heat.
+        await recordResult({ heatId, lanes: cleared(results ?? []) });
         setResults(null);
       }
       lastPreparedIdRef.current = null; // Allow re-prepare

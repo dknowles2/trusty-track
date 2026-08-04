@@ -64,7 +64,12 @@ _The "On Deck" panel shows the upcoming heat's racers so they can prepare._
 
 The **Standings** tab shows the current leaderboard for all racers, updated after each completed heat. Columns include placement, racer name, den, average finishing time, and number of heats run.
 
-Switch to the **Timing Stats** tab to see the detailed results from the most recently completed heat — lane-by-lane finish times and placements.
+Switch to the **Timing Stats** tab to see the detailed results from the most recently recorded heat — lane-by-lane finish times and placements.
+
+> [!NOTE]
+> A [free race](free-race.md) heat shows on this display like any other — the
+> audience watching a demonstration run sees the cars and the times. The
+> leaderboard beside it does not move.
 
 ![Live Leaderboard](assets/screenshots/observation/05-live-leaderboard.png)
 _The live leaderboard showing current standings with average times and placement for each racer. The display updates automatically after every heat._

@@ -4,11 +4,11 @@ Trusty Track includes a **Fake Timer** system that allows you to simulate race e
 
 ## 1. Configuration
 
-To enable the Fake Timer, navigate to the **System Configuration** page (usually the home screen if not configured, or accessible via the Settings icon).
+To enable the Fake Timer, navigate to the **System Settings** page (shown automatically on first run, or reachable from the **Settings** gear in the top-right corner).
 
 1.  Locate the **Timer Type** dropdown.
 2.  Select **Fake Timer (Manual Control)**.
-3.  Click **Save Configuration**.
+3.  Click **Save Settings**.
 
 ![System Configuration with Fake Timer selected](img/fake_timer_config.png)
 
