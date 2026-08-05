@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useSubscription, useQuery } from 'urql';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import TimerStatusBadge from '../../racing/components/timer/TimerStatusBadge';

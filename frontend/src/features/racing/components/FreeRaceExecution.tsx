@@ -4,7 +4,7 @@ import { FakeTimerMole } from './FakeTimerMole';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { TIMER_STATUS_SUBSCRIPTION, PREPARE_HEAT } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiArrowRight } from '@mdi/js';
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../../management/components/RacerAvatar';

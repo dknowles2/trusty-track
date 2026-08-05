@@ -6,7 +6,7 @@ import { CREATE_RACE } from '../../management/graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../../management/components/RaceForm';
 import { useAlert } from '../../../context/AlertContext';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
 import logoUrl from '../../../assets/logo_transparent.png';
 

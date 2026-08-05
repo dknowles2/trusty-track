@@ -8,7 +8,7 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../graphql/queries';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import RacerAvatar from '../../management/components/RacerAvatar';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
 
 // These types are derived from the generated GraphQL operation types in

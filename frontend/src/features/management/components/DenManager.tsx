@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Den } from './RacerForm';
 import { COMMON_COLORS } from '../../../utils/colors';
 import { useAlert } from '../../../context/AlertContext';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
 import { CREATE_DEN, UPDATE_DEN, DELETE_DEN, GET_RACE_DETAILS } from '../graphql/queries';

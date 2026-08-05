@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../../components/ui/Modal';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiAccountGroup, mdiInformation } from '@mdi/js';
 
 interface RoundConfigModalProps {

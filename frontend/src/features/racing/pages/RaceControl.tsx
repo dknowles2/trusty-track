@@ -7,7 +7,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { ScheduleManagement } from '../components/ScheduleManagement';
 import { RaceExecution } from '../components/RaceExecution';
 import { FreeRaceTab } from '../components/FreeRaceTab';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
 import { hasRun, hasTimes, byPlace, cleared } from '../lanes';

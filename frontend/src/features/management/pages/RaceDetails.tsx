@@ -14,7 +14,7 @@ import ImportRacersModal from '../components/ImportRacersModal';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
 import RaceModeToggle from '../../racing/components/RaceModeToggle';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric,
   mdiChevronDown, mdiLightningBolt, mdiFileUpload,

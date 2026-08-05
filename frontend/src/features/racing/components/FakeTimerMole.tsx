@@ -1,5 +1,5 @@
 import React from 'react';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiTimerOutline, mdiPlay, mdiFlagCheckered } from '@mdi/js';
 import { useMutation, useSubscription } from 'urql';
 import { FAKE_TIMER_START, FAKE_TIMER_FINISH, TIMER_STATUS_SUBSCRIPTION } from '../graphql/queries';

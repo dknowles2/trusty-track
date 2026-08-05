@@ -5,7 +5,7 @@ import { CREATE_RACE } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { useAlert } from '../../../context/AlertContext';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiPlus, mdiFlagCheckered, mdiEye } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 

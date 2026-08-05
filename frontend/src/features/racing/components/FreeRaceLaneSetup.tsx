@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from 'urql';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered, mdiDragVertical, mdiCloseOctagon } from '@mdi/js';
 import {
   DndContext,

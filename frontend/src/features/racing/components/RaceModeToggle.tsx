@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiAccountGroup, mdiTrophy, mdiChartBar } from '@mdi/js';
 
 export default function RaceModeToggle() {
