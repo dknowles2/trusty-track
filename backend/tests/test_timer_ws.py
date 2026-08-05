@@ -42,7 +42,13 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
         # 1. Received initial configuration
         data = websocket.receive_json()
         assert data["type"] == "configure"
+        # All four framing parameters, not the baud rate alone. Web Serial
+        # defaults to 8-N-1 exactly as pyserial does, so a device that is not
+        # 8-N-1 was opened wrong on this path too (issue #88).
         assert data["baud_rate"] == 9600
+        assert data["data_bits"] == 8
+        assert data["stop_bits"] == 1
+        assert data["parity"] == "N"
 
         # 2. Frontend sends ready message
         websocket.send_json({"type": "ready"})

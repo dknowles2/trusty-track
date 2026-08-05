@@ -16,9 +16,44 @@ const SerialProxyContext = createContext<SerialProxyContextType | undefined>(und
 interface SerialPort {
     readable: { getReader: () => { read: () => Promise<{ value: Uint8Array, done: boolean }>, releaseLock: () => void } };
     writable: { getWriter: () => { write: (data: Uint8Array) => Promise<void>, releaseLock: () => void } };
-    open: (options: { baudRate: number }) => Promise<void>;
+    open: (options: {
+        baudRate: number;
+        dataBits?: number;
+        stopBits?: number;
+        parity?: 'none' | 'even' | 'odd';
+    }) => Promise<void>;
     close: () => Promise<void>;
 }
+
+/**
+ * The port framing the backend asked for.
+ *
+ * The backend describes a device in pyserial's terms, because that is what the
+ * backend-direct path opens the port with. Web Serial spells the same three
+ * settings differently, so the translation happens here rather than the server
+ * carrying two vocabularies for one device.
+ */
+const PARITY: Record<string, 'none' | 'even' | 'odd'> = {
+    N: 'none',
+    E: 'even',
+    O: 'odd',
+};
+
+interface ConfigureMessage {
+    baud_rate: number;
+    data_bits?: number;
+    stop_bits?: number;
+    parity?: string;
+}
+
+const portOptions = (msg: ConfigureMessage) => ({
+    baudRate: msg.baud_rate,
+    // Web Serial defaults to 8-N-1, which is also what these fall back to. An
+    // older backend that sends only the baud rate therefore behaves as before.
+    dataBits: msg.data_bits ?? 8,
+    stopBits: msg.stop_bits ?? 1,
+    parity: PARITY[msg.parity ?? 'N'] ?? 'none',
+});
 
 export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [status, setStatus] = useState<ConnectionStatus>('disconnected');
@@ -104,8 +139,9 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'configure') {
                     try {
-                        console.log('Handshake: Configuring port with baud rate:', msg.baud_rate);
-                        await port.open({ baudRate: msg.baud_rate });
+                        const options = portOptions(msg);
+                        console.log('Handshake: Configuring port:', options);
+                        await port.open(options);
                         portRef.current = port;
                         console.log('Handshake: Port opened successfully, sending ready');
                         ws.send(JSON.stringify({ type: 'ready' }));

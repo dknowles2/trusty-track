@@ -220,11 +220,18 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
         except Exception as e:
             logger.error("Failed to send serial_tx to track %d: %s", track_id, e)
 
-    # Tell the frontend to configure its serial port
+    # Tell the frontend to configure its serial port. All four framing
+    # parameters, not just the baud rate: the Web Serial API defaults to 8-N-1
+    # exactly as pyserial does, so a device that is not 8-N-1 was previously
+    # opened wrong on this path too.
+    device = manager._device
     await websocket.send_json(
         {
             "type": "configure",
-            "baud_rate": manager._device.baud_rate,
+            "baud_rate": device.baud_rate,
+            "data_bits": device.data_bits,
+            "stop_bits": device.stop_bits,
+            "parity": device.parity,
         }
     )
 

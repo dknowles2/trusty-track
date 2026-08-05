@@ -198,6 +198,21 @@ class TimerDevice(ABC):
         """Parse a complete message. Return a TimerEvent or None."""
 ```
 
+**Departure (issue #88).** The class variables gained four more, because
+declaring only the baud rate turned out to be a silent failure rather than a
+missing feature:
+
+-   `data_bits`, `stop_bits`, `parity` — the rest of the port framing,
+    defaulting to 8-N-1. Both connectivity modes read them: `connect_direct`
+    passes them to pyserial, and the proxy's `configure` message carries them
+    to the Web Serial `open()` call. A device such as the NewBold family
+    (1200/7/E/2) opened at the defaults yields garbage rather than an error.
+-   `line_idle_timeout_seconds` — how long to wait for the delimiter before
+    treating the buffered bytes as a complete message anyway, defaulting to
+    200 ms. Some timers omit the terminator on their last result, which
+    otherwise strands it in the buffer while the manager waits in `RUNNING`
+    for a lane the device considers reported.
+
 `TimerEvent` is a dataclass union (defined in `base.py`):
 
 ```python
@@ -683,9 +698,14 @@ see the updated heat immediately. This is the same code path for both fake and r
   errors when the operator controls when the timer is armed.
 - **Multiple proxy clients**: Backend closes the first connection when a second arrives. A
   warning in the UI would help operators notice this.
-- **Result placement calculation**: MicroWizard K1 in N1/N2 format reports placement. If a future
-  device does not, the backend should compute placement from times. The driver should expose
-  `reports_placement: ClassVar[bool]` so `TimerManager` knows whether to compute it.
+- **Result placement calculation** — *settled in issue #88, without the flag.* The first
+  implementation went the other way and recomputed every place by sorting the times, discarding
+  what the device reported. That loses the answer in the one case it matters: two cars can be
+  reported with equal times and still have a detected order at the finish line, and sorting calls
+  that a tie. `TimerManager._recalculate_places` now keeps the reported places when every timed
+  lane has one, and derives them otherwise. No `reports_placement` class variable: the same
+  MicroWizard reports a full set of places in one output format and marks the winner alone in
+  another, so the question is about the results in hand rather than about the device.
 - **DNF handling**: A lane result with `time = 0.000` means DNF in DerbyNet's convention. Decide
   whether to store `None` or `0.0` in `lane_results` JSON and update scoring logic accordingly.
 - **Future devices**: Adding a new timer model requires only a new file in

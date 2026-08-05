@@ -110,6 +110,7 @@ class TimerManager:
         self._read_task: asyncio.Task | None = None
         self._direct_port: str | None = None
         self._watchdog_task: asyncio.Task | None = None
+        self._idle_flush_task: asyncio.Task | None = None
         self._running_since: float | None = None
         self._event_lock = asyncio.Lock()
         self._serial_log: deque = deque(maxlen=MAX_SERIAL_LOG)
@@ -211,6 +212,7 @@ class TimerManager:
             self._active_heat_id = None
             self._active_heat_kind = None
             self._buf = b""
+            self._schedule_idle_flush()
             self._pending_results = {}
             self._racer_by_lane = {}
             await self._transition(TimerState.IDLE)
@@ -297,6 +299,9 @@ class TimerManager:
     async def handle_disconnect(self) -> None:
         """Called when a serial connection is lost."""
         self._buf = b""
+        # Nothing more is coming, so a partial line is not a line — it is the
+        # front of a message the device was cut off mid-way through.
+        self._schedule_idle_flush()
         self._write_fn = self._noop_write
         if self._device.requires_serial:
             await self._transition(TimerState.DISCONNECTED)
@@ -350,7 +355,52 @@ class TimerManager:
                     await self._process_line(line)
                 else:
                     break
+            self._schedule_idle_flush()
             return []
+
+    def _schedule_idle_flush(self) -> None:
+        """Arrange for a partial line to be treated as complete if it goes quiet.
+
+        Called with ``_event_lock`` held, at the end of every read. The flush
+        task takes the lock itself, so it is created rather than awaited.
+        """
+        if self._idle_flush_task is not None:
+            self._idle_flush_task.cancel()
+            self._idle_flush_task = None
+
+        timeout = self._device.line_idle_timeout_seconds
+        if timeout is None or not self._buf:
+            return
+
+        self._idle_flush_task = asyncio.create_task(self._idle_flush(timeout))
+
+    async def _idle_flush(self, timeout: float) -> None:
+        """Process buffered bytes that never arrived at a delimiter.
+
+        A timer that omits the terminator on its last result would otherwise
+        leave it in ``_buf`` forever, with the manager waiting in RUNNING for a
+        lane the device considers already reported — and the operator waiting
+        for a heat that will never record.
+
+        Every further read reschedules this, so it only fires once the device
+        has genuinely stopped talking.
+        """
+        try:
+            await asyncio.sleep(timeout)
+        except asyncio.CancelledError:
+            return
+
+        async with self._event_lock:
+            line, self._buf = self._buf, b""
+            if not line.strip():
+                return
+            logger.info(
+                "Timer %d: no delimiter after %.2fs, treating %r as complete",
+                self._track_id,
+                timeout,
+                line,
+            )
+            await self._process_line(line)
 
     async def _process_line(self, line: bytes) -> None:
         raw_line = line  # Keep raw for logging
@@ -545,10 +595,24 @@ class TimerManager:
             await self._transition(TimerState.FAULT)
 
     def _recalculate_places(self) -> None:
-        """Re-sort pending results by time and assign places (1-indexed)."""
+        """Give every timed lane a place, preferring the ones the device reported.
+
+        Finish-line hardware resolves orderings that the reported times do not.
+        Two cars whose times are equal to the millisecond may still have a
+        detected order, and deriving place by sorting those times calls it a
+        tie — so where the device has told us the places, we keep them.
+
+        Reported places are taken only when *every* timed lane has one. Some
+        MicroWizard output marks the winner alone, and a partial set is not a
+        partial answer: it is one lane's place and nothing at all about the
+        rest, which sorting can supply and mixing cannot.
+        """
         # Collect results that have a time
         results = [r for r in self._pending_results.values() if r.time_seconds > 0]
         if not results:
+            return
+
+        if all(r.place > 0 for r in results):
             return
 
         # Sort by time
@@ -722,7 +786,13 @@ class TimerManager:
             try:
                 # We wrap this in to_thread because Serial() opening can block
                 self._serial = await asyncio.to_thread(
-                    serial.Serial, port, baudrate=self._device.baud_rate, timeout=0.1
+                    serial.Serial,
+                    port,
+                    baudrate=self._device.baud_rate,
+                    bytesize=self._device.data_bits,
+                    stopbits=self._device.stop_bits,
+                    parity=self._device.parity,
+                    timeout=0.1,
                 )
             except Exception as e:
                 self._last_error = f"Failed to open port {port}: {e}"
@@ -845,6 +915,10 @@ class TimerManager:
         if self._watchdog_task:
             self._watchdog_task.cancel()
             self._watchdog_task = None
+
+        if self._idle_flush_task:
+            self._idle_flush_task.cancel()
+            self._idle_flush_task = None
 
         if self._read_task:
             self._read_task.cancel()
