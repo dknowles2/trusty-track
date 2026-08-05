@@ -279,6 +279,30 @@ Three things that fell out of building it:
     `/dev/ttyAMA0` is the GPIO header. A hand-configured port is used exactly
     as given and never probed — the escape hatch for an RS-232 timer.
 
+**Also #89: a gate watcher.** Six of DerbyNet's thirteen profiles describe
+timers that only report the start gate when asked, so importing them needs
+polling. `TimerProfile.gate_watcher` is a command plus matchers;
+`TimerManager` asks every 250 ms while a heat is armed, and `GateBelief` in
+`state_machine.py` decides when an answer is believed.
+
+Three rules came out of reading how DerbyNet does it:
+
+-   **Answers are scoped to the poll that asked.** The real patterns are as
+    short as `0`, `U`, `O` and a bare `.` — PDT's gate-closed answer, which
+    matches any character. `read_gate` is consulted only inside a short window
+    after a query and is never part of `parse_line`; in the general matcher
+    list these would claim every line the timer sends.
+-   **The debounce applies to polled state and not to pushed edges.** A device
+    that announces an edge has debounced it already and says so once, so
+    demanding a confirming observation would mean never believing it — the
+    reason this was left out of #88's fixes. A poll is a sample and the next
+    one re-observes.
+-   **Polling stops while a race is running.** The answer cannot change
+    anything, and DerbyNet's Champ profile records that a query sent too soon
+    after gate-open made the timer resend the previous heat's results.
+
+The MicroWizard is deliberately left unpolled: `N2` makes it push both edges.
+
 **What is still not built:** probing in proxy mode. The browser holds the port
 there, so trying a second profile means having the browser close and reopen it
 with different framing, which is a frontend change this did not take on.

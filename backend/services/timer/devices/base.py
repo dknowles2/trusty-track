@@ -53,11 +53,43 @@ class GateClosed:
 
 
 @dataclass
+class GateOpen:
+    """The start gate is not latched.
+
+    Distinct from :class:`RaceStarted`. A gate that is merely open means cars
+    are not staged; a race has started when the *timer* says it is counting.
+    On a device that reports both, conflating them starts a heat every time
+    somebody lifts the gate to reload.
+    """
+
+    pass
+
+
+@dataclass
+class GateWatcherUnsupported:
+    """The device answered its gate query with "that option is off".
+
+    A profile can carry a gate watcher the hardware has switched off — the
+    FastTrack answers `X` when the feature is disabled — so this is how polling
+    turns itself off rather than asking forever.
+    """
+
+    pass
+
+
+@dataclass
 class DeviceError:
     message: str
 
 
-TimerEvent = RaceStarted | LaneResult | GateClosed | DeviceError
+TimerEvent = (
+    RaceStarted
+    | LaneResult
+    | GateClosed
+    | GateOpen
+    | GateWatcherUnsupported
+    | DeviceError
+)
 
 
 class Event(str, Enum):
@@ -65,6 +97,9 @@ class Event(str, Enum):
 
     RACE_STARTED = "RACE_STARTED"
     GATE_CLOSED = "GATE_CLOSED"
+    GATE_OPEN = "GATE_OPEN"
+    #: The device says its gate-reporting option is switched off.
+    GATE_UNSUPPORTED = "GATE_UNSUPPORTED"
     LANE_RESULT = "LANE_RESULT"
     #: Recognised, and deliberately nothing. Identification banners and command
     #: acknowledgements are traffic we understand and have no event for.
@@ -160,6 +195,25 @@ class Ack:
 
     command: re.Pattern[bytes]
     response: re.Pattern[bytes]
+
+
+@dataclass(frozen=True)
+class GateWatcher:
+    """How to ask the device whether the start gate is closed.
+
+    Some timers report both edges unprompted; others only answer when asked.
+    Both exist in the wild and a profile may carry both — the Bert Drake
+    reports gate-open on its own *and* answers a `C` query.
+
+    ``matchers`` are deliberately **not** part of the profile's general matcher
+    list. The answers are as short as `0`, `U` or `.`, which would claim
+    unrelated traffic if they were tried against every line; they are applied
+    only inside the window that follows a poll. That scoping is the whole
+    reason this is a separate field rather than three more matchers.
+    """
+
+    command: bytes
+    matchers: tuple["Matcher", ...]
 
 
 @dataclass(frozen=True)
@@ -259,6 +313,10 @@ class TimerProfile:
     acks: tuple[Ack, ...] = ()
     #: Tried in order, so a specific pattern must precede a general one.
     matchers: tuple[Matcher, ...] = ()
+    #: Present when the gate state has to be asked for rather than waited for.
+    #: Ignored entirely unless ``gate_state_is_knowable`` — a profile may name a
+    #: query the hardware does not really answer.
+    gate_watcher: GateWatcher | None = None
 
     # -- The interface TimerManager uses ------------------------------------
 
@@ -312,6 +370,26 @@ class TimerProfile:
     def force_results_commands(self) -> list[bytes]:
         return list(self.force_results)
 
+    def polls_the_gate(self) -> bool:
+        """Whether asking about the gate is worth doing for this model."""
+        return self.gate_watcher is not None and self.gate_state_is_knowable
+
+    def read_gate(self, line: bytes) -> "TimerEvent | None":
+        """Read a line as an answer to the gate query, or ``None``.
+
+        Only ever called on lines received inside a poll's response window.
+        """
+        if self.gate_watcher is None:
+            return None
+        cleaned = line.strip()
+        if not cleaned:
+            return None
+        for matcher in self.gate_watcher.matchers:
+            match = matcher.pattern.search(cleaned)
+            if match is not None:
+                return self._event_from(matcher, match)
+        return None
+
     def parse_line(self, line: bytes) -> "TimerEvent | list[TimerEvent] | None":
         """Read one complete message.
 
@@ -356,6 +434,10 @@ class TimerProfile:
             return RaceStarted()
         if matcher.event is Event.GATE_CLOSED:
             return GateClosed()
+        if matcher.event is Event.GATE_OPEN:
+            return GateOpen()
+        if matcher.event is Event.GATE_UNSUPPORTED:
+            return GateWatcherUnsupported()
         if matcher.event is Event.LANE_RESULT:
             return LaneResult(
                 lane=int(_read(matcher.lane, match, 0)),
