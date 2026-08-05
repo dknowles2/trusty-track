@@ -452,6 +452,7 @@ type TimerStatus {
   laneCount: Int
   activeHeatId: Int
   lastError: String
+  port: String
   pendingResults: [LaneResult!]!
   serialLog: [SerialLogEntry!]!
   racerByLane: String

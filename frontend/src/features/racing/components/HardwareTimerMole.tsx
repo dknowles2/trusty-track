@@ -4,81 +4,8 @@ import { mdiUsb, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import { useSubscription, useMutation } from 'urql';
 import { TIMER_STATUS_SUBSCRIPTION, RECONNECT_TIMER } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
-
-interface SerialLogEntry {
-    direction: string;
-    data: string;
-    timestamp: string;
-}
-
-interface DisplayLine {
-    direction: string;
-    data: string;
-    description?: string;
-}
-
-function getCommandDescription(data: string): string | undefined {
-    const cmd = data.trim().toUpperCase();
-    if (cmd === 'N1') return 'enable new-format results';
-    if (cmd === 'N2') return 'enable gate feedback';
-    if (cmd === 'LR') return 'arm / reset timer';
-    if (cmd === 'MG') return 'clear lane masks';
-    if (cmd === 'RA') return 'force results';
-    if (cmd === 'RV') return 'request version';
-    if (cmd.length === 2 && cmd[0] === 'M' && cmd[1] >= 'A' && cmd[1] <= 'P') {
-        const lane = cmd.charCodeAt(1) - 'A'.charCodeAt(0) + 1;
-        return `mask lane ${lane}`;
-    }
-    return undefined;
-}
-
-function getRXDescription(data: string): string | undefined {
-    const d = data.trim().toUpperCase();
-    if (d === 'AC') return 'command acknowledged';
-    if (d === '*') return 'command acknowledged';
-    if (d === '@') return 'gate opened - race started';
-    if (d === '>') return 'gate closed';
-    if (d.includes('=')) return 'results received';
-    return undefined;
-}
-
-// Group raw serial log entries into display lines.
-// TX: each entry is one complete command — always its own line with a description.
-// RX: accumulate chunks, flushing on \n or \r\n (emitted as literal two-char sequences).
-function buildDisplayLines(entries: SerialLogEntry[]): DisplayLine[] {
-    const lines: DisplayLine[] = [];
-    let currentDir = '';
-    let currentData = '';
-
-    const flush = (description?: string) => {
-        if (currentDir) lines.push({ direction: currentDir, data: currentData, description });
-        currentData = '';
-    };
-
-    for (const entry of entries) {
-        if (entry.direction !== currentDir) {
-            flush();
-            currentDir = entry.direction;
-        }
-        if (entry.direction === 'TX') {
-            currentData = entry.data;
-            flush(getCommandDescription(entry.data));
-        } else {
-            // Split on delimiters and immediate characters (@, >)
-            const parts = entry.data.split(/(\\r\\n|\\r|\\n|[@>])/);
-            for (const part of parts) {
-                if (!part) continue;
-                currentData += part;
-                if (part === '\\r\\n' || part === '\\r' || part === '\\n' || part === '@' || part === '>') {
-                    flush(getRXDescription(currentData));
-                }
-            }
-        }
-    }
-
-    if (currentData) flush(getRXDescription(currentData));
-    return lines;
-}
+import { buildDisplayLines } from '../serialLog';
+import type { SerialLogEntry } from '../serialLog';
 
 function renderData(data: string): React.ReactNode {
     return data.split(/(\\r\\n|\\r|\\n)/).map((part, i) => {

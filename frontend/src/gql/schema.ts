@@ -816,6 +816,7 @@ export type TimerStatus = {
   laneCount?: Maybe<Scalars['Int']['output']>;
   lastError?: Maybe<Scalars['String']['output']>;
   pendingResults: Array<LaneResult>;
+  port?: Maybe<Scalars['String']['output']>;
   racerByLane?: Maybe<Scalars['String']['output']>;
   serialLog: Array<SerialLogEntry>;
   state: Scalars['String']['output'];

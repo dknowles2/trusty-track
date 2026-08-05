@@ -1,0 +1,116 @@
+# Connecting a Hardware Timer
+
+Trusty Track can read finish times directly from an electronic finish line, so
+nobody has to watch the lanes and write times down. This page covers plugging
+one in and checking it works — ideally the week before the derby, not ten
+minutes before the first heat.
+
+If you have no timer, or you want to try the software first, use the
+[Fake Timer](fake-timer.md) instead.
+
+## What is supported
+
+**Micro Wizard K1, K2 and K3** — sold as the FastTrack K-series. This is the
+timer Trusty Track has been built against, and the only real device it
+currently knows how to talk to.
+
+Other models are not supported yet. Adding one is a matter of describing its
+serial protocol rather than writing code for it, so if you have a timer that
+is not on this list, opening an issue with the model name and its protocol
+documentation is genuinely useful.
+
+## Two ways to connect
+
+Both are chosen per track in **System Settings**, under **Timer Type**.
+
+### Plugged into the server
+
+**Auto-Detect (Backend Connected).** The timer's USB cable goes into the
+machine running Trusty Track — typically the Raspberry Pi at the venue.
+
+Leave **Serial Port** blank. When the server starts it looks at each USB port
+in turn, asks whatever is there to identify itself, and connects to the one
+that answers. You do not need to know what a device path is.
+
+Fill the port in only if you have a reason to: a timer on a built-in serial
+port rather than USB, or a machine where you want to be certain which device
+gets used. A port you enter by hand is used exactly as given and is never
+probed.
+
+### Plugged into the laptop running the browser
+
+**Use Remote Proxy.** The timer's USB cable goes into the computer you are
+operating from, and the browser passes the data through to the server. Nothing
+extra to install.
+
+This uses the browser's Web Serial support, so it needs **Chrome or Edge** —
+Safari and Firefox do not have it. The browser will ask you to pick the serial
+port the first time.
+
+## Checking it works
+
+**System Settings → Check the timer connection**, or go to `/timer-check`.
+
+This page shows every track's timer live: what state it is in, which device
+answered, which port it was found on, and the raw conversation between the
+server and the timer. You do not need a race set up to use it.
+
+What the states mean:
+
+| What you see | What it means |
+| --- | --- |
+| **Ready** | The timer answered and is waiting for a heat. This is what you want. |
+| **Not connected** | No port is open. Check the cable, then press the button to search again. |
+| **Port open, waiting for the timer to answer** | Something is on the port but it has not identified itself. The server keeps asking every few seconds. If it does not clear, the port is probably something other than the timer. |
+| **Armed** | Lanes are set and the timer is waiting for the start gate. |
+| **Staged** | The start gate is closed with cars behind it. |
+| **Racing** | The gate opened and the timer is counting. |
+| **Results overdue** | The race started but no finish was reported. See below. |
+| **Fault** | The connection failed. The reason is shown on the page. |
+
+### Reading the serial traffic
+
+The log on that page shows every byte in both directions, annotated. A healthy
+start-up looks roughly like this:
+
+```
+→ RV                                        request version
+← Copyright (c) Micro Wizard 2002-2009      timer identified itself
+→ N1                                        enable new-format results
+→ N2                                        enable gate feedback
+← *                                         command acknowledged
+```
+
+Then, during a heat:
+
+```
+→ MG                                        clear lane masks
+→ ME                                        mask lane 5
+→ LR                                        arm / reset timer
+← >                                         gate closed
+← @                                         gate opened - race started
+← A=3.452! B=3.501"                         results received
+```
+
+If you see commands going out (`→`) and nothing coming back, the cable or the
+port is wrong. If you see traffic that never becomes results, the log is the
+thing to attach to a bug report.
+
+## When something goes wrong
+
+**Nothing is found.** The page will say which ports it tried. Only USB ports
+are searched — a timer on a built-in serial port has to have its path entered
+by hand.
+
+**"Results overdue".** The gate opened and the timer never reported a finish.
+The Micro Wizard gives up roughly ten seconds after the gate opens, so this
+usually means a car did not reach the finish line, or a lane sensor did not
+see it. Use **Force Results** on the race screen to make the timer report what
+it has, then enter anything missing by hand.
+
+**The times are recorded against the wrong racers.** Stop and check the lane
+numbering: lane 1 in Trusty Track must be the lane the timer calls `A`.
+
+**A heat was armed and then the schedule changed.** The timer disarms itself
+and says so rather than recording times against a field that has moved. Re-arm
+the heat and run it again.

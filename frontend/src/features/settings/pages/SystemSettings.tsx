@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 
 const GET_INITIAL_CONFIG = `
@@ -297,6 +297,14 @@ export default function SystemConfig() {
           {submitting ? 'Saving...' : 'Save Settings'}
         </button>
       </form>
+
+      {/*
+        Outside the form on purpose: checking the timer is something you do
+        before an event, and it must not look like a step of saving settings.
+      */}
+      <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem' }}>
+        <Link to="/timer-check">Check the timer connection &rarr;</Link>
+      </p>
 
       <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
         <p>
