@@ -44,8 +44,9 @@ python -m venv $Venv
 & "$Venv\Scripts\pip.exe" install --quiet "$Root"
 & "$Venv\Scripts\pip.exe" install --quiet pyinstaller pyinstaller-hooks-contrib pystray
 
-# Not a here-string: PowerShell requires `"@` to end the line it closes on, and
-# `"@ 2>$null` here made the whole script unparseable.
+# Deliberately not a here-string. A here-string terminator has to be the first
+# thing on its line and the last; this one used to have a redirection after it,
+# which left the string unterminated and the whole script unparseable.
 $VersionExpr = 'from backend.version import __version__; print(__version__)'
 $Version = & "$Venv\Scripts\python.exe" -c $VersionExpr 2>$null
 if (-not $Version) { $Version = "0.0.0" }
