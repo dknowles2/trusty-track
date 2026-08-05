@@ -31,7 +31,9 @@ _RESULT_RE = re.compile(rb"^\s*(\d+)\s+([\d.!\s]+?)\s+(\d+)\s*$")
 _START_RE = re.compile(rb"^@$")
 
 # Matches the gate-closed signal. Sent when the start gate closes after opening.
-# This can generally be ignored; timing has already begun on '@'.
+# It says nothing about the run that has already begun — timing started on '@' —
+# but while the timer is armed it is how we learn the cars are staged behind a
+# latched gate, which is the ARMED to READY transition.
 _GATE_CLOSED_RE = re.compile(rb"^>$")
 
 # Matches an acknowledgment ('AC') sent after certain commands (e.g. MG).
@@ -51,7 +53,12 @@ class MicroWizardDevice(TimerDevice):
     name = "MicroWizard K1/K2/K3"
     baud_rate = 9600
     delimiter = b"\r"
-    gate_state_is_knowable = False
+    # The N2 command we send during initialization turns on real-time gate
+    # feedback, so the device reports both edges: '@' when the gate opens and
+    # '>' when it closes. The closing edge is the one that carries news — while
+    # the timer is armed it means the cars are staged and the gate is latched,
+    # which is what separates READY from ARMED on the operator's screen.
+    gate_state_is_knowable = True
     requires_serial = True
     immediate_chars = [b"@", b">"]
     # The MicroWizard silently discards results and resets if no finish is detected
@@ -95,7 +102,8 @@ class MicroWizardDevice(TimerDevice):
         # N1 enables "new format" results (lane results on one line with placement).
         # N2 enables real-time gate feedback. The timer responds with '\r\n*\r\n'
         # to acknowledge, then sends '@' when the start gate opens (timer begins
-        # counting) and '>' when the gate closes (can be ignored).
+        # counting) and '>' when the gate closes (which is what makes READY
+        # reachable — see `gate_state_is_knowable` above).
         return [b"N1", b"N2"]
 
     NUM_LANES = 6

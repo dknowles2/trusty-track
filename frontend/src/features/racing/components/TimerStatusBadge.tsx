@@ -23,9 +23,14 @@ function getStatusDisplay(state: string | undefined): { colorClass: string; labe
       return { colorClass: 'yellow', label: 'Connecting\u2026' };
     case 'IDLE':
       return { colorClass: 'green', label: 'Ready' };
+    // ARMED means the lane mask has been sent. READY means the timer has also
+    // told us the start gate is latched, which only devices that report the
+    // gate can reach — so ARMED keeps the neutral label and READY is the extra
+    // reassurance rather than the baseline.
     case 'ARMED':
-    case 'READY':
       return { colorClass: 'blue', label: 'Staged' };
+    case 'READY':
+      return { colorClass: 'blue', label: 'Ready to race' };
     case 'RUNNING':
       return { colorClass: 'pulse', label: 'Racing\u2026' };
     case 'RESULTS_OVERDUE':

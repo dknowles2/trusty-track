@@ -232,20 +232,40 @@ The UI will strictly follow the BSA Official Guidelines outlined in `SPEC.md`:
     -   Rounded corners (12px radius) will be applied consistently to interactive elements and containers.
     -   High-contrast themes will be available, particularly for observation views ("Projector Mode"), to ensure readability in various lighting conditions and on large displays.
 
-## 5. Remote Proxy Design
+## 5. Timer Connectivity
 
-Remote proxies facilitate communication between physical timing devices and the backend API, especially when direct serial connections are not feasible.
+A timer is reached one of two ways, chosen per track by `Track.timer_type`.
+Either way the backend owns every piece of protocol state; nothing about a
+device's byte format lives outside `backend/services/timer/`.
 
-### 5.1. Proxy Functionality
+### 5.1. Backend-direct (`AUTO_DETECT_BACKEND`)
 
--   **Serial/USB Communication:** Interface with timing devices (e.g., DerbyTimer compatible devices) to read race timing data.
--   **Data Forwarding:** Transmit timing data and device status to the backend API via WebSockets or HTTP POST requests.
--   **Command Relay:** Receive commands from the backend (e.g., "start race", "reset timer") and translate them into device-specific instructions.
+The server opens the serial port itself with `pyserial`. This is the mode for a
+Raspberry Pi at the venue with the timer plugged into it.
 
-### 5.2. Implementation Options
+### 5.2. Browser-proxied (`AUTO_DETECT_PROXY`)
 
--   **Dedicated Device (e.g., Raspberry Pi):** A lightweight Python application (e.g., using `pyserial` and a WebSocket client library) running on a Raspberry Pi directly connected to the timing device. This provides a robust, standalone solution.
--   **Repurposed Frontend Device:** A frontend application running on a laptop could potentially host a small local server (e.g., using Electron or a similar framework that allows local serial port access) to act as a temporary proxy. This is more complex due to cross-platform compatibility for serial access. The preferred approach will be a dedicated Python application.
+The operator's browser holds the serial port, using the Web Serial API, and
+relays raw bytes over the WebSocket at `/ws/timer/{track_id}`. This is the mode
+for a laptop, and it needs nothing installed.
+
+The browser is a wire, not a driver. It receives a `configure` message giving
+the port's baud rate, data bits, stop bits and parity — the backend describes
+the device in `pyserial`'s vocabulary and the frontend translates, so there is
+one description of a device rather than two. After that it forwards bytes in
+both directions and does not interpret them.
+
+Web Serial is a Chromium-only API, which is the same trade the check-in scanner
+makes; a browser without it can still use a track in backend-direct or fake
+mode.
+
+### 5.3. Device support
+
+One device is implemented today, the MicroWizard K1/K2/K3, alongside a fake
+timer that skips the serial layer entirely. Despite their names, neither
+auto-detect mode probes for what is attached: both assume the MicroWizard, and
+backend-direct additionally needs the serial port typed in by hand. Making
+devices data-driven and adding a probe is tracked as issue #89.
 
 ## 6. Data Models (Detailed)
 
