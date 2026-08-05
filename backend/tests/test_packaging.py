@@ -24,6 +24,7 @@ PACKAGING = Path(__file__).resolve().parent.parent.parent / "packaging"
 
 SPEC = PACKAGING / "trustytrack.spec"
 INNO = PACKAGING / "TrustyTrack.iss"
+WINDOWS_BUILD = PACKAGING / "build-windows.ps1"
 
 
 @pytest.fixture(scope="module")
@@ -91,3 +92,37 @@ def test_the_data_the_app_needs_at_runtime_is_bundled(spec_text):
     a crash on a user's machine rather than a build failure."""
     for needed in ("frontend/dist", "backend/assets", "backend/migrations"):
         assert needed in spec_text, f"{needed} is not in the PyInstaller datas"
+
+
+def test_the_windows_build_script_is_ascii():
+    """Windows PowerShell 5.1 reads a BOM-less UTF-8 file as Windows-1252.
+
+    The box-drawing characters that used to separate this script's sections
+    came back as three bytes whose middle one is a smart closing quote, and
+    PowerShell treats that as a string delimiter — so every divider opened a
+    string, and the script had never parsed on a stock Windows machine. It
+    failed at a brace thirty lines below the real cause, which is why it
+    survived two attempts to fix it by reading.
+    """
+    text = WINDOWS_BUILD.read_text(encoding="utf-8")
+
+    offenders = sorted({character for character in text if ord(character) > 127})
+    assert not offenders, (
+        f"non-ASCII in build-windows.ps1: {offenders}. Windows PowerShell will "
+        f"mis-decode these; keep the file ASCII or give it a BOM."
+    )
+
+
+def test_the_windows_build_script_has_no_here_strings():
+    """A here-string terminator has to be alone on its line.
+
+    One of these ended `"@ 2>$null`, which never closed the string and took the
+    rest of the file with it.
+    """
+    lines = WINDOWS_BUILD.read_text(encoding="utf-8").splitlines()
+
+    openers = [line for line in lines if line.rstrip().endswith('@"')]
+    assert not openers, (
+        f"here-strings in build-windows.ps1: {openers}. Pass a quoted string or "
+        f"call a script file instead."
+    )
