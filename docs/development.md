@@ -168,7 +168,26 @@ npm run lint
 npx tsc --noEmit
 ```
 
-### 5. Generated GraphQL Types
+### 5. End-to-End Tests
+
+A real backend and a real browser, on their own ports and their own database:
+
+```bash
+cd frontend && npm run test:e2e
+```
+
+The first run needs Playwright's browser:
+
+```bash
+cd frontend && npx playwright install chromium
+```
+
+These are deliberately few and broad — they exist to catch the failures the
+unit suites cannot, where the served page, the GraphQL round trip and the
+normalized cache have to work together. Anything worth asserting in detail
+belongs in a component test.
+
+### 6. Generated GraphQL Types
 
 `frontend/schema.graphql` and `frontend/src/gql/` are **generated** from the
 live Strawberry schema — never edit them by hand. After any backend schema

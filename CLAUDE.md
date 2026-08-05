@@ -33,11 +33,17 @@ It is designed to run as a **single process on a machine at the venue** (often a
 **Tests:**
 
 ```bash
-cd backend && pytest
+uv run pytest
 ```
 
 ```bash
-cd frontend && npm test
+cd frontend && npm test -- --run
+```
+
+**End-to-end** (a real backend, a real browser — the only test that exercises the served page, the GraphQL round trip and the normalized cache together):
+
+```bash
+cd frontend && npm run test:e2e
 ```
 
 **Pre-commit hooks** run Ruff, pytest, ESLint, Vitest, and a frontend build on `git commit`:
@@ -470,6 +476,27 @@ Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `f
 Keep the markers honest — this is the index, and the point is that nobody has to re-derive it from the code. If you finish one, mark it, and record the departures rather than leaving the plan describing a design that was not taken.
 
 `TODO.md` at the repo root is a mostly-completed feature checklist.
+
+---
+
+## What CI checks
+
+Seven jobs on every pull request (`.github/workflows/ci.yml`):
+
+| Job | What it would catch |
+| --- | --- |
+| **Lint & Types** | `ruff check`, `ruff format --check`, `mypy backend` over the whole tree |
+| **Backend Tests** ×2 | The suite on 3.10 *and* 3.12 — 3.10 is the floor a Pi's system interpreter gives you, and it has caught syntax that 3.12 accepts |
+| **Frontend Tests** | `eslint`, `tsc --noEmit`, `vitest` |
+| **GraphQL Codegen** | A backend schema change that was not regenerated into `src/gql` |
+| **Docs Build** | `mkdocs build --strict` — a broken link or a missing image, before it deploys |
+| **End-to-End** | The served page, the GraphQL round trip and the normalized cache, together |
+| **Docker Build** | That the image builds *and starts*: it runs the container and waits on `/health` |
+
+Two things worth knowing:
+
+- **The release workflow has its own test gate.** CI runs on pull requests and on `main`; a tag is neither, so without it, tagging any commit publishes it to GHCR and the release page whatever state it was in.
+- **The e2e suite runs against a real backend, on its own ports and its own database.** It replaced a mocked one that had been failing silently — the mocks predated the normalized cache (#12) and answered without `__typename`, which graphcache cannot store, so the page rendered nothing. Nothing ran it, so nobody found out. If you add a browser test, add it there rather than mocking the API.
 
 ---
 

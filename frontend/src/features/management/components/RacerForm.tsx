@@ -42,7 +42,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     car_weight: undefined,
     car_name: ''
   });
-  
+
   // Use GraphQL to fetch dens
   const [densResult] = useQuery({
       query: GET_RACE_DENS,
@@ -51,7 +51,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   });
 
   const dens: Den[] = densResult.data?.race?.dens || [];
-  
+
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
   const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
@@ -66,8 +66,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : 
-               name === 'car_number' || name === 'den_id' ? parseInt(value) || undefined : 
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked :
+               name === 'car_number' || name === 'den_id' ? parseInt(value) || undefined :
                name === 'car_weight' ? parseFloat(value) || undefined : value
     }));
   };
@@ -180,11 +180,15 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                 ))}
              </select>
         </div>
-        
+
         <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Passed Inspection / Checked In</label>
+            {/* `htmlFor` rather than a bare caption: the toggle is a styled
+                checkbox, and without the association it has no accessible name
+                at all — nothing to announce, and nothing to find it by. */}
+            <label htmlFor="car-passed-inspection" style={{ display: 'block', marginBottom: '5px' }}>Passed Inspection / Checked In</label>
             <label className="toggle-switch">
                 <input
+                    id="car-passed-inspection"
                     type="checkbox"
                     name="car_passed_inspection"
                     checked={formData.car_passed_inspection}
@@ -202,8 +206,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                     <img src={formData.racer_image_url} alt="Racer" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: '#eee' }} />
                 )}
                 <div style={{ display: 'flex', gap: '5px' }}>
-                    <input 
-                        type="file" 
+                    <input
+                        type="file"
                         accept="image/*"
                         style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
                         id="racer-file"
@@ -216,8 +220,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                     <label htmlFor="racer-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid #ccc', borderRadius: '4px' }}>
                          Upload File
                     </label>
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         className="secondary-btn"
                         onClick={() => setShowCamera('racer')}
                         style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
@@ -233,8 +237,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                     <img src={formData.car_image_url} alt="Car" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: '#eee' }} />
                 )}
                 <div style={{ display: 'flex', gap: '5px' }}>
-                    <input 
-                        type="file" 
+                    <input
+                        type="file"
                         accept="image/*"
                         style={{ width: '0.1px', height: '0.1px', opacity: 0, overflow: 'hidden', position: 'absolute', zIndex: -1 }}
                         id="car-file"
@@ -247,8 +251,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                     <label htmlFor="car-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid #ccc', borderRadius: '4px' }}>
                          Upload File
                     </label>
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         className="secondary-btn"
                         onClick={() => setShowCamera('car')}
                         style={{ flex: 1, padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
@@ -266,9 +270,9 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
           </button>
         </div>
       </form>
-      
+
       {showCamera !== 'none' && (
-          <CameraCapture 
+          <CameraCapture
             onClose={() => setShowCamera('none')}
             onCapture={(file) => {
                 uploadFile(file, showCamera as 'racer' | 'car');

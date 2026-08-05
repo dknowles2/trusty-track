@@ -1,0 +1,34 @@
+# Dependency updates, batched so they arrive as a few reviewable PRs rather
+# than one per package. Monthly rather than weekly: this is a seasonal app run
+# by volunteers, and a queue of open PRs nobody reads is worse than a slightly
+# older lockfile.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      # Everything that is not React or the build tool, in one PR. Those two
+      # move the app enough to deserve their own.
+      frontend:
+        patterns: ["*"]
+        exclude-patterns: ["react", "react-dom", "@types/react*", "vite"]
+
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      backend:
+        patterns: ["*"]

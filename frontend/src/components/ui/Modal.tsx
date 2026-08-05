@@ -33,7 +33,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
     if (!isOpen) return null;
 
     return ReactDOM.createPortal(
-        <div 
+        <div
             onClick={(e) => {
                 // Only close if clicking the backdrop itself, not the modal content
                 if (e.target === e.currentTarget) {
@@ -46,13 +46,19 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
                 backdropFilter: 'blur(2px)' // Premium feel
             }}
         >
-            <div 
+            <div
                 ref={modalRef}
-                style={{ 
-                    background: 'white', 
-                    padding: '2rem', 
-                    borderRadius: '12px', 
-                    width: '100%', 
+                // Announced as a dialog, and named by its own heading. Without
+                // these it is an anonymous div: a screen reader gives no
+                // indication that anything has opened.
+                role="dialog"
+                aria-modal="true"
+                aria-label={title}
+                style={{
+                    background: 'white',
+                    padding: '2rem',
+                    borderRadius: '12px',
+                    width: '100%',
                     maxWidth: maxWidth,
                     boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
                     maxHeight: '90vh',
@@ -63,12 +69,12 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
             >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     {title && <h2 style={{ margin: 0 }}>{title}</h2>}
-                    <button 
-                        onClick={onClose} 
-                        style={{ 
-                            background: 'none', 
-                            border: 'none', 
-                            fontSize: '1.5rem', 
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            fontSize: '1.5rem',
                             cursor: 'pointer',
                             color: '#999',
                             padding: '0 5px'
