@@ -242,18 +242,35 @@ def test_the_adapted_profiles_are_registered():
         assert profile in ALL_PROFILES
 
 
-def test_none_of_them_claims_to_be_tested():
-    """The honest bit. If anyone ever confirms one against hardware, this test
-    is where the claim changes."""
-    for profile in (
-        NEWBOLD,
-        JIT_RACEMASTER,
-        DERBY_TIMER,
-        BERT_DRAKE,
-        PDT,
-        THE_JUDGE,
-        CHAMP,
-    ):
+#: The two honest claims a profile may make. Replaying a recording is real
+#: evidence and stronger than transcription, but it is still not a heat.
+_DISCLAIMERS = ("Never run against this hardware", "Never driven live")
+
+
+def test_no_profile_claims_to_have_been_driven_live():
+    """The honest bit, and the invariant that has to hold until someone runs a
+    real heat through one of these.
+
+    Two of them have been replayed against recorded device output, which is
+    better than nothing and says so — but a recording has no timing, no gate
+    that bounces, and no operator. If anyone ever confirms one on a track, this
+    test is where the claim changes.
+    """
+    from backend.services.timer.devices import ALL_PROFILES
+
+    for profile in ALL_PROFILES:
+        assert any(claim in profile.provenance for claim in _DISCLAIMERS), (
+            f"{profile.key} makes a claim nothing here supports: {profile.provenance!r}"
+        )
+
+
+def test_the_replayed_ones_say_which_evidence_they_have():
+    """A profile checked against real device output should say so — otherwise
+    there is no way to tell it from one nobody has looked at."""
+    for profile in (DERBY_TIMER, PDT):
+        assert "recorded session" in profile.provenance
+
+    for profile in (NEWBOLD, JIT_RACEMASTER, BERT_DRAKE, THE_JUDGE, CHAMP):
         assert "Never run against this hardware" in profile.provenance
 
 

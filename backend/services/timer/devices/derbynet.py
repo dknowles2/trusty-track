@@ -43,6 +43,12 @@ _UNTESTED = (
     "point and report what actually happens."
 )
 
+_REPLAYED = (
+    "Adapted from DerbyNet's {} profile (MIT, © Jeff Piazza), and checked "
+    "against a recorded session from the device — {}. Never driven live: no "
+    "heat has been run through it."
+)
+
 
 # ---------------------------------------------------------------------------
 # NewBold DT / TURBO / DerbyStick
@@ -114,7 +120,11 @@ JIT_RACEMASTER = TimerProfile(
 DERBY_TIMER = TimerProfile(
     name="Derby Timer (derbytimer.com)",
     key="derbytimer",
-    provenance=_UNTESTED.format("Derby Timer"),
+    provenance=_REPLAYED.format(
+        "Derby Timer",
+        "its banner, lane count, both gate states, the start signal and "
+        "three results all read correctly",
+    ),
     probe=(b"R",),
     identification=(re.compile(rb"^RESET$"), re.compile(rb"^READY\s*\d+\s+LANES")),
     heat_prep=HeatPrep(unmask=b"C", mask=b"M", first_lane=b"1"),
@@ -194,7 +204,11 @@ BERT_DRAKE = TimerProfile(
 PDT = TimerProfile(
     name="PDT timer (dfgtec.com/pdt)",
     key="pdt",
-    provenance=_UNTESTED.format("PDT"),
+    provenance=_REPLAYED.format(
+        "PDT",
+        "its gate answers and results read correctly, and the recording is "
+        "where the RACING start signal came from",
+    ),
     # An empty pre-probe: DerbyNet sends nothing and waits, which settles a
     # timer that is mid-sentence when the port opens.
     pre_probe=(b"",),
@@ -215,7 +229,11 @@ PDT = TimerProfile(
         Event.RESULTS_OVERDUE: (b"F",),
     },
     matchers=(
-        Matcher(re.compile(rb"^B$"), Event.RACE_STARTED),
+        # DerbyNet's profile matches `B`; the device in their recording says
+        # `RACING`. Both are accepted rather than choosing between a profile
+        # and a recording that disagree — a timer nobody here can test is not
+        # the place to be clever about which one is right.
+        Matcher(re.compile(rb"^(B|RACING)$"), Event.RACE_STARTED),
         Matcher(
             re.compile(rb"numl=(\d)"), Event.LANE_COUNT, lane=Group(1, lane_number)
         ),

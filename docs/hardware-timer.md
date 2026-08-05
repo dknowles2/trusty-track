@@ -20,12 +20,17 @@ Racemaster, and the NewBold DT/TURBO/DerbyStick family. Five of those are
 detected automatically; the JIT Racemaster and NewBold have to be chosen,
 because they do not answer an identifying question.
 
-**None of the seven has ever been run against the hardware it describes**, and
-neither, strictly, has the Micro Wizard — the protocols come from documentation
-and from DerbyNet's long experience, but the code that reads them has only been
-tested against recorded data. The timer check page says as much for whichever
-device answers, and it is the honest state of things rather than false modesty:
-a description that is one character wrong fails by silently never matching.
+**No heat has ever been run through any of them**, including the Micro Wizard.
+Three — the Micro Wizard, the Derby Timer and the PDT — have been checked
+against recordings of what those devices genuinely said, which is real evidence
+and caught a real bug: our Micro Wizard description could not identify a K3,
+because that firmware writes `Serial Number 15985` with a space. Auto-detection
+would simply have failed on the hardware.
+
+The rest have only been read against protocol documentation. The timer check
+page says which is which for whichever device answers. This is the honest state
+of things rather than false modesty: a description that is one character wrong
+fails by silently never matching.
 
 If you have one of these on a bench, the timer check page below will tell you
 in about a minute whether it works, and that report is worth more than anything
