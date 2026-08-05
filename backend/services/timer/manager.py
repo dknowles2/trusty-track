@@ -42,6 +42,15 @@ logger = logging.getLogger(__name__)
 
 MAX_SERIAL_LOG = 100
 
+#: How often to ask a connected-but-unidentified device who it is. Slow enough
+#: not to chatter at a device that is simply not a timer, quick enough that an
+#: operator watching the badge sees it settle.
+NUDGE_SECONDS = 3.0
+
+#: How often the watchdog checks the connection. Named so tests can shorten it
+#: rather than sleeping through it.
+WATCHDOG_SECONDS = 1.0
+
 
 def _format_serial_bytes(data: bytes) -> str:
     """Format bytes as a readable string, escaping non-printable characters."""
@@ -112,6 +121,7 @@ class TimerManager:
         self._direct_port: str | None = None
         self._watchdog_task: asyncio.Task | None = None
         self._idle_flush_task: asyncio.Task | None = None
+        self._last_nudge: float | None = None
         self._running_since: float | None = None
         self._event_lock = asyncio.Lock()
         self._serial_log: deque = deque(maxlen=MAX_SERIAL_LOG)
@@ -276,6 +286,11 @@ class TimerManager:
                 [cmd for cmd, _ in self._pending_acks],
             )
             self._pending_acks.clear()
+
+        # A fresh connection gets a fresh nudge interval, so a reconnect does
+        # not inherit a recent one and sit unidentified for longer than it
+        # needs to.
+        self._last_nudge = None
 
         await self._transition(TimerState.CONNECTED)
 
@@ -893,20 +908,54 @@ class TimerManager:
                 "Timer %d: Started direct serial mode on %s", self._track_id, port
             )
 
+    async def nudge_if_unidentified(self) -> bool:
+        """Ask a connected-but-silent device who it is.
+
+        A connection that opens and then goes quiet is the *normal* case, not
+        an edge case. ``handle_connect`` sends the profile's setup commands,
+        the device acknowledges them, and those acknowledgements are consumed
+        by the pending-ack queue — which returns before reaching the code that
+        leaves CONNECTED. So a working MicroWizard that has just been told
+        ``N1`` and ``N2`` sits in CONNECTED, and the operator's badge reads
+        "Connecting…" until the first heat is armed. Nothing is wrong with the
+        timer; nothing is going to say so either.
+
+        The watchdog used to cover this by resending
+        ``identification_commands()``, which is empty for every profile we
+        ship — a no-op, logged once a second.
+
+        Sending the *probe* is safe here in a way it is not on connect, which
+        is why the two are separate fields: this only fires with no heat armed,
+        so it can never interrogate a timer mid-run.
+
+        Returns whether it sent anything.
+        """
+        if self._state is not TimerState.CONNECTED:
+            return False
+        if self._active_heat_id is not None:
+            return False
+        if not self._device.probe:
+            return False
+
+        now = asyncio.get_event_loop().time()
+        if self._last_nudge is not None and now - self._last_nudge < NUDGE_SECONDS:
+            return False
+        self._last_nudge = now
+
+        logger.info(
+            "Timer %d: connected but unidentified, asking what is there",
+            self._track_id,
+        )
+        await self._send_commands(list(self._device.probe))
+        return True
+
     async def _watchdog_loop(self) -> None:
         """Monitor connection health and attempt reconnects."""
         try:
             while True:
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(WATCHDOG_SECONDS)
 
-                # Resend identification if stuck in CONNECTED
-                # (e.g. initial command lost due to Arduino bootloader)
-                if self._state == TimerState.CONNECTED:
-                    logger.info(
-                        "Timer %d watchdog: still CONNECTED, resending identification",
-                        self._track_id,
-                    )
-                    await self._send_commands(self._device.identification_commands())
+                await self.nudge_if_unidentified()
 
                 # Check for device-level result timeout (e.g. MicroWizard silently
                 # discards results if no finish is detected within 10s of gate open).
