@@ -261,11 +261,19 @@ mode.
 
 ### 5.3. Device support
 
-One device is implemented today, the MicroWizard K1/K2/K3, alongside a fake
-timer that skips the serial layer entirely. Despite their names, neither
-auto-detect mode probes for what is attached: both assume the MicroWizard, and
-backend-direct additionally needs the serial port typed in by hand. Making
-devices data-driven and adding a probe is tracked as issue #89.
+A timer model is a `TimerProfile` record in
+`backend/services/timer/devices/` — port framing, an identification banner,
+setup commands, how to mask lanes and arm, and a list of matchers pairing a
+pattern with the event it means and the captured groups holding the lane, time
+and place. There is no per-device parsing code, which is what lets a prober
+walk the list in `ALL_PROFILES` and try each candidate in turn.
+
+One real device is described today, the MicroWizard K1/K2/K3, alongside a fake
+timer that skips the serial layer entirely.
+
+Despite their names, neither auto-detect mode probes for what is attached: both
+assume the MicroWizard, and backend-direct additionally needs the serial port
+typed in by hand. The prober is the remaining half of issue #89.
 
 ## 6. Data Models (Detailed)
 

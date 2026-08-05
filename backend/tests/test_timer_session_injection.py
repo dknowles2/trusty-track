@@ -12,8 +12,8 @@ import json
 import pytest
 
 from backend.db import crud, models, schemas
+from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
-from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
 
 
@@ -38,15 +38,13 @@ def test_manager_defaults_to_the_module_session_factory():
     """
     from backend.services.timer import manager as manager_module
 
-    mgr = TimerManager(track_id=1, device=FakeTimerDevice())
+    mgr = TimerManager(track_id=1, device=FAKE)
     assert mgr._session_factory is manager_module.SessionLocal
 
 
 def test_injected_factory_is_used_instead():
     sentinel = object()
-    mgr = TimerManager(
-        track_id=1, device=FakeTimerDevice(), session_factory=lambda: sentinel
-    )
+    mgr = TimerManager(track_id=1, device=FAKE, session_factory=lambda: sentinel)
     assert mgr._session_factory() is sentinel
 
 
@@ -74,7 +72,7 @@ async def test_results_land_in_the_injected_database(db, timer_session_factory):
 
     mgr = TimerManager(
         track_id=track.id,
-        device=FakeTimerDevice(),
+        device=FAKE,
         session_factory=timer_session_factory,
     )
     await mgr.prepare_heat(

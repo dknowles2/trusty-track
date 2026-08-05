@@ -23,8 +23,8 @@ import backend.api.schema as schema_mod
 from backend.api.pubsub import _PubSub
 from backend.api.schema import Subscription, _publish_race_state
 from backend.db import crud, models, schemas
+from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
-from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.manager import TimerManager
 
 
@@ -133,7 +133,7 @@ async def test_the_current_session_arrives_without_waiting_for_an_event(db):
 @pytest.mark.anyio
 async def test_a_lane_time_from_the_timer_produces_a_new_session(db, isolated_pubsub):
     _, track, heat, racers = _race(db)
-    manager = TimerManager(track_id=track.id, device=FakeTimerDevice())
+    manager = TimerManager(track_id=track.id, device=FAKE)
     await manager.prepare_heat(
         heat_id=heat.id, kind=models.HeatKind.OFFICIAL, lane_mask=0b11
     )

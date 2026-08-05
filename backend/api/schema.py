@@ -28,12 +28,11 @@ from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
 from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.timer.devices import DEFAULT_PROFILE, FAKE
 from backend.services.timer.devices.base import (
     LaneResult as TimerLaneResult,
 )
 from backend.services.timer.devices.base import RaceStarted
-from backend.services.timer.devices.fake import FakeTimerDevice
-from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -1545,9 +1544,9 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         if new_track.id not in timer_managers:
             if new_track.timer_type == models.TimerType.FAKE:
-                device = FakeTimerDevice()
+                device = FAKE
             else:
-                device = MicroWizardDevice()
+                device = DEFAULT_PROFILE
             mgr = TimerManager(
                 new_track.id, device, session_factory=_session_factory(info)
             )
@@ -1578,10 +1577,10 @@ class Mutation:
             # If timer type changed, swap device
             if track.timer_type != old_timer_type:
                 if track.timer_type == models.TimerType.FAKE:
-                    await mgr.set_device(FakeTimerDevice())
+                    await mgr.set_device(FAKE)
                 else:
                     # Everything else currently maps to MicroWizard
-                    await mgr.set_device(MicroWizardDevice())
+                    await mgr.set_device(DEFAULT_PROFILE)
 
             # If backend-direct mode, handle connection
             if track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
@@ -2157,9 +2156,9 @@ class Mutation:
         for track in tracks:
             if track.id not in timer_managers:
                 device = (
-                    FakeTimerDevice()
+                    FAKE
                     if track.timer_type == models.TimerType.FAKE
-                    else MicroWizardDevice()
+                    else DEFAULT_PROFILE
                 )
                 timer_managers[track.id] = TimerManager(
                     track.id, device, session_factory=_session_factory(info)
@@ -2228,9 +2227,9 @@ class Mutation:
                 if mgr:
                     if input_track.timer_type != old_timer_type:
                         if input_track.timer_type == models.TimerType.FAKE:
-                            await mgr.set_device(FakeTimerDevice())
+                            await mgr.set_device(FAKE)
                         else:
-                            await mgr.set_device(MicroWizardDevice())
+                            await mgr.set_device(DEFAULT_PROFILE)
                     if input_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                         if (
                             input_track.serial_port != old_serial_port
@@ -2250,9 +2249,9 @@ class Mutation:
 
                 # Register TimerManager
                 if new_track.timer_type == models.TimerType.FAKE:
-                    device = FakeTimerDevice()
+                    device = FAKE
                 else:
-                    device = MicroWizardDevice()
+                    device = DEFAULT_PROFILE
 
                 mgr = TimerManager(
                     new_track.id, device, session_factory=_session_factory(info)

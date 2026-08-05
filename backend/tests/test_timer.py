@@ -1,7 +1,7 @@
 """Unit tests for the timer subsystem.
 
 Covers:
-  - MicroWizardDevice.parse_line and is_identified_by
+  - the MicroWizard profile's parse_line and is_identified_by
   - TimerManager byte framing (receive_bytes)
   - TimerManager state transitions
   - fakeTimerFinish result generation logic
@@ -12,22 +12,21 @@ from unittest.mock import AsyncMock
 import pytest
 
 from backend.db import models
+from backend.services.timer.devices import FAKE, MICROWIZARD
 from backend.services.timer.devices.base import LaneResult, RaceStarted
-from backend.services.timer.devices.fake import FakeTimerDevice
-from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
 # ---------------------------------------------------------------------------
-# 1. MicroWizardDevice.parse_line tests
+# 1. the MicroWizard profile's parse_line tests
 # ---------------------------------------------------------------------------
 
 
 class TestMicroWizardParseLineValid:
-    """Tests for MicroWizardDevice.parse_line with well-formed input."""
+    """Tests for the MicroWizard profile's parse_line with well-formed input."""
 
     def setup_method(self):
-        self.device = MicroWizardDevice()
+        self.device = MICROWIZARD
 
     def test_plain_result_line(self):
         """Plain result line without prefix parses to correct LaneResult."""
@@ -73,10 +72,10 @@ class TestMicroWizardParseLineValid:
 
 
 class TestMicroWizardParseLineNewFormat:
-    """Tests for MicroWizardDevice.parse_line with new-format multi-lane input."""
+    """The MicroWizard profile's parse_line, on new-format multi-lane input."""
 
     def setup_method(self):
-        self.device = MicroWizardDevice()
+        self.device = MICROWIZARD
 
     def test_multi_lane_with_places(self):
         """New-format multi-lane line with symbols for place 1-6."""
@@ -129,10 +128,10 @@ class TestMicroWizardParseLineNewFormat:
 
 
 class TestMicroWizardIsIdentifiedBy:
-    """Tests for MicroWizardDevice.is_identified_by."""
+    """Tests for the MicroWizard profile's is_identified_by."""
 
     def setup_method(self):
-        self.device = MicroWizardDevice()
+        self.device = MICROWIZARD
 
     def test_rv_response_identifies_device(self):
         """Device returning a version string returns True."""
@@ -181,7 +180,7 @@ class TestMicroWizardIsIdentifiedBy:
 @pytest.mark.anyio
 async def test_byte_framing_split_across_chunks():
     """A result line split across two byte chunks is assembled and parsed."""
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id=1, device=device)
 
     # Force into RUNNING state so LaneResult events are accepted
@@ -212,7 +211,7 @@ async def test_byte_framing_split_across_chunks():
 @pytest.mark.anyio
 async def test_byte_framing_two_lines_in_one_chunk():
     """Two complete result lines delivered in a single chunk are both parsed."""
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id=1, device=device)
 
     manager._state = TimerState.RUNNING
@@ -232,14 +231,14 @@ async def test_byte_framing_two_lines_in_one_chunk():
 
 
 # ---------------------------------------------------------------------------
-# 3. TimerManager state transition tests (FakeTimerDevice, no DB)
+# 3. TimerManager state transition tests (the fake timer profile, no DB)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.anyio
 async def test_fake_timer_starts_in_idle():
-    """A manager using FakeTimerDevice starts in IDLE state."""
-    device = FakeTimerDevice()
+    """A manager using the fake timer profile starts in IDLE state."""
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
     assert manager._state == TimerState.IDLE
 
@@ -247,7 +246,7 @@ async def test_fake_timer_starts_in_idle():
 @pytest.mark.anyio
 async def test_prepare_heat_transitions_to_armed():
     """prepare_heat moves state from IDLE to ARMED."""
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
 
     await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11)
@@ -260,7 +259,7 @@ async def test_prepare_heat_transitions_to_armed():
 @pytest.mark.anyio
 async def test_inject_race_started_transitions_to_running():
     """Injecting RaceStarted while ARMED moves state to RUNNING."""
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
 
     await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11)
@@ -273,7 +272,7 @@ async def test_inject_race_started_transitions_to_running():
 @pytest.mark.anyio
 async def test_partial_lane_results_stay_running():
     """Receiving only one of two expected lanes keeps state RUNNING."""
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
     manager._record_results = AsyncMock()
 
@@ -291,7 +290,7 @@ async def test_partial_lane_results_stay_running():
 @pytest.mark.anyio
 async def test_all_lanes_reported_calls_record_results():
     """When all expected lanes report, _record_results is called."""
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
     manager._record_results = AsyncMock()
 
@@ -310,7 +309,7 @@ async def test_zero_lane_mask_does_not_trigger_record_results():
     """With lane_mask=0, LaneResults accumulate but _record_results is never
     auto-triggered because the expected_lanes set is empty (falsy guard in manager).
     """
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
     manager._record_results = AsyncMock()
 
@@ -330,7 +329,7 @@ async def test_zero_lane_mask_does_not_trigger_record_results():
 @pytest.mark.anyio
 async def test_abort_heat_from_armed_returns_to_idle():
     """abort_heat from ARMED state transitions back to IDLE."""
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
 
     await manager.prepare_heat(heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11)
@@ -345,7 +344,7 @@ async def test_abort_heat_from_armed_returns_to_idle():
 @pytest.mark.anyio
 async def test_lane_result_ignored_when_not_running():
     """LaneResult injected while not RUNNING is ignored (state unchanged)."""
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
     manager._record_results = AsyncMock()
 
@@ -438,7 +437,7 @@ async def test_fake_timer_finish_via_inject_events():
     Verifies that after all lanes report, _record_results is called with the
     correct pending_results dictionary containing times and places.
     """
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=1, device=device)
     manager._record_results = AsyncMock()
 

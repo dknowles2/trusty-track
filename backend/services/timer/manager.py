@@ -23,6 +23,8 @@ from backend.db import crud, models
 from backend.db.database import SessionLocal
 from backend.domain import lanes
 
+from .devices import DEFAULT_PROFILE, FAKE
+
 # Circular import handled by importing inside methods or using full module path
 # from backend.api.schema import _publish_race_state
 from .devices.base import (
@@ -30,11 +32,9 @@ from .devices.base import (
     GateClosed,
     LaneResult,
     RaceStarted,
-    TimerDevice,
     TimerEvent,
+    TimerProfile,
 )
-from .devices.fake import FakeTimerDevice
-from .devices.microwizard import MicroWizardDevice
 from .state_machine import TimerState
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ class TimerManager:
     def __init__(
         self,
         track_id: int,
-        device: TimerDevice,
+        device: TimerProfile,
         session_factory: SessionFactory | None = None,
     ) -> None:
         """Create a manager for one track.
@@ -132,7 +132,7 @@ class TimerManager:
     # Configuration                                                        #
     # ------------------------------------------------------------------ #
 
-    async def set_device(self, device: TimerDevice) -> None:
+    async def set_device(self, device: TimerProfile) -> None:
         """Update the device and reset state. Stops any active connections."""
         async with self._event_lock:
             await self.stop()
@@ -950,11 +950,11 @@ async def initialize_timer_managers(
         tracks = db.query(models.Track).all()
         for track in tracks:
             if track.timer_type == models.TimerType.FAKE:
-                device = FakeTimerDevice()
+                device = FAKE
             else:
                 # AUTO_DETECT_BACKEND / AUTO_DETECT_PROXY: use MicroWizard as the
                 # target device; real connection logic is wired in Phase 2/3.
-                device = MicroWizardDevice()
+                device = DEFAULT_PROFILE
 
             manager = TimerManager(track.id, device, session_factory=session_factory)
             registry[track.id] = manager

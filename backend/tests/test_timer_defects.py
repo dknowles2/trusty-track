@@ -11,29 +11,30 @@ exercised without hardware.
 """
 
 import asyncio
+from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
 import serial
 
+from backend.services.timer.devices import MICROWIZARD
 from backend.services.timer.devices.base import GateClosed, LaneResult
-from backend.services.timer.devices.microwizard import MicroWizardDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
-
-class NewBoldish(MicroWizardDevice):
-    """A device that is not 8-N-1.
-
-    Modelled on the NewBold DT/TURBO/DerbyStick family, which runs at 1200
-    baud with 7 data bits and 2 stop bits. Nothing about its protocol is
-    exercised here — only that the port gets opened the way it asks.
-    """
-
-    name = "NewBold-ish"
-    baud_rate = 1200
-    data_bits = 7
-    stop_bits = 2
-    parity = "E"
+#: A device that is not 8-N-1.
+#:
+#: Modelled on the NewBold DT/TURBO/DerbyStick family, which runs at 1200 baud
+#: with 7 data bits and 2 stop bits. Nothing about its protocol is exercised
+#: here — only that the port gets opened the way it asks.
+NEWBOLDISH = replace(
+    MICROWIZARD,
+    name="NewBold-ish",
+    key="newboldish",
+    baud_rate=1200,
+    data_bits=7,
+    stop_bits=2,
+    parity="E",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +50,7 @@ async def test_a_closed_gate_moves_an_armed_timer_to_ready():
     MicroWizard does report the closing edge — `N2` is in its initialization
     commands precisely to turn that on.
     """
-    manager = TimerManager(track_id=1, device=MicroWizardDevice())
+    manager = TimerManager(track_id=1, device=MICROWIZARD)
     manager._state = TimerState.ARMED
 
     await manager.inject_event(GateClosed())
@@ -63,7 +64,7 @@ async def test_the_gate_closing_signal_reaches_the_manager_as_an_event():
     A parser that recognises `>` is worth nothing if the framing swallows it,
     and `>` is in `immediate_chars` rather than delimiter-terminated.
     """
-    manager = TimerManager(track_id=1, device=MicroWizardDevice())
+    manager = TimerManager(track_id=1, device=MICROWIZARD)
     manager._state = TimerState.ARMED
 
     await manager.receive_bytes(b">")
@@ -73,7 +74,7 @@ async def test_the_gate_closing_signal_reaches_the_manager_as_an_event():
 
 async def test_a_ready_timer_still_starts_racing():
     """READY must not be a cul-de-sac: the gate opening still starts the run."""
-    manager = TimerManager(track_id=1, device=MicroWizardDevice())
+    manager = TimerManager(track_id=1, device=MICROWIZARD)
     manager._state = TimerState.ARMED
 
     await manager.receive_bytes(b">")
@@ -97,7 +98,7 @@ async def test_a_device_that_is_not_8n1_gets_the_port_it_asks_for():
     mock_serial.read.return_value = b""
 
     with patch("serial.Serial", return_value=mock_serial) as ctor:
-        manager = TimerManager(track_id=1, device=NewBoldish())
+        manager = TimerManager(track_id=1, device=NEWBOLDISH)
         await manager.connect_direct("/dev/ttyUSB0")
         await manager.stop()
 
@@ -115,7 +116,7 @@ async def test_the_microwizard_still_gets_8n1():
     mock_serial.read.return_value = b""
 
     with patch("serial.Serial", return_value=mock_serial) as ctor:
-        manager = TimerManager(track_id=1, device=MicroWizardDevice())
+        manager = TimerManager(track_id=1, device=MICROWIZARD)
         await manager.connect_direct("/dev/ttyUSB0")
         await manager.stop()
 
@@ -131,10 +132,8 @@ async def test_the_microwizard_still_gets_8n1():
 # ---------------------------------------------------------------------------
 
 
-class QuickIdle(MicroWizardDevice):
-    """The same device with a short idle timeout, so tests do not sleep."""
-
-    line_idle_timeout_seconds = 0.05
+#: The same device with a short idle timeout, so tests do not sleep.
+QUICK_IDLE = replace(MICROWIZARD, line_idle_timeout_seconds=0.05)
 
 
 async def test_a_result_with_no_terminator_is_processed_once_the_device_goes_quiet():
@@ -144,7 +143,7 @@ async def test_a_result_with_no_terminator_is_processed_once_the_device_goes_qui
     buffer while the manager stayed in RUNNING waiting for a lane the device
     considered already reported — a heat that never records.
     """
-    manager = TimerManager(track_id=1, device=QuickIdle())
+    manager = TimerManager(track_id=1, device=QUICK_IDLE)
     manager._state = TimerState.RUNNING
     manager._lane_mask = 0
 
@@ -161,7 +160,7 @@ async def test_a_result_with_no_terminator_is_processed_once_the_device_goes_qui
 async def test_more_bytes_postpone_the_flush():
     """The flush must fire only when the device has genuinely stopped talking,
     or a line split across two reads gets processed as two half-lines."""
-    manager = TimerManager(track_id=1, device=QuickIdle())
+    manager = TimerManager(track_id=1, device=QUICK_IDLE)
     manager._state = TimerState.RUNNING
     manager._lane_mask = 0
 
@@ -177,7 +176,7 @@ async def test_more_bytes_postpone_the_flush():
 
 async def test_a_terminated_line_leaves_nothing_pending():
     """The ordinary case must not also fire a flush."""
-    manager = TimerManager(track_id=1, device=QuickIdle())
+    manager = TimerManager(track_id=1, device=QUICK_IDLE)
     manager._state = TimerState.RUNNING
     manager._lane_mask = 0
 
@@ -188,7 +187,7 @@ async def test_a_terminated_line_leaves_nothing_pending():
 
 async def test_a_disconnect_discards_a_partial_line():
     """A device cut off mid-message did not send a short message."""
-    manager = TimerManager(track_id=1, device=QuickIdle())
+    manager = TimerManager(track_id=1, device=QUICK_IDLE)
     manager._state = TimerState.RUNNING
 
     await manager.receive_bytes(b"  1    3.4")
@@ -210,7 +209,7 @@ async def test_reported_places_survive_a_tie_in_the_times():
     and the finish-line hardware still knows which was first. Deriving place by
     sorting those times calls it a tie and loses the answer the timer gave us.
     """
-    manager = TimerManager(track_id=1, device=MicroWizardDevice())
+    manager = TimerManager(track_id=1, device=MICROWIZARD)
     manager._state = TimerState.RUNNING
     manager._lane_mask = 0b11
 
@@ -223,7 +222,7 @@ async def test_reported_places_survive_a_tie_in_the_times():
 
 async def test_places_are_derived_when_the_device_reports_none():
     """Old-style output and the winner-marking format both leave lanes at 0."""
-    manager = TimerManager(track_id=1, device=MicroWizardDevice())
+    manager = TimerManager(track_id=1, device=MICROWIZARD)
     manager._state = TimerState.RUNNING
     manager._lane_mask = 0
 
@@ -243,7 +242,7 @@ async def test_a_partial_set_of_places_is_derived_rather_than_mixed():
     as well. A partial set says nothing about the lanes it omits, so the whole
     ordering comes from the times.
     """
-    manager = TimerManager(track_id=1, device=MicroWizardDevice())
+    manager = TimerManager(track_id=1, device=MICROWIZARD)
     manager._state = TimerState.RUNNING
     manager._lane_mask = 0
 
@@ -260,7 +259,7 @@ async def test_a_dnf_lane_does_not_make_the_reported_places_look_partial():
     It keeps place 0 either way, and must not drag the timed lanes into a
     recomputation by looking like a lane whose place is missing.
     """
-    manager = TimerManager(track_id=1, device=MicroWizardDevice())
+    manager = TimerManager(track_id=1, device=MICROWIZARD)
     manager._state = TimerState.RUNNING
     manager._lane_mask = 0
 

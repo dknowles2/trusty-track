@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from backend.db import crud, models, schemas
+from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
-from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -31,7 +31,7 @@ async def test_free_race_heat_recording_in_manager(db):
     )
     heat_id = heat.id
 
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=track.id, device=device)
 
     # Arm for the free race heat
@@ -101,7 +101,7 @@ async def test_official_heat_recording_in_manager(db):
     db.refresh(heat)
     heat_id = heat.id
 
-    device = FakeTimerDevice()
+    device = FAKE
     manager = TimerManager(track_id=track.id, device=device)
 
     await manager.prepare_heat(

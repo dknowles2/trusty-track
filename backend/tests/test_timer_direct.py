@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import serial
 
-from backend.services.timer.devices.microwizard import MicroWizardDevice
+from backend.services.timer.devices import MICROWIZARD
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -17,7 +17,7 @@ async def test_timer_manager_connect_direct_success():
     mock_serial.read.side_effect = [b"", b"Copyright (c) Micro Wizard\r\n", b""]
 
     with patch("serial.Serial", return_value=mock_serial):
-        device = MicroWizardDevice()
+        device = MICROWIZARD
         manager = TimerManager(track_id=1, device=device)
 
         await manager.connect_direct("/dev/ttyUSB0")
@@ -40,7 +40,7 @@ async def test_timer_manager_connect_direct_success():
 async def test_timer_manager_connect_direct_failure():
     """Verifies that connect_direct handles port opening failure."""
     with patch("serial.Serial", side_effect=Exception("Port busy")):
-        device = MicroWizardDevice()
+        device = MICROWIZARD
         manager = TimerManager(track_id=1, device=device)
 
         await manager.connect_direct("/dev/ttyUSB1")
@@ -59,7 +59,7 @@ async def test_timer_manager_read_loop_exception():
     mock_serial.read.side_effect = serial.SerialException("Device disconnected")
 
     with patch("serial.Serial", return_value=mock_serial):
-        device = MicroWizardDevice()
+        device = MICROWIZARD
         manager = TimerManager(track_id=1, device=device)
 
         await manager.connect_direct("/dev/ttyUSB0")
@@ -77,7 +77,7 @@ async def test_timer_manager_reset():
     """Verifies that reset clears buffers and transitions to IDLE."""
     from backend.services.timer.devices.base import LaneResult
 
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id=1, device=device)
     manager._state = TimerState.FAULT
     manager._active_heat_id = 99
