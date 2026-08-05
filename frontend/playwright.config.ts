@@ -1,16 +1,29 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+
+// Its own ports and its own database, so a functional run neither collides with
+// a dev server nor touches the operator's real data. Not 5173: the dev config
+// redirects that port to HTTPS, which is what made `npm run test:e2e` time out
+// waiting for a server that was answering a 301.
+const BACKEND_PORT = 8002;
+const FRONTEND_PORT = 5177;
+const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
+const TEST_DATA_DIR = '/tmp/trusty-track-e2e';
 
 export default defineConfig({
   testDir: './e2e/functional',
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: process.env.CI ? 'line' : 'html',
   use: {
-    baseURL: process.env.HTTPS_SERVER === 'true' ? 'https://localhost:5174' : 'http://localhost:5173',
+    baseURL: `http://localhost:${FRONTEND_PORT}`,
     trace: 'on-first-retry',
-    ignoreHTTPSErrors: true,
   },
   projects: [
     {
@@ -18,10 +31,31 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: process.env.HTTPS_SERVER === 'true' ? 'https://localhost:5174' : 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    ignoreHTTPSErrors: true,
-  },
+  // A real backend, not mocked GraphQL. The mocks this replaces were written
+  // before the normalized cache landed (#12) and answered without `__typename`,
+  // which graphcache cannot store — so the page rendered nothing and the only
+  // functional test failed, unnoticed, because nothing ran it.
+  webServer: [
+    {
+      command:
+        `rm -rf ${TEST_DATA_DIR} && mkdir -p ${TEST_DATA_DIR} && ` +
+        `uv run uvicorn backend.api.main:app --host 127.0.0.1 --port ${BACKEND_PORT}`,
+      url: `${BACKEND_URL}/health`,
+      reuseExistingServer: false,
+      cwd: PROJECT_ROOT,
+      env: {
+        TRUSTYTRACK_DATA_DIR: TEST_DATA_DIR,
+        PYTHONPATH: PROJECT_ROOT,
+      },
+    },
+    {
+      command: `npm run dev -- --port ${FRONTEND_PORT}`,
+      url: `http://localhost:${FRONTEND_PORT}`,
+      reuseExistingServer: false,
+      env: {
+        VITE_BACKEND_URL: BACKEND_URL,
+        VITE_BACKEND_SECURE: 'false',
+      },
+    },
+  ],
 });
