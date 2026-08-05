@@ -1,0 +1,102 @@
+name: Packaging
+
+# Only when the packaging actually changes. These are slow jobs on the two
+# expensive runners, and they would otherwise sit on every documentation PR.
+#
+# Before this existed, the desktop builds ran for the first time on a *tag* —
+# so a mistake in them was found by a release, or, in the Windows installer's
+# case, not found at all: it built cleanly for months while pointing every
+# shortcut it created at an executable no build produced.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "packaging/**"
+      - "pyproject.toml"
+      - ".github/workflows/packaging.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packaging/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  macos:
+    name: macOS App
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Unsigned: the signing identity is a release secret, and the point here
+      # is that the bundle builds and contains what it should.
+      - name: Build the app bundle
+        run: ./packaging/build-mac.sh --app-only
+
+      - name: Check the bundle is what the installer expects
+        run: |
+          APP="packaging/dist/TrustyTrack.app"
+          test -x "$APP/Contents/MacOS/trustytrack-server"
+          test -f "$APP/Contents/Info.plist"
+          # The frontend and the migrations are loaded from disk at runtime, so
+          # a bundle without them builds fine and dies on a user's machine.
+          test -d "$APP/Contents/Resources/frontend/dist" \
+            || test -d "$APP/Contents/Frameworks/frontend/dist"
+          test -d "$APP/Contents/Resources/backend/migrations" \
+            || test -d "$APP/Contents/Frameworks/backend/migrations"
+
+  windows:
+    name: Windows Installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      # The full installer, not just the executable: the Inno script is the
+      # part that was broken, and only compiling it proves it parses.
+      - name: Build the installer
+        run: powershell -ExecutionPolicy Bypass -File packaging\build-windows.ps1
+
+      - name: Check the installer was produced
+        shell: bash
+        run: |
+          ls dist/TrustyTrack-*-setup.exe
+          test -f packaging/dist/TrustyTrack/trustytrack-server.exe
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-unsigned
+          path: dist/TrustyTrack-*-setup.exe
+          retention-days: 7

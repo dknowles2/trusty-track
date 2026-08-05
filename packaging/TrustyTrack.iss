@@ -11,11 +11,16 @@
 #define MyAppName      "TrustyTrack"
 #define MyAppPublisher "Trusty Track"
 #define MyAppURL       "https://github.com/dknowles2/trusty-track"
-#define MyAppExeName   "TrustyTrack.exe"
 
-; Adjust these paths relative to where ISCC is called from (repo root)
-#define BundleDir      "..\packaging\dist\TrustyTrack"
-#define LauncherScript "..\packaging\launcher.py"
+; The executable PyInstaller actually produces — `name='trustytrack-server'`
+; in trustytrack.spec, plus Windows' .exe. This said "TrustyTrack.exe" for as
+; long as the installer has existed, so every shortcut it created, and the
+; "launch now" checkbox on the last page, pointed at a file that was never
+; built. `backend/tests/test_packaging.py` now holds the two names together.
+#define MyAppExeName   "trustytrack-server.exe"
+
+; Relative to this file, which lives in packaging/.
+#define BundleDir      "dist\TrustyTrack"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
@@ -33,8 +38,14 @@ OutputBaseFilename=TrustyTrack-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequired=admin
 MinVersion=10.0
+
+; Per-user by default: the app writes nothing outside %APPDATA%, and the person
+; installing it is often a volunteer on a school or church laptop without an
+; administrator password. `dialog` still offers a machine-wide install to
+; anyone who has one — with `lowest`, {autopf} resolves under %LOCALAPPDATA%.
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=commandline dialog
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -43,11 +54,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Server bundle (PyInstaller output)
+; The PyInstaller bundle, and nothing else. It used to also install
+; `launcher.py` — a Python *source* file, onto a machine with no interpreter,
+; next to a frozen executable that already starts the server, opens the browser
+; and puts an icon in the tray by itself.
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-
-; Launcher
-Source: "{#LauncherScript}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

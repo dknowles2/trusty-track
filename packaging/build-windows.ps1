@@ -1,4 +1,4 @@
-# Trusty Track — Windows build script
+# Trusty Track -- Windows build script
 #
 # Usage:
 #   .\packaging\build-windows.ps1             # produces dist\TrustyTrack-<version>-setup.exe
@@ -8,6 +8,12 @@
 #   - Python 3.10+
 #   - Node.js 18+
 #   - Inno Setup 6  (https://jrsoftware.org/isinfo.php)  -- not needed with -ExeOnly
+#
+# ASCII only, deliberately. Windows PowerShell 5.1 decodes a UTF-8 file with no
+# byte-order mark as Windows-1252, and the box-drawing characters that used to
+# separate these sections came back as three bytes, the middle one of which is a
+# smart closing quote. PowerShell treats that as a string delimiter, so the
+# script had never parsed on a stock Windows machine.
 #
 # Optional (code signing):
 #   - Set $env:SIGN_CERT_PATH and $env:SIGN_CERT_PASSWORD
@@ -24,7 +30,7 @@ $Venv      = Join-Path $ScriptDir ".build-venv"
 
 Set-Location $Root
 
-# ── Prerequisites ──────────────────────────────────────────────────────────────
+# -- Prerequisites --------------------------------------------------------------
 
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
     Write-Error "python not found."
@@ -35,7 +41,7 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-# ── 1. Isolated build venv ────────────────────────────────────────────────────
+# -- 1. Isolated build venv ----------------------------------------------------
 # Guarantees all deps from pyproject.toml are present for PyInstaller analysis.
 
 Write-Host "Setting up build venv..."
@@ -44,13 +50,15 @@ python -m venv $Venv
 & "$Venv\Scripts\pip.exe" install --quiet "$Root"
 & "$Venv\Scripts\pip.exe" install --quiet pyinstaller pyinstaller-hooks-contrib pystray
 
-$Version = & "$Venv\Scripts\python.exe" -c @"
-from backend.version import __version__; print(__version__)
-"@ 2>$null
+# Deliberately not a here-string. A here-string terminator has to be the first
+# thing on its line and the last; this one used to have a redirection after it,
+# which left the string unterminated and the whole script unparseable.
+$VersionExpr = 'from backend.version import __version__; print(__version__)'
+$Version = & "$Venv\Scripts\python.exe" -c $VersionExpr 2>$null
 if (-not $Version) { $Version = "0.0.0" }
 Write-Host "Building Trusty Track v$Version for Windows..."
 
-# ── 2. Frontend ───────────────────────────────────────────────────────────────
+# -- 2. Frontend ---------------------------------------------------------------
 
 Write-Host "Building frontend..."
 Set-Location "$Root\frontend"
@@ -58,28 +66,22 @@ npm ci --silent
 npm run build --silent
 Set-Location $Root
 
-# ── 3. App icon (.ico) ────────────────────────────────────────────────────────
+# -- 3. App icon (.ico) --------------------------------------------------------
 
 $LogoPng = "$Root\frontend\src\assets\logo_transparent.png"
 $IcoPath = "$ScriptDir\TrustyTrack.ico"
 
 if (Test-Path $LogoPng) {
     Write-Host "Generating app icon..."
-    & "$Venv\Scripts\python.exe" -c @"
-from PIL import Image
-img = Image.open(r'$LogoPng').convert('RGBA')
-sizes = [(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)]
-imgs = [img.resize(s, Image.LANCZOS) for s in sizes]
-imgs[0].save(r'$IcoPath', format='ICO', sizes=sizes, append_images=imgs[1:])
-"@
+    & "$Venv\Scripts\python.exe" "$ScriptDir\make_ico.py" $LogoPng $IcoPath
     $env:APP_ICON = $IcoPath
     Write-Host "Icon: $IcoPath"
 } else {
-    Write-Warning "Logo not found at $LogoPng — building without app icon"
+    Write-Warning "Logo not found at $LogoPng -- building without app icon"
     $env:APP_ICON = ""
 }
 
-# ── 4. PyInstaller ────────────────────────────────────────────────────────────
+# -- 4. PyInstaller ------------------------------------------------------------
 
 Write-Host "Building PyInstaller bundle..."
 Set-Location "$Root\packaging"
@@ -92,7 +94,7 @@ if (-not (Test-Path $ExeDir)) {
     exit 1
 }
 
-# ── 5. Optional code signing ──────────────────────────────────────────────────
+# -- 5. Optional code signing --------------------------------------------------
 
 if ($env:SIGN_CERT_PATH -and (Test-Path $env:SIGN_CERT_PATH)) {
     Write-Host "Code signing..."
@@ -108,7 +110,7 @@ if ($ExeOnly) {
     exit 0
 }
 
-# ── 6. Inno Setup installer ───────────────────────────────────────────────────
+# -- 6. Inno Setup installer ---------------------------------------------------
 
 $IsccPaths = @(
     "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
@@ -132,7 +134,7 @@ $env:APP_VERSION = $Version
 $env:ROOT_DIR    = $Root
 & $Iscc "$Root\packaging\TrustyTrack.iss" /DMyAppVersion=$Version
 
-# ── 7. Move output ────────────────────────────────────────────────────────────
+# -- 7. Move output ------------------------------------------------------------
 
 New-Item -ItemType Directory -Force -Path "$Root\dist" | Out-Null
 $InstallerSrc = "$Root\packaging\installer-output\TrustyTrack-setup.exe"

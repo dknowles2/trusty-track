@@ -3,6 +3,23 @@
 > **Built.** `packaging/` — `trustytrack.spec`, `build-mac.sh`,
 > `build-windows.ps1`, `TrustyTrack.iss` — and the two `docs/user/install-*`
 > pages.
+>
+> **There is no separate launcher (§4.3).** `run_server.py` is the whole
+> application: it starts uvicorn, waits for health, opens the browser, and puts
+> a menu-bar item on macOS or a tray icon on Windows. The `launcher.py` this
+> plan describes was written, superseded, and then kept — the Windows installer
+> was still shipping it as a *Python source file* onto machines with no
+> interpreter, next to the frozen executable that already did all of it. It has
+> been deleted.
+>
+> That same drift left the Windows installer pointing every shortcut at
+> `TrustyTrack.exe`, which no build produces; the executable is
+> `trustytrack-server.exe`. `backend/tests/test_packaging.py` now holds the
+> names together.
+>
+> **The app serves HTTPS**, with a certificate generated on first run, because
+> the camera and the barcode scanner need a secure context. Both install pages
+> said `http://`.
 
 ## Audience
 
