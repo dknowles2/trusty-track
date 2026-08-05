@@ -5,9 +5,10 @@ on:
     tags:
       - "v*.*.*"
 
+# Granted per job below rather than here: the test job needs neither, and the
+# release page and the registry are written by different steps.
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   # -------------------------------------------------------------------
@@ -58,6 +59,9 @@ jobs:
     name: Docker Image
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
@@ -66,9 +70,20 @@ jobs:
         run: |
           TAG="${GITHUB_REF_NAME}"           # e.g. v1.2.3
           VERSION="${TAG#v}"                  # 1.2.3
-          MINOR="${VERSION%.*}"               # 1.2
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+
+          # `latest` and the floating minor tag are what every install guide
+          # tells people to pull, so only a plain X.Y.Z may claim them. The tag
+          # glob that triggers this workflow also matches v1.2.3-rc1 — `*`
+          # happily matches `3-rc1` — and a release candidate taking over
+          # `latest` would hand it to everyone who followed the docs.
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "minor=${VERSION%.*}" >> "$GITHUB_OUTPUT"
+            echo "stable=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Pre-release $VERSION: publishing the exact version only."
+            echo "stable=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set version in version.py
         run: echo "__version__ = \"${{ steps.version.outputs.version }}\"" > backend/version.py
@@ -86,6 +101,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Built for this runner first and actually started, before anything is
+      # published. The image that shipped as v1.0.0 could not start at all —
+      # it had no /data directory and runs as a non-root user — and nothing
+      # noticed, because building an image proves only that it builds. The
+      # multi-arch build below reuses this layer cache, so it costs little.
+      - name: Build for smoke test
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: trustytrack:release-candidate
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the image
+        run: |
+          docker run -d --name tt-release -p 8000:8000 trustytrack:release-candidate
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then
+              echo "healthy"
+              docker rm -f tt-release
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the image never became healthy; not publishing it"
+          docker logs tt-release
+          docker rm -f tt-release
+          exit 1
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -94,8 +139,8 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/trusty-track:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/trusty-track:${{ steps.version.outputs.minor }}
-            ghcr.io/${{ github.repository_owner }}/trusty-track:latest
+            ${{ steps.version.outputs.stable == 'true' && format('ghcr.io/{0}/trusty-track:{1}', github.repository_owner, steps.version.outputs.minor) || '' }}
+            ${{ steps.version.outputs.stable == 'true' && format('ghcr.io/{0}/trusty-track:latest', github.repository_owner) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -234,6 +279,8 @@ jobs:
     name: Create GitHub Release
     needs: [docker, macos-dmg, windows-exe]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
