@@ -30,9 +30,11 @@ from .devices import DEFAULT_PROFILE, FAKE
 # from backend.api.schema import _publish_race_state
 from .devices.base import (
     DeviceError,
+    Event,
     GateClosed,
     GateOpen,
     GateWatcherUnsupported,
+    LaneCount,
     LaneResult,
     RaceStarted,
     TimerEvent,
@@ -98,9 +100,12 @@ class SerialLogEntry:
 class TimerStatus:
     state: str
     device_name: str | None
-    lane_count: int | None
-    active_heat_id: int | None
-    last_error: str | None
+    #: What is known about where this device description came from, and whether
+    #: anyone has run it. Most have not — see `devices/derbynet.py`.
+    device_provenance: str | None = None
+    lane_count: int | None = None
+    active_heat_id: int | None = None
+    last_error: str | None = None
     #: The serial port in use, once there is one. Worth surfacing because in
     #: backend-direct mode it is now usually *found* rather than configured
     #: (#89), and "which port did it pick" is otherwise unanswerable from the
@@ -153,6 +158,8 @@ class TimerManager:
         self._gate_watcher_off = False
         #: When the device last said anything, so polling can yield to it.
         self._last_rx: float = 0.0
+        #: Lanes the device says it has, when it says so at all.
+        self._reported_lane_count: int | None = None
         self._running_since: float | None = None
         self._event_lock = asyncio.Lock()
         self._serial_log: deque = deque(maxlen=MAX_SERIAL_LOG)
@@ -214,7 +221,10 @@ class TimerManager:
                 )
             )
             await pubsub.publish(f"timer_state:{self._track_id}", self.status())
-            await self._write_fn(cmd)
+            # The terminator is added here rather than baked into every
+            # command in a profile: acknowledgement matching, the echo check
+            # and the serial log all want the command as written.
+            await self._write_fn(self._device.wire(cmd))
             expected = self._device.expected_response_for(cmd)
             if expected is not None:
                 self._pending_acks.append((cmd, expected))
@@ -224,7 +234,14 @@ class TimerManager:
     # ------------------------------------------------------------------ #
 
     def status(self) -> TimerStatus:
-        lane_count = bin(self._lane_mask).count("1") if self._lane_mask else None
+        # The armed lanes, when a heat is armed; otherwise whatever the device
+        # said about itself, which is the only lane count there is before the
+        # first heat and the one worth checking against the track's setting.
+        lane_count = (
+            bin(self._lane_mask).count("1")
+            if self._lane_mask
+            else self._reported_lane_count
+        )
         pending = [
             {
                 "lane": r.lane,
@@ -236,6 +253,7 @@ class TimerManager:
         return TimerStatus(
             state=self._state.value,
             device_name=self._device.name,
+            device_provenance=self._device.provenance or None,
             port=self._direct_port,
             lane_count=lane_count,
             active_heat_id=self._active_heat_id,
@@ -625,6 +643,7 @@ class TimerManager:
                 # heat's results.
                 self._stop_gate_polling()
                 await self._transition(TimerState.RUNNING)
+                await self._send_for(Event.RACE_STARTED)
             else:
                 logger.warning(
                     "Timer %d: RaceStarted in unexpected state %s",
@@ -642,6 +661,7 @@ class TimerManager:
             if self._state == TimerState.ARMED and self._device.gate_state_is_knowable:
                 self._gate.reset(closed=True)
                 await self._transition(TimerState.READY)
+                await self._send_for(Event.GATE_CLOSED)
 
         elif isinstance(event, GateOpen):
             if self._state == TimerState.READY:
@@ -678,10 +698,33 @@ class TimerManager:
             if expected_lanes and expected_lanes.issubset(self._pending_results.keys()):
                 await self._record_results()
 
+        elif isinstance(event, LaneCount):
+            if event.lanes != self._reported_lane_count:
+                logger.info(
+                    "Timer %d: device reports %d lanes", self._track_id, event.lanes
+                )
+            self._reported_lane_count = event.lanes
+            await pubsub.publish(f"timer_state:{self._track_id}", self.status())
+
         elif isinstance(event, DeviceError):
             self._last_error = event.message
             logger.error("Timer %d device error: %s", self._track_id, event.message)
             await self._transition(TimerState.FAULT)
+
+    async def _send_for(self, trigger: Event) -> None:
+        """Send whatever the profile wants sent when ``trigger`` happens.
+
+        Most profiles want nothing. The ones that do are timers which have to
+        be *told* to report — "force the end of the race and send what you
+        have" when results are overdue — or which can only be reset once the
+        gate is closed.
+        """
+        commands = self._device.commands_for(trigger)
+        if commands:
+            logger.info(
+                "Timer %d: sending %s for %s", self._track_id, commands, trigger.value
+            )
+            await self._send_commands(commands)
 
     def _recalculate_places(self) -> None:
         """Give every timed lane a place, preferring the ones the device reported.
@@ -1026,7 +1069,7 @@ class TimerManager:
                     continue
 
                 self._gate_window_until = now + GATE_WINDOW_SECONDS
-                await self._write_fn(watcher.command)
+                await self._write_fn(self._device.wire(watcher.command))
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -1049,6 +1092,7 @@ class TimerManager:
                 return True
             if closed and self._state is TimerState.ARMED:
                 await self._transition(TimerState.READY)
+                await self._send_for(Event.GATE_CLOSED)
             elif not closed and self._state is TimerState.READY:
                 # The gate came back up without a start — somebody reloading,
                 # or a car pulled off the line. Back to merely armed.
@@ -1126,6 +1170,9 @@ class TimerManager:
                             )
                             self._running_since = None
                             await self._transition(TimerState.RESULTS_OVERDUE)
+                            # Most timers that can be asked to give up and
+                            # report what they have want telling here.
+                            await self._send_for(Event.RESULTS_OVERDUE)
 
                 if self._direct_port and (
                     not self._serial

@@ -37,6 +37,7 @@ const DIAGNOSTIC_TIMER_STATUS = gql`
       status {
         state
         deviceName
+        deviceProvenance
         port
         laneCount
         lastError
@@ -233,6 +234,27 @@ const TrackTimer: React.FC<{ track: Track }> = ({ track }) => {
                     )}
                 </dd>
             </dl>
+
+            {/*
+              Most device descriptions are adapted from DerbyNet and have never
+              been run against the hardware they describe. Saying so where the
+              operator can see it beats letting a name imply support.
+            */}
+            {status?.deviceProvenance && (
+                <p
+                    style={{
+                        background: '#fff8e1',
+                        border: '1px solid #ffe082',
+                        borderRadius: '8px',
+                        padding: '0.5rem 0.75rem',
+                        margin: '0 0 0.75rem',
+                        fontSize: '0.85rem',
+                        color: '#5d4037',
+                    }}
+                >
+                    {status.deviceProvenance}
+                </p>
+            )}
 
             {status?.lastError && (
                 <p

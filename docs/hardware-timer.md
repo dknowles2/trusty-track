@@ -11,13 +11,29 @@ If you have no timer, or you want to try the software first, use the
 ## What is supported
 
 **Micro Wizard K1, K2 and K3** — sold as the FastTrack K-series. This is the
-timer Trusty Track has been built against, and the only real device it
-currently knows how to talk to.
+timer Trusty Track has been built against.
 
-Other models are not supported yet. Adding one is a matter of describing its
-serial protocol rather than writing code for it, so if you have a timer that
-is not on this list, opening an issue with the model name and its protocol
-documentation is genuinely useful.
+Seven more are described, adapted from
+[DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions: the Derby
+Timer, Bert Drake, PDT, The Judge, "The Champ" (SmartLine/BestTrack), the JIT
+Racemaster, and the NewBold DT/TURBO/DerbyStick family. Five of those are
+detected automatically; the JIT Racemaster and NewBold have to be chosen,
+because they do not answer an identifying question.
+
+**None of the seven has ever been run against the hardware it describes**, and
+neither, strictly, has the Micro Wizard — the protocols come from documentation
+and from DerbyNet's long experience, but the code that reads them has only been
+tested against recorded data. The timer check page says as much for whichever
+device answers, and it is the honest state of things rather than false modesty:
+a description that is one character wrong fails by silently never matching.
+
+If you have one of these on a bench, the timer check page below will tell you
+in about a minute whether it works, and that report is worth more than anything
+else you could contribute right now.
+
+Other models are not supported. Adding one is a matter of describing its serial
+protocol rather than writing code for it, so opening an issue with the model
+name and its protocol documentation is genuinely useful.
 
 ## Two ways to connect
 

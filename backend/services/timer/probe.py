@@ -42,6 +42,11 @@ logger = logging.getLogger(__name__)
 #: handful of ports against a handful of profiles stays under a few seconds.
 RESPONSE_SECONDS = 0.6
 
+#: How long to let a device settle after its pre-probe command. DerbyNet's
+#: value; the timers that need a reset before they will talk also need time to
+#: come back from it.
+PRE_PROBE_SETTLE_SECONDS = 2.0
+
 #: Read size per poll. Banners are tens of bytes; this only bounds one read.
 CHUNK = 256
 
@@ -119,8 +124,16 @@ async def _banner_from(
     line is a generic manufacturer string is told apart from its siblings by
     the lines that follow, which is the whole reason the field is a sequence.
     """
+    # Some timers will not answer until they have been reset or woken, and
+    # then need a moment. The pause is why this is a separate field rather than
+    # two more probe commands.
+    if profile.pre_probe:
+        for command in profile.pre_probe:
+            await asyncio.to_thread(connection.write, profile.wire(command))
+        await asyncio.sleep(PRE_PROBE_SETTLE_SECONDS)
+
     for command in profile.probe:
-        await asyncio.to_thread(connection.write, command)
+        await asyncio.to_thread(connection.write, profile.wire(command))
 
     wanted = profile.identification
     seen = 0
