@@ -47,7 +47,18 @@ You only need to do this the first time you open the app.
 
 ## Step 4 — Use Trusty Track
 
-After opening the app, your browser will automatically open to **[http://localhost:8000](http://localhost:8000)**. If it doesn't open within 30 seconds, open your browser and go to that address manually.
+After opening the app, your browser will automatically open to **[https://localhost:8000](https://localhost:8000)**. If it doesn't open within 30 seconds, open your browser and go to that address manually.
+
+!!! warning "Your browser will warn you the first time"
+
+    Trusty Track serves **https://** using a certificate it generates on your
+    own machine. Browsers do not recognise it, so the first visit shows
+    "Your connection is not private" or similar.
+
+    Click **Advanced**, then **Proceed to localhost**. Nothing is leaving your
+    machine — the certificate exists so that the camera and the barcode scanner
+    work, which browsers only allow on a secure connection.
+
 
 The first time you run it, you'll see a setup wizard to configure your organization and track.
 
@@ -98,7 +109,7 @@ The app may be failing to start. Try:
 
 ### Browser doesn't open automatically
 
-Go to `http://localhost:8000` in your browser manually.
+Go to `https://localhost:8000` in your browser manually — note the **https**.
 
 ### App crashes on startup
 
