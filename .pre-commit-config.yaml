@@ -2,8 +2,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # Recorded timer sessions are vendored verbatim from DerbyNet and are
+      # captured device output, not source. Reformatting them makes them a
+      # slightly different recording than the one that was made, and trailing
+      # bytes on a protocol line can carry meaning.
       - id: trailing-whitespace
+        exclude: ^backend/tests/timer_recordings/.*\.playback$
       - id: end-of-file-fixer
+        exclude: ^backend/tests/timer_recordings/.*\.playback$
       - id: check-yaml
       - id: check-added-large-files
         exclude: ^(uv\.lock|frontend/package-lock\.json)$

@@ -44,8 +44,12 @@ _GATE_CLOSED = re.compile(rb"^>$")
 
 # Line 1 of the RV response: "Copyright (c) Micro Wizard 2002-2009"
 _COPYRIGHT = re.compile(rb"micro\s*wizard", re.IGNORECASE)
-# Line 2: "K2 Version 2.3A  Serial Number29284"
-_VERSION = re.compile(rb"^K\d\s+Version\s+\S+\s+Serial\s*Number\d+$", re.IGNORECASE)
+# Line 2, in the two forms real firmware produces:
+#   "K2 Version 2.3A  Serial Number29284"      (no space before the number)
+#   "K3 Version 1.05A  Serial Number 15985"    (a space, from a K3 recording)
+# The prober needs the whole banner to match in order, so demanding the digits
+# immediately after "Number" meant it could not identify a K3 at all.
+_VERSION = re.compile(rb"^K\d\s+Version\s+\S+\s+Serial\s*Number\s*\d+$", re.IGNORECASE)
 
 # 'AC' answers MG; '*' answers N1, N2, LR and the per-lane mask commands.
 _AC = re.compile(rb"^AC$")
@@ -57,8 +61,9 @@ MICROWIZARD = TimerProfile(
     key="microwizard",
     provenance=(
         "Written against the Micro Wizard protocol documentation and DerbyNet's "
-        "FastTrack profile. Exercised by the test suite against recorded byte "
-        "streams; not confirmed against the hardware itself."
+        "FastTrack profile, and checked against a recorded K3 session — its "
+        "banner, its lane masking and a six-lane result with two DNFs all read "
+        "correctly. Never driven live: no heat has been run through it."
     ),
     baud_rate=9600,
     delimiter=b"\r",
