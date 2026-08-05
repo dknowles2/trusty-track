@@ -6,7 +6,7 @@ import pytest
 
 from backend.api.main import TIMER_MANAGERS
 from backend.db import crud, models, schemas
-from backend.services.timer.devices.microwizard import MicroWizardDevice
+from backend.services.timer.devices import MICROWIZARD
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -29,7 +29,7 @@ def proxy_track(db):
 async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
     """Verifies the full WebSocket proxy handshake and message relaying."""
     track_id = proxy_track.id
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id, device)
     manager._active_heat_id = None  # clear any leaking state from previous tests
     TIMER_MANAGERS[track_id] = manager

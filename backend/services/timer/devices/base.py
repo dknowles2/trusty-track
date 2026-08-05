@@ -1,7 +1,38 @@
+"""A timer is described, not programmed.
+
+Every serial timer does the same handful of things: it identifies itself, it
+takes a few setup commands, it is told which lanes are in play, it says the
+gate moved, and it reports a lane's time. What differs between models is the
+bytes, not the shape — so a model is a :class:`TimerProfile` record rather than
+a subclass with its own parsing code.
+
+That matters for three reasons, all of them issue #89:
+
+* A prober can walk a list of profiles and try each one. It cannot walk a list
+  of classes whose identification logic is arbitrary Python.
+* Adding a model is adding data, which can be reviewed against a protocol
+  document. The MicroWizard driver it replaced was 208 lines of imperative
+  parsing for a device that this file expresses in about forty.
+* The differences that a class hierarchy hides — that one timer is 1200 baud
+  and 7 data bits, that another reports milliseconds — become fields, and a
+  field that no profile sets is visibly missing rather than silently defaulted.
+
+The browser-proxy path does *not* get a copy of this. The backend owns all
+protocol state and the browser is a wire: it needs the port parameters to open
+the port, which the WebSocket ``configure`` message carries, and nothing else.
+"""
+
+import logging
 import re
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import ClassVar
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# What a parsed message turns into
+# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -29,8 +60,140 @@ class DeviceError:
 TimerEvent = RaceStarted | LaneResult | GateClosed | DeviceError
 
 
-class TimerDevice(ABC):
-    name: ClassVar[str]
+class Event(str, Enum):
+    """What a matcher produces when its pattern matches."""
+
+    RACE_STARTED = "RACE_STARTED"
+    GATE_CLOSED = "GATE_CLOSED"
+    LANE_RESULT = "LANE_RESULT"
+    #: Recognised, and deliberately nothing. Identification banners and command
+    #: acknowledgements are traffic we understand and have no event for.
+    IGNORE = "IGNORE"
+    #: Recognised, and should not have arrived — an acknowledgement nobody was
+    #: waiting for. Same absence of an event, but worth a warning.
+    UNEXPECTED = "UNEXPECTED"
+
+
+# ---------------------------------------------------------------------------
+# Reading a captured group
+# ---------------------------------------------------------------------------
+
+#: Symbols the MicroWizard uses for places 1 to 6 in its "new format" output.
+PLACE_SYMBOLS: dict[bytes, int] = {
+    b"!": 1,
+    b'"': 2,
+    b"#": 3,
+    b"$": 4,
+    b"%": 5,
+    b"&": 6,
+}
+
+
+def lane_letter(raw: bytes) -> int:
+    """``A`` is lane 1. Used by timers that name lanes rather than number them."""
+    return raw.upper()[0] - ord("A") + 1
+
+
+def lane_number(raw: bytes) -> int:
+    return int(raw)
+
+
+def seconds(raw: bytes) -> float:
+    """A time already in seconds.
+
+    The strip handles the winner-marking ``!`` landing inside the captured
+    time in the older single-lane format, where the place symbol is not
+    separated from the digits.
+    """
+    return float(raw.strip(b"!").strip())
+
+
+def milliseconds(raw: bytes) -> float:
+    """A time reported as a whole number of milliseconds."""
+    return int(raw) / 1000.0
+
+
+def place_symbol(raw: bytes) -> int:
+    """A place written as one of ``!"#$%&``. Absent means unreported."""
+    return PLACE_SYMBOLS.get(raw, 0)
+
+
+def place_number(raw: bytes) -> int:
+    return int(raw)
+
+
+@dataclass(frozen=True)
+class Group:
+    """One captured group, and how to read it."""
+
+    index: int
+    read: Callable[[bytes], float]
+
+
+@dataclass(frozen=True)
+class Matcher:
+    """A pattern, the event it means, and where the event's values are.
+
+    Patterns are applied with :meth:`re.Pattern.search`, so an anchored pattern
+    behaves as a full-line match and an unanchored one finds its subject
+    anywhere in the line.
+    """
+
+    pattern: re.Pattern[bytes]
+    event: Event
+    lane: Group | None = None
+    time: Group | None = None
+    place: Group | None = None
+    #: Apply across the whole line rather than once, producing one event per
+    #: match. This is how a timer that reports every lane on a single line is
+    #: read: ``A=3.001! B=3.002" C=3.003#`` is three results, not one.
+    repeat: bool = False
+
+
+@dataclass(frozen=True)
+class Ack:
+    """The response a command is expected to draw.
+
+    Matched against the command as sent, so one entry can cover a family —
+    the MicroWizard's per-lane mask commands are ``MA`` through ``MP``.
+    """
+
+    command: re.Pattern[bytes]
+    response: re.Pattern[bytes]
+
+
+@dataclass(frozen=True)
+class HeatPrep:
+    """How to tell the timer which lanes are in play, and to arm.
+
+    ``unmask`` re-enables every lane; a ``mask`` command is then sent for each
+    lane that is *not* racing, named by offsetting ``first_lane``; ``arm`` puts
+    the timer in its ready state. Any of them may be empty for a timer that
+    does not support that step.
+    """
+
+    unmask: bytes = b""
+    mask: bytes = b""
+    first_lane: bytes = b"A"
+    arm: bytes = b""
+
+
+# ---------------------------------------------------------------------------
+# The profile
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TimerProfile:
+    """One timer model, described.
+
+    The methods are the interface ``TimerManager`` uses; they hold no
+    model-specific knowledge, only the rules for reading these fields.
+    """
+
+    name: str
+    #: Stable identifier, for storing a chosen profile and naming it in logs.
+    key: str
 
     # Port framing, in pyserial's vocabulary — the same four values the Web
     # Serial API takes, so the backend-direct and browser-proxy paths can both
@@ -38,61 +201,168 @@ class TimerDevice(ABC):
     # NewBold DT/TURBO/DerbyStick family runs at 1200 baud, 7 data bits and 2
     # stop bits, and opening its port at the defaults yields silent garbage
     # rather than a connection error.
-    baud_rate: ClassVar[int] = 9600
-    data_bits: ClassVar[int] = 8
-    stop_bits: ClassVar[float] = 1
-    parity: ClassVar[str] = "N"
+    baud_rate: int = 9600
+    data_bits: int = 8
+    stop_bits: float = 1
+    parity: str = "N"
 
-    delimiter: ClassVar[bytes] = b"\n"
-    gate_state_is_knowable: ClassVar[bool] = False
-    requires_serial: ClassVar[bool] = True
-    immediate_chars: ClassVar[list[bytes]] = []
-    # If set, the manager will transition to RESULTS_OVERDUE if no results are
-    # received within this many seconds of the race starting. None means no timeout.
-    result_timeout_seconds: ClassVar[float | None] = None
-    # How long to wait for a delimiter before treating the buffered bytes as a
-    # complete message anyway. Some timers omit the terminator on their final
-    # result, which otherwise leaves it in the buffer forever while the manager
-    # waits in RUNNING for a lane the device considers already reported.
-    # None disables the flush and waits for a delimiter indefinitely.
-    line_idle_timeout_seconds: ClassVar[float | None] = 0.2
+    #: Bytes that terminate a message.
+    delimiter: bytes = b"\n"
+    #: Bytes that are a whole message on their own, wherever they appear. A
+    #: gate signal arrives without waiting for a terminator, because the
+    #: information is worthless late.
+    immediate_chars: tuple[bytes, ...] = ()
+    #: False when the timer cannot say whether the start gate is closed, which
+    #: makes READY unreachable for it — see ``TimerManager._handle_event``.
+    gate_state_is_knowable: bool = False
+    #: False for the fake timer, which has no port to open.
+    requires_serial: bool = True
+    #: How lanes are numbered by the mask commands, when the real lane count is
+    #: not known.
+    max_lanes: int = 6
 
-    def expected_response_for(self, _command: bytes) -> "re.Pattern[bytes] | None":
-        """Return the regex pattern that should match the device's response to
-        the given command, or None if no acknowledgment is expected.
+    #: Transition to RESULTS_OVERDUE if no results arrive within this many
+    #: seconds of the race starting. None means wait indefinitely.
+    result_timeout_seconds: float | None = None
+    #: Treat buffered bytes as a complete message after this long without a
+    #: delimiter. Some timers omit the terminator on their final result, which
+    #: otherwise strands it in the buffer while the manager waits in RUNNING
+    #: for a lane the device considers already reported. None waits forever.
+    line_idle_timeout_seconds: float | None = 0.2
 
-        The pattern will be matched against the stripped, complete response line.
-        """
+    #: Sent on connect to draw an identifying response out of the device.
+    #: Empty for a device that announces itself unprompted.
+    probe: tuple[bytes, ...] = ()
+    #: Patterns that confirm this is the model in question, in the order the
+    #: device sends them. A prober matches the whole sequence, which is what
+    #: makes a two-line banner discriminating; a live connection watches only
+    #: for the first, since that is the line that says a device has appeared.
+    #: So the first pattern must be one no other model produces.
+    identification: tuple[re.Pattern[bytes], ...] = ()
+    #: Sent once after identification, to put the device into a known output
+    #: format.
+    setup: tuple[bytes, ...] = ()
+
+    heat_prep: HeatPrep = field(default_factory=HeatPrep)
+    #: Return the device to an idle state, abandoning an armed heat.
+    abort: tuple[bytes, ...] = ()
+    #: Demand results now, for a run whose finish was never detected.
+    force_results: tuple[bytes, ...] = ()
+
+    acks: tuple[Ack, ...] = ()
+    #: Tried in order, so a specific pattern must precede a general one.
+    matchers: tuple[Matcher, ...] = ()
+
+    # -- The interface TimerManager uses ------------------------------------
+
+    def expected_response_for(self, command: bytes) -> "re.Pattern[bytes] | None":
+        """The pattern this command's acknowledgement should match, if any."""
+        stripped = command.strip()
+        for ack in self.acks:
+            if ack.command.search(stripped):
+                return ack.response
         return None
 
-    @abstractmethod
     def identification_commands(self) -> list[bytes]:
-        """Bytes to send immediately after connecting, to probe identity."""
+        return list(self.probe)
 
-    @abstractmethod
     def is_identified_by(self, line: bytes) -> bool:
-        """Return True if line confirms this is the expected device."""
+        """Whether this one line announces the device.
 
-    @abstractmethod
+        Only the first identification pattern, not the whole sequence. The
+        later ones are informational — a MicroWizard's version and serial
+        number arrive on a second line, and treating that as an identification
+        in its own right would have the manager re-initialise a device that
+        was only finishing its banner.
+        """
+        if not self.identification:
+            return False
+        return self.identification[0].search(line) is not None
+
     def initialization_commands(self) -> list[bytes]:
-        """Commands sent once after identification (e.g. set output format)."""
+        return list(self.setup)
 
-    @abstractmethod
     def prepare_heat_commands(self, lane_mask: int) -> list[bytes]:
-        """Commands to arm the timer for a heat (reset + lane mask)."""
+        """Unmask every lane, mask out the ones not racing, then arm."""
+        prep = self.heat_prep
+        commands: list[bytes] = []
+        if prep.unmask:
+            commands.append(prep.unmask)
+        if prep.mask:
+            first = prep.first_lane[0]
+            commands += [
+                prep.mask + bytes([first + lane - 1])
+                for lane in range(1, self.max_lanes + 1)
+                if not lane_mask & (1 << (lane - 1))
+            ]
+        if prep.arm:
+            commands.append(prep.arm)
+        return commands
 
-    @abstractmethod
     def abort_commands(self) -> list[bytes]:
-        """Commands sent to put the device back into an idle/reset state."""
+        return list(self.abort)
 
     def force_results_commands(self) -> list[bytes]:
-        """Commands to demand result reporting from the device.
+        return list(self.force_results)
 
-        Sent when the operator triggers 'Force Results' (e.g. in RESULTS_OVERDUE).
-        Returns an empty list for devices that do not support this command.
-        """
-        return []
-
-    @abstractmethod
     def parse_line(self, line: bytes) -> "TimerEvent | list[TimerEvent] | None":
-        """Parse a complete message. Return a TimerEvent, a list of events, or None."""
+        """Read one complete message.
+
+        Returns the events it means, an empty list for traffic that is
+        recognised but carries no event, or ``None`` for a line no matcher
+        claims — a distinction ``TimerManager`` uses to tell an unidentified
+        device from a quiet one.
+        """
+        cleaned = line.strip()
+        if not cleaned:
+            return None
+
+        for matcher in self.matchers:
+            if matcher.repeat:
+                events = [
+                    self._event_from(matcher, match)
+                    for match in matcher.pattern.finditer(cleaned)
+                ]
+                found = [event for event in events if event is not None]
+                if found:
+                    return found
+                continue
+
+            match = matcher.pattern.search(cleaned)
+            if match is None:
+                continue
+            if matcher.event is Event.UNEXPECTED:
+                # In normal operation the manager's pending-ack queue consumes
+                # these before they reach here, so arriving means the device
+                # answered something nobody asked.
+                logger.warning("%s: unsolicited %r", self.name, cleaned)
+            event = self._event_from(matcher, match)
+            return [] if event is None else event
+
+        return None
+
+    def _event_from(
+        self, matcher: Matcher, match: "re.Match[bytes]"
+    ) -> "TimerEvent | None":
+        """Build the event a match means, or ``None`` for the silent ones."""
+        if matcher.event is Event.RACE_STARTED:
+            return RaceStarted()
+        if matcher.event is Event.GATE_CLOSED:
+            return GateClosed()
+        if matcher.event is Event.LANE_RESULT:
+            return LaneResult(
+                lane=int(_read(matcher.lane, match, 0)),
+                time_seconds=_read(matcher.time, match, 0.0),
+                place=int(_read(matcher.place, match, 0)),
+            )
+        return None
+
+
+def _read(group: Group | None, match: "re.Match[bytes]", default: float) -> float:
+    """Read a captured group, or fall back when the profile does not name one."""
+    if group is None:
+        return default
+    raw = match.group(group.index)
+    if not raw:
+        return default
+    return group.read(raw)

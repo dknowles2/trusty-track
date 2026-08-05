@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
 from backend.domain import lanes
+from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult
-from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -119,7 +119,7 @@ def _armed_manager(db: Session, heat) -> TimerManager:
     for lane_no in racer_by_lane:
         mask |= 1 << (lane_no - 1)
     return (
-        TimerManager(track_id=1, device=FakeTimerDevice(), session_factory=lambda: db),
+        TimerManager(track_id=1, device=FAKE, session_factory=lambda: db),
         racer_by_lane,
         mask,
     )
@@ -273,7 +273,7 @@ async def test_a_free_heat_with_nobody_assigned_still_records(db: Session):
     free = crud.create_free_race_heat(
         db, race.id, [{"lane": n, "racer_id": None} for n in range(1, 5)]
     )
-    mgr = TimerManager(track_id=1, device=FakeTimerDevice(), session_factory=lambda: db)
+    mgr = TimerManager(track_id=1, device=FAKE, session_factory=lambda: db)
     await mgr.prepare_heat(free.id, models.HeatKind.FREE, lane_mask=0b1111)
 
     await _finish(mgr)
@@ -295,7 +295,7 @@ async def test_arming_without_a_racer_mapping_still_records(db: Session):
     race, r1, _ = _setup(db, "nomap", extra_round=False)
     target = crud.get_heats(db, race.id, round_id=r1.id)[0]
 
-    mgr = TimerManager(track_id=1, device=FakeTimerDevice(), session_factory=lambda: db)
+    mgr = TimerManager(track_id=1, device=FAKE, session_factory=lambda: db)
     await mgr.prepare_heat(target.id, models.HeatKind.OFFICIAL, lane_mask=0b1111)
 
     await _finish(mgr)
@@ -341,7 +341,7 @@ class TestProactiveDisarm:
         }
         mgr = TimerManager(
             track_id=race.track_id,
-            device=FakeTimerDevice(),
+            device=FAKE,
             session_factory=lambda: db,
         )
         asyncio.run(

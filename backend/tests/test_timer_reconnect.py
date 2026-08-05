@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.services.timer.devices.microwizard import MicroWizardDevice
+from backend.services.timer.devices import MICROWIZARD
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -10,7 +10,7 @@ from backend.services.timer.state_machine import TimerState
 @pytest.mark.anyio
 async def test_microwizard_reconnect_stuck_check():
     """Reproduce the scenario where the timer might be stuck in CONNECTED."""
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
 
@@ -33,7 +33,7 @@ async def test_microwizard_reconnect_stuck_check():
 @pytest.mark.anyio
 async def test_microwizard_reconnect_with_active_heat():
     """Test reconnection when a heat is already active."""
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
 
@@ -60,7 +60,7 @@ async def test_microwizard_reconnect_with_active_heat():
 @pytest.mark.anyio
 async def test_microwizard_reconnect_stuck_with_garbage_data():
     """Reproduce potential stuck state where identification is delayed or obscured."""
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
 
@@ -92,8 +92,8 @@ async def test_microwizard_reconnect_stuck_with_garbage_data():
 @pytest.mark.anyio
 async def test_microwizard_reconnect_delimiter_mismatch():
     """Test what happens if the hardware sends \n but we expect \r\n."""
-    device = MicroWizardDevice()
-    # MicroWizardDevice.delimiter is b'\r\n'
+    device = MICROWIZARD
+    # the MicroWizard profile's delimiter is b'\r\n'
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
 
@@ -114,7 +114,7 @@ async def test_microwizard_reconnect_delimiter_mismatch():
 @pytest.mark.anyio
 async def test_microwizard_reboot_during_idle():
     """Test that an unsolicited ident line (reboot) triggers re-init."""
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
 
@@ -134,7 +134,7 @@ async def test_microwizard_reboot_during_idle():
 @pytest.mark.anyio
 async def test_microwizard_reboot_during_heat():
     """Test that a reboot during a heat transitions to CONNECTED then ARMED."""
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id=1, device=device)
     manager._send_commands = AsyncMock()
 

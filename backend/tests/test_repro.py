@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from backend.services.timer.devices.microwizard import MicroWizardDevice
+from backend.services.timer.devices import MICROWIZARD
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -11,7 +11,7 @@ from backend.services.timer.state_machine import TimerState
 async def test_repro_hang():
     print("Testing identification hang...")
     track_id = 1
-    device = MicroWizardDevice()
+    device = MICROWIZARD
     manager = TimerManager(track_id, device)
 
     # Mock write_fn

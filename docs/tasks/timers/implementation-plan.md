@@ -45,16 +45,16 @@ Timer Hardware ──── Web Serial API ──── Browser ──── WS 
 
 The browser opens the serial port using the Web Serial API and acts as a transparent byte pipe to
 the backend. The backend still owns all protocol logic; the frontend forwards raw bytes in both
-directions. This means the same `TimerManager` / `TimerDevice` code runs in both modes —
+directions. This means the same `TimerManager` / profile code runs in both modes —
 the only difference is how bytes arrive and where commands are written.
 
 #### Fake (`FAKE`)
 
 ```
-Browser ──── GraphQL mutations ──── Backend TimerManager (FakeTimerDevice)
+Browser ──── GraphQL mutations ──── Backend TimerManager (the FAKE profile)
 ```
 
-No serial port. `FakeTimerDevice` implements `TimerDevice` but skips connection/identification and
+No serial port. The fake timer is a profile like any other but skips connection/identification and
 starts in `IDLE` immediately. The frontend calls `fakeTimerStart` / `fakeTimerFinish` mutations;
 the backend drives the same state machine and records results the same way as real timers.
 
@@ -66,10 +66,10 @@ backend/timer/
   manager.py          TimerManager — one per active track
   state_machine.py    TimerState enum + transition logic
   devices/
-    __init__.py
-    base.py           Abstract TimerDevice interface + TimerEvent types
-    fake.py           FakeTimerDevice (no serial; driven by mutations)
-    microwizard.py    MicroWizard K1 driver
+    __init__.py       ALL_PROFILES registry + by_key lookup       (as built, #89)
+    base.py           TimerProfile record, Matcher, TimerEvent types
+    fake.py           FAKE (no serial; driven by mutations)
+    microwizard.py    MICROWIZARD profile
 
 backend/main.py       Add /ws/timer/{track_id} WebSocket endpoint; initialize TimerManagers
 backend/schema.py     Add timerStatus query + subscription; prepareHeat, abortHeat,
@@ -104,7 +104,7 @@ Not all devices can signal gate-close, so `ARMED` → `READY` is skipped when `g
 is false for the driver. In that case the state jumps directly from `ARMED` to `RUNNING` when the
 race starts.
 
-`FakeTimerDevice` sets `requires_serial = False` and `gate_state_is_knowable = False`. Its
+The fake profile sets `requires_serial = False` and `gate_state_is_knowable = False`. Its
 `TimerManager` is initialised in `IDLE` immediately at startup, bypassing `DISCONNECTED` /
 `CONNECTED` / identification entirely.
 
@@ -141,7 +141,7 @@ FAULT
   ──[reconnect attempt succeeds]──► CONNECTED
 ```
 
-For `FakeTimerDevice`, the two extra triggers are:
+For the fake profile, the two extra triggers are:
 
 - `inject_event(RaceStarted())` from the `fakeTimerStart` mutation: ARMED → RUNNING
 - `inject_event(LaneResult(...)) × N` from the `fakeTimerFinish` mutation: RUNNING → IDLE
@@ -162,7 +162,10 @@ this subscription rather than from props passed through the component tree.
 
 ## 4. Backend Design
 
-### 4.1 Abstract `TimerDevice` Interface (`backend/timer/devices/base.py`)
+### 4.1 Device Interface (`backend/timer/devices/base.py`)
+
+> As originally planned. The ABC below was replaced by a `TimerProfile` record in
+> issue #89 — see the departure note after the code.
 
 ```python
 class TimerDevice(ABC):
@@ -213,6 +216,49 @@ missing feature:
     otherwise strands it in the buffer while the manager waits in `RUNNING`
     for a lane the device considers reported.
 
+**Departure (issue #89): this ABC is gone.** A device is now a frozen
+`TimerProfile` record rather than a subclass — the fields above plus `probe`,
+`identification`, `setup`, `heat_prep`, `abort`, `force_results`, `acks` and
+`matchers`. The method names in the block above survive as methods *on the
+record*, holding only the rules for reading those fields, so `TimerManager` was
+not touched.
+
+The reason is that the plan's closing claim — "adding a new timer model
+requires only a new file in `backend/timer/devices/`" — was true and not
+sufficient. A subclass can identify a device with arbitrary Python, which means
+nothing else can. A prober has to walk a list of candidates and try each one,
+and it can only do that if identification, setup and parsing are data it can
+read. DerbyNet reached the same conclusion and carries fourteen models as
+`Profile` records.
+
+Concretely:
+
+-   `parse_line` is a tuple of `Matcher`s — a pattern, the event it means, and
+    which captured groups hold the lane, the time and the place. A `repeat`
+    matcher applies across the whole line, which is how one line reporting
+    every lane becomes one event per lane.
+-   Group readers (`lane_letter`, `lane_number`, `seconds`, `milliseconds`,
+    `place_symbol`, `place_number`) are named, so a timer that letters its
+    lanes or reports whole milliseconds is a different reader rather than a
+    different parser.
+-   `heat_prep` is `unmask` / `mask` / `first_lane` / `arm`, and the mask
+    commands are generated from `max_lanes`.
+-   `acks` pairs a command pattern with the response it should draw, so one
+    entry covers the MicroWizard's `MA` through `MP`.
+
+`backend/services/timer/devices/__init__.py` holds `ALL_PROFILES` — what a
+prober will walk — and `by_key`. The fake timer is deliberately outside it: it
+has no protocol to probe for.
+
+**What is not built:** the prober itself. `AUTO_DETECT_BACKEND` and
+`AUTO_DETECT_PROXY` still assume `DEFAULT_PROFILE`, and backend-direct still
+needs the serial port entered by hand. That is the rest of #89.
+
+**Not planned, contrary to the issue as filed:** exporting the profile set to
+the frontend. DerbyNet does that because their browser-side timer *is* the
+driver. Ours is a wire — the backend owns all protocol state, and the browser
+needs the port parameters, which the `configure` message already carries.
+
 `TimerEvent` is a dataclass union (defined in `base.py`):
 
 ```python
@@ -235,7 +281,10 @@ class DeviceError:
 TimerEvent = RaceStarted | LaneResult | GateClosed | DeviceError
 ```
 
-### 4.2 `FakeTimerDevice` (`backend/timer/devices/fake.py`)
+### 4.2 The fake timer (`backend/timer/devices/fake.py`)
+
+> As originally planned; now the `FAKE` profile record, with every field left at its
+> default. See the #89 departure note in 4.1.
 
 ```python
 class FakeTimerDevice(TimerDevice):
@@ -644,8 +693,8 @@ see the updated heat immediately. This is the same code path for both fake and r
 ### Phase 1 — Core Infrastructure + Fake Timer Refactor
 
 1. ✅ Create `backend/timer/` package with `state_machine.py` and `devices/base.py`.
-2. ✅ Implement `FakeTimerDevice` in `devices/fake.py`.
-3. ✅ Implement `MicroWizardDevice` in `devices/microwizard.py` with full command/parse logic.
+2. ✅ Implement the fake timer in `devices/fake.py`.
+3. ✅ Implement the MicroWizard in `devices/microwizard.py` (now a profile record, #89).
 4. ✅ Implement `TimerManager` in `manager.py` with byte framing, `inject_event`, state machine
    integration, and result recording. Fake timer managers start in IDLE immediately.
 5. ✅ Add `timerStatus` GraphQL query + subscription.
@@ -654,7 +703,7 @@ see the updated heat immediately. This is the same code path for both fake and r
    state from `timerStatus` subscription. `FreeRaceExecution.tsx` and `FreeRaceTab.tsx` updated.
 8. ✅ Add `TimerStatusBadge.tsx` and render it in `RaceExecution` for all timer types.
 9. ✅ Write unit tests for:
-   - `MicroWizardDevice.parse_line` with real sample output strings
+   - the MicroWizard's `parse_line` with real sample output strings
    - `TimerManager` byte-framing and state transitions (in-memory byte feed, no hardware)
    - `fakeTimerFinish` result generation (lane count, placement ordering)
    - 26 tests total, all passing
@@ -708,5 +757,8 @@ see the updated heat immediately. This is the same code path for both fake and r
   another, so the question is about the results in hand rather than about the device.
 - **DNF handling**: A lane result with `time = 0.000` means DNF in DerbyNet's convention. Decide
   whether to store `None` or `0.0` in `lane_results` JSON and update scoring logic accordingly.
-- **Future devices**: Adding a new timer model requires only a new file in
-  `backend/timer/devices/`. No changes to `TimerManager`, `main.py`, or the frontend are needed.
+- **Future devices** — *revisited in issue #89.* Adding a model does require only a new file,
+  and that turned out not to be the bar: a subclass identifies its device with arbitrary
+  Python, so nothing else can, and a port prober needs to try candidates in turn. A model
+  is now a `TimerProfile` record. `TimerManager`, `main.py` and the frontend are still
+  untouched by adding one.

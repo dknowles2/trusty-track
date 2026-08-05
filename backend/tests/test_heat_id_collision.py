@@ -19,8 +19,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from backend.db import crud, models, schemas
+from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
-from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -110,7 +110,7 @@ async def test_a_free_race_run_leaves_official_heats_alone(db):
         ],
     )
 
-    manager = TimerManager(track_id=track.id, device=FakeTimerDevice())
+    manager = TimerManager(track_id=track.id, device=FAKE)
     await manager.prepare_heat(
         heat_id=free.id, kind=models.HeatKind.FREE, lane_mask=0b11
     )
@@ -150,7 +150,7 @@ async def test_an_official_run_leaves_free_heats_alone(db):
     )
     official = _official_heat(db, race, racers)
 
-    manager = TimerManager(track_id=track.id, device=FakeTimerDevice())
+    manager = TimerManager(track_id=track.id, device=FAKE)
     await manager.prepare_heat(
         heat_id=official.id, kind=models.HeatKind.OFFICIAL, lane_mask=0b11
     )
@@ -190,7 +190,7 @@ async def test_recording_reads_the_kind_off_the_heat(db):
         db, race.id, [{"lane": 1, "racer_id": racers[0].id}]
     )
 
-    manager = TimerManager(track_id=track.id, device=FakeTimerDevice())
+    manager = TimerManager(track_id=track.id, device=FAKE)
     # Deliberately the wrong kind.
     await manager.prepare_heat(
         heat_id=free.id, kind=models.HeatKind.OFFICIAL, lane_mask=0b1

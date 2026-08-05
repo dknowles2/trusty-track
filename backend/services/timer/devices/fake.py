@@ -1,35 +1,16 @@
-from .base import TimerDevice, TimerEvent
+"""A timer that is never on the other end of a serial port.
 
+Every field is left at its default, because there is no protocol: results come
+from the ``fakeTimerStart`` and ``fakeTimerFinish`` mutations driving the
+manager directly, not from parsed bytes. ``requires_serial=False`` is what
+makes ``TimerManager`` skip connection and identification and start in IDLE.
+"""
 
-class FakeTimerDevice(TimerDevice):
-    """A device that is never on the other end of a serial port.
+from .base import TimerProfile
 
-    Every method here is a stub honouring :class:`TimerDevice`, so the
-    parameters are part of the interface rather than of any implementation —
-    hence the ``ARG002`` suppressions. Results come from ``fakeTimerStart`` /
-    ``fakeTimerFinish`` driving the manager directly, not from parsed bytes.
-    """
-
-    name = "Fake Timer"
-    baud_rate = 0
-    delimiter = b"\n"
-    gate_state_is_knowable = False
-    requires_serial = False  # TimerManager skips connection; starts in IDLE
-
-    def identification_commands(self) -> list[bytes]:
-        return []
-
-    def is_identified_by(self, line: bytes) -> bool:  # noqa: ARG002
-        return False
-
-    def initialization_commands(self) -> list[bytes]:
-        return []
-
-    def prepare_heat_commands(self, lane_mask: int) -> list[bytes]:  # noqa: ARG002
-        return []
-
-    def abort_commands(self) -> list[bytes]:
-        return []
-
-    def parse_line(self, line: bytes) -> "TimerEvent | None":  # noqa: ARG002
-        return None
+FAKE = TimerProfile(
+    name="Fake Timer",
+    key="fake",
+    baud_rate=0,
+    requires_serial=False,
+)

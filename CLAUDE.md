@@ -367,7 +367,20 @@ Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.g
 
 ### Timer integration
 
-One `TimerManager` per track, created at startup in `main.py`'s lifespan. Devices implement `services/timer/devices/base.py`. Three connectivity modes: fake, backend-direct serial, and browser-proxied serial over WebSocket. The manager owns byte framing, the state machine, and result recording, and publishes state through `pubsub`.
+One `TimerManager` per track, created at startup in `main.py`'s lifespan. Three connectivity modes: fake, backend-direct serial, and browser-proxied serial over WebSocket. The manager owns byte framing, the state machine, and result recording, and publishes state through `pubsub`.
+
+**A timer model is data, not a subclass** (#89). `TimerProfile` in `services/timer/devices/base.py` is a frozen record: port framing, identification banner, setup commands, `HeatPrep`, `acks`, and a tuple of `Matcher`s pairing a pattern with the event it means and the captured groups holding lane, time and place. Its methods hold only the rules for reading those fields, which is why `TimerManager` never had to change. **Add a device by adding a record to `devices/`, not a class** — a subclass identifies its device with arbitrary Python, and a prober that walks `ALL_PROFILES` trying each candidate cannot read arbitrary Python. That is what the old ABC made impossible.
+
+Two things worth knowing before editing a profile:
+
+- **Matcher order is priority**, and `repeat=True` applies a matcher across the whole line — that is how one line reporting every lane becomes one event per lane.
+- **`identification` is an ordered sequence, but `is_identified_by` uses only the first.** The rest of a banner is informational; treating a version line as an identification in its own right makes the manager re-initialise a device that was still finishing its greeting.
+
+**`parse_line` returning `[]` and returning `None` are different answers.** Empty means "recognised, no event", which is what lets a connection leave `CONNECTED`; `None` means nothing claimed the line.
+
+**The browser-proxy path gets no copy of the profiles.** The backend owns all protocol state and the browser is a wire — it needs the port parameters, which the WebSocket `configure` message carries, and nothing else. DerbyNet ships its profile set to the browser because *their* browser-side timer is the driver; ours is not.
+
+**Neither auto-detect mode detects anything yet.** `AUTO_DETECT_BACKEND` and `AUTO_DETECT_PROXY` both assume `DEFAULT_PROFILE`, and backend-direct needs the serial port entered by hand. The prober is the rest of #89.
 
 **`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
 

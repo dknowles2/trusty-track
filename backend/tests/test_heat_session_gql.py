@@ -4,7 +4,7 @@
 heat and the timer both reach it, that the timer used is the one for the track
 asked about, and that a heat id naming nothing is answered rather than raised.
 
-The timer here is a real `TimerManager` over `FakeTimerDevice` driven by
+The timer here is a real `TimerManager` over `the fake timer profile` driven by
 injected events, not a mock. Pending results only exist as a side effect of the
 manager's state machine, and a stubbed status would prove the resolver reads a
 stub.
@@ -17,8 +17,8 @@ from fastapi.testclient import TestClient
 
 from backend.api.main import TIMER_MANAGERS, app
 from backend.db import crud, models, schemas
+from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
-from backend.services.timer.devices.fake import FakeTimerDevice
 from backend.services.timer.manager import TimerManager
 
 client = TestClient(app)
@@ -65,7 +65,7 @@ def registered_manager():
     TIMER_MANAGERS.clear()
 
     def register(track_id: int) -> TimerManager:
-        manager = TimerManager(track_id=track_id, device=FakeTimerDevice())
+        manager = TimerManager(track_id=track_id, device=FAKE)
         TIMER_MANAGERS[track_id] = manager
         return manager
 
