@@ -104,6 +104,15 @@ Not all devices can signal gate-close, so `ARMED` → `READY` is skipped when `g
 is false for the driver. In that case the state jumps directly from `ARMED` to `RUNNING` when the
 race starts.
 
+**Departure (issue #89): `CONNECTED` → `IDLE` needed a nudge.** As built, the transition waited for
+the device to volunteer an identifying line, and on the ordinary path it never does. `handle_connect`
+sends the setup commands, the device acknowledges them, and the manager's pending-ack queue consumes
+those acknowledgements with an early return — so a present, initialised, working MicroWizard sits in
+`CONNECTED` and the operator's badge reads "Connecting…" until the first heat is armed. The watchdog
+was meant to cover this by resending `identification_commands()`, which is empty for every profile we
+ship: it sent nothing, once a second, forever. `TimerManager.nudge_if_unidentified` now sends the
+profile's `probe` instead, backing off between attempts and never while a heat is armed.
+
 The fake profile sets `requires_serial = False` and `gate_state_is_knowable = False`. Its
 `TimerManager` is initialised in `IDLE` immediately at startup, bypassing `DISCONNECTED` /
 `CONNECTED` / identification entirely.
