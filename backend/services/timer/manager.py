@@ -23,6 +23,7 @@ from backend.db import crud, models
 from backend.db.database import SessionLocal
 from backend.domain import lanes
 
+from . import probe
 from .devices import DEFAULT_PROFILE, FAKE
 
 # Circular import handled by importing inside methods or using full module path
@@ -769,8 +770,82 @@ class TimerManager:
         await self._transition(TimerState.IDLE)
 
     # ------------------------------------------------------------------ #
-    # Phase 2 stub                                                         #
+    # Backend-direct serial                                                #
     # ------------------------------------------------------------------ #
+
+    async def autodetect(self) -> str | None:
+        """Find a timer on some USB serial port and connect to it.
+
+        What ``AUTO_DETECT_BACKEND`` was named for. Returns the port it settled
+        on, or ``None`` — in which case the reason is on the status as
+        ``last_error``, because a track whose timer was not found looks exactly
+        like a track whose timer is unplugged and the operator deserves to be
+        told which.
+        """
+        ports = probe.usb_ports()
+        if not ports:
+            await self._detection_failed("No USB serial ports found")
+            return None
+
+        logger.info("Timer %d: probing %s", self._track_id, ", ".join(ports))
+        detection = await probe.detect(ports)
+        if detection is None:
+            await self._detection_failed(
+                f"No timer answered on {', '.join(ports)}. "
+                f"Check the cable, or set the serial port by hand."
+            )
+            return None
+
+        await self.adopt(detection)
+        return detection.port
+
+    async def _detection_failed(self, reason: str) -> None:
+        logger.warning("Timer %d: %s", self._track_id, reason)
+        self._last_error = reason
+        await self._transition(TimerState.DISCONNECTED)
+        await pubsub.publish(f"timer_state:{self._track_id}", self.status())
+
+    async def adopt(self, detection: "probe.Detection") -> None:
+        """Take over the port a probe found, already open and already identified.
+
+        Straight to IDLE, skipping CONNECTED. The probe has seen the banner,
+        and it is the only greeting the device is going to send — reopening the
+        port to go through the normal handshake would leave the manager waiting
+        for something that already happened.
+        """
+        async with self._event_lock:
+            await self.stop()
+
+            self._device = detection.profile
+            self._direct_port = detection.port
+            self._serial = detection.connection  # type: ignore[assignment]
+            self._buf = b""
+            self._last_error = None
+
+            self.set_write_fn(self._make_serial_writer())
+            self._read_task = asyncio.create_task(self._read_loop())
+            if not self._watchdog_task:
+                self._watchdog_task = asyncio.create_task(self._watchdog_loop())
+
+            await self._send_commands(self._device.initialization_commands())
+            await self._transition(TimerState.IDLE)
+
+            logger.info(
+                "Timer %d: adopted %s on %s",
+                self._track_id,
+                detection.profile.name,
+                detection.port,
+            )
+
+    def _make_serial_writer(self) -> Callable[[bytes], Awaitable[None]]:
+        async def send_to_serial(data: bytes) -> None:
+            if self._serial and self._serial.is_open:
+                try:
+                    await asyncio.to_thread(self._serial.write, data)
+                except Exception as e:
+                    logger.error("Timer %d write error: %s", self._track_id, e)
+
+        return send_to_serial
 
     async def connect_direct(self, port: str) -> None:
         """Open a serial port and begin reading."""
@@ -804,14 +879,7 @@ class TimerManager:
                     self._watchdog_task = asyncio.create_task(self._watchdog_loop())
                 return
 
-            async def send_to_serial(data: bytes) -> None:
-                if self._serial and self._serial.is_open:
-                    try:
-                        await asyncio.to_thread(self._serial.write, data)
-                    except Exception as e:
-                        logger.error("Timer %d write error: %s", self._track_id, e)
-
-            self.set_write_fn(send_to_serial)
+            self.set_write_fn(self._make_serial_writer())
             await self.handle_connect()
 
             # Start background read task
@@ -952,8 +1020,10 @@ async def initialize_timer_managers(
             if track.timer_type == models.TimerType.FAKE:
                 device = FAKE
             else:
-                # AUTO_DETECT_BACKEND / AUTO_DETECT_PROXY: use MicroWizard as the
-                # target device; real connection logic is wired in Phase 2/3.
+                # The starting assumption for both auto-detect modes. In
+                # backend-direct mode a probe replaces it below with whatever
+                # actually answered; the proxy path has no probe yet, so there
+                # it stays the assumption (issue #89).
                 device = DEFAULT_PROFILE
 
             manager = TimerManager(track.id, device, session_factory=session_factory)
@@ -965,11 +1035,12 @@ async def initialize_timer_managers(
                 device.name,
             )
 
-            # Start connection automatically if in direct-backend mode
-            if (
-                track.timer_type == models.TimerType.AUTO_DETECT_BACKEND
-                and track.serial_port
-            ):
-                asyncio.create_task(manager.connect_direct(track.serial_port))
+            # Start connecting if in direct-backend mode. A port configured by
+            # hand is honoured as given; without one, go and find the timer.
+            if track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+                if track.serial_port:
+                    asyncio.create_task(manager.connect_direct(track.serial_port))
+                else:
+                    asyncio.create_task(manager.autodetect())
     finally:
         db.close()

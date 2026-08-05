@@ -136,18 +136,18 @@ export default function SystemConfig() {
       } else {
         result = await createInitialConfig(variables);
       }
-      
+
       if (result.error) {
         throw result.error;
       }
 
-      
+
       // We can't easily use useClient() here unless we change the component to use it,
       // but we can trust that the mutation result being successful means the backend is ready.
       // but we can trust that the mutation result being successful means the backend is ready.
       // To be absolutely safe against race conditions, we'll wait a brief moment.
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       navigate('/');
     } catch (err: unknown) {
       const e = err as { message?: string };
@@ -164,7 +164,7 @@ export default function SystemConfig() {
     <div className="container">
       <h1>{isEditing ? 'System Settings' : 'Initial Setup'}</h1>
       <p>{isEditing ? 'Update your racing environment settings.' : "Welcome to Trusty Track! Let's set up your racing environment."}</p>
-      
+
       {error && <div style={{ color: 'var(--error)', marginBottom: '1rem', padding: '0.5rem', border: '1px solid var(--error)', borderRadius: '4px' }}>{error}</div>}
 
       <form onSubmit={handleSubmit} style={{ maxWidth: '600px' }}>
@@ -197,8 +197,8 @@ export default function SystemConfig() {
         {tracks.map((track, index) => (
           <div key={index} style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #ddd', borderRadius: '8px', background: '#f9f9f9', position: 'relative' }}>
             {tracks.length > 1 && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => removeTrack(index)}
                 style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '1.2rem' }}
                 title="Remove Track"
@@ -206,7 +206,7 @@ export default function SystemConfig() {
                 &times;
               </button>
             )}
-            
+
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Track Name</label>
               <input
@@ -260,23 +260,32 @@ export default function SystemConfig() {
 
             {track.timerType === 'AUTO_DETECT_BACKEND' && (
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Serial Port</label>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Serial Port <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span></label>
+                {/*
+                  Deliberately not `required`. Leaving it blank is now the
+                  normal case: the server finds the timer by probing the USB
+                  serial ports. A device path is the escape hatch for a timer
+                  on a built-in serial port, which is never probed.
+                */}
                 <input
                   type="text"
                   value={track.serialPort || ''}
                   onChange={(e) => handleTrackChange(index, 'serialPort', e.target.value)}
-                  required
-                  placeholder="e.g. /dev/ttyUSB0 or COM3"
+                  placeholder="Leave blank to detect automatically"
                   style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
-                <small style={{ color: '#666' }}>The device path where the timer is connected to the server.</small>
+                <small style={{ color: '#666' }}>
+                  Leave this blank and the server will look for the timer on each USB port when it
+                  starts. Fill it in only if your timer is on a built-in serial port, or you need to
+                  point at one particular device — for example <code>/dev/ttyUSB0</code> or <code>COM3</code>.
+                </small>
               </div>
             )}
           </div>
         ))}
 
-        <button 
-          type="button" 
+        <button
+          type="button"
           onClick={addTrack}
           className="secondary-btn"
           style={{ marginBottom: '2rem', display: 'block', width: '100%' }}
@@ -291,11 +300,11 @@ export default function SystemConfig() {
 
       <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
         <p>
-          Trusty Track v{data?.initialConfig?.version || '0.0.0'} &bull; 
-          <a 
-            href="https://github.com/dknowles2/trusty-track" 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          Trusty Track v{data?.initialConfig?.version || '0.0.0'} &bull;
+          <a
+            href="https://github.com/dknowles2/trusty-track"
+            target="_blank"
+            rel="noopener noreferrer"
             style={{ marginLeft: '0.5rem', color: 'var(--primary)', textDecoration: 'none' }}
           >
             GitHub

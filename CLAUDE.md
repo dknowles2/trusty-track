@@ -380,7 +380,12 @@ Two things worth knowing before editing a profile:
 
 **The browser-proxy path gets no copy of the profiles.** The backend owns all protocol state and the browser is a wire — it needs the port parameters, which the WebSocket `configure` message carries, and nothing else. DerbyNet ships its profile set to the browser because *their* browser-side timer is the driver; ours is not.
 
-**Neither auto-detect mode detects anything yet.** `AUTO_DETECT_BACKEND` and `AUTO_DETECT_PROXY` both assume `DEFAULT_PROFILE`, and backend-direct needs the serial port entered by hand. The prober is the rest of #89.
+**`AUTO_DETECT_BACKEND` detects; `AUTO_DETECT_PROXY` still does not.** `services/timer/probe.py` walks every USB serial port against every profile with a `probe` command and an `identification` banner, and `TimerManager.autodetect()` adopts what answers. Proxy mode assumes `DEFAULT_PROFILE`, because probing there means having the browser reopen the port per candidate.
+
+- **`probe` and `on_connect` are different fields on purpose.** `probe` fires only from the prober, with nothing connected and no heat running; `on_connect` fires on every reconnect, including mid-event. The MicroWizard sends `RV` for the former and nothing for the latter — `RV` on every connect is what caused the re-initialization loop removed in `9f09cee`.
+- **A probe hands over its open port**, and `adopt()` goes straight to `IDLE`. Reopening would lose the banner the device just sent and strand the manager in `CONNECTED`.
+- **A hand-configured `Track.serial_port` is never probed** — used exactly as given. Go through `_start_backend_direct` in `schema.py` rather than calling `connect_direct`/`autodetect` directly; there are four call sites and #48 is the standing reminder about rules that land on only some of them.
+- **The suite must never touch real hardware.** `conftest.py`'s autouse `no_real_serial_ports` stubs both `probe.usb_ports` and `probe.open_serial`. Tests that exercise probing pass their own `open_port` to `probe.detect`.
 
 **`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
 

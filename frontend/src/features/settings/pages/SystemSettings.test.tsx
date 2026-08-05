@@ -48,7 +48,7 @@ describe('SystemSettings', () => {
 
         // Initially one track - wait for loading to finish
         expect(await screen.findByPlaceholderText('e.g. Main Track')).toBeInTheDocument();
-        
+
         // Add another track
         const addButton = screen.getByText('+ Add Another Track');
         fireEvent.click(addButton);
@@ -84,11 +84,11 @@ describe('SystemSettings', () => {
 
         // Try to remove the only track - there should be no remove button if only one track
         expect(screen.queryByTitle('Remove Track')).not.toBeInTheDocument();
-        
+
         // Add one, then remove one
         fireEvent.click(screen.getByText('+ Add Another Track'));
         expect(screen.getAllByTitle('Remove Track').length).toBe(2);
-        
+
         fireEvent.click(screen.getAllByTitle('Remove Track')[0]);
         expect(screen.queryByTitle('Remove Track')).not.toBeInTheDocument();
     });
@@ -117,7 +117,7 @@ describe('SystemSettings', () => {
         );
 
         await user.type(await screen.findByLabelText('Organization Name'), 'Test Pack');
-        
+
         // Edit first track
         const trackNameInputs = screen.getAllByPlaceholderText('e.g. Main Track');
         await user.clear(trackNameInputs[0]);
@@ -127,7 +127,7 @@ describe('SystemSettings', () => {
         await user.click(screen.getByText('+ Add Another Track'));
         // Wait for new input to appear
         await waitFor(() => expect(screen.getAllByPlaceholderText('e.g. Main Track').length).toBe(2));
-        
+
         const newTrackNameInputs = screen.getAllByPlaceholderText('e.g. Main Track');
         await user.clear(newTrackNameInputs[1]);
         await user.type(newTrackNameInputs[1], 'Slow Track');
@@ -144,9 +144,52 @@ describe('SystemSettings', () => {
                 ]
             }
         });
-        
+
         await waitFor(() => {
             expect(mockNavigate).toHaveBeenCalledWith('/');
         });
+    });
+    it('saves a backend-connected track with no serial port, so the server can find it', async () => {
+        // The serial port field used to be `required`, which made the whole
+        // auto-detection path unreachable from the UI: the operator could not
+        // submit the form without typing a device path, which is the thing
+        // probing exists to avoid (issue #89).
+        const user = (await import('@testing-library/user-event')).default.setup();
+        const mockCreateMutation = vi.fn().mockResolvedValue({ data: {} });
+
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { initialized: false, groupName: '', tracks: [] } },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) => {
+            if (query.includes('mutation CreateInitialConfig')) {
+                return [{ fetching: false }, mockCreateMutation];
+            }
+            return [{ fetching: false }, vi.fn()];
+        });
+
+        render(
+            <MemoryRouter>
+                <SystemSettings />
+            </MemoryRouter>
+        );
+
+        await user.type(await screen.findByLabelText('Organization Name'), 'Test Pack');
+
+        const timerType = screen.getByDisplayValue('Fake Timer (Manual Control)');
+        await user.selectOptions(timerType, 'AUTO_DETECT_BACKEND');
+
+        // The field appears, and is left empty.
+        const port = await screen.findByPlaceholderText('Leave blank to detect automatically');
+        expect(port).not.toBeRequired();
+        expect(port).toHaveValue('');
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockCreateMutation).toHaveBeenCalled());
+        const { config } = mockCreateMutation.mock.calls[0][0];
+        expect(config.tracks[0].timerType).toBe('AUTO_DETECT_BACKEND');
+        expect(config.tracks[0].serialPort).toBeFalsy();
     });
 });

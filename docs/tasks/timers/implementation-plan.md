@@ -250,9 +250,30 @@ Concretely:
 prober will walk — and `by_key`. The fake timer is deliberately outside it: it
 has no protocol to probe for.
 
-**What is not built:** the prober itself. `AUTO_DETECT_BACKEND` and
-`AUTO_DETECT_PROXY` still assume `DEFAULT_PROFILE`, and backend-direct still
-needs the serial port entered by hand. That is the rest of #89.
+**Also #89: `AUTO_DETECT_BACKEND` now detects.** `services/timer/probe.py`
+walks every USB serial port against every profile that can be probed for,
+opening each port with that profile's framing, sending its probe command and
+watching for its banner. `TimerManager.autodetect()` adopts what it finds.
+
+Three things that fell out of building it:
+
+-   **`probe` and `on_connect` are separate command lists.** They started as
+    one, which forces a choice between a prober that cannot ask a device who it
+    is and a reconnect that interrogates a timer mid-heat. The MicroWizard has
+    `probe=(b"RV",)` and `on_connect=()`; sending `RV` on every connect is what
+    caused the re-initialization loop that commit 9f09cee removed.
+-   **A successful probe hands over its open port.** Closing and reopening
+    would lose the banner the device just sent, leaving the manager waiting in
+    `CONNECTED` for a greeting that already happened. `adopt()` therefore goes
+    straight to `IDLE`.
+-   **Only USB ports are probed**, because probing writes to a port and a Pi's
+    `/dev/ttyAMA0` is the GPIO header. A hand-configured port is used exactly
+    as given and never probed — the escape hatch for an RS-232 timer.
+
+**What is still not built:** probing in proxy mode. The browser holds the port
+there, so trying a second profile means having the browser close and reopen it
+with different framing, which is a frontend change this did not take on.
+`AUTO_DETECT_PROXY` still assumes `DEFAULT_PROFILE`.
 
 **Not planned, contrary to the issue as filed:** exporting the profile set to
 the frontend. DerbyNet does that because their browser-side timer *is* the
