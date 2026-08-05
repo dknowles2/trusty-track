@@ -109,12 +109,12 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
           <div style={tabStyle(type === 'GENERAL')} onClick={() => setType('GENERAL')}>
             General Round
           </div>
-          <div 
+          <div
             style={{
               ...tabStyle(type === 'CHAMPIONSHIP'),
               opacity: hasGeneralRound ? 1 : 0.5,
               cursor: hasGeneralRound ? 'pointer' : 'not-allowed'
-            }} 
+            }}
             onClick={() => {
               if (hasGeneralRound) {
                 setType('CHAMPIONSHIP');
@@ -238,16 +238,16 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
         </div>
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-          <button 
-            type="button" 
-            onClick={onClose} 
+          <button
+            type="button"
+            onClick={onClose}
             className="secondary-btn"
             disabled={loading}
           >
             Cancel
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="primary-btn"
             disabled={loading || racerCount < 2}
           >

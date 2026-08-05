@@ -17,7 +17,7 @@ export default function Navigation() {
 
   const [{ data: configData }] = useQuery({ query: INITIAL_CONFIG_QUERY });
   const version = configData?.initialConfig?.version || '0.0.0';
-  
+
   const [, createRaceMutation] = useMutation(CREATE_RACE);
 
   const [isRaceDropdownOpen, setIsRaceDropdownOpen] = useState(false);
@@ -66,7 +66,7 @@ export default function Navigation() {
       };
       const result = await createRaceMutation({ race: raceInput });
       if (result.error) throw result.error;
-      
+
       const newRace = result.data.createRace;
       setShowCreateModal(false);
       navigate(`/race/${newRace.id}`);
@@ -84,7 +84,7 @@ export default function Navigation() {
     <>
       <nav style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', position: 'relative', zIndex: 1000, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 1rem' }}>
-          
+
           {/* Left: Logo & Home */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
             <img src={logoUrl} alt="Trusty Track Logo" style={{ height: '32px', width: 'auto' }} />
@@ -94,7 +94,7 @@ export default function Navigation() {
           {/* Center: Race Switcher (Hidden on Mobile) */}
           {!isMobile && (
             <div style={{ position: 'relative', flex: 1, display: 'flex', justifyContent: 'center' }}>
-            <button 
+            <button
               onClick={() => setIsRaceDropdownOpen(!isRaceDropdownOpen)}
               style={{
                 background: 'rgba(255,255,255,0.1)',
@@ -120,7 +120,7 @@ export default function Navigation() {
 
             {isRaceDropdownOpen && (
               <>
-                <div 
+                <div
                   onClick={() => setIsRaceDropdownOpen(false)}
                   style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1001 }}
                 />
@@ -165,7 +165,7 @@ export default function Navigation() {
                       <div style={{ padding: '15px', color: '#999', fontStyle: 'italic', fontSize: '0.9rem', textAlign: 'center' }}>No races found</div>
                     )}
                   </div>
-                  
+
                   {/* New Race Option */}
                   <div style={{ borderTop: '1px solid #eee', marginTop: '4px', paddingTop: '4px' }}>
                     <button
@@ -206,17 +206,17 @@ export default function Navigation() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
               <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', textAlign: 'right', lineHeight: '1.2' }}>
                 <div>v{version}</div>
-                <a 
-                  href="https://github.com/dknowles2/trusty-track" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href="https://github.com/dknowles2/trusty-track"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{ color: 'rgba(255,255,255,0.9)', textDecoration: 'none' }}
                 >
                   GitHub
                 </a>
               </div>
-              <Link 
-                to="/system-settings" 
+              <Link
+                to="/system-settings"
                 title="System Settings"
                 style={{
                   textDecoration: 'none',
@@ -264,7 +264,7 @@ export default function Navigation() {
         {isMobile && (
           <>
             {/* Backdrop */}
-            <div 
+            <div
               onClick={() => setIsMobileMenuOpen(false)}
               style={{
                 position: 'fixed',
@@ -297,11 +297,11 @@ export default function Navigation() {
               flexDirection: 'column'
             }}>
               {/* Drawer Header */}
-              <div style={{ 
-                padding: '1.5rem', 
-                borderBottom: '1px solid #eee', 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+              <div style={{
+                padding: '1.5rem',
+                borderBottom: '1px solid #eee',
+                display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 backgroundColor: 'var(--scouting-blue)',
                 color: 'white'
@@ -310,7 +310,7 @@ export default function Navigation() {
                   <img src={logoUrl} alt="Logo" style={{ height: '24px' }} />
                   <span style={{ fontWeight: 'bold' }}>Trusty Track</span>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   aria-label="Close Menu"
                   style={{ background: 'none', border: 'none', color: 'white', padding: '4px', cursor: 'pointer' }}
@@ -368,7 +368,7 @@ export default function Navigation() {
                     )}
                   </div>
                 ))}
-                
+
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
@@ -424,9 +424,9 @@ export default function Navigation() {
 
       {/* Secondary Header: Race Navigation (Hidden on Mobile) */}
       {raceId && !isMobile && (
-        <div style={{ 
-          backgroundColor: 'white', 
-          borderBottom: '1px solid #ddd', 
+        <div style={{
+          backgroundColor: 'white',
+          borderBottom: '1px solid #ddd',
           padding: '0.75rem 0',
           display: 'flex',
           justifyContent: 'center',
@@ -438,8 +438,8 @@ export default function Navigation() {
           {links.map(link => {
             const isActive = location.pathname === link.to;
             return (
-              <Link 
-                key={link.to} 
+              <Link
+                key={link.to}
                 to={link.to}
                 style={{
                   textDecoration: 'none',
