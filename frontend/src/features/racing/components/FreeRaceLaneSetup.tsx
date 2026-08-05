@@ -225,7 +225,6 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
   useEffect(() => {
     if (randomResult.data?.randomFreeRaceLanes) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRandomAssignments(randomResult.data.randomFreeRaceLanes.map((l: { lane: number, racerId: number | null }, i: number) => ({
         id: `random-${i + 1}`,
         lane: l.lane,
