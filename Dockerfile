@@ -29,9 +29,19 @@ RUN uv pip install --system --no-cache .
 # Copy the built frontend from Stage 1
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 
-# Data directory — override with TRUSTYTRACK_DATA_DIR
+# Data directory — override with TRUSTYTRACK_DATA_DIR.
+#
+# Created here, owned by the user the container runs as. Without it the app
+# cannot start: `database.py` does `os.makedirs(DATA_DIR)` at import time, and a
+# non-root process cannot create a directory at the filesystem root. Mounting a
+# named volume does not save it either — Docker creates a mount point absent
+# from the image as root, and only copies ownership from a directory that is
+# already there.
 ENV TRUSTYTRACK_DATA_DIR=/data
 ENV PYTHONPATH=/app
+
+RUN mkdir -p /data && chown trustytrack:trustytrack /data
+VOLUME ["/data"]
 
 # Expose the application port
 EXPOSE 8000
