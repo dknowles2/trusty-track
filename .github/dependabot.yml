@@ -17,12 +17,24 @@ updates:
     schedule:
       interval: "monthly"
     open-pull-requests-limit: 5
+    # A major version arrives on its own, never in the group. Batching them
+    # means one incompatible upgrade blocks every unrelated fix in the same PR:
+    # a single group once carried graphql 17, eslint 10, jsdom 30 and
+    # TypeScript 7 together, and graphql 17 is rejected outright by the
+    # codegen preset — so eleven harmless updates could not land either.
     groups:
       # Everything that is not React or the build tool, in one PR. Those two
       # move the app enough to deserve their own.
       frontend:
         patterns: ["*"]
         exclude-patterns: ["react", "react-dom", "@types/react*", "vite"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # `@graphql-codegen/import-types-preset` peer-requires graphql <= 16, so
+      # graphql 17 cannot be installed at all while we generate types with it.
+      # Drop this once the codegen toolchain supports 17.
+      - dependency-name: "graphql"
+        versions: ["17.x"]
 
   - package-ecosystem: "uv"
     directory: "/"
@@ -32,3 +44,4 @@ updates:
     groups:
       backend:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
