@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiUsb, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import { useSubscription, useMutation } from 'urql';
 import { TIMER_STATUS_SUBSCRIPTION, RECONNECT_TIMER } from '../graphql/queries';

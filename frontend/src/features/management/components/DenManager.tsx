@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Den } from './RacerForm';
 import { COMMON_COLORS } from '../../../utils/colors';
 import { useAlert } from '../../../context/AlertContext';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
 import { CREATE_DEN, UPDATE_DEN, DELETE_DEN, GET_RACE_DETAILS } from '../graphql/queries';
@@ -16,7 +16,7 @@ interface DenManagerProps {
 
 export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
     const { showAlert, showConfirm } = useAlert();
-    
+
     const [{ data }, reexecuteQuery] = useQuery({
         query: GET_RACE_DETAILS,
         variables: { raceId }
@@ -41,9 +41,9 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
     const [, createDenMutation] = useMutation(CREATE_DEN);
     const [, updateDenMutation] = useMutation(UPDATE_DEN);
     const [, deleteDenMutation] = useMutation(DELETE_DEN);
-    
+
     const [loading, setLoading] = useState(false);
-    
+
     // New Den Form
     const [isAddingDen, setIsAddingDen] = useState(false);
     const [newDenName, setNewDenName] = useState('');
@@ -99,7 +99,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
     const handleDeleteDen = async (denId: number) => {
         const confirmed = await showConfirm("Are you sure? Racers in this den will be unassigned.", "Delete Den");
         if (!confirmed) return;
-        
+
         try {
             const result = await deleteDenMutation({ id: denId });
             if (result.error) throw result.error;
@@ -171,7 +171,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
         const nextStart = Math.ceil((maxEnd + 1) / 100) * 100;
         // If simply maxEnd is 199, nextStart is 200.
         // If maxEnd is 150, (151/100) = 1.51 => ceil = 2 => 200.
-        
+
         // However, if maxEnd is exactly 199, (200/100)=2 => 200. Correct.
         // If maxEnd is 200 (weird but possible), (201/100)=2.01 => 3 => 300. Correct.
 
@@ -192,9 +192,9 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
             {/* Add New Den */}
             {!editingDenId && (
                 !isAddingDen ? (
-                    <button 
-                    onClick={handleAddDenClick} 
-                    className="secondary-btn" 
+                    <button
+                    onClick={handleAddDenClick}
+                    className="secondary-btn"
                     style={{ width: '100%', marginBottom: '20px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
                     <Icon path={mdiPlus} size={0.8} /> Add New Den
@@ -204,10 +204,10 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                     <h4 style={{ marginTop: 0 }}>Add New Den</h4>
                     <div style={{ marginBottom: '10px' }}>
                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Name</label>
-                            <input 
-                                type="text" 
-                                value={newDenName} 
-                                onChange={e => setNewDenName(e.target.value)} 
+                            <input
+                                type="text"
+                                value={newDenName}
+                                onChange={e => setNewDenName(e.target.value)}
                                 required
                                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                             />
@@ -215,21 +215,21 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Start Number</label>
-                             <input 
-                                type="number" 
+                             <input
+                                type="number"
                                 placeholder="e.g. 100"
-                                value={newDenStart || ''} 
-                                onChange={e => setNewDenStart(e.target.value ? parseInt(e.target.value) : undefined)} 
+                                value={newDenStart || ''}
+                                onChange={e => setNewDenStart(e.target.value ? parseInt(e.target.value) : undefined)}
                                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                             />
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>End Number</label>
-                             <input 
-                                type="number" 
+                             <input
+                                type="number"
                                 placeholder="e.g. 199"
-                                value={newDenEnd || ''} 
-                                onChange={e => setNewDenEnd(e.target.value ? parseInt(e.target.value) : undefined)} 
+                                value={newDenEnd || ''}
+                                onChange={e => setNewDenEnd(e.target.value ? parseInt(e.target.value) : undefined)}
                                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                             />
                         </div>
@@ -258,8 +258,8 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                     </div>
                     <div style={{ marginBottom: '10px' }}>
                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Rank Mapping (Optional)</label>
-                            <select 
-                            value={newDenRank || ''} 
+                            <select
+                            value={newDenRank || ''}
                             onChange={e => setNewDenRank(e.target.value || undefined)}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                         >
@@ -292,7 +292,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                     <li key={den.id} style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
                         {editingDenId === den.id ? (
                             <form onSubmit={handleUpdateDen} style={{ display: 'grid', gap: '10px' }}>
-                                
+
                                     <div>
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Name</label>
                                         <input type="text" value={editDenName} onChange={e => setEditDenName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} required />
@@ -329,7 +329,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                             ))}
                                         </div>
                                     </div>
-                                
+
                                 <div>
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Rank</label>
                                         <select value={editDenRank || ''} onChange={e => setEditDenRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
@@ -366,14 +366,14 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                     )}
                                 </div>
                                 <div>
-                                    <button 
-                                        onClick={() => handleEditDenClick(den)} 
+                                    <button
+                                        onClick={() => handleEditDenClick(den)}
                                         style={{ marginRight: '10px', background: 'none', border: 'none', color: '#1a73e8', cursor: 'pointer', padding: '4px' }}
                                         title="Edit Den"
                                     >
                                         <Icon path={mdiPencil} size={0.7} />
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => handleDeleteDen(den.id)}
                                         style={{ color: '#d32f2f', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
                                         title="Delete Den"

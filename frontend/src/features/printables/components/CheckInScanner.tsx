@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiAlertCircleOutline, mdiQrcodeScan } from '@mdi/js';
 
 import {

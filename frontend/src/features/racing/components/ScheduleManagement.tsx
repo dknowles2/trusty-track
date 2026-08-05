@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { RoundConfigModal } from './RoundConfigModal';
 import { RoundWizard } from './RoundWizard';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix, mdiDelete } from '@mdi/js';
 import {
   DndContext,

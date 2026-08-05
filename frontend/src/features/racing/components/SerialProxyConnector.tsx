@@ -1,5 +1,5 @@
 import React from 'react';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiUsb, mdiAlertCircle, mdiCheckCircle } from '@mdi/js';
 import { useSerialProxy } from '../../../context/SerialProxyContext';
 import './SerialProxyConnector.css';

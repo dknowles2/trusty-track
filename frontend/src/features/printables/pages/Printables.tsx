@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'urql';
-import Icon from '@mdi/react';
+import { Icon } from '@mdi/react';
 import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 
 import {
