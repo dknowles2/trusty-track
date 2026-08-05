@@ -230,9 +230,16 @@ class TimerProfile:
     #: for a lane the device considers already reported. None waits forever.
     line_idle_timeout_seconds: float | None = 0.2
 
-    #: Sent on connect to draw an identifying response out of the device.
-    #: Empty for a device that announces itself unprompted.
+    #: Sent by the port prober to draw the identification banner out of a
+    #: device, when nothing is connected and no heat is in progress. Empty
+    #: means the model cannot be probed for and will never be auto-detected.
     probe: tuple[bytes, ...] = ()
+    #: Sent every time a connection opens, before ``setup``. Deliberately
+    #: separate from ``probe``: this fires on every reconnect, including one
+    #: that happens mid-event, where interrogating a timer is a good way to
+    #: confuse it. Most profiles leave it empty and wait for the device to say
+    #: something.
+    on_connect: tuple[bytes, ...] = ()
     #: Patterns that confirm this is the model in question, in the order the
     #: device sends them. A prober matches the whole sequence, which is what
     #: makes a two-line banner discriminating; a live connection watches only
@@ -264,7 +271,7 @@ class TimerProfile:
         return None
 
     def identification_commands(self) -> list[bytes]:
-        return list(self.probe)
+        return list(self.on_connect)
 
     def is_identified_by(self, line: bytes) -> bool:
         """Whether this one line announces the device.

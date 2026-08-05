@@ -14,6 +14,7 @@ from backend.api.main import app, get_db
 from backend.db import crud, schemas
 from backend.db.database import Base
 from backend.db.lane_sync import lanes_out_of_sync
+from backend.services.timer import probe
 
 # Use in-memory SQLite database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -112,6 +113,31 @@ def timer_session_factory(db_session, monkeypatch):
     # ...and those built mid-request, which take it from the GraphQL context.
     monkeypatch.setattr("backend.api.main.SessionLocal", factory)
     return factory
+
+
+@pytest.fixture(scope="function", autouse=True)
+def no_real_serial_ports(monkeypatch):
+    """The suite never touches hardware plugged into the machine running it.
+
+    Timer auto-detection walks every USB serial port and *writes* a probe
+    command to each one (#89). Left alone, a developer with any USB serial
+    adapter attached — or a Pi running the tests with a timer on the bench —
+    would have the suite talking to it, which is both a surprise and a way to
+    make results depend on what happens to be plugged in.
+
+    Both halves are stubbed: no ports are listed, and opening one raises even
+    if a test supplies its own list. A test that exercises probing passes its
+    own ``open_port`` to ``probe.detect`` rather than relying on either.
+    """
+
+    def refuse(port, profile):  # noqa: ARG001 - part of the PortOpener signature
+        raise AssertionError(
+            f"a test tried to open the real serial port {port!r}; "
+            f"pass a fake opener to probe.detect instead"
+        )
+
+    monkeypatch.setattr(probe, "usb_ports", list)
+    monkeypatch.setattr(probe, "open_serial", refuse)
 
 
 @pytest.fixture(scope="function")

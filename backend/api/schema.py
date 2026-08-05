@@ -1400,6 +1400,24 @@ async def _revalidate_timers(info: Info) -> None:
             logger.warning("Track %d disarmed: %s", mgr.track_id, reason)
 
 
+def _start_backend_direct(mgr: TimerManager, serial_port: str | None) -> None:
+    """Bring a backend-direct timer up, in the background.
+
+    A port entered by hand is honoured exactly as given — the operator may know
+    something the probe does not, and a probe writes to every port it tries.
+    With no port configured, go and find the timer, which is what
+    ``AUTO_DETECT_BACKEND`` has always been named for (#89).
+
+    One helper rather than the branch written out at each call site: there are
+    four, and #48 is the standing reminder of what happens when a rule like
+    this ends up on only some of them.
+    """
+    if serial_port:
+        asyncio.create_task(mgr.connect_direct(serial_port))
+    else:
+        asyncio.create_task(mgr.autodetect())
+
+
 @strawberry.type
 class Mutation:
     """
@@ -1587,9 +1605,8 @@ class Mutation:
                 if (
                     track.serial_port != old_serial_port
                     or track.timer_type != old_timer_type
-                ) and track.serial_port:
-                    # Start connection in background
-                    asyncio.create_task(mgr.connect_direct(track.serial_port))
+                ):
+                    _start_backend_direct(mgr, track.serial_port)
             elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                 # Stopped being backend-direct, ensure it's closed
                 await mgr.stop()
@@ -1820,9 +1837,9 @@ class Mutation:
         track = crud.get_track(db, track_id)
         if track is None or track.timer_type != models.TimerType.AUTO_DETECT_BACKEND:
             return False
-        if not track.serial_port:
-            return False
-        asyncio.create_task(mgr.connect_direct(track.serial_port))
+        # No configured port is no longer a reason to refuse: that is precisely
+        # the case where the operator wants us to go and look (#89).
+        _start_backend_direct(mgr, track.serial_port)
         return True
 
     @strawberry.mutation
@@ -2234,10 +2251,8 @@ class Mutation:
                         if (
                             input_track.serial_port != old_serial_port
                             or input_track.timer_type != old_timer_type
-                        ) and input_track.serial_port:
-                            asyncio.create_task(
-                                mgr.connect_direct(input_track.serial_port)
-                            )
+                        ):
+                            _start_backend_direct(mgr, input_track.serial_port)
                     elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                         await mgr.stop()
             else:
@@ -2257,11 +2272,8 @@ class Mutation:
                     new_track.id, device, session_factory=_session_factory(info)
                 )
                 timer_managers[new_track.id] = mgr
-                if (
-                    new_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND
-                    and new_track.serial_port
-                ):
-                    asyncio.create_task(mgr.connect_direct(new_track.serial_port))
+                if new_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+                    _start_backend_direct(mgr, new_track.serial_port)
 
         # Delete extra tracks
         if len(db_tracks) > len(input_tracks):

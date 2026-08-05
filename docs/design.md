@@ -243,6 +243,19 @@ device's byte format lives outside `backend/services/timer/`.
 The server opens the serial port itself with `pyserial`. This is the mode for a
 Raspberry Pi at the venue with the timer plugged into it.
 
+The port is found rather than configured. On startup — and whenever the track's
+timer settings change, or the operator asks it to reconnect — the server walks
+every USB serial port, opening each with a candidate profile's framing, sending
+that profile's probe command, and watching for its identification banner. The
+first port that answers is adopted, still open, and the profile that answered
+becomes the track's device.
+
+Only USB ports are probed. Probing writes to a port, and a machine's built-in
+serial ports are as likely to be a console as a timer — on a Pi, `/dev/ttyAMA0`
+is the GPIO header. A track that *does* have a serial port configured by hand is
+connected to exactly that port and never probed, which is the escape hatch for an
+RS-232 timer or for a machine where guessing would be wrong.
+
 ### 5.2. Browser-proxied (`AUTO_DETECT_PROXY`)
 
 The operator's browser holds the serial port, using the Web Serial API, and
@@ -269,11 +282,13 @@ and place. There is no per-device parsing code, which is what lets a prober
 walk the list in `ALL_PROFILES` and try each candidate in turn.
 
 One real device is described today, the MicroWizard K1/K2/K3, alongside a fake
-timer that skips the serial layer entirely.
+timer that skips the serial layer entirely. A profile with no `probe` command or
+no identification banner is skipped by the prober — it cannot be detected, only
+chosen.
 
-Despite their names, neither auto-detect mode probes for what is attached: both
-assume the MicroWizard, and backend-direct additionally needs the serial port
-typed in by hand. The prober is the remaining half of issue #89.
+`AUTO_DETECT_PROXY` does not yet live up to its name: the browser holds the port,
+so probing it means having the browser reopen the port once per candidate, and
+that is not built. Proxy mode assumes the MicroWizard.
 
 ## 6. Data Models (Detailed)
 

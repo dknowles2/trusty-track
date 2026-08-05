@@ -65,11 +65,17 @@ MICROWIZARD = TimerProfile(
     # The device silently discards results and resets if no finish is detected
     # within 10 seconds of the gate opening. It sends no notification.
     result_timeout_seconds=10.0,
-    # RV would draw the identification banner out, but the device also sends it
-    # unprompted on reboot, and asking for it during a run is a good way to
-    # confuse a timer mid-heat. A live connection waits rather than probes; the
-    # port prober is what sends this (issue #89).
-    probe=(),
+    # RV asks for the two-line banner below. The prober sends it, because the
+    # prober only ever runs with nothing connected and no heat in progress.
+    #
+    # `on_connect` is deliberately left empty: it fires on every reconnect,
+    # including one that happens mid-event, and interrogating a timer in the
+    # middle of a heat is a good way to confuse it. Sending RV there also used
+    # to cause a re-initialization loop on reboot, which is why it was removed.
+    # A live connection waits for the device to say something instead — any
+    # parseable line, banner or result, takes it out of CONNECTED.
+    probe=(b"RV",),
+    on_connect=(),
     identification=(_COPYRIGHT, _VERSION),
     # N1 selects the new result format, N2 real-time gate feedback.
     setup=(b"N1", b"N2"),
