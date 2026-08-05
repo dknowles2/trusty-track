@@ -453,6 +453,32 @@ export type UpdateRaceAutoAdvanceMutationVariables = Exact<{
 
 export type UpdateRaceAutoAdvanceMutation = { updateRace: { id: number, autoAdvanceHeat: boolean } | null };
 
+export type DiagnosticTracksQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type DiagnosticTracksQuery = { tracks: Array<{ id: number, name: string, timerType: string, serialPort: string | null, laneCount: number }> };
+
+export type DiagnosticTimerStatusSubscriptionVariables = Exact<{
+  trackId: number;
+}>;
+
+
+export type DiagnosticTimerStatusSubscription = { timerStatus: { trackId: number, status: { state: string, deviceName: string | null, port: string | null, laneCount: number | null, lastError: string | null, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
+
+export type DiagnosticReconnectTimerMutationVariables = Exact<{
+  trackId: number;
+}>;
+
+
+export type DiagnosticReconnectTimerMutation = { reconnectTimer: boolean };
+
+export type DiagnosticResetTimerMutationVariables = Exact<{
+  trackId: number;
+}>;
+
+
+export type DiagnosticResetTimerMutation = { resetTimer: boolean };
+
 export type GetRaceStatsQueryVariables = Exact<{
   raceId: number;
 }>;

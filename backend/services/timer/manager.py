@@ -83,6 +83,11 @@ class TimerStatus:
     lane_count: int | None
     active_heat_id: int | None
     last_error: str | None
+    #: The serial port in use, once there is one. Worth surfacing because in
+    #: backend-direct mode it is now usually *found* rather than configured
+    #: (#89), and "which port did it pick" is otherwise unanswerable from the
+    #: operator's side.
+    port: str | None = None
     pending_results: list[dict[str, Any]] = field(default_factory=list)
     serial_log: list[SerialLogEntry] = field(default_factory=list)
     racer_by_lane: dict[int, int | None] = field(default_factory=dict)
@@ -205,6 +210,7 @@ class TimerManager:
         return TimerStatus(
             state=self._state.value,
             device_name=self._device.name,
+            port=self._direct_port,
             lane_count=lane_count,
             active_heat_id=self._active_heat_id,
             last_error=self._last_error,

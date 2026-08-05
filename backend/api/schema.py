@@ -953,6 +953,10 @@ class TimerStatus:
     lane_count: int | None
     active_heat_id: int | None
     last_error: str | None
+    #: The serial port in use, if any. In backend-direct mode this is usually
+    #: found rather than configured (#89), so it is the only way for an
+    #: operator to see which port the timer was detected on.
+    port: str | None = None
     pending_results: list[LaneResult] = strawberry.field(default_factory=list)
     serial_log: list[SerialLogEntry] = strawberry.field(default_factory=list)
     racer_by_lane: str | None = None  # JSON mapping of lane -> racer_id
@@ -1095,12 +1099,20 @@ class TimerStateChangedEvent:
     changed_at: str  # ISO 8601 UTC timestamp
 
 
-def _timer_status_from_manager(mgr) -> TimerStatus:
-    """Convert a TimerManager.status() dataclass to the Strawberry TimerStatus type."""
-    s = mgr.status()
+def _timer_status(s) -> TimerStatus:
+    """Convert the ``TimerStatus`` dataclass to the Strawberry type.
+
+    One copy, deliberately. The query built this from a manager and the
+    subscription built it inline from the dataclass the pub/sub channel
+    carries, which is the arrangement where a field added to one is silently
+    missing from the other — and with a normalized cache on the client, a
+    subscription payload lacking a field the query supplied is how a value
+    disappears from a screen mid-event.
+    """
     return TimerStatus(
         state=s.state,
         device_name=s.device_name,
+        port=s.port,
         lane_count=s.lane_count,
         active_heat_id=s.active_heat_id,
         last_error=s.last_error,
@@ -1123,6 +1135,10 @@ def _timer_status_from_manager(mgr) -> TimerStatus:
         ],
         racer_by_lane=json.dumps(s.racer_by_lane) if s.racer_by_lane else None,
     )
+
+
+def _timer_status_from_manager(mgr) -> TimerStatus:
+    return _timer_status(mgr.status())
 
 
 @strawberry.type
@@ -2763,33 +2779,7 @@ class Subscription:
             async for status_dc in stream:
                 yield TimerStateChangedEvent(
                     track_id=track_id,
-                    status=TimerStatus(
-                        state=status_dc.state,
-                        device_name=status_dc.device_name,
-                        lane_count=status_dc.lane_count,
-                        active_heat_id=status_dc.active_heat_id,
-                        last_error=status_dc.last_error,
-                        pending_results=[
-                            LaneResult(
-                                lane=r["lane"],
-                                time=r["time"],
-                                place=r["place"],
-                                racer_id=status_dc.racer_by_lane.get(r["lane"]),
-                            )
-                            for r in status_dc.pending_results
-                        ],
-                        serial_log=[
-                            SerialLogEntry(
-                                direction=e.direction,
-                                data=e.data,
-                                timestamp=e.timestamp,
-                            )
-                            for e in status_dc.serial_log
-                        ],
-                        racer_by_lane=json.dumps(status_dc.racer_by_lane)
-                        if status_dc.racer_by_lane
-                        else None,
-                    ),
+                    status=_timer_status(status_dc),
                     changed_at=datetime.now(timezone.utc).isoformat(),
                 )
 
