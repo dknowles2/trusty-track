@@ -17,7 +17,21 @@ docker --version
 
 ---
 
-## Installation
+## Two ways to run it
+
+**Docker Compose** keeps the settings in a file you can edit and check into
+version control, and gives you one command to start and stop. Use it if the
+machine is going to keep running Trusty Track.
+
+**A single `docker run`** needs no files at all. Use it to try the app, or on a
+machine you are borrowing for the day.
+
+Both use the same image and the same data volume, so you can start with one and
+switch to the other later.
+
+---
+
+## Option A — Docker Compose
 
 ### Step 1 — Create a `docker-compose.yml` file
 
@@ -65,7 +79,57 @@ The app will open to the first-run setup wizard.
 
 ---
 
-## Daily use
+## Option B — A single `docker run`
+
+One command, no files:
+
+```bash
+docker run -d --name trustytrack -p 8000:8000 -v trustytrack_data:/data --restart unless-stopped ghcr.io/dknowles2/trusty-track:latest
+```
+
+Then open **[http://localhost:8000](http://localhost:8000)**.
+
+What each part does:
+
+| Part | Why |
+| --- | --- |
+| `-d` | Runs in the background. Drop it to watch the logs in your terminal. |
+| `--name trustytrack` | Lets you say `docker stop trustytrack` instead of hunting for an id. |
+| `-p 8000:8000` | Publishes the app on port 8000. Use `-p 9000:8000` if something else has 8000. |
+| `-v trustytrack_data:/data` | **Keeps your race data.** Without it, everything is deleted when the container is removed. |
+| `--restart unless-stopped` | Comes back after a reboot — worth having on the machine running the event. |
+
+!!! warning "Do not skip the `-v`"
+
+    A container without a volume loses its database the moment it is removed,
+    including by `docker rm` or a `docker run` of a newer version. The volume is
+    what makes an update safe.
+
+### Daily use with `docker run`
+
+```bash
+docker stop trustytrack
+```
+
+```bash
+docker start trustytrack
+```
+
+```bash
+docker logs -f trustytrack
+```
+
+Updating means replacing the container. The volume survives, so your data does:
+
+```bash
+docker pull ghcr.io/dknowles2/trusty-track:latest
+docker stop trustytrack && docker rm trustytrack
+docker run -d --name trustytrack -p 8000:8000 -v trustytrack_data:/data --restart unless-stopped ghcr.io/dknowles2/trusty-track:latest
+```
+
+---
+
+## Daily use with Compose
 
 ### Stop the app
 
@@ -127,7 +191,21 @@ By default, Trusty Track is available at `http://localhost:8000` on the computer
    - **Linux:** Run `ip addr`
 2. Other devices can then open `http://<your-ip>:8000` in a browser.
 
-> **Note:** Camera features (photo capture) require HTTPS. For a local network install, see the [Raspberry Pi guide](install-raspberry-pi.md) which sets up HTTPS automatically.
+!!! note "Camera features need HTTPS away from the host machine"
+
+    The Docker image serves plain HTTP. Browsers allow the camera on
+    `localhost` regardless, so **photo capture and the [check-in
+    scanner](../printables.md#scanning-at-check-in) work on the machine running
+    Docker** — but not on a tablet or phone reaching it by IP address, where the
+    browser will refuse to open the camera.
+
+    Everything else — the roster, race control, the audience displays — works
+    over HTTP from any device.
+
+    If you need the camera on a second device, the [Raspberry Pi
+    guide](install-raspberry-pi.md) generates a self-signed certificate and
+    serves HTTPS, and so does the [macOS](install-mac.md) or
+    [Windows](install-windows.md) desktop app.
 
 ---
 
@@ -143,6 +221,16 @@ ports:
 ```
 
 Then access the app at `http://localhost:8080`.
+
+### "Permission denied: '/data'" in the logs
+
+You are running an image built before August 2026. It created no `/data`
+directory, and the app cannot write one as its non-root user. Pull a newer
+image:
+
+```bash
+docker pull ghcr.io/dknowles2/trusty-track:latest
+```
 
 ### Container exits immediately
 
