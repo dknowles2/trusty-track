@@ -44,9 +44,10 @@ python -m venv $Venv
 & "$Venv\Scripts\pip.exe" install --quiet "$Root"
 & "$Venv\Scripts\pip.exe" install --quiet pyinstaller pyinstaller-hooks-contrib pystray
 
-$Version = & "$Venv\Scripts\python.exe" -c @"
-from backend.version import __version__; print(__version__)
-"@ 2>$null
+# Not a here-string: PowerShell requires `"@` to end the line it closes on, and
+# `"@ 2>$null` here made the whole script unparseable.
+$VersionExpr = 'from backend.version import __version__; print(__version__)'
+$Version = & "$Venv\Scripts\python.exe" -c $VersionExpr 2>$null
 if (-not $Version) { $Version = "0.0.0" }
 Write-Host "Building Trusty Track v$Version for Windows..."
 
@@ -65,13 +66,7 @@ $IcoPath = "$ScriptDir\TrustyTrack.ico"
 
 if (Test-Path $LogoPng) {
     Write-Host "Generating app icon..."
-    & "$Venv\Scripts\python.exe" -c @"
-from PIL import Image
-img = Image.open(r'$LogoPng').convert('RGBA')
-sizes = [(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)]
-imgs = [img.resize(s, Image.LANCZOS) for s in sizes]
-imgs[0].save(r'$IcoPath', format='ICO', sizes=sizes, append_images=imgs[1:])
-"@
+    & "$Venv\Scripts\python.exe" "$ScriptDir\make_ico.py" $LogoPng $IcoPath
     $env:APP_ICON = $IcoPath
     Write-Host "Icon: $IcoPath"
 } else {
