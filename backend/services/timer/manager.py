@@ -31,12 +31,14 @@ from .devices import DEFAULT_PROFILE, FAKE
 from .devices.base import (
     DeviceError,
     GateClosed,
+    GateOpen,
+    GateWatcherUnsupported,
     LaneResult,
     RaceStarted,
     TimerEvent,
     TimerProfile,
 )
-from .state_machine import TimerState
+from .state_machine import GateBelief, TimerState
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,22 @@ NUDGE_SECONDS = 3.0
 #: How often the watchdog checks the connection. Named so tests can shorten it
 #: rather than sleeping through it.
 WATCHDOG_SECONDS = 1.0
+
+#: How often to ask a device for the start gate's state, and how long after
+#: asking its answer is still an answer. DerbyNet's pacing.
+#:
+#: The window matters more than the interval. Gate answers are as short as `0`,
+#: `U` or `.`, so they are only read as gate answers inside it — outside, they
+#: are ordinary traffic and must be left to the profile's real matchers.
+GATE_POLL_SECONDS = 0.25
+GATE_WINDOW_SECONDS = 0.1
+
+#: How long after a device says anything before the gate may be polled again.
+#:
+#: Pack936, via DerbyNet's Champ profile: a gate query sent too soon after the
+#: gate opened made the timer resend the *previous* heat's results. Polling is
+#: never urgent, so it yields.
+GATE_QUIET_SECONDS = 0.1
 
 
 def _format_serial_bytes(data: bytes) -> str:
@@ -127,6 +145,14 @@ class TimerManager:
         self._watchdog_task: asyncio.Task | None = None
         self._idle_flush_task: asyncio.Task | None = None
         self._last_nudge: float | None = None
+        self._gate = GateBelief()
+        self._gate_poll_task: asyncio.Task | None = None
+        #: Until when an incoming line may be read as a gate answer.
+        self._gate_window_until: float = 0.0
+        #: The device said its gate option is off; stop asking until reconnect.
+        self._gate_watcher_off = False
+        #: When the device last said anything, so polling can yield to it.
+        self._last_rx: float = 0.0
         self._running_since: float | None = None
         self._event_lock = asyncio.Lock()
         self._serial_log: deque = deque(maxlen=MAX_SERIAL_LOG)
@@ -254,8 +280,12 @@ class TimerManager:
             self._lane_mask = lane_mask
             self._pending_results = {}
             self._racer_by_lane = racer_by_lane or {}
+            # A new heat starts from "gate not yet closed", whatever the last
+            # one ended on, so staging has to be observed afresh.
+            self._gate.reset(closed=False)
             await self._send_commands(self._device.prepare_heat_commands(lane_mask))
             await self._transition(TimerState.ARMED)
+            self._start_gate_polling()
 
     async def abort_heat(self) -> None:
         """Abort the current heat. Sends device reset commands and returns to IDLE."""
@@ -266,6 +296,7 @@ class TimerManager:
             self._racer_by_lane = {}
             await self._send_commands(self._device.abort_commands())
             await self._transition(TimerState.IDLE)
+            self._stop_gate_polling()
 
     async def force_record(self) -> None:
         """Force recording of whatever results have been collected so far."""
@@ -297,6 +328,10 @@ class TimerManager:
         # not inherit a recent one and sit unidentified for longer than it
         # needs to.
         self._last_nudge = None
+        # A reconnect may be a different device, or the same one with its
+        # options changed, so a previous "gate query is off" finding expires.
+        self._gate_watcher_off = False
+        self._gate.reset(closed=False)
 
         await self._transition(TimerState.CONNECTED)
 
@@ -341,6 +376,7 @@ class TimerManager:
         """
         async with self._event_lock:
             if data:
+                self._last_rx = asyncio.get_event_loop().time()
                 self._serial_log.append(
                     SerialLogEntry(
                         direction="RX",
@@ -431,6 +467,17 @@ class TimerManager:
             return
 
         logger.info("Timer %d received line: %r", self._track_id, raw_line)
+
+        # Inside a gate poll's response window, this line gets first read as an
+        # answer to that poll. Outside it, the gate matchers are not consulted
+        # at all: they are short enough (`0`, `U`, `.`) to claim traffic that
+        # has nothing to do with the gate.
+        if asyncio.get_event_loop().time() < self._gate_window_until:
+            reading = self._device.read_gate(line)
+            if reading is not None:
+                self._gate_window_until = 0.0
+                if await self._handle_gate_reading(reading):
+                    return
 
         # Check whether this line is the expected acknowledgment for the oldest
         # pending command. We do this before parse_line so that acks are consumed
@@ -573,6 +620,10 @@ class TimerManager:
         if isinstance(event, RaceStarted):
             if self._state in (TimerState.ARMED, TimerState.READY):
                 self._running_since = asyncio.get_event_loop().time()
+                # Nothing the gate says can change a run that is under way, and
+                # asking during one is what made some timers resend the previous
+                # heat's results.
+                self._stop_gate_polling()
                 await self._transition(TimerState.RUNNING)
             else:
                 logger.warning(
@@ -582,8 +633,24 @@ class TimerManager:
                 )
 
         elif isinstance(event, GateClosed):
+            # A *pushed* edge, not a polled sample — a polled one is consumed in
+            # `_process_line` before reaching here. The device has done its own
+            # edge detection and says so once, so waiting for a second
+            # confirming observation would mean never believing it at all.
+            # That asymmetry is the whole reason the debounce lives with
+            # polling rather than with the event.
             if self._state == TimerState.ARMED and self._device.gate_state_is_knowable:
+                self._gate.reset(closed=True)
                 await self._transition(TimerState.READY)
+
+        elif isinstance(event, GateOpen):
+            if self._state == TimerState.READY:
+                self._gate.reset(closed=False)
+                await self._transition(TimerState.ARMED)
+
+        elif isinstance(event, GateWatcherUnsupported):
+            self._gate_watcher_off = True
+            self._stop_gate_polling()
 
         elif isinstance(event, LaneResult):
             if self._state in (
@@ -725,6 +792,7 @@ class TimerManager:
         self._active_heat_id = None
         self._active_heat_kind = None
         self._running_since = None
+        self._stop_gate_polling()
         await self._transition(TimerState.IDLE)
 
     async def _record_results(self) -> None:
@@ -786,6 +854,7 @@ class TimerManager:
         self._active_heat_id = None
         self._active_heat_kind = None
         self._running_since = None
+        self._stop_gate_polling()
         # Note: we do NOT clear self._pending_results here so they remain available
         # in the status (IDLE state) until the next heat is prepared.
         await self._transition(TimerState.IDLE)
@@ -913,6 +982,80 @@ class TimerManager:
             logger.info(
                 "Timer %d: Started direct serial mode on %s", self._track_id, port
             )
+
+    # ------------------------------------------------------------------ #
+    # Watching the start gate                                              #
+    # ------------------------------------------------------------------ #
+
+    def _start_gate_polling(self) -> None:
+        """Begin asking the device about the gate, if it is the asking kind."""
+        self._stop_gate_polling()
+        if not self._device.polls_the_gate() or self._gate_watcher_off:
+            return
+        self._gate_poll_task = asyncio.create_task(self._gate_poll_loop())
+
+    def _stop_gate_polling(self) -> None:
+        if self._gate_poll_task is not None:
+            self._gate_poll_task.cancel()
+            self._gate_poll_task = None
+        self._gate_window_until = 0.0
+
+    async def _gate_poll_loop(self) -> None:
+        """Ask about the gate while a heat is armed, and only then.
+
+        Not while RUNNING: the answer cannot change anything once the cars are
+        away, and DerbyNet found that asking during a run makes some timers
+        resend the previous heat's results. Not while IDLE either — nothing is
+        waiting on the answer, and every question is bytes down a serial line
+        somebody else's device is also trying to talk on.
+        """
+        watcher = self._device.gate_watcher
+        assert watcher is not None  # guarded by polls_the_gate()
+
+        try:
+            while True:
+                await asyncio.sleep(GATE_POLL_SECONDS)
+
+                if self._state not in (TimerState.ARMED, TimerState.READY):
+                    continue
+                if self._gate_watcher_off:
+                    return
+
+                now = asyncio.get_event_loop().time()
+                if now - self._last_rx < GATE_QUIET_SECONDS:
+                    continue
+
+                self._gate_window_until = now + GATE_WINDOW_SECONDS
+                await self._write_fn(watcher.command)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("Timer %d gate poll error: %s", self._track_id, e)
+
+    async def _handle_gate_reading(self, event: TimerEvent) -> bool:
+        """Fold one polled gate answer into the belief. True if it was one."""
+        if isinstance(event, GateWatcherUnsupported):
+            logger.info(
+                "Timer %d: the device's gate query is switched off; not asking again",
+                self._track_id,
+            )
+            self._gate_watcher_off = True
+            self._stop_gate_polling()
+            return True
+
+        if isinstance(event, (GateClosed, GateOpen)):
+            closed = isinstance(event, GateClosed)
+            if not self._gate.observe(closed, asyncio.get_event_loop().time()):
+                return True
+            if closed and self._state is TimerState.ARMED:
+                await self._transition(TimerState.READY)
+            elif not closed and self._state is TimerState.READY:
+                # The gate came back up without a start — somebody reloading,
+                # or a car pulled off the line. Back to merely armed.
+                await self._transition(TimerState.ARMED)
+            return True
+
+        return False
 
     async def nudge_if_unidentified(self) -> bool:
         """Ask a connected-but-silent device who it is.
@@ -1042,6 +1185,8 @@ class TimerManager:
         if self._idle_flush_task:
             self._idle_flush_task.cancel()
             self._idle_flush_task = None
+
+        self._stop_gate_polling()
 
         if self._read_task:
             self._read_task.cancel()
