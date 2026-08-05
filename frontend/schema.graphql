@@ -449,6 +449,7 @@ type TimerStateChangedEvent {
 type TimerStatus {
   state: String!
   deviceName: String
+  deviceProvenance: String
   laneCount: Int
   activeHeatId: Int
   lastError: String

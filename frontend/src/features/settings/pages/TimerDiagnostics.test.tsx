@@ -155,6 +155,24 @@ describe('TimerDiagnostics', () => {
         expect(await screen.findByText('Connect')).toBeInTheDocument();
     });
 
+    it('says when a device description has never been run against hardware', async () => {
+        // Most profiles are adapted from DerbyNet and have never been near the
+        // timer they describe. A device name alone implies support we do not
+        // have.
+        setup([track()], {
+            state: 'IDLE',
+            deviceName: 'PDT timer (dfgtec.com/pdt)',
+            deviceProvenance:
+                "Adapted from DerbyNet's PDT profile (MIT). Never run against this hardware.",
+            port: '/dev/ttyUSB0',
+            laneCount: 4,
+            lastError: null,
+            serialLog: [],
+        });
+
+        expect(await screen.findByText(/Never run against this hardware/)).toBeInTheDocument();
+    });
+
     it('points at settings when there are no tracks', async () => {
         setup([], null);
 

@@ -55,6 +55,11 @@ _STAR = re.compile(rb"^\*$")
 MICROWIZARD = TimerProfile(
     name="MicroWizard K1/K2/K3",
     key="microwizard",
+    provenance=(
+        "Written against the Micro Wizard protocol documentation and DerbyNet's "
+        "FastTrack profile. Exercised by the test suite against recorded byte "
+        "streams; not confirmed against the hardware itself."
+    ),
     baud_rate=9600,
     delimiter=b"\r",
     immediate_chars=(b"@", b">"),

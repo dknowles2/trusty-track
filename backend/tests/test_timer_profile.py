@@ -283,8 +283,25 @@ def test_a_profile_can_be_found_by_key():
     assert by_key("nonesuch") is None
 
 
-def test_every_real_profile_can_identify_itself():
-    """A profile with no identification patterns cannot be probed for, so it
-    would silently never match once there is a prober to walk this list."""
+def test_a_profile_that_probes_can_also_recognise_the_answer():
+    """Sending a probe with nothing to match against is pure cost: bytes down
+    the wire, a response deadline burned, and no possible outcome.
+
+    The converse is fine and real — the NewBold family answers nothing, so
+    DerbyNet has no prober for it either and it has to be chosen by hand.
+    """
     for profile in ALL_PROFILES:
-        assert profile.identification, f"{profile.key} has no identification"
+        if profile.probe:
+            assert profile.identification, f"{profile.key} probes but cannot match"
+
+
+def test_at_least_one_profile_is_detectable():
+    """Otherwise the prober has nothing to do and would quietly find nothing."""
+    assert any(p.probe and p.identification for p in ALL_PROFILES)
+
+
+def test_every_profile_says_where_it_came_from():
+    """Most of these are transcribed from someone else's protocol notes and
+    have never run against the hardware. That has to be visible."""
+    for profile in (*ALL_PROFILES, FAKE):
+        assert profile.provenance or profile is FAKE

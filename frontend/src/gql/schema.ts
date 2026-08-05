@@ -813,6 +813,7 @@ export type TimerStateChangedEvent = {
 export type TimerStatus = {
   activeHeatId?: Maybe<Scalars['Int']['output']>;
   deviceName?: Maybe<Scalars['String']['output']>;
+  deviceProvenance?: Maybe<Scalars['String']['output']>;
   laneCount?: Maybe<Scalars['Int']['output']>;
   lastError?: Maybe<Scalars['String']['output']>;
   pendingResults: Array<LaneResult>;

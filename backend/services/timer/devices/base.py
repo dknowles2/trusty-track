@@ -24,7 +24,7 @@ the port, which the WebSocket ``configure`` message carries, and nothing else.
 
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -78,6 +78,19 @@ class GateWatcherUnsupported:
 
 
 @dataclass
+class LaneCount:
+    """The device says how many lanes it has.
+
+    Worth capturing even though nothing depends on it: a timer reporting six
+    lanes on a track configured for four is a real misconfiguration, and it is
+    silent otherwise — the heats are built from the track, and the extra lanes
+    simply never report.
+    """
+
+    lanes: int
+
+
+@dataclass
 class DeviceError:
     message: str
 
@@ -85,6 +98,7 @@ class DeviceError:
 TimerEvent = (
     RaceStarted
     | LaneResult
+    | LaneCount
     | GateClosed
     | GateOpen
     | GateWatcherUnsupported
@@ -101,6 +115,11 @@ class Event(str, Enum):
     #: The device says its gate-reporting option is switched off.
     GATE_UNSUPPORTED = "GATE_UNSUPPORTED"
     LANE_RESULT = "LANE_RESULT"
+    #: The device announcing its own lane count, usually during setup.
+    LANE_COUNT = "LANE_COUNT"
+    #: Not produced by any matcher — a trigger for ``on_event`` only. Several
+    #: timers have to be told to give up and report what they have.
+    RESULTS_OVERDUE = "RESULTS_OVERDUE"
     #: Recognised, and deliberately nothing. Identification banners and command
     #: acknowledgements are traffic we understand and have no event for.
     IGNORE = "IGNORE"
@@ -248,6 +267,13 @@ class TimerProfile:
     name: str
     #: Stable identifier, for storing a chosen profile and naming it in logs.
     key: str
+    #: Where this description came from and what has been done to check it.
+    #:
+    #: Shown to the operator, because "we have a profile for your timer" and
+    #: "your timer is known to work" are different claims and only one of them
+    #: is true for most of these. A profile transcribed from someone else's
+    #: protocol notes is a good starting point, not evidence.
+    provenance: str = ""
 
     # Port framing, in pyserial's vocabulary — the same four values the Web
     # Serial API takes, so the backend-direct and browser-proxy paths can both
@@ -260,8 +286,12 @@ class TimerProfile:
     stop_bits: float = 1
     parity: str = "N"
 
-    #: Bytes that terminate a message.
+    #: Bytes that terminate a message *from* the device.
     delimiter: bytes = b"\n"
+    #: Bytes appended to every command sent *to* the device. Several timers
+    #: ignore a command without it — the Champ, The Judge and the SuperTimer all
+    #: want a carriage return — and the failure is silence rather than an error.
+    command_eol: bytes = b""
     #: Bytes that are a whole message on their own, wherever they appear. A
     #: gate signal arrives without waiting for a terminator, because the
     #: information is worthless late.
@@ -284,6 +314,10 @@ class TimerProfile:
     #: for a lane the device considers already reported. None waits forever.
     line_idle_timeout_seconds: float | None = 0.2
 
+    #: Sent before ``probe``, to settle a device that will not answer until it
+    #: has been reset or woken. The prober pauses afterwards. Several timers
+    #: need it and it is harmless where they do not.
+    pre_probe: tuple[bytes, ...] = ()
     #: Sent by the port prober to draw the identification banner out of a
     #: device, when nothing is connected and no heat is in progress. Empty
     #: means the model cannot be probed for and will never be auto-detected.
@@ -313,6 +347,13 @@ class TimerProfile:
     acks: tuple[Ack, ...] = ()
     #: Tried in order, so a specific pattern must precede a general one.
     matchers: tuple[Matcher, ...] = ()
+    #: Commands to send when something happens, keyed by our own timer events.
+    #:
+    #: This is how a timer that has to be *told* to report is driven. Most of
+    #: them want a command when results are overdue — "force the end of the
+    #: race and send what you have" — and a couple want one the moment the race
+    #: starts, or once the gate is closed and the timer can safely be reset.
+    on_event: "Mapping[Event, tuple[bytes, ...]]" = field(default_factory=dict)
     #: Present when the gate state has to be asked for rather than waited for.
     #: Ignored entirely unless ``gate_state_is_knowable`` — a profile may name a
     #: query the hardware does not really answer.
@@ -330,6 +371,14 @@ class TimerProfile:
 
     def identification_commands(self) -> list[bytes]:
         return list(self.on_connect)
+
+    def commands_for(self, event: Event) -> list[bytes]:
+        """What to send when ``event`` happens. Usually nothing."""
+        return list(self.on_event.get(event, ()))
+
+    def wire(self, command: bytes) -> bytes:
+        """A command as it goes onto the wire, terminator included."""
+        return command + self.command_eol
 
     def is_identified_by(self, line: bytes) -> bool:
         """Whether this one line announces the device.
@@ -438,6 +487,8 @@ class TimerProfile:
             return GateOpen()
         if matcher.event is Event.GATE_UNSUPPORTED:
             return GateWatcherUnsupported()
+        if matcher.event is Event.LANE_COUNT:
+            return LaneCount(lanes=int(_read(matcher.lane, match, 0)))
         if matcher.event is Event.LANE_RESULT:
             return LaneResult(
                 lane=int(_read(matcher.lane, match, 0)),

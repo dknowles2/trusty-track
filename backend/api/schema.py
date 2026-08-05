@@ -950,9 +950,13 @@ class TimerStatus:
 
     state: str
     device_name: str | None
-    lane_count: int | None
-    active_heat_id: int | None
-    last_error: str | None
+    #: Where the device's description came from, and whether it has ever been
+    #: run against the hardware. Most profiles are adapted from DerbyNet and
+    #: have not been, which the operator deserves to know before trusting one.
+    device_provenance: str | None = None
+    lane_count: int | None = None
+    active_heat_id: int | None = None
+    last_error: str | None = None
     #: The serial port in use, if any. In backend-direct mode this is usually
     #: found rather than configured (#89), so it is the only way for an
     #: operator to see which port the timer was detected on.
@@ -1112,6 +1116,7 @@ def _timer_status(s) -> TimerStatus:
     return TimerStatus(
         state=s.state,
         device_name=s.device_name,
+        device_provenance=s.device_provenance,
         port=s.port,
         lane_count=s.lane_count,
         active_heat_id=s.active_heat_id,

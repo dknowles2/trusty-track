@@ -463,7 +463,7 @@ export type DiagnosticTimerStatusSubscriptionVariables = Exact<{
 }>;
 
 
-export type DiagnosticTimerStatusSubscription = { timerStatus: { trackId: number, status: { state: string, deviceName: string | null, port: string | null, laneCount: number | null, lastError: string | null, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
+export type DiagnosticTimerStatusSubscription = { timerStatus: { trackId: number, status: { state: string, deviceName: string | null, deviceProvenance: string | null, port: string | null, laneCount: number | null, lastError: string | null, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
 
 export type DiagnosticReconnectTimerMutationVariables = Exact<{
   trackId: number;
