@@ -117,13 +117,14 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
     // ── Inject 3 test image files into the hidden file input ────────────────
     const tmpDir = path.resolve(__dirname, '../.playwright-tmp');
     fs.mkdirSync(tmpDir, { recursive: true });
-    // Each file gets a distinct trailing byte, which JPEG decoders ignore after
-    // the end-of-image marker. Byte-identical files produce byte-identical data
-    // URLs, and three identical `uploadImage` mutations do not all come back —
-    // two photos sat on "Uploading..." forever and the wait below timed out.
-    const filePaths = ['racer-01.jpg', 'racer-02.jpg', 'racer-03.jpg'].map((name, i) => {
+    // Deliberately byte-identical, which is the case that used to hang: three
+    // `uploadImage` mutations with the same data URL are one urql operation and
+    // only one of them came back, so two photos sat on "Uploading..." forever
+    // (#116). The modal issues one request per distinct image now, so this
+    // stays as the end-to-end guard for that.
+    const filePaths = ['racer-01.jpg', 'racer-02.jpg', 'racer-03.jpg'].map(name => {
         const p = path.join(tmpDir, name);
-        fs.writeFileSync(p, Buffer.concat([MINIMAL_JPEG, Buffer.from([i])]));
+        fs.writeFileSync(p, MINIMAL_JPEG);
         return p;
     });
 

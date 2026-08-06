@@ -315,14 +315,34 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
     const [, uploadMutation] = useMutation(UPLOAD_IMAGE);
     const [, bulkAssignMutation] = useMutation(BULK_ASSIGN_PHOTOS);
 
-    const uploadEntry = async (entry: PhotoEntry) => {
+    /** Upload one photo, sharing the request with any identical siblings.
+     *
+     * `inFlight` is keyed on the image's own bytes, so picking the same file
+     * twice in one selection uploads it once and both entries take the answer.
+     *
+     * That is not only tidiness. urql keys an operation on its document plus
+     * its variables, so two concurrent `uploadImage` mutations carrying an
+     * identical data URL are the same key — and with the normalized cache in
+     * the chain only one of them ever gets a result back. The others never
+     * settled, so their photos sat on "Uploading…" forever and **Apply** stayed
+     * disabled with no way out but closing the modal (#116). Issuing one
+     * request per distinct image means there is nothing to collide.
+     */
+    const uploadEntry = async (entry: PhotoEntry, inFlight: Map<string, Promise<string>>) => {
         try {
             const dataUrl = await readFileAsDataUrl(entry.file);
-            const result = await uploadMutation({ dataUrl });
-            if (result.error) throw result.error;
+            let pending = inFlight.get(dataUrl);
+            if (!pending) {
+                pending = uploadMutation({ dataUrl }).then(result => {
+                    if (result.error) throw result.error;
+                    return result.data.uploadImage as string;
+                });
+                inFlight.set(dataUrl, pending);
+            }
+            const uploadedUrl = await pending;
             setPhotos(prev => prev.map(p =>
                 p.localId === entry.localId
-                    ? { ...p, status: 'done', uploadedUrl: result.data.uploadImage }
+                    ? { ...p, status: 'done', uploadedUrl }
                     : p
             ));
         } catch {
@@ -343,7 +363,11 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
             photoType: 'racer',
         }));
         setPhotos(prev => [...prev, ...entries]);
-        await Promise.all(entries.map(uploadEntry));
+        // Scoped to this selection: a photo picked again in a *later* selection
+        // is a fresh upload, which keeps the map from growing for the life of
+        // the modal and matches what the operator did.
+        const inFlight = new Map<string, Promise<string>>();
+        await Promise.all(entries.map(entry => uploadEntry(entry, inFlight)));
         e.target.value = '';
     };
 
@@ -454,7 +478,9 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                                                 setPhotos(prev => prev.map(p =>
                                                     p.localId === entry.localId ? { ...p, status: 'uploading' } : p
                                                 ));
-                                                uploadEntry({ ...entry, status: 'uploading' });
+                                                // Its own map: a retry is one
+                                                // photo, with nothing to share.
+                                                uploadEntry({ ...entry, status: 'uploading' }, new Map());
                                             }}
                                         >
                                             Retry
