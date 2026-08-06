@@ -28,7 +28,7 @@ The check-in and race control functions can be handled by the same person for sm
 Check-in happens on the **Race Details** page — the same page used to manage the roster before the event. On race day, you work through the racer list and mark each car as inspected before it races.
 
 ![Race Details with Check-In Status](assets/screenshots/race-day/01-check-in-status.png)
-_The Race Details page on race day — some racers are checked in (green), others are pending (yellow). The inspection status column shows progress at a glance._
+_The Race Details page at the start of race day. Every racer has a gold **Check In** button in the Status column; it turns green and reads **Checked In / Edit** once they are through._
 
 ---
 
@@ -49,7 +49,7 @@ _The check-in modal for a racer, with "Car Passed Inspection" toggled ON._
 _A racer photo loaded in the check-in modal. Photos appear on the live audience display during the race._
 
 ![Racer List After Check-In](assets/screenshots/race-day/04-racer-list-after-check-in.png)
-_After saving, the racer's status updates to "Inspected" (green) in the list._
+_After saving, that racer's button turns green and reads **Checked In / Edit**. Clicking it again reopens the same form._
 
 ---
 
@@ -71,12 +71,13 @@ camera that will not focus.
 
 ### Tracking Check-In Progress
 
-The racer list shows inspection status for every racer: green for inspected,
-gold for still pending. Turn on **Group by Den** to work through one den at a
-time, which is usually how families arrive.
+The Status column shows where every racer stands: a green **Checked In / Edit**
+button once they are through, a gold **Check In** button until then. Turn on
+**Group by Den** to work through one den at a time, which is usually how
+families arrive.
 
 ![Racer List Showing Inspection Status](assets/screenshots/race-day/05-check-in-progress.png)
-_The roster during check-in — a mix of inspected (green) and pending (gold) rows._
+_The roster part-way through check-in — green for done, gold for still to come._
 
 ---
 

@@ -41,6 +41,25 @@ test('take screenshots', async ({ page }) => {
   await expect(page.getByRole('link', { name: '2026 Pinewood Derby' })).toBeVisible();
   await page.getByRole('link', { name: '2026 Pinewood Derby' }).click();
   await page.waitForURL('**/race/*');
+  // Read the id rather than assuming 1. Every docs spec creates its own race
+  // against one shared backend, so "the race this spec made" is only id 1 when
+  // this spec happens to run first — and running them together is what CI does.
+  const raceId = Number(page.url().match(/\/race\/(\d+)/)![1]);
+
+  /** Close the round summary if it is up.
+   *
+   * It appears whenever a championship round's field is decided, which happens
+   * more than once in this run — after the qualifying round completes, and
+   * again when `advanceRound` fills the final. It is modal, so leaving it up
+   * sends every later click to its backdrop instead of the page.
+   */
+  const dismissRoundSummary = async () => {
+    const summary = page.getByRole('dialog', { name: 'Round Complete!' });
+    if (await summary.isVisible()) {
+      await summary.getByRole('button', { name: '\u00d7' }).click();
+      await expect(summary).toBeHidden();
+    }
+  };
   await expect(page.getByText('2026 Pinewood Derby')).toBeVisible();
   await page.waitForTimeout(500); // render elements
 
@@ -93,9 +112,10 @@ test('take screenshots', async ({ page }) => {
   await page.getByText(/Populate Test Data/i).click();
   await expect(page.getByRole('heading', { name: 'Populate Test Data' })).toBeVisible();
 
-  // Toggle "Check In Automatically" ON
-  await page.getByLabel('Check In Automatically').click();
-
+  // "Check In Automatically" is deliberately left off. The check-in
+  // screenshots below are of racers being checked in, and there is nothing to
+  // photograph once they already are. The schedule needs them checked in, and
+  // that happens through the API further down, after those shots are taken.
   await page.getByRole('button', { name: 'Generate', exact: true }).click();
 
   // wait for it to generate and close modal
@@ -128,10 +148,13 @@ test('take screenshots', async ({ page }) => {
 
   const BACKEND_URL = 'http://127.0.0.1:8001';
 
-  // Cleanup from previous spec: uncheck 2 checkboxes, toggle group-by-den back off
-  await page.locator('input[type="checkbox"]').nth(1).click();
-  await page.locator('input[type="checkbox"]').nth(2).click();
-  await page.locator('.toggle-switch').click(); // toggle group-by-den back OFF
+  // Undo the selection and the grouping the roster shots left behind. By
+  // reloading rather than by clicking the same checkboxes again: both are local
+  // component state, and grouping *moves* the checkboxes, so undoing by
+  // position unticked the wrong ones and left the check-in screenshots showing
+  // a roster with 19 racers selected and a bulk-actions bar up.
+  await page.reload();
+  await page.waitForLoadState('networkidle');
   await page.waitForTimeout(500);
 
   // --- A. CHECK-IN SCREENSHOTS ---
@@ -200,7 +223,7 @@ test('take screenshots', async ({ page }) => {
   // generate_heats_for_round filters racers by car_passed_inspection = True, so we need
   // at least 2 racers checked in (passed inspection) or the mutation returns an error.
   const allRacersResp = await page.request.post(`${BACKEND_URL}/graphql`, {
-    data: JSON.stringify({ query: `query { race(raceId: 1) { racers { id } } }` }),
+    data: JSON.stringify({ query: `query { race(raceId: ${raceId}) { racers { id } } }` }),
     headers: { 'Content-Type': 'application/json' },
   });
   const allRacersJson = await allRacersResp.json();
@@ -266,7 +289,7 @@ test('take screenshots', async ({ page }) => {
   // Query the race to find all qualifying heats and force-complete them
   const roundsResp = await page.request.post(`${BACKEND_URL}/graphql`, {
     data: JSON.stringify({
-      query: `query { rounds(raceId: 1) { id roundNumber advancementSource } }`
+      query: `query { rounds(raceId: ${raceId}) { id roundNumber advancementSource } }`
     }),
     headers: { 'Content-Type': 'application/json' }
   });
@@ -278,34 +301,45 @@ test('take screenshots', async ({ page }) => {
   // Get all heats in the qualifying round
   const heatsResp = await page.request.post(`${BACKEND_URL}/graphql`, {
     data: JSON.stringify({
-      query: `query { race(raceId: 1) { heats { id roundId laneResults } } }`
+      query: `query {
+        race(raceId: ${raceId}) {
+          heats { id roundId lanes { lane racerId placeholderSlot time place skipped } }
+        }
+      }`
     }),
     headers: { 'Content-Type': 'application/json' }
   });
   const heatsJson = await heatsResp.json();
-  const allHeats = heatsJson.data.race.heats as Array<{ id: number; roundId: number; laneResults: string }>;
+  type Lane = {
+    lane: number;
+    racerId: number | null;
+    placeholderSlot: number | null;
+    time: number | null;
+    place: number | null;
+    skipped: boolean;
+  };
+  const allHeats = heatsJson.data.race.heats as Array<{ id: number; roundId: number; lanes: Lane[] }>;
   const qualifyingHeats = allHeats.filter(h => h.roundId === qualifyingRound.id);
 
-  // Force-complete any remaining qualifying heats via updateHeatResult mutation
+  // Force-complete any remaining qualifying heats via updateHeatResult
   for (const heat of qualifyingHeats) {
-    const parsed: Array<{ lane: number; racer_id: number; time: number | null; place: number | null }> =
-      JSON.parse(heat.laneResults || '[]');
-    if (parsed.length > 0 && parsed[0].time !== null) continue; // already completed
-    if (parsed.length === 0) continue; // no assignments
+    const lanes = heat.lanes;
+    if (lanes.length === 0) continue; // no assignments
+    if (lanes.some(l => l.time !== null)) continue; // already run
 
-    // Generate sorted fake times and assign places
-    const withTimes = parsed.map((r, i) => ({ ...r, time: 3.0 + i * 0.13 + Math.random() * 0.05 }));
-    withTimes.sort((a, b) => a.time! - b.time!);
-    const fakeResults = withTimes.map((r, idx) => ({ ...r, time: r.time!, place: idx + 1 }));
-    // Restore lane order
-    fakeResults.sort((a, b) => a.lane - b.lane);
+    // Fake times, sorted to decide places, then put back in lane order.
+    const timed = lanes.map((l, i) => ({ ...l, time: 3.0 + i * 0.13 + Math.random() * 0.05 }));
+    timed.sort((a, b) => a.time - b.time);
+    const results = timed
+      .map((l, idx) => ({ ...l, place: idx + 1 }))
+      .sort((a, b) => a.lane - b.lane);
 
     await page.request.post(`${BACKEND_URL}/graphql`, {
       data: JSON.stringify({
-        query: `mutation UpdateHeatResult($heatId: Int!, $results: String!) {
-          updateHeatResult(heatId: $heatId, results: $results) { id }
+        query: `mutation UpdateHeatResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+          updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
         }`,
-        variables: { heatId: heat.id, results: JSON.stringify(fakeResults) }
+        variables: { heatId: heat.id, lanes: results }
       }),
       headers: { 'Content-Type': 'application/json' }
     });
@@ -320,6 +354,8 @@ test('take screenshots', async ({ page }) => {
   // 16: race execution state after qualifying round complete
   await page.screenshot({ path: path.join(screenshotsDir, 'race-day/16-round-completion-modal.png') });
 
+  await dismissRoundSummary();
+
   // --- E. CHAMPIONSHIP ROUND ---
 
   // Advance the championship round (replace placeholder IDs with real racer IDs)
@@ -329,7 +365,7 @@ test('take screenshots', async ({ page }) => {
         query: `mutation AdvanceRound($raceId: Int!, $roundId: Int!) {
           advanceRound(raceId: $raceId, roundId: $roundId)
         }`,
-        variables: { raceId: 1, roundId: championshipRound.id }
+        variables: { raceId, roundId: championshipRound.id }
       }),
       headers: { 'Content-Type': 'application/json' }
     });
@@ -351,12 +387,15 @@ test('take screenshots', async ({ page }) => {
   // Wait for championship heat to auto-prepare
   await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 15000 });
 
+  // Filling the final's field decided a round, so the summary is up again.
+  await dismissRoundSummary();
+
   // Run the championship heat
   await page.getByRole('button', { name: 'Start Timer' }).click();
   await page.waitForTimeout(7000);
 
   // Navigate to Standings page for final standings
-  await page.goto('/race/1/standings');
+  await page.goto(`/race/${raceId}/standings`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
 
@@ -368,7 +407,7 @@ test('take screenshots', async ({ page }) => {
   // ============================================================
 
   // Navigate to observation page
-  await page.goto('/race/1/observation');
+  await page.goto(`/race/${raceId}/observation`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1500);
 
@@ -435,7 +474,7 @@ test('take screenshots', async ({ page }) => {
   // ============================================================
 
   // Navigate to stats page
-  await page.goto('/race/1/stats');
+  await page.goto(`/race/${raceId}/stats`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
 

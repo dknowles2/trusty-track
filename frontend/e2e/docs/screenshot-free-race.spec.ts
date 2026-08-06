@@ -63,7 +63,10 @@ test('screenshot free race', async ({ page }) => {
         `mutation Create($race: RaceInput!) { createRace(race: $race) { id } }`,
         {
             race: {
-                name: 'Pack 42 Pinewood Derby',
+                // Not the same name the printables spec uses: `races.name` is
+                // unique, and running every docs spec in one go shares one
+                // backend, so a shared name makes whichever runs second fail.
+                name: 'Pack 42 Free Race Night',
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
                 groupId: config.groups[0].id,
