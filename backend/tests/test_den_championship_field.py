@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from backend.db import crud, models, schemas
 from backend.domain import lanes
 from backend.services import scoring
+from backend.tests.helpers import as_lanes
 
 DENS = 2
 PER_DEN = 2
@@ -98,7 +99,7 @@ def _run_round(db: Session, race, round_obj) -> None:
             if rid is None or rid < 0:
                 continue
             res["time"] = 1.0 + rid / 100.0
-        crud.record_heat_result(db, heat.id, json.dumps(results))
+        crud.record_heat_result(db, heat.id, as_lanes(results))
 
 
 def test_invalidation_keeps_every_den_slot(db: Session):

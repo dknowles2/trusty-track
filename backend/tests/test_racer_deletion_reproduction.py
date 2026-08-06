@@ -48,7 +48,7 @@ def _setup_race_with_heats(db, num_racers=3):
         db.query(models.Heat).filter(models.Heat.round_id == round_started.id).first()
     )
     # Record a result for the first heat
-    results_json = json.dumps(
+    results_json = as_lanes(
         [{"lane": 1, "racer_id": racers[0].id, "time": 3.0, "place": 1}]
     )
     crud.record_heat_result(db, heat_started.id, results_json)

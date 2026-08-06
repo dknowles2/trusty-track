@@ -930,7 +930,7 @@ class TimerManager:
                 # championship field.
                 crud.update_free_race_heat_result(db, heat_id, heat_lanes)
             else:
-                crud.record_heat_result(db, heat_id, lanes.serialize(heat_lanes))
+                crud.record_heat_result(db, heat_id, heat_lanes)
             race_id = heat.race_id
         finally:
             db.close()

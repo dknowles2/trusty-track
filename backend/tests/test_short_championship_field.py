@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
 from backend.domain import heat_session, lanes
+from backend.tests.helpers import as_lanes
 
 
 def _race(db: Session, label: str, racer_count: int) -> tuple:
@@ -67,7 +68,7 @@ def _run_round(db: Session, race_id: int, round_id: int) -> None:
             if rid is None or rid < 0:
                 continue
             res["time"] = 1.0 + rid / 100.0
-        crud.record_heat_result(db, heat.id, json.dumps(results))
+        crud.record_heat_result(db, heat.id, as_lanes(results))
 
 
 def _champ_round(db: Session, race_id: int, slots: int):
@@ -247,7 +248,7 @@ def test_a_raced_round_is_filled_in_place_even_when_short(db: Session):
     target = champ[0]
     results = json.loads(target.lane_results)
     results[0]["time"] = 3.21
-    crud.record_heat_result(db, target.id, json.dumps(results))
+    crud.record_heat_result(db, target.id, as_lanes(results))
 
     _run_round(db, race.id, r1.id)
 

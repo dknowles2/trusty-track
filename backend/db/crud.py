@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from sqlalchemy import func
@@ -363,7 +364,7 @@ def _remove_racer_from_regular_heats(db: Session, racer_ids: set[int], round_id:
                 lane.place = None
                 modified = True
         if modified:
-            heat.lane_results = lanes.serialize(heat_lanes)
+            set_heat_lanes(heat, heat_lanes)
 
 
 def _remove_racer_from_free_heats(db: Session, racer_ids: set[int], race_id: int):
@@ -386,7 +387,7 @@ def _remove_racer_from_free_heats(db: Session, racer_ids: set[int], race_id: int
                 lane.place = None
                 modified = True
         if modified:
-            heat.lane_results = lanes.serialize(heat_lanes)
+            set_heat_lanes(heat, heat_lanes)
 
 
 def delete_racer(db: Session, racer_id: int) -> models.Racer | None:
@@ -561,8 +562,8 @@ def _generate_ppc(
             race_id=race_id,
             round_id=round_id,
             heat_number=plan.heat_number,
-            lane_results=lanes.serialize(lane_assignment),
         )
+        set_heat_lanes(heat, lane_assignment)
         db.add(heat)
         generated_heats.append(heat)
     return generated_heats
@@ -667,7 +668,7 @@ def resolve_round_placeholders(db: Session, round_id: int, racer_ids: list[int])
     for heat in heats:
         heat_lanes = lanes.parse(heat.lane_results)
         if lanes.resolve_placeholders(heat_lanes, racer_ids):
-            heat.lane_results = lanes.serialize(heat_lanes)
+            set_heat_lanes(heat, heat_lanes)
 
     db.commit()
 
@@ -764,11 +765,12 @@ def _reset_heats_in_place(
         # schedule if some other path ever numbers differently.
         heat.heat_number = plan.heat_number
         # Through the ORM, so `lane_sync` projects it into `heat_lanes`.
-        heat.lane_results = lanes.serialize(
+        set_heat_lanes(
+            heat,
             [
                 lanes.Lane(lane=index + 1, racer_id=racer_id)
                 for index, racer_id in enumerate(plan.lanes)
-            ]
+            ],
         )
     db.commit()
     return True
@@ -857,8 +859,22 @@ def trigger_auto_advancements(db: Session, race_id: int, completed_round_id: int
         populate_round_field(db, r.id, winner_ids)
 
 
+def set_heat_lanes(heat: models.Heat, heat_lanes: Sequence[lanes.Lane]) -> None:
+    """Write a heat's lanes. The one door for them.
+
+    Every write to a heat's lanes goes through here, so that #72 — making
+    ``heat_lanes`` the source of truth and retiring the blob — is a change to
+    one function rather than to nine call sites that each happen to remember.
+
+    Today that means serializing into ``lane_results``, which ``lane_sync``
+    then projects into the table. After the flip it will mean writing the table
+    and deriving the column, and no caller will notice.
+    """
+    heat.lane_results = lanes.serialize(heat_lanes)
+
+
 def record_heat_result(
-    db: Session, heat_id: int, results: str | None
+    db: Session, heat_id: int, heat_lanes: Sequence[lanes.Lane] | None
 ) -> models.Heat | None:
     """Store a heat's results and re-settle everything downstream of them.
 
@@ -866,10 +882,15 @@ def record_heat_result(
     correct when the operator re-runs a heat mid-round. It is also why this is
     not a plain setter — see issue #8's note about side effects, and issue #7,
     which proposes an explicit session object to own this instead.
+
+    Takes lanes, not a serialized blob. It was the last lane-carrying signature
+    in the codebase that spoke the storage format instead of the value, which
+    made every caller serialize before calling and left #72 with one more shape
+    to change.
     """
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-    if heat and results is not None:
-        heat.lane_results = results
+    if heat and heat_lanes is not None:
+        set_heat_lanes(heat, heat_lanes)
         stamp_recorded(heat)
         db.commit()
         db.refresh(heat)
@@ -1009,36 +1030,6 @@ def reorder_heats(db: Session, heat_updates: list[dict]) -> list[models.Heat]:
     return sorted(heats, key=lambda h: h.heat_number)
 
 
-def update_heat(
-    db: Session, heat_id: int, heat: schemas.HeatCreate
-) -> models.Heat | None:
-    """
-    Update an existing heat's properties.
-
-    Args:
-        db: Database session
-        heat_id: ID of the heat to update
-        heat: HeatCreate schema with updated values
-
-    Returns:
-        Updated Heat model or None if not found
-    """
-    db_heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-    if not db_heat:
-        return None
-
-    # Update fields
-    db_heat.heat_number = heat.heat_number
-    db_heat.lane_results = heat.lane_results
-    # Note: race_id and round_id typically shouldn't change, but we'll allow it
-    db_heat.race_id = heat.race_id
-    db_heat.round_id = heat.round_id
-
-    db.commit()
-    db.refresh(db_heat)
-    return db_heat
-
-
 def bulk_delete_racers(db: Session, racer_ids: list[int]):
     from collections import defaultdict
 
@@ -1109,9 +1100,9 @@ def create_free_race_heat(
         round_id=None,
         kind=models.HeatKind.FREE,
         heat_number=_next_free_heat_number(db, race_id),
-        lane_results=lanes.serialize(lane_assignments),
         created_at=datetime.now(timezone.utc).isoformat(),
     )
+    set_heat_lanes(heat, lane_assignments)
     db.add(heat)
     db.commit()
     db.refresh(heat)
@@ -1161,7 +1152,7 @@ def update_free_race_heat_result(
     heat = get_free_race_heat(db, heat_id)
     if heat is None:
         return None
-    heat.lane_results = lanes.serialize(lane_results)
+    set_heat_lanes(heat, lane_results)
     stamp_recorded(heat)
     db.commit()
     db.refresh(heat)

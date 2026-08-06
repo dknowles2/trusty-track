@@ -26,6 +26,7 @@ from backend.db import crud, models, schemas
 from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
+from backend.tests.helpers import as_lanes
 
 
 @pytest.fixture(autouse=True)
@@ -171,7 +172,7 @@ async def test_a_saved_result_produces_a_new_session(db):
         crud.record_heat_result(
             db,
             heat.id,
-            json.dumps(
+            as_lanes(
                 [
                     {"lane": 1, "racer_id": racers[0].id, "time": 3.4, "place": 1},
                     {"lane": 2, "racer_id": racers[1].id, "time": 3.5, "place": 2},
@@ -213,7 +214,7 @@ async def test_the_session_is_re_read_rather_than_replayed(db):
         crud.record_heat_result(
             writer,
             heat_id,
-            json.dumps([{"lane": 1, "racer_id": racer_id, "time": 9.1, "place": 1}]),
+            as_lanes([{"lane": 1, "racer_id": racer_id, "time": 9.1, "place": 1}]),
         )
         await _publish_race_state(race.id)
 

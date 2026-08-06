@@ -2106,7 +2106,7 @@ class Mutation:
         heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
         if heat is None:
             return None
-        results = lanes.serialize(_lanes_from_input(lanes_input, heat.lane_results))
+        results = _lanes_from_input(lanes_input, heat.lane_results)
         updated_heat = typing.cast(Any, crud.record_heat_result(db, heat_id, results))
         # Recording here can re-field a later championship round (#50).
         await _revalidate_timers(info)

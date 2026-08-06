@@ -199,6 +199,8 @@ It separates the things the blob conflated: a placeholder slot is `placeholderSl
 
 **`laneResults` is gone from the schema.** The raw blob was handed out as a string alongside `lanes` while the client moved across, and has been removed — an API offering both invites new code to take the untyped one. The blob is still the storage format; nothing outside the backend sees it.
 
+**Writing goes through one door.** `crud.set_heat_lanes(heat, lanes)` is the only place a heat's lanes are stored — nine call sites used to assign `lane_results` themselves. Making `heat_lanes` authoritative ([#72](https://github.com/dknowles2/trusty-track/issues/72)) is then a change to that one function rather than to nine places that each have to remember, and `test_heat_lanes_write.py` walks `crud.py`'s AST to keep it that way. `record_heat_result` takes lanes rather than a serialized blob for the same reason — it was the last signature in the codebase that spoke the storage format instead of the value.
+
 **Writing is structured too.** `updateHeatResult` and `recordFreeRaceResult` take `[HeatLaneInput!]!` — the same fields, so what a screen reads is what it sends back:
 
 ```graphql

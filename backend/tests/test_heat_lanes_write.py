@@ -213,3 +213,41 @@ def test_free_race_results_take_the_same_input(client, db, race, racer):
 def test_an_unknown_free_race_heat_is_answered_with_null(client, race):  # noqa: ARG001
     body = _post(client, RECORD_FREE_RACE_RESULT, {"heatId": 9999, "lanes": []})
     assert body["data"]["recordFreeRaceResult"] is None
+
+
+def test_only_one_place_writes_a_heats_lanes():
+    """`crud.set_heat_lanes` is the one door (#72).
+
+    Nine call sites used to assign `lane_results` directly. Making
+    `heat_lanes` the source of truth means changing how a heat's lanes are
+    stored, and that is a change to one function only while this holds. A new
+    assignment elsewhere would still pass every other test — the blob would be
+    right and `lane_sync` would project it — and would only surface as extra
+    work when the flip happens.
+    """
+    import ast
+    from pathlib import Path
+
+    tree = ast.parse(
+        (Path(__file__).resolve().parents[1] / "db" / "crud.py").read_text()
+    )
+
+    writers = set()
+    for func in ast.walk(tree):
+        if not isinstance(func, ast.FunctionDef):
+            continue
+        for node in ast.walk(func):
+            targets = (
+                node.targets
+                if isinstance(node, ast.Assign)
+                else [node.target]
+                if isinstance(node, ast.AugAssign)
+                else []
+            )
+            for target in targets:
+                if isinstance(target, ast.Attribute) and target.attr == "lane_results":
+                    writers.add(func.name)
+
+    assert writers == {"set_heat_lanes"}, (
+        f"a heat's lanes are written outside crud.set_heat_lanes: {sorted(writers)}"
+    )
