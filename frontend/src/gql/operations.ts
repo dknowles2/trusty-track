@@ -110,6 +110,21 @@ export type WizardGeneralRoundInput = {
   type: string;
 };
 
+export type GetInitialConfigQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type GetInitialConfigQuery = { initialConfig: { initialized: boolean, version: string } };
+
+export type CreateInitialConfigMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type CreateInitialConfigMutation = { createInitialConfig: { initialized: boolean } };
+
+export type UpdateInitialConfigMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type UpdateInitialConfigMutation = { updateInitialConfig: { initialized: boolean } };
+
 export type GetTracksQueryVariables = Exact<{ [key: string]: never; }>;
 
 
