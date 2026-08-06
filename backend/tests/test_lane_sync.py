@@ -1,7 +1,10 @@
-"""`heat_lanes` tracks the `lane_results` blobs as they change.
+"""How `heat_lanes` rows get written.
 
-Issue #5, step two. Migration 0003 backfilled the table; this is what stops it
-decaying from the first recorded result onward.
+Issue #5, step two: migration 0003 backfilled the table, and this is what stops
+it decaying from the first recorded result onward. Issue #72 then turned it
+round — the rows are built from the lane *values* a writer supplied, and
+`lane_results` is a derived column rather than the thing the rows are read back
+out of.
 
 Most of the coverage for this is not here — `conftest.py` asserts
 `lanes_out_of_sync()` is empty at the end of *every* test in the suite, so
@@ -282,3 +285,87 @@ def test_the_verifier_reports_drift_rather_than_hiding_it(db: Session):
     crud.delete_heat(db, heat.id)
     db.commit()
     assert lanes_out_of_sync(db) == []
+
+
+# --------------------------------------------------------------------------- #
+# Where the rows come from (#72)                                               #
+# --------------------------------------------------------------------------- #
+
+
+def test_the_rows_come_from_the_values_not_the_string(db: Session):
+    """The point of the flip: the rows follow the lanes a writer supplied, not
+    the string written alongside them.
+
+    Made to discriminate by having the two disagree in one flush, because they
+    agree in every other circumstance — with `lane_results` still written, a
+    test that only checks the rows are right passes whether they came from the
+    values or from parsing the string. Mutation testing said so: deleting the
+    staging entirely left this file green.
+    """
+    race_id = _race(db)
+    racer_ids = _racers(db, race_id, 2)
+    heat = crud.create_free_race_heat(
+        db,
+        race_id,
+        as_lanes([{"lane": 1, "racer_id": racer_ids[0]}]),
+    )
+
+    correct = as_lanes([{"lane": 1, "racer_id": racer_ids[0]}])
+    crud.set_heat_lanes(heat, correct)
+    # A string that disagrees with what was staged, in the same flush.
+    heat.lane_results = json.dumps(
+        [{"lane": 1, "racer_id": racer_ids[1], "time": 9.9, "place": 1}]
+    )
+    db.commit()
+
+    rows = db.query(models.HeatLane).filter_by(heat_id=heat.id).all()
+    assert [(r.racer_id, r.time_seconds) for r in rows] == [(racer_ids[0], None)]
+
+    # Put the column back, so the suite's after-every-test projection check —
+    # which still compares the two — holds for this test as well.
+    crud.set_heat_lanes(heat, correct)
+    db.commit()
+
+
+def test_a_non_lane_change_leaves_the_rows_alone(db: Session):
+    """Renumbering a heat must not disturb its lanes."""
+    race_id = _race(db)
+    racer_ids = _racers(db, race_id, 2)
+    heat = crud.create_free_race_heat(
+        db,
+        race_id,
+        as_lanes([{"lane": 1, "racer_id": racer_ids[0]}]),
+    )
+
+    heat.heat_number = 99
+    db.commit()
+
+    rows = db.query(models.HeatLane).filter_by(heat_id=heat.id).all()
+    assert [(r.lane, r.racer_id) for r in rows] == [(1, racer_ids[0])]
+    assert lanes_out_of_sync(db) == []
+
+
+def test_a_blob_written_without_staging_still_projects(db: Session, caplog):
+    """The fallback. Nothing should reach it — `test_heat_lanes_write.py` walks
+    `crud.py`'s AST to keep the door the only writer — but what it prevents is
+    a table quietly holding the previous heat's lanes, so it stays.
+    """
+    import logging
+
+    race_id = _race(db)
+    racer_ids = _racers(db, race_id, 2)
+    heat = crud.create_free_race_heat(
+        db,
+        race_id,
+        as_lanes([{"lane": 1, "racer_id": racer_ids[0]}]),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        heat.lane_results = json.dumps(
+            [{"lane": 1, "racer_id": racer_ids[1], "time": 3.5, "place": 1}]
+        )
+        db.commit()
+
+    rows = db.query(models.HeatLane).filter_by(heat_id=heat.id).all()
+    assert [(r.racer_id, r.time_seconds) for r in rows] == [(racer_ids[1], 3.5)]
+    assert "without staging its lanes" in caplog.text

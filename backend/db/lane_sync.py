@@ -17,13 +17,28 @@ added later.
 
 Direction of truth
 ------------------
-The blob is still authoritative. This module only projects it.
-:func:`lanes_out_of_sync` exists to prove the two agree, and ``conftest.py``
+The rows now come from the lane *values* a writer supplied, not from parsing
+the string it also wrote. ``crud.set_heat_lanes`` — the one door for a heat's
+lanes since #119 — stages those values on the instance, and this module writes
+them when the flush gives the heat an id.
+
+That is the change of direction #72 asks for, less the last step: a malformed
+or hand-edited blob can no longer reach ``heat_lanes``, and ``lane_results`` is
+a derived column rather than the source. It is still *written*, so a rollback
+has data and the readers can move one at a time.
+
+Parsing the blob survives only as a fallback for a heat whose lanes were
+written some other way. Nothing does that — ``test_heat_lanes_write.py`` walks
+``crud.py``'s AST to keep it so — and the fallback exists because the failure
+it prevents is silent.
+
+:func:`lanes_out_of_sync` proves the two still agree, and ``conftest.py``
 asserts it after every test in the suite.
 """
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from typing import Any
 
@@ -33,28 +48,41 @@ from sqlalchemy.orm import Session
 from backend.db import models
 from backend.domain import lanes as domain_lanes
 
+logger = logging.getLogger(__name__)
+
+
+#: Where a writer leaves the lanes it wants stored, for the flush to pick up.
+#:
+#: An instance attribute rather than an argument because a transient heat has
+#: no id until the flush has run, and the rows need one. Not a mapped column,
+#: so SQLAlchemy neither persists nor expires it.
+STAGED = "_tt_staged_lanes"
+
+
+def stage(heat: models.Heat, heat_lanes) -> None:
+    """Hand this flush the lanes to store for ``heat``."""
+    setattr(heat, STAGED, list(heat_lanes))
+
 
 def _rows_for(heat_id: int, parsed) -> list[dict]:
-    """Project parsed lanes into ``heat_lanes`` rows."""
-    rows = []
-    for lane in parsed:
-        racer_id = lane.racer_id
-        placeholder_slot = None
-        if racer_id is not None and racer_id < 0:
-            placeholder_slot = abs(racer_id)
-            racer_id = None
-        rows.append(
-            {
-                "heat_id": heat_id,
-                "lane": lane.lane,
-                "racer_id": racer_id,
-                "placeholder_slot": placeholder_slot,
-                "time_seconds": lane.seconds,
-                "place": lane.place,
-                "skipped": lane.skipped,
-            }
-        )
-    return rows
+    """Lane values as ``heat_lanes`` rows.
+
+    ``placeholder_slot`` is read off the lane rather than re-derived from a
+    negative racer id: the sign convention has one home, and a foreign key
+    cannot express it.
+    """
+    return [
+        {
+            "heat_id": heat_id,
+            "lane": lane.lane,
+            "racer_id": lane.real_racer_id,
+            "placeholder_slot": lane.placeholder_slot,
+            "time_seconds": lane.seconds,
+            "place": lane.place,
+            "skipped": lane.skipped,
+        }
+        for lane in parsed
+    ]
 
 
 def _project(session: Session, heat_id: int, parsed) -> None:
@@ -87,9 +115,27 @@ def _sync_heat_lanes(session: Session, _flush_context) -> None:
             _project(session, obj.id, [])
 
     for obj in list(session.new) + list(session.dirty):
-        if obj in session.deleted:
+        if obj in session.deleted or not isinstance(obj, models.Heat):
             continue
-        if isinstance(obj, models.Heat) and _blob_changed(obj, "lane_results"):
+
+        staged = getattr(obj, STAGED, None)
+        if staged is not None:
+            # Cleared before writing. Not because a replay would corrupt
+            # anything — a second door call re-stages, and a flush with no lane
+            # change would rewrite identical rows — but because leaving it set
+            # would keep the fallback below from ever engaging for this heat,
+            # which is the one case the fallback exists for.
+            delattr(obj, STAGED)
+            _project(session, obj.id, staged)
+        elif _blob_changed(obj, "lane_results"):
+            # Nobody should reach this. Kept because what it prevents — a heat
+            # whose lanes were written some other way, leaving the table
+            # holding the previous ones — fails silently.
+            logger.warning(
+                "Heat %s had its blob written without staging its lanes; "
+                "falling back to parsing it. Use crud.set_heat_lanes.",
+                obj.id,
+            )
             _project(session, obj.id, domain_lanes.parse(obj.lane_results))
 
 
