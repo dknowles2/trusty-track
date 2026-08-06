@@ -1,4 +1,4 @@
-# Task 3: Migrate Race Details [DONE]
+# Task 3: Migrate Race Details [COMPLETED]
 
 ## Goal
 

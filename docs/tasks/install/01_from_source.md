@@ -1,4 +1,4 @@
-# Install Channel 1: From Source (Developer) [DONE]
+# Install Channel 1: From Source (Developer) [COMPLETED]
 
 ## Audience
 
