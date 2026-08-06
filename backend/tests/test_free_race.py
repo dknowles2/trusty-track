@@ -38,11 +38,24 @@ def _add_checked_in_racer(db: Session, race_id: int, first: str, last: str) -> i
     return racer.id
 
 
+def _racers(db: Session, race_id: int, count: int) -> list[int]:
+    """``count`` checked-in racers, for lane assignments to name.
+
+    ``heat_lanes.racer_id`` is a real foreign key and SQLite enforces it now
+    (#125), so a heat's lanes have to name racers that exist rather than ids
+    picked out of the air.
+    """
+    return [
+        _add_checked_in_racer(db, race_id, f"Racer{i}", "Test") for i in range(count)
+    ]
+
+
 def test_create_free_race_heat(db: Session):
     race_id = _create_race(db)
+    racer_ids = _racers(db, race_id, 2)
     assignments = [
-        {"lane": 1, "racer_id": 1},
-        {"lane": 2, "racer_id": 2},
+        {"lane": 1, "racer_id": racer_ids[0]},
+        {"lane": 2, "racer_id": racer_ids[1]},
     ]
     heat = crud.create_free_race_heat(db, race_id, as_lanes(assignments))
     assert heat.id is not None
@@ -55,17 +68,21 @@ def test_create_free_race_heat(db: Session):
     parsed = json.loads(heat.lane_results)
     assert len(parsed) == 2
     assert parsed[0]["lane"] == 1
-    assert parsed[0]["racer_id"] == 1
+    assert parsed[0]["racer_id"] == racer_ids[0]
 
 
 def test_update_free_race_heat_result(db: Session):
     race_id = _create_race(db)
-    assignments = [{"lane": 1, "racer_id": 1}, {"lane": 2, "racer_id": 2}]
+    racer_ids = _racers(db, race_id, 2)
+    assignments = [
+        {"lane": 1, "racer_id": racer_ids[0]},
+        {"lane": 2, "racer_id": racer_ids[1]},
+    ]
     heat = crud.create_free_race_heat(db, race_id, as_lanes(assignments))
 
     results = [
-        {"lane": 1, "racer_id": 1, "time": 3.141, "place": 1},
-        {"lane": 2, "racer_id": 2, "time": 3.500, "place": 2},
+        {"lane": 1, "racer_id": racer_ids[0], "time": 3.141, "place": 1},
+        {"lane": 2, "racer_id": racer_ids[1], "time": 3.500, "place": 2},
     ]
     updated = crud.update_free_race_heat_result(db, heat.id, as_lanes(results))
     assert updated is not None
@@ -83,9 +100,10 @@ def test_update_free_race_heat_result_invalid_id(db: Session):
 
 def test_get_free_race_heats_newest_first(db: Session):
     race_id = _create_race(db)
-    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": 1}]))
-    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": 2}]))
-    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": 3}]))
+    for racer_id in _racers(db, race_id, 3):
+        crud.create_free_race_heat(
+            db, race_id, as_lanes([{"lane": 1, "racer_id": racer_id}])
+        )
 
     heats = crud.get_free_race_heats(db, race_id)
     assert len(heats) == 3
@@ -95,9 +113,9 @@ def test_get_free_race_heats_newest_first(db: Session):
 
 def test_get_free_race_heats_limit(db: Session):
     race_id = _create_race(db)
-    for i in range(5):
+    for racer_id in _racers(db, race_id, 5):
         crud.create_free_race_heat(
-            db, race_id, as_lanes([{"lane": 1, "racer_id": i + 1}])
+            db, race_id, as_lanes([{"lane": 1, "racer_id": racer_id}])
         )
 
     heats = crud.get_free_race_heats(db, race_id, limit=3)

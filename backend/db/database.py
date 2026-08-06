@@ -4,11 +4,45 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, event, inspect
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 logger = logging.getLogger(__name__)
+
+
+@event.listens_for(Engine, "connect")
+def _enforce_foreign_keys(dbapi_connection, _connection_record) -> None:
+    """Turn on SQLite's foreign key enforcement for every connection (#125).
+
+    SQLite defaults enforcement **off**, and the default is per *connection*
+    rather than per database, so without this every ``ForeignKey`` in
+    ``models.py`` is documentation: a heat naming a race that has been deleted,
+    a lane naming a racer who has, a round on a race that never existed — all
+    written without complaint.
+
+    Registered on the ``Engine`` class rather than on this module's engine
+    because this module's engine is not the only one. ``TimerManager`` writes
+    through its own ``SessionLocal`` (#9), Alembic's CLI builds its own, and
+    the test suite keeps a second file-backed database — attaching it to one
+    engine leaves the others unenforced, which is a guarantee that holds
+    everywhere except where it is being checked.
+
+    Migrations suspend it for the duration of a run: batch mode rewrites a
+    table by creating a new one, copying the rows and dropping the old, and the
+    intermediate states of a rebuild are not meant to be consistent. See
+    ``migrations/env.py``.
+    """
+    # Non-SQLite backends enforce by default and have no such pragma.
+    if type(dbapi_connection).__module__.split(".")[0] not in ("sqlite3", "pysqlite3"):
+        return
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cursor.close()
+
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -116,3 +150,16 @@ def init_db() -> None:
 
         current = MigrationContext.configure(connection).get_current_revision()
         logger.info("Database schema is at revision %s", current)
+
+    # Migrations suspend foreign key enforcement (see `migrations/env.py`), and
+    # the restore does not stick: `PRAGMA foreign_keys` is a no-op inside a
+    # transaction, and by the time the context manager exits the migration run
+    # has opened one. The connection then goes back to the pool with
+    # enforcement off, and every session handed out afterwards inherits it —
+    # so the app would run with foreign keys silently disabled while the whole
+    # test suite, which never calls `init_db`, reported them enforced.
+    #
+    # Dropping the pool is the fix rather than re-setting the pragma: the
+    # listener already sets it correctly on connect, and this way there is one
+    # place that decides. It costs one reconnect, once, at startup.
+    engine.dispose()

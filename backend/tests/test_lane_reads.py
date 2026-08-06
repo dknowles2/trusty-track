@@ -30,6 +30,25 @@ def _round(db: Session) -> models.Round:
     return crud.create_round(db, race_id=race.id, round_number=1)
 
 
+def _racer(db: Session, round_obj: models.Round) -> int:
+    """A racer for a lane to name.
+
+    ``heat_lanes.racer_id`` is a real foreign key and SQLite enforces it now
+    (#125), so a lane carrying an assignment has to name a racer that exists
+    rather than an id picked out of the air.
+    """
+    racer = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Racer",
+            last_name="Test",
+            race_id=round_obj.race_id,
+            car_passed_inspection=True,
+        ),
+    )
+    return racer.id
+
+
 def _heat(db: Session, round_obj: models.Round, number: int, heat_lanes: list) -> int:
     heat = models.Heat(
         race_id=round_obj.race_id, round_id=round_obj.id, heat_number=number
@@ -106,7 +125,13 @@ def test_a_skipped_lane_survives_the_round_trip(db: Session):
     Losing it in the crossing would make a skipped heat look unrun, which is
     what decides whether the running order moves on."""
     round_obj = _round(db)
-    _heat(db, round_obj, 1, [lanes.Lane(lane=1, racer_id=7, extra={"skipped": True})])
+    racer_id = _racer(db, round_obj)
+    _heat(
+        db,
+        round_obj,
+        1,
+        [lanes.Lane(lane=1, racer_id=racer_id, extra={"skipped": True})],
+    )
 
     (heat,) = crud._round_heat_lanes(db, round_obj.id)
 
@@ -119,7 +144,10 @@ def test_a_time_comes_back_as_a_number(db: Session):
     handed back the string form would put `seconds` at the mercy of whatever
     wrote it."""
     round_obj = _round(db)
-    _heat(db, round_obj, 1, [lanes.Lane(lane=1, racer_id=7, time="3.25", place=1)])
+    racer_id = _racer(db, round_obj)
+    _heat(
+        db, round_obj, 1, [lanes.Lane(lane=1, racer_id=racer_id, time="3.25", place=1)]
+    )
 
     (heat,) = crud._round_heat_lanes(db, round_obj.id)
 

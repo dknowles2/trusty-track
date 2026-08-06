@@ -182,12 +182,23 @@ There is no foreign key from a lane to a racer. `updateHeatResult` takes the who
 
 #### The `heat_lanes` shadow table
 
-The normalized `heat_lanes` table exists and is kept current. Its rows are built from the lane *values* a writer supplied: `crud.set_heat_lanes` — the one door — stages them on the instance, and `backend/db/lane_sync.py` writes them on `after_flush`, which is when a newly created heat first has an id. `lane_results` is written alongside as a **derived** column, so a rollback has data and the readers can move one at a time. A malformed blob can no longer reach the table; parsing one survives only as a logged fallback for a write that skipped the door, which the AST guard in `test_heat_lanes_write.py` says cannot happen. **Making the table authoritative is the remaining half of #5, tracked as #72** — until that lands, the wins it promised (a `COUNT` instead of a parse for round completion, a `GROUP BY` for scoring, the racer foreign key enforcing anything on write) are not available, and `crud._remove_racer_from_*` still hand-walk the blob doing what `ON DELETE SET NULL` would do. Two consequences:
+The normalized `heat_lanes` table exists and is kept current. Its rows are built from the lane *values* a writer supplied: `crud.set_heat_lanes` — the one door — stages them on the instance, and `backend/db/lane_sync.py` writes them on `after_flush`, which is when a newly created heat first has an id. `lane_results` is written alongside as a **derived** column, so a rollback has data and the readers can move one at a time. A malformed blob can no longer reach the table; parsing one survives only as a logged fallback for a write that skipped the door, which the AST guard in `test_heat_lanes_write.py` says cannot happen. **Making the table authoritative is the remaining half of #5, tracked as #72** — until that lands, the wins it promised (a `COUNT` instead of a parse for round completion, a `GROUP BY` for scoring) are not available. The racer foreign key does enforce on write now, and carries `ON DELETE SET NULL` — see below. Two consequences:
 
 - **Write heats through `crud.set_heat_lanes`, and through the ORM.** A raw `UPDATE heats SET lane_results = ...`, or a bulk delete of a table other than `heats`, bypasses the listener entirely and silently rots the table. Setting the column without staging lanes is caught and logged, but it means the rows come from a re-parse of the string, which is the direction #72 moved away from.
 - **`conftest.py` asserts `lane_sync.lanes_out_of_sync()` is empty after every test**, which is what makes the whole suite a test of the projection. If a change makes that fail, the projection is wrong — not the check.
 
-`heat_lanes.heat_id` is a real foreign key since #6. `lane_sync` still cascades deletions itself, because a bulk `query(Heat).delete()` never loads the rows.
+#### Foreign keys are enforced, and deletion is the database's job
+
+SQLite defaults enforcement **off**, and the default is per *connection* rather than per database. For most of this project's life nothing turned it on, so every `ForeignKey` in `models.py` was documentation ([#125](https://github.com/dknowles2/trusty-track/issues/125)). `database._enforce_foreign_keys` is a `connect` listener on the `Engine` **class** — not on one engine, because `TimerManager` writes through its own `SessionLocal` (#9), the Alembic CLI builds its own, and the suite keeps another.
+
+Two things this cost, both worth knowing before touching them:
+
+- **Migrations suspend enforcement, and the restore does not stick.** `PRAGMA foreign_keys` is a no-op inside a transaction, and the migration run has opened one by the time `migrations/env.py`'s suspension ends. The connection went back to the pool with enforcement off and every session afterwards inherited it — the app ran unenforced while the whole suite reported otherwise. `init_db()` therefore calls `engine.dispose()` at the end, so the next connect re-runs the listener. `test_foreign_keys.py::test_enforcement_survives_init_db` is the only test in the tree that goes down the operator's path.
+- **Five delete paths were removing a parent while lane rows still pointed at it** — `delete_heat`, `delete_round`, `generate_heats_for_round`'s `clear_existing` branch, `bulk_delete_racers` and `delete_race`. Each was correct only because nothing was checking.
+
+**`heat_lanes` carries `ON DELETE CASCADE` on `heat_id` and `ON DELETE SET NULL` on `racer_id`.** Fixing those five by reordering call sites would leave the constraint depending on every future caller remembering; the clause puts the rule where the relationship is, and it is the one [#72](https://github.com/dknowles2/trusty-track/issues/72) step 4 wanted anyway. `lane_sync` no longer cascades deletions in Python — it did so twice, and the `after_flush` half ran *after* the `DELETE FROM heats` a real constraint refuses. Don't add that back: put an `ON DELETE` action on the relationship instead.
+
+`crud._remove_racer_from_*` still run, because they also rewrite the `lane_results` blob the table is projected alongside. What they no longer have to be is *first*.
 
 **`loaders.scheduled_racer_ids` is one `DISTINCT`** over `heat_lanes` rather than a load of every heat and a parse of each blob — the first of the wins #5 predicted to actually arrive, guarded by an exact count in `test_query_counts.py`. Note it needs no placeholder special case: the table holds a slot as `placeholder_slot` with a null `racer_id`, so the blob's negative-id convention simply is not there.
 
@@ -512,6 +523,7 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 | #17 | Standings cover preliminary rounds only |
 | #26 | The PPC scheduler fills every lane; `test_domain_scheduling.py` holds the properties |
 | #45 | `ruff check` and `ruff format --check` gate CI over `backend scripts packaging`. Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
+| #125 | Foreign keys are enforced on every connection, and `heat_lanes` carries `ON DELETE` actions. Deletion ordering is the schema's rule, not Python's |
 
 ---
 

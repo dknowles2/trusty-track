@@ -202,7 +202,10 @@ def test_deleting_a_race_leaves_no_orphan_lanes(db: Session):
     so an orphan here would eventually reattach to an unrelated heat."""
     race_id = _race(db)
     _round_with_heats(db, race_id)
-    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": 1}]))
+    (racer_id,) = _racers(db, race_id, 1)
+    crud.create_free_race_heat(
+        db, race_id, as_lanes([{"lane": 1, "racer_id": racer_id}])
+    )
     db.commit()
     assert db.query(models.HeatLane).count() > 0
 

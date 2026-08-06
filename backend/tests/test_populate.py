@@ -5,27 +5,39 @@ import pytest
 from backend.db import crud, models, populate, schemas
 
 
-def test_populate_respects_global_numbering(db):
-    """Test that populate respects GLOBAL car numbering strategy."""
-    # Create a track
+def _race(db, **overrides) -> models.Race:
+    """A race on its own track, in a group that really exists.
+
+    The group is not scenery. ``races.group_id`` is a foreign key and SQLite
+    enforces it now (#125), so a race hung off a bare ``group_id=1`` cannot be
+    inserted at all — these tests used to get away with it because nothing was
+    checking.
+    """
+    group = crud.create_group(db, schemas.GroupCreate(name="Test Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Test Track", lane_count=4, timer_type="FAKE")
     )
-
-    # Create a race with GLOBAL numbering strategy
-    race = crud.create_race(
+    return crud.create_race(
         db,
         schemas.RaceCreate(
-            group_id=1,
+            group_id=group.id,
             name="Test Race",
             date_time="2024-01-01T10:00:00",
             location="Test Location",
-            car_numbering_strategy=models.CarNumberingStrategy.GLOBAL,
-            global_start_number=100,
             track_id=track.id,
             scheduling_strategy=models.SchedulingStrategy.PPC,
             scoring_strategy=models.ScoringStrategy.TIMED,
+            **overrides,
         ),
+    )
+
+
+def test_populate_respects_global_numbering(db):
+    """Test that populate respects GLOBAL car numbering strategy."""
+    race = _race(
+        db,
+        car_numbering_strategy=models.CarNumberingStrategy.GLOBAL,
+        global_start_number=100,
     )
 
     # Populate with 5 racers
@@ -44,25 +56,7 @@ def test_populate_respects_global_numbering(db):
 
 def test_populate_respects_per_den_numbering(db):
     """Test that populate respects PER_GROUP (Per Den) car numbering strategy."""
-    # Create a track
-    track = crud.create_track(
-        db, schemas.TrackCreate(name="Test Track", lane_count=4, timer_type="FAKE")
-    )
-
-    # Create a race with PER_GROUP numbering strategy
-    race = crud.create_race(
-        db,
-        schemas.RaceCreate(
-            group_id=1,
-            name="Test Race",
-            date_time="2024-01-01T10:00:00",
-            location="Test Location",
-            car_numbering_strategy=models.CarNumberingStrategy.PER_GROUP,
-            track_id=track.id,
-            scheduling_strategy=models.SchedulingStrategy.PPC,
-            scoring_strategy=models.ScoringStrategy.TIMED,
-        ),
-    )
+    race = _race(db, car_numbering_strategy=models.CarNumberingStrategy.PER_GROUP)
 
     # Create dens with number ranges
     den1 = crud.create_den(
@@ -115,25 +109,7 @@ def test_populate_respects_per_den_numbering(db):
 
 def test_populate_with_manual_numbering(db):
     """Test that populate with MANUAL strategy leaves car numbers as None."""
-    # Create a track
-    track = crud.create_track(
-        db, schemas.TrackCreate(name="Test Track", lane_count=4, timer_type="FAKE")
-    )
-
-    # Create a race with MANUAL numbering strategy
-    race = crud.create_race(
-        db,
-        schemas.RaceCreate(
-            group_id=1,
-            name="Test Race",
-            date_time="2024-01-01T10:00:00",
-            location="Test Location",
-            car_numbering_strategy=models.CarNumberingStrategy.MANUAL,
-            track_id=track.id,
-            scheduling_strategy=models.SchedulingStrategy.PPC,
-            scoring_strategy=models.ScoringStrategy.TIMED,
-        ),
-    )
+    race = _race(db, car_numbering_strategy=models.CarNumberingStrategy.MANUAL)
 
     # Populate with 3 racers
     populate.generate_fake_racers(db, race.id, count=3)
