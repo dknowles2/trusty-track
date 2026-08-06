@@ -700,9 +700,43 @@ def populate_round_field(db: Session, round_id: int, racer_ids: list[int]) -> No
 
 
 def _round_heat_lanes(db: Session, round_id: int) -> list[list[lanes.Lane]]:
-    """Parsed lanes for every heat in a round."""
+    """Lanes for every heat in a round, read from ``heat_lanes`` (#72).
+
+    The choke point for three domain rules — ``is_round_complete``,
+    ``field_is_short`` and ``may_rebuild`` — so moving it moves all three.
+
+    Two queries rather than one join, deliberately. A join from ``heat_lanes``
+    would drop any heat with no lane rows; parsing gave it ``[]`` and kept it
+    in the list. ``is_round_complete`` reaches the same answer either way, but
+    the other two reason about the *number* of heats, so a heat quietly
+    dropping out changes what they decide.
+    """
     heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
-    return [lanes.parse(h.lane_results) for h in heats]
+    if not heats:
+        return []
+
+    rows = (
+        db.query(models.HeatLane)
+        .filter(models.HeatLane.heat_id.in_([h.id for h in heats]))
+        .order_by(models.HeatLane.heat_id, models.HeatLane.lane)
+        .all()
+    )
+
+    by_heat: dict[int, list[lanes.Lane]] = {h.id: [] for h in heats}
+    for row in rows:
+        by_heat[row.heat_id].append(_lane_from_row(row))
+    return [by_heat[h.id] for h in heats]
+
+
+def _lane_from_row(row: models.HeatLane) -> lanes.Lane:
+    return lanes.from_parts(
+        lane=row.lane,
+        racer_id=row.racer_id,
+        placeholder_slot=row.placeholder_slot,
+        time_seconds=row.time_seconds,
+        place=row.place,
+        skipped=row.skipped,
+    )
 
 
 def round_field_size(db: Session, round_obj: models.Round) -> int:
