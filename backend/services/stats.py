@@ -11,7 +11,6 @@ from typing import Any, TypedDict
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models
-from backend.domain import lanes
 
 DNF_PENALTY = 9.999
 
@@ -98,17 +97,15 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     # Completed heats with round context, for highlights and heat_results
     heats_with_rounds: list[dict[str, Any]] = []
 
-    for heat in heats:
-        if not heat.lane_results:
+    # One query for every heat's lanes, rather than a parse per heat (#72).
+    # `real_racer_id` is `None` for an unadvanced championship slot, and
+    # `seconds` is a number — the column is a float where the blob held
+    # whatever the frontend last wrote.
+    lanes_by_heat = crud.lanes_for_heats(db, heats)
+
+    for heat, heat_lanes in zip(heats, lanes_by_heat, strict=True):
+        if not heat_lanes:
             continue
-        # Through `lanes.parse`, not `json.loads`: it is the only sanctioned
-        # reader of the blob (#5). Mostly that is consolidation — this module
-        # already coerced times with `float()` and skipped falsy racer ids — but
-        # the codec also refuses anything that is not a lane, where parsing here
-        # iterated it and took the whole stats page down with an AttributeError.
-        # `real_racer_id` is `None` for an unadvanced championship slot, which
-        # the blob encodes as a negative id, and `seconds` is a number where the
-        # stored time may be the string the frontend sometimes wrote.
         results: list[LaneRow] = [
             LaneRow(
                 lane=parsed.lane,
@@ -116,7 +113,7 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
                 time=parsed.seconds,
                 place=parsed.place,
             )
-            for parsed in lanes.parse(heat.lane_results)
+            for parsed in heat_lanes
         ]
 
         round_obj = round_map.get(heat.round_id)

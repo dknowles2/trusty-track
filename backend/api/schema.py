@@ -10,7 +10,7 @@ import os
 import random
 import typing
 import uuid
-from collections.abc import AsyncGenerator, Iterable, Mapping
+from collections.abc import AsyncGenerator, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 
@@ -72,7 +72,7 @@ def _loaders(info: Info) -> RequestLoaders:
 _TRUTHY_CSV_VALUES = frozenset({"y", "yes", "true", "1", "x", "passed", "pass"})
 
 
-def _unfinished(heats: Iterable[models.Heat]) -> list[models.Heat]:
+def _unfinished(db: Session, heats: Sequence[models.Heat]) -> list[models.Heat]:
     """The heats the race has not got to yet, in the order given.
 
     "Not got to yet" is :func:`domain.lanes.is_finished` — a skipped heat counts
@@ -80,7 +80,22 @@ def _unfinished(heats: Iterable[models.Heat]) -> list[models.Heat]:
     time, which meant a skipped heat stayed at the head of this list for the rest
     of the event and pinned `currentlyRacing` to it (#55).
     """
-    return [h for h in heats if not lanes.is_finished(lanes.parse(h.lane_results))]
+    heats = list(heats)
+    return [
+        heat
+        for heat, heat_lanes in zip(heats, crud.lanes_for_heats(db, heats), strict=True)
+        if not lanes.is_finished(heat_lanes)
+    ]
+
+
+def _stored_lanes(db: Session, heat: models.Heat) -> list[lanes.Lane]:
+    """One heat's lanes, from the table (#72).
+
+    For the mutation resolvers, which deal in a single heat and so cannot
+    N+1 — the loaders' batched version is for the read path, where a page asks
+    about every heat in a race.
+    """
+    return crud.lanes_for_heats(db, [heat])[0]
 
 
 def _free_race_heats(db: Session, race_id: int, recorded: bool) -> list[models.Heat]:
@@ -102,8 +117,8 @@ def _free_race_heats(db: Session, race_id: int, recorded: bool) -> list[models.H
     )
     return [
         heat
-        for heat in heats
-        if lanes.has_results(lanes.parse(heat.lane_results)) is recorded
+        for heat, heat_lanes in zip(heats, crud.lanes_for_heats(db, heats), strict=True)
+        if lanes.has_results(heat_lanes) is recorded
     ]
 
 
@@ -262,7 +277,7 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
     already_advanced = not any(
         lane.is_placeholder
         for heat in loaders.heats_for_round(race_id, round_id)
-        for lane in lanes.parse(heat.lane_results)
+        for lane in loaders.lane_values_for_heat(race_id, heat.id)
     )
 
     all_rounds = loaders.rounds_for_race(race_id)
@@ -275,9 +290,10 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
             if r.round_number >= round_obj.round_number:
                 continue
             for heat in loaders.heats_for_round(race_id, r.id):
-                if not heat.lane_results:
+                heat_lanes = loaders.lane_values_for_heat(race_id, heat.id)
+                if not heat_lanes:
                     return False
-                for lane in lanes.parse(heat.lane_results):
+                for lane in heat_lanes:
                     if lane.is_real_racer and lane.time is None and lane.place is None:
                         return False
         return True
@@ -871,15 +887,20 @@ class FreeRaceHeat:
         return _heat_lanes(info, self, self.id)
 
     @strawberry.field
-    def recorded(self) -> bool:
+    def recorded(self, info: Info) -> bool:
         """Whether a result has been recorded.
 
         Replaces testing ``laneResults`` for null. A free race heat used to keep
         its schedule and its results in two columns, so an unrecorded heat had
         no results at all; now it holds its schedule in the same place an
         official heat does, and the question is whether anything was timed.
+
+        Off the same batched lane load the ``lanes`` field above uses, so a
+        page asking for both pays for one.
         """
-        return lanes.has_results(lanes.parse(self.lane_results))
+        return lanes.has_results(
+            _loaders(info).lane_values_for_heat(self.race_id, self.id)
+        )
 
 
 @strawberry.type
@@ -1084,7 +1105,7 @@ def _build_heat_session(
     )
     # A heat id that names nothing is NO_HEAT, not an error: the operator can
     # delete a round while its heat is still armed.
-    stored = lanes.parse(heat.lane_results) if heat is not None else None
+    stored = _stored_lanes(db, heat) if heat is not None else None
 
     return HeatSession(
         track_id=track_id,
@@ -2004,7 +2025,7 @@ class Mutation:
 
         lane_mask = 0
         racer_by_lane: dict[int, int | None] = {}
-        for lane in lanes.parse(heat.lane_results):
+        for lane in _stored_lanes(db, heat):
             if lane.racer_id is not None:
                 lane_mask |= 1 << (lane.lane - 1)
                 racer_by_lane[lane.lane] = lane.racer_id
@@ -2062,9 +2083,7 @@ class Mutation:
             return False
 
         occupied = [
-            lane.lane
-            for lane in lanes.parse(heat.lane_results)
-            if lane.racer_id is not None
+            lane.lane for lane in _stored_lanes(db, heat) if lane.racer_id is not None
         ]
         if not occupied:
             # If no racers are assigned (e.g., anonymous free race),
@@ -2897,12 +2916,10 @@ class Subscription:
                 sorted_heats = sorted(
                     heats, key=lambda h: (h.round.round_number, h.heat_number)
                 )
-                uncompleted = _unfinished(sorted_heats)
+                uncompleted = _unfinished(db, sorted_heats)
                 if len(uncompleted) > 1:
                     next_heat = uncompleted[1]
-                    racer_ids = lanes.real_racer_ids(
-                        lanes.parse(next_heat.lane_results)
-                    )
+                    racer_ids = lanes.real_racer_ids(_stored_lanes(db, next_heat))
                     racers = (
                         db.query(models.Racer)
                         .filter(models.Racer.id.in_(racer_ids))
@@ -2935,7 +2952,7 @@ class Subscription:
                 sorted_heats = sorted(
                     heats, key=lambda h: (h.round.round_number, h.heat_number)
                 )
-                uncompleted = _unfinished(sorted_heats)
+                uncompleted = _unfinished(db, sorted_heats)
                 return uncompleted[0] if uncompleted else None
 
             yield _get_current()
@@ -2961,12 +2978,15 @@ class Subscription:
                 #
                 # Times, not `is_finished`: this view shows a heat's results, and
                 # a skipped heat has none to show.
+                race_heats = (
+                    db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
+                )
                 recorded = [
-                    h
-                    for h in db.query(models.Heat)
-                    .filter(models.Heat.race_id == race_id)
-                    .all()
-                    if lanes.has_results(lanes.parse(h.lane_results))
+                    heat
+                    for heat, heat_lanes in zip(
+                        race_heats, crud.lanes_for_heats(db, race_heats), strict=True
+                    )
+                    if lanes.has_results(heat_lanes)
                 ]
                 if not recorded:
                     return None
@@ -2985,7 +3005,7 @@ class Subscription:
                 target_heat = max(recorded, key=_most_recent)
                 is_free = target_heat.kind is models.HeatKind.FREE
 
-                heat_lanes = lanes.parse(target_heat.lane_results)
+                heat_lanes = _stored_lanes(db, target_heat)
                 racer_ids = lanes.real_racer_ids(heat_lanes)
                 racers = (
                     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).all()
