@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import CameraCapture from '../../../components/ui/CameraCapture';
 import { useQuery, useMutation } from 'urql';
 import { GET_RACE_DENS, UPLOAD_IMAGE } from '../graphql/queries';
@@ -33,7 +33,11 @@ interface RacerFormProps {
 }
 
 export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel }: RacerFormProps) {
-  const [formData, setFormData] = useState<RacerData>({
+  // Seeded from the racer being edited, rather than emptied and then patched
+  // by an effect. The form lives in a modal that unmounts when it closes, so a
+  // fresh mount is a fresh form; the caller also keys it, so switching racers
+  // without closing would still start clean.
+  const [formData, setFormData] = useState<RacerData>(initialData ?? {
     first_name: '',
     last_name: '',
     car_number: undefined,
@@ -55,12 +59,6 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
   const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
-
-  useEffect(() => {
-    if (initialData) {
-      setFormData(initialData);
-    }
-  }, [initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;

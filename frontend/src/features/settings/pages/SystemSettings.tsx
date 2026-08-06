@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 
@@ -60,8 +60,16 @@ export default function SystemConfig() {
   const [, createInitialConfig] = useMutation(CREATE_INITIAL_CONFIG);
   const [, updateInitialConfig] = useMutation(UPDATE_INITIAL_CONFIG);
 
-  useEffect(() => {
-    if (data?.initialConfig) {
+  // Seeded from the saved configuration during render rather than in an
+  // effect, so the form never paints empty and then fills in. `seededFrom`
+  // starts at undefined rather than at the current data: a query already
+  // resolved by the first render would otherwise look as though it had been
+  // read, and the operator would be shown a blank setup screen for a system
+  // that is configured.
+  const [seededFrom, setSeededFrom] = useState<typeof data>(undefined);
+  if (data && data !== seededFrom) {
+    setSeededFrom(data);
+    if (data.initialConfig) {
       const { initialized, groupName: savedGroupName, debugMode: savedDebugMode, tracks: savedTracks } = data.initialConfig;
       if (initialized) {
         setIsEditing(true);
@@ -84,7 +92,7 @@ export default function SystemConfig() {
         }
       }
     }
-  }, [data]);
+  }
 
   const handleTrackChange = (index: number, field: string, value: string | number) => {
     const newTracks = [...tracks];

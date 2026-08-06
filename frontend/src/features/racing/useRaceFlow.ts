@@ -48,8 +48,16 @@ export function useRaceFlow(observation: Observation, handlers: RaceFlowHandlers
     // Held in a ref so that a fresh callback identity on the parent's every
     // render does not re-fire anything. This is what `onNextHeatRef` was for,
     // now in the one place that needs it rather than in the component.
+    //
+    // Assigned after the commit rather than during render. Writing a ref while
+    // rendering is unsafe: React may render a component and then discard it
+    // without committing, and the write would already have happened. Nothing
+    // here reads the handlers during render — `dispatch` runs from a
+    // subscription payload or a timer, by which point this has run.
     const handlersRef = useRef(handlers);
-    handlersRef.current = handlers;
+    useEffect(() => {
+        handlersRef.current = handlers;
+    });
 
     const dispatch = useCallback((event: FlowEvent) => {
         const { state, commands } = reduce(stateRef.current, event);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 
 export interface RaceFormData {
     name: string;
@@ -42,17 +42,11 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
     const tracks = useMemo(() => tracksResult.data?.tracks || [], [tracksResult.data?.tracks]);
     const fetchingTracks = tracksResult.fetching;
 
-    useEffect(() => {
-        if (tracks.length > 0 && !formData.track_id) {
-            setFormData(prev => ({ ...prev, track_id: tracks[0].id }));
-        }
-    }, [tracks, formData.track_id]);
-
-    useEffect(() => {
-        if (initialData) {
-            setFormData(prev => ({ ...prev, ...initialData }));
-        }
-    }, [initialData]);
+    // The track defaults to the first one, derived rather than written back
+    // into state by an effect. Nothing needs storing: until the operator picks
+    // a track there is no choice to remember, and a effect that patched state
+    // after the query resolved cost a second render to say the same thing.
+    const trackId = formData.track_id || tracks[0]?.id || 0;
 
     const handleChange = (field: keyof RaceFormData, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -64,6 +58,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         try {
             await onSubmit({
                 ...formData,
+                track_id: trackId,
                 name: formData.name.trim()
             });
         } finally {
@@ -93,9 +88,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         <form onSubmit={handleSubmit}>
             <div>
                 <label style={labelStyle}>Event Name</label>
-                <input 
-                    type="text" 
-                    value={formData.name} 
+                <input
+                    type="text"
+                    value={formData.name}
                     onChange={e => handleChange('name', e.target.value)}
                     placeholder="e.g. 2024 Pinewood Derby"
                     required
@@ -104,18 +99,18 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
             </div>
             <div>
                 <label style={labelStyle}>Date & Time</label>
-                <input 
-                    type="datetime-local" 
-                    value={formData.date_time} 
+                <input
+                    type="datetime-local"
+                    value={formData.date_time}
                     onChange={e => handleChange('date_time', e.target.value)}
                     style={inputStyle}
                 />
             </div>
             <div>
                 <label style={labelStyle}>Location</label>
-                <input 
-                    type="text" 
-                    value={formData.location} 
+                <input
+                    type="text"
+                    value={formData.location}
                     onChange={e => handleChange('location', e.target.value)}
                     placeholder="e.g. School Gym"
                     style={inputStyle}
@@ -125,8 +120,8 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                     <label style={labelStyle}>Scoring</label>
-                    <select 
-                        value={formData.scoring_strategy} 
+                    <select
+                        value={formData.scoring_strategy}
                         onChange={e => handleChange('scoring_strategy', e.target.value)}
                         style={inputStyle}
                     >
@@ -136,7 +131,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 </div>
                 <div>
                     <label style={labelStyle}>Championship Trophies</label>
-                    <input 
+                    <input
                         type="number"
                         value={formData.championship_trophies || 3}
                         onChange={e => handleChange('championship_trophies', parseInt(e.target.value) || 3)}
@@ -154,8 +149,8 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 {fetchingTracks ? (
                     <p style={{ fontSize: '0.8rem', color: '#666' }}>Loading tracks...</p>
                 ) : (
-                <select 
-                    value={formData.track_id} 
+                <select
+                    value={trackId}
                     onChange={e => handleChange('track_id', parseInt(e.target.value))}
                     style={inputStyle}
                     required
@@ -169,8 +164,8 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
 
             <div>
                 <label style={labelStyle}>Car Numbering</label>
-                <select 
-                    value={formData.car_numbering_strategy} 
+                <select
+                    value={formData.car_numbering_strategy}
                     onChange={e => handleChange('car_numbering_strategy', e.target.value)}
                     style={inputStyle}
                 >
@@ -182,9 +177,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
              {formData.car_numbering_strategy === 'GLOBAL' && (
                 <div>
                      <label style={labelStyle}>Global Start Number</label>
-                    <input 
-                        type="number" 
-                        value={formData.global_start_number} 
+                    <input
+                        type="number"
+                        value={formData.global_start_number}
                         onChange={e => handleChange('global_start_number', parseInt(e.target.value))}
                         style={inputStyle}
                         placeholder="e.g. 1"
@@ -197,24 +192,24 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                      <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1, padding: '12px' }}>
                         {loading ? 'Saving...' : submitLabel}
                     </button>
-                    <button 
-                        type="button" 
-                        onClick={onCancel} 
+                    <button
+                        type="button"
+                        onClick={onCancel}
                         className="secondary-btn"
                         style={{ background: 'transparent', border: '1px solid #ddd', color: '#666' }}
                     >
                         Cancel
                     </button>
                 </div>
-                
+
                 {onDelete && (
                      <button
                         type="button"
                         onClick={onDelete}
                         className="secondary-btn"
-                        style={{ 
-                            backgroundColor: '#ffebee', 
-                            color: '#c62828', 
+                        style={{
+                            backgroundColor: '#ffebee',
+                            color: '#c62828',
                             border: '1px solid #ffcdd2',
                             marginLeft: 'auto'
                         }}

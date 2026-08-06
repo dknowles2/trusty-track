@@ -102,6 +102,92 @@ describe('RaceControl Page', () => {
         (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
     });
 
+    // ---------------------------------------------------------------------
+    // Which heat is on screen (#105)
+    // ---------------------------------------------------------------------
+    //
+    // This used to be written into state by an effect that watched both the
+    // heats and the selection. It is derived now, and these pin the answers
+    // the effect gave — plus the one it could not.
+
+    const withHeats = (heats: unknown[]) => {
+        (useQuery as any).mockReturnValue([{
+            data: { race: { ...mockRaceData.race, heats } },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+    };
+
+    const ran = (id: number, roundNumber: number, heatNumber: number) => ({
+        id, roundNumber, heatNumber,
+        lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 3.5, place: 1, skipped: false }],
+    });
+    const notRun = (id: number, roundNumber: number, heatNumber: number) => ({
+        id, roundNumber, heatNumber,
+        lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: null, place: null, skipped: false }],
+    });
+
+    const openRaceTab = async () => {
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+        await waitFor(() => expect(screen.getByRole('button', { name: /Schedule/i })).toBeInTheDocument());
+        fireEvent.click(screen.getByRole('button', { name: /^\s*Race\s*$/i }));
+        await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+    };
+
+    it('opens on the first heat that has not been run', async () => {
+        withHeats([ran(1, 1, 1), ran(2, 1, 2), notRun(3, 1, 3), notRun(4, 1, 4)]);
+
+        await openRaceTab();
+
+        expect(screen.getByTestId('active-heat-id')).toHaveTextContent('3');
+    });
+
+    it('stays on the last heat once they have all run', async () => {
+        // Otherwise the end of a race would jump back to the top of the list.
+        withHeats([ran(1, 1, 1), ran(2, 1, 2), ran(3, 1, 3)]);
+
+        await openRaceTab();
+
+        expect(screen.getByTestId('active-heat-id')).toHaveTextContent('3');
+    });
+
+    it('orders by round before heat number', async () => {
+        // The heats arrive in whatever order the server sent them.
+        withHeats([notRun(9, 2, 1), ran(1, 1, 1), notRun(5, 1, 2)]);
+
+        await openRaceTab();
+
+        expect(screen.getByTestId('active-heat-id')).toHaveTextContent('5');
+    });
+
+    it('shows no heat at all when the race has none', async () => {
+        // A race whose schedule has not been generated yet. The execution
+        // panel is not rendered in that state, so there is nothing to select.
+        withHeats([]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+        await waitFor(() => expect(screen.getByRole('button', { name: /Schedule/i })).toBeInTheDocument());
+        fireEvent.click(screen.getByRole('button', { name: /^\s*Race\s*$/i }));
+
+        expect(screen.queryByTestId('active-heat-id')).not.toBeInTheDocument();
+    });
+
     it('clears previous results when re-running a completed heat', async () => {
         const mockUpdateHeatResultMutation = vi.fn().mockResolvedValue({ data: { updateHeatResult: true } });
         (useMutation as any).mockImplementation(() => {

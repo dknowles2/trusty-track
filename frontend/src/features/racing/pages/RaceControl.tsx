@@ -153,15 +153,12 @@ export default function RaceControl() {
   // defer half its work to the next pass.
   const seenAdvancedRounds = useRef<SeenRounds>(null);
 
-  // Reset state when raceId changes
-  useEffect(() => {
-      setActiveHeatId(null);
-      setSelectedHeatId(null);
-      setRoundSummary(null);
-      // Back to "never looked", so the new race's already-decided rounds are
-      // history rather than a summary for whoever navigated here.
-      seenAdvancedRounds.current = null;
-  }, [id]);
+  // Nothing resets this screen when the race changes, because the route keys
+  // it on the race id and a different race is a different component. That is
+  // stronger than the effect it replaces, which had to name every piece of
+  // state to clear — including `seenAdvancedRounds`, so that an already-decided
+  // round in the new race read as history rather than as news. A remount gets
+  // that right for state nobody has thought about yet.
 
   const [result, reExecute] = useQuery({
     query: GET_RACE_CONTROL_DATA,
@@ -193,26 +190,6 @@ export default function RaceControl() {
     return map;
   }, [race?.racers]);
 
-  useEffect(() => {
-      if (heats.length > 0) {
-          if (selectedHeatId !== null) return;
-
-          const sorted = [...heats].sort((a: Heat, b: Heat) => {
-            if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
-            return a.heatNumber - b.heatNumber;
-          });
-
-          const firstUncompleted = sorted.find((h: Heat) => !hasRun(h.lanes));
-
-          if (firstUncompleted) {
-              setSelectedHeatId(firstUncompleted.id);
-          } else if (sorted.length > 0) {
-              setSelectedHeatId(sorted[sorted.length - 1].id);
-          }
-      } else if (selectedHeatId !== null) {
-          setSelectedHeatId(null);
-      }
-  }, [heats, selectedHeatId]);
 
   useEffect(() => {
     if (fetching || !race?.rounds) return;
@@ -490,9 +467,24 @@ export default function RaceControl() {
     }).map((h: Heat, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
   }, [heats]);
 
-  const activeExecutionHeat = selectedHeatId
-      ? sortedHeatsEx.find((h: Heat) => h.id === selectedHeatId)
-      : (sortedHeatsEx.length > 0 ? sortedHeatsEx[0] : null);
+  /** The heat on screen: what the operator picked, else where the race is up to.
+   *
+   * Derived rather than written into state by an effect. The effect had to run
+   * after every change to the heats *and* to the selection, and it left a
+   * render in between showing the wrong heat. It also could not cope with a
+   * selection that had ceased to exist — a heat deleted or a round
+   * regenerated — where this simply falls back.
+   */
+  const activeExecutionHeat = useMemo(() => {
+      const chosen = selectedHeatId !== null
+          ? sortedHeatsEx.find((h: Heat) => h.id === selectedHeatId)
+          : undefined;
+      if (chosen) return chosen;
+      // The first heat still to be run, or the last one if the race is over.
+      return sortedHeatsEx.find((h: Heat) => !hasRun(h.lanes))
+          ?? sortedHeatsEx[sortedHeatsEx.length - 1]
+          ?? null;
+  }, [sortedHeatsEx, selectedHeatId]);
 
   const currentIndex = activeExecutionHeat
       ? sortedHeatsEx.findIndex((h: Heat) => h.id === activeExecutionHeat.id)

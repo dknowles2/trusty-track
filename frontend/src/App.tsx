@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import Navigation from './features/core/components/Navigation';
 import SystemSettings from './features/settings/pages/SystemSettings';
 import Home from './features/management/pages/Home';
@@ -9,6 +9,18 @@ import { SerialProxyProvider } from './context/SerialProxyContext';
 
 import RaceDetails from './features/management/pages/RaceDetails';
 import RaceControl from './features/racing/pages/RaceControl';
+
+/** Race Control, remounted whenever the race changes.
+ *
+ * The screen holds a good deal of per-race state — the heat on the track, the
+ * one selected, a round summary, and which rounds had already been decided
+ * when we first looked. Keying it means a different race is a different
+ * component, rather than a list of things to remember to clear.
+ */
+function KeyedRaceControl() {
+    const { raceId } = useParams<{ raceId: string }>();
+    return <RaceControl key={raceId} />;
+}
 import Observation from './features/observation/pages/Observation';
 import Standings from './features/stats/pages/Standings';
 import RaceStats from './features/stats/pages/RaceStats';
@@ -64,7 +76,9 @@ function App() {
                 <Route path="/race/:raceId/stats" element={<ProtectedRoute><RaceStats /></ProtectedRoute>} />
                 <Route path="/race/:raceId/print" element={<ProtectedRoute><Printables /></ProtectedRoute>} />
                 <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
-                <Route path="/race/:raceId/control/:tab?" element={<ProtectedRoute><RaceControl /></ProtectedRoute>} />
+                {/* Keyed on the race: switching races is a fresh screen, so no
+                    state from the last one can survive into the next. */}
+                <Route path="/race/:raceId/control/:tab?" element={<ProtectedRoute><KeyedRaceControl /></ProtectedRoute>} />
                 <Route path="/race/:raceId/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />
 
                 {/* Legacy Redirects or Handle 404 */}

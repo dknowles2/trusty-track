@@ -219,13 +219,20 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
+  // A local copy of the heats, so a drag lands immediately rather than after
+  // the round trip. It has to follow the real ones whenever they change.
   const [localHeats, setLocalHeats] = useState<Heat[]>(heats);
+  const [syncedFrom, setSyncedFrom] = useState(heats);
   const { showToast } = useAlert();
 
-  // Sync local heats with props whenever they change
-  React.useEffect(() => {
+  // Adjusted during render rather than in an effect. React re-runs this
+  // component before touching the DOM, so the stale order never reaches the
+  // screen — where an effect painted the old order first and corrected it on
+  // the next frame.
+  if (heats !== syncedFrom) {
+    setSyncedFrom(heats);
     setLocalHeats(heats);
-  }, [heats]);
+  }
 
   const rounds = localHeats.reduce((acc, heat) => {
     if (!acc[heat.roundId]) {
@@ -386,6 +393,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
         </div>
 
         <RoundWizard
+          key={String(isWizardOpen)}
           isOpen={isWizardOpen}
           onClose={() => setIsWizardOpen(false)}
           raceId={raceId}

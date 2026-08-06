@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiAccountGroup, mdiInformation } from '@mdi/js';
@@ -37,21 +37,23 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   const [runsPerLane, setRunsPerLane] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Reset name when type changes
-  useEffect(() => {
-    if (type === 'CHAMPIONSHIP') {
-      setName('Championship Round');
-    } else {
-      setName('');
-    }
-  }, [type]);
+  /** Switch tab, and give the round the default name for its kind.
+   *
+   * Done here rather than in an effect watching `type`: the name follows the
+   * tab the operator clicked, so the click is where it belongs. An effect had
+   * to run after the render that changed the tab, which is a second render to
+   * say something already known.
+   */
+  const chooseType = (next: 'GENERAL' | 'CHAMPIONSHIP') => {
+    setType(next);
+    setName(next === 'CHAMPIONSHIP' ? 'Championship Round' : '');
+  };
 
-  // If general round is deleted while modal is open (unlikely but possible), switch away from championship
-  useEffect(() => {
-    if (!hasGeneralRound && type === 'CHAMPIONSHIP') {
-      setType('GENERAL');
-    }
-  }, [hasGeneralRound, type]);
+  // A championship round needs a general round to draw its field from. If the
+  // last one is deleted while this is open, the choice is no longer available
+  // — derived rather than corrected afterwards, so there is never a render in
+  // which the modal offers something impossible.
+  const effectiveType = hasGeneralRound ? type : 'GENERAL';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,10 +62,10 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
       await onSubmit({
         name,
         schedulingStrategy: 'PPC',
-        advancementSource: type === 'CHAMPIONSHIP' ? source : undefined,
-        advancementNumRacers: type === 'CHAMPIONSHIP' ? numTopRacers : undefined,
+        advancementSource: effectiveType === 'CHAMPIONSHIP' ? source : undefined,
+        advancementNumRacers: effectiveType === 'CHAMPIONSHIP' ? numTopRacers : undefined,
         runsPerLane,
-        generalType: type === 'GENERAL' ? generalType : undefined
+        generalType: effectiveType === 'GENERAL' ? generalType : undefined
       });
       onClose();
     } catch (error) {
@@ -106,18 +108,18 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
       <form onSubmit={handleSubmit}>
         {/* Type Tabs */}
         <div style={{ display: 'flex', marginBottom: '20px', borderBottom: '1px solid #eee' }}>
-          <div style={tabStyle(type === 'GENERAL')} onClick={() => setType('GENERAL')}>
+          <div style={tabStyle(effectiveType === 'GENERAL')} onClick={() => chooseType('GENERAL')}>
             General Round
           </div>
           <div
             style={{
-              ...tabStyle(type === 'CHAMPIONSHIP'),
+              ...tabStyle(effectiveType === 'CHAMPIONSHIP'),
               opacity: hasGeneralRound ? 1 : 0.5,
               cursor: hasGeneralRound ? 'pointer' : 'not-allowed'
             }}
             onClick={() => {
               if (hasGeneralRound) {
-                setType('CHAMPIONSHIP');
+                chooseType('CHAMPIONSHIP');
               }
             }}
             title={!hasGeneralRound ? "Schedule at least one general round first" : ""}
@@ -126,7 +128,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
           </div>
         </div>
 
-        {!hasGeneralRound && type === 'CHAMPIONSHIP' && (
+        {!hasGeneralRound && effectiveType === 'CHAMPIONSHIP' && (
            <div style={{ padding: '10px', background: '#fff3e0', border: '1px solid #ffe0b2', borderRadius: '4px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
              <Icon path={mdiInformation} size={0.7} color="#f57c00" />
              Championship rounds require an existing general round as a source.
