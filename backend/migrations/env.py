@@ -6,6 +6,7 @@ takes its database URL from the application rather than from ``alembic.ini`` so
 the two can never disagree.
 """
 
+from contextlib import contextmanager
 from logging.config import fileConfig
 
 from alembic import context
@@ -46,8 +47,37 @@ def _configure_and_run(connection) -> None:
         compare_type=True,
         include_object=_include_object,
     )
-    with context.begin_transaction():
+    with _foreign_keys_off(connection), context.begin_transaction():
         context.run_migrations()
+
+
+@contextmanager
+def _foreign_keys_off(connection):
+    """Suspend SQLite's foreign key enforcement for the migration run.
+
+    Batch mode rewrites a table by creating a new one, copying the rows and
+    dropping the old — and SQLite refuses to drop a table other rows still
+    point at. SQLite's own documentation says to turn enforcement off around
+    exactly this, because the intermediate states of a rebuild are not meant to
+    be consistent.
+
+    A no-op today, because SQLite defaults foreign keys **off** and nothing
+    turns them on — see #125. It is here because turning them on without it
+    breaks every migration that uses batch mode, which is not the sort of thing
+    to discover while writing the change that turns them on.
+
+    Scoped to the migration either way: it restores whatever it found.
+    """
+    if connection.dialect.name != "sqlite":
+        yield
+        return
+
+    was_on = connection.exec_driver_sql("PRAGMA foreign_keys").scalar()
+    connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+    try:
+        yield
+    finally:
+        connection.exec_driver_sql(f"PRAGMA foreign_keys={'ON' if was_on else 'OFF'}")
 
 
 def run_migrations_offline() -> None:
