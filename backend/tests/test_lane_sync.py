@@ -89,7 +89,7 @@ def test_recording_a_result_lands_in_the_table(db: Session):
     blob = json.loads(heat.lane_results)
     blob[0]["time"] = 3.421
     blob[0]["place"] = 1
-    crud.record_heat_result(db, heat.id, json.dumps(blob))
+    crud.record_heat_result(db, heat.id, as_lanes(blob))
 
     row = _lanes(db, heat.id)[0]
     assert row.time_seconds == 3.421
@@ -104,11 +104,11 @@ def test_clearing_a_result_clears_the_row(db: Session):
 
     blob = json.loads(heat.lane_results)
     blob[0]["time"] = 3.421
-    crud.record_heat_result(db, heat.id, json.dumps(blob))
+    crud.record_heat_result(db, heat.id, as_lanes(blob))
     assert _lanes(db, heat.id)[0].time_seconds == 3.421
 
     blob[0]["time"] = None
-    crud.record_heat_result(db, heat.id, json.dumps(blob))
+    crud.record_heat_result(db, heat.id, as_lanes(blob))
     assert _lanes(db, heat.id)[0].time_seconds is None
 
 
@@ -122,7 +122,7 @@ def test_the_skipped_flag_is_projected(db: Session):
     blob = json.loads(heat.lane_results)
     for lane in blob:
         lane["skipped"] = True
-    crud.record_heat_result(db, heat.id, json.dumps(blob))
+    crud.record_heat_result(db, heat.id, as_lanes(blob))
 
     assert all(row.skipped for row in _lanes(db, heat.id))
 

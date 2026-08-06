@@ -102,7 +102,7 @@ def _record(db, heat, seconds):
             db, heat.id, as_lanes([lane.to_dict() for lane in heat_lanes])
         )
     else:
-        crud.record_heat_result(db, heat.id, lanes.serialize(heat_lanes))
+        crud.record_heat_result(db, heat.id, heat_lanes)
 
 
 async def _timing_stats(db, race_id):
@@ -205,7 +205,7 @@ def test_clearing_a_result_unstamps_it(db, race, racers, round_one):
         {"lane": lane.lane, "racer_id": lane.racer_id, "time": None, "place": None}
         for lane in lanes.parse(heat.lane_results)
     ]
-    crud.record_heat_result(db, heat.id, json.dumps(cleared))
+    crud.record_heat_result(db, heat.id, as_lanes(cleared))
 
     assert heat.recorded_at is None
 

@@ -199,6 +199,8 @@ It separates the things the blob conflated: a placeholder slot is `placeholderSl
 
 **`laneResults` is gone from the schema.** The raw blob was handed out as a string alongside `lanes` while the client moved across, and has been removed — an API offering both invites new code to take the untyped one. The blob is still the storage format; nothing outside the backend sees it.
 
+**Writing goes through one door.** `crud.set_heat_lanes(heat, lanes)` is the only place a heat's lanes are stored — nine call sites used to assign `lane_results` themselves. Making `heat_lanes` authoritative ([#72](https://github.com/dknowles2/trusty-track/issues/72)) is then a change to that one function rather than to nine places that each have to remember, and `test_heat_lanes_write.py` walks `crud.py`'s AST to keep it that way. `record_heat_result` takes lanes rather than a serialized blob for the same reason — it was the last signature in the codebase that spoke the storage format instead of the value.
+
 **Writing is structured too.** `updateHeatResult` and `recordFreeRaceResult` take `[HeatLaneInput!]!` — the same fields, so what a screen reads is what it sends back:
 
 ```graphql
@@ -569,6 +571,7 @@ They write to `docs/assets/screenshots/`. That path was wrong in all three origi
 Two things that job protects, both learned the hard way:
 
 - **A spec that dies part-way looks like a spec that ran.** This one is a single 500-line `test()` where each step depends on the last, so a break anywhere silently stops every screenshot after it.
+- **The CI job retries once, and gives a test five minutes rather than ten.** They drive a real backend, a real browser and a fake timer over a WebSocket on a shared runner; a heat that does not arm inside the deadline is usually that. A break that reproduces still fails twice, and a stuck spec now says so in five minutes instead of ten.
 - **They share one backend when run together**, which is what CI does. That means: no two specs may use the same race name (`races.name` is unique), no spec may assume its race is id 1, and the first-run setup screen is only there for whichever spec runs first. **Regenerate images one spec at a time** — the documented command above — and the config wipes the data directory per invocation, so that run always gets a virgin system.
 
 Fixing the harness is how three app bugs surfaced: the first-run gate bouncing back to setup, a "Round Complete!" summary over an unraced race, and identical concurrent `uploadImage` mutations not all returning.

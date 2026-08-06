@@ -163,7 +163,7 @@ def test_lanes_track_the_blob_after_a_result_is_recorded(client, db, race, racer
     crud.record_heat_result(
         db,
         heat.id,
-        json.dumps([{"lane": 1, "racer_id": racers[0].id, "time": 3.2, "place": 1}]),
+        as_lanes([{"lane": 1, "racer_id": racers[0].id, "time": 3.2, "place": 1}]),
     )
 
     lane = _run(client, LANES_QUERY, race.id)["race"]["heats"][0]["lanes"][0]

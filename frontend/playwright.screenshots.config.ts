@@ -15,7 +15,16 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
-  timeout: 600000, // 10 minutes — screenshot spec runs many heats and backend API calls
+  // The whole four-spec run takes about a minute locally and two in CI, so a
+  // test still going after five is stuck, not slow. It was ten, and a stuck
+  // spec then burned ten minutes before saying so.
+  timeout: 300000,
+  // One retry in CI. These drive a real backend, a real browser and a fake
+  // timer over a WebSocket on a shared runner, and a heat that does not arm
+  // within the deadline is usually that rather than a broken spec — the same
+  // trade the functional e2e config already makes. A break that reproduces
+  // still fails twice.
+  retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: `http://localhost:${FRONTEND_PORT}`,
     trace: 'off',

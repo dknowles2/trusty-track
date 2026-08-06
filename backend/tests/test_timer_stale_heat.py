@@ -106,7 +106,7 @@ def _run_heat(db: Session, heat, offset: float = 0.0, reverse: bool = False) -> 
             continue
         base = (10 - rid) if reverse else rid
         res["time"] = 1.0 + offset + base / 100.0
-    crud.record_heat_result(db, heat.id, json.dumps(results))
+    crud.record_heat_result(db, heat.id, as_lanes(results))
 
 
 def _armed_manager(db: Session, heat) -> TimerManager:
