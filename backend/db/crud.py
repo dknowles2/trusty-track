@@ -738,11 +738,11 @@ def lanes_for_heats(
 
     by_heat: dict[int, list[lanes.Lane]] = {h.id: [] for h in heats}
     for row in rows:
-        by_heat[row.heat_id].append(_lane_from_row(row))
+        by_heat[row.heat_id].append(lane_from_row(row))
     return [by_heat[h.id] for h in heats]
 
 
-def _lane_from_row(row: models.HeatLane) -> lanes.Lane:
+def lane_from_row(row: models.HeatLane) -> lanes.Lane:
     return lanes.from_parts(
         lane=row.lane,
         racer_id=row.racer_id,

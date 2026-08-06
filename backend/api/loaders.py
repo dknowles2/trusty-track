@@ -23,7 +23,8 @@ from __future__ import annotations
 from sqlalchemy import event
 from sqlalchemy.orm import Session, selectinload
 
-from backend.db import models
+from backend.db import crud, models
+from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
 from backend.services import scoring
 
@@ -44,6 +45,7 @@ class RequestLoaders:
         self._tracks: dict[int, models.Track | None] = {}
         self._groups: dict[int, models.Group | None] = {}
         self._lanes: dict[int, dict[int, list[models.HeatLane]]] = {}
+        self._lane_values: dict[tuple[int, int], list[lanes.Lane]] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -61,6 +63,7 @@ class RequestLoaders:
         self._tracks.clear()
         self._groups.clear()
         self._lanes.clear()
+        self._lane_values.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -150,6 +153,20 @@ class RequestLoaders:
                 by_heat.setdefault(row.heat_id, []).append(row)
             self._lanes[race_id] = by_heat
         return self._lanes[race_id].get(heat_id, [])
+
+    def lane_values_for_heat(self, race_id: int, heat_id: int) -> list[lanes.Lane]:
+        """One heat's lanes as domain values, off the same batched query.
+
+        The shape the rules take. Resolvers that used to parse the heat's blob
+        for this ask here instead (#72), so they neither re-read a string nor
+        pay a query per heat.
+        """
+        key = (race_id, heat_id)
+        if key not in self._lane_values:
+            self._lane_values[key] = [
+                crud.lane_from_row(row) for row in self.lanes_for_heat(race_id, heat_id)
+            ]
+        return self._lane_values[key]
 
     def track_by_id(self, track_id: int) -> models.Track | None:
         if track_id not in self._tracks:
