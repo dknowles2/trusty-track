@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.domain import advancement, lanes, scheduling
 
-from . import models, schemas
+from . import lane_sync, models, schemas
 
 
 def stamp_recorded(heat: models.Heat) -> None:
@@ -862,15 +862,17 @@ def trigger_auto_advancements(db: Session, race_id: int, completed_round_id: int
 def set_heat_lanes(heat: models.Heat, heat_lanes: Sequence[lanes.Lane]) -> None:
     """Write a heat's lanes. The one door for them.
 
-    Every write to a heat's lanes goes through here, so that #72 — making
-    ``heat_lanes`` the source of truth and retiring the blob — is a change to
-    one function rather than to nine call sites that each happen to remember.
+    Every write goes through here (#119), which is what let the direction
+    change in one place: the ``heat_lanes`` rows are built from these values,
+    and ``lane_results`` is written alongside as a derived column rather than
+    being the thing the rows are read back out of.
 
-    Today that means serializing into ``lane_results``, which ``lane_sync``
-    then projects into the table. After the flip it will mean writing the table
-    and deriving the column, and no caller will notice.
+    The staging is not ceremony. A heat that has just been constructed has no
+    id until the session flushes, and the rows need one — so the values are
+    left on the instance and ``lane_sync`` writes them when the id exists.
     """
     heat.lane_results = lanes.serialize(heat_lanes)
+    lane_sync.stage(heat, heat_lanes)
 
 
 def record_heat_result(
