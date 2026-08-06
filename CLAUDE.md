@@ -40,7 +40,7 @@ uv run pytest
 cd frontend && npm test -- --run
 ```
 
-**End-to-end** (a real backend, a real browser — the only test that exercises the served page, the GraphQL round trip and the normalized cache together):
+**End-to-end** (a real backend, a real browser — the only tests that exercise the served page, the GraphQL round trip and the normalized cache together):
 
 ```bash
 cd frontend && npm run test:e2e
@@ -546,6 +546,20 @@ Two things worth knowing:
 
 - **The release workflow has its own test gate.** CI runs on pull requests and on `main`; a tag is neither, so without it, tagging any commit publishes it to GHCR and the release page whatever state it was in.
 - **The e2e suite runs against a real backend, on its own ports and its own database.** It replaced a mocked one that had been failing silently — the mocks predated the normalized cache (#12) and answered without `__typename`, which graphcache cannot store, so the page rendered nothing. Nothing ran it, so nobody found out. If you add a browser test, add it there rather than mocking the API.
+
+### What the functional e2e specs are for
+
+`frontend/e2e/functional/` holds two files and one shared `support.ts`: `roster.spec.ts` for the management side, `raceDay.spec.ts` for what happens once racing starts. Between them they cover generating a schedule, running a heat on the fake timer, standings arriving over the subscription, and a championship field filling from the cascade.
+
+They exist because every *rule* in those paths is already unit-tested and none of that says the answer survives the GraphQL round trip and the normalized cache. That gap is not hypothetical: writing `raceDay.spec.ts` found the subscription snapshot race below.
+
+Three conventions, each learned from a failure:
+
+- **Seed through GraphQL, drive the one step under test with the browser.** `support.ts` builds the race, roster and schedule. A spec that clicks its way through setup reports a break anywhere in the app as a failure of the thing it was testing.
+- **One test per question.** The docs screenshot specs are a single long `test()` where each step depends on the last, and a break a third of the way through looked for months like a spec that ran (#114).
+- **The specs share one backend**, so the same rules as `e2e/docs/` apply: unique race names, no assuming a race id, and the first-run gate is only there for whichever spec goes first (`ensureConfigured` handles it either way).
+
+**A subscription must register its queue before it sends its opening snapshot.** `pubsub.subscribe` registers on entry, so anything published earlier reaches no queue, and every payload these emit is a full snapshot rather than a delta — nothing catches up. `heatSession`, `timerStatus` and `freeRaceHeat` built the snapshot first and subscribed afterwards, and the operator screen arms the heat itself, so its own `prepareHeat` landed squarely in the window: the screen sat at "Waiting for Timer…" with the start button disabled while the timer was ARMED. `test_subscription_snapshot_race.py` pins all three by taking the opening payload and *then* publishing. The existing subscription tests could not catch it — they trigger concurrently after a 50 ms sleep, by which time the subscription has long since subscribed.
 
 ---
 

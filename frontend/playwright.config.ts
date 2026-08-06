@@ -21,6 +21,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'line' : 'html',
+  // Playwright's default is 30 seconds for the whole test, which the race-day
+  // specs spend before they start: seeding a race is a dozen GraphQL round
+  // trips, and arming a heat then waiting on a subscription is most of a
+  // minute on a loaded runner. A spec still going after two minutes is stuck
+  // rather than slow.
+  timeout: 120000,
   use: {
     baseURL: `http://localhost:${FRONTEND_PORT}`,
     trace: 'on-first-retry',

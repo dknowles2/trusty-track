@@ -1,28 +1,18 @@
 /**
  * The roster, end to end: a real backend, a real browser, no mocks.
  *
- * This is the only test in the tree that exercises the whole stack at once —
- * GraphQL over the wire, the normalized cache, and the React tree — so it is
- * deliberately shallow and broad rather than clever. Anything worth asserting
- * in detail belongs in a component test, which runs in a second.
+ * Management-side coverage of the whole stack at once — GraphQL over the wire,
+ * the normalized cache, and the React tree — deliberately shallow and broad
+ * rather than clever. Anything worth asserting in detail belongs in a component
+ * test, which runs in a second. `raceDay.spec.ts` is the other half: what
+ * happens once the racing starts.
  *
  * Run with:
  *   cd frontend && npm run test:e2e
  */
 
 import { test, expect, type Page } from '@playwright/test';
-
-const BACKEND_URL = 'http://127.0.0.1:8002';
-
-async function gql(page: Page, query: string, variables: Record<string, unknown> = {}) {
-    const response = await page.request.post(`${BACKEND_URL}/graphql`, {
-        data: JSON.stringify({ query, variables }),
-        headers: { 'Content-Type': 'application/json' },
-    });
-    const body = await response.json();
-    if (body.errors) throw new Error(JSON.stringify(body.errors));
-    return body.data;
-}
+import { ensureConfigured, gql } from './support';
 
 const RACERS = [
     { first: 'Alpha', last: 'Rivera', car: 10 },
@@ -35,16 +25,13 @@ const RACERS = [
  * three tests share one backend.
  */
 async function seed(page: Page, raceName: string): Promise<number> {
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    if (page.url().includes('/system-settings')) {
-        await page.getByLabel('Organization Name').fill('Pack 42');
-        await page.getByRole('button', { name: 'Save Settings' }).click();
-        await page.waitForURL('**/', { waitUntil: 'networkidle' });
-    }
+    await ensureConfigured(page);
 
-    const config = await gql(page, `query { groups { id } tracks { id } }`);
-    const race = await gql(
+    const config = await gql<{ groups: { id: number }[]; tracks: { id: number }[] }>(
+        page,
+        `query { groups { id } tracks { id } }`,
+    );
+    const race = await gql<{ createRace: { id: number } }>(
         page,
         `mutation Create($race: RaceInput!) { createRace(race: $race) { id } }`,
         {
