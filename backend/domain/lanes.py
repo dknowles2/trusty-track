@@ -118,6 +118,38 @@ class Lane:
         return out
 
 
+def from_parts(
+    *,
+    lane: int,
+    racer_id: int | None,
+    placeholder_slot: int | None,
+    time_seconds: float | None,
+    place: int | None,
+    skipped: bool,
+) -> Lane:
+    """A lane from the columns ``heat_lanes`` stores it in (#72).
+
+    The inverse of the projection in ``db/lane_sync.py``, and the read path's
+    entry point now that the table is where lanes come from. Scalars rather
+    than a row object, so this module still imports no SQLAlchemy.
+
+    It has to *re-encode* the placeholder slot as a negative racer id, and put
+    ``skipped`` back into ``extra``, because that is what :class:`Lane` still
+    holds. Both are the blob's conventions outliving the blob; retiring the
+    column is what lets the dataclass carry the slot directly and this function
+    lose half its body.
+    """
+    if placeholder_slot is not None:
+        racer_id = -placeholder_slot
+    return Lane(
+        lane=lane,
+        racer_id=racer_id,
+        time=time_seconds,
+        place=place,
+        extra={"skipped": True} if skipped else {},
+    )
+
+
 def from_dict(raw: dict[str, Any], lane_number: int) -> Lane:
     """One entry of the blob. ``lane_number`` is read and checked by :func:`parse`."""
     return Lane(

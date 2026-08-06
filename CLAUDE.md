@@ -189,6 +189,8 @@ The normalized `heat_lanes` table exists and is kept current. Its rows are built
 
 `heat_lanes.heat_id` is a real foreign key since #6. `lane_sync` still cascades deletions itself, because a bulk `query(Heat).delete()` never loads the rows.
 
+**The backend reads lanes through `crud._round_heat_lanes`**, which comes off the table, not off `lanes.parse` — it is the choke point for `is_round_complete`, `field_is_short` and `may_rebuild`, so all three moved together. Two queries rather than one join, deliberately: a join from `heat_lanes` drops a heat that has no lane rows, where parsing gave it `[]` and kept it, and the last two rules reason about the *number* of heats. `lanes.from_parts` is the crossing back — it re-encodes `placeholder_slot` as a negative racer id and puts `skipped` back in `extra`, because that is still what `Lane` holds. `test_lane_reads.py` pins each of those, and each fails to a one-line mutation.
+
 **Reading: use `Heat.lanes` / `FreeRaceHeat.lanes`.** The GraphQL read path is structured and comes from the table:
 
 ```graphql
