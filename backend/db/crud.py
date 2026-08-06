@@ -12,7 +12,7 @@ from backend.domain import advancement, lanes, scheduling
 from . import lane_sync, models, schemas
 
 
-def stamp_recorded(heat: models.Heat) -> None:
+def stamp_recorded(heat: models.Heat, heat_lanes: Sequence[lanes.Lane]) -> None:
     """Keep ``recorded_at`` in step with whether the heat holds a result.
 
     Called from the two functions that record results, so a heat that is
@@ -24,7 +24,7 @@ def stamp_recorded(heat: models.Heat) -> None:
     ``lane_sync``: the projection there has to mirror every write, and this one
     deliberately does not.
     """
-    if lanes.has_results(lanes.parse(heat.lane_results)):
+    if lanes.has_results(heat_lanes):
         heat.recorded_at = datetime.now(timezone.utc).isoformat()
     else:
         heat.recorded_at = None
@@ -476,8 +476,8 @@ def delete_round(db: Session, round_id: int) -> bool:
     """Delete a round and all its heats. Only if no heats have results."""
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
     if round_obj:
-        for heat in round_obj.heats:
-            if lanes.has_results(lanes.parse(heat.lane_results)):
+        for heat_lanes in lanes_for_heats(db, round_obj.heats):
+            if lanes.has_results(heat_lanes):
                 raise ValueError("Cannot delete round: it has heats with results.")
 
         # Rule 2: Cannot delete general round if championship rounds are scheduled
@@ -503,7 +503,7 @@ def delete_heat(db: Session, heat_id: int) -> bool:
     """Delete a heat. Only if it hasn't been run."""
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
     if heat:
-        if lanes.has_results(lanes.parse(heat.lane_results)):
+        if lanes.has_results(heat_lanes_of(db, heat)):
             raise ValueError("Cannot delete heat: it has results.")
 
         round_id = heat.round_id
@@ -529,7 +529,7 @@ def delete_free_race_heat(db: Session, heat_id: int) -> bool:
     """Delete a free race heat. Only if it hasn't been run."""
     heat = get_free_race_heat(db, heat_id)
     if heat:
-        if lanes.has_results(lanes.parse(heat.lane_results)):
+        if lanes.has_results(heat_lanes_of(db, heat)):
             raise ValueError("Cannot delete free race heat: it has results.")
         db.delete(heat)
         db.commit()
@@ -602,9 +602,7 @@ def generate_heats_for_round(
     )
     cleared = False
     if existing_heats and clear_existing:
-        if not advancement.may_rebuild(
-            lanes.parse(h.lane_results) for h in existing_heats
-        ):
+        if not advancement.may_rebuild(lanes_for_heats(db, existing_heats)):
             raise ValueError(
                 "Cannot regenerate round: some heats already have results."
             )
@@ -623,8 +621,8 @@ def generate_heats_for_round(
         # Championship round without explicit racer_ids/placeholders:
         # Use existing racers if advanced, otherwise use placeholders.
         current_racers = set()
-        for h in round_obj.heats:
-            current_racers.update(lanes.real_racer_ids(lanes.parse(h.lane_results)))
+        for h_lanes in lanes_for_heats(db, round_obj.heats):
+            current_racers.update(lanes.real_racer_ids(h_lanes))
         if current_racers:
             p_ids = list(current_racers)
         else:
@@ -665,8 +663,7 @@ def resolve_round_placeholders(db: Session, round_id: int, racer_ids: list[int])
     """
     heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
 
-    for heat in heats:
-        heat_lanes = lanes.parse(heat.lane_results)
+    for heat, heat_lanes in zip(heats, lanes_for_heats(db, heats), strict=True):
         if lanes.resolve_placeholders(heat_lanes, racer_ids):
             set_heat_lanes(heat, heat_lanes)
 
@@ -740,6 +737,11 @@ def lanes_for_heats(
     for row in rows:
         by_heat[row.heat_id].append(lane_from_row(row))
     return [by_heat[h.id] for h in heats]
+
+
+def heat_lanes_of(db: Session, heat: models.Heat) -> list[lanes.Lane]:
+    """One heat's lanes. For callers that hold exactly one and cannot N+1."""
+    return lanes_for_heats(db, [heat])[0]
 
 
 def lane_from_row(row: models.HeatLane) -> lanes.Lane:
@@ -941,7 +943,7 @@ def record_heat_result(
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
     if heat and heat_lanes is not None:
         set_heat_lanes(heat, heat_lanes)
-        stamp_recorded(heat)
+        stamp_recorded(heat, heat_lanes)
         db.commit()
         db.refresh(heat)
 
@@ -1203,7 +1205,7 @@ def update_free_race_heat_result(
     if heat is None:
         return None
     set_heat_lanes(heat, lane_results)
-    stamp_recorded(heat)
+    stamp_recorded(heat, lane_results)
     db.commit()
     db.refresh(heat)
     return heat
