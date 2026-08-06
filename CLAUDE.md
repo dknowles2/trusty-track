@@ -469,6 +469,16 @@ any ──a round's field is decided──> ROUND_SUMMARY ──dismissed──>
 
 The test for whether something belongs in `raceFlow.ts` rather than on the server: **it does not survive a refresh.**
 
+**The screen stays on the heat it is showing; advancing is the toggle's job or the button's** (#130). `RaceControl` pins `selectedHeatId` to whatever the fallback landed on, adjusting it *during render* rather than in an effect — an effect would show the unpinned heat for a frame and then correct it, which is the flicker the `activeExecutionHeat` memo was written to avoid. It converges in one pass and is self-healing: a pinned heat that stops existing sends the memo back to the fallback, which then gets pinned.
+
+Without that pin the fallback — "the first heat still to be run" — slid forward the moment a result landed, because recording a heat changes which heat that is. Three consequences, none of them obvious from reading the component:
+
+- the recorded heat's **Edit** button went with it, leaving **Re-Run** — which *clears* the result — as the only route back to a mistyped time;
+- **Next Heat** and **Cancel** were unreachable;
+- and `raceFlow.ts` never observed the active heat as `RECORDED`, so `COUNTING_DOWN` was unreachable and **`autoAdvanceHeat` did nothing in either position** while the screen advanced regardless.
+
+`raceFlow.test.ts` dispatches events directly and `RaceExecution.test.tsx` is handed a fixed heat, so neither could see it — this needs a real backend moving the data underneath, and it is pinned by two tests in `raceDay.spec.ts`.
+
 `reduce` returns commands (`PREPARE_HEAT`, `ADVANCE_TO_NEXT_HEAT`) rather than performing them, which is what makes race-day behaviour assertable without rendering — `raceFlow.test.ts` dispatches event sequences and touches no DOM. Put a *rule* there and its *I/O* in `useRaceFlow.ts`; if you find yourself writing an `if` about the race in the hook or the component, it is in the wrong file.
 
 Two things it settles that were previously accidents:
