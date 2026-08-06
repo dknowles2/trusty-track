@@ -189,3 +189,73 @@ test('finishing the prelims fills the championship round with the top finishers'
             .sort((a, b) => a - b),
     );
 });
+
+test('an operator override replaces the recorded time', async ({ page }) => {
+    // The edit path writes the heat's lanes from the screen, which is the one
+    // place a stored result is changed by hand. Worth crossing end to end
+    // because the write goes out as `[HeatLaneInput!]!` and comes back through
+    // the normalized cache — a field dropped in either direction reads as the
+    // operator's correction not having taken.
+    //
+    // Every heat is recorded first so the heat under test stays put. With any
+    // heat left to run, the execution view falls back to the first of those the
+    // moment a result lands, and the recorded heat's Edit button goes with it.
+    const { raceId, racers } = await seedRace(page, 'Race Day Override');
+    await createSchedule(page, raceId);
+    const heats = await readHeats(page, raceId);
+    await recordRound(page, heats, racers);
+
+    const last = [...heats].sort((a, b) => b.heatNumber - a.heatNumber)[0];
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByRole('heading', { name: `Heat ${last.heatNumber}` })).toBeVisible({
+        timeout: 30000,
+    });
+
+    await page.getByRole('button', { name: 'Edit' }).click();
+    const editor = page.getByRole('dialog', { name: /Edit Results/ });
+    await expect(editor).toBeVisible();
+
+    // A time `recordRound` never writes, so it cannot be confused with the run.
+    await editor.locator('input[type="number"]').first().fill('9.8765');
+    await editor.getByRole('button', { name: 'Save Results' }).click();
+    await expect(editor).toBeHidden();
+
+    await expect(page.getByText('9.8765s').first()).toBeVisible({ timeout: 30000 });
+
+    // A fresh load of the schedule is where the stored record shows.
+    await page.goto(`/race/${raceId}/control`);
+    await expect(page.getByText('9.8765s').first()).toBeVisible({ timeout: 30000 });
+
+    const stored = (await readHeats(page, raceId)).find((h) => h.id === last.id)!;
+    expect(stored.lanes.map((l) => l.time)).toContain(9.8765);
+});
+
+test('a skipped heat is passed over rather than left to run', async ({ page }) => {
+    // `is_finished` rather than `has_results` — the distinction #55 got wrong.
+    // A skipped heat holds no times, so anything asking "would rebuilding lose
+    // a result" says no; but the running order must still move on, because the
+    // operator is not coming back to it.
+    const { raceId } = await seedRace(page, 'Race Day Skip');
+    await createSchedule(page, raceId);
+
+    page.on('dialog', (dialog) => dialog.accept());
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Skip Heat' }).click();
+
+    // The running order moved on, without the skipped heat recording anything.
+    await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({
+        timeout: 30000,
+    });
+
+    await page.goto(`/race/${raceId}/control`);
+    await expect(page.getByText('Skipped')).toBeVisible({ timeout: 30000 });
+
+    const [heat] = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
+    expect(heat.lanes.some((l) => l.skipped)).toBe(true);
+    expect(heat.lanes.every((l) => l.time === null)).toBe(true);
+});
