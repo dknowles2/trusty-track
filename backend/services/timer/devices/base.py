@@ -345,6 +345,11 @@ class TimerProfile:
     abort: tuple[bytes, ...] = ()
     #: Demand results now, for a run whose finish was never detected.
     force_results: tuple[bytes, ...] = ()
+    #: Release the start gate from software, on a track fitted with the
+    #: solenoid to do it. Empty means the device cannot, and no amount of
+    #: configuration will make it — which is different from a track that has
+    #: the device but not the accessory, and that is the track's setting.
+    remote_start: tuple[bytes, ...] = ()
 
     acks: tuple[Ack, ...] = ()
     #: Tried in order, so a specific pattern must precede a general one.
@@ -424,6 +429,10 @@ class TimerProfile:
     def polls_the_gate(self) -> bool:
         """Whether asking about the gate is worth doing for this model."""
         return self.gate_watcher is not None and self.gate_state_is_knowable
+
+    def releases_the_gate(self) -> bool:
+        """Whether this model can open the start gate on command."""
+        return bool(self.remote_start)
 
     def read_gate(self, line: bytes) -> "TimerEvent | None":
         """Read a line as an answer to the gate query, or ``None``.

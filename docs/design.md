@@ -48,6 +48,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `length_feet`
     -   `timer_type` (Enum: `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`)
     -   `serial_port` (for direct backend connection)
+    -   `remote_start_installed` (a solenoid is fitted to the start gate)
 -   **`Race`**: Specific race event instance.
     -   `id` (PK)
     -   `group_id` (FK to Group)
@@ -140,7 +141,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`
 -   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
--   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
+-   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
 -   Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 -   Config: `createInitialConfig`, `updateInitialConfig`
 -   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data)

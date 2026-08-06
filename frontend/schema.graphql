@@ -222,6 +222,7 @@ type Mutation {
   reconnectTimer(trackId: Int!): Boolean!
   abortHeat(trackId: Int!): Boolean!
   forceResults(trackId: Int!): Boolean!
+  releaseStartGate(trackId: Int!): String
   fakeTimerStart(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
   prepareHeat(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
   fakeTimerFinish(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
@@ -454,6 +455,7 @@ type TimerStatus {
   activeHeatId: Int
   lastError: String
   port: String
+  canRemoteStart: Boolean!
   pendingResults: [LaneResult!]!
   serialLog: [SerialLogEntry!]!
   racerByLane: String
@@ -488,6 +490,7 @@ type Track {
   lengthFeet: Int
   timerType: String!
   serialPort: String
+  remoteStartInstalled: Boolean!
   races: [Race!]!
 }
 
@@ -497,6 +500,7 @@ input TrackInput {
   lengthFeet: Int = null
   timerType: String! = "FAKE"
   serialPort: String = null
+  remoteStartInstalled: Boolean! = false
 }
 
 input WizardChampionshipRoundInput {

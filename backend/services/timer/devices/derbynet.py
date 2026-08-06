@@ -197,9 +197,11 @@ BERT_DRAKE = TimerProfile(
 # clearest reason gate answers are read only inside a poll's response window
 # and never as general matchers.
 #
-# DerbyNet also gives this timer a remote start (`S`, release the gate from
-# software). We have no remote start, so that is dropped rather than
-# half-described.
+# DerbyNet gives this timer an unconditional remote start (`S`), where the
+# FastTrack's depends on an accessory being fitted. We still make the operator
+# say the track has a gate release before offering it, because "the protocol
+# has a command" and "this track has a solenoid on the gate" are different
+# claims and only the operator knows the second.
 
 PDT = TimerProfile(
     name="PDT timer (dfgtec.com/pdt)",
@@ -215,6 +217,7 @@ PDT = TimerProfile(
     probe=(b"V",),
     identification=(re.compile(rb"vert="),),
     setup=(b"R", b"N"),
+    remote_start=(b"S",),
     heat_prep=HeatPrep(unmask=b"U", mask=b"M", first_lane=b"1", arm=b"R"),
     gate_watcher=GateWatcher(
         command=b"G",

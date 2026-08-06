@@ -127,7 +127,8 @@ Each `features/<area>/` slice holds its own `pages/`, `components/`, and `graphq
 Group           id, name, debug_mode
   └─ Race[]
 
-Track           id, name, lane_count, length_feet, timer_type, serial_port
+Track           id, name, lane_count, length_feet, timer_type, serial_port,
+                remote_start_installed
   └─ Race[]
 
 Race            id, name, date_time, location, group_id, track_id,
@@ -279,7 +280,7 @@ Defined entirely in `backend/api/schema.py`.
 - Den: `createDen`, `updateDen`, `deleteDen`
 - Track: `createTrack`, `updateTrack`, `deleteTrack`
 - Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`
-- Timer: `prepareHeat`, `abortHeat`, `forceResults`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
+- Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`
 
@@ -402,6 +403,8 @@ Three things about the proxy walk:
 - **Seven profiles are adapted from DerbyNet** (`devices/derbynet.py`, MIT, attributed) and **none has run against its hardware** — nor, strictly, has the MicroWizard. Every profile carries a `provenance` string that the timer check page displays; don't let a device name imply support. `test_timer_derbynet_profiles.py` feeds each one a line from its DerbyNet definition, which catches a mistyped pattern but *not* a wrong one.
 - **The vocabulary the import needed**: `command_eol` (the Champ, The Judge and SuperTimer ignore commands without a `\r`), `on_event` (mostly "results overdue → force a report"), `LaneCount` (a timer reporting 6 lanes on a 4-lane track is a real misconfiguration), and `pre_probe` (a settle command before probing). SuperTimer II is deliberately absent — two-part results, a binary-encoded lane mask, and a 10000 scale factor, all for one device.
 - **`/timer-check` is the diagnostics page** (`features/settings/pages/TimerDiagnostics.tsx`), linked from System Settings. It exists because the serial log was only reachable from inside a running heat, so "is my timer working" required setting up a race first. Serial-log rendering is `features/racing/serialLog.ts` — pure, tested, shared with `HardwareTimerMole`. Its command annotations describe the MicroWizard specifically; a second device means sourcing them from the active profile rather than from that table.
+
+**Remote start is two claims, not one** (#111). `TimerProfile.remote_start` says the device has a command for releasing the gate; `Track.remote_start_installed` says this track has the solenoid that command drives. Both are needed, and only the first is knowable from a protocol — the MicroWizard's gate release is a separately-sold accessory and `LG` is silently ignored without it, which is why DerbyNet gates theirs behind a command-line flag and we gate ours behind an operator setting. `TimerManager.can_remote_start()` is the conjunction; it rides on `TimerStatus` because the client has no copy of the profiles. `release_start_gate` refuses outside ARMED and READY and returns *why* as a string: releasing a gate with no heat armed sends cars down a track nothing is timing.
 
 **`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
 

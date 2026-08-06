@@ -16,6 +16,7 @@ const GET_INITIAL_CONFIG = `
         lengthFeet
         timerType
         serialPort
+        remoteStartInstalled
       }
     }
   }
@@ -49,7 +50,7 @@ export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
   const [debugMode, setDebugMode] = useState(false);
-  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '' }]);
+  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '', remoteStartInstalled: false }]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -82,26 +83,28 @@ export default function SystemConfig() {
             lengthFeet: number;
             timerType: string;
             serialPort?: string;
+            remoteStartInstalled?: boolean;
           }) => ({
             name: t.name,
             laneCount: t.laneCount,
             lengthFeet: t.lengthFeet,
             timerType: t.timerType,
-            serialPort: t.serialPort || ''
+            serialPort: t.serialPort || '',
+            remoteStartInstalled: !!t.remoteStartInstalled
           })));
         }
       }
     }
   }
 
-  const handleTrackChange = (index: number, field: string, value: string | number) => {
+  const handleTrackChange = (index: number, field: string, value: string | number | boolean) => {
     const newTracks = [...tracks];
     newTracks[index] = { ...newTracks[index], [field]: value };
     setTracks(newTracks);
   };
 
   const addTrack = () => {
-    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '' }]);
+    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '', remoteStartInstalled: false }]);
   };
 
   const removeTrack = (index: number) => {
@@ -128,12 +131,13 @@ export default function SystemConfig() {
         config: {
           groupName: groupName,
           debugMode: debugMode,
-          tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort }) => ({
+          tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort, remoteStartInstalled }) => ({
             name,
             laneCount,
             lengthFeet: lengthFeet || 40,
             timerType,
-            serialPort: timerType === 'AUTO_DETECT_BACKEND' ? serialPort : null
+            serialPort: timerType === 'AUTO_DETECT_BACKEND' ? serialPort : null,
+            remoteStartInstalled
           }))
         }
       };
@@ -286,6 +290,29 @@ export default function SystemConfig() {
                   Leave this blank and the server will look for the timer on each USB port when it
                   starts. Fill it in only if your timer is on a built-in serial port, or you need to
                   point at one particular device — for example <code>/dev/ttyUSB0</code> or <code>COM3</code>.
+                </small>
+              </div>
+            )}
+
+            {/*
+              Not shown for the fake timer, which has no gate. Otherwise always
+              shown, because whether the accessory is fitted is something only
+              the operator knows — no timer protocol reports it, and the
+              MicroWizard silently ignores the command without it.
+            */}
+            {track.timerType !== 'FAKE' && (
+              <div style={{ marginTop: '1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!track.remoteStartInstalled}
+                    onChange={(e) => handleTrackChange(index, 'remoteStartInstalled', e.target.checked)}
+                  />
+                  This track has a remote start gate
+                </label>
+                <small style={{ color: '#666' }}>
+                  Tick this only if a solenoid is fitted to the start gate and wired to the timer.
+                  With it on, an armed heat can be launched from the race screen instead of by hand.
                 </small>
               </div>
             )}

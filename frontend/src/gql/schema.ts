@@ -242,6 +242,7 @@ export type Mutation = {
   reconnectTimer: Scalars['Boolean']['output'];
   recordFreeRaceResult?: Maybe<FreeRaceHeat>;
   regenerateRound: Array<Heat>;
+  releaseStartGate?: Maybe<Scalars['String']['output']>;
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
   startFreeRaceHeat: FreeRaceHeat;
@@ -428,6 +429,11 @@ export type MutationRecordFreeRaceResultArgs = {
 
 export type MutationRegenerateRoundArgs = {
   roundId: Scalars['Int']['input'];
+};
+
+
+export type MutationReleaseStartGateArgs = {
+  trackId: Scalars['Int']['input'];
 };
 
 
@@ -812,6 +818,7 @@ export type TimerStateChangedEvent = {
 
 export type TimerStatus = {
   activeHeatId?: Maybe<Scalars['Int']['output']>;
+  canRemoteStart: Scalars['Boolean']['output'];
   deviceName?: Maybe<Scalars['String']['output']>;
   deviceProvenance?: Maybe<Scalars['String']['output']>;
   laneCount?: Maybe<Scalars['Int']['output']>;
@@ -851,6 +858,7 @@ export type Track = {
   lengthFeet?: Maybe<Scalars['Int']['output']>;
   name: Scalars['String']['output'];
   races: Array<Race>;
+  remoteStartInstalled: Scalars['Boolean']['output'];
   serialPort?: Maybe<Scalars['String']['output']>;
   timerType: Scalars['String']['output'];
 };
@@ -859,6 +867,7 @@ export type TrackInput = {
   laneCount?: Scalars['Int']['input'];
   lengthFeet?: InputMaybe<Scalars['Int']['input']>;
   name?: Scalars['String']['input'];
+  remoteStartInstalled?: Scalars['Boolean']['input'];
   serialPort?: InputMaybe<Scalars['String']['input']>;
   timerType?: Scalars['String']['input'];
 };

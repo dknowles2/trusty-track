@@ -111,6 +111,9 @@ class TimerStatus:
     #: (#89), and "which port did it pick" is otherwise unanswerable from the
     #: operator's side.
     port: str | None = None
+    #: Whether the operator can be offered a "release the gate" control: the
+    #: device has the command *and* this track has the hardware it drives.
+    can_remote_start: bool = False
     pending_results: list[dict[str, Any]] = field(default_factory=list)
     serial_log: list[SerialLogEntry] = field(default_factory=list)
     racer_by_lane: dict[int, int | None] = field(default_factory=dict)
@@ -125,6 +128,7 @@ class TimerManager:
         track_id: int,
         device: TimerProfile,
         session_factory: SessionFactory | None = None,
+        remote_start_installed: bool = False,
     ) -> None:
         """Create a manager for one track.
 
@@ -135,6 +139,7 @@ class TimerManager:
         """
         self._track_id = track_id
         self._device = device
+        self._remote_start_installed = remote_start_installed
         self._session_factory: SessionFactory = session_factory or SessionLocal
         self._buf: bytes = b""
         self._active_heat_id: int | None = None
@@ -194,6 +199,18 @@ class TimerManager:
                 await self._transition(TimerState.IDLE)
             else:
                 await self._transition(TimerState.DISCONNECTED)
+
+    async def set_remote_start_installed(self, installed: bool) -> None:
+        """The track's gate-release setting changed.
+
+        Published rather than merely stored: the control it governs is on the
+        operator screen, and a setting saved in another tab should make the
+        button appear or go without a refresh.
+        """
+        if self._remote_start_installed == installed:
+            return
+        self._remote_start_installed = installed
+        await pubsub.publish(f"timer_state:{self._track_id}", self.status())
 
     # ------------------------------------------------------------------ #
     # Write-path configuration                                             #
@@ -255,6 +272,7 @@ class TimerManager:
             device_name=self._device.name,
             device_provenance=self._device.provenance or None,
             port=self._direct_port,
+            can_remote_start=self.can_remote_start(),
             lane_count=lane_count,
             active_heat_id=self._active_heat_id,
             last_error=self._last_error,
@@ -315,6 +333,36 @@ class TimerManager:
             await self._send_commands(self._device.abort_commands())
             await self._transition(TimerState.IDLE)
             self._stop_gate_polling()
+
+    def can_remote_start(self) -> bool:
+        """Whether releasing the start gate from software is available here.
+
+        Two conditions, and they are different claims: the device has a command
+        for it, and this track has the solenoid the command drives. Nothing in
+        any protocol reports the second — the MicroWizard's gate release is a
+        separately-sold accessory and ``LG`` is silently ignored without it —
+        so it is the operator's setting, off until they say otherwise.
+        """
+        return self._device.releases_the_gate() and self._remote_start_installed
+
+    async def release_start_gate(self) -> str | None:
+        """Open the start gate. Returns None, or why it did not.
+
+        Only from ARMED or READY. Not IDLE: releasing a gate with no heat armed
+        sends cars down a track nothing is timing, and the times are gone. Not
+        RUNNING: the gate is already open.
+        """
+        async with self._event_lock:
+            if not self._device.releases_the_gate():
+                return f"{self._device.name} cannot release the start gate"
+            if not self._remote_start_installed:
+                return "This track is not set up with a remote start gate"
+            if self._state not in (TimerState.ARMED, TimerState.READY):
+                return f"No heat is armed (timer is {self._state.value})"
+
+            logger.info("Timer %d: releasing the start gate", self._track_id)
+            await self._send_commands(list(self._device.remote_start))
+            return None
 
     async def force_record(self) -> None:
         """Force recording of whatever results have been collected so far."""
@@ -1306,7 +1354,12 @@ async def initialize_timer_managers(
                 # when nothing identifies itself (issue #89).
                 device = DEFAULT_PROFILE
 
-            manager = TimerManager(track.id, device, session_factory=session_factory)
+            manager = TimerManager(
+                track.id,
+                device,
+                session_factory=session_factory,
+                remote_start_installed=track.remote_start_installed,
+            )
             registry[track.id] = manager
             logger.info(
                 "TimerManager created for track %d (%s) with device %s",

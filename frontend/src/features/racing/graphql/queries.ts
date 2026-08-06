@@ -28,6 +28,7 @@ export const TIMER_STATUS_SUBSCRIPTION = gql`
       status {
         state
         deviceName
+        canRemoteStart
         laneCount
         activeHeatId
         lastError
@@ -98,5 +99,17 @@ export const FORCE_RESULTS = gql`
 export const RECONNECT_TIMER = gql`
   mutation ReconnectTimer($trackId: Int!) {
     reconnectTimer(trackId: $trackId)
+  }
+`;
+
+/**
+ * Open the start gate on a track fitted with a solenoid to do it (#111).
+ *
+ * Returns null on success, or the reason it did not happen — every refusal
+ * has a different operator response, so the mutation says which.
+ */
+export const RELEASE_START_GATE = gql`
+  mutation ReleaseStartGate($trackId: Int!) {
+    releaseStartGate(trackId: $trackId)
   }
 `;

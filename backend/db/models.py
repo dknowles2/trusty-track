@@ -97,6 +97,15 @@ class Track(Base):
         SAEnum(TimerType), default=TimerType.FAKE
     )
     serial_port: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: This track has a solenoid on the start gate, so software can release it.
+    #:
+    #: A setting rather than something detected, because nothing in any timer
+    #: protocol says whether the accessory is fitted. It is off by default: the
+    #: cost of a wrong `False` is a button that is not offered, and the cost of
+    #: a wrong `True` is a gate that opens with nobody expecting it.
+    remote_start_installed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="track")
 
