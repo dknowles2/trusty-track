@@ -113,17 +113,50 @@ def _split(buffer: bytes, delimiter: bytes) -> tuple[list[bytes], bytes]:
     return parts[:-1], parts[-1]
 
 
-async def _banner_from(
-    connection: ProbePort,
-    profile: TimerProfile,
-    response_seconds: float,
-) -> bytes | None:
-    """Send the probe and watch for the banner. Returns what matched, or None.
+class BannerMatcher:
+    """Reads a profile's identification banner out of a stream of bytes.
+
+    Push-based, because the two transports deliver bytes differently: a serial
+    port is polled and a browser-proxied port arrives as WebSocket messages.
+    Feeding both through one object is what keeps the ordering rule below in a
+    single place rather than once per transport.
 
     The identification patterns are matched **in order**: a model whose first
     line is a generic manufacturer string is told apart from its siblings by
     the lines that follow, which is the whole reason the field is a sequence.
     """
+
+    def __init__(self, profile: TimerProfile) -> None:
+        self._delimiter = profile.delimiter
+        self._wanted = profile.identification
+        self._seen = 0
+        self._matched: list[bytes] = []
+        self._buffer = b""
+
+    def feed(self, chunk: bytes) -> bytes | None:
+        """Take more bytes. Returns the whole banner once it is complete."""
+        if not self._wanted:
+            return None
+        self._buffer += chunk
+        lines, self._buffer = _split(self._buffer, self._delimiter)
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if self._wanted[self._seen].search(stripped):
+                self._matched.append(stripped)
+                self._seen += 1
+                if self._seen == len(self._wanted):
+                    return b" ".join(self._matched)
+        return None
+
+
+async def _banner_from(
+    connection: ProbePort,
+    profile: TimerProfile,
+    response_seconds: float,
+) -> bytes | None:
+    """Send the probe and watch for the banner. Returns what matched, or None."""
     # Some timers will not answer until they have been reset or woken, and
     # then need a moment. The pause is why this is a separate field rather than
     # two more probe commands.
@@ -135,27 +168,16 @@ async def _banner_from(
     for command in profile.probe:
         await asyncio.to_thread(connection.write, profile.wire(command))
 
-    wanted = profile.identification
-    seen = 0
-    matched: list[bytes] = []
-    buffer = b""
+    matcher = BannerMatcher(profile)
     deadline = time.monotonic() + response_seconds
 
     while time.monotonic() < deadline:
         chunk = await asyncio.to_thread(connection.read, CHUNK)
         if not chunk:
             continue
-        buffer += chunk
-        lines, buffer = _split(buffer, profile.delimiter)
-        for line in lines:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            if wanted[seen].search(stripped):
-                matched.append(stripped)
-                seen += 1
-                if seen == len(wanted):
-                    return b" ".join(matched)
+        banner = matcher.feed(chunk)
+        if banner is not None:
+            return banner
 
     return None
 

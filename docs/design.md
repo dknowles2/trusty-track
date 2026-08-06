@@ -268,6 +268,14 @@ the device in `pyserial`'s vocabulary and the frontend translates, so there is
 one description of a device rather than two. After that it forwards bytes in
 both directions and does not interpret them.
 
+This mode detects too. The backend walks the same profiles it would probe a
+local port with, sending a `configure` before each candidate whose framing
+differs from the one currently open and waiting for the browser's `ready` — so
+the browser closes and reopens the port as the walk goes. With the profiles
+shipped today the port opens once, because every device that can be probed for
+runs at 9600 8-N-1. If nothing identifies itself the assumed profile is kept,
+which is what this mode did before it could detect.
+
 Web Serial is a Chromium-only API, which is the same trade the check-in scanner
 makes; a browser without it can still use a track in backend-direct or fake
 mode.
@@ -281,14 +289,17 @@ pattern with the event it means and the captured groups holding the lane, time
 and place. There is no per-device parsing code, which is what lets a prober
 walk the list in `ALL_PROFILES` and try each candidate in turn.
 
-One real device is described today, the MicroWizard K1/K2/K3, alongside a fake
-timer that skips the serial layer entirely. A profile with no `probe` command or
+Eight real devices are described today — the MicroWizard K1/K2/K3 and seven
+adapted from DerbyNet — alongside a fake timer that skips the serial layer
+entirely. None has been run against its hardware; each carries a `provenance`
+string saying what it was written from, shown on the timer check page. A
+profile with no `probe` command or
 no identification banner is skipped by the prober — it cannot be detected, only
 chosen.
 
-`AUTO_DETECT_PROXY` does not yet live up to its name: the browser holds the port,
-so probing it means having the browser reopen the port once per candidate, and
-that is not built. Proxy mode assumes the MicroWizard.
+Both auto-detect modes probe. They differ only in who opens the port:
+`backend/services/timer/probe.py` opens it directly, and
+`backend/services/timer/proxy.py` asks the browser to.
 
 ## 6. Data Models (Detailed)
 

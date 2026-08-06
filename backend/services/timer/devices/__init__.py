@@ -19,10 +19,9 @@ from .microwizard import MICROWIZARD
 #: ``derbynet.py`` and each profile's ``provenance``.
 ALL_PROFILES: tuple[TimerProfile, ...] = (MICROWIZARD, *ADAPTED_FROM_DERBYNET)
 
-#: The profile assumed when a track is in an auto-detect mode. There is nothing
-#: automatic about it yet — probing is the other half of issue #89 — so this is
-#: the one device we support, named in one place rather than constructed at the
-#: call sites that need it.
+#: The profile assumed when a track is in an auto-detect mode, until a probe
+#: replaces it — and, on either transport, when nothing answers one. Named in
+#: one place rather than constructed at the call sites that need it.
 DEFAULT_PROFILE: TimerProfile = MICROWIZARD
 
 

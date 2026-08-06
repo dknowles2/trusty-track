@@ -68,6 +68,12 @@ This uses the browser's Web Serial support, so it needs **Chrome or Edge** —
 Safari and Firefox do not have it. The browser will ask you to pick the serial
 port the first time.
 
+This mode identifies the timer for itself as well. Once you have picked the
+port, the server asks whatever is on it to identify itself, exactly as it does
+for a timer plugged into the server — so you do not have to tell it which model
+you have. If nothing recognisable answers, it takes about ten seconds to work
+through the models it knows before falling back to assuming a MicroWizard.
+
 ## Checking it works
 
 **System Settings → Check the timer connection**, or go to `/timer-check`.
