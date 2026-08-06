@@ -32,6 +32,17 @@ written some other way. Nothing does that — ``test_heat_lanes_write.py`` walks
 ``crud.py``'s AST to keep it so — and the fallback exists because the failure
 it prevents is silent.
 
+Deletion is not this module's problem
+------------------------------------
+It used to be, twice: an ``after_flush`` pass over ``session.deleted`` for
+heats removed as ORM objects, and a ``do_orm_execute`` listener for those
+removed by a bulk ``query(...).delete()``, which never loads the rows. The
+first was ordered wrong — ``after_flush`` runs after the ``DELETE FROM heats``
+that a real constraint refuses — and neither was needed once
+``heat_lanes.heat_id`` got ``ON DELETE CASCADE`` (#125). The rule is in the
+schema now, where it covers every writer including ones that never touch this
+session.
+
 :func:`lanes_out_of_sync` proves the two still agree, and ``conftest.py``
 asserts it after every test in the suite.
 """
@@ -42,7 +53,7 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
-from sqlalchemy import delete, event, insert, inspect, select
+from sqlalchemy import delete, event, insert, inspect
 from sqlalchemy.orm import Session
 
 from backend.db import models
@@ -110,10 +121,11 @@ def _sync_heat_lanes(session: Session, _flush_context) -> None:
     is not supported is adding new ORM objects, which is why this writes through
     ``session.execute`` rather than constructing ``HeatLane`` instances.
     """
-    for obj in session.deleted:
-        if isinstance(obj, models.Heat):
-            _project(session, obj.id, [])
-
+    # Deletion is the database's job since #125: `heat_lanes.heat_id` carries
+    # `ON DELETE CASCADE`. This module used to cascade twice in Python — once
+    # here for ORM-object deletes and once in a `do_orm_execute` listener for
+    # bulk ones — and the first was ordered wrong, running after the
+    # `DELETE FROM heats` that a real constraint refuses.
     for obj in list(session.new) + list(session.dirty):
         if obj in session.deleted or not isinstance(obj, models.Heat):
             continue
@@ -137,37 +149,6 @@ def _sync_heat_lanes(session: Session, _flush_context) -> None:
                 obj.id,
             )
             _project(session, obj.id, domain_lanes.parse(obj.lane_results))
-
-
-@event.listens_for(Session, "do_orm_execute")
-def _cascade_bulk_heat_deletes(state) -> None:
-    """Delete lanes for heats removed by a bulk ``query(...).delete()``.
-
-    ``delete_race`` removes heats with a bulk delete, which never loads the rows
-    and so never reaches ``after_flush``. Left alone, the orphaned lanes would be
-    worse than untidy: SQLite reuses a deleted heat's id for the next insert, so
-    a stale row would eventually reattach itself to an unrelated heat.
-
-    Runs before the outer statement — the heats it selects still exist.
-    """
-    if not state.is_delete:
-        return
-    # By name, not identity: the statement carries its own copy of the table.
-    table = getattr(state.statement, "table", None)
-    if table is None or table.name != models.Heat.__tablename__:
-        return
-
-    # Built from the statement's table so the criteria keep referring to the
-    # same columns they were compiled against.
-    doomed = select(table.c.id)
-    where = state.statement.whereclause
-    if where is not None:
-        doomed = doomed.where(where)
-
-    state.session.execute(
-        delete(models.HeatLane).where(models.HeatLane.heat_id.in_(doomed)),
-        state.parameters or {},
-    )
 
 
 # --------------------------------------------------------------------------- #

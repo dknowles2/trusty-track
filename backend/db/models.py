@@ -309,16 +309,36 @@ class HeatLane(Base):
     stored, not derived.
 
     A row with neither is an empty lane in a short heat.
+
+    Deletion
+    --------
+    Both foreign keys carry an ``ON DELETE`` action, which became load-bearing
+    the moment enforcement was turned on (#125): four delete paths in
+    ``crud.py`` remove a parent while lane rows still point at it, and each was
+    relying on nothing checking.
+
+    ``heat_id`` cascades — a lane has no meaning without its heat, and
+    ``lane_sync`` was already doing this in Python from an ``after_flush``
+    listener, which is *after* the ``DELETE FROM heats`` the database would now
+    refuse.
+
+    ``racer_id`` sets null, which is the clause #72 step 4 wants and the thing
+    ``crud._remove_racer_from_regular_heats`` and ``_remove_racer_from_free_heats``
+    hand-roll today. Those two still run, because they also rewrite the
+    ``lane_results`` blob that the table is projected alongside; what they no
+    longer have to be is *first*.
     """
 
     __tablename__ = "heat_lanes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    heat_id: Mapped[int] = mapped_column(Integer, ForeignKey("heats.id"), index=True)
+    heat_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("heats.id", ondelete="CASCADE"), index=True
+    )
     lane: Mapped[int] = mapped_column(Integer)
 
     racer_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("racers.id"), nullable=True
+        Integer, ForeignKey("racers.id", ondelete="SET NULL"), nullable=True
     )
     placeholder_slot: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
