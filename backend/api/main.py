@@ -37,6 +37,7 @@ from backend.db.database import UPLOAD_DIR, SessionLocal, init_db
 from backend.services import printables
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
+from backend.services.timer.proxy import ProxySession, WebSocketTransport
 
 # Load environment variables from .env if present
 load_dotenv()
@@ -208,43 +209,22 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
 
     await websocket.accept()
 
-    # Define how to send bytes back to the frontend
-    async def send_to_ws(data: bytes) -> None:
-        try:
-            await websocket.send_json(
-                {
-                    "type": "serial_tx",
-                    "data": base64.b64encode(data).decode("utf-8"),
-                }
-            )
-        except Exception as e:
-            logger.error("Failed to send serial_tx to track %d: %s", track_id, e)
-
-    # Tell the frontend to configure its serial port. All four framing
-    # parameters, not just the baud rate: the Web Serial API defaults to 8-N-1
-    # exactly as pyserial does, so a device that is not 8-N-1 was previously
-    # opened wrong on this path too.
-    device = manager._device
-    await websocket.send_json(
-        {
-            "type": "configure",
-            "baud_rate": device.baud_rate,
-            "data_bits": device.data_bits,
-            "stop_bits": device.stop_bits,
-            "parity": device.parity,
-        }
-    )
-
-    manager.set_write_fn(send_to_ws)
+    # Everything ordered — asking for the port, walking the candidate profiles,
+    # handing the identified device to the manager — is the session's. What is
+    # left here is the message encoding, which is what this endpoint is for.
+    transport = WebSocketTransport(websocket.send_json, track_id)
+    manager.set_write_fn(transport.send)
+    session = ProxySession(manager, transport)
+    session.start()
 
     try:
         while True:
             data = await websocket.receive_json()
             if data.get("type") == "ready":
-                await manager.handle_connect()
+                session.on_ready()
             elif data.get("type") == "serial_rx":
                 rx_bytes = base64.b64decode(data["data"])
-                await manager.receive_bytes(rx_bytes)
+                await session.on_bytes(rx_bytes)
             elif data.get("type") == "pong":
                 # Heartbeat handled by FastAPI/Starlette usually, but we can log
                 # if needed
@@ -254,7 +234,7 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
     except Exception as e:
         logger.error("WebSocket error for track %d: %s", track_id, e)
     finally:
-        await manager.handle_disconnect()
+        await session.close()
 
 
 @app.post("/upload/")

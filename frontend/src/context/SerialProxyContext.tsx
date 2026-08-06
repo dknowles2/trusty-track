@@ -13,8 +13,16 @@ interface SerialProxyContextType {
 
 const SerialProxyContext = createContext<SerialProxyContextType | undefined>(undefined);
 
+interface SerialReader {
+    read: () => Promise<{ value: Uint8Array, done: boolean }>;
+    releaseLock: () => void;
+    // Needed to reopen the port: close() rejects while a reader holds the lock,
+    // and a reader only lets go once its stream ends.
+    cancel: () => Promise<void>;
+}
+
 interface SerialPort {
-    readable: { getReader: () => { read: () => Promise<{ value: Uint8Array, done: boolean }>, releaseLock: () => void } };
+    readable: { getReader: () => SerialReader };
     writable: { getWriter: () => { write: (data: Uint8Array) => Promise<void>, releaseLock: () => void } };
     open: (options: {
         baudRate: number;
@@ -64,12 +72,20 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // but defining a minimal interface would be better if we had one.
     const portRef = useRef<SerialPort | null>(null);
     const wsRef = useRef<WebSocket | null>(null);
+    // The read loop, and the handle needed to stop it. Reopening the port means
+    // ending the loop first, and the loop has to be able to tell that ending
+    // from a device being unplugged — one reopens, the other hangs up.
+    const readerRef = useRef<SerialReader | null>(null);
+    const readLoopRef = useRef<Promise<void> | null>(null);
+    const readingRef = useRef(false);
 
     const isSupported = typeof navigator !== 'undefined' && 'serial' in navigator;
 
     const startReading = useCallback(async (port: SerialPort, ws: WebSocket) => {
-        while (port.readable && ws.readyState === WebSocket.OPEN) {
+        readingRef.current = true;
+        while (readingRef.current && port.readable && ws.readyState === WebSocket.OPEN) {
             const reader = port.readable.getReader();
+            readerRef.current = reader;
             try {
                 while (true) {
                     const { value, done } = await reader.read();
@@ -86,17 +102,36 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 break;
             } finally {
                 reader.releaseLock();
+                readerRef.current = null;
             }
         }
         // Device was unplugged or read loop ended — close the WebSocket so the
         // backend transitions to DISCONNECTED and ws.onclose updates our status.
-        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        // Not when we stopped the loop ourselves: the port is about to be
+        // reopened with different framing and the connection outlives it.
+        if (readingRef.current && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
             console.log('Serial device disconnected, closing WebSocket');
             ws.close();
         }
     }, []);
 
+    const stopReading = useCallback(async () => {
+        readingRef.current = false;
+        try {
+            await readerRef.current?.cancel();
+        } catch {
+            // A reader on a port that has already gone. Nothing to release.
+        }
+        try {
+            await readLoopRef.current;
+        } catch {
+            // The loop's own errors are logged where they happen.
+        }
+        readLoopRef.current = null;
+    }, []);
+
     const disconnect = useCallback(() => {
+        readingRef.current = false;
         wsRef.current?.close();
         wsRef.current = null;
         portRef.current?.close();
@@ -141,12 +176,24 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     try {
                         const options = portOptions(msg);
                         console.log('Handshake: Configuring port:', options);
+                        if (portRef.current) {
+                            // Not the first configure. The backend is probing
+                            // (issue #89) and the next candidate device wants
+                            // different bytes on the wire, so the port has to be
+                            // reopened — which means ending the read loop first,
+                            // because close() rejects while a reader holds the
+                            // lock.
+                            console.log('Handshake: Reopening port with new framing');
+                            await stopReading();
+                            await portRef.current.close();
+                            portRef.current = null;
+                        }
                         await port.open(options);
                         portRef.current = port;
                         console.log('Handshake: Port opened successfully, sending ready');
                         ws.send(JSON.stringify({ type: 'ready' }));
                         setStatus('connected');
-                        startReading(port, ws);
+                        readLoopRef.current = startReading(port, ws);
                     } catch (err: unknown) {
                         const e = err as { message?: string };
                         setErrorMsg(`Port error: ${e.message}`);
@@ -187,11 +234,12 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 setStatus('error');
             }
         }
-    }, [isSupported, status, activeTrackId, disconnect, startReading]);
+    }, [isSupported, status, activeTrackId, disconnect, startReading, stopReading]);
 
     // Clean up on app unmount
     useEffect(() => {
         return () => {
+            readingRef.current = false;
             wsRef.current?.close();
             portRef.current?.close();
         };

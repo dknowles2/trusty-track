@@ -17,9 +17,11 @@ That matters for three reasons, all of them issue #89:
   and 7 data bits, that another reports milliseconds — become fields, and a
   field that no profile sets is visibly missing rather than silently defaulted.
 
-The browser-proxy path does *not* get a copy of this. The backend owns all
-protocol state and the browser is a wire: it needs the port parameters to open
-the port, which the WebSocket ``configure`` message carries, and nothing else.
+The browser-proxy path does *not* get a copy of this, even though it probes.
+The backend owns all protocol state and the browser is a wire: it needs the port
+parameters to open the port, which the WebSocket ``configure`` message carries,
+and nothing else. Probing there is the backend walking these records and asking
+for the port to be reopened as it goes — see ``services/timer/proxy.py``.
 """
 
 import logging

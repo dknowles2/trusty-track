@@ -303,10 +303,12 @@ Three rules came out of reading how DerbyNet does it:
 
 The MicroWizard is deliberately left unpolled: `N2` makes it push both edges.
 
-**What is still not built:** probing in proxy mode. The browser holds the port
-there, so trying a second profile means having the browser close and reopen it
-with different framing, which is a frontend change this did not take on.
-`AUTO_DETECT_PROXY` still assumes `DEFAULT_PROFILE`.
+**Proxy mode probes too**, as of the work on issue #89 that followed. The
+browser holds the port there, so the walk is driven over the WebSocket:
+`services/timer/proxy.py` sends a `configure` for each candidate whose framing
+differs from what is open, waits for `ready`, writes the probe and watches the
+relayed bytes. `AUTO_DETECT_PROXY` falls back to `DEFAULT_PROFILE` only when
+nothing answers.
 
 **Not planned, contrary to the issue as filed:** exporting the profile set to
 the frontend. DerbyNet does that because their browser-side timer *is* the
@@ -611,15 +613,18 @@ Sent periodically by the backend to detect stale connections.
 2. Frontend renders "Connect Timer" button
 3. User clicks → navigator.serial.requestPort() → permission dialog
 4. User selects port → frontend opens WebSocket to /ws/timer/{track_id}
-5. Backend sends { type: "configure", baud_rate: 9600 }
-6. Frontend opens serial port at configured baud rate
+5. Backend sends { type: "configure", baud_rate, data_bits, stop_bits, parity }
+6. Frontend opens serial port with that framing and replies { type: "ready" }
 7. Frontend starts relaying bytes in both directions
-8. Backend sends identification probe bytes (via serial_tx)
+8. Backend sends the candidate profile's probe bytes (via serial_tx)
 9. Frontend forwards device response (via serial_rx)
-10. Backend identifies device → TimerManager transitions CONNECTED → IDLE
-11. timerStatus subscription clients see state update
-12. User arms a heat → prepareHeat mutation → backend sends arm commands via serial_tx
-13. Race runs; results arrive as serial_rx; backend records and publishes
+10. No match within the deadline → back to step 5 for the next candidate,
+    reopening the port only if its framing differs
+11. Backend identifies device → TimerManager goes straight to IDLE
+    (nothing answered → the assumed profile, and the normal handshake)
+12. timerStatus subscription clients see state update
+13. User arms a heat → prepareHeat mutation → backend sends arm commands via serial_tx
+14. Race runs; results arrive as serial_rx; backend records and publishes
 ```
 
 ---

@@ -970,6 +970,39 @@ class TimerManager:
                 detection.port,
             )
 
+    async def adopt_profile(self, profile: TimerProfile) -> None:
+        """Take a profile that has already identified itself over an open link.
+
+        The browser-proxy counterpart of ``adopt``, and it goes straight to
+        IDLE for the same reason: the banner has been seen, and it is the only
+        greeting the device is going to send, so waiting in CONNECTED would be
+        waiting for something already past. What it does *not* do is take over
+        a port — in proxy mode the browser owns that and the link is already up.
+        """
+        async with self._event_lock:
+            self._device = profile
+            self._buf = b""
+            self._pending_acks.clear()
+            self._last_error = None
+            # A fresh identification gets a fresh nudge interval and no
+            # inherited findings about the previous device's gate, exactly as
+            # handle_connect does — this replaces that call, not follows it.
+            self._last_nudge = None
+            self._gate_watcher_off = False
+            self._gate.reset(closed=False)
+
+            if not self._watchdog_task:
+                self._watchdog_task = asyncio.create_task(self._watchdog_loop())
+
+            await self._send_commands(self._device.initialization_commands())
+            await self._transition(TimerState.IDLE)
+
+            logger.info(
+                "Timer %d: adopted %s over the browser proxy",
+                self._track_id,
+                profile.name,
+            )
+
     def _make_serial_writer(self) -> Callable[[bytes], Awaitable[None]]:
         async def send_to_serial(data: bytes) -> None:
             if self._serial and self._serial.is_open:
@@ -1267,10 +1300,10 @@ async def initialize_timer_managers(
             if track.timer_type == models.TimerType.FAKE:
                 device = FAKE
             else:
-                # The starting assumption for both auto-detect modes. In
-                # backend-direct mode a probe replaces it below with whatever
-                # actually answered; the proxy path has no probe yet, so there
-                # it stays the assumption (issue #89).
+                # The starting assumption for both auto-detect modes, replaced
+                # by whatever answers a probe: below for backend-direct, and
+                # when the browser connects for proxy mode. It survives only
+                # when nothing identifies itself (issue #89).
                 device = DEFAULT_PROFILE
 
             manager = TimerManager(track.id, device, session_factory=session_factory)
