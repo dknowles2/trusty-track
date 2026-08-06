@@ -95,6 +95,14 @@ MICROWIZARD = TimerProfile(
     abort=(b"LR",),
     # RA reports every lane immediately.
     force_results=(b"RA",),
+    # LG releases the start gate — but only on a track fitted with Micro
+    # Wizard's light tree and automatic gate release, which is an accessory
+    # rather than part of the timer. Nothing in the protocol says whether it is
+    # there: DerbyNet gates the command behind a command-line flag, and here it
+    # is behind the track's `remote_start_installed` setting. Sending LG to a
+    # timer without the accessory does nothing; offering the operator a button
+    # that does nothing is the failure worth avoiding.
+    remote_start=(b"LG",),
     acks=(
         Ack(re.compile(rb"^MG$", re.IGNORECASE), _AC),
         Ack(re.compile(rb"^(N1|N2|LR|M[A-P])$", re.IGNORECASE), _STAR),

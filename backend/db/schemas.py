@@ -28,6 +28,7 @@ class TrackBase(BaseModel):
     length_feet: int | None = None
     timer_type: TimerType = TimerType.FAKE
     serial_port: str | None = None
+    remote_start_installed: bool = False
 
 
 class DenBase(BaseModel):

@@ -139,8 +139,8 @@ describe('SystemSettings', () => {
                 groupName: 'Test Pack',
                 debugMode: false,
                 tracks: [
-                    { name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null },
-                    { name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null }
+                    { name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, remoteStartInstalled: false },
+                    { name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, remoteStartInstalled: false }
                 ]
             }
         });

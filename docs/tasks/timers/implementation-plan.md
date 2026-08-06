@@ -373,7 +373,7 @@ Reference: `MicroWizardDevice.java` in the DerbyNet project.
 - `LR` — reset/arm laser gate
 - `M<HEX>` — set lane mask (e.g. `MF` for all 4 lanes)
 - `RA` — force result reporting
-- `LG` — pulse gate solenoid (remote start, optional)
+- `LG` — pulse gate solenoid (remote start; needs the accessory, see #111)
 
 **Result line format (N1 "new format"):**
 

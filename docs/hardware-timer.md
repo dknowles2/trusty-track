@@ -74,6 +74,26 @@ for a timer plugged into the server — so you do not have to tell it which mode
 you have. If nothing recognisable answers, it takes about ten seconds to work
 through the models it knows before falling back to assuming a MicroWizard.
 
+## Launching a heat from the screen
+
+Some tracks have a solenoid fitted to the start gate, wired to the timer. Where
+that is the case, an armed heat can be launched from the race screen instead of
+by somebody standing at the track.
+
+Nothing in a timer's protocol says whether the solenoid is there, so it is a
+setting: **System Settings → the track → This track has a remote start gate**.
+Tick it only if the hardware is actually fitted. On a Micro Wizard the gate
+release is a separately-sold accessory, and the timer accepts the command and
+does nothing without it.
+
+With it on, a **Release Start Gate** button appears on the timer panel once a
+heat is armed — and only then. Releasing the gate with no heat armed sends cars
+down a track nothing is timing, and those runs cannot be recovered.
+
+**This has not been tested against hardware.** No profile here has, but this is
+the only part that moves something physical, so it is worth saying twice. Try
+it with an empty track before you try it with a queue.
+
 ## Checking it works
 
 **System Settings → Check the timer connection**, or go to `/timer-check`.

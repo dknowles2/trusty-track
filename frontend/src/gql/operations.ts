@@ -355,7 +355,7 @@ export type TimerStatusSubscriptionVariables = Exact<{
 }>;
 
 
-export type TimerStatusSubscription = { timerStatus: { status: { state: string, deviceName: string | null, laneCount: number | null, activeHeatId: number | null, lastError: string | null, racerByLane: string | null, pendingResults: Array<{ lane: number, time: number | null, place: number | null, racerId: number | null }>, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
+export type TimerStatusSubscription = { timerStatus: { status: { state: string, deviceName: string | null, canRemoteStart: boolean, laneCount: number | null, activeHeatId: number | null, lastError: string | null, racerByLane: string | null, pendingResults: Array<{ lane: number, time: number | null, place: number | null, racerId: number | null }>, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
 
 export type HeatSessionSubscriptionVariables = Exact<{
   trackId: number;
@@ -393,6 +393,13 @@ export type ReconnectTimerMutationVariables = Exact<{
 
 
 export type ReconnectTimerMutation = { reconnectTimer: boolean };
+
+export type ReleaseStartGateMutationVariables = Exact<{
+  trackId: number;
+}>;
+
+
+export type ReleaseStartGateMutation = { releaseStartGate: string | null };
 
 export type GetRaceControlDataQueryVariables = Exact<{
   id: number;

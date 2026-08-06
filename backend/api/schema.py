@@ -458,6 +458,7 @@ class TrackInput:
     length_feet: int | None = None
     timer_type: str = "FAKE"
     serial_port: str | None = None
+    remote_start_installed: bool = False
 
 
 @strawberry.input
@@ -814,6 +815,11 @@ class Track:
     length_feet: int | None
     timer_type: str
     serial_port: str | None
+    #: This track has a solenoid on the start gate. Not detectable from any
+    #: timer protocol, so it is a setting — see `TimerStatus.can_remote_start`
+    #: for whether the control is actually available, which also needs the
+    #: connected device to have a command for it.
+    remote_start_installed: bool
 
     @strawberry.field
     def races(self, info: Info) -> list[Race]:
@@ -961,6 +967,11 @@ class TimerStatus:
     #: found rather than configured (#89), so it is the only way for an
     #: operator to see which port the timer was detected on.
     port: str | None = None
+    #: Whether to offer the operator a "release the gate" control. True needs
+    #: both halves: the connected device has a command for it, and the track is
+    #: marked as having the solenoid it drives. Reported here rather than
+    #: derived on the client, because the client has no copy of the profiles.
+    can_remote_start: bool = False
     pending_results: list[LaneResult] = strawberry.field(default_factory=list)
     serial_log: list[SerialLogEntry] = strawberry.field(default_factory=list)
     racer_by_lane: str | None = None  # JSON mapping of lane -> racer_id
@@ -1118,6 +1129,7 @@ def _timer_status(s) -> TimerStatus:
         device_name=s.device_name,
         device_provenance=s.device_provenance,
         port=s.port,
+        can_remote_start=s.can_remote_start,
         lane_count=s.lane_count,
         active_heat_id=s.active_heat_id,
         last_error=s.last_error,
@@ -1421,6 +1433,22 @@ async def _revalidate_timers(info: Info) -> None:
             logger.warning("Track %d disarmed: %s", mgr.track_id, reason)
 
 
+def _manager_for(track: Any, info: Info) -> TimerManager:
+    """A ``TimerManager`` configured from a track row.
+
+    Three mutations create one, and every setting a manager reads off a track
+    has to reach all three. Same reason as ``_start_backend_direct`` below,
+    same standing reminder: #48.
+    """
+    device = FAKE if track.timer_type == models.TimerType.FAKE else DEFAULT_PROFILE
+    return TimerManager(
+        track.id,
+        device,
+        session_factory=_session_factory(info),
+        remote_start_installed=track.remote_start_installed,
+    )
+
+
 def _start_backend_direct(mgr: TimerManager, serial_port: str | None) -> None:
     """Bring a backend-direct timer up, in the background.
 
@@ -1582,14 +1610,7 @@ class Mutation:
         # Handle TimerManager initialization
         timer_managers = info.context.get("timer_managers", {})
         if new_track.id not in timer_managers:
-            if new_track.timer_type == models.TimerType.FAKE:
-                device = FAKE
-            else:
-                device = DEFAULT_PROFILE
-            mgr = TimerManager(
-                new_track.id, device, session_factory=_session_factory(info)
-            )
-            timer_managers[new_track.id] = mgr
+            timer_managers[new_track.id] = _manager_for(new_track, info)
 
         return new_track
 
@@ -1613,6 +1634,8 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         mgr = timer_managers.get(id)
         if mgr:
+            await mgr.set_remote_start_installed(track.remote_start_installed)
+
             # If timer type changed, swap device
             if track.timer_type != old_timer_type:
                 if track.timer_type == models.TimerType.FAKE:
@@ -1894,6 +1917,25 @@ class Mutation:
         await mgr.force_record()
 
         return True
+
+    @strawberry.mutation
+    async def release_start_gate(self, info: Info, track_id: int) -> str | None:
+        """Open the start gate from software, launching the armed heat.
+
+        Returns ``None`` on success, or the reason it did not happen — a string
+        rather than a bool because every refusal here has a different operator
+        response, and "false" in front of a queue of Cub Scouts is not one.
+
+        Named for what it does to the hardware, not for what the operator wants
+        out of it. ``startHeat`` would sit next to ``prepareHeat`` reading like
+        its sequel, and it is not: this only ever releases a gate on a heat
+        ``prepareHeat`` already armed.
+        """
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(track_id)
+        if mgr is None:
+            return "No timer is configured for this track"
+        return await mgr.release_start_gate()
 
     @strawberry.mutation
     async def fake_timer_start(
@@ -2193,14 +2235,7 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         for track in tracks:
             if track.id not in timer_managers:
-                device = (
-                    FAKE
-                    if track.timer_type == models.TimerType.FAKE
-                    else DEFAULT_PROFILE
-                )
-                timer_managers[track.id] = TimerManager(
-                    track.id, device, session_factory=_session_factory(info)
-                )
+                timer_managers[track.id] = _manager_for(track, info)
 
         # Link existing races if any
         if tracks:
@@ -2263,6 +2298,9 @@ class Mutation:
                 crud.update_track(db, db_track, track_update)
                 mgr = timer_managers.get(db_track.id)
                 if mgr:
+                    await mgr.set_remote_start_installed(
+                        input_track.remote_start_installed
+                    )
                     if input_track.timer_type != old_timer_type:
                         if input_track.timer_type == models.TimerType.FAKE:
                             await mgr.set_device(FAKE)
@@ -2284,14 +2322,7 @@ class Mutation:
                 new_track = crud.create_track(db, track_in)
 
                 # Register TimerManager
-                if new_track.timer_type == models.TimerType.FAKE:
-                    device = FAKE
-                else:
-                    device = DEFAULT_PROFILE
-
-                mgr = TimerManager(
-                    new_track.id, device, session_factory=_session_factory(info)
-                )
+                mgr = _manager_for(new_track, info)
                 timer_managers[new_track.id] = mgr
                 if new_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                     _start_backend_direct(mgr, new_track.serial_port)

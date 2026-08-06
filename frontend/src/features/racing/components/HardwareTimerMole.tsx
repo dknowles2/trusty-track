@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from '@mdi/react';
-import { mdiUsb, mdiChevronUp, mdiChevronDown } from '@mdi/js';
+import { mdiUsb, mdiChevronUp, mdiChevronDown, mdiFlagCheckered } from '@mdi/js';
 import { useSubscription, useMutation } from 'urql';
-import { TIMER_STATUS_SUBSCRIPTION, RECONNECT_TIMER } from '../graphql/queries';
+import { TIMER_STATUS_SUBSCRIPTION, RECONNECT_TIMER, RELEASE_START_GATE } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
 import { buildDisplayLines } from '../serialLog';
 import type { SerialLogEntry } from '../serialLog';
@@ -34,6 +34,7 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
     const logEndRef = useRef<HTMLDivElement>(null);
     const { showAlert } = useAlert();
     const [, reconnectTimer] = useMutation(RECONNECT_TIMER);
+    const [, releaseStartGate] = useMutation(RELEASE_START_GATE);
 
     const [subResult] = useSubscription({
         query: TIMER_STATUS_SUBSCRIPTION,
@@ -43,6 +44,7 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
 
     const timerState: string = subResult.data?.timerStatus?.status?.state ?? 'DISCONNECTED';
     const serialLog: SerialLogEntry[] = subResult.data?.timerStatus?.status?.serialLog ?? [];
+    const canRemoteStart: boolean = subResult.data?.timerStatus?.status?.canRemoteStart ?? false;
 
     useEffect(() => {
         if (isExpanded && logEndRef.current) {
@@ -55,10 +57,29 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
     const borderColor = isConnected ? '#2196f3' : '#9e9e9e';
     const showConnectButton = isDisconnected && timerType === 'AUTO_DETECT_BACKEND';
 
+    // Only with a heat armed. The server refuses otherwise and says why, but a
+    // button that is there and does nothing is worse than one that is absent:
+    // this one opens a gate, and an operator who has learned it sometimes does
+    // nothing is the one who presses it twice.
+    const showReleaseButton = canRemoteStart && ['ARMED', 'READY'].includes(timerState);
+
     const handleConnect = async () => {
         const result = await reconnectTimer({ trackId });
         if (result.error) {
             showAlert(result.error.message || 'Failed to connect.', 'Error');
+        }
+    };
+
+    const handleRelease = async () => {
+        const result = await releaseStartGate({ trackId });
+        if (result.error) {
+            showAlert(result.error.message || 'Failed to release the gate.', 'Error');
+            return;
+        }
+        // Not an error — a refusal, with the reason the operator needs.
+        const refusal = result.data?.releaseStartGate;
+        if (refusal) {
+            showAlert(refusal, 'Start gate');
         }
     };
 
@@ -118,6 +139,29 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
                     }}
                 >
                     Connect
+                </button>
+            )}
+
+            {showReleaseButton && (
+                <button
+                    onClick={handleRelease}
+                    style={{
+                        width: '100%',
+                        padding: '12px',
+                        background: 'var(--cub-scouting-gold)',
+                        color: '#333',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                    }}
+                >
+                    <Icon path={mdiFlagCheckered} size={0.9} />
+                    Release Start Gate
                 </button>
             )}
 
