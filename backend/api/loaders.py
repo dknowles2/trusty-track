@@ -24,7 +24,6 @@ from sqlalchemy import event
 from sqlalchemy.orm import Session, selectinload
 
 from backend.db import models
-from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
 from backend.services import scoring
 
@@ -211,10 +210,24 @@ class RequestLoaders:
         return self._global_heat_numbers[race_id].get(heat_id)
 
     def scheduled_racer_ids(self, race_id: int) -> list[int]:
-        """Ids of every racer appearing in any official heat of the race."""
-        ids: set[int] = set()
-        for heat in self.heats_for_race(race_id):
-            # `real_racer_ids`, not every non-null id: an unadvanced championship
-            # slot is a negative placeholder, and nobody is scheduled into it yet.
-            ids.update(lanes.real_racer_ids(lanes.parse(heat.lane_results)))
-        return sorted(ids)
+        """Ids of every racer appearing in any official heat of the race.
+
+        One ``DISTINCT`` over ``heat_lanes`` (#72), where it used to load every
+        heat and parse its blob. A placeholder needs no special case here: the
+        table holds it as ``placeholder_slot`` with a null ``racer_id``, so the
+        negative-id convention the blob forced is simply gone.
+        """
+        rows = (
+            models.official_heats(
+                self._db.query(models.HeatLane.racer_id).join(
+                    models.Heat, models.HeatLane.heat_id == models.Heat.id
+                )
+            )
+            .filter(
+                models.Heat.race_id == race_id,
+                models.HeatLane.racer_id.isnot(None),
+            )
+            .distinct()
+            .all()
+        )
+        return sorted(racer_id for (racer_id,) in rows)

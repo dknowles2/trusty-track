@@ -15,6 +15,7 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from backend.db import crud, models, schemas
+from backend.domain import lanes as domain_lanes
 
 # The query RaceControl.tsx actually sends.
 RACE_CONTROL_QUERY = """
@@ -126,23 +127,28 @@ def populated_race(db):
     for round_number in range(1, 4):
         round_obj = crud.create_round(db, race_id=race.id, round_number=round_number)
         for heat_number in range(1, 16):
-            lanes = [
-                {
-                    "lane": lane,
-                    "racer_id": racers[(heat_number * 4 + lane) % 60].id,
-                    "time": 3.0 + lane * 0.01,
-                    "place": lane,
-                }
-                for lane in range(1, 5)
-            ]
-            db.add(
-                models.Heat(
-                    race_id=race.id,
-                    round_id=round_obj.id,
-                    heat_number=heat_number,
-                    lane_results=json.dumps(lanes),
-                )
+            heat = models.Heat(
+                race_id=race.id,
+                round_id=round_obj.id,
+                heat_number=heat_number,
             )
+            # Through the door, like production. Setting `lane_results`
+            # directly still works — `lane_sync` falls back to parsing it — but
+            # then the one fixture measuring the app's real cost would be the
+            # only place in the suite taking a path nothing else takes.
+            crud.set_heat_lanes(
+                heat,
+                [
+                    domain_lanes.Lane(
+                        lane=lane,
+                        racer_id=racers[(heat_number * 4 + lane) % 60].id,
+                        time=3.0 + lane * 0.01,
+                        place=lane,
+                    )
+                    for lane in range(1, 5)
+                ],
+            )
+            db.add(heat)
         db.commit()
 
     return race
@@ -275,4 +281,29 @@ def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
     assert counter.count <= 3, (
         f"Moving {len(racer_ids)} racers issued {counter.count} SQL statements; "
         f"it should be the UPDATE and little else."
+    )
+
+
+def test_scheduled_racers_cost_one_query(db, populated_race):
+    """45 heats, 60 racers, one `DISTINCT` (#72).
+
+    This used to load every heat in the race and parse each blob for the racer
+    ids in it. The table has the ids as a column, so the database can answer
+    the question — which was the point of normalizing it, and is the first of
+    the wins #5 predicted to actually arrive.
+    """
+    from backend.api.loaders import RequestLoaders
+
+    loaders = RequestLoaders(db)
+
+    # Read the id outside the block: the fixture committed, so touching an
+    # attribute on the Race refreshes it and that query is not this one's.
+    race_id = populated_race.id
+
+    with _QueryCounter() as counter:
+        racer_ids = loaders.scheduled_racer_ids(race_id)
+
+    assert len(racer_ids) > 0
+    assert counter.count == 1, (
+        f"scheduled_racer_ids issued {counter.count} queries, expected 1"
     )

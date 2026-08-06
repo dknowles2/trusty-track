@@ -712,6 +712,20 @@ def _round_heat_lanes(db: Session, round_id: int) -> list[list[lanes.Lane]]:
     dropping out changes what they decide.
     """
     heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
+    return lanes_for_heats(db, heats)
+
+
+def lanes_for_heats(
+    db: Session, heats: Sequence[models.Heat]
+) -> list[list[lanes.Lane]]:
+    """Lanes for each of ``heats``, in the order given, from ``heat_lanes``.
+
+    One query for all of them, so a caller that already has the heats does not
+    pay per heat — which is what `test_query_counts.py` is there to hold.
+
+    A heat with no lane rows comes back as ``[]`` rather than disappearing. See
+    :func:`_round_heat_lanes` for why that matters.
+    """
     if not heats:
         return []
 
