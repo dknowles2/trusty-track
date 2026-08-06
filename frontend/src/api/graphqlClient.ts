@@ -1,5 +1,5 @@
 import { Client, fetchExchange, subscriptionExchange } from 'urql';
-import { cacheExchange } from '@urql/exchange-graphcache';
+import { cacheExchange, type UpdateResolver } from '@urql/exchange-graphcache';
 import { createClient as createWsClient } from 'graphql-ws';
 
 /**
@@ -55,6 +55,41 @@ export const EMBEDDED_TYPES = [
 const keys = Object.fromEntries(EMBEDDED_TYPES.map((name) => [name, () => null]));
 
 /**
+ * Forget the cached answer to `initialConfig` once it has been changed.
+ *
+ * `InitialConfigStatus` is embedded — it has no `id`, so graphcache cannot
+ * recognise the object a config mutation returns as the same one
+ * `Query.initialConfig` is holding. Without this, the cache goes on saying the
+ * system is unconfigured after the operator has just configured it, and
+ * `ProtectedRoute` bounces them straight back to the setup page they came
+ * from. Saving again worked, which is why it read as a glitch rather than a
+ * bug.
+ *
+ * Invalidating rather than writing the result in: the two documents that read
+ * this field select different fields of it, and a mutation's payload is not
+ * guaranteed to cover either. "This answer is stale, ask again" needs no such
+ * guarantee.
+ */
+const forgetInitialConfig: UpdateResolver = (_result, _args, cache) => {
+  cache.invalidate('Query', 'initialConfig');
+};
+
+/**
+ * The cache's whole configuration, exported so a test can build a client with
+ * it. Testing the real thing matters here: what broke was not a component but
+ * the agreement between a mutation and a query about one cached field.
+ */
+export const CACHE_CONFIG = {
+  keys,
+  updates: {
+    Mutation: {
+      createInitialConfig: forgetInitialConfig,
+      updateInitialConfig: forgetInitialConfig,
+    },
+  },
+};
+
+/**
  * GraphQL client configured to point to the backend's GraphQL endpoint.
  * The '/api' prefix is proxied by Vite to the backend server.
  *
@@ -74,7 +109,7 @@ const keys = Object.fromEntries(EMBEDDED_TYPES.map((name) => [name, () => null])
 export const graphqlClient = new Client({
   url: '/api/graphql',
   exchanges: [
-    cacheExchange({ keys }),
+    cacheExchange(CACHE_CONFIG),
     fetchExchange,
     subscriptionExchange({
       forwardSubscription: (request) => ({

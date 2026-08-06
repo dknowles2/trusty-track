@@ -14,10 +14,11 @@ vi.mock('../components/ScheduleManagement', () => ({
 }));
 
 vi.mock('../components/RaceExecution', () => ({
-    RaceExecution: ({ onRunHeat, activeExecutionHeat, timerType, onUpdateResult }: any) => (
+    RaceExecution: ({ onRunHeat, activeExecutionHeat, timerType, onUpdateResult, roundSummary }: any) => (
         <div data-testid="race-execution">
             Race Execution
             {activeExecutionHeat && <div data-testid="active-heat-id">{activeExecutionHeat.id}</div>}
+            {roundSummary && <div data-testid="round-summary-id">{roundSummary.roundId}</div>}
             <button onClick={() => onRunHeat({
                 id: 1,
                 heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }]
@@ -141,6 +142,52 @@ describe('RaceControl Page', () => {
         fireEvent.click(screen.getByRole('button', { name: /^\s*Race\s*$/i }));
         await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
     };
+
+    // ---------------------------------------------------------------------
+    // When a round summary is news (#114)
+    // ---------------------------------------------------------------------
+    //
+    // The rule itself is `decidedRoundIds` in `roundCompletion.ts`, and that is
+    // where it is guarded — reverting it fails a test there. This is only the
+    // wiring: that opening the screen on a fresh schedule raises nothing.
+
+    const advancementStatus = (over: Record<string, unknown> = {}) => ({
+        isReady: true,
+        requiresAdvancement: true,
+        alreadyAdvanced: true,
+        source: 'PACK',
+        numRacers: 3,
+        advancingRacers: [],
+        ...over,
+    });
+
+    const withRounds = (rounds: unknown[]) => {
+        (useQuery as any).mockReturnValue([{
+            data: { race: { ...mockRaceData.race, rounds } },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+    };
+
+    it('raises no summary for a schedule that has not been raced', async () => {
+        withRounds([
+            { id: 1, roundNumber: 1, name: 'Qualifying', advancementSource: null, advancementStatus: advancementStatus() },
+            { id: 2, roundNumber: 2, name: 'Grand Finals', advancementSource: 'PACK', advancementStatus: advancementStatus({ alreadyAdvanced: false }) },
+        ]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control/race`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+        expect(screen.queryByTestId('round-summary-id')).not.toBeInTheDocument();
+    });
 
     it('opens on the first heat that has not been run', async () => {
         withHeats([ran(1, 1, 1), ran(2, 1, 2), notRun(3, 1, 3), notRun(4, 1, 4)]);

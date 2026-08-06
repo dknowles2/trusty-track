@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { EMBEDDED_TYPES } from './graphqlClient';
+import { Client, gql, type Exchange, type OperationResult } from 'urql';
+import { cacheExchange } from '@urql/exchange-graphcache';
+import { pipe, map, filter } from 'wonka';
+import { CACHE_CONFIG, EMBEDDED_TYPES } from './graphqlClient';
 
 // Vitest runs with the frontend directory as cwd.
 const schemaPath = resolve(process.cwd(), 'schema.graphql');
@@ -42,5 +45,103 @@ describe('graphcache key configuration', () => {
       expect(block, `type ${name} is no longer in the schema`).toBeTruthy();
       expect(/^\s+id:/m.test(block![1]), `${name} has an id and should be keyed`).toBe(false);
     }
+  });
+});
+
+/**
+ * The first-run gate reads `initialConfig`; the setup page writes it with
+ * `createInitialConfig` / `updateInitialConfig`. `InitialConfigStatus` is
+ * embedded, so graphcache cannot recognise what the mutation returns as the
+ * same object the query is holding — and the cache went on saying the system
+ * was unconfigured after the operator had just configured it. `ProtectedRoute`
+ * bounced them back to the setup page they had come from. Saving a second time
+ * worked, which is why it read as a glitch rather than a bug.
+ */
+describe('config mutations and the cached answer to initialConfig', () => {
+  const CONFIG_QUERY = gql`
+    query GetInitialConfig {
+      initialConfig {
+        initialized
+        version
+      }
+    }
+  `;
+
+  const CREATE = gql`
+    mutation CreateInitialConfig {
+      createInitialConfig(config: { groupName: "Pack 123", tracks: [] }) {
+        initialized
+      }
+    }
+  `;
+
+  const UPDATE = gql`
+    mutation UpdateInitialConfig {
+      updateInitialConfig(config: { groupName: "Pack 123", tracks: [] }) {
+        initialized
+      }
+    }
+  `;
+
+  /** A client whose network layer is a list of canned answers. */
+  function clientReplying(answers: object[]) {
+    const asked: string[] = [];
+    const stub: Exchange = () => (ops$) =>
+      pipe(
+        ops$,
+        filter((op) => op.kind !== 'teardown'),
+        map((op) => {
+          asked.push(op.kind);
+          return {
+            operation: op,
+            data: answers[asked.length - 1],
+            stale: false,
+            hasNext: false,
+          } as OperationResult;
+        }),
+      );
+
+    return {
+      client: new Client({ url: '/graphql', exchanges: [cacheExchange(CACHE_CONFIG), stub] }),
+      queries: () => asked.filter((k) => k === 'query').length,
+    };
+  }
+
+  const unconfigured = { initialConfig: { __typename: 'InitialConfigStatus', initialized: false, version: '1' } };
+  const configured = { initialConfig: { __typename: 'InitialConfigStatus', initialized: true, version: '1' } };
+  const saved = { createInitialConfig: { __typename: 'InitialConfigStatus', initialized: true } };
+  const resaved = { updateInitialConfig: { __typename: 'InitialConfigStatus', initialized: true } };
+
+  it('asks again after the config is created', async () => {
+    const { client, queries } = clientReplying([unconfigured, saved, configured]);
+
+    await client.query(CONFIG_QUERY, {}).toPromise();
+    await client.mutation(CREATE, {}).toPromise();
+    const after = await client.query(CONFIG_QUERY, {}).toPromise();
+
+    expect(queries()).toBe(2);
+    expect(after.data.initialConfig.initialized).toBe(true);
+  });
+
+  it('asks again after the config is updated', async () => {
+    const { client, queries } = clientReplying([configured, resaved, configured]);
+
+    await client.query(CONFIG_QUERY, {}).toPromise();
+    await client.mutation(UPDATE, {}).toPromise();
+    await client.query(CONFIG_QUERY, {}).toPromise();
+
+    expect(queries()).toBe(2);
+  });
+
+  it('still answers a repeated query from the cache when nothing has changed', () => {
+    // The invalidation has to be the mutation's doing, not a cache that has
+    // stopped caching — the gate runs on every route change.
+    const { client, queries } = clientReplying([unconfigured, unconfigured]);
+
+    return client
+      .query(CONFIG_QUERY, {})
+      .toPromise()
+      .then(() => client.query(CONFIG_QUERY, {}).toPromise())
+      .then(() => expect(queries()).toBe(1));
   });
 });

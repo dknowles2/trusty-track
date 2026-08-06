@@ -55,3 +55,35 @@ export function observeAdvanced(seen: SeenRounds, advancedIds: readonly number[]
         completedRoundId: advancedIds.find((id) => !seen.includes(id)) ?? null,
     };
 }
+
+/** The shape of a round this module needs. A view of the GraphQL type. */
+export interface DecidableRound {
+    readonly id: number;
+    /** The round's *own* source, null for a general round. */
+    readonly advancementSource?: string | null;
+    readonly advancementStatus: {
+        readonly isReady: boolean;
+        readonly alreadyAdvanced: boolean;
+    };
+}
+
+/**
+ * Which rounds currently have a decided field.
+ *
+ * The condition that is easy to get wrong is the first one. `advancementStatus.
+ * requiresAdvancement` is *also* true for a general round — the server borrows
+ * it from whichever championship round follows, so the panel can show who is on
+ * track to advance — and the other two are vacuous for a general round, which
+ * has no placeholders to resolve and, if it is round one, no earlier round to
+ * finish. Filtering on it meant a schedule appearing counted as a round being
+ * decided, and an operator who generated one with Race Control already open got
+ * "Round Complete!" over an unraced race with everyone on 0.000 (#114).
+ *
+ * The round's own `advancementSource` is the question actually being asked:
+ * does this round draw its field from somewhere, and has that field arrived?
+ */
+export function decidedRoundIds(rounds: readonly DecidableRound[]): number[] {
+    return rounds
+        .filter((r) => r.advancementSource && r.advancementStatus.isReady && r.advancementStatus.alreadyAdvanced)
+        .map((r) => r.id);
+}

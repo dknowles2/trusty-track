@@ -11,7 +11,7 @@ import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
 import { hasRun, hasTimes, byPlace, cleared } from '../lanes';
-import { observeAdvanced, type SeenRounds } from '../roundCompletion';
+import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 
 const GET_RACE_CONTROL_DATA = gql`
   query GetRaceControlData($id: Int!) {
@@ -194,15 +194,7 @@ export default function RaceControl() {
   useEffect(() => {
     if (fetching || !race?.rounds) return;
 
-    // A round is decided once its placeholders have been resolved into the
-    // racers who advanced.
-    const advancedIds = race.rounds
-      .filter((r: Round) =>
-          r.advancementStatus.requiresAdvancement &&
-          r.advancementStatus.isReady &&
-          r.advancementStatus.alreadyAdvanced
-      )
-      .map((r: Round) => r.id);
+    const advancedIds = decidedRoundIds(race.rounds);
 
     const { seen, completedRoundId } = observeAdvanced(seenAdvancedRounds.current, advancedIds);
     seenAdvancedRounds.current = seen;

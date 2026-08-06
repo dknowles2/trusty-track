@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { observeAdvanced, type SeenRounds } from './roundCompletion';
+import { decidedRoundIds, observeAdvanced, type SeenRounds } from './roundCompletion';
 
 /** Feed a series of observations through, keeping the running `seen`. */
 const sequence = (rounds: number[][]) => {
@@ -81,5 +81,42 @@ describe('noticing a round has been decided', () => {
         const advancedIds = [1, 2];
         const { seen } = observeAdvanced([1], advancedIds);
         expect(seen).not.toBe(advancedIds);
+    });
+});
+
+describe('which rounds have a decided field', () => {
+    const status = (over: Partial<{ isReady: boolean; alreadyAdvanced: boolean }> = {}) => ({
+        isReady: true,
+        alreadyAdvanced: true,
+        ...over,
+    });
+
+    test('a championship round whose field has arrived is decided', () => {
+        expect(decidedRoundIds([
+            { id: 7, advancementSource: 'PACK', advancementStatus: status() },
+        ])).toEqual([7]);
+    });
+
+    test('a general round is never decided, however its status reads', () => {
+        // The bug behind #114. `advancementStatus.requiresAdvancement` is true
+        // for a general round as well — borrowed from the championship round
+        // that follows — and the other two conditions are vacuous for one: no
+        // placeholders to resolve, and for round one no earlier round to
+        // finish. So generating a schedule looked like a round completing.
+        expect(decidedRoundIds([
+            { id: 1, advancementSource: null, advancementStatus: status() },
+        ])).toEqual([]);
+    });
+
+    test('a championship round still holding placeholders is not decided', () => {
+        expect(decidedRoundIds([
+            { id: 7, advancementSource: 'PACK', advancementStatus: status({ alreadyAdvanced: false }) },
+        ])).toEqual([]);
+    });
+
+    test('a championship round whose earlier rounds are unfinished is not decided', () => {
+        expect(decidedRoundIds([
+            { id: 7, advancementSource: 'PACK', advancementStatus: status({ isReady: false }) },
+        ])).toEqual([]);
     });
 });

@@ -36,10 +36,14 @@ import { INITIAL_CONFIG_QUERY } from './features/core/graphql/queries';
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
-  const [result] = useQuery({
-    query: INITIAL_CONFIG_QUERY,
-    requestPolicy: 'network-only' // Fresh check on navigation
-  });
+  // Not `network-only`, which is what this asked for and never got. `Routes`
+  // renders one matched element, and every route's element is a
+  // `ProtectedRoute` — so moving between routes updates this component's
+  // children rather than remounting it, and a policy that only refetches on
+  // mount refetches once per page load. What keeps the answer fresh is the
+  // cache being told to forget it when a config mutation changes it; see
+  // `forgetInitialConfig` in `api/graphqlClient.ts`.
+  const [result] = useQuery({ query: INITIAL_CONFIG_QUERY });
 
   const { data, fetching, error } = result;
 
