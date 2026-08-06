@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 
 from backend.db import crud, models
 from backend.domain import advancement as domain_advancement
-from backend.domain import lanes as domain_lanes
 from backend.domain import scoring as domain_scoring
 
 
@@ -63,7 +62,7 @@ def calculate_racer_scores(
         return {}
 
     heats = _scoring_heats(db, race_id, round_id, scope)
-    parsed = [domain_lanes.parse(heat.lane_results) for heat in heats]
+    parsed = crud.lanes_for_heats(db, heats)
 
     scores = domain_scoring.score_heats(parsed, race.scoring_strategy)
     return {racer_id: score.as_dict() for racer_id, score in scores.items()}
