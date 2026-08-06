@@ -259,3 +259,61 @@ test('a skipped heat is passed over rather than left to run', async ({ page }) =
     expect(heat.lanes.some((l) => l.skipped)).toBe(true);
     expect(heat.lanes.every((l) => l.time === null)).toBe(true);
 });
+
+test('reordering a heat renumbers it without moving its field', async ({ page }) => {
+    // Drag and drop, driven from the keyboard: `ScheduleManagement` registers
+    // dnd-kit's `KeyboardSensor` alongside the pointer one, and a synthesised
+    // mouse drag against a sortable list is the flakiest thing a browser test
+    // can do. Space lifts, an arrow moves, Space drops.
+    //
+    // The claim worth crossing the wire is the second half. `reorderHeats`
+    // reassigns `heat_number`; it does not move racers between heats. A bug
+    // that swapped the fields instead would leave the schedule looking exactly
+    // the same and put every car in the wrong heat.
+    const { raceId } = await seedRace(page, 'Race Day Reorder');
+    await createSchedule(page, raceId);
+
+    const before = await readHeats(page, raceId);
+    const fieldOf = (heats: typeof before, id: number) =>
+        heats.find((h) => h.id === id)!.lanes.map((l) => l.racerId);
+    const [first, second] = [...before].sort((a, b) => a.heatNumber - b.heatNumber);
+
+    await page.goto(`/race/${raceId}/control`);
+    await expect(page.getByText('Heat 1', { exact: true }).first()).toBeVisible({
+        timeout: 30000,
+    });
+
+    await page.locator('[aria-roledescription="sortable"]').first().focus();
+    // The pauses are the interaction, not a workaround: dnd-kit animates the
+    // lift and the move, and firing all three keys in one tick drops the item
+    // back where it started.
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Space');
+
+    await expect
+        .poll(
+            async () => {
+                const heats = await readHeats(page, raceId);
+                return heats.find((h) => h.id === first.id)!.heatNumber;
+            },
+            { timeout: 30000 },
+        )
+        .toBe(2);
+
+    const after = await readHeats(page, raceId);
+    expect(after.find((h) => h.id === second.id)!.heatNumber).toBe(1);
+
+    // Every heat keeps the racers it was scheduled with — only the numbers moved.
+    for (const heat of before) {
+        expect(fieldOf(after, heat.id)).toEqual(fieldOf(before, heat.id));
+    }
+
+    // And the rest of the round is undisturbed.
+    const untouched = before.filter((h) => h.id !== first.id && h.id !== second.id);
+    for (const heat of untouched) {
+        expect(after.find((h) => h.id === heat.id)!.heatNumber).toBe(heat.heatNumber);
+    }
+});
