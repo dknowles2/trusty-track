@@ -197,13 +197,30 @@ class Round(Base):
         sixth copy of it (#52). This property held the rule correctly while two
         of its four siblings had it wrong, which is exactly how that goes.
         """
-        from backend.domain import advancement, lanes
+        from backend.domain import advancement
 
         if not self.advancement_source:
             # A general round's field is whoever is actually in its heats.
-            racer_ids: set[int] = set()
-            for heat in self.heats:
-                racer_ids.update(lanes.real_racer_ids(lanes.parse(heat.lane_results)))
+            # Straight off `heat_lanes`, which is where a heat's racers live
+            # (#72) — the relationship gives the rows without a query per heat.
+            from sqlalchemy.orm import object_session
+
+            session = object_session(self)
+            if session is None or not self.heats:
+                return 0
+            # One query, not one per heat. Deliberately not an ORM
+            # relationship on `Heat`: `lane_sync` writes these rows with core
+            # inserts and deletes, and a collection SQLAlchemy thinks it owns
+            # would be arguing with it.
+            racer_ids = {
+                racer_id
+                for (racer_id,) in session.query(HeatLane.racer_id)
+                .filter(
+                    HeatLane.heat_id.in_([h.id for h in self.heats]),
+                    HeatLane.racer_id.isnot(None),
+                )
+                .distinct()
+            }
             return len(racer_ids)
 
         rule = advancement.AdvancementRule(

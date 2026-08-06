@@ -21,7 +21,6 @@ from sqlalchemy.orm import Session
 from backend.api.pubsub import pubsub
 from backend.db import crud, models
 from backend.db.database import SessionLocal
-from backend.domain import lanes
 
 from . import probe
 from .devices import DEFAULT_PROFILE, FAKE
@@ -827,7 +826,7 @@ class TimerManager:
 
         current = {
             lane.lane: lane.racer_id
-            for lane in lanes.parse(heat.lane_results)
+            for lane in crud.heat_lanes_of(db, heat)
             if lane.racer_id is not None
         }
         if current != armed:
@@ -908,7 +907,7 @@ class TimerManager:
             # its schedule in `lane_assignments` and this had to know that;
             # both now hold it in `lane_results`, written when the heat is
             # created and filled in here.
-            heat_lanes = lanes.parse(heat.lane_results)
+            heat_lanes = crud.heat_lanes_of(db, heat)
             for lane in heat_lanes:
                 result = self._pending_results.get(lane.lane)
                 if result is not None:

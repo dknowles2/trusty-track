@@ -195,6 +195,8 @@ The normalized `heat_lanes` table exists and is kept current. Its rows are built
 
 **The backend reads lanes through `crud._round_heat_lanes`**, which comes off the table, not off `lanes.parse` — it is the choke point for `is_round_complete`, `field_is_short` and `may_rebuild`, so all three moved together. Two queries rather than one join, deliberately: a join from `heat_lanes` drops a heat that has no lane rows, where parsing gave it `[]` and kept it, and the last two rules reason about the *number* of heats. `lanes.from_parts` is the crossing back — it re-encodes `placeholder_slot` as a negative racer id and puts `skipped` back in `extra`, because that is still what `Lane` holds. `test_lane_reads.py` pins each of those, and each fails to a one-line mutation.
 
+**Nothing reads the blob any more except five places, and each is deliberate:** `lanes.carry_extras` on the write path (it preserves keys the table does not model), `lane_sync`'s logged fallback and its verification, and the two `_remove_racer_from_*` helpers that [#72](https://github.com/dknowles2/trusty-track/issues/72) step 4 deletes outright. Everything else goes through `crud.lanes_for_heats`, `crud.heat_lanes_of`, or `loaders.lane_values_for_heat`.
+
 **Reading: use `Heat.lanes` / `FreeRaceHeat.lanes`.** The GraphQL read path is structured and comes from the table:
 
 ```graphql
