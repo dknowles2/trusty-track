@@ -4,8 +4,18 @@ Issue #5. This migration is the one that touches every heat a user has ever
 run, so the tests here are mostly about fidelity and reversibility rather than
 about the schema.
 
-Nothing reads `heat_lanes` yet — `lane_results` is still the source of truth —
-which is what makes the downgrade lossless.
+These run against a **pre-Alembic** database — the shape a `v1.0.0` install
+has — and migrate it to `head`, so they are the only coverage of the upgrade an
+existing operator actually performs. Every migration since is in that path,
+including `0010`'s table rebuild.
+
+The direction of truth has since reversed, and the downgrade is what changed
+with it. `heat_lanes` is where every reader looks now (#123, #124) and its rows
+come from the lane values a writer supplied rather than from parsing the string
+(#120). `lane_results` is written alongside as a **derived** column, which is
+what still makes the downgrade lossless — and, until a release has shipped
+carrying this, it is also the only way back for a database upgraded from
+`v1.0.0`. That is why the column is still here; see #72.
 """
 
 import json
