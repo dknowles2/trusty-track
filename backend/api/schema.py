@@ -2819,16 +2819,20 @@ class Subscription:
 
         Emits a TimerStateChangedEvent on every timer state transition.
         Yields an initial event immediately with the current state.
+
+        The snapshot is taken **inside** the subscription, not before it: a
+        transition published in between would land on no queue and be lost, and
+        the next one may be minutes away. See :func:`heat_session`.
         """
         timer_managers = info.context.get("timer_managers", {})
         mgr = timer_managers.get(track_id)
-        if mgr is not None:
-            yield TimerStateChangedEvent(
-                track_id=track_id,
-                status=_timer_status_from_manager(mgr),
-                changed_at=datetime.now(timezone.utc).isoformat(),
-            )
         async with pubsub.subscribe(f"timer_state:{track_id}") as stream:
+            if mgr is not None:
+                yield TimerStateChangedEvent(
+                    track_id=track_id,
+                    status=_timer_status_from_manager(mgr),
+                    changed_at=datetime.now(timezone.utc).isoformat(),
+                )
             async for status_dc in stream:
                 yield TimerStateChangedEvent(
                     track_id=track_id,
@@ -2853,19 +2857,41 @@ class Subscription:
         The race is resolved once, from the heat this subscription is about.
         Changing heat means changing `heatId`, which is a variable, so the
         client opens a new subscription and the race is re-resolved with it.
+
+        The snapshot is taken **inside** the subscription
+        --------------------------------------------------
+        `pubsub.subscribe` registers the queue on entry, so anything published
+        before that reaches no queue. Building the snapshot first left a window
+        — a database query wide — in which an arming published by the operator
+        screen's own `prepareHeat` was dropped: the client had already rendered
+        from the pre-arm fallback, and the correction never came. The screen sat
+        at "Waiting for Timer…" with the start button disabled while the timer
+        was in fact ARMED, until some later event happened to refresh it.
+
+        Subscribing first can only duplicate a payload, which is harmless here
+        because every emission is a full snapshot rather than a delta.
         """
         db = info.context["db"]
         timer_managers = info.context.get("timer_managers", {})
 
-        session = _build_heat_session(db, timer_managers, track_id, heat_id)
-        yield session
-
+        # Which race to watch is a property of the heat, and it has to be known
+        # before subscribing. Resolved without building the session, so that
+        # the session the client receives is built after the queue exists.
         channels = [f"timer_state:{track_id}"]
-        if session.heat_id is not None:
-            heat = db.query(models.Heat).filter(models.Heat.id == session.heat_id).one()
-            channels.append(f"race_state:{heat.race_id}")
+        watched_heat_id = heat_id
+        if watched_heat_id is None:
+            manager = timer_managers.get(track_id)
+            status = manager.status() if manager else None
+            watched_heat_id = status.active_heat_id if status else None
+        if watched_heat_id is not None:
+            heat = (
+                db.query(models.Heat).filter(models.Heat.id == watched_heat_id).first()
+            )
+            if heat is not None:
+                channels.append(f"race_state:{heat.race_id}")
 
         async with pubsub.subscribe(*channels) as stream:
+            yield _build_heat_session(db, timer_managers, track_id, heat_id)
             async for _ in stream:
                 # A subscription holds one context for the whole connection, so
                 # without this it would answer from rows loaded when the socket
@@ -3089,19 +3115,26 @@ class Subscription:
     async def free_race_heat(
         self, info: Info, heat_id: int
     ) -> AsyncGenerator[FreeRaceHeat | None, None]:
-        """Subscribe to updates for a specific free race heat."""
+        """Subscribe to updates for a specific free race heat.
+
+        The snapshot is taken inside the subscription for the reason
+        :func:`heat_session` gives: a change published before the queue exists
+        reaches nobody.
+        """
         db = info.context["db"]
 
         def _get_heat():
             return crud.get_free_race_heat(db, heat_id)
 
-        yield _get_heat()
-        # Find race_id to subscribe to race_state changes
+        # Which race to watch is a property of the heat. A heat that is not
+        # there has no channel, so say so once and stop.
         heat = _get_heat()
         if not heat:
+            yield None
             return
 
         async with pubsub.subscribe(f"race_state:{heat.race_id}") as stream:
+            yield _get_heat()
             async for _ in stream:
                 db.expire_all()
                 _loaders(info).clear()
