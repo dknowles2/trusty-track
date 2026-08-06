@@ -170,31 +170,28 @@ def get_race(db: Session, race_id: int) -> models.Race | None:
 
 
 def delete_race(db: Session, race_id: int) -> bool:
+    """Remove a race and everything that hangs off it.
+
+    Two of the three children need doing by hand. ``Race.dens`` and
+    ``Race.rounds`` carry ``cascade="all, delete-orphan"``, so deleting the race
+    takes them; ``Race.racers`` and ``Race.heats`` do not, and a heat belongs to
+    the race directly as well as to a round — a free race heat has no round at
+    all (#6), so leaving heats to the round cascade would strand every one of
+    them.
+
+    Heats go before racers, so the lane rows are cascade-deleted while their
+    racers are still there. The other order also works — ``heat_lanes.racer_id``
+    is ``ON DELETE SET NULL`` (#125) — but it means every lane in the race gets
+    nulled on the way to being deleted a statement later, and it leaves the
+    function quietly depending on a clause it does not mention.
+    """
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
         return False
 
-    # Manually delete racers to handle optional relationships cleaner if needed,
-    # though cascade might handle it. Let's rely on cascade for sub-tables but
-    # explicity check here safely.
-
-    # Models have:
-    # dens: cascade="all, delete-orphan"
-    # rounds: cascade="all, delete-orphan"
-
-    # racers: back_populates="race", but NO cascade specified in Race model for racers!
-    # So we MUST delete racers manually or update the model.
-    # Let's delete them manually to be safe without changing models.py if not needed.
-
-    # Actually, let's just delete the racers first.
-    db.query(models.Racer).filter(models.Racer.race_id == race_id).delete()
-
-    # Heats?
-    # heats: back_populates="race", no cascade in Race model.
-    # But rounds delete heats via cascade.
-    # However, if heats are linked to race directly as well...
-    # Heat model has race_id.
+    # Deliberately not `official_heats`: this takes both kinds.
     db.query(models.Heat).filter(models.Heat.race_id == race_id).delete()
+    db.query(models.Racer).filter(models.Racer.race_id == race_id).delete()
 
     db.delete(race)
     db.commit()

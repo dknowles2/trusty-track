@@ -535,6 +535,10 @@ Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `f
 
 **All of them are built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, printables, and all five install channels — and those files are design notes, not a backlog. Every plan says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**: it means something is left, and right now nothing is.
 
+Two headers say something else, and both are deliberate. `printables/01_backend_generation.md` is `[PARTLY BUILT]` because steps 3 and 4 were **not** built as specified — the licence and the pit pass are HTML the browser prints rather than server-rendered PDFs — and the header records the departure. `printables/00_overview.md` and `timers/derbynet-protocol-spec.md` carry no marker at all because neither is a plan: one is background, the other is a protocol reference.
+
+Use `[COMPLETED]`, not a synonym. Ten of these said `[DONE]`, which meant the same thing and defeated the grep the rule above depends on.
+
 Keep the markers honest — this is the index, and the point is that nobody has to re-derive it from the code. If you finish one, mark it, and record the departures rather than leaving the plan describing a design that was not taken.
 
 `TODO.md` at the repo root is a mostly-completed feature checklist.

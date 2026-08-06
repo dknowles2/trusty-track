@@ -1,4 +1,4 @@
-# Task 2: Migrate Home Page [DONE]
+# Task 2: Migrate Home Page [COMPLETED]
 
 ## Goal
 

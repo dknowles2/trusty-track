@@ -28,7 +28,7 @@ needed to support each distribution channel.
 
 | #        | Channel                       | Task File                  | Audience                             |
 | -------- | ----------------------------- | -------------------------- | ------------------------------------ |
-| 1 [DONE] | From source                   | `01_from_source.md`        | Developers                           |
+| 1 [COMPLETED] | From source                   | `01_from_source.md`        | Developers                           |
 | 2        | Docker / Docker Compose       | `02_docker.md`             | Self-hosters, technically inclined   |
 | 3        | Raspberry Pi                  | `03_raspberry_pi.md`       | "Appliance" users, embedded installs |
 | 4        | Desktop app (macOS + Windows) | `04_desktop_app.md`        | Non-technical end users              |
