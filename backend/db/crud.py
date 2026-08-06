@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import random
 from datetime import datetime, timezone
 
@@ -1091,13 +1090,17 @@ def bulk_check_in_racers(
 def create_free_race_heat(
     db: Session,
     race_id: int,
-    lane_assignments: list[dict],
+    lane_assignments: list[lanes.Lane],
 ) -> models.Heat:
     """Create a free race heat from the given lane assignments.
 
     The assignments go straight into ``lane_results`` with no times, exactly as
     a generated official heat does. "Has this been run" is then one question for
     both kinds — whether any lane holds a time (#6).
+
+    Takes lanes rather than dicts so it goes through ``lanes.serialize`` like
+    every other write. It used to ``json.dumps`` its own dicts, which is a
+    second copy of the codec in the two places #72 has to change.
     """
     from datetime import datetime, timezone
 
@@ -1106,7 +1109,7 @@ def create_free_race_heat(
         round_id=None,
         kind=models.HeatKind.FREE,
         heat_number=_next_free_heat_number(db, race_id),
-        lane_results=json.dumps(lane_assignments),
+        lane_results=lanes.serialize(lane_assignments),
         created_at=datetime.now(timezone.utc).isoformat(),
     )
     db.add(heat)
@@ -1148,13 +1151,17 @@ def get_free_race_heat(db: Session, heat_id: int) -> models.Heat | None:
 def update_free_race_heat_result(
     db: Session,
     heat_id: int,
-    lane_results: list[dict],
+    lane_results: list[lanes.Lane],
 ) -> models.Heat | None:
-    """Record results for a free race heat."""
+    """Record results for a free race heat.
+
+    Lanes rather than dicts, for the same reason as
+    :func:`create_free_race_heat` — one codec, in ``domain/lanes.py``.
+    """
     heat = get_free_race_heat(db, heat_id)
     if heat is None:
         return None
-    heat.lane_results = json.dumps(lane_results)
+    heat.lane_results = lanes.serialize(lane_results)
     stamp_recorded(heat)
     db.commit()
     db.refresh(heat)

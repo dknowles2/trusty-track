@@ -11,6 +11,7 @@ import json
 import pytest
 
 from backend.db import crud, models, schemas
+from backend.tests.helpers import as_lanes
 
 LANES_QUERY = """
 query($id: Int!) {
@@ -199,10 +200,12 @@ def test_free_race_lanes_merge_the_schedule_and_the_results(client, db, race, ra
     heat = crud.create_free_race_heat(
         db,
         race.id,
-        [
-            {"lane": 1, "racer_id": racers[0].id},
-            {"lane": 2, "racer_id": racers[1].id},
-        ],
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racers[0].id},
+                {"lane": 2, "racer_id": racers[1].id},
+            ]
+        ),
     )
     # Recording replaces the lanes wholesale, as it does for an official heat —
     # so a caller sends every lane, including the ones with no time. Before #6
@@ -211,10 +214,12 @@ def test_free_race_lanes_merge_the_schedule_and_the_results(client, db, race, ra
     crud.update_free_race_heat_result(
         db,
         heat.id,
-        [
-            {"lane": 1, "racer_id": racers[0].id, "time": 3.2, "place": 1},
-            {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
-        ],
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racers[0].id, "time": 3.2, "place": 1},
+                {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
+            ]
+        ),
     )
     db.commit()
 
@@ -230,7 +235,7 @@ def test_an_official_and_a_free_heat_can_no_longer_share_an_id(
     one sequence."""
     official = _heat(db, race, [{"lane": 1, "racer_id": racers[0].id, "time": 9.9}])
     free = crud.create_free_race_heat(
-        db, race.id, [{"lane": 1, "racer_id": racers[1].id}]
+        db, race.id, as_lanes([{"lane": 1, "racer_id": racers[1].id}])
     )
     db.commit()
     assert official.id != free.id

@@ -3,6 +3,7 @@ import json
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
+from backend.tests.helpers import as_lanes
 
 
 def _create_race(db: Session) -> int:
@@ -43,7 +44,7 @@ def test_create_free_race_heat(db: Session):
         {"lane": 1, "racer_id": 1},
         {"lane": 2, "racer_id": 2},
     ]
-    heat = crud.create_free_race_heat(db, race_id, assignments)
+    heat = crud.create_free_race_heat(db, race_id, as_lanes(assignments))
     assert heat.id is not None
     assert heat.race_id == race_id
     # The schedule goes straight into `lane_results` with no times, exactly as
@@ -60,13 +61,13 @@ def test_create_free_race_heat(db: Session):
 def test_update_free_race_heat_result(db: Session):
     race_id = _create_race(db)
     assignments = [{"lane": 1, "racer_id": 1}, {"lane": 2, "racer_id": 2}]
-    heat = crud.create_free_race_heat(db, race_id, assignments)
+    heat = crud.create_free_race_heat(db, race_id, as_lanes(assignments))
 
     results = [
         {"lane": 1, "racer_id": 1, "time": 3.141, "place": 1},
         {"lane": 2, "racer_id": 2, "time": 3.500, "place": 2},
     ]
-    updated = crud.update_free_race_heat_result(db, heat.id, results)
+    updated = crud.update_free_race_heat_result(db, heat.id, as_lanes(results))
     assert updated is not None
     assert updated.id == heat.id
     parsed = json.loads(updated.lane_results)
@@ -76,15 +77,15 @@ def test_update_free_race_heat_result(db: Session):
 
 def test_update_free_race_heat_result_invalid_id(db: Session):
     _create_race(db)
-    result = crud.update_free_race_heat_result(db, 9999, [])
+    result = crud.update_free_race_heat_result(db, 9999, as_lanes([]))
     assert result is None
 
 
 def test_get_free_race_heats_newest_first(db: Session):
     race_id = _create_race(db)
-    crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": 1}])
-    crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": 2}])
-    crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": 3}])
+    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": 1}]))
+    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": 2}]))
+    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": 3}]))
 
     heats = crud.get_free_race_heats(db, race_id)
     assert len(heats) == 3
@@ -95,7 +96,9 @@ def test_get_free_race_heats_newest_first(db: Session):
 def test_get_free_race_heats_limit(db: Session):
     race_id = _create_race(db)
     for i in range(5):
-        crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": i + 1}])
+        crud.create_free_race_heat(
+            db, race_id, as_lanes([{"lane": 1, "racer_id": i + 1}])
+        )
 
     heats = crud.get_free_race_heats(db, race_id, limit=3)
     assert len(heats) == 3

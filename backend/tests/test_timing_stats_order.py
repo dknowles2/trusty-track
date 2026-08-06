@@ -16,6 +16,7 @@ import pytest
 
 from backend.db import crud, models, schemas
 from backend.domain import lanes
+from backend.tests.helpers import as_lanes
 
 
 @pytest.fixture
@@ -98,7 +99,7 @@ def _record(db, heat, seconds):
         lane.place = index + 1
     if heat.kind is models.HeatKind.FREE:
         crud.update_free_race_heat_result(
-            db, heat.id, [lane.to_dict() for lane in heat_lanes]
+            db, heat.id, as_lanes([lane.to_dict() for lane in heat_lanes])
         )
     else:
         crud.record_heat_result(db, heat.id, lanes.serialize(heat_lanes))

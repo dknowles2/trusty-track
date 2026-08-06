@@ -176,7 +176,7 @@ It encodes **the schedule** (who is in which lane), **the results** (time, place
 
 There is no foreign key from a lane to a racer. `updateHeatResult` takes the whole array as an opaque string and overwrites.
 
-**Use `backend/domain/lanes.py`, not `json.loads`.** `lanes.parse()` and `lanes.serialize()` are the only sanctioned way in or out of the blob, and they round-trip losslessly — the frontend writes a `skipped` key the backend never reads, and any parse/modify/write cycle that drops it makes a skipped heat look unrun. `lanes.py` is also the single file issue #5 replaces when this becomes a `heat_lanes` table, so new `json.loads(heat.lane_results)` calls make that migration larger.
+**Use `backend/domain/lanes.py`, not `json.loads` or `json.dumps`.** `lanes.parse()` and `lanes.serialize()` are the only sanctioned way in or out of the blob, and they round-trip losslessly — the frontend writes a `skipped` key the backend never reads, and any parse/modify/write cycle that drops it makes a skipped heat look unrun. `lanes.py` is also the single file issue #5 replaces when this becomes a `heat_lanes` table, so new `json.loads(heat.lane_results)` calls make that migration larger.
 
 **This is known technical debt** — see issue #5. Don't build new abstractions on top of the blob.
 
@@ -234,7 +234,7 @@ Anything deciding **what is on the track or what is next** wants `is_finished` (
 
 **`recorded_at` is when, and it is the only thing the two kinds can be ranked on together** (#59). `created_at` cannot: for a free heat it is roughly when it ran, for an official heat it is when the *round was generated*. Schedule order cannot either — it says nothing about a heat being re-recorded. `crud.stamp_recorded` keeps `recorded_at` non-null exactly when the heat holds a result, including clearing it on a re-run, and only the two result-recording functions call it: editing a schedule is not running a heat.
 
-Both take parsed lanes. Outside `migrations/`, nothing reads the blob with `json.loads` any more. The three audience subscriptions and `loaders.scheduled_racer_ids` were wrong in the same way: they tested lane *index 0* for a time, so a skipped heat, or a heat whose first lane had been vacated by a deleted racer, pinned both wall displays one heat behind for the rest of the event. `services/stats.py` was the last holdout and outlived that claim being written here — it parsed the blob itself, which meant a heat whose `lane_results` was not a list of lanes took the whole stats page down rather than being skipped.
+Both take parsed lanes. Outside `migrations/`, nothing reads the blob with `json.loads` or writes it with `json.dumps` any more — the free-race pair in `crud` were the last two, and they took dicts and dumped them, which is a second copy of the codec in two of the places [#72](https://github.com/dknowles2/trusty-track/issues/72) has to change. They take `lanes.Lane` now, like everything else. The three audience subscriptions and `loaders.scheduled_racer_ids` were wrong in the same way: they tested lane *index 0* for a time, so a skipped heat, or a heat whose first lane had been vacated by a deleted racer, pinned both wall displays one heat behind for the rest of the event. `services/stats.py` was the last holdout and outlived that claim being written here — it parsed the blob itself, which meant a heat whose `lane_results` was not a list of lanes took the whole stats page down rather than being skipped.
 
 ---
 

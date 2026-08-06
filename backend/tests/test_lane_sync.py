@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
 from backend.db.lane_sync import lanes_out_of_sync
+from backend.tests.helpers import as_lanes
 
 
 def _race(db: Session) -> int:
@@ -198,7 +199,7 @@ def test_deleting_a_race_leaves_no_orphan_lanes(db: Session):
     so an orphan here would eventually reattach to an unrelated heat."""
     race_id = _race(db)
     _round_with_heats(db, race_id)
-    crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": 1}])
+    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": 1}]))
     db.commit()
     assert db.query(models.HeatLane).count() > 0
 
@@ -213,7 +214,12 @@ def test_free_race_heats_project_assignments_then_results(db: Session):
     heat = crud.create_free_race_heat(
         db,
         race_id,
-        [{"lane": 1, "racer_id": racer_ids[0]}, {"lane": 2, "racer_id": racer_ids[1]}],
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racer_ids[0]},
+                {"lane": 2, "racer_id": racer_ids[1]},
+            ]
+        ),
     )
     db.commit()
 
@@ -224,10 +230,12 @@ def test_free_race_heats_project_assignments_then_results(db: Session):
     crud.update_free_race_heat_result(
         db,
         heat.id,
-        [
-            {"lane": 1, "racer_id": racer_ids[0], "time": 3.1, "place": 1},
-            {"lane": 2, "racer_id": racer_ids[1], "time": 3.4, "place": 2},
-        ],
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racer_ids[0], "time": 3.1, "place": 1},
+                {"lane": 2, "racer_id": racer_ids[1], "time": 3.4, "place": 2},
+            ]
+        ),
     )
     db.commit()
 
@@ -242,7 +250,7 @@ def test_an_official_and_a_free_heat_sharing_an_id_stay_apart(db: Session):
     round_obj = crud.create_round(db, race_id, round_number=1)
     crud.generate_heats_for_round(db, round_obj.id)
     free = crud.create_free_race_heat(
-        db, race_id, [{"lane": 1, "racer_id": racer_ids[0]}]
+        db, race_id, as_lanes([{"lane": 1, "racer_id": racer_ids[0]}])
     )
     db.commit()
 

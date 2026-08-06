@@ -23,6 +23,7 @@ from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
+from backend.tests.helpers import as_lanes
 
 
 def _mock_session(db):
@@ -84,7 +85,7 @@ def test_an_official_and_a_free_heat_never_share_an_id(db):
 
     official = _official_heat(db, race, racers)
     free = crud.create_free_race_heat(
-        db, race.id, [{"lane": 1, "racer_id": racers[0].id}]
+        db, race.id, as_lanes([{"lane": 1, "racer_id": racers[0].id}])
     )
 
     assert official.id != free.id
@@ -104,10 +105,12 @@ async def test_a_free_race_run_leaves_official_heats_alone(db):
     free = crud.create_free_race_heat(
         db,
         race.id,
-        [
-            {"lane": 1, "racer_id": free_racers[0].id},
-            {"lane": 2, "racer_id": free_racers[1].id},
-        ],
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": free_racers[0].id},
+                {"lane": 2, "racer_id": free_racers[1].id},
+            ]
+        ),
     )
 
     manager = TimerManager(track_id=track.id, device=FAKE)
@@ -146,7 +149,7 @@ async def test_an_official_run_leaves_free_heats_alone(db):
     racers = _racers(db, race, "Eve", "Fay")
 
     free = crud.create_free_race_heat(
-        db, race.id, [{"lane": 1, "racer_id": racers[0].id}]
+        db, race.id, as_lanes([{"lane": 1, "racer_id": racers[0].id}])
     )
     official = _official_heat(db, race, racers)
 
@@ -187,7 +190,7 @@ async def test_recording_reads_the_kind_off_the_heat(db):
     _, track, race = _build_race(db)
     racers = _racers(db, race, "Gus", "Hal")
     free = crud.create_free_race_heat(
-        db, race.id, [{"lane": 1, "racer_id": racers[0].id}]
+        db, race.id, as_lanes([{"lane": 1, "racer_id": racers[0].id}])
     )
 
     manager = TimerManager(track_id=track.id, device=FAKE)

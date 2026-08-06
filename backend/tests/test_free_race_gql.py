@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from backend.api.main import app
 from backend.db import crud, models, schemas
-from backend.tests.helpers import RECORD_FREE_RACE_RESULT, lane_input
+from backend.tests.helpers import RECORD_FREE_RACE_RESULT, as_lanes, lane_input
 
 client = TestClient(app)
 
@@ -146,7 +146,9 @@ def test_record_free_race_result_mutation(db: Session):
 
     # First create a heat
     heat = crud.create_free_race_heat(
-        db, race_id, [{"lane": 1, "racer_id": r1}, {"lane": 2, "racer_id": None}]
+        db,
+        race_id,
+        as_lanes([{"lane": 1, "racer_id": r1}, {"lane": 2, "racer_id": None}]),
     )
 
     lanes = [
@@ -188,9 +190,9 @@ def test_record_free_race_result_invalid_heat_id(db: Session):
 
 def test_free_race_heats_query_newest_first(db: Session):
     race_id, _ = _create_race_with_track(db)
-    crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": None}])
-    crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": None}])
-    crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": None}])
+    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": None}]))
+    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": None}]))
+    crud.create_free_race_heat(db, race_id, as_lanes([{"lane": 1, "racer_id": None}]))
 
     query = """
     query($raceId: Int!) {
@@ -216,7 +218,9 @@ def test_free_race_heats_query_newest_first(db: Session):
 
 def test_active_free_race_heat_returns_running_heat(db: Session):
     race_id, _ = _create_race_with_track(db)
-    heat = crud.create_free_race_heat(db, race_id, [{"lane": 1, "racer_id": None}])
+    heat = crud.create_free_race_heat(
+        db, race_id, as_lanes([{"lane": 1, "racer_id": None}])
+    )
 
     query = """
     query($raceId: Int!) {
@@ -262,7 +266,9 @@ def test_prepare_heat_is_free_race_flag(db: Session):
     )
 
     # Force creation of a FreeRaceHeat
-    free_heat = crud.create_free_race_heat(db, race.id, [{"lane": 1, "racer_id": None}])
+    free_heat = crud.create_free_race_heat(
+        db, race.id, as_lanes([{"lane": 1, "racer_id": None}])
+    )
 
     # Try to prepare it as a free race
     mutation = """

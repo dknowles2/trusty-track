@@ -19,6 +19,7 @@ from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
+from backend.tests.helpers import as_lanes
 
 
 def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
@@ -271,7 +272,7 @@ async def test_a_free_heat_with_nobody_assigned_still_records(db: Session):
     # Empty lanes, no racers — what the "arm the whole track" branch of
     # `prepareHeat` produces a mask for.
     free = crud.create_free_race_heat(
-        db, race.id, [{"lane": n, "racer_id": None} for n in range(1, 5)]
+        db, race.id, as_lanes([{"lane": n, "racer_id": None} for n in range(1, 5)])
     )
     mgr = TimerManager(track_id=1, device=FAKE, session_factory=lambda: db)
     await mgr.prepare_heat(free.id, models.HeatKind.FREE, lane_mask=0b1111)

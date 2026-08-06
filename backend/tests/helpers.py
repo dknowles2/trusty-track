@@ -125,3 +125,17 @@ def record_heat_result(client, heat_id: int, entries: list[dict]) -> dict:
     body = response.json()
     assert "errors" not in body, body["errors"]
     return body["data"]
+
+
+def as_lanes(rows: list[dict]) -> list[Any]:
+    """Dict literals from a test, as the ``Lane`` objects the free-race
+    helpers in ``crud`` take.
+
+    Those two used to ``json.dumps`` their argument, which is a second copy of
+    the blob's codec in exactly the two places #72 has to change. They go
+    through ``lanes.serialize`` now like every other write; this keeps the test
+    call sites readable as the dict literals they always were.
+    """
+    from backend.domain import lanes
+
+    return [lanes.from_dict(row, row["lane"]) for row in rows]
