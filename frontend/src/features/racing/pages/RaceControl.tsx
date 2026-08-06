@@ -478,6 +478,32 @@ export default function RaceControl() {
           ?? null;
   }, [sortedHeatsEx, selectedHeatId]);
 
+  /* Pin whatever the fallback landed on, so the screen stays there (#130).
+   *
+   * The fallback is "the first heat still to be run", and recording a heat
+   * changes which heat that is — so without this the view slid to the next
+   * heat within a render of the result arriving. That took the recorded heat's
+   * **Edit** button with it, leaving Re-Run — which *clears* the result — as
+   * the only route back to a mistyped time.
+   *
+   * It also made `raceFlow.ts` unobservable. The machine takes the *active*
+   * heat's phase as its input, so it never saw RECORDED, never entered
+   * COUNTING_DOWN, and `autoAdvanceHeat` did nothing in either position while
+   * the screen advanced regardless. Advancing is the toggle's job and the Next
+   * Heat button's, which is what both were built for.
+   *
+   * Adjusted during render rather than in an effect. An effect would show the
+   * unpinned heat for a frame and then correct it, which is the flicker the
+   * memo above was written to avoid; React re-runs the component immediately
+   * on a setState during its own render, so there is no such frame. It
+   * converges in one pass — after this the memo finds `chosen` and the
+   * condition is false — and it is self-healing, because a pinned heat that
+   * stops existing sends the memo back to the fallback and pins the new answer.
+   */
+  if (activeExecutionHeat && selectedHeatId !== activeExecutionHeat.id) {
+      setSelectedHeatId(activeExecutionHeat.id);
+  }
+
   const currentIndex = activeExecutionHeat
       ? sortedHeatsEx.findIndex((h: Heat) => h.id === activeExecutionHeat.id)
       : -1;

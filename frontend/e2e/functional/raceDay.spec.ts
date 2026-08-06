@@ -197,18 +197,14 @@ test('an operator override replaces the recorded time', async ({ page }) => {
     // the normalized cache — a field dropped in either direction reads as the
     // operator's correction not having taken.
     //
-    // Every heat is recorded first so the heat under test stays put. With any
-    // heat left to run, the execution view falls back to the first of those the
-    // moment a result lands, and the recorded heat's Edit button goes with it.
-    const { raceId, racers } = await seedRace(page, 'Race Day Override');
+    const { raceId, laneCount } = await seedRace(page, 'Race Day Override');
     await createSchedule(page, raceId);
-    const heats = await readHeats(page, raceId);
-    await recordRound(page, heats, racers);
-
-    const last = [...heats].sort((a, b) => b.heatNumber - a.heatNumber)[0];
 
     await page.goto(`/race/${raceId}/control/race`);
-    await expect(page.getByRole('heading', { name: `Heat ${last.heatNumber}` })).toBeVisible({
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    await page.getByRole('button', { name: 'Start Timer' }).click();
+    await page.getByRole('button', { name: 'Finish Heat' }).click();
+    await expect(page.getByText(/^\d+\.\d{4}s$/)).toHaveCount(laneCount, {
         timeout: 30000,
     });
 
@@ -216,7 +212,7 @@ test('an operator override replaces the recorded time', async ({ page }) => {
     const editor = page.getByRole('dialog', { name: /Edit Results/ });
     await expect(editor).toBeVisible();
 
-    // A time `recordRound` never writes, so it cannot be confused with the run.
+    // A time the fake timer never produces, so it cannot be confused with the run.
     await editor.locator('input[type="number"]').first().fill('9.8765');
     await editor.getByRole('button', { name: 'Save Results' }).click();
     await expect(editor).toBeHidden();
@@ -227,7 +223,7 @@ test('an operator override replaces the recorded time', async ({ page }) => {
     await page.goto(`/race/${raceId}/control`);
     await expect(page.getByText('9.8765s').first()).toBeVisible({ timeout: 30000 });
 
-    const stored = (await readHeats(page, raceId)).find((h) => h.id === last.id)!;
+    const [stored] = (await readHeats(page, raceId)).sort((a, b) => a.heatNumber - b.heatNumber);
     expect(stored.lanes.map((l) => l.time)).toContain(9.8765);
 });
 
@@ -316,4 +312,64 @@ test('reordering a heat renumbers it without moving its field', async ({ page })
     for (const heat of untouched) {
         expect(after.find((h) => h.id === heat.id)!.heatNumber).toBe(heat.heatNumber);
     }
+});
+
+test('with auto-advance off the screen stays on the heat that just ran', async ({ page }) => {
+    // #130. The execution view falls back to "the first heat still to be run",
+    // and recording a heat changes which heat that is — so the screen used to
+    // slide to the next one within a render of the result arriving, taking the
+    // recorded heat's controls with it.
+    //
+    // Only reachable with a real backend moving the data underneath:
+    // `raceFlow.test.ts` dispatches events directly and `RaceExecution.test.tsx`
+    // is handed a fixed heat, so neither can see the heat change beneath them.
+    const { raceId } = await seedRace(page, 'Race Day Stays Put');
+    await createSchedule(page, raceId);
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Start Timer' }).click();
+    await page.getByRole('button', { name: 'Finish Heat' }).click();
+
+    // The recorded heat's own controls, all three of which were unreachable.
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('button', { name: /^Next Heat/ })).toBeVisible();
+
+    // Long enough that an auto-advance would have fired: the countdown is ten
+    // seconds, and the toggle is off.
+    await page.waitForTimeout(13000);
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible();
+
+    await page.getByRole('button', { name: /^Next Heat/ }).click();
+    await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({ timeout: 30000 });
+});
+
+test('with auto-advance on the countdown runs and then advances', async ({ page }) => {
+    // The other half of #130: `raceFlow.ts`'s COUNTING_DOWN state, which was
+    // unreachable in *both* toggle positions because the machine takes the
+    // active heat's phase as its input and never saw RECORDED.
+    const { raceId } = await seedRace(page, 'Race Day Countdown');
+    await createSchedule(page, raceId);
+
+    await page.goto(`/race/${raceId}/control/race`);
+    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+
+    // The checkbox is visually hidden behind the slider, so click what the
+    // operator clicks.
+    await page.locator('label').filter({ has: page.getByRole('checkbox') }).last().click();
+    await expect(page.getByRole('checkbox')).toBeChecked();
+
+    await page.getByRole('button', { name: 'Start Timer' }).click();
+    await page.getByRole('button', { name: 'Finish Heat' }).click();
+
+    // Counting, on the recorded heat, with the option to call it off.
+    await expect(page.getByRole('button', { name: /^Next Heat \(\d+s\)/ })).toBeVisible({
+        timeout: 30000,
+    });
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible();
+
+    await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({ timeout: 30000 });
 });
