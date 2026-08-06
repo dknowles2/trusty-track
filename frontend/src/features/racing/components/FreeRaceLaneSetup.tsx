@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered, mdiDragVertical, mdiCloseOctagon } from '@mdi/js';
@@ -223,15 +223,25 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
     requestPolicy: 'network-only',
   });
 
-  useEffect(() => {
-    if (randomResult.data?.randomFreeRaceLanes) {
+  // Seeded from the server's shuffle, then the operator may drag lanes about —
+  // so it is state, not a derivation. Reseeded during render whenever a new
+  // shuffle arrives, including a reshuffle, rather than in an effect that
+  // would paint the previous draw first.
+  //
+  // `shuffledFrom` starts at `undefined` rather than at the current data: a
+  // query that has already resolved by the first render would otherwise look
+  // like it had been seeded when it had not, and the lanes would come up empty.
+  const [shuffledFrom, setShuffledFrom] = useState<typeof randomResult.data>(undefined);
+  if (randomResult.data && randomResult.data !== shuffledFrom) {
+    setShuffledFrom(randomResult.data);
+    if (randomResult.data.randomFreeRaceLanes) {
       setRandomAssignments(randomResult.data.randomFreeRaceLanes.map((l: { lane: number, racerId: number | null }, i: number) => ({
         id: `random-${i + 1}`,
         lane: l.lane,
         racerId: l.racerId
       })));
     }
-  }, [randomResult.data]);
+  }
 
   const allRacersList = Object.values(racers);
 

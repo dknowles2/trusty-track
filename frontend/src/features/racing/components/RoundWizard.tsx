@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAlert } from '../../../context/AlertContext';
 import { useMutation } from 'urql';
 import { CREATE_ROUND_WIZARD } from '../graphql/queries';
@@ -44,31 +44,27 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     type: 'PACK',
     runsPerLane: 1,
   });
-  const [championshipRounds, setChampionshipRounds] = useState<ChampionshipConfig[]>([]);
+  // Opening the wizard starts it over, which is what mounting already does —
+  // the caller keys this on `isOpen`, so every open is a fresh component. The
+  // effect this replaces reset four pieces of state and had to list
+  // `laneCount` and `championshipTrophies` as dependencies, so a lane count
+  // changing underneath would silently throw away a half-filled wizard.
+  const [championshipRounds, setChampionshipRounds] = useState<ChampionshipConfig[]>([{
+    id: 'champ-1',
+    name: 'Grand Finals',
+    source: 'PACK',
+    numTopRacers: Math.max(championshipTrophies, laneCount), // Default to filling a heat
+    runsPerLane: 1
+  }]);
   const [loading, setLoading] = useState(false);
   const { showAlert } = useAlert();
-  
+
   // GraphQL Mutation
   const [, createRoundWizardMutation] = useMutation(CREATE_ROUND_WIZARD);
 
-  // Initialize defaults when opening
-  useEffect(() => {
-    if (isOpen) {
-      setStep(1);
-      setGeneralConfig({ type: 'PACK', runsPerLane: 1 });
-      setChampionshipRounds([{
-        id: 'champ-1',
-        name: 'Grand Finals',
-        source: 'PACK',
-        numTopRacers: Math.max(championshipTrophies, laneCount), // Default to filling a heat
-        runsPerLane: 1
-      }]);
-    }
-  }, [isOpen, laneCount, championshipTrophies]);
-
   const getRaceBreakdown = () => {
     const rounds: { name: string; heats: number; duration: number }[] = [];
-    
+
     // General Round
     const generalHeats = Math.ceil((racerCount * generalConfig.runsPerLane) / laneCount);
     rounds.push({
@@ -144,13 +140,13 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           runsPerLane: r.runsPerLane,
         })),
       };
-      
+
       const result = await createRoundWizardMutation({ raceId, config });
-      
+
       if (result.error) {
           throw result.error;
       }
-      
+
       onCreated();
       onClose();
     } catch (error: unknown) {
@@ -221,7 +217,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           <p style={{ color: '#4b5563', fontSize: '0.875rem', marginTop: '-1rem', marginBottom: '1.5rem' }}>
             Quickly generate a complete race schedule based on your settings.
           </p>
-          
+
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <div style={stepIndicatorStyle(step >= 1)}>
               <span style={stepNumberStyle(step >= 1)}>1</span>
@@ -247,14 +243,14 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               <div>
                 <label style={labelStyle}>Qualifying / General Round Type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div 
+                  <div
                     style={configCardStyle(generalConfig.type === 'PACK')}
                     onClick={() => setGeneralConfig({ ...generalConfig, type: 'PACK' })}
                   >
                     <div style={{ fontWeight: 500 }}>All Pack</div>
                     <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>Every racer races against everyone else in the pack.</div>
                   </div>
-                  <div 
+                  <div
                     style={configCardStyle(generalConfig.type === 'DEN')}
                     onClick={() => setGeneralConfig({ ...generalConfig, type: 'DEN' })}
                   >
@@ -266,9 +262,9 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
 
               <div>
                 <label style={labelStyle}>Runs Per Lane</label>
-                <input 
-                  type="number" 
-                  min="1" 
+                <input
+                  type="number"
+                  min="1"
                   max="4"
                   style={inputStyle}
                   value={generalConfig.runsPerLane}
@@ -294,7 +290,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
 
               {championshipRounds.map((round, idx) => (
                 <div key={round.id} style={{ position: 'relative', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#f9fafb' }}>
-                  <button 
+                  <button
                     onClick={() => handleRemoveChampionshipRound(round.id)}
                     style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'none', color: '#9ca3af', fontSize: '1.25rem', padding: '0 4px' }}
                     title="Remove Round"
@@ -305,8 +301,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Round Name</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         style={{ ...inputStyle, fontSize: '0.875rem' }}
                         value={round.name}
                         onChange={(e) => updateChampionshipRound(round.id, { name: e.target.value })}
@@ -315,7 +311,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     <div>
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Advancement Source</label>
                       {idx === 0 ? (
-                        <select 
+                        <select
                           style={{ ...inputStyle, fontSize: '0.875rem' }}
                           value={round.source}
                           onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'PACK' | 'DEN' })}
@@ -333,8 +329,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>
                         {round.source === 'PACK' ? 'Number of Finalists' : 'Advancing per Den'}
                       </label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         min="1"
                         style={{ ...inputStyle, fontSize: '0.875rem' }}
                         value={round.numTopRacers}
@@ -343,8 +339,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     </div>
                     <div>
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Runs Per Lane</label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         min="1"
                         style={{ ...inputStyle, fontSize: '0.875rem' }}
                         value={round.runsPerLane}
@@ -369,8 +365,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
 
               <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', overflow: 'hidden' }}>
                 {breakdown.map((roundInfo, idx) => (
-                  <div key={idx} style={{ 
-                    padding: '1rem', 
+                  <div key={idx} style={{
+                    padding: '1rem',
                     borderBottom: idx === breakdown.length - 1 ? 'none' : '1px solid #e5e7eb',
                     backgroundColor: idx % 2 === 0 ? 'white' : '#f9fafb'
                   }}>
@@ -386,7 +382,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                         generalConfig.type === 'PACK' ? 'All racers compete against each other.' : 'Racers compete within their dens.'
                       ) : (
                         `Advances top ${championshipRounds[idx-1].numTopRacers} racers ${
-                          championshipRounds[idx-1].source === 'DEN' ? ' from each Den' : 
+                          championshipRounds[idx-1].source === 'DEN' ? ' from each Den' :
                           championshipRounds[idx-1].source === 'PREVIOUS' ? ` from ${championshipRounds[idx-2]?.name || 'previous round'}` :
                           ' overall'
                         }.`

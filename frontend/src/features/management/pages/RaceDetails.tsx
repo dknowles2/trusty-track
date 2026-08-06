@@ -1062,6 +1062,7 @@ export default function RaceDetails() {
          title={racerFormTitle}
       >
         <RacerForm
+            key={editingRacer?.id ?? 'new'}
             initialData={editingRacer}
             raceId={race ? race.id : undefined}
             onSubmit={handleRacerFormSubmit}
