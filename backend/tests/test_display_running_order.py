@@ -99,8 +99,8 @@ def _skip(db, heat):
 def _empty_lane_one(db, heat, racers):
     """A heat that ran, whose lane 1 racer was later deleted.
 
-    `crud._remove_racer_from_regular_heats` nullifies the lane rather than
-    dropping it, so lane 1 ends up holding no racer and no time.
+    `crud._vacate_lanes` empties the lane rather than dropping it, so lane 1
+    ends up holding no racer and no time.
     """
     heat.lane_results = json.dumps(
         [

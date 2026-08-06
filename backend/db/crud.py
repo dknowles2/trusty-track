@@ -351,34 +351,26 @@ def bulk_assign_racer_photos(
     return count
 
 
-def _remove_racer_from_regular_heats(db: Session, racer_ids: set[int], round_id: int):
-    """Nullify lane entries for deleted racers in heats of a specific round."""
-    heats = db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
-    for heat in heats:
-        heat_lanes = lanes.parse(heat.lane_results)
-        modified = False
-        for lane in heat_lanes:
-            if lane.racer_id in racer_ids:
-                lane.racer_id = None
-                lane.time = None
-                lane.place = None
-                modified = True
-        if modified:
-            set_heat_lanes(heat, heat_lanes)
+def _vacate_lanes(db: Session, racer_ids: set[int], race_id: int) -> None:
+    """Empty every lane in a race that holds one of these racers.
 
+    Called *before* the racers are deleted, which is what lets it read the
+    lanes off ``heat_lanes`` (#72 step 4). ``ON DELETE SET NULL`` has already
+    nulled ``racer_id`` by the time a post-delete pass runs, so a helper
+    reading the table afterwards has nothing left to match on — the two
+    predecessors of this function got away with it only by parsing the blob,
+    which still named the racer.
 
-def _remove_racer_from_free_heats(db: Session, racer_ids: set[int], race_id: int):
-    """Nullify lane entries for deleted racers in a race's free heats."""
-    free_heats = (
-        db.query(models.Heat)
-        .filter(
-            models.Heat.race_id == race_id,
-            models.Heat.kind == models.HeatKind.FREE,
-        )
-        .all()
-    )
-    for heat in free_heats:
-        heat_lanes = lanes.parse(heat.lane_results)
+    The clause covers the column; this covers the rest. A lane vacated by a
+    deletion also loses its time and place — a recorded result belongs to a car
+    that is no longer in the race — and the ``lane_results`` blob has to be
+    rewritten, since it is still written alongside as a derived column.
+
+    One function rather than the two it replaces: they differed only in which
+    heats they selected, and both kinds are in one table since #6.
+    """
+    heats = db.query(models.Heat).filter(models.Heat.race_id == race_id).all()
+    for heat, heat_lanes in zip(heats, lanes_for_heats(db, heats), strict=True):
         modified = False
         for lane in heat_lanes:
             if lane.racer_id in racer_ids:
@@ -1090,25 +1082,36 @@ def bulk_delete_racers(db: Session, racer_ids: list[int]):
     for r in racers:
         by_race[r.race_id].add(r.id)
 
-    # Delete racers first so regeneration uses the correct pool
+    # Which rounds may be rebuilt has to be decided *first*, because vacating a
+    # lane clears its time — and a round with no times left looks like a round
+    # that was never raced. Asking afterwards regenerates a started round and
+    # destroys the results it was meant to protect.
+    rebuildable = [
+        r.id
+        for race_id in by_race
+        for r in db.query(models.Round).filter(models.Round.race_id == race_id)
+        if advancement.may_rebuild(_round_heat_lanes(db, r.id))
+    ]
+
+    # Vacate before the racers go, not after. A lane can only be matched to a
+    # doomed racer while the racer is still there: `ON DELETE SET NULL` (#125)
+    # nulls `heat_lanes.racer_id` the moment the delete lands, so anything
+    # looking afterwards has nothing left to match on.
+    for race_id, ids in by_race.items():
+        _vacate_lanes(db, ids, race_id)
+    db.commit()
+
+    # Regeneration has to see the racers gone, so that it fields the pool that
+    # is actually left.
     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).delete(
         synchronize_session=False
     )
     db.commit()
 
-    for race_id, ids in by_race.items():
-        # Handle regular rounds
-        rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
-        for r in rounds:
-            try:
-                # Try to regenerate
-                generate_heats_for_round(db, r.id, clear_existing=True)
-            except ValueError:
-                # Fallback to nullifying if round has started
-                _remove_racer_from_regular_heats(db, ids, r.id)
-
-        # Handle free race heats
-        _remove_racer_from_free_heats(db, ids, race_id)
+    # A round that was raced keeps the holes the vacating left; only the rest
+    # are rebuilt.
+    for round_id in rebuildable:
+        generate_heats_for_round(db, round_id, clear_existing=True)
     db.commit()
 
 
