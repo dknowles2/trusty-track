@@ -8,6 +8,7 @@ from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
+from backend.tests.helpers import as_lanes
 
 
 @pytest.mark.anyio
@@ -27,7 +28,9 @@ async def test_free_race_heat_recording_in_manager(db):
         db, schemas.RacerCreate(first_name="Alice", last_name="Test", race_id=race.id)
     )
     heat = crud.create_free_race_heat(
-        db, race.id, [{"lane": 1, "racer_id": r1.id}, {"lane": 2, "racer_id": None}]
+        db,
+        race.id,
+        as_lanes([{"lane": 1, "racer_id": r1.id}, {"lane": 2, "racer_id": None}]),
     )
     heat_id = heat.id
 

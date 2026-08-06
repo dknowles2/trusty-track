@@ -2,6 +2,7 @@ import json
 import uuid
 
 from backend.db import crud, models, schemas
+from backend.tests.helpers import as_lanes
 
 
 def _setup_race_with_heats(db, num_racers=3):
@@ -56,7 +57,12 @@ def _setup_race_with_heats(db, num_racers=3):
     free_heat = crud.create_free_race_heat(
         db,
         race.id,
-        [{"lane": 1, "racer_id": racers[0].id}, {"lane": 2, "racer_id": racers[1].id}],
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racers[0].id},
+                {"lane": 2, "racer_id": racers[1].id},
+            ]
+        ),
     )
 
     db.commit()

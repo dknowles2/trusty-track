@@ -928,9 +928,7 @@ class TimerManager:
                 # Deliberately not `record_heat_result`: that re-runs
                 # advancement, and an exhibition run must not move a
                 # championship field.
-                crud.update_free_race_heat_result(
-                    db, heat_id, [lane.to_dict() for lane in heat_lanes]
-                )
+                crud.update_free_race_heat_result(db, heat_id, heat_lanes)
             else:
                 crud.record_heat_result(db, heat_id, lanes.serialize(heat_lanes))
             race_id = heat.race_id

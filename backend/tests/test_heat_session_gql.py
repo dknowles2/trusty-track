@@ -20,6 +20,7 @@ from backend.db import crud, models, schemas
 from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
+from backend.tests.helpers import as_lanes
 
 client = TestClient(app)
 
@@ -312,7 +313,7 @@ async def test_the_timer_names_the_racer_in_a_lane(db, registered_manager):
     free = crud.create_free_race_heat(
         db,
         race.id,
-        [{"lane": 1, "racer_id": ava.id}, {"lane": 2, "racer_id": None}],
+        as_lanes([{"lane": 1, "racer_id": ava.id}, {"lane": 2, "racer_id": None}]),
     )
 
     manager = registered_manager(track.id)

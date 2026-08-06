@@ -2541,7 +2541,7 @@ class Mutation:
         """
         db = info.context["db"]
         assignments = [
-            {"lane": a.lane, "racer_id": a.racer_id} for a in lane_assignments
+            lanes.Lane(lane=a.lane, racer_id=a.racer_id) for a in lane_assignments
         ]
         return typing.cast(Any, crud.create_free_race_heat(db, race_id, assignments))
 
@@ -2561,9 +2561,7 @@ class Mutation:
         heat = crud.get_free_race_heat(db, heat_id)
         if heat is None:
             return None
-        lane_results = [
-            lane.to_dict() for lane in _lanes_from_input(lanes_input, heat.lane_results)
-        ]
+        lane_results = _lanes_from_input(lanes_input, heat.lane_results)
         updated = typing.cast(
             Any, crud.update_free_race_heat_result(db, heat_id, lane_results)
         )

@@ -14,6 +14,7 @@ from backend.db import crud, models, schemas
 from backend.tests.helpers import (
     RECORD_FREE_RACE_RESULT,
     UPDATE_HEAT_RESULT,
+    as_lanes,
     lane_input,
 )
 
@@ -187,7 +188,9 @@ def test_a_malformed_lane_is_rejected_rather_than_stored(client, race):  # noqa:
 
 def test_free_race_results_take_the_same_input(client, db, race, racer):
     heat = crud.create_free_race_heat(
-        db, race.id, [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": None}]
+        db,
+        race.id,
+        as_lanes([{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": None}]),
     )
     db.commit()
 
