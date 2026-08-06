@@ -64,6 +64,25 @@ def _seed_pre_migration(db_path: Path, heats: list, free_heats: list = ()) -> No
     """
 
     def seed(conn):
+        # The rows every heat and racer below points at. They were left out
+        # while SQLite's foreign keys were off, which made them optional in
+        # practice and invisible in the schema; with enforcement on they are
+        # simply the truth about what a heat needs to exist.
+        conn.execute(text("INSERT INTO groups (id, name) VALUES (1, 'Pack 1')"))
+        conn.execute(
+            text(
+                "INSERT INTO races (id, group_id, name, car_numbering_strategy, "
+                "global_start_number, championship_trophies, scoring_strategy, "
+                "auto_advance_heat) "
+                "VALUES (1, 1, 'Derby', 'MANUAL', 1, 3, 'TIMED', 0)"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO rounds (id, race_id, round_number, "
+                "scheduling_strategy) VALUES (1, 1, 1, 'PPC')"
+            )
+        )
         for racer_id in range(1, 20):
             conn.execute(
                 text(
