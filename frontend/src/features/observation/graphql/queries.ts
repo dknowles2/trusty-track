@@ -21,10 +21,15 @@ export const OnDeckSubscription = gql`
   subscription OnDeckSubscription($raceId: Int!) {
     onDeck(raceId: $raceId) {
       id
-      firstName
-      lastName
-      carNumber
-      racerImageUrl
+      heatNumber
+      globalHeatNumber
+      roundNumber
+      roundName
+      lanes {
+        lane
+        racerId
+        placeholderSlot
+      }
     }
   }
 `;

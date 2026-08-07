@@ -148,7 +148,7 @@ async def test_nothing_is_on_deck_behind_a_skipped_heat(db, race, two_heats):
     """
     _skip(db, two_heats[0])
 
-    assert await _first(db, "on_deck", race.id) == []
+    assert await _first(db, "on_deck", race.id) is None
 
 
 @pytest.mark.anyio
@@ -175,7 +175,8 @@ async def test_an_unrun_heat_is_still_currently_racing(db, race, two_heats):
 
     assert current is not None
     assert current.id == two_heats[0].id
-    assert [racer.first_name for racer in on_deck] == ["Cara", "Dan"]
+    assert on_deck is not None
+    assert on_deck.id == two_heats[1].id
 
 
 @pytest.mark.anyio

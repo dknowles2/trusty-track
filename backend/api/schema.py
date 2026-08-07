@@ -2929,8 +2929,20 @@ class Subscription:
     @strawberry.subscription
     async def on_deck(
         self, info: Info, race_id: int
-    ) -> AsyncGenerator[list[Racer], None]:
-        """Subscribe to the 'on deck' racers (next heat) for a specific race."""
+    ) -> AsyncGenerator[Heat | None, None]:
+        """Subscribe to the heat after the current one, for a specific race.
+
+        The heat, not its racers (#141). Handing back a racer list dropped the
+        lane each one is in — `lanes.real_racer_ids` is dense, so a vacated
+        lane or an undecided championship slot simply closed the gap — and the
+        audience display, having nothing else to go on, numbered them by
+        position. A car in lane 3 of a heat whose lane 2 is empty was announced
+        as being in lane 2.
+
+        Symmetric with :func:`currently_racing`, which has always returned the
+        heat. One shape for "what is on the track" and "what is next" is also
+        one code path on the client.
+        """
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]
 
@@ -2943,18 +2955,7 @@ class Subscription:
                     heats, key=lambda h: (h.round.round_number, h.heat_number)
                 )
                 uncompleted = _unfinished(db, sorted_heats)
-                if len(uncompleted) > 1:
-                    next_heat = uncompleted[1]
-                    racer_ids = lanes.real_racer_ids(_stored_lanes(db, next_heat))
-                    racers = (
-                        db.query(models.Racer)
-                        .filter(models.Racer.id.in_(racer_ids))
-                        .all()
-                    )
-                    # Maintain order from racer_ids
-                    racer_map = {r.id: r for r in racers}
-                    return [racer_map[rid] for rid in racer_ids if rid in racer_map]
-                return []
+                return uncompleted[1] if len(uncompleted) > 1 else None
 
             yield _get_on_deck()
             async for _ in stream:

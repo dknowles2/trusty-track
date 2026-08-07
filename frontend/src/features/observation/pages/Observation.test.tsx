@@ -46,7 +46,7 @@ describe('Observation Page', () => {
 
         const defaultSubs = {
             leaderboard: [],
-            onDeck: [],
+            onDeck: null,
             currentlyRacing: null,
             timingStats: null,
             activeFreeRaceHeat: null,
@@ -69,9 +69,10 @@ describe('Observation Page', () => {
                 id: 2, roundNumber: 1, heatNumber: 2,
                 lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
             },
-            onDeck: [
-                { id: 3, firstName: 'Mater', lastName: 'Tow', carNumber: 1, racerImageUrl: null }
-            ]
+            onDeck: {
+                id: 3, roundNumber: 1, heatNumber: 3,
+                lanes: [{ lane: 1, racerId: 3, placeholderSlot: null }],
+            }
         });
 
         render(
@@ -90,6 +91,42 @@ describe('Observation Page', () => {
 
         expect(screen.getAllByText('Doc Hudson').length).toBeGreaterThan(0);
         expect(screen.getAllByText('Mater Tow').length).toBeGreaterThan(0);
+    });
+
+    it('names the lane a car is really in, not its position in the list', async () => {
+        // #141. Lane 2 is vacant — a racer deleted after the schedule was
+        // generated, or a championship slot nobody has qualified for yet. The
+        // car in lane 3 must still be announced as lane 3; numbering the
+        // survivors 1, 2, 3… told the audience the wrong lane for every car
+        // after the gap, on the screen they are watching.
+        setupMocks({
+            currentlyRacing: {
+                id: 2, roundNumber: 1, heatNumber: 2,
+                lanes: [
+                    { lane: 1, racerId: 2, placeholderSlot: null },
+                    { lane: 2, racerId: null, placeholderSlot: null },
+                    { lane: 3, racerId: 3, placeholderSlot: null },
+                ],
+            },
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
+        });
+
+        expect(screen.getByText('Lane 1')).toBeInTheDocument();
+        expect(screen.getByText('Lane 3')).toBeInTheDocument();
+        // The empty lane has nobody to show, so it is not on screen at all —
+        // but it must not hand its number to the car behind it.
+        expect(screen.queryByText('Lane 2')).not.toBeInTheDocument();
     });
 
     it('handles case with no upcoming heats', async () => {
