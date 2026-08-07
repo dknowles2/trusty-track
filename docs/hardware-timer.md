@@ -16,9 +16,10 @@ timer Trusty Track has been built against.
 Seven more are described, adapted from
 [DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions: the Derby
 Timer, Bert Drake, PDT, The Judge, "The Champ" (SmartLine/BestTrack), the JIT
-Racemaster, and the NewBold DT/TURBO/DerbyStick family. Five of those are
-detected automatically; the JIT Racemaster and NewBold have to be chosen,
-because they do not answer an identifying question.
+Racemaster, and the NewBold DT/TURBO/DerbyStick family. Six of the seven answer
+an identifying question, so the server can find them on its own. The NewBold
+family does not answer one, and there is currently no way to pick a timer model
+by hand, so that family cannot be used yet.
 
 **No heat has ever been run through any of them**, including the Micro Wizard.
 Three — the Micro Wizard, the Derby Timer and the PDT — have been checked
@@ -86,9 +87,14 @@ Tick it only if the hardware is actually fitted. On a Micro Wizard the gate
 release is a separately-sold accessory, and the timer accepts the command and
 does nothing without it.
 
-With it on, a **Release Start Gate** button appears on the timer panel once a
-heat is armed — and only then. Releasing the gate with no heat armed sends cars
-down a track nothing is timing, and those runs cannot be recovered.
+Two things have to be true before the button appears, and the setting is only
+one of them: the timer model also has to have a command for opening the gate.
+The Micro Wizard and the PDT do; the other six have no such command described,
+so ticking the box will not give you the button.
+
+Where both hold, a **Release Start Gate** button appears on the timer panel
+once a heat is armed — and only then. Releasing the gate with no heat armed
+sends cars down a track nothing is timing, and those runs cannot be recovered.
 
 **This has not been tested against hardware.** No profile here has, but this is
 the only part that moves something physical, so it is worth saying twice. Try
@@ -121,11 +127,22 @@ The log on that page shows every byte in both directions, annotated. A healthy
 start-up looks roughly like this:
 
 ```
-→ RV                                        request version
-← Copyright (c) Micro Wizard 2002-2009      timer identified itself
 → N1                                        enable new-format results
 → N2                                        enable gate feedback
 ← *                                         command acknowledged
+← *                                         command acknowledged
+```
+
+Those two commands go out the moment the connection opens, which is why the log
+usually starts there. If the server found the timer by searching the USB ports,
+the timer announced itself during that search, before this log began — so the
+question and the answer are not in it. If instead you entered a serial port by
+hand, there was no search, and the server asks every few seconds until
+something answers:
+
+```
+→ RV                                        request version
+← Copyright (c) Micro Wizard 2002-2009      timer identified itself
 ```
 
 Then, during a heat:

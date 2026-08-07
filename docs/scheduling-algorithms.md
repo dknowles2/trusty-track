@@ -8,7 +8,7 @@ Trusty Track uses the **Partial Perfect Chart (PPC)** algorithm for scheduling r
 **Best For:** All race sizes.
 
 ### Benefits
-- **Fairness:** Every racer runs in every lane exactly once.
+- **Fairness:** Every racer runs in every lane exactly once. With fewer racers than the track has lanes — three racers on a four-lane track, say — the spare lanes simply go unused, and everyone still runs the same number of heats.
 - **Variety:** Racers face as many different opponents as possible during the race.
 - **Social Engagement:** Maximizes the number of unique "matchups" between different scouts.
 

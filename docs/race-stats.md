@@ -37,7 +37,7 @@ _The three overview cards at the top of the Stats page show scoring strategy, ra
 
 Pinewood Derby tracks sometimes have lanes that are slightly faster or slower due to small variations in the track surface or construction. The Lane Fairness section helps you see if any lane has a consistent advantage or disadvantage.
 
-- The **bar chart** shows each lane's performance relative to the overall average. Bars pointing right (blue) indicate lanes that run faster than average; bars pointing left (gold) indicate slower-than-average lanes.
+- The **bar chart** shows each lane's performance relative to the overall average. A bar above the centre line (blue) means that lane runs faster than average; a bar below it (gold) means slower than average.
 - The **table** below shows each lane's average finish time, how many heats were run in that lane, and the percentage advantage or disadvantage.
 
 A small difference (less than 1%) between lanes is completely normal. A larger difference may be worth noting for future track maintenance.
@@ -46,7 +46,7 @@ A small difference (less than 1%) between lanes is completely normal. A larger d
 > This section is most meaningful after a full qualifying round, where every racer has run in every lane — which is exactly how Trusty Track's automatic scheduling works.
 
 ![Lane Fairness Section](assets/screenshots/race-stats/03-lane-fairness.png)
-_The Lane Fairness section. Blue bars indicate faster-than-average lanes; gold bars indicate slower lanes. Here, Lane 2 has a slight advantage._
+_The Lane Fairness section. Blue bars rise above the line for faster-than-average lanes; gold bars drop below it for slower ones._
 
 ---
 
@@ -61,7 +61,7 @@ The Per-Racer Stats table shows detailed performance numbers for every racer. Ev
 | **Den** | The den they belong to |
 | **Heats** | Number of heats completed |
 | **Min** | Their single fastest heat time |
-| **Avg** | Their average time across all heats — this is the score used to determine standings |
+| **Avg** | Their average time across the heats they have run. A car that started but never finished counts as 9.999s, so one bad run does not wipe out a racer's average. In a timed race this is the same measure the standings use — but note this table counts every heat, where the standings cover the preliminary rounds only |
 | **Max** | Their single slowest heat time |
 | **Std Dev** | How consistent their times were — a low number means very consistent; a high number means variable results. Shown as "—" if fewer than 2 heats are recorded. |
 
@@ -104,7 +104,7 @@ Two **Export** buttons at the bottom of the page let you download race data as C
 
 Downloads one row for every lane in every completed heat. Columns:
 
-`Round, Heat #, Lane, Car #, First Name, Last Name, Time (s), Place`
+`Round, Heat #, Global Heat #, Lane, Car #, First Name, Last Name, Time (s), Place`
 
 Use this for a complete record of the event — every race, every car, every finishing time.
 

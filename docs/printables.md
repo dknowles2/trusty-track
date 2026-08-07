@@ -55,7 +55,8 @@ at the track.
 
 ### Check-in codes
 
-A QR code per racer, twelve to a sheet, with the name underneath.
+A QR code per racer, twelve to a sheet, with the name and car number
+underneath.
 
 ![A sheet of check-in codes](assets/screenshots/printables/check-in-code-sheet.png)
 
@@ -63,8 +64,9 @@ Cut them up and hand them out, or leave the sheet whole and scan off it as
 scouts arrive — the name under each code is there for both.
 
 The code identifies **that racer at that race**. A code printed at last year's
-derby will not scan into this year's, which is deliberate: racer numbering
-starts over, and scanning the wrong child in at check-in is expensive.
+derby will not scan into this year's, which is deliberate: the racer it points
+at could well be a different scout this year, and scanning the wrong child in
+at check-in is expensive.
 
 ## Scanning at check-in
 

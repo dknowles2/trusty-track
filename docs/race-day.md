@@ -36,14 +36,14 @@ _The Race Details page at the start of race day. Every racer has a gold **Check 
 
 1. Find the racer in the list. Scroll, or use the search box above the roster — it matches on name, car number, and den.
 2. Click the **Check In** button at the end of their row to open the check-in form.
-3. Toggle **Car Passed Inspection** to mark the car as cleared to race.
+3. Toggle **Passed Inspection / Checked In** to mark the car as cleared to race.
 4. Optionally enter or update the **Car Name** if not already provided.
-5. Optionally enter the car's **weight** (in ounces) for documentation purposes.
-6. Optionally upload or capture a **Racer Photo** and/or **Car Photo** using the camera or file picker.
-7. Click **Save**.
+5. Optionally enter the **Car Weight (oz)** for documentation purposes.
+6. Optionally upload or capture a **Racer Photo** and/or **Car Photo** — each has an **Upload File** button and a **Camera** button.
+7. Click **Save Check-in**.
 
 ![Check-In Modal — Inspection Toggled On](assets/screenshots/race-day/02-check-in-modal-inspected.png)
-_The check-in modal for a racer, with "Car Passed Inspection" toggled ON._
+_The check-in modal for a racer, with "Passed Inspection / Checked In" toggled on._
 
 ![Check-In Modal — With Photo](assets/screenshots/race-day/03-check-in-modal-with-photo.png)
 _A racer photo loaded in the check-in modal. Photos appear on the live audience display during the race._
@@ -88,7 +88,7 @@ If a photographer takes portraits or car photos before the race, you can upload 
 **When to use this:** After a pre-race photo session where you have a folder of racer or car images to associate with the correct racers.
 
 ![Upload Photos button in the toolbar](assets/screenshots/race-day/19-upload-photos-button.png)
-_The **Upload Photos** button sits in the toolbar above the racer list, between Bulk Actions and Add Racer._
+_The **Upload Photos** button sits in the toolbar above the racer list, between **Scan** and **Print**._
 
 1. Click **Upload Photos** in the toolbar above the racer list.
 2. The **Upload & Assign Photos** modal opens. Click **Choose Photos** and select one or more image files from your device.
@@ -106,14 +106,14 @@ _Three photos loaded and ready to assign. Each card shows the filename, an assig
 ![Combobox open showing full racer list](assets/screenshots/race-day/22-bulk-upload-combobox-open.png)
 _Clicking the search box shows all racers sorted by car number. Scroll or start typing to narrow the list._
 
-![Combobox filtered to a single racer](assets/screenshots/race-day/23-bulk-upload-combobox-filtered.png)
-_Typing "jax" immediately filters to matching racers. Press Enter or click the name to assign._
+![Typing in the assignment box](assets/screenshots/race-day/23-bulk-upload-combobox-filtered.png)
+_The list narrows as you type, matching on car number as well as name. Press Enter or click a name to assign; if nothing matches, the box says so._
 
 5. Use the **Racer photo** / **Car photo** radio buttons on each card to indicate what the image shows (default is Racer photo).
 6. After assigning all photos, click **Apply N Assignment(s)** to save.
 
-![Modal with assignments made and Apply button active](assets/screenshots/race-day/24-bulk-upload-assigned.png)
-_With one photo assigned, the Apply button becomes active and shows the count. The footer updates to "1 of 3 uploaded photo(s) assigned." Continue assigning the remaining cards before clicking Apply._
+![The Apply button and the assignment counter](assets/screenshots/race-day/24-bulk-upload-assigned.png)
+_**Apply** stays greyed out until at least one photo has a racer against it, and the footer beside it counts how many are ready. Once a photo is assigned the button reads **Apply 1 Assignment(s)**._
 
 Photos that are uploaded but not assigned to any racer are silently skipped — only photos with a racer selected are saved. Assignments can be applied at any time during or after check-in; the photos will be visible on the audience display during the race.
 
@@ -168,11 +168,13 @@ _Step 1: choose the qualifying round type. "All Pack" is the most common choice.
 Add one or more championship rounds. For each championship round, configure:
 
 - **Round Name** (e.g., "Grand Finals")
-- **Advancement Source**: Top N racers **overall** (Pack), or Top N racers from **each den**
-- **Number of Finalists** (e.g., top 3 overall, or top 2 per den)
+- **Advancement Source**: **Top Overall (Pack)** or **Top per Den**
+- How many advance — the box is labelled **Number of Finalists** for Top Overall, and **Advancing per Den** for Top per Den
 - **Runs Per Lane** for this round
 
-Click **+ Add Round** to add more championship rounds if needed.
+Click **+ Add Round** to add more championship rounds if needed. Only the first
+championship round chooses a source; any round after it always draws from the
+championship round before it, and says so instead of offering a choice.
 
 ![Round Wizard — Step 2](assets/screenshots/race-day/08-round-wizard-step2.png)
 _Step 2: configure optional championship rounds. Each round can advance a different number of racers._
@@ -188,25 +190,27 @@ _Step 3: the schedule preview shows total heats and estimated duration before yo
 
 ### Viewing the Schedule
 
-After generating, the **Schedule** tab shows all rounds as columns, with each heat listed as a card. Each heat card shows the racer assigned to each lane.
+After generating, the **Schedule** tab lists each round in turn, one below the
+other. A round is a table with a row per heat and a column per lane, so reading
+across a row tells you who is in which lane.
 
 ![Schedule Management View](assets/screenshots/race-day/10-schedule-management.png)
-_The full schedule after generation — rounds appear as columns, and each heat card shows lane assignments and completion status (green = done, gray = pending)._
+_The full schedule after generation. Each round has its own table; a heat's row shows the racer in every lane, and picks up their finish times once it has been run._
 
 ---
 
 ### Reordering Heats (Optional)
 
-If you need to adjust the heat order before racing begins (for example, to separate siblings or accommodate a late arrival), drag heat cards by the handle on the left side of each card to reorder them within a round.
+If you need to adjust the heat order before racing begins (for example, to separate siblings or accommodate a late arrival), drag a heat by the handle at the left-hand end of its row to move it within its round.
 
 > [!NOTE]
-> Heat reordering is only available for heats that have not yet been run.
+> A heat can only be moved while it has no times against it. Once a heat has been run its handle is greyed out; a heat you skipped can still be moved, because it has no times.
 
 ![Heat Reordering](assets/screenshots/race-day/11-heat-reordering.png)
-_Drag the handle icon on the left side of a heat card to reorder it within the round._
+_Drag the handle at the left-hand end of a heat's row to reorder it within the round._
 
 > [!TIP]
-> **Jumping Ahead:** If you want to run a future heat immediately, you can simply click the **Run** button on that heat in the Schedule view. Trusty Track will automatically move it to be the next heat in the order and take you directly to the **Race** tab.
+> **Jumping Ahead:** If you want to run a later heat immediately, click the **Run** button on that heat in the Schedule view. Trusty Track will automatically move it to be the next heat in the order and take you directly to the **Race** tab. This only works within the round you are on — **Run** is greyed out on a round that is still waiting for an earlier one to finish.
 
 ---
 
@@ -231,10 +235,10 @@ _The Race Execution view showing the active heat with lane assignments. The On D
 How a heat starts depends on your track timer:
 
 - **With a hardware timer**: Trusty Track automatically prepares the timer for the next heat. Place the cars on the track and release them as normal — the timer records finish times automatically.
-- **With the fake timer** (for testing without a physical track): A **Fake Timer Controls** panel appears in the bottom-right corner. Click **Start Timer** when cars are "on the track," then **Finish Heat** to simulate the race completing.
+- **With the fake timer** (for testing without a physical track): A **Fake Timer Controls** panel appears in the bottom-right corner. Once the heat is staged the panel reads "Ready to start" — click **Start Timer** to send the cars off. The heat then finishes on its own a few seconds later, or you can click **Finish Heat** to end it immediately.
 
 ![Fake Timer Controls](assets/screenshots/race-day/13-fake-timer-controls.png)
-_The Fake Timer Controls panel used for testing. "Start Timer" arms the race, "Finish Heat" records simulated results._
+_The Fake Timer Controls panel used for testing. "Start Timer" begins the run; "Finish Heat" ends it and records simulated times._
 
 ---
 
@@ -243,7 +247,7 @@ _The Fake Timer Controls panel used for testing. "Start Timer" arms the race, "F
 When a heat finishes:
 
 - **Hardware timer**: Results appear automatically in the lane cards, showing each racer's finish time and placement.
-- **Fake timer**: Click **Finish Heat** — the system generates simulated finish times.
+- **Fake timer**: Results appear when the run ends — either on its own a few seconds after **Start Timer**, or as soon as you click **Finish Heat**.
 - **Manual override**: Click **Override** (before the heat) or **Edit** (after) to enter times by hand.
 
 ![Heat Results After Finish](assets/screenshots/race-day/14-heat-results.png)
@@ -270,26 +274,26 @@ To completely re-run a heat, click **Re-Run** — this clears the results and re
 
 ### Viewing the Live Leaderboard
 
-The leaderboard updates automatically after every heat. During the race, you can check current standings at any time from the Race Control page. The audience can follow standings live on the Observation page (see the [Observation Displays Guide](observation-displays.md)).
+The leaderboard updates automatically after every heat. During the race you can check the current standings at any time from the **Standings** page in the top navigation bar, and the **Stats** page beside it keeps count of the heats completed so far. The audience can follow standings live on the Observation page (see the [Observation Displays Guide](observation-displays.md)).
 
-![In-Progress Leaderboard](assets/screenshots/race-day/15-live-leaderboard.png)
-_The live leaderboard updates after every heat, showing current average times and placements for all racers._
+![Stats Mid-Race](assets/screenshots/race-day/15-live-leaderboard.png)
+_The Stats page part-way through the race, with heats completed and lane fairness updating as results come in._
 
 ---
 
 ## Part 4: Championship Rounds (Optional)
 
-After all qualifying heats are complete, Trusty Track will show a round-completion summary with the current standings. If you configured a championship round, click **Start Next Round** to advance.
+When the last qualifying heat is recorded, Trusty Track works out who has made the championship round and shows a summary of them. Click **Start Next Round** to move on. The summary appears because a championship round was waiting to be filled — if you did not configure one, there is nothing to decide and no summary appears.
 
 The championship round schedule is generated automatically based on who qualified — only the top racers from the qualifying round are included.
 
 ![Round Completion — Advancement Summary](assets/screenshots/race-day/16-round-completion-modal.png)
-_When a round finishes, the standings summary shows who advances to the championship. Advancing racers are highlighted._
+_When the field for a championship round is decided, the summary lists the racers who advance, with their finishing scores._
 
 Run the championship heats the same way as the qualifying round. Championship results determine final placement.
 
 ![Championship Round Schedule](assets/screenshots/race-day/17-championship-schedule.png)
-_The championship round schedule includes only the top qualifiers. Their lane assignments are auto-generated for fairness._
+_The Schedule tab once the qualifying round is complete — every heat has its times. The championship round, now filled with the qualifiers, sits below it._
 
 ---
 
@@ -299,8 +303,10 @@ After all heats are complete, the **Standings** page shows the final ranked resu
 
 The Standings page is designed for the award ceremony — it can be displayed on a large screen or projector so everyone can see the final results.
 
-Use the round selector above the table to switch between **Overall (preliminary
-rounds)** and any single round.
+If the race has a championship round, a selector appears above the table. Use it
+to switch between **Overall (preliminary rounds)** and any one championship
+round. A race with no championship rounds has nothing to switch between, so no
+selector appears.
 
 > [!NOTE]
 > Overall standings cover the **preliminary** rounds only. A championship field
@@ -309,7 +315,7 @@ rounds)** and any single round.
 > shown by selecting that round.
 
 ![Final Standings Page](assets/screenshots/race-day/18-final-standings.png)
-_The final standings show placement, racer name, den, and average time for every racer. Den colors help organize the results._
+_The standings show rank, car number, name, den, heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
 
 ---
 
@@ -321,7 +327,7 @@ You can add them to the roster and check them in at any time. The **next round**
 
 ### A racer had to withdraw
 
-Open their check-in entry and uncheck **Car Passed Inspection** to mark them as not participating. Heats they already appeared in will retain their recorded times — only future rounds will exclude them.
+Open their check-in entry and turn **Passed Inspection / Checked In** off. Heats they already appeared in keep their recorded times, and heats that have already been scheduled still list them — delete or skip those if they come up. Any round you create or regenerate from that point on leaves them out.
 
 ### A timer result came in wrong
 

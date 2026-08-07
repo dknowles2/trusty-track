@@ -62,9 +62,9 @@ _The "On Deck" panel shows the upcoming heat's racers so they can prepare._
 
 ### Live Leaderboard
 
-The **Standings** tab shows the current leaderboard for all racers, updated after each completed heat. It is deliberately narrow for reading at a distance — rank, racer, average time, and runs. The fuller table, with car number and den, is on the Standings page in Race Control.
+The **Standings** tab shows the current leaderboard for all racers, updated after each completed heat. It is deliberately narrow for reading at a distance — rank, racer, average time, and runs. The fuller table, with car number and den, is on the Standings page — the **Standings** tab in the race navigation bar.
 
-Switch to the **Timing Stats** tab to see the detailed results from the most recently recorded heat — lane-by-lane finish times and placements.
+Switch to the **Timing Stats** tab to see the results of the most recently recorded heat: every car that ran it, in finishing order, with its place and its time.
 
 > [!NOTE]
 > A [free race](free-race.md) heat shows on this display like any other — the
@@ -82,13 +82,13 @@ For large events with a big screen or projector, use **Projector Mode** — a fu
 
 ### Launching Projector Mode
 
-Click the **Launch Projector Mode** button in the top-right corner of the Observation page. A new window opens in full-screen with the projector layout.
+Click the **Launch Projector Mode** button in the top-right corner of the Observation page. A new browser tab opens with the projector layout, which fills whatever space the browser gives it.
 
 > [!TIP]
 > Press **F11** (or use your browser's full-screen option) on the projector display device to remove the browser chrome and make the display completely immersive.
 
 ![Projector Mode Launch Button](assets/screenshots/observation/06-projector-mode-button.png)
-_Click "Launch Projector Mode" to open the full-screen audience display in a new window._
+_Click "Launch Projector Mode" to open the audience display in a new tab._
 
 ### Projector Mode Layout
 
@@ -98,7 +98,7 @@ Projector Mode fills the entire screen with a dark background and large, high-vi
 - **Right side (35% of screen)**: Top 5 standings with large rank numbers, racer avatars, and finish times
 
 ![Projector Mode — Full View](assets/screenshots/observation/07-projector-mode-full.png)
-_Projector Mode in a full-screen layout. Large text and high contrast make it easy to read from across a room._
+_Projector Mode, caught with the heat-results overlay up over the standing layout. Large text and high contrast make it easy to read from across a room._
 
 ### Heat Results Overlay
 
