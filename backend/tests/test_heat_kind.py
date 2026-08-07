@@ -185,12 +185,10 @@ async def test_the_audience_subscriptions_ignore_free_heats(db, race, subscripti
     finally:
         await generator.aclose()
 
-    if subscription == "currently_racing":
-        # Every official heat is raced, so there is nothing currently racing.
-        # A leaked free heat would show up here as the next thing to run.
-        assert first is None
-    else:
-        assert first == []
+    # Every official heat is raced, so there is nothing currently racing and
+    # nothing on deck. A leaked free heat would show up as the next thing to
+    # run. Both answer with a heat since #141, so both say "none" the same way.
+    assert first is None
 
 
 @pytest.mark.parametrize("query_name", ["heats", "leaderboard"])

@@ -193,11 +193,13 @@ async def test_on_deck_subscription(db_session) -> None:
         schema_mod.pubsub = original_pubsub
 
     assert len(collected) == 2
-    # Initially h1 is current, h2 is on deck
-    assert len(collected[0]) == 1
-    assert collected[0][0].first_name == "Bob"
-    # After h1 is done, h2 is current, nothing is on deck
-    assert len(collected[1]) == 0
+    # The heat, not its racers (#141) — the lane a car is in is part of the
+    # answer, and a racer list cannot carry it.
+    # Initially h1 is current, h2 is on deck.
+    assert collected[0] is not None
+    assert collected[0].id == h2_id
+    # After h1 is done, h2 is current and nothing is on deck.
+    assert collected[1] is None
 
 
 @pytest.mark.anyio

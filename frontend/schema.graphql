@@ -433,7 +433,7 @@ type Subscription {
   heatSession(trackId: Int!, heatId: Int = null): HeatSession!
   raceStateChanged(raceId: Int!): RaceStateChangedEvent!
   leaderboard(raceId: Int!): [LeaderboardEntry!]!
-  onDeck(raceId: Int!): [Racer!]!
+  onDeck(raceId: Int!): Heat
   currentlyRacing(raceId: Int!): Heat
   timingStats(raceId: Int!): TimingStats
   heats(raceId: Int!): [Round!]!

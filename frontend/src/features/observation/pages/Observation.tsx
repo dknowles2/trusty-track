@@ -168,17 +168,33 @@ export default function Observation() {
   }, [initialData]);
 
   const officialCurrentHeat = currentlyRacingData?.currentlyRacing;
-  const nextHeatRacers = onDeckData?.onDeck || [];
+  const onDeckHeat = onDeckData?.onDeck;
   const standings = (leaderboardData?.leaderboard || []) as Standing[];
   const lastHeatResults = timingStatsData?.timingStats;
   const activeFreeRace = activeFreeRaceData?.activeFreeRaceHeat;
 
   const isExhibition = !officialCurrentHeat && activeFreeRace;
 
+  /** A car on the track, with the lane it is actually in.
+   *
+   * The lane travels with the racer (#141). Dropping it and numbering by
+   * position is only right when every lane is full: a vacated lane — a racer
+   * deleted after the schedule was generated — or an undecided championship
+   * slot closes the gap, and every car after it gets announced one lane low.
+   */
+  interface LaneEntry {
+    lane: number;
+    racer: Racer;
+  }
+
   // A lane with no `racerId` is either empty or an undecided championship slot;
   // either way there is no one to put on the screen, so both drop out here.
-  const racersInLanes = (lanes: readonly { racerId?: number | null }[]) =>
-    lanes.map((l) => (l.racerId == null ? undefined : racersMap[l.racerId])).filter(Boolean) as Racer[];
+  const racersInLanes = (
+    lanes: readonly { lane: number; racerId?: number | null }[],
+  ): LaneEntry[] =>
+    lanes
+      .map((l) => (l.racerId == null ? null : { lane: l.lane, racer: racersMap[l.racerId] }))
+      .filter((entry): entry is LaneEntry => entry !== null && entry.racer !== undefined);
 
   const currentHeatRacers = useMemo(() => {
     if (officialCurrentHeat) return racersInLanes(officialCurrentHeat.lanes);
@@ -187,10 +203,16 @@ export default function Observation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officialCurrentHeat, isExhibition, activeFreeRace, racersMap]);
 
+  const nextHeatRacers = useMemo(
+    () => (onDeckHeat ? racersInLanes(onDeckHeat.lanes) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onDeckHeat, racersMap],
+  );
+
   if (!id || isNaN(id)) return <div className="container" style={{ padding: '20px' }}>Invalid Race ID</div>;
 
-  const renderHeatCard = (title: string, racers: Racer[], isNext: boolean = false, iconPath?: string, heatInfo?: string, exhibition?: boolean) => {
-    const isEmpty = racers.length === 0;
+  const renderHeatCard = (title: string, entries: LaneEntry[], isNext: boolean = false, iconPath?: string, heatInfo?: string, exhibition?: boolean) => {
+    const isEmpty = entries.length === 0;
 
     return (
       <div className="heat-card" style={{
@@ -239,9 +261,9 @@ export default function Observation() {
           <p>No heat scheduled</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
-            {racers.map((racer: Racer, idx: number) => (
-              <div key={racer.id || idx} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
-                <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {idx + 1}</div>
+            {entries.map(({ lane, racer }: LaneEntry) => (
+              <div key={lane} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
+                <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {lane}</div>
                 <RacerAvatar
                   racer={{
                     id: racer.id,
@@ -353,7 +375,11 @@ export default function Observation() {
             "On Deck",
             nextHeatRacers,
             true,
-            mdiChevronDoubleRight
+            mdiChevronDoubleRight,
+            // Free now that the subscription carries the heat rather than a
+            // bare racer list: the panel exists so cars can be staged, and
+            // which heat they are staging for is part of that.
+            onDeckHeat ? `Round ${onDeckHeat.roundNumber}, Heat ${onDeckHeat.globalHeatNumber ?? onDeckHeat.heatNumber}` : undefined
           )}
         </div>
 
@@ -496,8 +522,8 @@ export default function Observation() {
   }
 
   // --- PROJECTOR MODE RENDER ---
-  const renderProjectorRacers = (racers: Racer[], isNowRacing: boolean) => {
-    if (racers.length === 0) {
+  const renderProjectorRacers = (entries: LaneEntry[], isNowRacing: boolean) => {
+    if (entries.length === 0) {
       return (
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', fontSize: '3vmin' }}>
           No heat scheduled
@@ -507,8 +533,8 @@ export default function Observation() {
 
     return (
       <div style={{ display: 'flex', height: '100%', gap: '2vmin' }}>
-        {racers.map((racer: Racer, idx: number) => (
-          <div key={racer.id || idx} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#222', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
+        {entries.map(({ lane, racer }: LaneEntry) => (
+          <div key={lane} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#222', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
             {/* Priority 1: Racer Name */}
             <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: '#fff', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
               {racer.firstName} {racer.lastName}
@@ -529,7 +555,7 @@ export default function Observation() {
             {/* Priority 3: Lane Number (Only prominent for Now Racing, very small or omitted for On Deck) */}
             <div className="projector-racer-lane-car" style={{ marginTop: '1.5vmin', display: 'flex', flexDirection: 'column', gap: '0.5vmin' }}>
               <div style={{ color: isNowRacing ? '#bbb' : '#666', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}>
-                Lane {idx + 1}
+                Lane {lane}
               </div>
               {racer.carNumber && (
                 <div style={{ color: '#777', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
@@ -566,7 +592,7 @@ export default function Observation() {
               )}
             </h2>
             <div style={{ flex: 1 }}>
-              {renderProjectorRacers(currentHeatRacers as Racer[], true)}
+              {renderProjectorRacers(currentHeatRacers, true)}
             </div>
           </div>
 
@@ -577,7 +603,7 @@ export default function Observation() {
               On Deck
             </h2>
             <div style={{ flex: 1 }}>
-              {renderProjectorRacers(nextHeatRacers as Racer[], false)}
+              {renderProjectorRacers(nextHeatRacers, false)}
             </div>
           </div>
         </div>
