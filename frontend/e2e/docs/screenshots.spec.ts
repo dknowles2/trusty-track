@@ -40,6 +40,7 @@ test('take screenshots', async ({ page }) => {
   // Creating a race opens it. This used to leave you on Home to go and find
   // the race you had just named, and the spec clicked through by hand.
   await page.waitForURL('**/race/*');
+  await page.waitForLoadState('networkidle');
   // Read the id rather than assuming 1. Every docs spec creates its own race
   // against one shared backend, so "the race this spec made" is only id 1 when
   // this spec happens to run first — and running them together is what CI does.
@@ -276,8 +277,10 @@ test('take screenshots', async ({ page }) => {
   // 14: heat complete with times and placements
   await page.screenshot({ path: path.join(screenshotsDir, 'race-day/14-heat-results.png') });
 
-  // Navigate to standings to capture live leaderboard mid-race
-  await page.getByRole('link', { name: 'Stats' }).click();
+  // Navigate to standings to capture live leaderboard mid-race.
+  // Standings, not Stats: this shot is captioned as the leaderboard, and
+  // clicking Stats made it a picture of the lane-fairness chart (#144).
+  await page.getByRole('link', { name: 'Standings' }).click();
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(800);
 
@@ -344,6 +347,12 @@ test('take screenshots', async ({ page }) => {
     });
   }
 
+  // Those results were written straight to the backend, behind the client's
+  // back, so reload before reading the screen again — otherwise the page is
+  // rendering a race that finished several heats ago.
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
   // Navigate back to Race Control race tab to screenshot post-round state
   await page.getByRole('link', { name: 'Control' }).click();
   await page.waitForLoadState('networkidle');
@@ -371,23 +380,35 @@ test('take screenshots', async ({ page }) => {
     await page.waitForTimeout(500);
   }
 
+  // Same again: `advanceRound` went straight to the backend.
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
   // Navigate to Schedule tab to show championship schedule
   await page.getByRole('link', { name: 'Control' }).click();
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(800);
 
-  // 17: championship schedule
+  // 17: championship schedule.
+  // Scrolled to, because the page opens at the qualifying round and the
+  // championship one is below the fold — so this used to be a picture of the
+  // round it is not named after (#144).
+  const championshipTable = page.locator('table').last();
+  await championshipTable.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(screenshotsDir, 'race-day/17-championship-schedule.png') });
 
   // Switch to Race tab to run championship heat
   await page.getByRole('button', { name: 'Race', exact: true }).click();
   await page.waitForTimeout(500);
 
+  // Filling the final's field decided a round, so the summary is up again.
+  // Dismissed *before* waiting on the timer: it is modal, and leaving it there
+  // while waiting means fifteen seconds spent watching a covered page.
+  await dismissRoundSummary();
+
   // Wait for championship heat to auto-prepare
   await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 15000 });
-
-  // Filling the final's field decided a round, so the summary is up again.
-  await dismissRoundSummary();
 
   // Run the championship heat
   await page.getByRole('button', { name: 'Start Timer' }).click();

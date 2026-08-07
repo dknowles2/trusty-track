@@ -75,6 +75,26 @@ const forgetInitialConfig: UpdateResolver = (_result, _args, cache) => {
 };
 
 /**
+ * Forget the cached race list when a race is created or deleted.
+ *
+ * `Query.races` is a root list, and graphcache has no way to know a new `Race`
+ * belongs in it — a normalized cache tracks entities, not which collections
+ * ought to contain them.
+ *
+ * Two screens read that list, and the one that suffers is not the obvious one.
+ * `Navigation` resolves the *name* of the race you are looking at by finding
+ * its id in `races`, so a race missing from the cached list leaves the header
+ * reading "Select a Race" while you are standing on that race's own page.
+ *
+ * Invalidating rather than splicing the new entity in: `createRace` selects
+ * only `id`, while both readers want more than that, so there is nothing to
+ * splice. "This answer is stale, ask again" needs no payload.
+ */
+const forgetRaceList: UpdateResolver = (_result, _args, cache) => {
+  cache.invalidate('Query', 'races');
+};
+
+/**
  * The cache's whole configuration, exported so a test can build a client with
  * it. Testing the real thing matters here: what broke was not a component but
  * the agreement between a mutation and a query about one cached field.
@@ -85,6 +105,8 @@ export const CACHE_CONFIG = {
     Mutation: {
       createInitialConfig: forgetInitialConfig,
       updateInitialConfig: forgetInitialConfig,
+      createRace: forgetRaceList,
+      deleteRace: forgetRaceList,
     },
   },
 };
