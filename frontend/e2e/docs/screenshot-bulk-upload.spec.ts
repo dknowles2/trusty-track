@@ -15,6 +15,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_URL = 'http://127.0.0.1:8001';
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
 
 // Minimal valid 1×1 white JPEG (SOI + APP0 + DQT + SOF0 + DHT + SOS + EOI)
@@ -96,6 +97,28 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
     await page.waitForResponse(response => response.url().includes('graphql') && response.status() === 200, { timeout: 30000 });
     await page.waitForTimeout(1000);
 
+    // The names to type into the combobox, read off the roster that was just
+    // generated rather than guessed. `populateRace` invents its racers, so the
+    // fragments this spec used to hard-code ("jax", "ozz") matched nobody —
+    // and the two screenshots below were captioned as a filtered list and an
+    // assigned photo while showing "No matches" and "0 of 3" (#144).
+    const raceId = Number(page.url().match(/\/race\/(\d+)/)![1]);
+    const rosterResponse = await page.request.post(`${BACKEND_URL}/graphql`, {
+        data: JSON.stringify({
+            query: `query { race(raceId: ${raceId}) { racers { firstName lastName } } }`,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+    });
+    const roster = (await rosterResponse.json()).data.race.racers as {
+        firstName: string;
+        lastName: string;
+    }[];
+    // A first name, which is what an operator would start typing. Distinct
+    // ones, so the second assignment cannot land on the first racer.
+    const [firstRacer, secondRacer] = roster.filter(
+        (r, i, all) => all.findIndex((o) => o.firstName === r.firstName) === i,
+    );
+
     // ── Screenshot 1: toolbar with Upload Photos button highlighted ─────────
     // Scroll to top so the toolbar is visible
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -152,8 +175,8 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
         path: path.join(SCREENSHOT_DIR, '22-bulk-upload-combobox-open.png'),
     });
 
-    // Type to filter — use a short name fragment that matches ~1 racer
-    await firstCombobox.fill('jax');
+    // Type to filter, with a name that is actually on this roster.
+    await firstCombobox.fill(firstRacer.firstName);
     await page.waitForTimeout(250);
 
     // ── Screenshot 5: combobox filtered to matching racer ───────────────────
@@ -161,15 +184,20 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
         path: path.join(SCREENSHOT_DIR, '23-bulk-upload-combobox-filtered.png'),
     });
 
-    // Select the top result with Enter
+    // Highlight the first match, then take it. `Enter` alone only commits when
+    // exactly one racer matches (`handleKeyDown` in `BulkPhotoUploadModal`), and
+    // a first name usually matches several — which is why this spec used to end
+    // with nothing assigned.
+    await firstCombobox.press('ArrowDown');
     await firstCombobox.press('Enter');
     await page.waitForTimeout(300);
 
     // Assign a second photo
     const secondCombobox = page.locator('input[placeholder="— Assign to racer —"]').nth(1);
     await secondCombobox.click();
-    await secondCombobox.fill('ozz');
+    await secondCombobox.fill(secondRacer.firstName);
     await page.waitForTimeout(250);
+    await secondCombobox.press('ArrowDown');
     await secondCombobox.press('Enter');
     await page.waitForTimeout(300);
 
