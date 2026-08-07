@@ -110,6 +110,16 @@ export type WizardGeneralRoundInput = {
   type: string;
 };
 
+export type CacheTestGetRacesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type CacheTestGetRacesQuery = { races: Array<{ id: number, name: string }> };
+
+export type CacheTestCreateRaceMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type CacheTestCreateRaceMutation = { createRace: { id: number } };
+
 export type GetInitialConfigQueryVariables = Exact<{ [key: string]: never; }>;
 
 

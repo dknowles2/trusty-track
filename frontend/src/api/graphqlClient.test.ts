@@ -59,7 +59,7 @@ describe('graphcache key configuration', () => {
  */
 describe('the cached race list and the mutations that change it', () => {
   const RACES = gql`
-    query GetRaces {
+    query CacheTestGetRaces {
       races {
         id
         name
@@ -68,8 +68,8 @@ describe('the cached race list and the mutations that change it', () => {
   `;
 
   const CREATE_RACE = gql`
-    mutation CreateRace {
-      createRace(race: { name: "Derby", groupId: 1 }) {
+    mutation CacheTestCreateRace {
+      createRace(race: { name: "Derby", groupId: 1, trackId: 1 }) {
         id
       }
     }
