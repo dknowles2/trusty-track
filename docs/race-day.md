@@ -219,10 +219,10 @@ Switch to the **Race** tab in Race Control to enter the race execution view. Thi
 The view is split into two columns:
 
 - **Left (main area)**: The current heat — racer names, lane assignments, and results.
-- **Right (sidebar)**: The next 4 upcoming heats, so you can prepare cars in advance.
+- **Right (sidebar)**: **On Deck** — the next heat's lane-up, so those cars can be staged — with the round's progress below it and any later rounds after that.
 
 ![Race Execution View](assets/screenshots/race-day/12-race-execution-current-heat.png)
-_The Race Execution view showing the active heat with lane assignments. The upcoming heats sidebar helps the operator prepare the next cars._
+_The Race Execution view showing the active heat with lane assignments. The On Deck panel beside it is the next heat, so those cars can be staged._
 
 ---
 

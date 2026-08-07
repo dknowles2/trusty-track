@@ -52,7 +52,7 @@ _The Lane Fairness section. Blue bars indicate faster-than-average lanes; gold b
 
 ## Per-Racer Stats
 
-The Per-Racer Stats table shows detailed performance numbers for every racer. Click any column header to sort the table by that column; click again to reverse the sort order.
+The Per-Racer Stats table shows detailed performance numbers for every racer. Every column except **Den** sorts: click its header to sort by it, and click again to reverse the order.
 
 | Column | What It Means |
 |--------|---------------|
@@ -66,7 +66,7 @@ The Per-Racer Stats table shows detailed performance numbers for every racer. Cl
 | **Std Dev** | How consistent their times were — a low number means very consistent; a high number means variable results. Shown as "—" if fewer than 2 heats are recorded. |
 
 ![Per-Racer Stats Table](assets/screenshots/race-stats/04-per-racer-stats.png)
-_The Per-Racer Stats table sorted by average time (the default). Click any column header to re-sort._
+_The Per-Racer Stats table sorted by average time (the default). Click a sortable column header to re-sort._
 
 ---
 
