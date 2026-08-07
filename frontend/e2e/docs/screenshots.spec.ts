@@ -37,9 +37,8 @@ test('take screenshots', async ({ page }) => {
   await page.getByPlaceholder('e.g. School Gym').fill('School Gym');
   await page.getByRole('button', { name: 'Create Race' }).click();
 
-  // Modal closes, race appears in table — click it to navigate to the race
-  await expect(page.getByRole('link', { name: '2026 Pinewood Derby' })).toBeVisible();
-  await page.getByRole('link', { name: '2026 Pinewood Derby' }).click();
+  // Creating a race opens it. This used to leave you on Home to go and find
+  // the race you had just named, and the spec clicked through by hand.
   await page.waitForURL('**/race/*');
   // Read the id rather than assuming 1. Every docs spec creates its own race
   // against one shared backend, so "the race this spec made" is only id 1 when

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
 import { CREATE_RACE } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
@@ -33,10 +33,11 @@ interface Race {
 
 export default function Home() {
     const { showAlert } = useAlert();
+    const navigate = useNavigate();
     const [showCreate, setShowCreate] = useState(false);
     // Location state check removed as per user request
 
-    const [{ data, fetching, error }, reexecuteRaces] = useQuery({
+    const [{ data, fetching, error }] = useQuery({
         query: GET_RACES,
     });
 
@@ -60,7 +61,12 @@ export default function Home() {
                 throw result.error;
             }
             setShowCreate(false);
-            reexecuteRaces({ requestPolicy: 'network-only' });
+            // Open the race that was just created, as the nav bar's own
+            // "New Race…" has always done. Two routes to the same mutation
+            // behaved differently: this one dropped you back on a list to find
+            // the race you had that moment named, and the next thing anyone
+            // wants after creating a race is to set it up.
+            navigate(`/race/${result.data.createRace.id}`);
         } catch (e) {
             console.error("Failed to create race", e);
             showAlert("Failed to create race", "Error");

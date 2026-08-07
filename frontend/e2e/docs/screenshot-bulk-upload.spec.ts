@@ -9,7 +9,7 @@
  * backend is reachable (the Vite proxy handles the SSL tunnel to port 8005).
  */
 
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -85,8 +85,7 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
         await page.getByRole('button', { name: /Create New Race/i }).click();
     await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('Bulk Upload Race');
     await page.getByRole('button', { name: 'Create Race' }).click();
-    await expect(page.getByRole('link', { name: 'Bulk Upload Race' })).toBeVisible();
-    await page.getByRole('link', { name: 'Bulk Upload Race' }).click();
+    // Creating a race opens it; this used to have to click through from Home.
     await page.waitForURL('**/race/*');
     await page.waitForTimeout(600);
 
