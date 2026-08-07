@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RoundWizard } from './RoundWizard';
@@ -33,6 +33,29 @@ describe('RoundWizard Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockExecuteMutation.mockResolvedValue({ data: { createRaceWizard: [] } });
+    });
+
+    it('counts a multi-run championship as the runs it was asked for', async () => {
+        // #143. The field was collected, documented as configurable, and
+        // discarded — so the estimate followed the code and assumed one run.
+        // Now the code honours it, and the estimate follows it there too.
+        const user = userEvent.setup();
+        render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
+
+        await user.click(screen.getByText('Next'));
+        // Select before typing. `clear()` cannot empty this input — the
+        // handler's `parseInt(...) || 1` puts 1 straight back — so typing after
+        // it appends, and "2" becomes 12.
+        // Set directly. `clear()` cannot empty this input — the handler's
+        // `parseInt(...) || 1` puts 1 straight back — so typing after it
+        // appends, and "2" becomes 12.
+        const spinbuttons = screen.getAllByRole('spinbutton');
+        const runsInput = spinbuttons[spinbuttons.length - 1];
+        fireEvent.change(runsInput, { target: { value: '2' } });
+        await user.click(screen.getByText('Next'));
+
+        // 10 racers x 1 run, plus a championship of max(3, 4) = 4 raced twice.
+        expect(screen.getByText('Total Heats: 18')).toBeInTheDocument();
     });
 
     it('estimates the heat count the scheduler will actually produce', async () => {

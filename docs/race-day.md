@@ -170,7 +170,7 @@ Add one or more championship rounds. For each championship round, configure:
 - **Round Name** (e.g., "Grand Finals")
 - **Advancement Source**: **Top Overall (Pack)** or **Top per Den**
 - How many advance — the box is labelled **Number of Finalists** for Top Overall, and **Advancing per Den** for Top per Den
-- **Runs Per Lane** for this round
+- **Runs Per Lane** for this round — the finalists race the whole round again for each run, which is worth it when a final is close enough that one heat should not decide it
 
 Click **+ Add Round** to add more championship rounds if needed. Only the first
 championship round chooses a source; any round after it always draws from the
