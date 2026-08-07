@@ -81,6 +81,7 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
 
     return (
         <div
+            className="fake-timer-mole"
             style={{
                 position: 'fixed',
                 bottom: '30px',

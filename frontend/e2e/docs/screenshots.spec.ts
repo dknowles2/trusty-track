@@ -184,7 +184,13 @@ test('take screenshots', async ({ page }) => {
   // 04: racer list showing one racer "Checked In"
   await page.screenshot({ path: path.join(screenshotsDir, 'race-day/04-racer-list-after-check-in.png') });
 
-  // 05: same page (1 inspected, rest not)
+  // 05: a second racer checked in, so this shows *progress* rather than being
+  // a second copy of 04 (#144).
+  await page.getByRole('button', { name: 'Check In' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeVisible({ timeout: 5000 });
+  await page.locator('label.toggle-switch').last().click();
+  await page.getByRole('button', { name: 'Save Check-in' }).click();
+  await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(screenshotsDir, 'race-day/05-check-in-progress.png') });
 
   // --- B. RACE CONTROL — SCHEDULE TAB ---
@@ -267,8 +273,23 @@ test('take screenshots', async ({ page }) => {
   // 12: race execution view showing heat with lane assignments
   await page.screenshot({ path: path.join(screenshotsDir, 'race-day/12-race-execution-current-heat.png') });
 
-  // 13: fake timer controls panel (bottom-right)
-  await page.screenshot({ path: path.join(screenshotsDir, 'race-day/13-fake-timer-controls.png') });
+  // 13: the Fake Timer Controls panel itself. It was a second copy of 12, so
+  // the close-up the caption describes did not exist (#144).
+  const timerPanel = page.locator('.fake-timer-mole');
+  const panelBox = await timerPanel.boundingBox();
+  await page.screenshot({
+    path: path.join(screenshotsDir, 'race-day/13-fake-timer-controls.png'),
+    ...(panelBox
+      ? {
+          clip: {
+            x: Math.max(0, panelBox.x - 20),
+            y: Math.max(0, panelBox.y - 20),
+            width: Math.min(panelBox.width + 40, 1200 - Math.max(0, panelBox.x - 20)),
+            height: panelBox.height + 40,
+          },
+        }
+      : {}),
+  });
 
   // Start the timer and wait for auto-finish (3-5s) plus buffer
   await page.getByRole('button', { name: 'Start Timer' }).click();
@@ -434,8 +455,15 @@ test('take screenshots', async ({ page }) => {
   // 01: full observation page
   await page.screenshot({ path: path.join(screenshotsDir, 'observation/01-observation-overview.png') });
 
-  // 02: same page (shows secondary nav with "Live" tab highlighted)
-  await page.screenshot({ path: path.join(screenshotsDir, 'observation/02-observation-url.png') });
+  // 02: the race navigation, which is what the section around it is about —
+  // finding the Live tab. It used to be a second copy of 01, captioned as
+  // showing a URL that a Playwright screenshot cannot contain (#144).
+  const raceNav = page.locator('nav').last();
+  const navBox = await raceNav.boundingBox();
+  await page.screenshot({
+    path: path.join(screenshotsDir, 'observation/02-observation-url.png'),
+    ...(navBox ? { clip: { x: 0, y: 0, width: 1200, height: navBox.y + navBox.height + 10 } } : {}),
+  });
 
   // 03: "Now Racing" card area
   const nowRacingCard = page.locator('.heat-card').first();
@@ -469,13 +497,30 @@ test('take screenshots', async ({ page }) => {
   await page.getByRole('button', { name: /Standings/i }).click();
   await page.waitForTimeout(500);
 
-  // 05: live leaderboard on observation page
-  await page.screenshot({ path: path.join(screenshotsDir, 'observation/05-live-leaderboard.png') });
+  // 05: the standings table itself, not another copy of the whole page (#144).
+  const standingsTable = page.locator('table').first();
+  await standingsTable.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
+  const standingsBox = await standingsTable.boundingBox();
+  await page.screenshot({
+    path: path.join(screenshotsDir, 'observation/05-live-leaderboard.png'),
+    ...(standingsBox
+      ? { clip: { x: 0, y: standingsBox.y - 60, width: 1200, height: Math.min(standingsBox.height + 80, 700) } }
+      : {}),
+  });
 
-  // 06: top of page showing "Launch Projector Mode" button
+  // 06: the "Launch Projector Mode" button, which is what the caption points
+  // at — this was a fifth copy of the full page (#144).
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(300);
-  await page.screenshot({ path: path.join(screenshotsDir, 'observation/06-projector-mode-button.png') });
+  const projectorButton = page.getByRole('button', { name: /Launch Projector Mode/i });
+  const buttonBox = await projectorButton.boundingBox();
+  await page.screenshot({
+    path: path.join(screenshotsDir, 'observation/06-projector-mode-button.png'),
+    ...(buttonBox
+      ? { clip: { x: 0, y: 0, width: 1200, height: buttonBox.y + buttonBox.height + 20 } }
+      : {}),
+  });
 
   // 07: projector mode — open in new tab
   const newPagePromise = page.context().waitForEvent('page');
@@ -486,8 +531,9 @@ test('take screenshots', async ({ page }) => {
   await projectorPage.screenshot({ path: path.join(screenshotsDir, 'observation/07-projector-mode-full.png') });
   await projectorPage.close();
 
-  // 09: observation page with racer photos (as-is — already shown)
-  await page.screenshot({ path: path.join(screenshotsDir, 'observation/09-observation-no-photos.png') });
+  // No 09. It was a sixth copy of the full page, captioned "without photos" —
+  // which is honest only because this fixture has none, and is therefore
+  // exactly what 01 already shows. That section points at 01 now (#144).
 
   // ============================================================
   // PART 3: RACE STATS SCREENSHOTS
