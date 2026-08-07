@@ -107,13 +107,13 @@ _Three photos loaded and ready to assign. Each card shows the filename, an assig
 _Clicking the search box shows all racers sorted by car number. Scroll or start typing to narrow the list._
 
 ![Typing in the assignment box](assets/screenshots/race-day/23-bulk-upload-combobox-filtered.png)
-_The list narrows as you type, matching on car number as well as name. Press Enter or click a name to assign; if nothing matches, the box says so._
+_The list narrows as you type, matching on car number as well as name. Click a name to assign it, or use the arrow keys and press Enter; if nothing matches, the box says so._
 
 5. Use the **Racer photo** / **Car photo** radio buttons on each card to indicate what the image shows (default is Racer photo).
 6. After assigning all photos, click **Apply N Assignment(s)** to save.
 
 ![The Apply button and the assignment counter](assets/screenshots/race-day/24-bulk-upload-assigned.png)
-_**Apply** stays greyed out until at least one photo has a racer against it, and the footer beside it counts how many are ready. Once a photo is assigned the button reads **Apply 1 Assignment(s)**._
+_Two photos assigned and one still to go. **Apply** stays greyed out until at least one photo has a racer against it, and the footer beside it counts how many are ready._
 
 Photos that are uploaded but not assigned to any racer are silently skipped — only photos with a racer selected are saved. Assignments can be applied at any time during or after check-in; the photos will be visible on the audience display during the race.
 
