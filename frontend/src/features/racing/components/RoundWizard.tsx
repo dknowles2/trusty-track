@@ -95,11 +95,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       } else {
         participatingRacers = round.numTopRacers * denCount;
       }
-      // Deliberately not `round.runsPerLane`: `createRoundWizard` generates a
-      // championship round exactly once whatever that field says (#143). The
-      // estimate's job is to predict what will happen, so it follows the code
-      // rather than the control.
-      const roundHeats = heatsFor(participatingRacers, 1);
+      const roundHeats = heatsFor(participatingRacers, round.runsPerLane);
       rounds.push({
         name: round.name,
         heats: roundHeats,

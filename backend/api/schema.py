@@ -1772,8 +1772,11 @@ class Mutation:
                 previous_champ_round_id = round_obj.id
 
                 num_placeholders = crud.round_field_size(db, round_obj)
-                # Championship rounds: 1 run per lane
-                for i in range(1):
+                # As many runs as asked for, exactly as the general round above
+                # does. This was hardcoded to one while the wizard collected
+                # the field and the docs called it configurable, so an operator
+                # setting a two-run final quietly got a one-run final (#143).
+                for i in range(champ_cfg.runs_per_lane):
                     crud.generate_heats_for_round(
                         db,
                         round_obj.id,
@@ -1800,13 +1803,17 @@ class Mutation:
             raise ValueError("Round not found")
 
         # Determine how many runs per lane we have from existing heats
+        # How many runs this round was built with, recovered from what is
+        # there: PPC makes one heat per participant per run. `total_participants`
+        # answers for either kind — a championship round's field is its
+        # `field_size` — so this no longer excludes them, which would have
+        # collapsed a regenerated multi-run final back to a single run (#143).
         participants = round_obj.total_participants
         runs_per_lane = 1
-        if not round_obj.advancement_source and participants > 0 and round_obj.heats:
+        if participants > 0 and round_obj.heats:
             runs_per_lane = len(round_obj.heats) // participants
             if runs_per_lane == 0:
                 runs_per_lane = 1
-        # Championship rounds (advanced) use runs_per_lane = 1
 
         heats = []
         for i in range(runs_per_lane):
@@ -2513,8 +2520,8 @@ class Mutation:
                     advancement_num_racers=round_data.advancement_num_racers,
                 )
 
-                # Placeholder Heats (Champ rounds: 1 run per lane)
-                for i in range(1):
+                # Placeholder heats, one set per run — same as above (#143).
+                for i in range(round_data.runs_per_lane):
                     crud.generate_heats_for_round(
                         db,
                         round_obj.id,
