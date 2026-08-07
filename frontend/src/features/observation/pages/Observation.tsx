@@ -5,6 +5,7 @@ import { Icon } from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import TimerStatusBadge from '../../racing/components/timer/TimerStatusBadge';
+import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import {
   LeaderboardSubscription,
   OnDeckSubscription,
@@ -134,6 +135,16 @@ export default function Observation() {
     pause: !id || isNaN(id),
   });
 
+  // Which heat the timer is armed for — the only thing that knows what is
+  // physically on the track. The same subscription `TimerStatusBadge` already
+  // opens, so this costs nothing extra.
+  const trackId: number | undefined = initialResult.data?.race?.track?.id;
+  const [{ data: timerData }] = useSubscription({
+    query: TIMER_STATUS_SUBSCRIPTION,
+    variables: { trackId: trackId ?? 0 },
+    pause: !trackId,
+  });
+
   // Sync results overlay state during render
   const currentHeatId = timingStatsData?.timingStats ? `${timingStatsData.timingStats.roundName}-${timingStatsData.timingStats.heatNumber}` : null;
   if (isProjectorMode && currentHeatId && currentHeatId !== lastProcessedHeatId) {
@@ -173,7 +184,21 @@ export default function Observation() {
   const lastHeatResults = timingStatsData?.timingStats;
   const activeFreeRace = activeFreeRaceData?.activeFreeRaceHeat;
 
-  const isExhibition = !officialCurrentHeat && activeFreeRace;
+  /** Is the thing on the track an exhibition run? (#142)
+   *
+   * The timer decides, because the timer is what the operator armed. This used
+   * to be `!officialCurrentHeat && activeFreeRace`, and `currentlyRacing`
+   * returns the first *unfinished* official heat — so it was truthy for the
+   * whole event, and a free race only reached the wall before a schedule
+   * existed or after the last heat had run. Which is to say: never, during the
+   * event, which is the only time anyone wants one.
+   *
+   * `activeFreeRaceHeat` alone is not enough either. A free heat created and
+   * abandoned stays "active" until it is run or deleted, and it is not on the
+   * track just because nobody tidied it up.
+   */
+  const armedHeatId: number | null = timerData?.timerStatus?.status?.activeHeatId ?? null;
+  const isExhibition = !!activeFreeRace && armedHeatId === activeFreeRace.id;
 
   /** A car on the track, with the lane it is actually in.
    *
@@ -197,8 +222,10 @@ export default function Observation() {
       .filter((entry): entry is LaneEntry => entry !== null && entry.racer !== undefined);
 
   const currentHeatRacers = useMemo(() => {
-    if (officialCurrentHeat) return racersInLanes(officialCurrentHeat.lanes);
+    // The exhibition first: if the timer is armed for it, it is the thing on
+    // the track, and the scheduled heat is merely next.
     if (isExhibition && activeFreeRace) return racersInLanes(activeFreeRace.lanes);
+    if (officialCurrentHeat) return racersInLanes(officialCurrentHeat.lanes);
     return [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officialCurrentHeat, isExhibition, activeFreeRace, racersMap]);
@@ -368,7 +395,11 @@ export default function Observation() {
             currentHeatRacers,
             false,
             mdiFire,
-            officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}` : undefined,
+            isExhibition
+              ? undefined
+              : officialCurrentHeat
+                ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}`
+                : undefined,
             isExhibition
           )}
           {renderHeatCard(

@@ -88,11 +88,11 @@ A free race heat takes the "currently racing" spot on the
 nobody mistakes it for part of the event, and its times appear in the results
 panel when it finishes. The leaderboard beside it does not move.
 
-The one thing to know: the display only hands that spot to a free race when
-there is no scheduled heat still waiting to be run. Before the first round is
-built, and once the last heat of the night is in, an exhibition run is what the
-audience sees. In the middle of an event the display stays with the heat that
-is next on the schedule.
+The display follows the timer, so the spot goes to whatever is actually on the
+track. Arm a free race in the middle of an event and the audience sees it;
+finish it and the display returns to the scheduled heat. A free race you set up
+and then left alone does not take the spot, because it is not on the track —
+only an armed one is.
 
 ---
 
