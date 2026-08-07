@@ -62,11 +62,25 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   // GraphQL Mutation
   const [, createRoundWizardMutation] = useMutation(CREATE_ROUND_WIZARD);
 
+  /** Heats a PPC round of this many racers produces, per run.
+   *
+   * One heat per racer, not per lane-full of them — `generate_ppc` seeds lane 1
+   * with every racer, and that is what fixes the count. Dividing by the lane
+   * count is the arithmetic for a scheduler that packs racers into heats, which
+   * PPC deliberately is not: every racer runs in every lane, so a 19-racer
+   * round on a 3-lane track is 19 heats, not 7 (#140).
+   *
+   * This preview is where an operator decides whether their evening fits, and
+   * it feeds the run-time estimate too, so being out by a factor of the lane
+   * count is out by a factor of the lane count on both numbers.
+   */
+  const heatsFor = (racers: number, runs: number) => racers * runs;
+
   const getRaceBreakdown = () => {
     const rounds: { name: string; heats: number; duration: number }[] = [];
 
     // General Round
-    const generalHeats = Math.ceil((racerCount * generalConfig.runsPerLane) / laneCount);
+    const generalHeats = heatsFor(racerCount, generalConfig.runsPerLane);
     rounds.push({
       name: `${generalConfig.type === 'PACK' ? 'All Pack' : 'Den'} Round`,
       heats: generalHeats,
@@ -81,7 +95,11 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       } else {
         participatingRacers = round.numTopRacers * denCount;
       }
-      const roundHeats = Math.ceil((participatingRacers * round.runsPerLane) / laneCount);
+      // Deliberately not `round.runsPerLane`: `createRoundWizard` generates a
+      // championship round exactly once whatever that field says (#143). The
+      // estimate's job is to predict what will happen, so it follows the code
+      // rather than the control.
+      const roundHeats = heatsFor(participatingRacers, 1);
       rounds.push({
         name: round.name,
         heats: roundHeats,
