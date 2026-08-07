@@ -73,16 +73,19 @@ warn_return_any = true
 # gate covers the tree by default: a new module is checked from the day it is
 # written, and this list can only shrink. Removing an entry is a good PR.
 #
-# Down from nine. What is left is the hard part rather than the leftovers: two
-# of the three are dominated by Strawberry's duck-typing, where resolvers return
-# ORM rows and `self` is not the type it is declared on. That is deliberate and
-# wants `type: ignore` at each site rather than a fix, so it is worth doing on
-# purpose rather than in passing.
+# Down from nine to one. `crud` and `services.timer.manager` came off once
+# somebody counted: the note here said all three were "dominated by Strawberry's
+# duck-typing", and between them they had seven errors, none of which were. Two
+# were real — a heat dereferenced without checking it still existed, and a
+# command logged as `b'RV\r'` instead of through the formatter beside it.
+#
+# `api.schema` is the genuine case. Its resolvers return ORM rows and `self` is
+# not the type it is declared on, so most of what is left wants `type: ignore`
+# at each site with a reason rather than a fix — worth doing on purpose rather
+# than in passing. Removing this last entry is still a good PR.
 [[tool.mypy.overrides]]
 module = [
     "backend.api.schema",
-    "backend.db.crud",
-    "backend.services.timer.manager",
 ]
 ignore_errors = true
 

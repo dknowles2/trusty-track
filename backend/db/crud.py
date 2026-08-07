@@ -750,13 +750,22 @@ def round_field_size(db: Session, round_obj: models.Round) -> int:
     The rule is :func:`backend.domain.advancement.field_size`; this is the I/O
     around it — a ``DEN`` round needs its racer count multiplied by the number
     of dens, so somebody has to count the dens.
+
+    A round with no ``advancement_source`` is a preliminary round: its field is
+    the roster rather than a number of slots, so it needs none. Every caller
+    passes a championship round, and the answer was already 0 for a prelim by
+    way of ``num_racers`` being null — this says so rather than arriving there.
     """
+    source = round_obj.advancement_source
+    if source is None:
+        return 0
+
     rule = advancement.AdvancementRule(
-        source=round_obj.advancement_source,
+        source=source,
         num_racers=round_obj.advancement_num_racers,
     )
     den_count = 0
-    if round_obj.advancement_source == advancement.DEN:
+    if source == advancement.DEN:
         den_count = (
             db.query(models.Den).filter(models.Den.race_id == round_obj.race_id).count()
         )
@@ -944,8 +953,15 @@ def record_heat_result(
 
 
 def auto_number_racers(
-    db: Session, race_id: int, racer_ids: list[int | None] = None
+    db: Session, race_id: int, racer_ids: list[int] | None = None
 ) -> int:
+    """Assign car numbers to a race's racers, or to just the ones named.
+
+    ``racer_ids`` was annotated ``list[int | None]`` with a default of ``None``
+    — the optionality had been written one level too deep, so the signature
+    said "a list that may contain nothing" and meant "no list". Both callers
+    pass either a `list[int]` or nothing at all.
+    """
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
         return 0
