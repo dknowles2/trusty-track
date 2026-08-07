@@ -499,6 +499,13 @@ export default function RaceControl() {
    * converges in one pass — after this the memo finds `chosen` and the
    * condition is false — and it is self-healing, because a pinned heat that
    * stops existing sends the memo back to the fallback and pins the new answer.
+   *
+   * The pin is only as good as the heats it is reading. A client shown stale
+   * heats pins the wrong one and, being a pin, never corrects — so anything
+   * changing results behind this component's back has to tell it. Operators
+   * are covered, because their own writes and the timer's both publish to the
+   * subscriptions this page listens on; a *test* driving the backend directly
+   * is not, and has to reload. See `e2e/docs/screenshots.spec.ts`.
    */
   if (activeExecutionHeat && selectedHeatId !== activeExecutionHeat.id) {
       setSelectedHeatId(activeExecutionHeat.id);
