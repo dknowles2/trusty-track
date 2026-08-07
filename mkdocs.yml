@@ -46,6 +46,7 @@ nav:
     - Scheduling Algorithms: scheduling-algorithms.md
 
 plugins:
+  - callouts               # renders GitHub's > [!TIP] blocks as admonitions
   - search
 
 markdown_extensions:

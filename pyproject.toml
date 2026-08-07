@@ -32,6 +32,7 @@ dev = [
     "mypy",
     "pyinstaller",
     "pre-commit",
+    "mkdocs-callouts>=1.16.1",
 ]
 docs = [
     "mkdocs-material",
