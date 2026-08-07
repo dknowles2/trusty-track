@@ -12,6 +12,7 @@ import {
     TimingStatsSubscription,
     ActiveFreeRaceHeatSubscription
 } from '../graphql/queries';
+import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -50,6 +51,10 @@ describe('Observation Page', () => {
             currentlyRacing: null,
             timingStats: null,
             activeFreeRaceHeat: null,
+            // Which heat the timer is armed for. `null` is "nothing armed",
+            // which is what makes a free race an exhibition only when it is
+            // actually on the track (#142).
+            armedHeatId: null,
             ...overrides
         };
 
@@ -59,6 +64,7 @@ describe('Observation Page', () => {
             if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: defaultSubs.currentlyRacing } }];
             if (query === TimingStatsSubscription) return [{ data: { timingStats: defaultSubs.timingStats } }];
             if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: defaultSubs.activeFreeRaceHeat } }];
+            if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: defaultSubs.armedHeatId } } } }];
             return [{ data: null }];
         });
     };
@@ -146,12 +152,13 @@ describe('Observation Page', () => {
         });
     });
 
-    it('shows active free race heat in Now Racing when no official heat is running', async () => {
+    it('shows a free race in Now Racing while the timer is armed for it', async () => {
         setupMocks({
             activeFreeRaceHeat: {
                 id: 99,
                 lanes: [{ lane: 1, racerId: 1 }],
-            }
+            },
+            armedHeatId: 99,
         });
 
         render(
@@ -169,7 +176,13 @@ describe('Observation Page', () => {
         });
     });
 
-    it('official heat takes priority over free race heat', async () => {
+    it('shows a free race even while official heats are still to run', async () => {
+        // #142. `currentlyRacing` returns the first *unfinished* official heat,
+        // so it is truthy for the whole event — and the old rule
+        // (`!officialCurrentHeat && activeFreeRace`) therefore never fired
+        // while a race was on. A demonstration run for a scout whose car broke
+        // reached the wall before the schedule existed, or after the trophies,
+        // and at no point in between.
         setupMocks({
             currentlyRacing: {
                 id: 2, roundNumber: 1, heatNumber: 2,
@@ -178,7 +191,39 @@ describe('Observation Page', () => {
             activeFreeRaceHeat: {
                 id: 99,
                 lanes: [{ lane: 1, racerId: 1 }],
-            }
+            },
+            armedHeatId: 99,
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Exhibition')).toBeInTheDocument();
+        });
+        // The exhibition's racer, not the scheduled heat's.
+        expect(screen.getAllByText('Speedy McQueen').length).toBeGreaterThan(0);
+        expect(screen.queryByText('(Round 1, Heat 2)')).not.toBeInTheDocument();
+    });
+
+    it('a free race the timer is not armed for does not displace the scheduled heat', async () => {
+        // A free heat created and then abandoned stays "active" until it is run
+        // or deleted. It is not on the track just because nobody tidied it up.
+        setupMocks({
+            currentlyRacing: {
+                id: 2, roundNumber: 1, heatNumber: 2,
+                lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+            },
+            activeFreeRaceHeat: {
+                id: 99,
+                lanes: [{ lane: 1, racerId: 1 }],
+            },
+            armedHeatId: null,
         });
 
         render(
