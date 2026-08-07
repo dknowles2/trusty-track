@@ -10,7 +10,7 @@ To enable the Fake Timer, navigate to the **System Settings** page (shown automa
 2.  Select **Fake Timer (Manual Control)**.
 3.  Click **Save Settings**.
 
-![System Configuration with Fake Timer selected](img/fake_timer_config.png)
+![System Configuration with Fake Timer selected](assets/screenshots/getting-started/02-system-settings.png)
 
 ## 2. Running a Race with Fake Timer
 
@@ -29,7 +29,7 @@ When you enter a heat, you will see the **Fake Timer Controls** panel docked in 
     *   The results will be saved and displayed immediately.
     *   The heat is marked as complete.
 
-![Race Execution showing Fake Timer Controls](img/fake_timer_execution.png)
+![Race Execution showing Fake Timer Controls](assets/screenshots/race-day/12-race-execution-current-heat.png)
 
 ## Tips
 
