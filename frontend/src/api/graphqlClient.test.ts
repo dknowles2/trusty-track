@@ -57,6 +57,88 @@ describe('graphcache key configuration', () => {
  * bounced them back to the setup page they had come from. Saving a second time
  * worked, which is why it read as a glitch rather than a bug.
  */
+describe('the cached race list and the mutations that change it', () => {
+  const RACES = gql`
+    query GetRaces {
+      races {
+        id
+        name
+      }
+    }
+  `;
+
+  const CREATE_RACE = gql`
+    mutation CreateRace {
+      createRace(race: { name: "Derby", groupId: 1 }) {
+        id
+      }
+    }
+  `;
+
+  function clientReplying(answers: object[]) {
+    const asked: string[] = [];
+    const stub: Exchange = () => (ops$) =>
+      pipe(
+        ops$,
+        filter((op) => op.kind !== 'teardown'),
+        map((op) => {
+          asked.push(op.kind);
+          return {
+            operation: op,
+            data: answers[asked.length - 1],
+            stale: false,
+            hasNext: false,
+          } as OperationResult;
+        }),
+      );
+
+    return {
+      client: new Client({ url: '/graphql', exchanges: [cacheExchange(CACHE_CONFIG), stub] }),
+      queries: () => asked.filter((k) => k === 'query').length,
+    };
+  }
+
+  const oneRace = { races: [{ __typename: 'Race', id: 1, name: 'Derby' }] };
+  const twoRaces = {
+    races: [
+      { __typename: 'Race', id: 1, name: 'Derby' },
+      { __typename: 'Race', id: 2, name: 'Second Derby' },
+    ],
+  };
+  const created = { createRace: { __typename: 'Race', id: 2 } };
+
+  it('asks again after a race is created', async () => {
+    // Characterisation, not a guard on our own configuration: graphcache does
+    // this by itself, and `CACHE_CONFIG` says nothing about `createRace`.
+    //
+    // Worth pinning anyway, because the home page now *relies* on it. Creating
+    // a race navigates straight to it, so nothing refetches the list on the way
+    // out; if this invalidation ever stopped happening, the operator would come
+    // back to a list missing the race they had just made, and it would read as
+    // the creation having failed.
+    //
+    // I nearly added an updater for this. Removing it changed nothing here —
+    // two queries either way — which is how it turned out to be unnecessary.
+    const { client, queries } = clientReplying([oneRace, created, twoRaces]);
+
+    await client.query(RACES, {}).toPromise();
+    await client.mutation(CREATE_RACE, {}).toPromise();
+    const after = await client.query(RACES, {}).toPromise();
+
+    expect(queries()).toBe(2);
+    expect(after.data.races).toHaveLength(2);
+  });
+
+  it('still answers a repeated query from the cache when nothing has changed', async () => {
+    const { client, queries } = clientReplying([oneRace, oneRace]);
+
+    await client.query(RACES, {}).toPromise();
+    await client.query(RACES, {}).toPromise();
+
+    expect(queries()).toBe(1);
+  });
+});
+
 describe('config mutations and the cached answer to initialConfig', () => {
   const CONFIG_QUERY = gql`
     query GetInitialConfig {
