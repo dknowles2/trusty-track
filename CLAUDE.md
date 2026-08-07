@@ -238,7 +238,7 @@ On the frontend, no code parses lane JSON any more. Screens read `lanes`, ask ab
 
 A free race heat is a `Heat` with `kind = FREE` and no `round_id` (issue #6). It is an exhibition run: the timer records it and the audience display shows it, but **scoring, scheduling, advancement and statistics must exclude it**.
 
-**Use `models.official_heats(query)`** rather than writing the filter out, so its absence is visible at the call site. The paths that depend on it are `crud.get_heats`, `loaders.heats_for_race`, `compute_race_stats`, and the `onDeck` / `currentlyRacing` / `timingStats` subscriptions; `test_heat_kind.py` inserts a free heat and checks each one. `delete_race` deliberately does *not* filter — it takes both.
+**Use `models.official_heats(query)`** rather than writing the filter out, so its absence is visible at the call site. The paths that depend on it are `crud.get_heats`, `loaders.heats_for_race`, `compute_race_stats`, and the `onDeck` / `currentlyRacing` subscriptions; `test_heat_kind.py` inserts a free heat and checks each one. **`timingStats` and `delete_race` deliberately do *not* filter** — both take either kind. `timingStats` shows the heat that just happened, and an exhibition run is the thing that just happened when it is (#59); `delete_race` is removing all of them.
 
 Heat IDs used to be ambiguous: `heats` and `free_race_heats` had independent autoincrement sequences, so anything holding a bare ID had to carry a `HeatKind` alongside it, and inferring the kind by looking an ID up in one table and falling back to the other wrote free-race times into official heats (issue #4). One table means one sequence, so an ID is unambiguous and code reads the kind off the heat rather than being told it.
 

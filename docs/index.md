@@ -4,8 +4,9 @@ Trusty Track helps Cub Scout packs run Pinewood Derby events without spreadsheet
 
 ## Where do I start?
 
+- **[Installation](user/install.md)**: Getting Trusty Track onto a Mac, a Windows PC, a Raspberry Pi, or Docker.
 - **[Getting Started](getting-started.md)**: A guide for first-time organizers.
-- **[Race Setup](race-setup.md)**: How to set up your pack, racers, and competition rules.
+- **[Race Setup](race-setup.md)**: Dens, racers, car numbers, and importing a roster from a spreadsheet.
 - **[Race Day Operations](race-day.md)**: Managing check-in, heat generation, and race execution.
 - **[Printables](printables.md)**: Pit passes, driver's licences, and check-in codes you can scan.
 - **[Free Race](free-race.md)**: Practice and exhibition heats that count for nothing.

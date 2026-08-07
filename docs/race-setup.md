@@ -13,7 +13,7 @@ _The Race Details dashboard provides a summary of race settings and the current 
 
 ## Managing Dens
 
-Dens (sometimes called Groups) are the sub-organizations within your race (e.g., Lions, Tigers, Wolves). Trusty Track uses dens to group racers for heat scheduling and optional car numbering ranges.
+Dens are the sub-groups within your race (e.g., Lions, Tigers, Wolves). Trusty Track uses them to divide the roster up — for a round raced by one den, for a championship that takes the top few from each den, and for car number ranges.
 
 ### Opening Den Manager
 
@@ -25,9 +25,9 @@ Click the **Manage Dens** button above the racer roster to open the Den Manager.
 
 1. Click **+ Add New Den**.
 2. Enter the **Name** (e.g., "Lions").
-3. (Optional) Set a **Car Number Range**. If provided, the "Auto-Number" feature will use this range for this specific den.
-4. Select a **Color** to identify the den in the UI and on the live stream.
-5. (Optional) Select a **Rank Mapping** to automatically assign standardized ranks.
+3. Check the **Start Number** and **End Number**. They arrive filled in with a block of a hundred that no other den is using, and **Auto number** hands out numbers from that block when the race is set to Per Den numbering. Clear them if you number cars some other way.
+4. Select a **Color** to identify the den. It is the colour of the den's tag in the roster, on printed pit passes and licences, and in the den comparison on the Stats page.
+5. (Optional) Select a **Rank Mapping** to tie the den to a standard Cub Scout rank.
 6. Click **Add Den**.
 
 ![Add Den Form](assets/screenshots/race-setup/03-add-den-form.png)
@@ -40,17 +40,15 @@ You can add racers one by one for small events or late registrations, or bulk-im
 
 ### Manual Addition
 
-1. Click the **Add Racer** button (or the arrow next to it and select **Add Manually**).
+1. Click the **Add Racer** button. (The arrow beside it is for the other two ways in — **Import from CSV** and **Populate Test Data**.)
 2. Enter the racer's **First Name** and **Last Name**.
-3. Enter a **Car Number** (if not using Auto-Number later).
-4. Select the appropriate **Den**.
+3. Enter a **Car Number** (if not using **Auto number** later).
+4. Select the appropriate **Den**. **Car Name**, **Car Weight** and a photo can all be filled in now or left until check-in.
 5. Click **Save Racer**.
 
 ![Add Racer Form](assets/screenshots/race-setup/04-add-racer-form.png)
 
 The racer will now appear in your roster.
-
-![Roster with Manual Entry](assets/screenshots/race-setup/05-racer-list-manual.png)
 
 ---
 
@@ -87,9 +85,10 @@ Select one or more racers using the checkboxes on the left to enable the **Bulk 
 
 From here, you can:
 
-- **Auto-number**: Automatically assign car numbers based on your Race Settings (Global or Per-Den).
-- **Move to Den**: Batch change the den assignment for selected racers.
+- **Auto number**: Assign car numbers to the selected racers, following the race's **Car Numbering** setting — sequentially from the global start number, or from each den's own range. A race set to Manual numbering is left alone.
 - **Clear numbers**: Remove car numbers from selected racers.
+- **Bulk Check-In**: Mark the selected racers as passed inspection and checked in.
+- **Move to den**: Batch change the den assignment for selected racers, or move them to Unassigned.
 - **Delete**: Remove selected racers from the race.
 
 ### Final Roster Review

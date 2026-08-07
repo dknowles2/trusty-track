@@ -55,12 +55,12 @@ uv run pytest
 
 ```bash
 # One file, verbose
-uv run pytest backend/tests/test_scoring.py -v
+uv run pytest backend/tests/test_scoring_scope.py -v
 ```
 
 ```bash
 # One test
-uv run pytest backend/tests/test_scoring.py -k leaderboard
+uv run pytest backend/tests/test_scoring_scope.py -k leaderboard
 ```
 
 ### 4. Linting and Types

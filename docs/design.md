@@ -100,12 +100,15 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `round_id` (FK to Round, **nullable** — null for a free race heat)
     -   `kind` (Enum: `OFFICIAL`, `FREE`)
     -   `heat_number`
-    -   `lane_results` (JSON string: `[{lane, racer_id, time, place}]`)
+    -   `lane_results` (JSON string: `[{lane, racer_id, time, place}]`) — **derived** since the write path
+        moved to `heat_lanes`. Still written on every save so a rollback has data; nothing reads it except
+        the projection's own verification. Retiring it is issue #72's last step, and waits on a release.
     -   `created_at` — when the row was written. For an official heat that is when its *round* was generated, not when it ran.
     -   `recorded_at` — when a result was last recorded, cleared on a re-run. The only field the two heat kinds can be ranked on together.
--   **`HeatLane`**: A normalized projection of `lane_results`, one row per lane.
-    -   `heat_id` (FK to Heat), `lane`, `racer_id`, `placeholder_slot`, `time`, `place`, `skipped`
-    -   The blob remains the source of truth and everything writes it; a SQLAlchemy session listener projects those writes into this table, so no write site has to know it exists. Reads — including the whole GraphQL read path — come from here.
+-   **`HeatLane`**: One row per lane of a heat.
+    -   `heat_id` (FK to Heat, `ON DELETE CASCADE`), `lane`, `racer_id` (FK to Racer, `ON DELETE SET NULL`), `placeholder_slot`, `time_seconds`, `place`, `skipped`
+    -   Rows are built from the lane *values* a writer supplied, not from parsing the string it also wrote: `crud.set_heat_lanes` is the one door, and a session listener writes the rows once the flush has given a new heat its id. `lane_results` is written alongside as a **derived** column, so a rollback has data. Reads — including the whole GraphQL read path — come from here.
+    -   The two `ON DELETE` actions are load-bearing rather than decorative. Five delete paths used to remove a parent while lane rows still pointed at it, and nothing noticed because SQLite enforces no foreign key unless asked; see issue #125.
 
 **Not implemented:** a `User` entity with authentication and roles. Mutations
 are unauthenticated and CORS is open, which is a deliberate deferral for a
@@ -220,7 +223,7 @@ The frontend will provide distinct interfaces tailored for different user journe
 
 ### 4.3. UI & Branding Adherence
 
-The UI will strictly follow the BSA Official Guidelines outlined in `SPEC.md`:
+The UI will strictly follow the BSA Official Guidelines outlined in [the specification](spec.md):
 
 -   **Primary Colors:**
     -   Scouting Blue (`#003F87`): Used for headers, navigation, and primary buttons.

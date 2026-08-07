@@ -28,21 +28,22 @@ _The Free Race tab. The blue banner is on every screen in this mode — nothing 
 
 **Random** is the default and fills the lanes from the checked-in roster. It is
 usually what you want for an impromptu run: click **Re-shuffle** for a
-different draw, or **Clear All** to empty the lanes.
+different draw. Drag a lane by its handle if you want to move someone.
 
 ### Manual
 
-Switch to **Manual** to pick each lane yourself. Lanes may be left empty — a
-two-car exhibition on a four-lane track is fine.
+Switch to **Manual** to pick each lane yourself, and click **Clear All** to
+empty every lane and start again. Lanes may be left empty — a two-car
+exhibition on a four-lane track is fine.
 
 ![Manual lane assignment](assets/screenshots/free-race/02-lane-setup-manual.png)
 _Manual mode gives every lane a racer picker. Leave a lane on "Select racer" to run it empty._
 
-!!! note "Only checked-in racers appear"
+!!! note "Random draws from the checked-in racers only"
 
-    A racer shows up in the pickers once their car has passed inspection. If
-    someone is missing from the list, check them in first — or run the heat
-    with the lanes empty (see below).
+    A **Random** draw is made from the racers whose cars have passed
+    inspection, so somebody who has not been checked in will never come up in
+    one. The **Manual** pickers list the whole roster, checked in or not.
 
 When at least one lane holds a racer, the button reads **Start Free Race
 Heat**. With every lane empty it reads **Start Anonymous Heat**, which is the
@@ -59,7 +60,7 @@ official one.
 _A staged free race heat. With a fake timer configured, the Fake Timer Controls appear in the corner — see the [Fake Timer guide](fake-timer.md)._
 
 - **With a hardware timer**: release the cars as normal; times arrive on their own.
-- **With the fake timer**: click **Start Timer**, then **Finish Heat**.
+- **With the fake timer**: click **Start Timer**. The heat finishes on its own a few seconds later, or click **Finish Heat** to end it at once.
 
 Results appear as soon as the heat finishes, with places and the winner
 highlighted.
@@ -82,9 +83,16 @@ empty record behind.
 
 ## What the audience sees
 
-A free race heat appears on the [Observation display](observation-displays.md)
-like any other heat, so spectators watching a demonstration run see the cars
-and the times. The leaderboard beside it does not move.
+A free race heat takes the "currently racing" spot on the
+[Observation display](observation-displays.md), labelled **Exhibition** so
+nobody mistakes it for part of the event, and its times appear in the results
+panel when it finishes. The leaderboard beside it does not move.
+
+The one thing to know: the display only hands that spot to a free race when
+there is no scheduled heat still waiting to be run. Before the first round is
+built, and once the last heat of the night is in, an exhibition run is what the
+audience sees. In the middle of an event the display stays with the heat that
+is next on the schedule.
 
 ---
 
