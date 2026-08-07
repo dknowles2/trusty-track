@@ -228,7 +228,16 @@ class TimerManager:
 
     async def _send_commands(self, commands: list[bytes]) -> None:
         for cmd in commands:
-            logger.info(f"Timer {self._track_id} sending command: {cmd}")
+            # Through the same formatter the operator's serial log uses, two
+            # lines below. Interpolating the bytes directly logged
+            # `b'RV\r'` — the repr, escapes and all — where the diagnostics
+            # page showed the readable form, so the two records of the same
+            # command did not look like the same command.
+            logger.info(
+                "Timer %d sending command: %s",
+                self._track_id,
+                _format_serial_bytes(cmd),
+            )
             self._serial_log.append(
                 SerialLogEntry(
                     direction="TX",
@@ -804,19 +813,20 @@ class TimerManager:
                 current_place = i + 1
             res.place = current_place
 
-    def _armed_heat_is_stale(self, db: Session) -> str | None:
-        """Why the armed heat is no longer the one we armed, or ``None``.
+    def _armed_heat_is_stale(self, db: Session, heat: models.Heat) -> str | None:
+        """Why *heat* is no longer the one we armed, or ``None``.
 
         Pure lookup, no state change, so it serves both the record path and
         :meth:`revalidate_armed_heat`.
+
+        Takes the row rather than loading it, because the record path needs the
+        same one immediately afterwards. Loading it twice meant the guarantee
+        "the heat exists" lived in *this* function's return value, as a string,
+        while the dereference happened in the caller — so a checker could not
+        see the link and neither could a reader. The caller now handles a
+        missing heat itself, next to the code that would have crashed on one.
         """
         heat_id = self._active_heat_id
-        if heat_id is None:
-            return None
-
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if heat is None:
-            return f"Heat {heat_id} no longer exists"
 
         # Absent means *unknown*, not "no racers" — a caller that did not
         # supply a mapping has given us nothing to compare against.
@@ -847,9 +857,19 @@ class TimerManager:
 
         Returns the reason it disarmed, or ``None`` if nothing was wrong.
         """
-        reason = self._armed_heat_is_stale(db)
-        if reason is None:
+        heat_id = self._active_heat_id
+        if heat_id is None:
             return None
+
+        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+        if heat is None:
+            reason = f"Heat {heat_id} no longer exists"
+        else:
+            stale = self._armed_heat_is_stale(db, heat)
+            if stale is None:
+                return None
+            reason = stale
+
         await self._abandon_run(f"{reason} — the heat has been disarmed")
         return reason
 
@@ -896,12 +916,17 @@ class TimerManager:
 
         db = self._session_factory()
         try:
-            stale = self._armed_heat_is_stale(db)
+            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+            if heat is None:
+                await self._abandon_run(
+                    f"Heat {heat_id} no longer exists — results not recorded"
+                )
+                return
+
+            stale = self._armed_heat_is_stale(db, heat)
             if stale is not None:
                 await self._abandon_run(f"{stale} — results not recorded")
                 return
-
-            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
 
             # One path for both kinds since #6. A free race heat used to keep
             # its schedule in `lane_assignments` and this had to know that;
