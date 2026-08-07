@@ -35,6 +35,37 @@ describe('RoundWizard Component', () => {
         mockExecuteMutation.mockResolvedValue({ data: { createRaceWizard: [] } });
     });
 
+    it('estimates the heat count the scheduler will actually produce', async () => {
+        // The number an operator sizes their evening by. It was out by a factor
+        // of the lane count, and the shipped documentation screenshots caught
+        // it in the act: the wizard promised "Total Heats: 8" for a race that
+        // then ran 23 (#140).
+        //
+        // More lanes must not mean fewer heats — that was the tell. Under PPC a
+        // wider track means each racer meets more opponents per heat, not that
+        // fewer heats are needed.
+        const user = userEvent.setup();
+        const { unmount } = render(
+            <AlertProvider><RoundWizard {...defaultProps} racerCount={19} laneCount={3} /></AlertProvider>
+        );
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+
+        // 19 racers x 1 run, plus a championship of max(3, 3) = 3.
+        expect(screen.getByText('Total Heats: 22')).toBeInTheDocument();
+        unmount();
+
+        // The same roster on a wider track runs the same number of heats.
+        render(
+            <AlertProvider><RoundWizard {...defaultProps} racerCount={19} laneCount={6} /></AlertProvider>
+        );
+        await user.click(screen.getByText('Next'));
+        await user.click(screen.getByText('Next'));
+
+        // 19 again, and a championship of max(3, 6) = 6.
+        expect(screen.getByText('Total Heats: 25')).toBeInTheDocument();
+    });
+
     it('renders Step 1 by default', () => {
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         expect(screen.getByText('Race Schedule Wizard')).toBeInTheDocument();
@@ -46,36 +77,40 @@ describe('RoundWizard Component', () => {
     it('calculates estimation correctly in Step 3 (with default championship)', async () => {
         const user = userEvent.setup();
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
-        
+
         // Navigate to Step 3
         await user.click(screen.getByText('Next')); // Step 2
         await user.click(screen.getByText('Next')); // Step 3
 
-        // Estimation logic:
-        // Gen: 10 racers * 1 run / 4 lanes = 2.5
-        // Champ (default): max(3, 4) = 4 racers. 4 * 1 / 4 = 1.
-        // Total = 3.5 -> ceil -> 4 total heats.
-        
-        expect(screen.getByText('Total Heats: 4')).toBeInTheDocument();
-        // 4 heats * 1 min = 4 min
-        expect(screen.getByText(/Estimated Grand Total: ~4 mins/i)).toBeInTheDocument();
+        // PPC makes one heat per racer, per run — lane 1 is seeded with every
+        // racer, and that fixes the count. The lane count does not divide it.
+        //
+        //   General:      10 racers x 1 run          = 10 heats
+        //   Championship: max(3, 4) = 4 racers x 1   =  4 heats
+        //                                              --------
+        //                                                14
+        //
+        // This used to divide by the lane count and answer 4, which is the
+        // arithmetic for a scheduler that packs racers into heats (#140).
+        expect(screen.getByText('Total Heats: 14')).toBeInTheDocument();
+        expect(screen.getByText(/Estimated Grand Total: ~14 mins/i)).toBeInTheDocument();
     });
 
     it('navigates through steps', async () => {
         const user = userEvent.setup();
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
-        
+
         // Step 1 -> Step 2
         await user.click(screen.getByText('Next'));
         expect(screen.getByText('Championship Rounds')).toBeInTheDocument();
         // Should show default round
         expect(screen.getByDisplayValue('Grand Finals')).toBeInTheDocument();
-        
+
         // Step 2 -> Step 3
         await user.click(screen.getByText('Next'));
-        expect(screen.getByText('Estimated Grand Total: ~4 mins')).toBeInTheDocument();
+        expect(screen.getByText('Estimated Grand Total: ~14 mins')).toBeInTheDocument();
         expect(screen.getByText('Review')).toBeInTheDocument(); // Step indicator or content
-        
+
         // Step 3 -> Step 2
         await user.click(screen.getByText('Back'));
         expect(screen.getByDisplayValue('Grand Finals')).toBeInTheDocument();
@@ -85,13 +120,13 @@ describe('RoundWizard Component', () => {
         const user = userEvent.setup();
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
         await user.click(screen.getByText('Next')); // To Step 2
-        
+
         // Verify default exists
         expect(screen.getByDisplayValue('Grand Finals')).toBeInTheDocument();
-        
+
         // Remove it
         // Remove it
-        
+
         // Use test id for reliability
         const closeButton = screen.getByTestId('remove-round-btn');
         await user.click(closeButton);
@@ -100,34 +135,34 @@ describe('RoundWizard Component', () => {
             expect(screen.queryByDisplayValue('Grand Finals')).not.toBeInTheDocument();
             expect(screen.getByText('No championship rounds configured.')).toBeInTheDocument();
         });
-        
+
         // Add new one
         await user.click(screen.getByText('+ Add Round'));
         expect(screen.getByDisplayValue('New Championship Round')).toBeInTheDocument();
     });
-    
+
     it('submits correct data to GraphQL mutation', async () => {
         const user = userEvent.setup();
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
-        
+
         // Step 2
         await user.click(screen.getByText('Next'));
         // Keep default "Grand Finals"
 
         // Step 3
         await user.click(screen.getByText('Next'));
-        
+
         // Create!
         await user.click(screen.getByText('Generate Schedule'));
-        
+
         expect(mockExecuteMutation).toHaveBeenCalledWith({
             raceId: 1,
             config: expect.objectContaining({
                 generalRound: expect.objectContaining({ type: 'PACK' }),
                 championshipRounds: [
-                    expect.objectContaining({ 
+                    expect.objectContaining({
                         name: 'Grand Finals',
-                        source: 'PACK', 
+                        source: 'PACK',
                         numTopRacers: 4 // Math.max(3, 4)
                     })
                 ]
@@ -139,15 +174,15 @@ describe('RoundWizard Component', () => {
     it('shows error alert on API failure', async () => {
         const user = userEvent.setup();
         mockExecuteMutation.mockResolvedValue({ error: new Error('Simulated Error') });
-        
+
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
-        
+
         // Navigate to create step (Step 3)
         await user.click(screen.getByText('Next'));
         await user.click(screen.getByText('Next'));
-        
+
         await user.click(screen.getByText('Generate Schedule'));
-        
+
         // Wait for the custom modal to show error
         await waitFor(() => {
             expect(screen.getByText('Failed to create rounds: Simulated Error')).toBeInTheDocument();

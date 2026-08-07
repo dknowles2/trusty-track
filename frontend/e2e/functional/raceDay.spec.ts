@@ -373,3 +373,42 @@ test('with auto-advance on the countdown runs and then advances', async ({ page 
 
     await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({ timeout: 30000 });
 });
+
+test('the wizard promises the heat count the backend then generates', async ({ page }) => {
+    // #140. The estimate divided by the lane count, which is the arithmetic for
+    // a scheduler that packs racers into heats. PPC seeds lane 1 with every
+    // racer, so a round is one heat per racer however wide the track is — the
+    // wizard was out by a factor of the lane count, on both the heat count and
+    // the run time it derives from it.
+    //
+    // The two numbers live on opposite sides of the wire: a `useMemo` in
+    // `RoundWizard.tsx` and `domain/scheduling.generate_ppc`. Nothing held both
+    // at once, which is how they disagreed for so long — and why this test
+    // reads the promise off the screen and then counts what actually arrives,
+    // rather than asserting a number either side would have to be told.
+    const { raceId, racers, laneCount } = await seedRace(page, 'Race Day Estimate');
+
+    await page.goto(`/race/${raceId}/control`);
+    await page.getByRole('button', { name: /Start Round Creation Wizard/i }).click();
+    await expect(page.getByRole('heading', { name: 'Race Schedule Wizard' })).toBeVisible();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
+
+    const promised = Number(
+        (await page.getByText(/Total Heats: \d+/).innerText()).match(/\d+/)![0],
+    );
+
+    await page.getByRole('button', { name: 'Generate Schedule' }).click();
+    await expect(page.getByText('Heat 1', { exact: true }).first()).toBeVisible({
+        timeout: 30000,
+    });
+
+    const heats = await readHeats(page, raceId);
+    expect(promised).toBe(heats.length);
+
+    // And the shape of it, so a coincidence cannot pass: the preliminary round
+    // is one heat per racer, whatever the lane count.
+    const prelim = (await readRounds(page, raceId)).find((r) => r.advancementSource === null)!;
+    expect(heats.filter((h) => h.roundId === prelim.id)).toHaveLength(racers.length);
+    expect(racers.length).toBeGreaterThan(laneCount);
+});
