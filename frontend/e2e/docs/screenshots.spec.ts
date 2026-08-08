@@ -66,7 +66,9 @@ test('take screenshots', async ({ page }) => {
   await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/05-race-details-empty.png') });
   await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/01-race-details-overview.png') });
 
-  // Manage Dens
+  // Manage Dens, now behind the roster overflow menu (#186) — it is a
+  // set-up action rather than one reached for during an event.
+  await page.getByTestId('roster-more-menu').click();
   await page.getByRole('button', { name: /Manage Dens/i }).click();
   await expect(page.getByRole('heading', { name: 'Manage Dens' })).toBeVisible();
   await page.waitForTimeout(500);
@@ -124,16 +126,16 @@ test('take screenshots', async ({ page }) => {
 
   await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/08-racer-list-after-import.png') });
 
-  // Open Bulk Actions
-  // Check a checkbox
+  // The selection bar. There is no Bulk Actions button to open any more
+  // (#186) — selecting racers is what brings the actions on screen.
   await page.locator('input[type="checkbox"]').nth(1).click();
   await page.locator('input[type="checkbox"]').nth(2).click();
-  await page.getByRole('button', { name: /Bulk Actions/i }).click();
+  await expect(page.getByTestId('roster-selection-bar')).toBeVisible();
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/09-bulk-actions-menu.png') });
 
   // Final Roster Review - maybe group by den
-  await page.mouse.click(0, 0); // Click body to close dropdown
+  await page.getByTestId('clear-selection').click();
   await page.waitForTimeout(300);
   await page.locator('.toggle-switch').click(); // Toggle "Group by den"
   await page.waitForTimeout(500);
@@ -493,7 +495,10 @@ test('take screenshots', async ({ page }) => {
     await page.screenshot({ path: path.join(screenshotsDir, 'observation/04-on-deck-panel.png') });
   }
 
-  // Ensure Standings tab is active
+  // Ensure Standings tab is active. This is the *observation page's* own
+  // standings/timing tab, not the race-mode toggle that #186 removed — it is
+  // still a button, and clicking the navigation link instead navigates away
+  // from the page being screenshotted.
   await page.getByRole('button', { name: /Standings/i }).click();
   await page.waitForTimeout(500);
 

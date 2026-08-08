@@ -77,19 +77,21 @@ Any dens named in the file are created automatically and the racers assigned to 
 
 ## Car Numbering & Bulk Actions
 
-### Bulk Actions Menu
+### Acting on several racers at once
 
-Select one or more racers using the checkboxes on the left to enable the **Bulk Actions** menu.
+Tick the checkboxes on the left of any rows you want to change. A bar appears
+above the table showing how many you have selected and what you can do with
+them.
 
-![Bulk Actions Menu](assets/screenshots/race-setup/09-bulk-actions-menu.png)
+![The selection bar](assets/screenshots/race-setup/09-bulk-actions-menu.png)
 
-From here, you can:
-
+- **Check In**: Mark the selected racers as passed inspection and checked in.
 - **Auto number**: Assign car numbers to the selected racers, following the race's **Car Numbering** setting — sequentially from the global start number, or from each den's own range. A race set to Manual numbering is left alone.
 - **Clear numbers**: Remove car numbers from selected racers.
-- **Bulk Check-In**: Mark the selected racers as passed inspection and checked in.
 - **Move to den**: Batch change the den assignment for selected racers, or move them to Unassigned.
 - **Delete**: Remove selected racers from the race.
+
+The **✕** on the right clears the selection and puts the bar away.
 
 ### Final Roster Review
 

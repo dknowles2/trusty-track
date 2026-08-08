@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import type { GetRaceDetailsQuery } from '../../../gql/operations';
@@ -18,7 +18,7 @@ import RaceModeToggle from '../../racing/components/RaceModeToggle';
 import { Icon } from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric,
-  mdiChevronDown, mdiLightningBolt, mdiFileUpload,
+  mdiChevronDown, mdiLightningBolt, mdiFileUpload, mdiDotsHorizontal, mdiClose,
   mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
   mdiQrcodeScan
 } from '@mdi/js';
@@ -160,19 +160,16 @@ export default function RaceDetails() {
   // Roster View State
   const [isGroupedByDen, setIsGroupedByDen] = useState(false);
   const [isAddRacerDropdownOpen, setIsAddRacerDropdownOpen] = useState(false);
-  const [isBulkMenuOpen, setIsBulkMenuOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isMoveToDenOpen, setIsMoveToDenOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Selection State
   const [selectedRacerIds, setSelectedRacerIds] = useState<number[]>([]);
-  const moveDenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [denMenuSide, setDenMenuSide] = useState<'left' | 'right'>('left');
-  const denMenuContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle click outside for dropdowns
   useEffect(() => {
-    if (!isAddRacerDropdownOpen && !isBulkMenuOpen && !isMoveToDenOpen) return;
+    if (!isAddRacerDropdownOpen && !isMoreMenuOpen && !isMoveToDenOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -181,13 +178,13 @@ export default function RaceDetails() {
         return;
       }
       setIsAddRacerDropdownOpen(false);
-      setIsBulkMenuOpen(false);
+      setIsMoreMenuOpen(false);
       setIsMoveToDenOpen(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isAddRacerDropdownOpen, isBulkMenuOpen, isMoveToDenOpen]);
+  }, [isAddRacerDropdownOpen, isMoreMenuOpen, isMoveToDenOpen]);
 
 
   const refreshData = () => {
@@ -362,7 +359,7 @@ export default function RaceDetails() {
       if (result.error) throw result.error;
       refreshData();
       setSelectedRacerIds([]);
-      setIsBulkMenuOpen(false);
+      setIsMoreMenuOpen(false);
     } catch {
       showAlert("Failed to bulk check-in racers", "Error");
     }
@@ -375,7 +372,7 @@ export default function RaceDetails() {
       refreshData();
       setSelectedRacerIds([]);
       setIsMoveToDenOpen(false);
-      setIsBulkMenuOpen(false);
+      setIsMoreMenuOpen(false);
     } catch {
       showAlert("Failed to move racers to den", "Error");
     }
@@ -406,34 +403,6 @@ export default function RaceDetails() {
     } catch {
       showAlert("Failed to delete racers", "Error");
     }
-  };
-
-  const handleMoveDenMouseEnter = () => {
-    if (moveDenTimeoutRef.current) clearTimeout(moveDenTimeoutRef.current);
-
-    // Calculate which side has more room, defaulting to right
-    if (denMenuContainerRef.current) {
-        const rect = denMenuContainerRef.current.getBoundingClientRect();
-        const spaceOnRight = window.innerWidth - rect.right;
-
-        // Default to right, flip to left only if it doesn't fit on the right
-        if (spaceOnRight >= 190) {
-            setDenMenuSide('right');
-        } else {
-            setDenMenuSide('left');
-        }
-    }
-
-    moveDenTimeoutRef.current = setTimeout(() => {
-      setIsMoveToDenOpen(true);
-    }, 200); // Brief delay
-  };
-
-  const handleMoveDenMouseLeave = () => {
-    if (moveDenTimeoutRef.current) clearTimeout(moveDenTimeoutRef.current);
-    moveDenTimeoutRef.current = setTimeout(() => {
-      setIsMoveToDenOpen(false);
-    }, 300); // Slightly longer delay for leaving to be more forgiving
   };
 
   const filteredRacers = racers.filter(racer => {
@@ -573,13 +542,127 @@ export default function RaceDetails() {
           )}
       </Modal>
 
-      {/* Roster Section */}
-      <div className="roster-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem' }}>
-        <h2 style={{ margin: 0, fontSize: '1.4rem' }}>
-            Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>({filteredRacers.length})</span>
-        </h2>
-        <div className="roster-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <div className="search-container" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+      {/* Roster Section
+
+          Three controls on the first row rather than six. Manage dens, photos
+          and print are things an operator does once before an event, so they
+          sit behind the overflow; add and scan are the two reached for over and
+          over. Bulk Actions is gone entirely — it was a button that spent most
+          of the day disabled, which is space spent saying "not yet". What it
+          held is now a selection bar that exists only when something is
+          selected. */}
+      <div className="roster-header" style={{ marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <h2 style={{ margin: 0, fontSize: '1.4rem' }}>
+                Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>({filteredRacers.length})</span>
+            </h2>
+
+            <div className="roster-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
+                <div className="dropdown" style={{ position: 'relative' }}>
+                    <div className="split-btn-container">
+                        <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px', whiteSpace: 'nowrap' }}>
+                            <Icon path={mdiPlus} size={0.7} /> Add Racer
+                        </button>
+                        <button
+                            className="secondary-btn split-btn-arrow"
+                            style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', padding: '6px 8px', height: '32px' }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsAddRacerDropdownOpen(!isAddRacerDropdownOpen);
+                            }}
+                            aria-label="More ways to add racers"
+                        >
+                            <Icon path={mdiChevronDown} size={0.7} />
+                        </button>
+                    </div>
+                    {isAddRacerDropdownOpen && (
+                        <div
+                            className="dropdown-content"
+                            style={{ display: 'block' }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={() => {
+                                    setShowPopulateModal(true);
+                                    setIsAddRacerDropdownOpen(false);
+                                }}
+                                title="Populate Test Data"
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={mdiLightningBolt} size={0.7} color="#fcd116" /> Populate Test Data
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowImportModal(true);
+                                    setIsAddRacerDropdownOpen(false);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={mdiFileUpload} size={0.7} /> Import from CSV
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <button
+                    className="secondary-btn"
+                    onClick={() => setShowScanner(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px', whiteSpace: 'nowrap' }}
+                >
+                    <Icon path={mdiQrcodeScan} size={0.7} /> Scan
+                </button>
+
+                <div className="dropdown" style={{ position: 'relative' }}>
+                    <button
+                        className="secondary-btn"
+                        onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                        style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', fontSize: '0.85rem', height: '32px' }}
+                        aria-label="More roster actions"
+                        aria-expanded={isMoreMenuOpen}
+                        data-testid="roster-more-menu"
+                    >
+                        <Icon path={mdiDotsHorizontal} size={0.8} />
+                    </button>
+                    {isMoreMenuOpen && (
+                        <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '190px' }}>
+                            <button
+                                onClick={() => { setShowDenManager(true); setIsMoreMenuOpen(false); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={mdiAccountGroup} size={0.7} /> Manage Dens
+                            </button>
+                            <button
+                                onClick={() => { setShowBulkPhotoUpload(true); setIsMoreMenuOpen(false); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={mdiCamera} size={0.7} /> Upload Photos
+                            </button>
+                            {/* The selection carries over, but an empty one is
+                                not an empty print run — the print page reads it
+                                as the whole roster, which is what "print the pit
+                                passes" means the morning of a race. */}
+                            <button
+                                onClick={() => {
+                                    setIsMoreMenuOpen(false);
+                                    navigate(
+                                        selectedRacerIds.length > 0
+                                            ? `/race/${parsedRaceId}/print?racers=${selectedRacerIds.join(',')}`
+                                            : `/race/${parsedRaceId}/print`
+                                    );
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                            >
+                                <Icon path={mdiPrinter} size={0.7} /> Print
+                                {selectedRacerIds.length > 0 && ` (${selectedRacerIds.length})`}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+            <div className="search-container" style={{ display: 'flex', alignItems: 'center', position: 'relative', flex: '1 1 200px', maxWidth: '340px' }}>
                 <Icon path={mdiMagnify} size={0.7} style={{ position: 'absolute', left: '10px', color: '#999' }} />
                 <input
                     type="text"
@@ -591,199 +674,121 @@ export default function RaceDetails() {
                         borderRadius: '20px',
                         border: '1px solid #ddd',
                         fontSize: '0.85rem',
-                        width: '160px',
+                        width: '100%',
                         height: '32px'
                     }}
                 />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px', borderRight: '1px solid #eee', height: '24px', marginRight: '4px' }}>
-                <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 500 }}>Group by Den</span>
-                <label className="toggle-switch small">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 500, whiteSpace: 'nowrap' }}>Group by Den</span>
+                <span className="toggle-switch small">
                     <input
                         type="checkbox"
                         checked={isGroupedByDen}
                         onChange={e => setIsGroupedByDen(e.target.checked)}
                     />
                     <span className="slider"></span>
-                </label>
-            </div>
+                </span>
+            </label>
+        </div>
 
-            <button className="secondary-btn" onClick={() => setShowDenManager(true)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}>
-                <Icon path={mdiAccountGroup} size={0.7} /> Manage Dens
-            </button>
-
-            <div className="dropdown" style={{ position: 'relative' }}>
+        {selectedRacerIds.length > 0 && (
+            <div
+                data-testid="roster-selection-bar"
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                    marginTop: '0.75rem',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: '#e6f1fb',
+                    border: '1px solid #85b7eb'
+                }}
+            >
+                <strong style={{ fontSize: '0.85rem', color: 'var(--scouting-blue)', whiteSpace: 'nowrap' }}>
+                    {selectedRacerIds.length} selected
+                </strong>
                 <button
                     className="secondary-btn"
-                    onClick={() => setIsBulkMenuOpen(!isBulkMenuOpen)}
-                    disabled={selectedRacerIds.length === 0}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '6px 12px',
-                        fontSize: '0.85rem',
-                        height: '32px',
-                        backgroundColor: selectedRacerIds.length > 0 ? 'var(--scouting-blue)' : undefined,
-                        color: selectedRacerIds.length > 0 ? 'white' : undefined,
-                        opacity: selectedRacerIds.length === 0 ? 0.5 : 1
-                    }}
+                    onClick={handleBulkCheckIn}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+                    data-testid="bulk-check-in-btn"
                 >
-                    <Icon path={mdiNumeric} size={0.7} /> Bulk Actions {selectedRacerIds.length > 0 && `(${selectedRacerIds.length})`}
-                    <Icon path={mdiChevronDown} size={0.6} />
+                    <Icon path={mdiCheckDecagram} size={0.6} /> Check In
                 </button>
-                {isBulkMenuOpen && (
-                    <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '180px', overflow: 'visible' }}>
-                        <button
-                            onClick={handleBulkAutoNumber}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                            data-testid="bulk-auto-number-btn"
-                        >
-                            <Icon path={mdiNumeric} size={0.7} /> Auto number
-                        </button>
-                        <button
-                            onClick={handleBulkClearNumbers}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                            data-testid="bulk-clear-numbers-btn"
-                        >
-                            <Icon path={mdiPlus} size={0.7} style={{ transform: 'rotate(45deg)' }} /> Clear numbers
-                        </button>
-                        <button
-                            onClick={handleBulkCheckIn}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                            data-testid="bulk-check-in-btn"
-                        >
-                            <Icon path={mdiCheckDecagram} size={0.7} /> Bulk Check-In
-                        </button>
-                        <div
-                            ref={denMenuContainerRef}
-                            style={{ position: 'relative' }}
-                            onMouseEnter={handleMoveDenMouseEnter}
-                            onMouseLeave={handleMoveDenMouseLeave}
-                        >
-                            <button
-                                onClick={(e) => { e.stopPropagation(); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between', width: '100%' }}
-                                data-testid="bulk-move-to-den-expand-btn"
-                            >
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Icon path={mdiAccountGroup} size={0.7} /> Move to den
-                                </span>
-                                <Icon path={mdiChevronDown} size={0.6} style={{ transform: 'rotate(-90deg)' }} />
-                            </button>
-                            {isMoveToDenOpen && (
-                                <div className="dropdown-content" style={{
-                                    display: 'block',
-                                    position: 'absolute',
-                                    [denMenuSide === 'left' ? 'right' : 'left']: '100%',
-                                    top: 0,
-                                    margin: 0,
-                                    boxShadow: denMenuSide === 'left' ? '-2px 2px 10px rgba(0,0,0,0.1)' : '2px 2px 10px rgba(0,0,0,0.1)'
-                                }}>
-                                    {dens.map(den => (
-                                        <button
-                                            key={den.id}
-                                            onClick={() => handleBulkMoveToDen(den.id)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                                            data-testid={`bulk-move-to-den-${den.id}`}
-                                        >
-                                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: den.color }}></span>
-                                            {den.name}
-                                        </button>
-                                    ))}
-                                    <button onClick={() => handleBulkMoveToDen(null)} data-testid="bulk-move-to-unassigned">Unassigned</button>
-                                </div>
-                            )}
-                        </div>
-                        <button
-                            onClick={handleBulkDelete}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d32f2f' }}
-                            data-testid="bulk-delete-btn"
-                        >
-                             Delete
-                        </button>
-                    </div>
-                )}
-            </div>
+                <button
+                    className="secondary-btn"
+                    onClick={handleBulkAutoNumber}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+                    data-testid="bulk-auto-number-btn"
+                >
+                    <Icon path={mdiNumeric} size={0.6} /> Auto number
+                </button>
+                <button
+                    className="secondary-btn"
+                    onClick={handleBulkClearNumbers}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+                    data-testid="bulk-clear-numbers-btn"
+                >
+                    <Icon path={mdiPlus} size={0.6} style={{ transform: 'rotate(45deg)' }} /> Clear numbers
+                </button>
 
-            <button
-                className="secondary-btn"
-                onClick={() => setShowScanner(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}
-            >
-                <Icon path={mdiQrcodeScan} size={0.7} /> Scan
-            </button>
-
-            <button
-                className="secondary-btn"
-                onClick={() => setShowBulkPhotoUpload(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}
-            >
-                <Icon path={mdiCamera} size={0.7} /> Upload Photos
-            </button>
-
-            {/* The selection carries over, but an empty one is not an empty
-                print run — the print page reads it as the whole roster, which
-                is what "print the pit passes" means the morning of a race. */}
-            <button
-                className="secondary-btn"
-                onClick={() => navigate(
-                    selectedRacerIds.length > 0
-                        ? `/race/${parsedRaceId}/print?racers=${selectedRacerIds.join(',')}`
-                        : `/race/${parsedRaceId}/print`
-                )}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}
-            >
-                <Icon path={mdiPrinter} size={0.7} /> Print
-                {selectedRacerIds.length > 0 && ` (${selectedRacerIds.length})`}
-            </button>
-
-            <div className="dropdown" style={{ position: 'relative' }}>
-                <div className="split-btn-container">
-                    <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px' }}>
-                        <Icon path={mdiPlus} size={0.7} /> Add Racer
-                    </button>
+                {/* Still a menu, because a pack has six dens and they will not
+                    fit on the bar. It opens downward now rather than flying out
+                    sideways, so there is no space left to measure — the
+                    hover-and-flip machinery went with it. */}
+                <div className="dropdown" style={{ position: 'relative' }}>
                     <button
-                        className="secondary-btn split-btn-arrow"
-                        style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', padding: '6px 8px', height: '32px' }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsAddRacerDropdownOpen(!isAddRacerDropdownOpen);
-                        }}
+                        className="secondary-btn"
+                        onClick={() => setIsMoveToDenOpen(!isMoveToDenOpen)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+                        data-testid="bulk-move-to-den-expand-btn"
+                        aria-expanded={isMoveToDenOpen}
                     >
-                        <Icon path={mdiChevronDown} size={0.7} />
+                        <Icon path={mdiAccountGroup} size={0.6} /> Move to den
+                        <Icon path={mdiChevronDown} size={0.5} />
                     </button>
+                    {isMoveToDenOpen && (
+                        <div className="dropdown-content" style={{ display: 'block', minWidth: '170px' }}>
+                            {dens.map(den => (
+                                <button
+                                    key={den.id}
+                                    onClick={() => handleBulkMoveToDen(den.id)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    data-testid={`bulk-move-to-den-${den.id}`}
+                                >
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: den.color }}></span>
+                                    {den.name}
+                                </button>
+                            ))}
+                            <button onClick={() => handleBulkMoveToDen(null)} data-testid="bulk-move-to-unassigned">Unassigned</button>
+                        </div>
+                    )}
                 </div>
-                {isAddRacerDropdownOpen && (
-                    <div
-                        className="dropdown-content"
-                        style={{ display: 'block' }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <button
-                            onClick={() => {
-                                setShowPopulateModal(true);
-                                setIsAddRacerDropdownOpen(false);
-                            }}
-                            title="Populate Test Data"
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                        >
-                            <Icon path={mdiLightningBolt} size={0.7} color="#fcd116" /> Populate Test Data
-                        </button>
-                        <button
-                            onClick={() => {
-                                setShowImportModal(true);
-                                setIsAddRacerDropdownOpen(false);
-                            }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                        >
-                            <Icon path={mdiFileUpload} size={0.7} /> Import from CSV
-                        </button>
-                    </div>
-                )}
+
+                <button
+                    className="secondary-btn"
+                    onClick={handleBulkDelete}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px', color: '#d32f2f' }}
+                    data-testid="bulk-delete-btn"
+                >
+                    Delete
+                </button>
+
+                <button
+                    className="secondary-btn"
+                    onClick={() => setSelectedRacerIds([])}
+                    style={{ marginLeft: 'auto', background: 'transparent', padding: '4px 8px', height: '28px' }}
+                    aria-label="Clear selection"
+                    data-testid="clear-selection"
+                >
+                    <Icon path={mdiClose} size={0.7} />
+                </button>
             </div>
-        </div>
+        )}
       </div>
 
       <div style={{ overflowX: 'auto' }} className="desktop-only-table">

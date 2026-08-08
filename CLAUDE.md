@@ -95,6 +95,7 @@ frontend/src/
   features/
     core/                     # Navigation, shared queries
     management/               # Home, RaceDetails, racer/den forms, imports
+      #   RaceDetails' roster toolbar: three controls, then an overflow
     racing/                   # RaceControl, RaceExecution, scheduling, free race, timer UI
       raceFlow.ts             #   the race-day machine — pure, no React
       useRaceFlow.ts          #   its only wiring to React
@@ -593,6 +594,14 @@ Two things it settles that were previously accidents:
 - **A summary's presence and its id are separate fields.** `AdvancementStatus.roundId` is optional, so `hasRoundSummary` and `roundSummaryId` cannot be collapsed into one nullable number.
 
 `roundCompletion.ts` is the matching piece for `RaceControl.tsx`: there is no event for "a round's field was just decided", so it is recovered by comparing one query result against the last. `seen === null` means "first look", where every decided round is history rather than news.
+
+### The roster toolbar
+
+`RaceDetails.tsx`. Six buttons competed for one row and four of them wrapped their labels at 1280px. The rule now: **the first row holds Add Racer, Scan and an overflow menu, and nothing else.** Manage dens, upload photos and print are things an operator does once before an event, so they live behind the `⋯`; add and scan are the two reached for repeatedly. Search and the group-by-den toggle sit on their own row beneath.
+
+**There is no Bulk Actions button.** It was disabled for most of the day — space spent saying "not yet" — and what it held is now a selection bar that exists only while rows are ticked, with a clear-selection ✕. `roster-selection-bar` and `roster-more-menu` are the test ids; the individual `bulk-*-btn` ids survived the move, so what changed for a test is only that the actions no longer need a menu opened first.
+
+Move-to-den is still a menu, because six dens will not fit on the bar — but it opens **downward** now rather than flying out sideways, which retired `denMenuSide`, `denMenuContainerRef`, `moveDenTimeoutRef` and the two hover handlers that measured which side had room.
 
 ### Printables
 
