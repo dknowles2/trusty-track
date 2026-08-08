@@ -476,6 +476,14 @@ Three things about the proxy walk:
 
 **`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
 
+That database lives in `$TMPDIR/trustytrack_test`, which the suite **wipes at the start of a run** rather than at the end — a run that crashes or is killed still leaves a virgin directory for the next one, which teardown cannot promise, and the artefacts of a failed run stay put to be looked at. It is cleaned at all because nothing ever removed the images `POST /upload/` writes: the directory had reached 8,000 files and 3.5 GB before anybody looked, and the first test to zip it (the backup endpoint, #176) had to be killed. A run leaves about 40 files now.
+
+Three things about that header, each of which has a wrong-looking alternative:
+
+- **The `os.environ` assignment must be the only statement before the imports.** Ruff's E402 tolerates exactly that one write ahead of them and nothing else, which is why the wipe happens *after* the imports and recreates `UPLOAD_DIR` — `database.py` makes it on import and `main.py` mounts it as static files, so removing it without putting it back breaks every upload test.
+- **Read the path from `database.DATA_DIR`, never repeat it.** `test_init_db.py` hardcoded `/tmp/trustytrack_test`, so moving the directory would have pointed the test at one place and the app at another.
+- **`test_the_suite_writes_to_a_temporary_data_directory` is the guard that matters.** Without conftest's assignment the suite writes into a real `~/.trustytrack` — deleting its database and dropping images beside the operator's photos — and nothing else in the tree would fail.
+
 **A heat id used to stop being a stable handle** (#50). `invalidate_future_rounds` rewrites the heats of every later championship round on *every* earlier result; when it did that by deleting and re-inserting, an armed heat could vanish — or, since SQLite reuses rowids, come back as a different heat holding a different field. Three things now hold:
 
 - **`_reset_heats_in_place` rewrites the existing rows** when the shape has not changed, so ids survive. It falls back to full regeneration only when the heat count differs (a den added to a `DEN` round, say).
