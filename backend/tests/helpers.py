@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
-def _alembic(data_dir: Path, *args: str) -> subprocess.CompletedProcess:
+def run_alembic(data_dir: Path, *args: str) -> subprocess.CompletedProcess:
     """Run the Alembic CLI against a given data directory.
 
     A subprocess because ``backend.db.database`` resolves its engine and paths
@@ -55,7 +55,7 @@ def build_pre_alembic_database(
         seed: called with an open connection to insert rows.
     """
     db = tmp_path / "trusty-track.db"
-    result = _alembic(tmp_path, "upgrade", "0001_baseline")
+    result = run_alembic(tmp_path, "upgrade", "0001_baseline")
     assert result.returncode == 0, result.stderr
 
     engine = create_engine(f"sqlite:///{db}")

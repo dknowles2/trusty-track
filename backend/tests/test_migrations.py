@@ -5,6 +5,7 @@ it, `models.py` and the migration chain can drift apart silently, which is the
 exact failure mode Alembic was adopted to prevent.
 """
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +13,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import create_engine, inspect, text
 
-from backend.tests.helpers import build_pre_alembic_database
+from backend.tests.helpers import build_pre_alembic_database, run_alembic
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -354,3 +355,188 @@ def test_init_db_raises_when_migrations_are_missing(tmp_path, monkeypatch):
     )
     with pytest.raises(RuntimeError, match="migrations directory not found"):
         database.init_db()
+
+
+def test_every_downgrade_runs_and_lands_back_at_the_same_schema(
+    tmp_path, fresh_database
+):
+    """Walk the whole chain backwards, then forwards again.
+
+    Every migration ships a `downgrade()` and, until this existed, none had ever
+    been run. An unexercised downgrade is worse than an absent one: it is only
+    reached when something has already gone wrong and somebody is rolling back
+    under pressure, which is the worst moment to discover it does not work.
+
+    Ending at the same schema is the part worth asserting. A downgrade that
+    runs without error but rebuilds a table slightly differently — dropping an
+    index, losing a server default — leaves a database that is *not* what a
+    fresh install has, and the next upgrade builds on top of that.
+    """
+    assert _run_init_db(tmp_path).returncode == 0
+    db = tmp_path / "trusty-track.db"
+
+    down = run_alembic(tmp_path, "downgrade", "base")
+    assert down.returncode == 0, (
+        f"a migration cannot be undone.\n\nstderr:\n{down.stderr}"
+    )
+    assert _table_names(db) == {"alembic_version"}, (
+        "downgrading to base left tables behind, so some downgrade is not the "
+        "inverse of its upgrade"
+    )
+
+    up = run_alembic(tmp_path, "upgrade", "head")
+    assert up.returncode == 0, up.stderr
+
+    assert _schema_snapshot(db) == _schema_snapshot(fresh_database)
+
+
+def test_a_downgrade_past_the_folded_heats_keeps_the_data(tmp_path):
+    """The two migrations that move rows, undone and redone.
+
+    `0003` projects `lane_results` into `heat_lanes` and `0006` folds
+    `free_race_heats` into `heats` — the only migrations that carry data rather
+    than reshape a table, and so the only ones whose downgrade can silently lose
+    some. `0002` is pinned because it is the last revision before `0003`; the
+    point is to stop *just* below the pair, with every app table still there.
+    """
+    assert _run_init_db(tmp_path).returncode == 0
+    db = tmp_path / "trusty-track.db"
+
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.begin() as conn:
+            _seed_a_small_race(conn)
+        with engine.connect() as conn:
+            before = _race_shape(conn)
+    finally:
+        engine.dispose()
+
+    assert run_alembic(tmp_path, "downgrade", "0002_debug_mode").returncode == 0
+    # Back in the two-table world: the free heats have their own table again.
+    assert "free_race_heats" in _table_names(db)
+    assert "heat_lanes" not in _table_names(db)
+
+    assert run_alembic(tmp_path, "upgrade", "head").returncode == 0
+
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.connect() as conn:
+            assert _race_shape(conn) == before
+    finally:
+        engine.dispose()
+
+
+def _seed_a_small_race(conn) -> None:
+    """One race with a run heat, a skipped heat and an unfilled championship.
+
+    Between them these cover what the blob encodes that a plain row does not:
+    a time, the `skipped` key nothing in the backend reads, and the negative
+    racer ids standing in for racers who have not advanced yet.
+    """
+    conn.execute(text("INSERT INTO groups (id, name) VALUES (1, 'Pack 42')"))
+    conn.execute(
+        text(
+            "INSERT INTO tracks (id, name, lane_count, timer_type,"
+            " remote_start_installed) VALUES (1, 'Main', 2, 'FAKE', 0)"
+        )
+    )
+    conn.execute(
+        text(
+            "INSERT INTO races (id, group_id, track_id, name, car_numbering_strategy,"
+            " global_start_number, championship_trophies, scoring_strategy,"
+            " auto_advance_heat)"
+            " VALUES (1, 1, 1, 'Derby', 'MANUAL', 1, 3, 'TIMED', 0)"
+        )
+    )
+    for racer_id in (1, 2):
+        conn.execute(
+            text(
+                "INSERT INTO racers (id, race_id, first_name, last_name,"
+                " car_passed_inspection) VALUES (:i, 1, 'Racer', :n, 1)"
+            ),
+            {"i": racer_id, "n": str(racer_id)},
+        )
+    conn.execute(
+        text(
+            "INSERT INTO rounds (id, race_id, round_number, name,"
+            " scheduling_strategy) VALUES (1, 1, 1, 'Prelim', 'PPC')"
+        )
+    )
+
+    run = '[{"lane": 1, "racer_id": 1, "time": 3.41, "place": 1}]'
+    skipped = (
+        '[{"lane": 1, "racer_id": 2, "time": null, "place": null, "skipped": true}]'
+    )
+    placeholder = '[{"lane": 1, "racer_id": -1, "time": null, "place": null}]'
+    for heat_id, (number, blob) in enumerate(
+        ((1, run), (2, skipped), (3, placeholder)), start=1
+    ):
+        conn.execute(
+            text(
+                "INSERT INTO heats (id, race_id, round_id, kind, heat_number,"
+                " lane_results) VALUES (:i, 1, 1, 'OFFICIAL', :n, :b)"
+            ),
+            {"i": heat_id, "n": number, "b": blob},
+        )
+        for lane in _lanes_of(blob):
+            conn.execute(
+                text(
+                    "INSERT INTO heat_lanes (heat_id, lane, racer_id,"
+                    " placeholder_slot, time_seconds, place, skipped)"
+                    " VALUES (:h, :l, :r, :p, :t, :pl, :s)"
+                ),
+                {"h": heat_id, **lane},
+            )
+
+    free = '[{"lane": 1, "racer_id": 1, "time": 3.55, "place": 1}]'
+    conn.execute(
+        text(
+            "INSERT INTO heats (id, race_id, round_id, kind, heat_number,"
+            " lane_results, created_at) VALUES (4, 1, NULL, 'FREE', 1, :b, :c)"
+        ),
+        {"b": free, "c": "2026-03-01T10:00:00"},
+    )
+    for lane in _lanes_of(free):
+        conn.execute(
+            text(
+                "INSERT INTO heat_lanes (heat_id, lane, racer_id, placeholder_slot,"
+                " time_seconds, place, skipped) VALUES (4, :l, :r, :p, :t, :pl, :s)"
+            ),
+            lane,
+        )
+
+
+def _lanes_of(blob: str) -> list[dict]:
+    """The `heat_lanes` rows a blob projects to, in the table's own vocabulary."""
+    rows = []
+    for entry in json.loads(blob):
+        racer_id = entry["racer_id"]
+        rows.append(
+            {
+                "l": entry["lane"],
+                "r": racer_id if racer_id > 0 else None,
+                "p": None if racer_id > 0 else -racer_id,
+                "t": entry["time"],
+                "pl": entry["place"],
+                "s": 1 if entry.get("skipped") else 0,
+            }
+        )
+    return rows
+
+
+def _race_shape(conn) -> dict:
+    """What the round trip must not change."""
+    return {
+        "heats": conn.execute(
+            text("select id, kind, heat_number, lane_results from heats order by id")
+        ).fetchall(),
+        "lanes": conn.execute(
+            text(
+                "select heat_id, lane, racer_id, placeholder_slot, time_seconds,"
+                " place, skipped from heat_lanes order by heat_id, lane"
+            )
+        ).fetchall(),
+        "racers": conn.execute(
+            text("select id, first_name, last_name from racers order by id")
+        ).fetchall(),
+    }
