@@ -1,10 +1,8 @@
-import json
-
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
 from backend.services import scoring
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def test_championship_rounds_populate_sequentially(db: Session):
@@ -105,7 +103,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
     fast_racers = {r.id for r in racers[:8]}
 
     for heat in r1_heats:
-        results = json.loads(heat.lane_results)
+        results = lane_dicts(db, heat)
         for r in results:
             rid = r.get("racer_id")
             if rid in fast_racers:
@@ -134,7 +132,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
     r2_heats = [h for h in crud.get_heats(db, race.id) if h.round_id == r2.id]
     r2_participants = set()
     for h in r2_heats:
-        results = json.loads(h.lane_results)
+        results = lane_dicts(db, h)
         for r in results:
             if r["racer_id"] is not None and r["racer_id"] > 0:
                 r2_participants.add(r["racer_id"])
@@ -147,7 +145,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
     fastest_racers = {r.id for r in racers[:4]}
 
     for heat in r2_heats:
-        results = json.loads(heat.lane_results)
+        results = lane_dicts(db, heat)
         for r in results:
             rid = r.get("racer_id")
             if rid in fastest_racers:
@@ -168,7 +166,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
     r3_heats = [h for h in crud.get_heats(db, race.id) if h.round_id == r3.id]
     r3_participants = set()
     for h in r3_heats:
-        results = json.loads(h.lane_results)
+        results = lane_dicts(db, h)
         for r in results:
             if r["racer_id"] is not None and r["racer_id"] > 0:
                 r3_participants.add(r["racer_id"])

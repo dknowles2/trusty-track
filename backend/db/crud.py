@@ -911,15 +911,12 @@ def set_heat_lanes(heat: models.Heat, heat_lanes: Sequence[lanes.Lane]) -> None:
     """Write a heat's lanes. The one door for them.
 
     Every write goes through here (#119), which is what let the direction
-    change in one place: the ``heat_lanes`` rows are built from these values,
-    and ``lane_results`` is written alongside as a derived column rather than
-    being the thing the rows are read back out of.
+    change — and then the storage format go — in one place rather than nine.
 
     The staging is not ceremony. A heat that has just been constructed has no
     id until the session flushes, and the rows need one — so the values are
     left on the instance and ``lane_sync`` writes them when the id exists.
     """
-    heat.lane_results = lanes.serialize(heat_lanes)
     lane_sync.stage(heat, heat_lanes)
 
 

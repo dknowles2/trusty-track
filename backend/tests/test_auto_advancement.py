@@ -1,7 +1,5 @@
-import json
-
 from backend.db import crud, schemas
-from backend.tests.helpers import record_heat_result
+from backend.tests.helpers import lane_dicts, record_heat_result
 
 
 def test_auto_advancement_with_placeholders(client, db):
@@ -66,7 +64,7 @@ def test_auto_advancement_with_placeholders(client, db):
 
     placeholder_found = False
     for h in champ_heats:
-        results = json.loads(h.lane_results)
+        results = lane_dicts(db, h)
         for r in results:
             if r.get("racer_id") is not None and r.get("racer_id") < 0:
                 placeholder_found = True
@@ -77,7 +75,7 @@ def test_auto_advancement_with_placeholders(client, db):
     gen_heats = [h for h in crud.get_heats(db, race.id) if h.round_id == gen_round.id]
 
     for heat in gen_heats:
-        current_results = json.loads(heat.lane_results)
+        current_results = lane_dicts(db, heat)
         for lane_res in current_results:
             racer_id = lane_res.get("racer_id")
             if racer_id:
@@ -102,7 +100,7 @@ def test_auto_advancement_with_placeholders(client, db):
     placeholders_remaining = False
     valid_racers_found = False
     for h in champ_heats_after:
-        results = json.loads(h.lane_results)
+        results = lane_dicts(db, h)
         for r in results:
             rid = r.get("racer_id")
             if rid is not None:

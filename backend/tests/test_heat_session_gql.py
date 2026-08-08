@@ -10,8 +10,6 @@ manager's state machine, and a stubbed status would prove the resolver reads a
 stub.
 """
 
-import json
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -20,7 +18,7 @@ from backend.db import crud, models, schemas
 from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 client = TestClient(app)
 
@@ -112,9 +110,10 @@ def _heat(db, race, lanes, *, round_obj=None):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(lanes),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(lanes))
     db.commit()
     return heat
 
@@ -272,8 +271,8 @@ async def test_lane_times_appear_before_they_are_saved(db, registered_manager):
     ]
     # Nothing has been persisted yet — that is the whole point.
     db.expire_all()
-    stored = json.loads(
-        db.query(models.Heat).filter(models.Heat.id == heat.id).first().lane_results
+    stored = lane_dicts(
+        db, db.query(models.Heat).filter(models.Heat.id == heat.id).first()
     )
     assert all(lane["time"] is None for lane in stored)
 

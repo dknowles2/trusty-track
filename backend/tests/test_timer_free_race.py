@@ -1,4 +1,3 @@
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,7 +7,7 @@ from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 @pytest.mark.anyio
@@ -65,8 +64,8 @@ async def test_free_race_heat_recording_in_manager(db):
         # Verify DB update
         db.expire_all()
         updated_heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        assert updated_heat.lane_results is not None
-        results = json.loads(updated_heat.lane_results)
+        assert lane_dicts(db, updated_heat)
+        results = lane_dicts(db, updated_heat)
         assert results[0]["lane"] == 1
         assert results[0]["time"] == 3.5
         assert results[0]["place"] == 1
@@ -97,9 +96,10 @@ async def test_official_heat_recording_in_manager(db):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(heat_data),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(heat_data))
     db.commit()
     db.refresh(heat)
     heat_id = heat.id
@@ -131,8 +131,8 @@ async def test_official_heat_recording_in_manager(db):
 
         db.expire_all()
         updated_heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        assert updated_heat.lane_results is not None
-        results = json.loads(updated_heat.lane_results)
+        assert lane_dicts(db, updated_heat)
+        results = lane_dicts(db, updated_heat)
         assert results[0]["time"] == 3.6
         assert results[0]["place"] == 1
 

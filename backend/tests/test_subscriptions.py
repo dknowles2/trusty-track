@@ -13,7 +13,9 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.api.pubsub import _PubSub
 from backend.api.schema import RaceStateChangedEvent
+from backend.db import crud
 from backend.db.models import Base
+from backend.tests.helpers import as_lanes
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -90,17 +92,16 @@ def _seed_race(db_session: Any) -> tuple[int, int]:
     db_session.add(round_obj)
     db_session.flush()
 
-    import json
-
     heat = Heat(
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(
-            [{"lane": 1, "racer_id": racer.id, "time": None, "place": None}]
-        ),
     )
     db_session.add(heat)
+    db_session.flush()
+    crud.set_heat_lanes(
+        heat, as_lanes([{"lane": 1, "racer_id": racer.id, "time": None, "place": None}])
+    )
     db_session.commit()
 
     return race.id, heat.id

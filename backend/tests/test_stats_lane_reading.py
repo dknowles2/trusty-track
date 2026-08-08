@@ -1,23 +1,23 @@
-"""Statistics read the blob through the codec, not `json.loads`.
+"""Statistics survive a heat they cannot read anything from.
 
-`compute_race_stats` parsed `lane_results` itself until it was moved onto
-`lanes.parse` — the only sanctioned reader (#5). Mostly that is consolidation:
-the module coerces every time with `float()` and skips falsy racer ids, so the
-placeholder and string-time cases it used to handle by accident it now handles
-on purpose, with the same answers.
+`compute_race_stats` parsed `lane_results` itself until #5 moved it onto the
+codec, and #72 moved it onto `heat_lanes`. This file used to feed it malformed
+blobs — an object rather than a list, a list of strings, an entry with no lane
+number — because `json.loads` would iterate them and raise inside the stats
+page, taking the whole thing down mid-event.
 
-What it is *not* the same about is a blob that is not a list of lanes. Reading
-that with `json.loads` iterates something that is not a lane and raises inside
-the stats page; the codec returns no lanes. Nothing writes such a blob today —
-which is exactly why nothing else would catch it if something started.
+**None of those are representable now.** There is no string to malform: a
+heat's lanes are rows, and a lane with no number cannot be one. What survives
+is the case that is still reachable and still matters — a heat with no lane
+rows at all, which is what an unreadable blob became when migration 0003
+backfilled the table.
 """
-
-import json
 
 import pytest
 
 from backend.db import crud, models, schemas
 from backend.services.stats import compute_race_stats
+from backend.tests.helpers import as_lanes
 
 
 @pytest.fixture
@@ -55,43 +55,30 @@ def racers(db, race):
     ]
 
 
-def _heat_with(db, race, lane_results, heat_number=1) -> models.Heat:
-    """One official heat holding exactly this blob.
-
-    Written through the ORM so the `heat_lanes` projection stays in step — a
-    raw UPDATE would bypass the session listener and fail the suite's own
-    consistency check.
-    """
+def _heat_with(db, race, lane_rows, heat_number=1) -> models.Heat:
+    """One official heat holding exactly these lanes."""
     round_obj = crud.create_round(db, race_id=race.id, round_number=heat_number)
     heat = models.Heat(
         race_id=race.id,
         round_id=round_obj.id,
         kind=models.HeatKind.OFFICIAL,
         heat_number=heat_number,
-        lane_results=json.dumps(lane_results),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(lane_rows))
     db.commit()
     return heat
 
 
-@pytest.mark.parametrize(
-    "blob",
-    [
-        {"lanes": []},  # an object rather than a list
-        ["lane 1", "lane 2"],  # a list of something that is not a lane
-        [{"racer_id": 1, "time": 3.4}],  # an entry with no lane number
-    ],
-    ids=["object", "list-of-strings", "entry-without-a-lane"],
-)
-def test_a_malformed_blob_does_not_take_the_stats_page_down(db, race, blob):
+def test_a_heat_with_no_lanes_does_not_take_the_stats_page_down(db, race):
     """One unreadable heat must not cost the operator the whole page.
 
     Statistics are read during an event, on the same machine that is running
     it, and there is nothing the operator could do about a heat they cannot
     see. The rest of the race still has numbers worth showing.
     """
-    _heat_with(db, race, blob)
+    _heat_with(db, race, [])
 
     stats = compute_race_stats(db, race.id)
 
@@ -100,7 +87,7 @@ def test_a_malformed_blob_does_not_take_the_stats_page_down(db, race, blob):
 
 
 def test_good_heats_still_count_alongside_a_bad_one(db, race, racers):
-    _heat_with(db, race, {"lanes": []}, heat_number=1)
+    _heat_with(db, race, [], heat_number=1)
     _heat_with(
         db,
         race,

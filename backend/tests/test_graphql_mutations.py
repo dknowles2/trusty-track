@@ -1,6 +1,5 @@
-import json
-
 from backend.db import crud, models, schemas
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def test_racer_mutations(client, db):
@@ -133,9 +132,10 @@ def _setup_race_with_heat(db, lane_count=4):
         race_id=race.id,
         round_id=round_.id,
         heat_number=1,
-        lane_results=json.dumps(lane_results),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(lane_results))
     db.commit()
 
     return race.id, racer_a.id, racer_b.id, heat.id
@@ -150,7 +150,7 @@ def test_delete_racer_clears_from_heats(client, db):
 
     db.expire_all()
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-    results = json.loads(heat.lane_results)
+    results = lane_dicts(db, heat)
 
     lane1 = next(r for r in results if r["lane"] == 1)
     assert lane1["racer_id"] is None
@@ -175,7 +175,7 @@ def test_bulk_delete_racers_clears_from_heats(client, db):
 
     db.expire_all()
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-    results = json.loads(heat.lane_results)
+    results = lane_dicts(db, heat)
 
     for lane in results:
         assert lane["racer_id"] is None

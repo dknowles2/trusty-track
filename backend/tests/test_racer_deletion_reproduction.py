@@ -1,8 +1,7 @@
-import json
 import uuid
 
 from backend.db import crud, models, schemas
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _setup_race_with_heats(db, num_racers=3):
@@ -95,7 +94,7 @@ def test_delete_racer_regenerates_unstarted_round(db):
 
     alice_found = False
     for h in heats_unstarted:
-        results = json.loads(h.lane_results)
+        results = lane_dicts(db, h)
         for lane in results:
             if lane.get("racer_id") == r1_id:
                 alice_found = True
@@ -128,7 +127,7 @@ def test_delete_racer_nullifies_started_round(db):
     alice_found = False
     hole_found = False
     for h in heats_started:
-        results = json.loads(h.lane_results)
+        results = lane_dicts(db, h)
         for lane in results:
             if lane.get("racer_id") == r1_id:
                 alice_found = True
@@ -151,7 +150,7 @@ def test_delete_racer_nullifies_free_heat(db):
 
     # Free heat should be nullified
     free_heat = db.query(models.Heat).filter(models.Heat.id == free_id).first()
-    assignments = json.loads(free_heat.lane_results)
+    assignments = lane_dicts(db, free_heat)
     assert assignments[0]["racer_id"] is None, (
         "Deleted racer should be nullified in free heat"
     )

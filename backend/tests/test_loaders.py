@@ -5,10 +5,9 @@ subscription context is exactly how you end up showing a stale leaderboard to a
 room full of parents. These tests pin the invalidation behaviour.
 """
 
-import json
-
 from backend.api.loaders import RequestLoaders
 from backend.db import crud, models, schemas
+from backend.tests.helpers import as_lanes
 
 
 def _seed(db):
@@ -80,25 +79,32 @@ def test_leaderboard_reflects_new_results_after_clear(db):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(
+    )
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
             [
                 {"lane": 1, "racer_id": racer_a.id, "time": 4.0, "place": 2},
                 {"lane": 2, "racer_id": racer_b.id, "time": 3.0, "place": 1},
             ]
         ),
     )
-    db.add(heat)
     db.commit()
 
     loaders = RequestLoaders(db)
     assert loaders.leaderboard(race.id)[0]["racer_id"] == racer_b.id
 
     # Ann posts a much better time; the order should flip.
-    heat.lane_results = json.dumps(
-        [
-            {"lane": 1, "racer_id": racer_a.id, "time": 2.0, "place": 1},
-            {"lane": 2, "racer_id": racer_b.id, "time": 3.0, "place": 2},
-        ]
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": racer_a.id, "time": 2.0, "place": 1},
+                {"lane": 2, "racer_id": racer_b.id, "time": 3.0, "place": 2},
+            ]
+        ),
     )
     db.commit()
 
@@ -116,7 +122,6 @@ def test_global_heat_numbers_span_rounds(db):
                 race_id=race.id,
                 round_id=round_obj.id,
                 heat_number=heat_number,
-                lane_results=None,
             )
             db.add(heat)
             db.commit()

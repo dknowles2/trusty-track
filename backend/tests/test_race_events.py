@@ -12,7 +12,6 @@ there.
 """
 
 import asyncio
-import json
 
 import pytest
 
@@ -69,9 +68,12 @@ async def test_a_heat_result_carries_the_heat(db):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps([{"lane": 1, "racer_id": racer.id, "time": None}]),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat, as_lanes([{"lane": 1, "racer_id": racer.id, "time": None}])
+    )
     db.commit()
 
     results = as_lanes([{"lane": 1, "racer_id": racer.id, "time": 3.25, "place": 1}])
@@ -131,9 +133,7 @@ async def test_the_payload_survives_the_session_closing(db):
         db, schemas.RacerCreate(first_name="Cara", last_name="C", race_id=race.id)
     )
     round_obj = crud.create_round(db, race_id=race.id, round_number=1)
-    heat = models.Heat(
-        race_id=race.id, round_id=round_obj.id, heat_number=1, lane_results="[]"
-    )
+    heat = models.Heat(race_id=race.id, round_id=round_obj.id, heat_number=1)
     db.add(heat)
     db.commit()
 
@@ -176,11 +176,12 @@ async def test_a_heat_payload_carries_its_lanes(db):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(
-            [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": -1}]
-        ),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat, as_lanes([{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": -1}])
+    )
     db.commit()
 
     results = as_lanes(
@@ -251,9 +252,12 @@ def test_recording_a_result_through_graphql_publishes_a_heat_payload(client, db)
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps([{"lane": 1, "racer_id": racer.id, "time": None}]),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat, as_lanes([{"lane": 1, "racer_id": racer.id, "time": None}])
+    )
     db.commit()
     heat_id = heat.id
 

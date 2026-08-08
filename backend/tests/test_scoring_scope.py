@@ -10,13 +10,12 @@ a championship time could move the leaderboard that had picked the championship
 field.
 """
 
-import json
-
 import pytest
 
 from backend.db import crud, models, schemas
 from backend.domain import scoring as domain_scoring
 from backend.services import scoring
+from backend.tests.helpers import as_lanes
 
 
 def _seed(db, scoring_strategy=models.ScoringStrategy.TIMED):
@@ -41,9 +40,10 @@ def _heat(db, race, round_obj, lanes, heat_number=1):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=heat_number,
-        lane_results=json.dumps(lanes),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(lanes))
     db.commit()
     return heat
 

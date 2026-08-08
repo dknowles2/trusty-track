@@ -7,14 +7,13 @@ file-backed database that the test's own session could not see — and which had
 to be created up front by a session-scoped fixture.
 """
 
-import json
-
 import pytest
 
 from backend.db import crud, models, schemas
 from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _seed(db):
@@ -63,11 +62,12 @@ async def test_results_land_in_the_injected_database(db, timer_session_factory):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(
-            [{"lane": 1, "racer_id": racer.id, "time": None, "place": None}]
-        ),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat, as_lanes([{"lane": 1, "racer_id": racer.id, "time": None, "place": None}])
+    )
     db.commit()
 
     mgr = TimerManager(
@@ -83,7 +83,7 @@ async def test_results_land_in_the_injected_database(db, timer_session_factory):
 
     db.expire_all()
     recorded = db.query(models.Heat).filter(models.Heat.id == heat.id).first()
-    assert json.loads(recorded.lane_results)[0]["time"] == 3.25
+    assert lane_dicts(db, recorded)[0]["time"] == 3.25
 
 
 @pytest.mark.anyio

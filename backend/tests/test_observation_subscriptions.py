@@ -5,7 +5,6 @@ currently_racing, timing_stats, heats) emit the expected data.
 """
 
 import asyncio
-import json
 from typing import Any
 
 import pytest
@@ -14,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.api.pubsub import _PubSub
 from backend.api.schema import Subscription
+from backend.db import crud
 from backend.db.models import (
     Base,
     Group,
@@ -85,23 +85,15 @@ def _seed_race(db_session: Any) -> tuple[int, int, int]:
     db_session.add(round_obj)
     db_session.flush()
 
-    h1 = Heat(
-        race_id=race.id,
-        round_id=round_obj.id,
-        heat_number=1,
-        lane_results=json.dumps(
-            [{"lane": 1, "racer_id": r1.id, "time": None, "place": None}]
-        ),
-    )
-    h2 = Heat(
-        race_id=race.id,
-        round_id=round_obj.id,
-        heat_number=2,
-        lane_results=json.dumps(
-            [{"lane": 1, "racer_id": r2.id, "time": None, "place": None}]
-        ),
-    )
+    h1 = Heat(race_id=race.id, round_id=round_obj.id, heat_number=1)
+    h2 = Heat(race_id=race.id, round_id=round_obj.id, heat_number=2)
     db_session.add_all([h1, h2])
+    db_session.flush()
+    for heat, racer in ((h1, r1), (h2, r2)):
+        crud.set_heat_lanes(
+            heat,
+            as_lanes([{"lane": 1, "racer_id": racer.id, "time": None, "place": None}]),
+        )
     db_session.commit()
 
     return race.id, h1.id, h2.id

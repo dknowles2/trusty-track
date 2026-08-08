@@ -8,14 +8,13 @@ The ceilings are deliberately a little above the measured counts so unrelated
 changes don't cause spurious failures, but far below N+1 behaviour.
 """
 
-import json
-
 import pytest
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from backend.db import crud, models, schemas
 from backend.domain import lanes as domain_lanes
+from backend.tests.helpers import as_lanes
 
 # The query RaceControl.tsx actually sends.
 RACE_CONTROL_QUERY = """
@@ -220,15 +219,15 @@ def test_heat_fields_do_not_scale_with_heat_count(client, populated_race, db):
 
     round_obj = crud.create_round(db, race_id=populated_race.id, round_number=4)
     for heat_number in range(1, 46):
-        db.add(
-            models.Heat(
-                race_id=populated_race.id,
-                round_id=round_obj.id,
-                heat_number=heat_number,
-                lane_results=json.dumps(
-                    [{"lane": 1, "racer_id": None, "time": None, "place": None}]
-                ),
-            )
+        heat = models.Heat(
+            race_id=populated_race.id,
+            round_id=round_obj.id,
+            heat_number=heat_number,
+        )
+        db.add(heat)
+        db.flush()
+        crud.set_heat_lanes(
+            heat, as_lanes([{"lane": 1, "racer_id": None, "time": None, "place": None}])
         )
     db.commit()
 
