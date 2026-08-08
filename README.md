@@ -46,6 +46,7 @@ For the full documentation and user guides, visit: **[https://dknowles2.github.i
 | [Getting Started](https://dknowles2.github.io/trusty-track/getting-started/)           | First-time setup: system settings and creating your first race    |
 | [Race Setup Guide](https://dknowles2.github.io/trusty-track/race-setup/)               | Managing dens, registering racers, and preparing the roster       |
 | [Race Day Operations](https://dknowles2.github.io/trusty-track/race-day/)              | Check-in, scheduling heats, running the race, and final standings |
+| [Awards](https://dknowles2.github.io/trusty-track/awards/)                             | Speed trophies, and the judged ones the timer cannot decide       |
 | [Printables](https://dknowles2.github.io/trusty-track/printables/)                     | Pit passes, driver's licences, and scannable check-in codes       |
 | [Free Race](https://dknowles2.github.io/trusty-track/free-race/)                       | Practice and exhibition heats that count for nothing              |
 | [Observation Displays](https://dknowles2.github.io/trusty-track/observation-displays/) | Setting up audience screens and projectors                        |

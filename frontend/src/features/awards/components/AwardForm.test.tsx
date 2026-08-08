@@ -1,0 +1,131 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+import AwardForm from './AwardForm';
+
+const ROUNDS = [{ id: 4, name: 'Finals', roundNumber: 2 }];
+const DENS = [{ id: 10, name: 'Wolves' }];
+const RACERS = [
+  { id: 1, firstName: 'Ada', lastName: 'Lovelace', carNumber: 42 },
+  { id: 2, firstName: 'Grace', lastName: 'Hopper', carNumber: 7 },
+];
+
+function renderForm(props: Partial<React.ComponentProps<typeof AwardForm>> = {}) {
+  const onSubmit = vi.fn();
+  render(
+    <AwardForm
+      rounds={ROUNDS}
+      dens={DENS}
+      racers={RACERS}
+      submitLabel="Add award"
+      onSubmit={onSubmit}
+      onCancel={vi.fn()}
+      {...props}
+    />,
+  );
+  return onSubmit;
+}
+
+describe('AwardForm', () => {
+  it('starts on a judged award, which is the one the app had no answer for', () => {
+    renderForm();
+    expect(screen.getByLabelText('Winner')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Standings to use')).toBeNull();
+  });
+
+  it('swaps the whole second half when the kind changes', async () => {
+    // The two kinds share nothing but a name, so showing both sets of controls
+    // would put four dead inputs in front of the operator.
+    renderForm();
+    await userEvent.click(screen.getByLabelText(/whoever is fastest/i));
+
+    expect(screen.getByLabelText('Standings to use')).toBeInTheDocument();
+    expect(screen.getByLabelText('Position')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Winner')).toBeNull();
+  });
+
+  it('offers the overall standings and every round as a source', async () => {
+    renderForm();
+    await userEvent.click(screen.getByLabelText(/whoever is fastest/i));
+
+    const options = screen
+      .getAllByRole('option')
+      .map((o) => o.textContent)
+      .filter(Boolean);
+    expect(options).toContain('Overall standings');
+    expect(options).toContain('Finals');
+  });
+
+  it('submits a judged award with its chosen racer', async () => {
+    const onSubmit = renderForm();
+
+    await userEvent.type(screen.getByLabelText('Award name'), 'Best Paint');
+    await userEvent.selectOptions(screen.getByLabelText('Winner'), '2');
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Best Paint', kind: 'SPECIAL', racerId: 2 }),
+    );
+  });
+
+  it('submits a speed award with its source, place and den', async () => {
+    const onSubmit = renderForm();
+
+    await userEvent.type(screen.getByLabelText('Award name'), 'Fastest Wolf');
+    await userEvent.click(screen.getByLabelText(/whoever is fastest/i));
+    await userEvent.selectOptions(screen.getByLabelText('Limited to a den'), '10');
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Fastest Wolf',
+        kind: 'SPEED',
+        source: 'PACK',
+        place: 1,
+        denId: 10,
+      }),
+    );
+  });
+
+  it('lets a judged award be left undecided', async () => {
+    // Most of them are, right up until the end of the event.
+    const onSubmit = renderForm();
+    await userEvent.type(screen.getByLabelText('Award name'), 'Judges’ Choice');
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ racerId: null }));
+  });
+
+  it('will not submit a nameless award', async () => {
+    const onSubmit = renderForm();
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('trims the name', async () => {
+    const onSubmit = renderForm();
+    await userEvent.type(screen.getByLabelText('Award name'), '  Best Paint  ');
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Best Paint' }),
+    );
+  });
+
+  it('opens on the award it is editing', () => {
+    renderForm({
+      initial: {
+        name: 'Fastest Wolf',
+        kind: 'SPEED',
+        source: 'ROUND:4',
+        place: 2,
+        denId: 10,
+      },
+      submitLabel: 'Save changes',
+    });
+
+    expect(screen.getByLabelText('Award name')).toHaveValue('Fastest Wolf');
+    expect(screen.getByLabelText('Standings to use')).toHaveValue('ROUND:4');
+    expect(screen.getByLabelText('Position')).toHaveValue('2');
+    expect(screen.getByLabelText('Limited to a den')).toHaveValue('10');
+  });
+});

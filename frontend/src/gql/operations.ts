@@ -4,6 +4,16 @@ type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 import * as Types from './schema';
 
+export type AwardInput = {
+  denId?: number | null | undefined;
+  kind?: string;
+  name: string;
+  place?: number | null | undefined;
+  racerId?: number | null | undefined;
+  sortOrder?: number | null | undefined;
+  source?: string | null | undefined;
+};
+
 export type DenInput = {
   carNumberRangeEnd?: number | null | undefined;
   carNumberRangeStart?: number | null | undefined;
@@ -134,6 +144,44 @@ export type UpdateInitialConfigMutationVariables = Exact<{ [key: string]: never;
 
 
 export type UpdateInitialConfigMutation = { updateInitialConfig: { initialized: boolean } };
+
+export type RaceAwardsQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type RaceAwardsQuery = { race: { id: number, name: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, denId: number | null, den: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null }>, rounds: Array<{ id: number, name: string | null, roundNumber: number }>, dens: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null }> } | null };
+
+export type CreateAwardMutationVariables = Exact<{
+  raceId: number;
+  award: Types.AwardInput;
+}>;
+
+
+export type CreateAwardMutation = { createAward: { id: number } };
+
+export type UpdateAwardMutationVariables = Exact<{
+  id: number;
+  award: Types.AwardInput;
+}>;
+
+
+export type UpdateAwardMutation = { updateAward: { id: number } | null };
+
+export type DeleteAwardMutationVariables = Exact<{
+  id: number;
+}>;
+
+
+export type DeleteAwardMutation = { deleteAward: boolean };
+
+export type ReorderAwardsMutationVariables = Exact<{
+  raceId: number;
+  awardIds: Array<number> | number;
+}>;
+
+
+export type ReorderAwardsMutation = { reorderAwards: Array<{ id: number, sortOrder: number }> };
 
 export type GetTracksQueryVariables = Exact<{ [key: string]: never; }>;
 

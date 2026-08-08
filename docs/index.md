@@ -8,6 +8,7 @@ Trusty Track helps Cub Scout packs run Pinewood Derby events without spreadsheet
 - **[Getting Started](getting-started.md)**: A guide for first-time organizers.
 - **[Race Setup](race-setup.md)**: Dens, racers, car numbers, and importing a roster from a spreadsheet.
 - **[Race Day Operations](race-day.md)**: Managing check-in, heat generation, and race execution.
+- **[Awards](awards.md)**: Speed trophies and the judged ones — Best Paint, Most Original.
 - **[Printables](printables.md)**: Pit passes, driver's licences, and check-in codes you can scan.
 - **[Free Race](free-race.md)**: Practice and exhibition heats that count for nothing.
 - **[Hardware Timer](hardware-timer.md)**: Plugging in an electronic finish line, and checking it works.

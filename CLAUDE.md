@@ -104,6 +104,8 @@ frontend/src/
     printables/               # Pit passes, driver's licences, check-in codes
       documents.ts            #   card geometry and print order — pure, no React
       scanning.ts             #   reading a scanned code back — pure, no React
+    awards/                   # Trophies: speed and judged
+      awardText.ts            #   saying what an award is for — pure, no React
     stats/                    # Standings, RaceStats, Leaderboard
     settings/                 # SystemSettings first-run wizard
       backupClient.ts         #   the two REST calls — no React
@@ -450,6 +452,8 @@ Rules in `domain/awards.py`, database wiring in `services/awards.py`, storage in
 **Resolution is whole-race and memoised** (`loaders.award_recipients`). One speed award is a full scoring pass over the heats it draws from, and a pack hands out a dozen; `services/awards` loads each *distinct source* once within that. `test_query_counts.py` compares eight awards against one.
 
 **`Race.championship_trophies` is not this.** It means how many cars advance to the final — a scheduling input. An award is an outcome.
+
+On the frontend, `/race/:raceId/awards` is a fourth tab on `RaceModeToggle` beside Roster, Standings and Stats. `features/awards/awardText.ts` turns a stored rule into the sentence both the operator screen and (later) the presentation display show — `{source: "ROUND:4", place: 1, denId: 3}` is exactly the wrong thing to put in front of somebody choosing trophies. It is pure, and it holds the ordinal edge cases (11th, not 11st) and the two "that no longer exists" messages for a round or den deleted out from under an award. **Editing a speed award must not seed the racer picker from its computed recipient** — switching it to judged would then freeze the trophy on whoever happened to be fastest at that moment.
 
 ### Car numbering
 
