@@ -139,8 +139,10 @@ describe('SystemSettings', () => {
                 groupName: 'Test Pack',
                 debugMode: false,
                 tracks: [
-                    { name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, remoteStartInstalled: false },
-                    { name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, remoteStartInstalled: false }
+                    // A fake timer carries no model: it is chosen by transport, and a model
+                    // travelling with one would linger unseen if the operator switched back.
+                    { name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                    { name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false }
                 ]
             }
         });

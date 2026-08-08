@@ -36,6 +36,7 @@ from backend.db import models
 from backend.db.database import UPLOAD_DIR, SessionLocal, init_db
 from backend.services import printables
 from backend.services.image_processing import convert_to_browser_safe_png
+from backend.services.timer import devices
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
 from backend.services.timer.proxy import ProxySession, WebSocketTransport
 
@@ -198,12 +199,15 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
     db = SessionLocal()
     try:
         track = db.query(models.Track).filter(models.Track.id == track_id).first()
+        chosen_profile = None
         if not track or track.timer_type != models.TimerType.AUTO_DETECT_PROXY:
             await websocket.accept()
             await websocket.close(
                 code=4000, reason="Proxy mode not enabled for this track"
             )
             return
+        if track.timer_profile:
+            chosen_profile = devices.by_key(track.timer_profile)
     finally:
         db.close()
 
@@ -214,7 +218,8 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
     # left here is the message encoding, which is what this endpoint is for.
     transport = WebSocketTransport(websocket.send_json, track_id)
     manager.set_write_fn(transport.send)
-    session = ProxySession(manager, transport)
+    # A track whose model the operator named skips the walk entirely (#143).
+    session = ProxySession(manager, transport, chosen=chosen_profile)
     session.start()
 
     try:

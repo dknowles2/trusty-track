@@ -520,6 +520,7 @@ export type Query = {
   races: Array<Race>;
   randomFreeRaceLanes: Array<FreeRaceLaneAssignment>;
   rounds: Array<Round>;
+  timerModels: Array<TimerModel>;
   timerStatus?: Maybe<TimerStatus>;
   tracks: Array<Track>;
   version: Scalars['String']['output'];
@@ -810,6 +811,17 @@ export type SubscriptionTimingStatsArgs = {
   raceId: Scalars['Int']['input'];
 };
 
+export type TimerModel = {
+  baudRate: Scalars['Int']['output'];
+  dataBits: Scalars['Int']['output'];
+  detectable: Scalars['Boolean']['output'];
+  key: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  parity: Scalars['String']['output'];
+  provenance: Scalars['String']['output'];
+  stopBits: Scalars['Float']['output'];
+};
+
 export type TimerStateChangedEvent = {
   changedAt: Scalars['String']['output'];
   status: TimerStatus;
@@ -860,6 +872,7 @@ export type Track = {
   races: Array<Race>;
   remoteStartInstalled: Scalars['Boolean']['output'];
   serialPort?: Maybe<Scalars['String']['output']>;
+  timerProfile?: Maybe<Scalars['String']['output']>;
   timerType: Scalars['String']['output'];
 };
 
@@ -869,6 +882,7 @@ export type TrackInput = {
   name?: Scalars['String']['input'];
   remoteStartInstalled?: Scalars['Boolean']['input'];
   serialPort?: InputMaybe<Scalars['String']['input']>;
+  timerProfile?: InputMaybe<Scalars['String']['input']>;
   timerType?: Scalars['String']['input'];
 };
 

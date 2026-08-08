@@ -128,7 +128,7 @@ Group           id, name, debug_mode
   └─ Race[]
 
 Track           id, name, lane_count, length_feet, timer_type, serial_port,
-                remote_start_installed
+                timer_profile?, remote_start_installed
   └─ Race[]
 
 Race            id, name, date_time, location, group_id, track_id,
@@ -417,6 +417,10 @@ Three things about the proxy walk:
 - **A connection that opens and goes quiet is the normal case, and `CONNECTED` is a trap without help.** `handle_connect` sends the setup commands, the device acknowledges them, and `_process_line` consumes acknowledgements through `_pending_acks` with an *early return* — so nothing reaches the branch that leaves `CONNECTED`. `nudge_if_unidentified`, called from the watchdog, asks with `probe` (never while a heat is armed). Don't "fix" this by treating an ack as identification: an ack says something is there, not which model, and in proxy mode the profile is only an assumption.
 - **A probe hands over its open port**, and `adopt()` goes straight to `IDLE`. Reopening would lose the banner the device just sent and strand the manager in `CONNECTED`.
 - **A hand-configured `Track.serial_port` is never probed** — used exactly as given. Go through `_start_backend_direct` in `schema.py` rather than calling `connect_direct`/`autodetect` directly; there are four call sites and #48 is the standing reminder about rules that land on only some of them.
+- **`Track.timer_type` is the transport; `Track.timer_profile` is the model** (#143). They are separate questions — the same MicroWizard can be on either transport, and knowing the model does not tell you which. Null means detect it, which is what every track did before the picker existed. `_device_for` is the one place that decides, because three mutations build a manager and #48 is about rules reaching only some of them.
+  - A named model **narrows** the port search rather than replacing it: `autodetect([profile])`. The operator is asking *which port*, not *which timer*, and a probe writes to every port it tries.
+  - On the proxy, a named model empties the candidate walk so the existing fallback path — reopen with this framing, hand over — does the work. There is deliberately no second code path for "we know what this is".
+  - The fake timer is reachable by `timer_type` and is **not** offered as a model, or a track could ask for a fake timer over a real serial port. `_device_for` rejects it, and `timerModels` omits it.
 - **The suite must never touch real hardware.** `conftest.py`'s autouse `no_real_serial_ports` stubs both `probe.usb_ports` and `probe.open_serial`. Tests that exercise probing pass their own `open_port` to `probe.detect`.
 - **`_timer_status(s)` in `schema.py` is the only converter.** The `timerStatus` query and its subscription both go through it. They used to build the type separately, which is how a field lands on one and not the other — and with a normalized cache, a subscription payload missing a field the query supplied is how a value vanishes from a screen mid-event.
 - **A gate watcher is a poll, and its answers are scoped to the poll.** A profile may carry `gate_watcher` (a command plus matchers) for a device that only reports the gate when asked. Real answers are as short as `0`, `U`, `O` and `.` — PDT's gate-closed pattern is a bare `.`, which matches any character — so `read_gate` is consulted **only** inside the window following a query, never as part of `parse_line`. Putting them in the general matcher list would have them claim every line the timer sends.

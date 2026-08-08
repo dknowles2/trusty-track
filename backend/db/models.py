@@ -97,6 +97,21 @@ class Track(Base):
         SAEnum(TimerType), default=TimerType.FAKE
     )
     serial_port: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: Which timer model this track has, by ``TimerProfile.key``, or null to
+    #: work it out.
+    #:
+    #: ``timer_type`` says how the timer is *reached* — not at all, over a
+    #: serial port the backend holds, or over one the browser holds. This says
+    #: *what it is*. They are separate questions: the same MicroWizard can be
+    #: on either transport, and knowing the model does not tell you which.
+    #:
+    #: Null means probe for it, which is what every track did before #143.
+    #: Naming a model matters for two reasons. Detection only works for a
+    #: profile that answers an identifying question, and the NewBold family
+    #: does not — so it was unreachable, shipped and impossible to select. And
+    #: a probe *writes* to every port it tries, which an operator who already
+    #: knows their hardware has no reason to allow.
+    timer_profile: Mapped[str | None] = mapped_column(String, nullable=True)
     #: This track has a solenoid on the start gate, so software can release it.
     #:
     #: A setting rather than something detected, because nothing in any timer

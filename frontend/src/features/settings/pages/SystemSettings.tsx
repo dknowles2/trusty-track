@@ -16,8 +16,27 @@ const GET_INITIAL_CONFIG = `
         lengthFeet
         timerType
         serialPort
+        timerProfile
         remoteStartInstalled
       }
+    }
+  }
+`;
+
+// The models a track can be set to. The frontend holds no copy of the
+// profiles — the backend owns every piece of protocol state — so this is the
+// list to show and the key to send back, nothing more.
+const GET_TIMER_MODELS = `
+  query GetTimerModels {
+    timerModels {
+      key
+      name
+      provenance
+      detectable
+      baudRate
+      dataBits
+      stopBits
+      parity
     }
   }
 `;
@@ -50,12 +69,23 @@ export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
   const [debugMode, setDebugMode] = useState(false);
-  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '', remoteStartInstalled: false }]);
+  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   const [configResult] = useQuery({ query: GET_INITIAL_CONFIG, requestPolicy: 'network-only' });
+  const [modelsResult] = useQuery({ query: GET_TIMER_MODELS });
+  const timerModels: {
+    key: string;
+    name: string;
+    provenance: string;
+    detectable: boolean;
+    baudRate: number;
+    dataBits: number;
+    stopBits: number;
+    parity: string;
+  }[] = modelsResult.data?.timerModels || [];
   const { data, fetching, error: queryError } = configResult;
 
   const [, createInitialConfig] = useMutation(CREATE_INITIAL_CONFIG);
@@ -83,6 +113,7 @@ export default function SystemConfig() {
             lengthFeet: number;
             timerType: string;
             serialPort?: string;
+            timerProfile?: string | null;
             remoteStartInstalled?: boolean;
           }) => ({
             name: t.name,
@@ -90,6 +121,7 @@ export default function SystemConfig() {
             lengthFeet: t.lengthFeet,
             timerType: t.timerType,
             serialPort: t.serialPort || '',
+            timerProfile: t.timerProfile || '',
             remoteStartInstalled: !!t.remoteStartInstalled
           })));
         }
@@ -104,7 +136,7 @@ export default function SystemConfig() {
   };
 
   const addTrack = () => {
-    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '', remoteStartInstalled: false }]);
+    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
   };
 
   const removeTrack = (index: number) => {
@@ -131,12 +163,17 @@ export default function SystemConfig() {
         config: {
           groupName: groupName,
           debugMode: debugMode,
-          tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort, remoteStartInstalled }) => ({
+          tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
             name,
             laneCount,
             lengthFeet: lengthFeet || 40,
             timerType,
             serialPort: timerType === 'AUTO_DETECT_BACKEND' ? serialPort : null,
+            // Empty means "work it out", which is what null is on the server.
+            // A model is meaningless on the fake timer, so it does not travel
+            // with one — otherwise a track switched to FAKE and back would
+            // silently keep a model the operator had stopped seeing.
+            timerProfile: timerType === 'FAKE' ? null : (timerProfile || null),
             remoteStartInstalled
           }))
         }
@@ -220,10 +257,11 @@ export default function SystemConfig() {
             )}
 
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Track Name</label>
+              <label htmlFor={`track-name-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Track Name</label>
               <input
                 type="text"
-                value={track.name}
+                id={`track-name-${index}`}
+                  value={track.name}
                 onChange={(e) => handleTrackChange(index, 'name', e.target.value)}
                 required
                 placeholder="e.g. Main Track"
@@ -233,9 +271,10 @@ export default function SystemConfig() {
 
             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Lanes</label>
+                <label htmlFor={`track-lanes-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Lanes</label>
                 <input
                   type="number"
+                  id={`track-lanes-${index}`}
                   value={track.laneCount}
                   onChange={(e) => handleTrackChange(index, 'laneCount', parseInt(e.target.value) || 0)}
                   min="1"
@@ -245,9 +284,10 @@ export default function SystemConfig() {
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Length (Feet)</label>
+                <label htmlFor={`track-length-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Length (Feet)</label>
                 <input
                   type="number"
+                  id={`track-length-${index}`}
                   value={track.lengthFeet}
                   onChange={(e) => handleTrackChange(index, 'lengthFeet', parseInt(e.target.value) || 0)}
                   min="10"
@@ -258,9 +298,10 @@ export default function SystemConfig() {
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Timer Type</label>
+              <label htmlFor={`track-timer-type-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Timer Type</label>
               <select
-                value={track.timerType}
+                id={`track-timer-type-${index}`}
+                  value={track.timerType}
                 onChange={(e) => handleTrackChange(index, 'timerType', e.target.value)}
                 style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc', marginBottom: track.timerType === 'AUTO_DETECT_BACKEND' ? '1rem' : '0' }}
               >
@@ -270,9 +311,51 @@ export default function SystemConfig() {
               </select>
             </div>
 
+            {track.timerType !== 'FAKE' && (() => {
+              const chosen = timerModels.find((m) => m.key === track.timerProfile);
+              const unusualFraming =
+                chosen && (chosen.baudRate !== 9600 || chosen.dataBits !== 8 || chosen.stopBits !== 1 || chosen.parity !== 'N');
+              return (
+                <div>
+                  <label htmlFor={`track-model-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+                    Timer Model <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span>
+                  </label>
+                  <select
+                    id={`track-model-${index}`}
+                    value={track.timerProfile}
+                    onChange={(e) => handleTrackChange(index, 'timerProfile', e.target.value)}
+                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                  >
+                    <option value="">Detect automatically</option>
+                    {timerModels.map((model) => (
+                      <option key={model.key} value={model.key}>
+                        {model.name}{model.detectable ? '' : ' — must be chosen'}
+                      </option>
+                    ))}
+                  </select>
+                  <small style={{ color: '#666', display: 'block', marginTop: '0.25rem' }}>
+                    {chosen
+                      ? chosen.provenance
+                      : 'Leave this alone and the app asks each timer it knows about who it is. Pick a model if yours is not found, or to stop it asking.'}
+                  </small>
+                  {chosen && !chosen.detectable && (
+                    <small style={{ color: '#8a6d00', display: 'block', marginTop: '0.25rem' }}>
+                      This model cannot answer an identifying question, so choosing it here is the only way to use it.
+                    </small>
+                  )}
+                  {unusualFraming && (
+                    <small style={{ color: '#8a6d00', display: 'block', marginTop: '0.25rem' }}>
+                      Uses {chosen.baudRate} baud, {chosen.dataBits} data bits, {chosen.stopBits} stop bit
+                      {chosen.stopBits === 1 ? '' : 's'}, parity {chosen.parity} — not the usual 9600 8-N-1.
+                    </small>
+                  )}
+                </div>
+              );
+            })()}
+
             {track.timerType === 'AUTO_DETECT_BACKEND' && (
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Serial Port <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span></label>
+                <label htmlFor={`track-serial-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Serial Port <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span></label>
                 {/*
                   Deliberately not `required`. Leaving it blank is now the
                   normal case: the server finds the timer by probing the USB
@@ -281,6 +364,7 @@ export default function SystemConfig() {
                 */}
                 <input
                   type="text"
+                  id={`track-serial-${index}`}
                   value={track.serialPort || ''}
                   onChange={(e) => handleTrackChange(index, 'serialPort', e.target.value)}
                   placeholder="Leave blank to detect automatically"
