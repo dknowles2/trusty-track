@@ -1,10 +1,39 @@
 import React from 'react';
 import { Icon } from '@mdi/react';
-import { mdiTimerOutline, mdiPlay, mdiFlagCheckered } from '@mdi/js';
+import { mdiTimerOutline, mdiPlay, mdiFlagCheckered, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import { useMutation, useSubscription } from 'urql';
 import { FAKE_TIMER_START, FAKE_TIMER_FINISH, TIMER_STATUS_SUBSCRIPTION } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
 
+
+/**
+ * Whether the panel is collapsed, remembered across mounts.
+ *
+ * Remembering matters more than it looks: the panel remounts on every
+ * navigation and the operator would otherwise re-collapse it all evening, which
+ * is no better than not being able to collapse it at all.
+ *
+ * Storage is wrapped because it throws rather than returns null in a few
+ * browser configurations, and a floating debug panel must never be the reason a
+ * race screen fails to render.
+ */
+const COLLAPSED_KEY = 'trustytrack.fakeTimerMole.collapsed';
+
+function readCollapsed(): boolean {
+    try {
+        return window.localStorage.getItem(COLLAPSED_KEY) === 'true';
+    } catch {
+        return false;
+    }
+}
+
+function writeCollapsed(collapsed: boolean): void {
+    try {
+        window.localStorage.setItem(COLLAPSED_KEY, String(collapsed));
+    } catch {
+        // Not worth surfacing: the panel still works, it just forgets.
+    }
+}
 
 interface FakeTimerMoleProps {
     isOpen: boolean;       // show/hide the mole panel
@@ -15,6 +44,19 @@ interface FakeTimerMoleProps {
 
 export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, trackId, isFreeRace = false }) => {
     const { showAlert } = useAlert();
+
+    // Expanded by default. Unlike the hardware panel's serial log — which is a
+    // readout and starts collapsed — these buttons are the only way to run a
+    // heat on a fake timer, so hiding them by default would break the very
+    // configuration the panel exists for.
+    const [collapsed, setCollapsed] = React.useState(readCollapsed);
+
+    const toggleCollapsed = () => {
+        setCollapsed(prev => {
+            writeCollapsed(!prev);
+            return !prev;
+        });
+    };
 
     const [, fakeTimerStart] = useMutation(FAKE_TIMER_START);
     const [, fakeTimerFinish] = useMutation(FAKE_TIMER_FINISH);
@@ -91,17 +133,32 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
                 borderRadius: '12px',
                 boxShadow: '0 5px 20px rgba(0,0,0,0.2)',
                 zIndex: 1000,
-                minWidth: '220px',
+                minWidth: '260px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '10px',
+                gap: collapsed ? 0 : 10,
                 border: '2px solid #ff9800'
             }}
         >
-            <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icon path={mdiTimerOutline} size={0.9} color="#ff9800" /> Fake Timer Controls
+            <h3
+                onClick={toggleCollapsed}
+                title={collapsed ? 'Show the fake timer controls' : 'Collapse out of the way'}
+                style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
+            >
+                <Icon path={mdiTimerOutline} size={0.9} color="#ff9800" />
+                Fake Timer Controls
+                <span style={{ flex: 1 }} />
+                {/* Collapsed, this is the only thing left saying whether the
+                    heat can be started — so it belongs in the header, not in
+                    the body with the buttons. */}
+                <span style={{ fontSize: '0.72rem', color: '#ff9800', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {timerState}
+                </span>
+                <Icon path={collapsed ? mdiChevronUp : mdiChevronDown} size={0.7} color="#666" />
             </h3>
 
+            {!collapsed && (
+              <>
             <button
                 className="secondary-btn"
                 onClick={handleStartTimer}
@@ -127,6 +184,8 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
             <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#888' }}>
                 Simulates hardware timer events.
             </div>
+              </>
+            )}
         </div>
     );
 };
