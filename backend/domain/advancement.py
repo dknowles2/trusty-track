@@ -18,10 +18,37 @@ ROUND_PREFIX = "ROUND:"
 
 @dataclass(frozen=True)
 class Standing:
-    """The slice of a leaderboard entry that advancement actually needs."""
+    """The slice of a leaderboard entry that advancement actually needs.
+
+    Also what an award is resolved against; see :mod:`backend.domain.awards`.
+    """
 
     racer_id: int
     den_id: int | None = None
+
+
+def is_round_scoped(source: str) -> bool:
+    """Whether a source string names one round rather than a population."""
+    return source.startswith(ROUND_PREFIX)
+
+
+def round_id_in(source: str) -> int | None:
+    """The round id a source names, or ``None`` if it does not name one.
+
+    Also ``None`` for a malformed source such as ``"ROUND:"`` or
+    ``"ROUND:abc"``, which callers treat as "nobody qualifies" rather than
+    raising — a typo in a rule should not take down the race.
+
+    Module-level rather than only a property of :class:`AdvancementRule`,
+    because awards speak the same source vocabulary and there should be one
+    parser for it.
+    """
+    if not is_round_scoped(source):
+        return None
+    try:
+        return int(source.split(":", 1)[1])
+    except (IndexError, ValueError):
+        return None
 
 
 @dataclass(frozen=True)
@@ -45,22 +72,12 @@ class AdvancementRule:
 
     @property
     def is_round_scoped(self) -> bool:
-        return self.source.startswith(ROUND_PREFIX)
+        return is_round_scoped(self.source)
 
     @property
     def source_round_id(self) -> int | None:
-        """The referenced round id, or ``None`` if this rule is not round-scoped.
-
-        Also ``None`` for a malformed source such as ``"ROUND:"`` or
-        ``"ROUND:abc"``, which callers treat as "nobody advances" rather than
-        raising — a typo in a rule should not take down the race.
-        """
-        if not self.is_round_scoped:
-            return None
-        try:
-            return int(self.source.split(":", 1)[1])
-        except (IndexError, ValueError):
-            return None
+        """The referenced round id, or ``None`` if this rule is not round-scoped."""
+        return round_id_in(self.source)
 
 
 def advancing_racer_ids(

@@ -1273,3 +1273,114 @@ def bulk_move_racers_to_den(db: Session, racer_ids: list[int], den_id: int | Non
         {"den_id": den_id}, synchronize_session=False
     )
     db.commit()
+
+
+# --------------------------------------------------------------------------- #
+# Awards (#170)                                                                #
+# --------------------------------------------------------------------------- #
+#
+# A recipient is never stored for a SPEED award — `services/awards.py` computes
+# it from the standings each time. What is stored here is the rule.
+
+
+def get_awards(db: Session, race_id: int) -> list[models.Award]:
+    """A race's awards in presentation order.
+
+    Ordered by `sort_order` then `id`, so awards created before anybody set an
+    order still come back in a stable sequence rather than whatever the database
+    happens to return.
+    """
+    return (
+        db.query(models.Award)
+        .filter(models.Award.race_id == race_id)
+        .order_by(models.Award.sort_order, models.Award.id)
+        .all()
+    )
+
+
+def _next_award_sort_order(db: Session, race_id: int) -> int:
+    highest = (
+        db.query(func.max(models.Award.sort_order))
+        .filter(models.Award.race_id == race_id)
+        .scalar()
+    )
+    return 0 if highest is None else int(highest) + 1
+
+
+def create_award(db: Session, race_id: int, award: schemas.AwardCreate) -> models.Award:
+    """Add an award, at the end of the running order unless told otherwise.
+
+    The fields that do not belong to the kind are cleared rather than trusted:
+    a `SPECIAL` award with a `source` would resolve as neither one thing nor the
+    other in `services/awards._rule_for`, and the client has no reason to be the
+    thing that remembers.
+    """
+    data = award.model_dump(exclude_unset=True)
+    sort_order = data.pop("sort_order", None)
+    db_award = models.Award(
+        race_id=race_id,
+        sort_order=(
+            _next_award_sort_order(db, race_id) if sort_order is None else sort_order
+        ),
+        **data,
+    )
+    _clear_fields_of_other_kind(db_award)
+    db.add(db_award)
+    db.commit()
+    db.refresh(db_award)
+    return db_award
+
+
+def update_award(
+    db: Session, award_id: int, award_update: schemas.AwardUpdate
+) -> models.Award | None:
+    db_award = db.query(models.Award).filter(models.Award.id == award_id).first()
+    if not db_award:
+        return None
+
+    for key, value in award_update.model_dump(exclude_unset=True).items():
+        setattr(db_award, key, value)
+
+    # After the update, not before: changing the kind is what makes the other
+    # kind's fields stale, and the change and the fields can arrive together.
+    _clear_fields_of_other_kind(db_award)
+
+    db.commit()
+    db.refresh(db_award)
+    return db_award
+
+
+def _clear_fields_of_other_kind(award: models.Award) -> None:
+    """Null whichever half of the row this award's kind does not use."""
+    if award.kind is models.AwardKind.SPEED:
+        award.racer_id = None
+    else:
+        award.source = None
+        award.place = None
+        award.den_id = None
+
+
+def delete_award(db: Session, award_id: int) -> models.Award | None:
+    db_award = db.query(models.Award).filter(models.Award.id == award_id).first()
+    if db_award:
+        db.delete(db_award)
+        db.commit()
+    return db_award
+
+
+def reorder_awards(
+    db: Session, race_id: int, award_ids: list[int]
+) -> list[models.Award]:
+    """Set the presentation order from a list of ids, first to last.
+
+    Ids that do not belong to this race are ignored rather than raising: the
+    screen sends the order it is showing, and an award deleted from another
+    device between render and drop is a race, not a mistake.
+    """
+    by_id = {award.id: award for award in get_awards(db, race_id)}
+    for position, award_id in enumerate(award_ids):
+        award = by_id.get(award_id)
+        if award is not None:
+            award.sort_order = position
+    db.commit()
+    return get_awards(db, race_id)

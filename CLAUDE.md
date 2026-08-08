@@ -70,6 +70,7 @@ backend/
     schemas.py        # Pydantic input/response models
     populate.py       # Test data generator (populateRace mutation)
   domain/             # Pure rules — no SQLAlchemy, no Strawberry (see below)
+    awards.py         # Who wins what
     lanes.py          # Lane value object + predicates over a heat's lanes
     scheduling.py     # PPC algorithm
     scoring.py        # TIMED / POINTS aggregation and ranking
@@ -77,6 +78,7 @@ backend/
     heat_session.py   # What is on the track right now: heat + timer, merged
   migrations/         # Alembic environment and versions
   services/
+    awards.py         # Award recipients, resolved against the standings
     backup.py         # The install as one zip, and putting it back
     scoring.py        # Leaderboard and advancement, wired to the DB
     stats.py          # Race statistics
@@ -425,6 +427,29 @@ Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.g
 **`advancement_num_racers` is per *den* when the source is `DEN`**, and absolute otherwise. The rule is `domain/advancement.field_size`, wrapped by `crud.round_field_size` which counts the dens — use those, never the raw column. It had grown five copies, two of them wrong, and the wrong ones shrank a DEN final to a fraction of its field on every preliminary result (#52).
 
 `advancement_num_racers` is also a **request**, not a guarantee: "top four" from a den of three can only ever supply three. Heats are generated from the request, before anyone qualifies, so a round can hold more slots than the race can fill. Left alone the surplus is fatal rather than untidy — `phase` reports `NOT_READY` while any placeholder remains, and the operator screen has no controls in that state, so the round cannot be run, edited or skipped. `domain/advancement.field_is_short` detects it and the round is rebuilt for the field that actually qualified. A round that has already been raced is filled in place regardless, following the same rule as invalidation.
+
+### Awards
+
+Rules in `domain/awards.py`, database wiring in `services/awards.py`, storage in the `awards` table (#170). Two kinds, and the difference is only where the recipient comes from:
+
+| Kind | Recipient | Fields |
+| --- | --- | --- |
+| `SPEED` | computed from the standings | `source` + `place`, optionally `den_id` |
+| `SPECIAL` | chosen by a person | `racer_id` |
+
+**A speed award names a source, never a winner**, and the recipient is resolved on every read. An award defined before the racing has to stay correct when a time is corrected after it; storing the racer id would make this the first thing in the app able to disagree with the leaderboard, which is the loop #17 closed. Same principle as the standings themselves: computed on demand, never stored.
+
+**`DEN` is not a source, and that is the one departure from advancement's vocabulary.** For advancement `DEN` means "the top N of *each* den", which yields a set — right for filling a field, wrong for an award, which has exactly one recipient. A den-scoped award is an ordinary source with `den_id` set, so "fastest Wolf" is the pack standings narrowed. Six of them is six awards, which is also how they are announced.
+
+**`place` is 1-based and refused below 1** in both `SpeedRule.__post_init__` and the Pydantic schema. `standings[place - 1]` with a place of 0 indexes from the end and hands the trophy to the slowest car.
+
+**A null recipient is the ordinary state**, not an error — third place has nobody until three cars have run, and Best Paint has nobody until somebody decides. A `SPEED` row missing its source or place resolves to nobody too, rather than raising: an award nobody can win is visible on the operator screen, and an exception takes down the presentation display mid-ceremony.
+
+**`crud._clear_fields_of_other_kind` runs *after* an update applies**, not before. Changing the kind is what makes the other kind's fields stale, and the new kind and the stale fields arrive in the same payload.
+
+**Resolution is whole-race and memoised** (`loaders.award_recipients`). One speed award is a full scoring pass over the heats it draws from, and a pack hands out a dozen; `services/awards` loads each *distinct source* once within that. `test_query_counts.py` compares eight awards against one.
+
+**`Race.championship_trophies` is not this.** It means how many cars advance to the final — a scheduling input. An award is an outcome.
 
 ### Car numbering
 

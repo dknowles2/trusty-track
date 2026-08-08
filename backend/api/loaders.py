@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session, selectinload
 from backend.db import crud, models
 from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
+from backend.services import awards as awards_service
 from backend.services import scoring
 
 
@@ -46,6 +47,8 @@ class RequestLoaders:
         self._groups: dict[int, models.Group | None] = {}
         self._lanes: dict[int, dict[int, list[models.HeatLane]]] = {}
         self._lane_values: dict[tuple[int, int], list[lanes.Lane]] = {}
+        self._awards_by_race: dict[int, list[models.Award]] = {}
+        self._award_recipients: dict[int, dict[int, int | None]] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -64,6 +67,8 @@ class RequestLoaders:
         self._groups.clear()
         self._lanes.clear()
         self._lane_values.clear()
+        self._awards_by_race.clear()
+        self._award_recipients.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -121,6 +126,22 @@ class RequestLoaders:
             if den.id == den_id:
                 return den
         return self._db.query(models.Den).filter(models.Den.id == den_id).first()
+
+    def awards_for_race(self, race_id: int) -> list[models.Award]:
+        if race_id not in self._awards_by_race:
+            self._awards_by_race[race_id] = crud.get_awards(self._db, race_id)
+        return self._awards_by_race[race_id]
+
+    def racer_by_id(self, race_id: int, racer_id: int) -> models.Racer | None:
+        """Resolve a racer from the race's already-loaded roster.
+
+        Falls back to a direct lookup, as `den_by_id` does, for a racer who
+        belongs to a different race than the one being resolved.
+        """
+        for racer in self.racers_for_race(race_id):
+            if racer.id == racer_id:
+                return racer
+        return self._db.query(models.Racer).filter(models.Racer.id == racer_id).first()
 
     def racers_for_race(self, race_id: int) -> list[models.Racer]:
         if race_id not in self._racers_by_race:
@@ -207,6 +228,19 @@ class RequestLoaders:
                 self._db, race_id, round_id=round_id, scope=scope
             )
         return self._leaderboards[key]
+
+    def award_recipients(self, race_id: int) -> dict[int, int | None]:
+        """Memoised ``{award_id: racer_id or None}`` for a whole race (#170).
+
+        Whole-race and cached because resolving one speed award is a full
+        scoring pass over the heats it draws from, and an awards screen asks
+        for every award at once. Per-award resolution would be one pass each.
+        """
+        if race_id not in self._award_recipients:
+            self._award_recipients[race_id] = awards_service.recipients_of(
+                self._db, race_id, self.awards_for_race(race_id)
+            )
+        return self._award_recipients[race_id]
 
     def global_heat_number(self, race_id: int, heat_id: int) -> int | None:
         """Position of a heat across the whole race, 1-indexed.

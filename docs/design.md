@@ -100,19 +100,30 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `round_id` (FK to Round, **nullable** — null for a free race heat)
     -   `kind` (Enum: `OFFICIAL`, `FREE`)
     -   `heat_number`
-    -   `lane_results` (JSON string: `[{lane, racer_id, time, place}]`) — **derived** since the write path
-        moved to `heat_lanes`. Still written on every save so a rollback has data; nothing reads it except
-        the projection's own verification. Retiring it is issue #72's last step, and waits on a release.
     -   `created_at` — when the row was written. For an official heat that is when its *round* was generated, not when it ran.
     -   `recorded_at` — when a result was last recorded, cleared on a re-run. The only field the two heat kinds can be ranked on together.
 -   **`HeatLane`**: One row per lane of a heat.
     -   `heat_id` (FK to Heat, `ON DELETE CASCADE`), `lane`, `racer_id` (FK to Racer, `ON DELETE SET NULL`), `placeholder_slot`, `time_seconds`, `place`, `skipped`
-    -   Rows are built from the lane *values* a writer supplied, not from parsing the string it also wrote: `crud.set_heat_lanes` is the one door, and a session listener writes the rows once the flush has given a new heat its id. `lane_results` is written alongside as a **derived** column, so a rollback has data. Reads — including the whole GraphQL read path — come from here.
+    -   Rows are built from the lane *values* a writer supplied: `crud.set_heat_lanes` is the one door, and a session listener writes the rows once the flush has given a new heat its id. This is the **only** copy — `heats.lane_results` was dropped in migration `0013`, which rebuilt every blob from these rows and compared before dropping (#72).
     -   The two `ON DELETE` actions are load-bearing rather than decorative. Five delete paths used to remove a parent while lane rows still pointed at it, and nothing noticed because SQLite enforces no foreign key unless asked; see issue #125.
+-   **`Award`**: A trophy, and where its recipient comes from (#170).
+    -   `id` (PK)
+    -   `race_id` (FK to Race, `ON DELETE CASCADE`)
+    -   `name`, `sort_order` (presentation order)
+    -   `kind` (Enum: `SPEED`, `SPECIAL`)
+    -   `source` (`SPEED` only: `PACK` or `ROUND:<id>` — the same vocabulary `Round.advancement_source` uses, but never `DEN`)
+    -   `place` (`SPEED` only, 1-based: the winner is 1)
+    -   `den_id` (`SPEED` only, FK to Den, `ON DELETE CASCADE` — narrows the standings to one den, which is how "fastest Wolf" is expressed rather than a third kind of source)
+    -   `racer_id` (`SPECIAL` only, FK to Racer, `ON DELETE SET NULL` — deleting a racer un-assigns the award rather than deleting the trophy)
+    -   A `SPEED` recipient is **computed on demand and never stored**, like the leaderboard: an award defined before the racing stays correct when a time is corrected after it. Storing one would make this the first thing in the app able to disagree with the standings (#17).
 
-**Not implemented:** a `User` entity with authentication and roles. Mutations
-are unauthenticated and CORS is open, which is a deliberate deferral for a
-single-operator machine on a venue LAN — see issue #15.
+**Authentication** is implemented — see `backend/api/auth.py` and issue #15.
+Three roles (`VIEWER`, `CHECKIN`, `OPERATOR`) derived from a PIN, enforced by a
+Strawberry extension on every mutation field and by explicit checks on the
+non-GraphQL routes. It is **off until an operator PIN is set**, which is what
+every install did before it existed. There is no `User` entity and no audit
+trail: one shared PIN per role, which is the right size of solution for a pack
+derby and would not be for anything larger.
 
 ### 3.3. API Design
 
@@ -121,7 +132,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 **GraphQL Queries:**
 
 -   `races(skip, limit)` — List all races.
--   `race(raceId)` — Get a single race with nested `racers`, `dens`, `rounds`, `heats`, `leaderboard`.
+-   `race(raceId)` — Get a single race with nested `racers`, `dens`, `rounds`, `heats`, `leaderboard`, `awards`.
 -   `racers(raceId, skip, limit)` — List racers.
 -   `racer(racerId)` — Get a single racer.
 -   `tracks()` — List configured tracks.
@@ -141,6 +152,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
 -   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 -   Den: `createDen`, `updateDen`, `deleteDen`
+-   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored)
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`
 -   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)

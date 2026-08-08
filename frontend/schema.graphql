@@ -18,6 +18,29 @@ type AdvancementStatus {
   numRacers: Int
 }
 
+type Award {
+  id: Int!
+  raceId: Int!
+  name: String!
+  kind: String!
+  sortOrder: Int!
+  source: String
+  place: Int
+  denId: Int
+  recipient: Racer
+  den: Den
+}
+
+input AwardInput {
+  name: String!
+  kind: String! = "SPECIAL"
+  source: String = null
+  place: Int = null
+  denId: Int = null
+  racerId: Int = null
+  sortOrder: Int = null
+}
+
 type Den {
   id: Int!
   name: String!
@@ -214,6 +237,10 @@ type Mutation {
   createDen(raceId: Int!, den: DenInput!): Den!
   updateDen(id: Int!, den: DenInput!): Den
   deleteDen(id: Int!): Boolean!
+  createAward(raceId: Int!, award: AwardInput!): Award!
+  updateAward(id: Int!, award: AwardInput!): Award
+  deleteAward(id: Int!): Boolean!
+  reorderAwards(raceId: Int!, awardIds: [Int!]!): [Award!]!
   createTrack(track: TrackInput!): Track!
   updateTrack(id: Int!, track: TrackInput!): Track
   deleteTrack(id: Int!): Boolean!
@@ -296,6 +323,7 @@ type Race {
   scoringStrategy: String!
   autoAdvanceHeat: Boolean!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
+  awards: [Award!]!
   registeredCount: Int!
   checkedInCount: Int!
   dens: [Den!]!

@@ -312,3 +312,78 @@ def test_scheduled_racers_cost_one_query(db, populated_race):
     assert counter.count == 1, (
         f"scheduled_racer_ids issued {counter.count} queries, expected 1"
     )
+
+
+AWARDS_QUERY = """
+query($id: Int!) {
+  race(raceId: $id) {
+    id
+    awards {
+      id name kind place source sortOrder
+      den { id name }
+      recipient { id firstName lastName carNumber racerImageUrl }
+    }
+  }
+}
+"""
+
+
+def test_awards_do_not_scale_with_the_number_of_awards(client, populated_race, db):
+    """Resolving a speed award is a full scoring pass, so it must be shared.
+
+    A pack gives one award per den plus a podium, which is a dozen or more, and
+    each of them names a source. Resolved per award that is a dozen passes over
+    every heat in the race; `loaders.award_recipients` computes the whole race
+    once and `services.awards` loads each distinct source once within that.
+
+    The comparison is against the same query with a single award, so this fails
+    on per-award work rather than on whatever the page costs in total.
+    """
+    dens = db.query(models.Den).filter(models.Den.race_id == populated_race.id).all()
+
+    crud.create_award(
+        db,
+        populated_race.id,
+        schemas.AwardCreate(
+            name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+        ),
+    )
+    with _QueryCounter() as one_award:
+        _run(client, AWARDS_QUERY, populated_race.id)
+
+    # A podium plus one per den, which is what a real pack hands out.
+    for place in (2, 3):
+        crud.create_award(
+            db,
+            populated_race.id,
+            schemas.AwardCreate(
+                name=f"Place {place}",
+                kind=models.AwardKind.SPEED,
+                source="PACK",
+                place=place,
+            ),
+        )
+    for den in dens:
+        crud.create_award(
+            db,
+            populated_race.id,
+            schemas.AwardCreate(
+                name=f"Fastest {den.name}",
+                kind=models.AwardKind.SPEED,
+                source="PACK",
+                place=1,
+                den_id=den.id,
+            ),
+        )
+
+    with _QueryCounter() as many_awards:
+        body = _run(client, AWARDS_QUERY, populated_race.id)
+
+    assert len(body["data"]["race"]["awards"]) == 8, (
+        "a cheap query that returns nothing proves nothing"
+    )
+    assert many_awards.count <= one_award.count + 1, (
+        f"Eight awards cost {many_awards.count} queries against "
+        f"{one_award.count} for one; the per-race recipient resolution is not "
+        f"being shared."
+    )

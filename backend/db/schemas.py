@@ -15,6 +15,7 @@ check that something actually constructs it.
 from pydantic import BaseModel, field_validator
 
 from .models import (
+    AwardKind,
     CarNumberingStrategy,
     Rank,
     ScoringStrategy,
@@ -158,3 +159,57 @@ class HeatBase(BaseModel):
 class HeatCreate(HeatBase):
     race_id: int
     round_id: int
+
+
+class AwardBase(BaseModel):
+    """The stored shape of an award (#170).
+
+    Half the fields belong to `SPEED` and half to `SPECIAL`; `crud` clears
+    whichever half the kind does not use rather than trusting the caller to
+    send a consistent row.
+    """
+
+    name: str
+    kind: AwardKind = AwardKind.SPECIAL
+    #: SPEED: `"PACK"` or `"ROUND:<id>"`, and 1-based `place`. Never `"DEN"` —
+    #: a den-scoped award sets `den_id` instead; see `domain/awards.py`.
+    source: str | None = None
+    place: int | None = None
+    den_id: int | None = None
+    #: SPECIAL: whoever a person decided, or nobody yet.
+    racer_id: int | None = None
+
+    @field_validator("place")
+    @classmethod
+    def place_is_one_based(cls, value: int | None) -> int | None:
+        """Refuse a place below 1 at the edge rather than at resolution time.
+
+        `standings[place - 1]` with a place of 0 indexes from the end and hands
+        the trophy to the slowest car, so this is worth catching where the
+        number arrives.
+        """
+        if value is not None and value < 1:
+            raise ValueError("place is 1-based; the winner is 1")
+        return value
+
+
+class AwardCreate(AwardBase):
+    #: Omitted means "at the end of the running order".
+    sort_order: int | None = None
+
+
+class AwardUpdate(BaseModel):
+    name: str | None = None
+    kind: AwardKind | None = None
+    source: str | None = None
+    place: int | None = None
+    den_id: int | None = None
+    racer_id: int | None = None
+    sort_order: int | None = None
+
+    @field_validator("place")
+    @classmethod
+    def place_is_one_based(cls, value: int | None) -> int | None:
+        if value is not None and value < 1:
+            raise ValueError("place is 1-based; the winner is 1")
+        return value
