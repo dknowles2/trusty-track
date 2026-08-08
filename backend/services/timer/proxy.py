@@ -93,6 +93,7 @@ class ProxySession:
         transport: ProxyTransport,
         profiles: Sequence[TimerProfile] = ALL_PROFILES,
         *,
+        chosen: TimerProfile | None = None,
         fallback: TimerProfile = DEFAULT_PROFILE,
         response_seconds: float | None = None,
         settle_seconds: float | None = None,
@@ -100,8 +101,15 @@ class ProxySession:
     ) -> None:
         self._manager = manager
         self._transport = transport
-        self._candidates = [p for p in profiles if p.probe and p.identification]
-        self._fallback = fallback
+        # A named model is not a candidate to be found; it is the answer (#143).
+        # Emptying the walk reaches the same code the fallback already uses —
+        # reopen the port with this profile's framing and hand over — so there
+        # is no second path for "we know what this is".
+        self._chosen = chosen
+        self._candidates = (
+            [] if chosen else [p for p in profiles if p.probe and p.identification]
+        )
+        self._fallback = chosen or fallback
         self._response_seconds = (
             probe.RESPONSE_SECONDS if response_seconds is None else response_seconds
         )
@@ -190,11 +198,18 @@ class ProxySession:
         # built with, and set_device stops the manager — which on this path
         # would drop the write function the socket installed, leaving the
         # handshake below talking to nobody.
-        logger.info(
-            "Timer %d: nothing identified over the proxy; assuming %s",
-            self._manager.track_id,
-            self._fallback.name,
-        )
+        if self._chosen is not None:
+            logger.info(
+                "Timer %d: using the configured %s over the proxy",
+                self._manager.track_id,
+                self._chosen.name,
+            )
+        else:
+            logger.info(
+                "Timer %d: nothing identified over the proxy; assuming %s",
+                self._manager.track_id,
+                self._fallback.name,
+            )
         if await self._reopen(self._fallback):
             await self._manager.handle_connect()
 

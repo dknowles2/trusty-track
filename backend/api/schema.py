@@ -28,11 +28,12 @@ from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
 from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
-from backend.services.timer.devices import DEFAULT_PROFILE, FAKE
+from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
+from backend.services.timer.devices import by_key as _profile_by_key
 from backend.services.timer.devices.base import (
     LaneResult as TimerLaneResult,
 )
-from backend.services.timer.devices.base import RaceStarted
+from backend.services.timer.devices.base import RaceStarted, TimerProfile
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -374,6 +375,34 @@ class Round:
 
 
 @strawberry.type
+class TimerModel:
+    """One timer the app knows how to talk to, for the operator to pick from.
+
+    The frontend has no copy of the profiles and should not get one — the
+    backend owns every piece of protocol state, and the browser is a wire even
+    when it is holding the port. What it needs is a list to show and a key to
+    send back.
+
+    ``provenance`` is here because "we have a profile for your timer" and "your
+    timer is known to work" are different claims, and for most of these only
+    the first is true. An operator choosing a model deserves to see which.
+    """
+
+    key: str
+    name: str
+    provenance: str
+    #: Whether a probe can find this model on its own. False means choosing it
+    #: by hand is the *only* way to reach it — which is what #143 was about.
+    detectable: bool
+    #: The port framing, so the picker can warn that a hand-entered port will
+    #: be opened at something other than the usual 9600 8-N-1.
+    baud_rate: int
+    data_bits: int
+    stop_bits: float
+    parity: str
+
+
+@strawberry.type
 class InitialConfigStatus:
     """
     Represents the system initialization state.
@@ -474,6 +503,8 @@ class TrackInput:
     length_feet: int | None = None
     timer_type: str = "FAKE"
     serial_port: str | None = None
+    #: Which timer model, by `TimerProfile.key`. Null detects it (#143).
+    timer_profile: str | None = None
     remote_start_installed: bool = False
 
 
@@ -831,6 +862,8 @@ class Track:
     length_feet: int | None
     timer_type: str
     serial_port: str | None
+    #: Which timer model the operator picked, or null to detect it (#143).
+    timer_profile: str | None
     #: This track has a solenoid on the start gate. Not detectable from any
     #: timer protocol, so it is a setting — see `TimerStatus.can_remote_start`
     #: for whether the control is actually available, which also needs the
@@ -1193,6 +1226,28 @@ class Query:
         )
 
     @strawberry.field
+    def timer_models(self) -> list[TimerModel]:
+        """Every timer model a track can be set to, in probe order.
+
+        The fake timer is deliberately absent: it is chosen by setting
+        ``timer_type`` to FAKE, not by naming a model, and offering it in both
+        places would let a track ask for a fake timer over a real serial port.
+        """
+        return [
+            TimerModel(
+                key=profile.key,
+                name=profile.name,
+                provenance=profile.provenance,
+                detectable=bool(profile.probe and profile.identification),
+                baud_rate=profile.baud_rate,
+                data_bits=profile.data_bits,
+                stop_bits=profile.stop_bits,
+                parity=profile.parity,
+            )
+            for profile in ALL_PROFILES
+        ]
+
+    @strawberry.field
     def version(self) -> str:
         """Get the current application version."""
         try:
@@ -1454,6 +1509,23 @@ async def _revalidate_timers(info: Info) -> None:
             logger.warning("Track %d disarmed: %s", mgr.track_id, reason)
 
 
+def _device_for(track: Any) -> TimerProfile:
+    """The profile a track should run on.
+
+    ``FAKE`` is its own device. Otherwise it is the model the operator picked,
+    and ``DEFAULT_PROFILE`` only when they picked none — where it is an
+    assumption a probe is expected to replace, not an answer (#143).
+
+    A key that names nothing, or names the fake timer on a transport that needs
+    a real port, falls back rather than failing: a stale setting should leave
+    the track detecting, not leave it dead.
+    """
+    if track.timer_type == models.TimerType.FAKE:
+        return FAKE
+    chosen = _profile_by_key(track.timer_profile) if track.timer_profile else None
+    return chosen if chosen in ALL_PROFILES else DEFAULT_PROFILE
+
+
 def _manager_for(track: Any, info: Info) -> TimerManager:
     """A ``TimerManager`` configured from a track row.
 
@@ -1461,7 +1533,7 @@ def _manager_for(track: Any, info: Info) -> TimerManager:
     has to reach all three. Same reason as ``_start_backend_direct`` below,
     same standing reminder: #48.
     """
-    device = FAKE if track.timer_type == models.TimerType.FAKE else DEFAULT_PROFILE
+    device = _device_for(track)
     return TimerManager(
         track.id,
         device,
@@ -1470,13 +1542,20 @@ def _manager_for(track: Any, info: Info) -> TimerManager:
     )
 
 
-def _start_backend_direct(mgr: TimerManager, serial_port: str | None) -> None:
+def _start_backend_direct(
+    mgr: TimerManager, serial_port: str | None, profile: TimerProfile | None = None
+) -> None:
     """Bring a backend-direct timer up, in the background.
 
     A port entered by hand is honoured exactly as given — the operator may know
     something the probe does not, and a probe writes to every port it tries.
     With no port configured, go and find the timer, which is what
     ``AUTO_DETECT_BACKEND`` has always been named for (#89).
+
+    ``profile`` is the model the operator named, if they named one. It narrows
+    the port search to that model rather than walking all seven: they are
+    asking *which port*, not *which timer*, and the probe's writes land on
+    their hardware either way (#143).
 
     One helper rather than the branch written out at each call site: there are
     four, and #48 is the standing reminder of what happens when a rule like
@@ -1485,7 +1564,7 @@ def _start_backend_direct(mgr: TimerManager, serial_port: str | None) -> None:
     if serial_port:
         asyncio.create_task(mgr.connect_direct(serial_port))
     else:
-        asyncio.create_task(mgr.autodetect())
+        asyncio.create_task(mgr.autodetect([profile] if profile else None))
 
 
 @strawberry.type
@@ -1647,6 +1726,7 @@ class Mutation:
 
         old_timer_type = db_track.timer_type
         old_serial_port = db_track.serial_port
+        old_profile = db_track.timer_profile
 
         track_update = schemas.TrackBase(**typing.cast(Any, strawberry.asdict(track)))
         updated_track = typing.cast(Any, crud.update_track(db, db_track, track_update))
@@ -1657,21 +1737,24 @@ class Mutation:
         if mgr:
             await mgr.set_remote_start_installed(track.remote_start_installed)
 
-            # If timer type changed, swap device
-            if track.timer_type != old_timer_type:
-                if track.timer_type == models.TimerType.FAKE:
-                    await mgr.set_device(FAKE)
-                else:
-                    # Everything else currently maps to MicroWizard
-                    await mgr.set_device(DEFAULT_PROFILE)
+            # Swap the device when either half of "which timer" moved: the
+            # transport, or the model on it (#143).
+            device = _device_for(updated_track)
+            if track.timer_type != old_timer_type or track.timer_profile != old_profile:
+                await mgr.set_device(device)
 
             # If backend-direct mode, handle connection
             if track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                 if (
                     track.serial_port != old_serial_port
                     or track.timer_type != old_timer_type
+                    or track.timer_profile != old_profile
                 ):
-                    _start_backend_direct(mgr, track.serial_port)
+                    _start_backend_direct(
+                        mgr,
+                        track.serial_port,
+                        device if track.timer_profile else None,
+                    )
             elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                 # Stopped being backend-direct, ensure it's closed
                 await mgr.stop()
@@ -2318,6 +2401,7 @@ class Mutation:
                 db_track = db_tracks[i]
                 old_timer_type = db_track.timer_type
                 old_serial_port = db_track.serial_port
+                old_profile = db_track.timer_profile
                 track_update = schemas.TrackBase(
                     **typing.cast(Any, strawberry.asdict(input_track))
                 )
@@ -2327,17 +2411,23 @@ class Mutation:
                     await mgr.set_remote_start_installed(
                         input_track.remote_start_installed
                     )
-                    if input_track.timer_type != old_timer_type:
-                        if input_track.timer_type == models.TimerType.FAKE:
-                            await mgr.set_device(FAKE)
-                        else:
-                            await mgr.set_device(DEFAULT_PROFILE)
+                    device = _device_for(db_track)
+                    if (
+                        input_track.timer_type != old_timer_type
+                        or input_track.timer_profile != old_profile
+                    ):
+                        await mgr.set_device(device)
                     if input_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                         if (
                             input_track.serial_port != old_serial_port
                             or input_track.timer_type != old_timer_type
+                            or input_track.timer_profile != old_profile
                         ):
-                            _start_backend_direct(mgr, input_track.serial_port)
+                            _start_backend_direct(
+                                mgr,
+                                input_track.serial_port,
+                                device if input_track.timer_profile else None,
+                            )
                     elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                         await mgr.stop()
             else:

@@ -18,8 +18,30 @@ Seven more are described, adapted from
 Timer, Bert Drake, PDT, The Judge, "The Champ" (SmartLine/BestTrack), the JIT
 Racemaster, and the NewBold DT/TURBO/DerbyStick family. Six of the seven answer
 an identifying question, so the server can find them on its own. The NewBold
-family does not answer one, and there is currently no way to pick a timer model
-by hand, so that family cannot be used yet.
+family does not answer one, so it has to be picked by hand — see **Choosing the
+model yourself** below.
+
+## Choosing the model yourself
+
+Leave **Timer Model** on *Detect automatically* and the server asks each timer
+it knows about who it is, which is the right answer for six of the seven. Pick
+a model when:
+
+- **Yours is not found.** The NewBold DT/TURBO/DerbyStick family answers no
+  identifying question, so it can only be reached this way — the picker marks
+  it *must be chosen*. It also runs at 1200 baud with 7 data bits and 2 stop
+  bits, and naming it is what gets the port opened that way; detection's
+  fallback assumes the usual 9600 8-N-1 and would read noise.
+- **You would rather it did not ask.** Detection writes a probe command to
+  every port it tries. That is harmless as far as anyone knows, but an operator
+  who already knows what they have has no reason to allow it.
+
+Naming a model does not pin the port. With the serial port left blank the
+server still looks for the timer — it just looks for *that* timer, rather than
+trying seven models' probe commands on your hardware.
+
+The setting sits under **Timer Type**, and only appears once you have chosen
+something other than the fake timer, because a fake timer has no model.
 
 **No heat has ever been run through any of them**, including the Micro Wizard.
 Three — the Micro Wizard, the Derby Timer and the PDT — have been checked

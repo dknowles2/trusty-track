@@ -10,7 +10,7 @@ import contextlib
 import logging
 import re
 from collections import deque
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -23,7 +23,7 @@ from backend.db import crud, models
 from backend.db.database import SessionLocal
 
 from . import probe
-from .devices import DEFAULT_PROFILE, FAKE
+from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
 
 # Circular import handled by importing inside methods or using full module path
 # from backend.api.schema import _publish_race_state
@@ -976,7 +976,9 @@ class TimerManager:
     # Backend-direct serial                                                #
     # ------------------------------------------------------------------ #
 
-    async def autodetect(self) -> str | None:
+    async def autodetect(
+        self, profiles: Sequence[TimerProfile] | None = None
+    ) -> str | None:
         """Find a timer on some USB serial port and connect to it.
 
         What ``AUTO_DETECT_BACKEND`` was named for. Returns the port it settled
@@ -984,17 +986,28 @@ class TimerManager:
         ``last_error``, because a track whose timer was not found looks exactly
         like a track whose timer is unplugged and the operator deserves to be
         told which.
+
+        ``profiles`` narrows the walk. An operator who has named their timer
+        model is asking a different question — *which port is my Champ on* —
+        and a probe writes to every port it tries, so trying six other models'
+        probe commands on their hardware is not a free extra (#143).
         """
+        candidates = ALL_PROFILES if profiles is None else profiles
         ports = probe.usb_ports()
         if not ports:
             await self._detection_failed("No USB serial ports found")
             return None
 
         logger.info("Timer %d: probing %s", self._track_id, ", ".join(ports))
-        detection = await probe.detect(ports)
+        detection = await probe.detect(ports, candidates)
         if detection is None:
+            named = (
+                ""
+                if profiles is None
+                else f" for {', '.join(p.name for p in candidates)}"
+            )
             await self._detection_failed(
-                f"No timer answered on {', '.join(ports)}. "
+                f"No timer answered on {', '.join(ports)}{named}. "
                 f"Check the cable, or set the serial port by hand."
             )
             return None

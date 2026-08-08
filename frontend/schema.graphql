@@ -261,6 +261,7 @@ input PopulateTestDataInput {
 
 type Query {
   races(skip: Int! = 0, limit: Int! = 100): [Race!]!
+  timerModels: [TimerModel!]!
   version: String!
   race(raceId: Int!): Race
   racers(raceId: Int = null, skip: Int! = 0, limit: Int! = 100): [Racer!]!
@@ -441,6 +442,17 @@ type Subscription {
   activeFreeRaceHeat(raceId: Int!): FreeRaceHeat
 }
 
+type TimerModel {
+  key: String!
+  name: String!
+  provenance: String!
+  detectable: Boolean!
+  baudRate: Int!
+  dataBits: Int!
+  stopBits: Float!
+  parity: String!
+}
+
 type TimerStateChangedEvent {
   trackId: Int!
   status: TimerStatus!
@@ -490,6 +502,7 @@ type Track {
   lengthFeet: Int
   timerType: String!
   serialPort: String
+  timerProfile: String
   remoteStartInstalled: Boolean!
   races: [Race!]!
 }
@@ -500,6 +513,7 @@ input TrackInput {
   lengthFeet: Int = null
   timerType: String! = "FAKE"
   serialPort: String = null
+  timerProfile: String = null
   remoteStartInstalled: Boolean! = false
 }
 
