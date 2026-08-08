@@ -13,12 +13,14 @@ on:
     paths:
       - "packaging/**"
       - "pyproject.toml"
+      - ".nvmrc"
       - ".github/workflows/packaging.yml"
   push:
     branches: [main]
     paths:
       - "packaging/**"
       - "pyproject.toml"
+      - ".nvmrc"
   workflow_dispatch:
 
 permissions:
