@@ -118,14 +118,18 @@ test('screenshot the print sheets', async ({ page }) => {
             .screenshot({ path: path.join(SCREENSHOT_DIR, `${kind}-card.png`), scale: 'css' });
     }
 
-    // Where the operator starts: the roster's Print and Scan buttons.
+    // Where the operator starts: the roster's Print and Scan controls. Print
+    // moved behind the overflow in #186, so the picture has to show the menu
+    // open — otherwise it is a photograph of a button that is not there.
     await page.goto(`/race/${raceId}`);
+    await page.getByTestId('roster-more-menu').click();
     await expect(page.getByRole('button', { name: /^Print$/ })).toBeVisible();
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'roster-print-button.png') });
 
     // The scanner. Chromium is given a fake camera below, so this shows the
     // viewfinder rather than the permission error a headless run would hit.
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /Scan/ }).click();
     await expect(page.getByText('Scan to Check In')).toBeVisible();
     await page.waitForTimeout(1000);

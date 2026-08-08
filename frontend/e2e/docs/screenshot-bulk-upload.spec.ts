@@ -119,9 +119,14 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
         (r, i, all) => all.findIndex((o) => o.firstName === r.firstName) === i,
     );
 
-    // ── Screenshot 1: toolbar with Upload Photos button highlighted ─────────
+    // ── Screenshot 1: the toolbar, with the overflow open on Upload Photos ──
     // Scroll to top so the toolbar is visible
     await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(300);
+    // Upload Photos moved behind the overflow in #186 — it is a set-up action,
+    // not one reached for during an event — so the picture of "where the button
+    // is" has to show the menu open.
+    await page.getByTestId('roster-more-menu').click();
     await page.waitForTimeout(300);
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '19-upload-photos-button.png'),
