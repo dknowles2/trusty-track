@@ -280,6 +280,71 @@ describe('a saved track with no length', () => {
     });
 });
 
+describe('lanes out of service', () => {
+    afterEach(cleanup);
+
+    // It belongs to a track, so it lives in that track's card. It was briefly
+    // its own section at the foot of the page, which meant repeating the
+    // track's name to say which track it meant.
+
+    const configuredWith = (tracks: unknown[]) => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    groupName: 'Pack 42',
+                    debugMode: false,
+                    tracks,
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+    };
+
+    it('offers a control per lane of a saved track', async () => {
+        configuredWith([
+            { id: 1, name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, laneOutages: [2] },
+        ]);
+
+        expect(await screen.findByLabelText('Lane 1 works')).toBeChecked();
+        expect(screen.getByLabelText('Lane 2 works')).not.toBeChecked();
+        expect(screen.getByLabelText('Lane 3 works')).toBeChecked();
+    });
+
+    it('leads with how many lanes are left', async () => {
+        configuredWith([
+            { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, laneOutages: [3] },
+        ]);
+
+        expect(
+            await screen.findByText(/3 of 4 lanes in use — Lane 3 out of service/),
+        ).toBeInTheDocument();
+    });
+
+    it('is absent from a track that has not been saved yet', async () => {
+        // No id, so nothing to set an outage against — and a track that does
+        // not exist cannot have a broken lane.
+        configuredWith([
+            { id: 1, name: 'Main Track', laneCount: 2, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, laneOutages: [] },
+        ]);
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        await user.click(await screen.findByText('+ Add Another Track'));
+
+        // Still only the saved track's two lanes.
+        expect(screen.getAllByLabelText(/^Lane \d+ works$/)).toHaveLength(2);
+    });
+});
+
 describe('the Backup panel', () => {
     afterEach(cleanup);
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import BackupPanel from '../components/BackupPanel';
-import LaneOutagePanel from '../components/LaneOutagePanel';
+import TrackLanes from '../components/TrackLanes';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -22,6 +22,7 @@ const GET_INITIAL_CONFIG = `
         serialPort
         timerProfile
         remoteStartInstalled
+        laneOutages
       }
     }
   }
@@ -88,7 +89,21 @@ export default function SystemConfig() {
   // saved tracks are seeded below.
   const DEFAULT_LENGTH_FEET = 40;
 
-  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: DEFAULT_LENGTH_FEET, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
+  interface TrackFields {
+    // Absent until the track has been saved, which is also when it can first
+    // have a lane out of service.
+    id?: number;
+    name: string;
+    laneCount: number;
+    lengthFeet: number;
+    timerType: string;
+    serialPort: string;
+    timerProfile: string;
+    remoteStartInstalled: boolean;
+    laneOutages?: number[];
+  }
+
+  const [tracks, setTracks] = useState<TrackFields[]>([{ name: 'Main Track', laneCount: 3, lengthFeet: DEFAULT_LENGTH_FEET, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -128,6 +143,7 @@ export default function SystemConfig() {
         setDebugMode(!!savedDebugMode);
         if (savedTracks && savedTracks.length > 0) {
           setTracks(savedTracks.map((t: {
+            id: number;
             name: string;
             laneCount: number;
             lengthFeet: number | null;
@@ -135,7 +151,9 @@ export default function SystemConfig() {
             serialPort?: string;
             timerProfile?: string | null;
             remoteStartInstalled?: boolean;
+            laneOutages?: number[];
           }) => ({
+            id: t.id,
             name: t.name,
             laneCount: t.laneCount,
             // Null is legitimate — the column is nullable and `createTrack`
@@ -146,7 +164,8 @@ export default function SystemConfig() {
             timerType: t.timerType,
             serialPort: t.serialPort || '',
             timerProfile: t.timerProfile || '',
-            remoteStartInstalled: !!t.remoteStartInstalled
+            remoteStartInstalled: !!t.remoteStartInstalled,
+            laneOutages: t.laneOutages ?? []
           })));
         }
       }
@@ -367,6 +386,25 @@ export default function SystemConfig() {
               </div>
             </div>
 
+            {/* Under the lane count, because "how many lanes" and "which of
+                them work" are the same question asked twice. Only once the
+                track exists: a track added but not yet saved cannot have a
+                broken lane. */}
+            {track.id !== undefined && (
+              <TrackLanes
+                trackId={track.id}
+                laneCount={track.laneCount}
+                outages={track.laneOutages ?? []}
+                onChange={(outages) =>
+                  setTracks((current) =>
+                    current.map((t, i) =>
+                      i === index ? { ...t, laneOutages: outages } : t,
+                    ),
+                  )
+                }
+              />
+            )}
+
             <div>
               <label htmlFor={`track-timer-type-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Timer Type</label>
               <select
@@ -500,7 +538,6 @@ export default function SystemConfig() {
         the setup wizard, and offering to restore before the install exists
         would be offering to replace nothing.
       */}
-      {isEditing && <LaneOutagePanel />}
       {isEditing && <BackupPanel />}
 
       <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>

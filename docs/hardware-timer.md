@@ -207,8 +207,8 @@ the heat and run it again.
 A sensor fails, a connector comes loose, and one lane of the track stops
 reporting. It happens, usually on the morning of the event.
 
-**Settings → Lanes out of service.** Turn the lane off, and every round you
-generate from then on is scheduled around it — the remaining lanes are used,
+**Settings → Tracks → Lanes in service.** Untick the lane on the track it
+belongs to, and every round you generate from then on is scheduled around it — the remaining lanes are used,
 everybody still races the same number of times, and the heats name the lanes
 that actually exist rather than renumbering them.
 
@@ -222,7 +222,11 @@ that actually exist rather than renumbering them.
 > Re-laning a round that is already under way is not something Trusty Track
 > does yet.
 
-Turn the lane back on when it is fixed, and the next round uses it again.
+Unlike the rest of the track's settings, this applies as soon as you click it
+rather than when you press **Save Settings** — a lane going out of service is
+something that happens to you mid-event, not something you plan.
+
+Tick the lane again when it is fixed, and the next round uses it.
 
 A track with no working lanes generates no schedule at all, and the settings
 page says so.
