@@ -415,7 +415,17 @@ That makes a heat's **position** in the schedule and its **lane number** differe
 
 `crud.set_lane_outages` takes the whole set, because the screen is a row of checkboxes and a repaired lane is simply absent. **The control lives inside the track's own card in System Settings**, under the lane count — it was briefly a separate section at the foot of the page, which meant repeating the track's name to say which track it meant, a reliable sign of something being in the wrong place. It saves on click rather than on **Save Settings**, and says so: a lane goes out of service mid-event, and a track with no id yet (added but not saved) gets no control at all. It drops lanes outside `1..lane_count`: a stale outage on lane 6 of a track since reconfigured to four would never appear on screen to be un-set.
 
-**Setting an outage does not touch heats that already exist.** A raced round holds real results and an unraced one is still the schedule the operator is looking at. **Re-laning a round already under way is the open part of #171**, and the reason it is open is not the code: the racers whose remaining heats lost a lane end up with fewer heats than everyone else, which under `POINTS` makes their score *better*. That is the #26 failure again, and it is a fairness decision rather than an implementation detail.
+**Setting an outage brings existing heats into line too** (`crud.apply_outages_to_scheduled_heats`), and what happens depends on how far the round has got:
+
+| Round | What happens |
+| --- | --- |
+| nothing raced | regenerated for the remaining lanes — nothing is at risk, so everybody gets an equal schedule |
+| part-way through | recorded heats untouched; the dead lane is vacated from the pending ones; `Round.disrupted` set |
+| finished | untouched |
+
+**The middle case is the whole design problem, and `disrupted` is a flag rather than a correction because the cost depends on the scoring strategy.** Racers in the vacated lanes raced fewer times than everyone else. `TIMED` averages, which is scale-free, so the round is still good evidence; `POINTS` **sums** placements, so a racer with one heat fewer scores *better* — #26 arriving by a third route. `domain/scoring.counts_a_disrupted_round` states that difference once, and `services/scoring._scoring_heats` drops disrupted rounds under `POINTS` only. An explicit `round_id` overrides it: a screen asking for one round's standings is showing that round, and a blank page is a worse answer than the results it holds.
+
+**Ids survive.** The pending heats are rewritten through `set_heat_lanes` rather than deleted and regenerated, so an armed heat is not swapped underneath the operator (#50) — and `setLaneOutages` awaits `_revalidate_timers` for the round it *does* regenerate. That await is not decorative: it was missing on the first attempt, the tests passed, and the only evidence was a `coroutine was never awaited` warning.
 
 ### Scoring
 

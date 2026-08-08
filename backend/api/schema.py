@@ -368,6 +368,10 @@ class Round:
     scheduling_strategy: str
     advancement_source: str | None
     advancement_num_racers: int | None
+    #: A lane went out of service part-way through this round (#171). The
+    #: racers in the vacated lanes raced fewer times than everybody else, so it
+    #: does not count toward `POINTS` standings — see `domain/scoring`.
+    disrupted: bool
 
     @strawberry.field
     def heats(self, info: Info) -> list[Heat]:
@@ -1823,14 +1827,25 @@ class Mutation:
         checkboxes and submits them together, and a lane that has come back is
         simply absent.
 
-        This affects **schedules generated from now on**. Heats that already
-        exist are left exactly as they are — a round that has been raced holds
-        real results, and one that has not is still the schedule the operator is
-        looking at. Re-laning a round already under way is the open part of
-        #171, and the fairness question in it is not one to answer by accident.
+        Existing heats are brought into line as well, and what happens depends
+        on how far the round has got: one nobody has raced is regenerated for
+        the lanes that remain, one part-way through keeps its results and has
+        the dead lane vacated from the heats still to come, and one already
+        finished is untouched. See `crud.apply_outages_to_scheduled_heats`.
+
+        A round in that middle case is marked `disrupted`, because the racers
+        in the vacated lanes end up having raced fewer times than everybody
+        else. Under `POINTS` that would make their score *better*, so a
+        disrupted round is dropped from `POINTS` standings; under `TIMED`,
+        which averages, it still counts.
         """
         db = info.context["db"]
         outages = crud.set_lane_outages(db, track_id, lanes)
+        crud.apply_outages_to_scheduled_heats(db, track_id)
+        # Regenerating a round replaces its heats, so anything armed against the
+        # old ids has to be told (#50). Same reason `updateHeatResult` and
+        # `regenerateRound` call it.
+        await _revalidate_timers(info)
         for race in db.query(models.Race).filter(models.Race.track_id == track_id):
             await _publish_race_state(race.id)
         return outages

@@ -256,6 +256,22 @@ class Round(Base):
     den_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("dens.id"), nullable=True
     )
+    #: A lane went out of service part-way through this round (#171).
+    #:
+    #: Set when an outage vacates lanes in heats that had not been run, which
+    #: only happens to a round already under way — one that has not started is
+    #: rebuilt for the lanes that remain, and one that has finished is left
+    #: alone. The racers in those vacated lanes end up having raced fewer times
+    #: than everybody else.
+    #:
+    #: What that costs depends entirely on the scoring strategy, which is why
+    #: this is a flag rather than a correction: `TIMED` averages heat times, so
+    #: an unequal count changes nothing, while `POINTS` **sums** placements, so
+    #: a racer with one heat fewer scores *better*. `services/scoring` drops
+    #: disrupted rounds from `POINTS` standings and keeps them for `TIMED`.
+    disrupted: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[list["Heat"]] = relationship(

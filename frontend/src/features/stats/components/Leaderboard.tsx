@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useSubscription } from 'urql';
 import { LeaderboardSubscription } from '../../observation/graphql/queries';
 import RacerAvatar from '../../management/components/RacerAvatar';
+import { RoundSummary, exclusionNotice, roundLabel } from '../disruptedRounds';
 
 export interface LeaderboardEntry {
   racerId: number;
@@ -25,6 +26,7 @@ const GET_LEADERBOARD_METADATA = `
         name
         roundNumber
         advancementSource
+        disrupted
       }
     }
   }
@@ -50,13 +52,6 @@ const GET_ROUND_STANDINGS = `
     }
   }
 `;
-
-interface RoundSummary {
-  id: number;
-  name?: string | null;
-  roundNumber: number;
-  advancementSource?: string | null;
-}
 
 interface LeaderboardProps {
   raceId: number;
@@ -111,15 +106,21 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
   const hasResults = leaderboard.some((entry: LeaderboardEntry) => entry.heatsCompleted > 0);
   const stillLoading = queryFetching || roundResult.fetching;
 
+  // A lane that went out of service part-way through a round takes that round
+  // out of POINTS standings (#171). Worth saying wherever the standings are
+  // shown, and *essential* in the empty state below: an operator whose only
+  // prelim round was disrupted has completed every heat, so being told to
+  // complete some would be a lie.
+  const notice = exclusionNotice(rounds, scoringStrategy);
+
   if (!race || (leaderboard.length === 0 && !stillLoading) || (!hasResults && !stillLoading)) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
-        <p>No results yet. Complete some heats to see standings!</p>
+        <p>{notice ?? 'No results yet. Complete some heats to see standings!'}</p>
       </div>
     );
   }
 
-  const roundLabel = (r: RoundSummary) => r.name || `Round ${r.roundNumber}`;
 
   const scoreLabel = scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
   const formatScore = (score: number, strategy: string) => {
@@ -145,6 +146,22 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
 
   return (
     <div>
+      {notice && (
+        <p
+          role="status"
+          style={{
+            background: '#fff8e1',
+            border: '1px solid #f0d98c',
+            borderRadius: '8px',
+            padding: '0.6rem 0.9rem',
+            fontSize: '0.9rem',
+            color: '#5b4a00',
+            marginBottom: '1rem',
+          }}
+        >
+          {notice}
+        </p>
+      )}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
