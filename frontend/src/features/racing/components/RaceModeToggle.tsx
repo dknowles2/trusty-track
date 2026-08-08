@@ -1,6 +1,6 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Icon } from '@mdi/react';
-import { mdiAccountGroup, mdiTrophy, mdiChartBar } from '@mdi/js';
+import { mdiAccountGroup, mdiTrophy, mdiChartBar, mdiMedal } from '@mdi/js';
 
 export default function RaceModeToggle() {
     const navigate = useNavigate();
@@ -11,9 +11,18 @@ export default function RaceModeToggle() {
 
     const isRoster = location.pathname === `/race/${id}` || location.pathname === `/race/${id}/`;
     const isStandings = location.pathname.includes('/standings');
+    const isAwards = location.pathname.includes('/awards');
     const isStats = location.pathname.includes('/stats');
 
-    const viewMode = isRoster ? 'ROSTER' : isStandings ? 'STANDINGS' : isStats ? 'STATS' : '';
+    const viewMode = isRoster
+        ? 'ROSTER'
+        : isStandings
+          ? 'STANDINGS'
+          : isAwards
+            ? 'AWARDS'
+            : isStats
+              ? 'STATS'
+              : '';
 
     const buttonStyle = (active: boolean) => ({
         padding: '6px 16px',
@@ -46,6 +55,12 @@ export default function RaceModeToggle() {
                     style={buttonStyle(viewMode === 'STANDINGS')}
                 >
                     <Icon path={mdiTrophy} size={0.8} /> Standings
+                </button>
+                <button
+                    onClick={() => navigate(`/race/${id}/awards`)}
+                    style={buttonStyle(viewMode === 'AWARDS')}
+                >
+                    <Icon path={mdiMedal} size={0.8} /> Awards
                 </button>
                 <button
                     onClick={() => navigate(`/race/${id}/stats`)}
