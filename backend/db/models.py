@@ -1,7 +1,15 @@
 import enum
 from typing import Optional
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, false
+from sqlalchemy import (
+    Boolean,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    false,
+)
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -139,6 +147,38 @@ class Track(Base):
     )
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="track")
+    lane_outages: Mapped[list["LaneOutage"]] = relationship(
+        "LaneOutage", back_populates="track", cascade="all, delete-orphan"
+    )
+
+
+class LaneOutage(Base):
+    """A lane of a track that is not currently usable (#171).
+
+    A row per broken lane rather than a list on `Track`: a schedule asks "which
+    lanes may I use", which is a set, and a set of small integers in a string
+    column is the shape #5 spent a release removing. One row per outage also
+    leaves somewhere to put a reason or a timestamp if this ever needs one.
+
+    Presence is the whole meaning — a lane with no row is usable. There is no
+    ``is_out_of_service`` flag, because a row saying a lane works is a row that
+    can disagree with its own absence.
+
+    Scoped to the **track**, not the race. The sensor is a property of the
+    hardware in the room, and a venue running two races on one afternoon has
+    the same dead lane in both.
+    """
+
+    __tablename__ = "lane_outages"
+    __table_args__ = (UniqueConstraint("track_id", "lane", name="uq_lane_outage"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    track_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tracks.id", ondelete="CASCADE"), index=True
+    )
+    lane: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    track: Mapped["Track"] = relationship("Track", back_populates="lane_outages")
 
 
 class Race(Base):

@@ -533,6 +533,19 @@ export type UpdateRaceAutoAdvanceMutationVariables = Exact<{
 
 export type UpdateRaceAutoAdvanceMutation = { updateRace: { id: number, autoAdvanceHeat: boolean } | null };
 
+export type TrackLanesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TrackLanesQuery = { tracks: Array<{ id: number, name: string, laneCount: number, laneOutages: Array<number> }> };
+
+export type SetLaneOutagesMutationVariables = Exact<{
+  trackId: number;
+  lanes: Array<number> | number;
+}>;
+
+
+export type SetLaneOutagesMutation = { setLaneOutages: Array<number> };
+
 export type DiagnosticTracksQueryVariables = Exact<{ [key: string]: never; }>;
 
 

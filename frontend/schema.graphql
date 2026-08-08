@@ -237,6 +237,7 @@ type Mutation {
   createDen(raceId: Int!, den: DenInput!): Den!
   updateDen(id: Int!, den: DenInput!): Den
   deleteDen(id: Int!): Boolean!
+  setLaneOutages(trackId: Int!, lanes: [Int!]!): [Int!]!
   createAward(raceId: Int!, award: AwardInput!): Award!
   updateAward(id: Int!, award: AwardInput!): Award
   deleteAward(id: Int!): Boolean!
@@ -536,6 +537,7 @@ type Track {
   serialPort: String
   timerProfile: String
   remoteStartInstalled: Boolean!
+  laneOutages: [Int!]!
   races: [Race!]!
 }
 

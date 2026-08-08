@@ -409,7 +409,13 @@ Greedy alone finds a *maximal* matching, not a *maximum* one, so it used to stra
 
 That makes a heat's **position** in the schedule and its **lane number** different things, which they never were before. `HeatPlan.lane_numbers` carries the mapping and **`HeatPlan.assignments` is what callers consume**; `enumerate(plan.lanes)` was the old idiom and with a gap it writes lane 4's racer into lane 3. Both write paths do this — `crud._generate_ppc` and `crud._reset_heats_in_place`, which builds its own schedule (#50) — and each has a test that fails to the one-line reversion. On an undamaged track the two agree, so nothing else in the suite can tell the difference.
 
-**`crud.usable_lanes_for_race` is the one place that decides.** Today it is `range(1, lane_count + 1)`; taking a lane out of service is a change to that function rather than to every call site, which is the #48 lesson applied in advance. Steps 2 and 3 of #171 — persisting availability and the operator control — are still open.
+**`crud.usable_lanes_for_race` is the one place that decides** — every lane the track has, less its outages. Four call sites read it, and #48 is why it is a function rather than the expression written out at each.
+
+**A `LaneOutage` row means "this lane does not work"; its absence means it does** (#171, step 2). A row per outage rather than a list on `Track`: a schedule asks for a *set* of lanes, and a set of small integers in a string column is the shape #5 spent a release removing. There is deliberately no `is_out_of_service` flag — a row saying a lane works can disagree with its own absence. Scoped to the **track**, since the sensor is hardware in the room and a venue running two races has the same dead lane in both.
+
+`crud.set_lane_outages` takes the whole set, because the screen is a row of checkboxes submitted together and a repaired lane is simply absent. It drops lanes outside `1..lane_count`: a stale outage on lane 6 of a track since reconfigured to four would never appear on screen to be un-set.
+
+**Setting an outage does not touch heats that already exist.** A raced round holds real results and an unraced one is still the schedule the operator is looking at. **Re-laning a round already under way is the open part of #171**, and the reason it is open is not the code: the racers whose remaining heats lost a lane end up with fewer heats than everyone else, which under `POINTS` makes their score *better*. That is the #26 failure again, and it is a fairness decision rather than an implementation detail.
 
 ### Scoring
 

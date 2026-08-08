@@ -5,6 +5,17 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import SystemSettings from './SystemSettings';
 import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
+import { print } from 'graphql';
+
+/**
+ * The document a `useMutation` mock was handed, as text.
+ *
+ * This page's own documents are plain template literals; the Lane outage panel
+ * it renders uses urql's `gql` tag, which yields a DocumentNode with no
+ * `.includes`. Normalising here rather than at each call site.
+ */
+const documentText = (query: unknown): string =>
+    typeof query === 'string' ? query : print(query as Parameters<typeof print>[0]);
 import { useQuery, useMutation } from 'urql';
 
 // Mock urql
@@ -242,7 +253,7 @@ describe('a saved track with no length', () => {
 
         const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
         (useMutation as any).mockImplementation((query: any) =>
-            query.includes('mutation UpdateInitialConfig')
+            documentText(query).includes('mutation UpdateInitialConfig')
                 ? [{ fetching: false }, mockUpdate]
                 : [{ fetching: false }, vi.fn()],
         );

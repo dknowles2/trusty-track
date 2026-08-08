@@ -114,6 +114,9 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "createTrack",
         "updateTrack",
         "deleteTrack",
+        # Which lanes are out of service (#171). Operator: it changes what
+        # every future schedule looks like.
+        "setLaneOutages",
         # Scheduling
         "createRound",
         "createRoundWizard",

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import BackupPanel from '../components/BackupPanel';
+import LaneOutagePanel from '../components/LaneOutagePanel';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -499,6 +500,7 @@ export default function SystemConfig() {
         the setup wizard, and offering to restore before the install exists
         would be offering to replace nothing.
       */}
+      {isEditing && <LaneOutagePanel />}
       {isEditing && <BackupPanel />}
 
       <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>

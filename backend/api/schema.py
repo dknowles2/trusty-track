@@ -955,6 +955,16 @@ class Track:
     remote_start_installed: bool
 
     @strawberry.field
+    def lane_outages(self, info: Info) -> list[int]:
+        """Lanes of this track that are out of service, in order (#171).
+
+        A field rather than a column: it is a set of rows, and the empty list —
+        every lane working — is what every track has until somebody says
+        otherwise.
+        """
+        return crud.lane_outages_for_track(info.context["db"], self.id)
+
+    @strawberry.field
     def races(self, info: Info) -> list[Race]:
         """Get all races that have used this track."""
         return (
@@ -1802,6 +1812,28 @@ class Mutation:
         if race_id:
             await _publish_race_state(race_id)
         return result
+
+    @strawberry.mutation
+    async def set_lane_outages(
+        self, info: Info, track_id: int, lanes: list[int]
+    ) -> list[int]:
+        """Record exactly which of a track's lanes are out of service (#171).
+
+        The whole set, not one lane at a time: the operator screen is a row of
+        checkboxes and submits them together, and a lane that has come back is
+        simply absent.
+
+        This affects **schedules generated from now on**. Heats that already
+        exist are left exactly as they are — a round that has been raced holds
+        real results, and one that has not is still the schedule the operator is
+        looking at. Re-laning a round already under way is the open part of
+        #171, and the fairness question in it is not one to answer by accident.
+        """
+        db = info.context["db"]
+        outages = crud.set_lane_outages(db, track_id, lanes)
+        for race in db.query(models.Race).filter(models.Race.track_id == track_id):
+            await _publish_race_state(race.id)
+        return outages
 
     # Award Mutations (#170)
     @strawberry.mutation
