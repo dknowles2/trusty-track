@@ -49,18 +49,22 @@ install_system_packages() {
         error "Trusty Track requires Python 3.10 or higher. Found $PYTHON_VERSION"
     fi
 
-    # Install Node.js 20 from NodeSource if needed
+    # Install Node.js from NodeSource if needed.
+    #
+    # 22 is the floor we accept; 24 is what we install and what `.nvmrc`, CI and
+    # the Docker image use. An existing 22 is left alone rather than replaced —
+    # this runs on a Pi that may be doing other things.
     NODE_OK=false
     if command -v node &>/dev/null; then
         NODE_MAJOR=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-        if [[ "$NODE_MAJOR" -ge 18 ]]; then
+        if [[ "$NODE_MAJOR" -ge 22 ]]; then
             NODE_OK=true
         fi
     fi
 
     if [[ "$NODE_OK" == "false" ]]; then
-        info "Installing Node.js 20 from NodeSource..."
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        info "Installing Node.js 24 from NodeSource..."
+        curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
         apt-get install -y -q nodejs
     fi
     success "Node.js $(node -v) OK"
