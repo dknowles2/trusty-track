@@ -7,7 +7,7 @@ This guide is for developers and advanced users who want to run Trusty Track by 
 Before you begin, ensure you have the following installed on your system:
 
 - **Python 3.10 or higher**
-- **Node.js 18 or higher**
+- **Node.js 22 or higher**
 - **Git**
 
 ## Installation Steps

@@ -48,7 +48,7 @@ running Trusty Track appliance.
    sudo apt-get update
    sudo apt-get install -y python3 python3-pip python3-venv nodejs npm git curl
    ```
-   Verify minimum versions: Python ≥ 3.10, Node ≥ 18. If Node 18 is not
+   Verify minimum versions: Python ≥ 3.10, Node ≥ 22. If Node 22 is not
    available from the default repo, install it from NodeSource.
 
 2. **Clone the repo** (or download a release tarball if not running from source)

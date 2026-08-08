@@ -31,7 +31,7 @@ so the entire app runs in one container on one port.
 A single `Dockerfile` at the repo root using two build stages:
 
 **Stage 1 — Frontend build (Node.js)**
-- Base image: `node:20-slim`
+- Base image: `node:24-slim`
 - Copy `frontend/package*.json`, run `npm ci`.
 - Copy `frontend/` source, run `npm run build`.
 - Output: `frontend/dist/`

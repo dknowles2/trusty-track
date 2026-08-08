@@ -20,7 +20,8 @@ Ensure you have the following installed:
 
 - **Python 3.10+** — 3.10 is the floor (Debian's system interpreter on a Pi);
   3.12 is what the installers and release builds pin. CI tests both.
-- **Node.js 20+** & **npm** — Vite 7 requires it, and CI runs 20.
+- **Node.js 22+** & **npm** — 22 is the floor; `.nvmrc` holds the version
+  CI, the Docker image and the Pi installer all use.
 - **[uv](https://docs.astral.sh/uv/)** — the Python toolchain used throughout.
 - **Git**
 
@@ -207,7 +208,7 @@ backend schema change cannot silently drift from the frontend's types.
 To install and run the application as a single process:
 
 ```bash
-# Install everything (prerequisites: Python 3.10+, Node.js 18+)
+# Install everything (prerequisites: Python 3.10+, Node.js 22+)
 ./scripts/install.sh
 
 # Start the server (serves both backend and frontend on port 8005)

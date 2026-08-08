@@ -27,9 +27,12 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
+# 22 is the floor, not the version we test: `.nvmrc` holds that, and it is what
+# CI, the Docker image and `install-pi.sh` all use. Node 20 went end-of-life in
+# April 2026 and is below several dev dependencies' own floor.
 NODE_VERSION=$(node -v | cut -d 'v' -f 2 | cut -d '.' -f 1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "Error: Trusty Track requires Node.js 18 or higher. Found v$NODE_VERSION"
+if [ "$NODE_VERSION" -lt 22 ]; then
+    echo "Error: Trusty Track requires Node.js 22 or higher. Found v$NODE_VERSION"
     exit 1
 fi
 

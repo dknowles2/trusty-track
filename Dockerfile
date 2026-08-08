@@ -3,7 +3,11 @@
 # Pinned to the *build* platform, not the target. The output is JavaScript and
 # is identical either way, so building it under QEMU for the arm64 image would
 # emulate `npm ci` and a Vite build for nothing.
-FROM --platform=$BUILDPLATFORM node:20-slim AS frontend-build
+#
+# The version here is the one copy of the Node version that `.nvmrc` cannot
+# supply — a `FROM` line is resolved before any file is available to read.
+# Keep the two in step.
+FROM --platform=$BUILDPLATFORM node:24-slim AS frontend-build
 
 WORKDIR /app/frontend
 
