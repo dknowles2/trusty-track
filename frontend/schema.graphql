@@ -443,6 +443,7 @@ type Round {
   schedulingStrategy: String!
   advancementSource: String
   advancementNumRacers: Int
+  disrupted: Boolean!
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
 }

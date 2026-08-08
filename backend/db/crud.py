@@ -826,6 +826,82 @@ def set_lane_outages(db: Session, track_id: int, lanes: Sequence[int]) -> list[i
     return sorted(wanted)
 
 
+def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
+    """Bring existing heats into line with a lane going out of service (#171).
+
+    Returns the ids of rounds that were disrupted — those already under way.
+
+    Three cases, and the difference between them is what has already been run:
+
+    **A round nobody has raced** is regenerated for the lanes that remain. It is
+    the clean outcome: everybody gets an equal, valid schedule, and no result is
+    at risk because there is none.
+
+    **A round part-way through** keeps its recorded heats exactly as they are —
+    those cars ran, on lanes that worked — and has the dead lane vacated from
+    the heats still to come. The racers in those lanes lose an appearance,
+    which is what `Round.disrupted` records and what stops it counting toward
+    `POINTS` standings.
+
+    **A round already finished** is untouched. Nothing in it is going to be run
+    again, so nothing needs changing.
+
+    Free race heats are skipped: an exhibition run is not scheduled, not scored,
+    and the operator picks its lanes when they start it.
+    """
+    out_of_service = set(lane_outages_for_track(db, track_id))
+    if not out_of_service:
+        return []
+
+    disrupted_round_ids: list[int] = []
+    races = db.query(models.Race).filter(models.Race.track_id == track_id).all()
+
+    for race in races:
+        usable = usable_lanes_for_race(db, race.id)
+        rounds = db.query(models.Round).filter(models.Round.race_id == race.id).all()
+
+        for round_obj in rounds:
+            heats = [
+                h
+                for h in db.query(models.Heat)
+                .filter(models.Heat.round_id == round_obj.id)
+                .all()
+                if h.kind is models.HeatKind.OFFICIAL
+            ]
+            if not heats:
+                continue
+
+            pending = [h for h in heats if not lanes.has_results(heat_lanes_of(db, h))]
+            if not pending:
+                # Every heat has been run; there is nothing left to re-lane.
+                continue
+
+            if len(pending) == len(heats):
+                # Nothing raced yet, so rebuild it properly. `may_rebuild` is
+                # satisfied by definition here — no heat holds a result.
+                if usable:
+                    generate_heats_for_round(db, round_obj.id, clear_existing=True)
+                continue
+
+            vacated = False
+            for heat in pending:
+                current = heat_lanes_of(db, heat)
+                if not any(lane.lane in out_of_service for lane in current):
+                    continue
+                set_heat_lanes(
+                    heat,
+                    [lane for lane in current if lane.lane not in out_of_service],
+                )
+                vacated = True
+
+            if vacated and not round_obj.disrupted:
+                round_obj.disrupted = True
+                disrupted_round_ids.append(round_obj.id)
+
+    db.commit()
+    return disrupted_round_ids
+
+
 def usable_lanes_for_race(db: Session, race_id: int) -> list[int]:
     """Which lanes a schedule for this race may use (#171).
 

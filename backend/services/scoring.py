@@ -27,18 +27,28 @@ def _scoring_heats(db: Session, race_id: int, round_id: int | None, scope: str) 
     An empty leaderboard on a race that has clearly been run reads as a bug, and
     "all rounds are championship rounds" is a degenerate setup rather than a
     request for no standings.
+
+    A round **disrupted** by a lane going out of service part-way through is
+    dropped under ``POINTS`` and kept under ``TIMED``; see
+    :func:`backend.domain.scoring.counts_a_disrupted_round` for why the two
+    strategies differ. An explicit ``round_id`` overrides that too — asking for
+    one round's standings means that round, disrupted or not, and the screen
+    asking is showing that round rather than the race.
     """
     heats = crud.get_heats(db, race_id, round_id=round_id)
     if round_id is not None or scope == domain_scoring.ALL:
         return heats
 
-    prelim_round_ids = {
-        r.id
-        for r in db.query(models.Round).filter(
-            models.Round.race_id == race_id,
-            models.Round.advancement_source.is_(None),
-        )
-    }
+    race = crud.get_race(db, race_id)
+    strategy = race.scoring_strategy if race else domain_scoring.TIMED
+    rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
+
+    if not domain_scoring.counts_a_disrupted_round(strategy):
+        disrupted = {r.id for r in rounds if r.disrupted}
+        if disrupted:
+            heats = [h for h in heats if h.round_id not in disrupted]
+
+    prelim_round_ids = {r.id for r in rounds if r.advancement_source is None}
     if not prelim_round_ids:
         return heats
     return [h for h in heats if h.round_id in prelim_round_ids]

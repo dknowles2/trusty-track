@@ -786,6 +786,7 @@ export type Round = {
   advancementNumRacers?: Maybe<Scalars['Int']['output']>;
   advancementSource?: Maybe<Scalars['String']['output']>;
   advancementStatus: AdvancementStatus;
+  disrupted: Scalars['Boolean']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
   name?: Maybe<Scalars['String']['output']>;

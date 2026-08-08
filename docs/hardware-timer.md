@@ -212,15 +212,28 @@ belongs to, and every round you generate from then on is scheduled around it —
 everybody still races the same number of times, and the heats name the lanes
 that actually exist rather than renumbering them.
 
-> [!IMPORTANT]
-> This affects **new** schedules. Heats that already exist are left exactly as
-> they are: a round that has been raced holds real results, and one that has
-> not is still the schedule on your screen. If a lane dies partway through a
-> round, finish that round on the lanes it was built for — or skip its
-> remaining heats — and generate the next one with the lane turned off.
->
-> Re-laning a round that is already under way is not something Trusty Track
-> does yet.
+### What happens to the round you are in the middle of
+
+It depends on how far it has got:
+
+| The round | What happens |
+| --- | --- |
+| Not started | Rebuilt for the lanes that remain — everybody gets an equal schedule |
+| Part-way through | Completed heats keep their results; the dead lane is dropped from the heats still to come |
+| Finished | Left alone |
+
+The middle case has a consequence, and Trusty Track handles it rather than
+hiding it. Racers who were due to run in the lane that failed now race one
+fewer time than everybody else.
+
+- **If your race is scored on times** (the default), that is fine. Standings
+  use each racer's *average*, so somebody with four heats and somebody with
+  five are compared on the same footing.
+- **If your race is scored on points**, it is not fine — points add up, so a
+  racer with one fewer heat would have a lower total, and lower is better.
+  Trusty Track leaves that round out of the standings and says so on the
+  standings page. The round still runs and you can still look at its results;
+  it just does not decide the trophies.
 
 Unlike the rest of the track's settings, this applies as soon as you click it
 rather than when you press **Save Settings** — a lane going out of service is

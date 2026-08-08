@@ -108,6 +108,26 @@ def score_heats(
     return scores
 
 
+def counts_a_disrupted_round(strategy: str) -> bool:
+    """Whether a round that lost a lane part-way through still counts (#171).
+
+    The whole difference between the two strategies, stated once:
+
+    ``TIMED`` averages a racer's heat times, which is scale-free — somebody who
+    ran four heats and somebody who ran five are compared on the same footing,
+    so a round where a lane died is still perfectly good evidence.
+
+    ``POINTS`` **sums** placements, so it is not. A racer whose remaining heat
+    was in the lane that failed has one fewer placement to add up, and a lower
+    total is a *better* score. Counting that round would hand them a trophy for
+    a heat they never ran, which is #26's failure arriving by a third route.
+
+    Excluding the round is the blunt answer and it is the honest one: the
+    alternative is inventing a placement for a heat nobody raced.
+    """
+    return strategy != POINTS
+
+
 def rank_key(score: float, heats_completed: int, racer_id: int) -> tuple:
     """Sort key for standings: score ascending, unraced racers last.
 
