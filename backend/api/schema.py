@@ -295,7 +295,11 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
                 if not heat_lanes:
                     return False
                 for lane in heat_lanes:
-                    if lane.is_real_racer and lane.time is None and lane.place is None:
+                    if (
+                        lane.racer_id is not None
+                        and lane.time is None
+                        and lane.place is None
+                    ):
                         return False
         return True
 
@@ -980,14 +984,11 @@ def _lanes_from_input(lane_inputs: list[HeatLaneInput]) -> list[lanes.Lane]:
     return [
         lanes.Lane(
             lane=item.lane,
-            racer_id=(
-                -item.placeholder_slot
-                if item.placeholder_slot is not None
-                else item.racer_id
-            ),
+            racer_id=item.racer_id,
+            placeholder_slot=item.placeholder_slot,
             time=item.time,
             place=item.place,
-            extra={"skipped": True} if item.skipped else {},
+            skipped=item.skipped,
         )
         for item in lane_inputs
     ]

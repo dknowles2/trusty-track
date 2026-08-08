@@ -544,8 +544,8 @@ def _generate_ppc(
     generated_heats: list[models.Heat] = []
     for plan in plans:
         lane_assignment = [
-            lanes.Lane(lane=index + 1, racer_id=racer_id)
-            for index, racer_id in enumerate(plan.lanes)
+            lanes.from_participant(index + 1, participant_id)
+            for index, participant_id in enumerate(plan.lanes)
         ]
         heat = models.Heat(
             race_id=race_id,
@@ -816,8 +816,8 @@ def _reset_heats_in_place(
         set_heat_lanes(
             heat,
             [
-                lanes.Lane(lane=index + 1, racer_id=racer_id)
-                for index, racer_id in enumerate(plan.lanes)
+                lanes.from_participant(index + 1, participant_id)
+                for index, participant_id in enumerate(plan.lanes)
             ],
         )
     db.commit()

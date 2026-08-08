@@ -11,17 +11,18 @@ replacing that with the ``heat_lanes`` table, so ``parse``, ``serialize``,
 ``from_dict``, ``to_dict`` and ``carry_extras`` are gone. What is left is the
 value and the predicates over it.
 
-Two of the blob's conventions outlived it, and are deliberately still here:
+Two of the blob's conventions outlived it and are now gone too (#164). An
+unadvanced championship slot was a *negative* ``racer_id`` — slot 1 was ``-1`` —
+and ``skipped`` lived in an ``extra`` dict, because a blob could carry keys
+nothing modelled. Both are fields now, and ``extra`` is gone: ``heat_lanes`` has
+a column for everything, and ``HeatLaneInput`` is typed, so no unknown key can
+arrive.
 
-* an unadvanced slot is held as a *negative* ``racer_id``, read back through
-  :attr:`Lane.placeholder_slot`. ``heat_lanes`` has a real column for it, and
-  :func:`from_parts` re-encodes on the way in;
-* ``skipped`` lives in :attr:`Lane.extra` rather than being a field.
-
-Both are storage conventions with no storage left to justify them, and both are
-reachable only through the accessors, so nothing outside this module repeats
-them. Straightening them out is a change to this file and its constructors, and
-is worth doing separately from the migration that made it possible.
+One consequence worth stating, because it is the trap in that change:
+:attr:`Lane.is_empty` asks about *both* fields. A placeholder used to hold a
+negative id, so it was never "empty"; with the id now ``None`` it would be,
+and :func:`is_complete` would skip it and call a round of undecided slots
+finished.
 
 ``time`` is stored as it was found. ``heat_lanes.time_seconds`` is a float, so
 a string can no longer be *persisted*, but the field is still :class:`Any` and
@@ -31,7 +32,7 @@ a string can no longer be *persisted*, but the field is still :class:`Any` and
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -40,53 +41,36 @@ class Lane:
     """One lane of one heat: an assignment, and possibly a result."""
 
     lane: int
+    #: The racer in this lane. ``None`` for an unused lane *and* for a
+    #: championship slot nobody has advanced into yet — see
+    #: :attr:`placeholder_slot`, which is what tells those two apart.
     racer_id: int | None = None
+    #: Which championship slot this lane holds, 1-based, or ``None``.
+    placeholder_slot: int | None = None
     time: Any = None
     place: int | None = None
-    extra: dict[str, Any] = field(default_factory=dict)
+    #: Set by the operator UI when a heat is passed over rather than run.
+    skipped: bool = False
 
     @property
     def is_empty(self) -> bool:
-        """No racer assigned — a short heat's unused lane."""
-        return self.racer_id is None
+        """No racer and no slot — a short heat's unused lane.
 
-    @property
-    def placeholder_slot(self) -> int | None:
-        """Which championship slot this lane holds, 1-based, or ``None``.
-
-        The blob encodes an unadvanced slot as a *negative* racer id, so slot 1
-        is ``-1``. Returning the slot rather than a bool is what lets callers
-        use it without repeating the sign convention — and what lets a type
-        checker see that a placeholder lane has an id at all.
+        Both fields, deliberately. An unadvanced slot has no ``racer_id`` and is
+        emphatically not an unused lane: :func:`is_complete` skips empty lanes,
+        so calling one empty would let a round of undecided slots read as
+        finished.
         """
-        racer_id = self.racer_id
-        if racer_id is None or racer_id >= 0:
-            return None
-        return -racer_id
+        return self.racer_id is None and self.placeholder_slot is None
 
     @property
     def is_placeholder(self) -> bool:
-        """An unadvanced championship slot, encoded as a negative id."""
+        """An unadvanced championship slot."""
         return self.placeholder_slot is not None
-
-    @property
-    def real_racer_id(self) -> int | None:
-        """The racer in this lane — ``None`` if it is empty or a placeholder."""
-        racer_id = self.racer_id
-        return racer_id if racer_id is not None and racer_id > 0 else None
-
-    @property
-    def is_real_racer(self) -> bool:
-        return self.real_racer_id is not None
 
     @property
     def has_result(self) -> bool:
         return self.time is not None
-
-    @property
-    def skipped(self) -> bool:
-        """Set by the operator UI when a heat is passed over rather than run."""
-        return bool(self.extra.get("skipped"))
 
     @property
     def seconds(self) -> float | None:
@@ -115,24 +99,35 @@ def from_parts(
     """A lane from the columns ``heat_lanes`` stores it in (#72).
 
     The inverse of the projection in ``db/lane_sync.py``, and the read path's
-    entry point now that the table is where lanes come from. Scalars rather
-    than a row object, so this module still imports no SQLAlchemy.
-
-    It has to *re-encode* the placeholder slot as a negative racer id, and put
-    ``skipped`` back into ``extra``, because that is what :class:`Lane` still
-    holds. Both are the blob's conventions outliving the blob; retiring the
-    column is what lets the dataclass carry the slot directly and this function
-    lose half its body.
+    entry point. Scalars rather than a row object, so this module still imports
+    no SQLAlchemy — that is the whole reason it exists now that the fields line
+    up one for one.
     """
-    if placeholder_slot is not None:
-        racer_id = -placeholder_slot
     return Lane(
         lane=lane,
         racer_id=racer_id,
+        placeholder_slot=placeholder_slot,
         time=time_seconds,
         place=place,
-        extra={"skipped": True} if skipped else {},
+        skipped=skipped,
     )
+
+
+def from_participant(lane: int, participant_id: int | None) -> Lane:
+    """A scheduled lane, from the id the scheduler deals in.
+
+    :mod:`backend.domain.scheduling` matches *opaque* ids — it neither knows
+    nor cares whether one is a racer — and its ``placeholder_ids`` hands it
+    negative ones for championship slots nobody has advanced into yet.
+    That is the scheduler's vocabulary, and it is a good one: teaching a matching
+    algorithm about advancement would be worse than translating at its edge.
+
+    This is that edge, and the only place on the write path that knows a
+    negative participant id means a slot (#164).
+    """
+    if participant_id is not None and participant_id < 0:
+        return Lane(lane=lane, placeholder_slot=-participant_id)
+    return Lane(lane=lane, racer_id=participant_id)
 
 
 def has_results(lanes: Sequence[Lane]) -> bool:
@@ -184,8 +179,12 @@ def is_complete(lanes: Sequence[Lane]) -> bool:
 
 
 def real_racer_ids(lanes: Iterable[Lane]) -> list[int]:
-    """Assigned, non-placeholder racer ids, in lane order."""
-    return [racer_id for lane in lanes if (racer_id := lane.real_racer_id) is not None]
+    """Assigned racer ids, in lane order.
+
+    Still worth a name: it is dense, so it drops unused lanes and undecided
+    slots rather than yielding ``None`` for them.
+    """
+    return [lane.racer_id for lane in lanes if lane.racer_id is not None]
 
 
 def resolve_placeholders(lanes: Sequence[Lane], racer_ids: Sequence[int]) -> bool:
@@ -205,5 +204,10 @@ def resolve_placeholders(lanes: Sequence[Lane], racer_ids: Sequence[int]) -> boo
         index = slot - 1
         if index < len(racer_ids):
             lane.racer_id = racer_ids[index]
+            # Clearing this is not tidying. While a slot was a negative id,
+            # writing the racer over it *was* the clear; with two fields, a lane
+            # that keeps its slot stays a placeholder however real its racer is,
+            # and `phase` reports NOT_READY for a round that is ready to run.
+            lane.placeholder_slot = None
             modified = True
     return modified

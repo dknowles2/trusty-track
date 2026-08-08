@@ -178,6 +178,10 @@ One row per lane. It separates the four jobs the old `Heat.lane_results` JSON
 blob did at once — the schedule, the results, unadvanced championship slots (as
 *negative* racer ids), and heat status inferred by scanning for a time.
 
+**`domain.lanes.Lane` mirrors those columns exactly** ([#164](https://github.com/dknowles2/trusty-track/issues/164)). `placeholder_slot` and `skipped` are fields, not a sign trick and an `extra` dict — so an undecided slot has `racer_id is None`, and `Lane.is_empty` asks about **both** fields. That last point is the trap: a placeholder used to hold a negative id and so was never "empty", and `is_complete` skips empty lanes, so an `is_empty` that asked only about `racer_id` would call a round of undecided slots finished. `resolve_placeholders` clears the slot when it fills one, for the same reason — writing the racer over a negative id *was* the clear.
+
+**The negative-id convention survives in exactly one place, and it is not storage.** `domain/scheduling.py` matches *opaque* participant ids and hands out negative ones for slots; teaching a matching algorithm about advancement would be worse. `lanes.from_participant` is the only crossing on the write path — use it rather than `Lane(racer_id=...)` when the id came from the scheduler.
+
 **The blob is gone** ([#5](https://github.com/dknowles2/trusty-track/issues/5),
 [#72](https://github.com/dknowles2/trusty-track/issues/72)). `heats.lane_results`
 was dropped in migration `0013`, and with it `lanes.parse`, `serialize`,

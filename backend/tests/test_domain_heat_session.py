@@ -20,9 +20,21 @@ from backend.domain.heat_session import (
 )
 
 
-def lane(number, racer_id=None, time=None, place=None, **extra):
+def lane(number, racer_id=None, time=None, place=None, **flags):
+    """A lane. A negative `racer_id` is an unadvanced championship slot.
+
+    That is a fixture shorthand, not how `Lane` stores it (#164) — it carries
+    the slot in its own field. Kept because it is compact and every test here
+    already reads that way.
+    """
+    placeholder = -racer_id if racer_id is not None and racer_id < 0 else None
     return domain_lanes.Lane(
-        lane=number, racer_id=racer_id, time=time, place=place, extra=extra
+        lane=number,
+        racer_id=None if placeholder is not None else racer_id,
+        placeholder_slot=placeholder,
+        time=time,
+        place=place,
+        skipped=bool(flags.get("skipped")),
     )
 
 

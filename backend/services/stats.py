@@ -98,9 +98,9 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     heats_with_rounds: list[dict[str, Any]] = []
 
     # One query for every heat's lanes, rather than a parse per heat (#72).
-    # `real_racer_id` is `None` for an unadvanced championship slot, and
-    # `seconds` is a number — the column is a float where the blob held
-    # whatever the frontend last wrote.
+    # `racer_id` is `None` for an unadvanced championship slot, and `seconds`
+    # is a number — the column is a float where the blob held whatever the
+    # frontend last wrote.
     lanes_by_heat = crud.lanes_for_heats(db, heats)
 
     for heat, heat_lanes in zip(heats, lanes_by_heat, strict=True):
@@ -109,7 +109,7 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
         results: list[LaneRow] = [
             LaneRow(
                 lane=parsed.lane,
-                racer_id=parsed.real_racer_id,
+                racer_id=parsed.racer_id,
                 time=parsed.seconds,
                 place=parsed.place,
             )
