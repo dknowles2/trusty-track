@@ -7,7 +7,7 @@ import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../../management/components/RaceForm';
 import { useAlert } from '../../../context/AlertContext';
 import { Icon } from '@mdi/react';
-import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
+import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiAccountGroup, mdiMedal, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
 import logoUrl from '../../../assets/logo_transparent.png';
 import { UnlockButton } from './UnlockButton';
 
@@ -50,9 +50,15 @@ export default function Navigation() {
   const links: { to: string; label: string; icon: string }[] = [];
   if (raceId) {
       links.push(
-        { to: `/race/${raceId}`, label: 'Details', icon: mdiCardSearch },
+        // The one row of race navigation. There used to be a second — a
+        // Roster/Standings/Awards/Stats toggle rendered by four of these pages
+        // — which put Standings and Stats on screen twice, in different words,
+        // two rows apart. `Roster` is what this page is called on itself and
+        // what an operator calls it, so the label came across with the merge.
+        { to: `/race/${raceId}`, label: 'Roster', icon: mdiAccountGroup },
         { to: `/race/${raceId}/control`, label: 'Control', icon: mdiFlagCheckered },
         { to: `/race/${raceId}/standings`, label: 'Standings', icon: mdiTrophy },
+        { to: `/race/${raceId}/awards`, label: 'Awards', icon: mdiMedal },
         { to: `/race/${raceId}/stats`, label: 'Stats', icon: mdiChartBar },
         { to: `/race/${raceId}/observation`, label: 'Live', icon: mdiVideo }
       );

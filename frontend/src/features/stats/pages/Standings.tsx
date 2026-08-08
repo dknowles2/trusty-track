@@ -1,6 +1,5 @@
 import { useParams } from 'react-router-dom';
 import Leaderboard from '../components/Leaderboard';
-import RaceModeToggle from '../../racing/components/RaceModeToggle';
 
 export default function Standings() {
     const { raceId } = useParams<{ raceId: string }>();
@@ -8,16 +7,10 @@ export default function Standings() {
 
     if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
+    // No header of its own. It used to hold the race-mode toggle between two
+    // spacer divs; the navigation above the page does that job now.
     return (
         <div className="container" style={{ padding: '2rem' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
-                <div style={{ minWidth: '160px' }} />
-
-                <RaceModeToggle />
-
-                <div style={{ minWidth: '160px' }} />
-            </div>
-
             <Leaderboard raceId={id} />
         </div>
     );

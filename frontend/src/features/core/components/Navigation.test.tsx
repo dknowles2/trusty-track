@@ -49,7 +49,7 @@ describe('Navigation Component', () => {
 
         expect(screen.getByText('Trusty Track')).toBeInTheDocument();
         // Race selector might show "Select a Race" or the active race name depending on logic
-        expect(screen.getByText('Select a Race')).toBeInTheDocument(); 
+        expect(screen.getByText('Select a Race')).toBeInTheDocument();
         expect(screen.getByText('Settings')).toBeInTheDocument();
         expect(screen.queryByLabelText('Open Menu')).not.toBeInTheDocument();
     });
@@ -121,8 +121,13 @@ describe('Navigation Component', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByText('Details')).toBeInTheDocument();
+            // One row of race navigation, so every race view is here — the
+            // per-page Roster/Standings/Awards/Stats toggle is gone.
+            expect(screen.getByText('Roster')).toBeInTheDocument();
             expect(screen.getByText('Control')).toBeInTheDocument();
+            expect(screen.getByText('Standings')).toBeInTheDocument();
+            expect(screen.getByText('Awards')).toBeInTheDocument();
+            expect(screen.getByText('Stats')).toBeInTheDocument();
             expect(screen.getByText('Live')).toBeInTheDocument();
         });
     });

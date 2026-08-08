@@ -15,7 +15,6 @@ import { Icon } from '@mdi/react';
 import { mdiArrowDown, mdiArrowUp, mdiPencil, mdiTrashCan, mdiTrophyOutline } from '@mdi/js';
 import Modal from '../../../components/ui/Modal';
 import { useAlert } from '../../../context/AlertContext';
-import RaceModeToggle from '../../racing/components/RaceModeToggle';
 import { describeSpeedAward, racerLabel } from '../awardText';
 import AwardForm, { AwardDraft } from '../components/AwardForm';
 import {
@@ -134,24 +133,14 @@ export default function Awards() {
           display: 'flex',
           flexWrap: 'wrap',
           gap: '15px',
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           alignItems: 'center',
           marginBottom: '2rem',
           borderBottom: '1px solid #eee',
           paddingBottom: '1rem',
         }}
       >
-        <div style={{ minWidth: '160px' }} />
-        <RaceModeToggle />
-        <div
-          style={{
-            minWidth: '160px',
-            textAlign: 'right',
-            display: 'flex',
-            gap: '0.5rem',
-            justifyContent: 'flex-end',
-          }}
-        >
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
           {/* Opens the ceremony on this screen. It is an ordinary route, so it
               is also the address to point a projector at. */}
           <Link to={`/race/${id}/awards/present`} className="secondary-btn">
