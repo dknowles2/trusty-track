@@ -561,6 +561,10 @@ Two traps, both recorded on #15 and both still true:
 
 **Adding a mutation means classifying it.** `test_auth_policy.py::test_every_mutation_is_classified` compares `CHECKIN_MUTATIONS | OPERATOR_ONLY_MUTATIONS` against the schema **in both directions** — a new mutation nobody bucketed is denied to *every* role including the operator, silently, so this turns that into a red build; and the reverse direction catches an entry outliving the mutation it named.
 
+**The client's half is `api/pin.ts`** — the PIN lives in `localStorage`, per device, which is the point: the operator's laptop holds the operator PIN, the desk's tablet the check-in one, and a wall display holds nothing and stays a viewer. `UnlockButton` is in **both** navigation surfaces, because the header and the mobile drawer are different components and a phone at the desk only ever sees the second.
+
+**Entering a PIN reloads the page.** Heavy-handed for four digits and deliberate: the socket carries the PIN in its URL, so a new PIN needs a new socket, and rebuilding the urql client and its normalized cache mid-session to avoid a reload is a great deal more machinery for something that happens once per device per event.
+
 **The PIN travels in the `x-trustytrack-pin` header**, or as a `?pin=` query parameter on the WebSocket, which has no headers of its own. Not a cookie: same-origin, so CORS stays simple and `allow_credentials` is off — the old `allow_origins=["*"]` with `allow_credentials=True` was rejected by browsers outright, so it was broken *and* permissive.
 
 **Role resolution is lazy** (`auth.resolve_role`). It costs a query for the configured PINs, and only a mutation ever asks — an audience display resolves no role at all. `test_query_counts.py` caught the eager version.

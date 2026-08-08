@@ -2,6 +2,7 @@ import { Client, fetchExchange, subscriptionExchange } from 'urql';
 import { cacheExchange, type UpdateResolver } from '@urql/exchange-graphcache';
 import { createClient as createWsClient } from 'graphql-ws';
 import { liveConnectionOptions } from './liveConnection';
+import { pinHeaders, withPin } from './pin';
 
 /**
  * WebSocket client for GraphQL subscriptions.
@@ -15,7 +16,9 @@ import { liveConnectionOptions } from './liveConnection';
  */
 const wsClient = createWsClient(
   liveConnectionOptions(
-    `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/graphql`,
+    withPin(
+      `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/graphql`,
+    ),
   ),
 );
 
@@ -145,6 +148,11 @@ export const CACHE_CONFIG = {
  */
 export const graphqlClient = new Client({
   url: '/api/graphql',
+  // Read per request rather than captured once: the operator can enter a PIN
+  // without reloading, and the next mutation carries it. The socket cannot do
+  // the same — a WebSocket handshake sets no headers, so it takes the PIN in
+  // its URL and a change to it needs a reconnect. `usePin` handles that.
+  fetchOptions: () => ({ headers: pinHeaders() }),
   exchanges: [
     cacheExchange(CACHE_CONFIG),
     fetchExchange,

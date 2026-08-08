@@ -9,6 +9,8 @@ const GET_INITIAL_CONFIG = `
       version
       groupName
       debugMode
+      pinRequired
+      isOperator
       tracks {
         id
         name
@@ -47,6 +49,7 @@ const CREATE_INITIAL_CONFIG = `
       initialized
       groupName
       debugMode
+      pinRequired
       tracks {
         id
         name
@@ -61,6 +64,7 @@ const UPDATE_INITIAL_CONFIG = `
       initialized
       groupName
       debugMode
+      pinRequired
     }
   }
 `;
@@ -69,6 +73,13 @@ export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
   const [debugMode, setDebugMode] = useState(false);
+  // Left empty on load and never seeded from the server — a PIN is stored
+  // hashed and cannot be read back. Empty therefore means "leave whatever is
+  // set alone", which is exactly what the server does with an absent value;
+  // `pinRequired` is what tells the operator whether one exists.
+  const [operatorPin, setOperatorPin] = useState('');
+  const [checkinPin, setCheckinPin] = useState('');
+  const [pinRequired, setPinRequired] = useState(false);
   // The length a track gets when nothing says otherwise. `lengthFeet` is
   // nullable on the server and the submit handler already falls back to this,
   // so the form has to show it rather than an empty required field — see where
@@ -108,6 +119,7 @@ export default function SystemConfig() {
     setSeededFrom(data);
     if (data.initialConfig) {
       const { initialized, groupName: savedGroupName, debugMode: savedDebugMode, tracks: savedTracks } = data.initialConfig;
+      setPinRequired(!!data.initialConfig.pinRequired);
       if (initialized) {
         setIsEditing(true);
         setGroupName(savedGroupName || '');
@@ -173,6 +185,12 @@ export default function SystemConfig() {
         config: {
           groupName: groupName,
           debugMode: debugMode,
+          // Only sent when the operator typed something. Sending `''` would
+          // *clear* the PIN, and this form re-submits everything on every save
+          // — so an unconditional send would unlock the install the next time
+          // anyone renamed a track.
+          ...(operatorPin ? { operatorPin } : {}),
+          ...(checkinPin ? { checkinPin } : {}),
           tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
             name,
             laneCount,
@@ -250,6 +268,46 @@ export default function SystemConfig() {
           />
           <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
           <small style={{ color: '#666', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
+        </div>
+
+        <h2 style={{ marginBottom: '0.5rem' }}>Access</h2>
+        <p style={{ color: '#666', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
+          {pinRequired
+            ? 'A PIN is set. Screens without one can watch the race but cannot change anything.'
+            : 'No PIN is set, so anyone on this network can change anything — including deleting the race. Set one to stop that.'}
+        </p>
+
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="operator_pin" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+              Operator PIN
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              id="operator_pin"
+              value={operatorPin}
+              onChange={(e) => setOperatorPin(e.target.value)}
+              placeholder={pinRequired ? 'Set — type to change' : 'e.g. 1234'}
+              style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
+            />
+            <small style={{ color: '#666' }}>Runs the race. Leave blank to keep the current PIN.</small>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="checkin_pin" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+              Check-in PIN <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              id="checkin_pin"
+              value={checkinPin}
+              onChange={(e) => setCheckinPin(e.target.value)}
+              placeholder="e.g. 5678"
+              style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
+            />
+            <small style={{ color: '#666' }}>Registration desk: racers and check-in only.</small>
+          </div>
         </div>
 
         <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>
