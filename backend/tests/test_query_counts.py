@@ -277,9 +277,15 @@ def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
     # Exactly the measured count rather than the usual bit of headroom: the
     # behaviour this guards added a fixed handful of statements, so a ceiling
     # with slack in it would not have caught it.
-    assert counter.count <= 3, (
+    #
+    # Four, not three, since #15: a mutation reads the configured PINs once to
+    # work out the caller's role. That read is constant and only a mutation pays
+    # it — queries and subscriptions resolve no role at all, which is why this
+    # is the only count in this file that moved. What the number still holds is
+    # the property that matters: it does not grow with the racers moved.
+    assert counter.count <= 4, (
         f"Moving {len(racer_ids)} racers issued {counter.count} SQL statements; "
-        f"it should be the UPDATE and little else."
+        f"it should be the UPDATE, the role lookup, and little else."
     )
 
 
