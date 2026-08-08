@@ -7,6 +7,7 @@ negative racer id.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -224,30 +225,41 @@ def test_only_one_place_writes_a_heats_lanes():
     assignment elsewhere would still pass every other test — the blob would be
     right and `lane_sync` would project it — and would only surface as extra
     work when the flip happens.
+
+    Scanned across the whole backend package rather than `crud.py` alone. The
+    narrower version could only ever hold the property where it already held:
+    an assignment in `api/schema.py` or a service was exactly as invisible as
+    the ones this was written to catch, and there was one — a detached
+    subscription snapshot copying the blob across, read by nothing but its own
+    test.
     """
     import ast
-    from pathlib import Path
 
-    tree = ast.parse(
-        (Path(__file__).resolve().parents[1] / "db" / "crud.py").read_text()
-    )
-
+    backend = Path(__file__).resolve().parents[1]
     writers = set()
-    for func in ast.walk(tree):
-        if not isinstance(func, ast.FunctionDef):
+    for path in sorted(backend.rglob("*.py")):
+        # Migrations speak the storage format by definition, and the tests
+        # here build blobs on purpose.
+        if path.relative_to(backend).parts[0] in {"tests", "migrations"}:
             continue
-        for node in ast.walk(func):
-            targets = (
-                node.targets
-                if isinstance(node, ast.Assign)
-                else [node.target]
-                if isinstance(node, ast.AugAssign)
-                else []
-            )
-            for target in targets:
-                if isinstance(target, ast.Attribute) and target.attr == "lane_results":
-                    writers.add(func.name)
+        for func in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(func):
+                targets = (
+                    node.targets
+                    if isinstance(node, ast.Assign)
+                    else [node.target]
+                    if isinstance(node, ast.AugAssign)
+                    else []
+                )
+                for target in targets:
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and target.attr == "lane_results"
+                    ):
+                        writers.add(f"{path.relative_to(backend)}:{func.name}")
 
-    assert writers == {"set_heat_lanes"}, (
+    assert writers == {"db/crud.py:set_heat_lanes"}, (
         f"a heat's lanes are written outside crud.set_heat_lanes: {sorted(writers)}"
     )

@@ -93,7 +93,10 @@ async def test_a_heat_result_carries_the_heat(db):
     assert event.racer is None
     assert event.heat is not None
     assert event.heat.id == heat.id
-    assert json.loads(event.heat.lane_results)[0]["time"] == 3.25
+    # Asserted on the structured lanes the payload actually carries, not on the
+    # blob. The snapshot used to copy `lane_results` across too, and this was
+    # the only thing reading it — a field kept alive by its own test (#72).
+    assert [lane.time for lane in event.heat.captured_lanes] == [3.25]
 
 
 @pytest.mark.anyio

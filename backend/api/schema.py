@@ -2759,7 +2759,6 @@ class _HeatSnapshot:
         "race_id",
         "round_id",
         "heat_number",
-        "lane_results",
         "round",
         "captured_lanes",
     )
@@ -2769,7 +2768,6 @@ class _HeatSnapshot:
         self.race_id = heat.race_id
         self.round_id = heat.round_id
         self.heat_number = heat.heat_number
-        self.lane_results = heat.lane_results
         # `Heat.round_number` and `Heat.round_name` read through this.
         self.round = (
             _RoundSnapshot(heat.round.round_number, heat.round.name)
