@@ -66,6 +66,24 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+
+def database_path() -> Path | None:
+    """The SQLite file this install writes to, or ``None`` if it is not a file.
+
+    Every install is a single SQLite file in the data directory; this exists so
+    the backup service (#176) can name it without re-parsing the URL, and
+    returns ``None`` rather than guessing for an in-memory or non-SQLite URL,
+    which is what the test suite sometimes points at.
+    """
+    prefix = "sqlite:///"
+    if not SQLALCHEMY_DATABASE_URL.startswith(prefix):
+        return None
+    path = SQLALCHEMY_DATABASE_URL[len(prefix) :]
+    if not path or path.startswith(":memory:"):
+        return None
+    return Path(path)
+
+
 # Revision that the pre-Alembic schema corresponds to. Databases created before
 # migrations existed are stamped here and then upgraded forward.
 LEGACY_BASELINE_REVISION = "0001_baseline"
@@ -101,6 +119,19 @@ def _alembic_config():
     # application owns its own logging setup, so tell it not to.
     config.attributes["skip_logging_config"] = True
     return config
+
+
+def known_revisions() -> set[str]:
+    """Every Alembic revision this install ships migrations for.
+
+    Used by the backup restore (#176) to tell an older archive, which upgrades
+    forward cleanly, from one taken by a newer Trusty Track, whose schema this
+    version has no migrations for and no way back from.
+    """
+    from alembic.script import ScriptDirectory
+
+    scripts = ScriptDirectory.from_config(_alembic_config())
+    return {revision.revision for revision in scripts.walk_revisions()}
 
 
 def _is_legacy_database(connection) -> bool:

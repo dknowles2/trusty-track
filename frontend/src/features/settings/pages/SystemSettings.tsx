@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
+import BackupPanel from '../components/BackupPanel';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -492,6 +493,13 @@ export default function SystemConfig() {
       <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem' }}>
         <Link to="/timer-check">Check the timer connection &rarr;</Link>
       </p>
+
+      {/*
+        Only once there is something to back up. On the first run this screen is
+        the setup wizard, and offering to restore before the install exists
+        would be offering to replace nothing.
+      */}
+      {isEditing && <BackupPanel />}
 
       <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
         <p>

@@ -153,6 +153,14 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 
 -   `POST /upload/` — File upload, returns URL.
 -   `GET /printables/barcode/{racer_id}.png` and `GET /api/printables/barcode/{racer_id}.png` — the check-in QR code. Registered at both paths because the Vite dev proxy strips the `/api` prefix; the payload is `TT1:<race_id>:<racer_id>`.
+-   `GET /backup` and `GET /api/backup` — the whole install as one zip: a SQLite snapshot, the uploads directory, and a manifest recording the schema revision. Operator-only.
+-   `POST /backup/restore` and `POST /api/backup/restore` — replaces the database and uploads with an archive's copies. Operator-only. Refuses an archive whose schema revision this install has no migrations for, and validates everything before it moves anything.
+
+Both backup routes are registered at the two prefixes for the same reason the
+barcode is. They are REST rather than GraphQL because one direction is a binary
+download and the other a file upload, and they carry their own role check —
+`RolePolicyExtension` guards GraphQL mutations and these are not GraphQL, which
+is the same reason `/ws/timer/{track_id}` checks for itself.
 
 The driver's licence and pit pass have **no endpoint**. They are HTML the
 browser prints, rendered by the frontend at `/race/:raceId/print` — there is no

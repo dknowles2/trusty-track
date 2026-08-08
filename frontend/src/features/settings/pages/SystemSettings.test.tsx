@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import SystemSettings from './SystemSettings';
 import { MemoryRouter } from 'react-router-dom';
+import { AlertProvider } from '../../../context/AlertContext';
 import { useQuery, useMutation } from 'urql';
 
 // Mock urql
@@ -40,9 +41,13 @@ describe('SystemSettings', () => {
         }, vi.fn()]);
         (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
 
+        // AlertProvider because the Backup panel reports a failed download or
+        // restore through it; the app wraps every route the same way.
         render(
             <MemoryRouter>
-                <SystemSettings />
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
             </MemoryRouter>
         );
 
@@ -73,9 +78,13 @@ describe('SystemSettings', () => {
         }, vi.fn()]);
         (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
 
+        // AlertProvider because the Backup panel reports a failed download or
+        // restore through it; the app wraps every route the same way.
         render(
             <MemoryRouter>
-                <SystemSettings />
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
             </MemoryRouter>
         );
 
@@ -110,9 +119,13 @@ describe('SystemSettings', () => {
 
         const user = (await import('@testing-library/user-event')).default.setup();
 
+        // AlertProvider because the Backup panel reports a failed download or
+        // restore through it; the app wraps every route the same way.
         render(
             <MemoryRouter>
-                <SystemSettings />
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
             </MemoryRouter>
         );
 
@@ -171,9 +184,13 @@ describe('SystemSettings', () => {
             return [{ fetching: false }, vi.fn()];
         });
 
+        // AlertProvider because the Backup panel reports a failed download or
+        // restore through it; the app wraps every route the same way.
         render(
             <MemoryRouter>
-                <SystemSettings />
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
             </MemoryRouter>
         );
 
@@ -234,7 +251,9 @@ describe('a saved track with no length', () => {
 
         render(
             <MemoryRouter>
-                <SystemSettings />
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
             </MemoryRouter>,
         );
 
@@ -247,5 +266,64 @@ describe('a saved track with no length', () => {
 
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
         expect(mockUpdate.mock.calls[0][0].config.tracks[1].lengthFeet).toBe(40);
+    });
+});
+
+describe('the Backup panel', () => {
+    afterEach(cleanup);
+
+    // Rendered here rather than only in its own file because the failure this
+    // guards against is the panel not reaching the page at all — a bad import
+    // or a wrong condition, which #15 showed passes tsc, eslint and every unit
+    // test while the screen shows nothing.
+
+    it('is offered once there is something to back up', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    groupName: 'Pack 42',
+                    debugMode: false,
+                    tracks: [
+                        { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                    ],
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        expect(
+            await screen.findByRole('button', { name: /download a backup/i }),
+        ).toBeInTheDocument();
+    });
+
+    it('is absent on the first run, when there is nothing to replace', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { initialized: false, tracks: [] } },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await screen.findByPlaceholderText('e.g. Main Track');
+        expect(screen.queryByRole('button', { name: /restore from a backup/i })).toBeNull();
     });
 });

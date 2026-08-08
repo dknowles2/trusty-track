@@ -14,6 +14,8 @@ Trusty Track helps Cub Scout packs run Pinewood Derby events without spreadsheet
 - **[Fake Timer](fake-timer.md)**: Running the whole thing without a track, for practice.
 - **[Observation & Audience Displays](observation-displays.md)**: Setting up leaderboards and results for the audience.
 - **[Race Stats](race-stats.md)**: Lane fairness, per-racer numbers, and CSV exports.
+- **[Access and Your Network](access-and-network.md)**: PINs, which network to use, and what a display can and cannot do.
+- **[Backup and Restore](backup-and-restore.md)**: Saving the whole event to one file, and putting it back.
 
 ## No Technical Knowledge Required
 
