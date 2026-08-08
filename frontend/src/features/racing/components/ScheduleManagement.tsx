@@ -21,7 +21,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAlert } from '../../../context/AlertContext';
-import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
+import { heatsEstimate } from '../../../utils/duration';
 import type { Heat, Lane } from '../types';
 import { hasRun, hasTimes } from '../lanes';
 
@@ -484,7 +484,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           <span style={{ color: '#2e7d32' }}>Completed</span>
                         ) : (
                           <>
-                            {uncompletedHeats < totalHeats ? `~${Math.ceil(uncompletedHeats * ESTIMATED_HEAT_DURATION_MIN)} mins remaining` : `~${Math.ceil(totalHeats * ESTIMATED_HEAT_DURATION_MIN)} mins duration`}
+                            {uncompletedHeats < totalHeats ? `${heatsEstimate(uncompletedHeats)} remaining` : `${heatsEstimate(totalHeats)} duration`}
                           </>
                         )}
                       </span>

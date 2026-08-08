@@ -6,7 +6,7 @@ import { HardwareTimerMole } from './HardwareTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../graphql/queries';
-import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
+import { heatsEstimate } from '../../../utils/duration';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { Icon } from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
@@ -646,7 +646,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 {remainingHeatsInRound} {remainingHeatsInRound === 1 ? 'Heat' : 'Heats'} Remaining
                             </div>
                             <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
-                                Estimated time remaining: ~{Math.ceil(remainingHeatsInRound * ESTIMATED_HEAT_DURATION_MIN)} mins
+                                Estimated time remaining: {heatsEstimate(remainingHeatsInRound)}
                             </div>
                         </div>
                     )}
