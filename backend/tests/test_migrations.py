@@ -52,6 +52,60 @@ def _column_names(db_path: Path, table: str) -> set:
         engine.dispose()
 
 
+def _schema_snapshot(db_path: Path) -> dict:
+    """Everything about the schema that two installs must agree on.
+
+    `alembic check` is not enough on its own, and believing it was is how the
+    drift below survived: it compares `models.py` against the database, and by
+    default it does *not* compare server defaults. A column that is `NOT NULL`
+    with no default therefore reports clean while a fresh install has
+    `DEFAULT 0` — the two schemas differ and Alembic says they do not.
+
+    Reflected attributes rather than raw DDL text: SQLite's stored `CREATE
+    TABLE` differs in identifier quoting and in the order constraints were
+    declared, neither of which is a difference in the schema.
+    """
+    engine = create_engine(f"sqlite:///{db_path}")
+    try:
+        inspector = inspect(engine)
+        return {
+            table: {
+                "columns": sorted(
+                    (
+                        column["name"],
+                        str(column["type"]),
+                        bool(column["nullable"]),
+                        None if column["default"] is None else str(column["default"]),
+                    )
+                    for column in inspector.get_columns(table)
+                ),
+                "indexes": sorted(
+                    (index["name"], tuple(index["column_names"]), bool(index["unique"]))
+                    for index in inspector.get_indexes(table)
+                ),
+                "foreign_keys": sorted(
+                    (
+                        tuple(fk["constrained_columns"]),
+                        fk["referred_table"],
+                        tuple(fk["referred_columns"]),
+                        (fk.get("options") or {}).get("ondelete"),
+                    )
+                    for fk in inspector.get_foreign_keys(table)
+                ),
+                "primary_key": tuple(
+                    inspector.get_pk_constraint(table)["constrained_columns"]
+                ),
+                "unique_constraints": sorted(
+                    (unique["name"], tuple(unique["column_names"]))
+                    for unique in inspector.get_unique_constraints(table)
+                ),
+            }
+            for table in sorted(inspector.get_table_names())
+        }
+    finally:
+        engine.dispose()
+
+
 def _revision(db_path: Path) -> str:
     engine = create_engine(f"sqlite:///{db_path}")
     try:
@@ -61,6 +115,19 @@ def _revision(db_path: Path) -> str:
             ).scalar()
     finally:
         engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def fresh_database(tmp_path_factory) -> Path:
+    """A database created from nothing by `init_db()` — the reference schema.
+
+    Session-scoped because building one runs the whole migration chain in a
+    subprocess, and nothing that compares against it modifies it.
+    """
+    data_dir = tmp_path_factory.mktemp("fresh")
+    result = _run_init_db(data_dir)
+    assert result.returncode == 0, result.stderr
+    return data_dir / "trusty-track.db"
 
 
 def test_fresh_database_is_fully_migrated(tmp_path):
@@ -193,10 +260,13 @@ def test_migrations_reproduce_the_models(tmp_path):
     [
         pytest.param(None, id="the old ALTER never ran"),
         pytest.param("BOOLEAN DEFAULT 0", id="the old ALTER ran, leaving it nullable"),
+        pytest.param("BOOLEAN NOT NULL", id="create_all made it, as on v1.0.0"),
         pytest.param("BOOLEAN DEFAULT 0 NOT NULL", id="already correct"),
     ],
 )
-def test_an_adopted_database_ends_up_with_the_same_schema(tmp_path, legacy_debug_mode):
+def test_an_adopted_database_ends_up_with_the_same_schema(
+    tmp_path, legacy_debug_mode, fresh_database
+):
     """A migrated legacy install must be indistinguishable from a fresh one.
 
     Issue #32. `test_migrations_reproduce_the_models` only ever checked a
@@ -208,13 +278,24 @@ def test_an_adopted_database_ends_up_with_the_same_schema(tmp_path, legacy_debug
     Adopted and fresh installs converging is the whole promise of #3. If they
     do not, `alembic check` reports drift on a real user's database that is
     nobody's fault, which teaches people to ignore it.
+
+    The comparison is against an actual fresh database, not just `alembic
+    check`. Checking alone is what let the `v1.0.0` case below go unnoticed:
+    Alembic does not compare server defaults, so a column left `NOT NULL` with
+    no default reported clean against a fresh install carrying `DEFAULT 0`.
     """
+    # The v1.0.0 shape has no server default, so the value has to be supplied —
+    # which is what the ORM did, and why nobody noticed it was missing.
+    insert = (
+        "INSERT INTO groups (id, name) VALUES (1, 'Pack 42')"
+        if legacy_debug_mode is None
+        else "INSERT INTO groups (id, name, debug_mode) VALUES (1, 'Pack 42', 0)"
+    )
+
     db = build_pre_alembic_database(
         tmp_path,
         legacy_debug_mode=legacy_debug_mode,
-        seed=lambda conn: conn.execute(
-            text("INSERT INTO groups (id, name) VALUES (1, 'Pack 42')")
-        ),
+        seed=lambda conn: conn.execute(text(insert)),
     )
 
     assert _run_init_db(tmp_path).returncode == 0
@@ -224,6 +305,12 @@ def test_an_adopted_database_ends_up_with_the_same_schema(tmp_path, legacy_debug
         "an adopted database does not match models.py, so it differs from a "
         "fresh install.\n\n"
         f"stdout:\n{result.stdout}\n\nstderr:\n{result.stderr}"
+    )
+
+    assert _schema_snapshot(db) == _schema_snapshot(fresh_database), (
+        "an adopted database's schema differs from a fresh install's. Alembic "
+        "reported clean, so the difference is in something it does not compare "
+        "— a server default, most likely."
     )
 
     # And the data is still there — a schema fix that copies the table is only
