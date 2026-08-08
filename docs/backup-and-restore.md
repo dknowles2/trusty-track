@@ -9,7 +9,10 @@ Trusty Track can put all of it into a single file, and put it back.
 
 ## Taking a backup
 
-**Settings → Backup → Download a backup.**
+**Settings → Backup → Download a backup.** The panel is at the foot of System
+Settings, below the tracks.
+
+![The backup panel: download a backup, or restore from one](assets/screenshots/settings/02-backup-panel.png)
 
 The file lands in your browser's downloads folder, named for the moment it was
 taken. It contains everything: every race, racer, den, heat, result and photo.

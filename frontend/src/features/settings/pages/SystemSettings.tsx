@@ -333,7 +333,7 @@ export default function SystemConfig() {
 
         <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>
         {tracks.map((track, index) => (
-          <div key={index} style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #ddd', borderRadius: '8px', background: '#f9f9f9', position: 'relative' }}>
+          <div key={index} data-testid={`track-card-${index}`} style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #ddd', borderRadius: '8px', background: '#f9f9f9', position: 'relative' }}>
             {tracks.length > 1 && (
               <button
                 type="button"

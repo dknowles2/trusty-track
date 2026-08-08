@@ -132,7 +132,7 @@ test('take screenshots', async ({ page }) => {
   await page.locator('input[type="checkbox"]').nth(2).click();
   await expect(page.getByTestId('roster-selection-bar')).toBeVisible();
   await page.waitForTimeout(500);
-  await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/09-bulk-actions-menu.png') });
+  await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/09-selection-bar.png') });
 
   // Final Roster Review - maybe group by den
   await page.getByTestId('clear-selection').click();

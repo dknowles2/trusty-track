@@ -7,6 +7,8 @@ whole list is in one place when it is time to announce them.
 
 **Race → Awards.**
 
+![The awards list, showing what each award is for and who currently holds it](assets/screenshots/awards/01-awards-list.png)
+
 ## The two kinds
 
 Every award is one name and one winner. What differs is where the winner comes
@@ -29,6 +31,8 @@ position*, and optionally *which den*.
 - **Limited to a den** — for "Fastest Wolf". Leave it on *The whole pack*
   otherwise.
 
+![Setting up a speed award: the standings to use, the position, and the den](assets/screenshots/awards/02-speed-award-form.png)
+
 > [!TIP]
 > "Fastest in each den" is one award per den, not one award. Add them
 > individually and name each after its den — that is also how they get
@@ -43,6 +47,8 @@ time at the end of the day and fix it, the awards follow.
 Just a name and, when you have decided, a racer. Leave the winner as *Not
 decided yet* until the judging is done — most of these stay empty until the very
 end of an event, which is normal and nothing is wrong.
+
+![A judged award: a name, and a winner you pick once the judging is done](assets/screenshots/awards/03-judged-award-form.png)
 
 ## The running order
 
@@ -67,6 +73,8 @@ missing. Edit it and choose a standings source and a position.
 the winner's photo. Click or press the right arrow for the next one — a
 presenter remote works too, since it sends the same keys.
 
+![One award filling the screen, with its winner](assets/screenshots/awards/04-ceremony-slide.png)
+
 It is an ordinary address (`/race/1/awards/present`), so you can also open it
 directly on the machine driving the projector.
 
@@ -77,6 +85,8 @@ award rather than starting again, which is the one people photograph.
 
 Awards nobody has won yet still appear, marked *Still to be decided* — most of
 them are, right up until the moment you announce them.
+
+![An award still to be decided gets a slide of its own](assets/screenshots/awards/05-ceremony-undecided.png)
 
 ## What awards do not do
 
