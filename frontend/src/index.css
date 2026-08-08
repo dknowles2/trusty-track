@@ -1,19 +1,53 @@
+/*
+ * The two families `docs/spec.md` names under the BSA branding guidelines,
+ * served from the app rather than fetched from Google Fonts (#139).
+ *
+ * The machine is usually a Raspberry Pi at a venue, often with no internet, so
+ * a remote font would fail exactly where it matters. Before this nothing
+ * loaded them at all: the CSS named them, and every target platform fell
+ * through to its own default sans-serif.
+ *
+ * Variable fonts, so one file per family covers every weight the UI asks for —
+ * 400 through 900 across the operator screens and the projector overlay —
+ * rather than six static faces and a synthesised approximation for anything
+ * missing. See `assets/fonts/README.md`; Apache 2.0, `assets/fonts/LICENSE.txt`.
+ *
+ * `swap` rather than blocking: these load from disk on the same machine, so
+ * the window is tiny, but an operator should never watch an empty screen for a
+ * font.
+ */
+@font-face {
+  font-family: 'Roboto';
+  src: url('./assets/fonts/roboto-latin-variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Condensed';
+  src: url('./assets/fonts/roboto-condensed-latin-variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* BSA Official Colors */
   --scouting-blue: #003F87;
   --cub-scouting-gold: #FCD116;
   --scouting-red: #D63232;
-  
+
   /* Additional Palette */
   --background-color: #f5f5f5;
   --text-color: #333333;
   --white: #ffffff;
   --error: #d32f2f;
-  
+
   /* Typography */
   --font-header: 'Roboto Condensed', sans-serif;
   --font-body: 'Roboto', sans-serif;
-  
+
   /* Spacing & Layout */
   --border-radius: 12px;
   --spacing-unit: 8px;
@@ -232,7 +266,7 @@ input:checked + .slider:before {
     gap: 8px;
   }
 
-  .roster-controls > div, 
+  .roster-controls > div,
   .roster-controls > button,
   .roster-controls .dropdown {
     width: auto;
@@ -371,8 +405,8 @@ input:checked + .slider:before {
   font-size: 1.2vmin;
 }
 
-.projector-mode h1, 
-.projector-mode h2, 
+.projector-mode h1,
+.projector-mode h2,
 .projector-mode h3 {
   color: var(--cub-scouting-gold) !important;
   text-transform: uppercase;
@@ -588,7 +622,7 @@ input:checked + .slider:before {
   flex-direction: column;
   gap: 2vmin;
   width: 100%;
-  max-width: 85vw; 
+  max-width: 85vw;
 }
 
 .overlay-result-item {
