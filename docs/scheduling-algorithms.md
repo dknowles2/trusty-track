@@ -33,6 +33,8 @@ Opponent variety remains a heuristic — this is a *partial* perfect chart, not 
 ---
 
 ## Technical Implementation
-The algorithm lives in `backend/domain/scheduling.py` (`generate_ppc`), which is pure — it takes a list of racer IDs and a lane count, and imports no database code. `crud.generate_heats_for_round` decides who is in the field and persists the result.
+The algorithm lives in `backend/domain/scheduling.py` (`generate_ppc`), which is pure — it takes a list of racer IDs and a list of usable lanes, and imports no database code. `crud.generate_heats_for_round` decides who is in the field and persists the result.
 
-Because it is pure, `backend/tests/test_domain_scheduling.py` exercises every racer count from 2 to 20 against every lane count from 2 to 8 with no fixtures, in about a second. That is how #26 was found.
+It takes *which* lanes rather than how many ([issue #171](https://github.com/dknowles2/trusty-track/issues/171)). On an undamaged track that is every lane, and nothing changes; when a lane is out of service it is the remaining ones, and the schedule names the lanes that exist rather than renumbering them. Every property above is stated over the usable lanes — including the one that matters most, that every heat is full and everybody runs the same number of times.
+
+Because it is pure, `backend/tests/test_domain_scheduling.py` exercises every racer count from 2 to 20 against every lane count from 2 to 8 with no fixtures, in about a second, plus a set of gapped tracks. That is how #26 was found.
