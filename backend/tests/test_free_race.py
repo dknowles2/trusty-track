@@ -1,9 +1,7 @@
-import json
-
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _create_race(db: Session) -> int:
@@ -65,7 +63,7 @@ def test_create_free_race_heat(db: Session):
     # for both kinds.
     assert heat.kind is models.HeatKind.FREE
     assert heat.round_id is None
-    parsed = json.loads(heat.lane_results)
+    parsed = lane_dicts(db, heat)
     assert len(parsed) == 2
     assert parsed[0]["lane"] == 1
     assert parsed[0]["racer_id"] == racer_ids[0]
@@ -87,7 +85,7 @@ def test_update_free_race_heat_result(db: Session):
     updated = crud.update_free_race_heat_result(db, heat.id, as_lanes(results))
     assert updated is not None
     assert updated.id == heat.id
-    parsed = json.loads(updated.lane_results)
+    parsed = lane_dicts(db, updated)
     assert parsed[0]["time"] == 3.141
     assert parsed[0]["place"] == 1
 

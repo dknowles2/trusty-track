@@ -10,12 +10,9 @@ made an exhibition run unreachable from the first result of the day onward.
 the two kinds can be ranked on together.
 """
 
-import json
-
 import pytest
 
 from backend.db import crud, models, schemas
-from backend.domain import lanes
 from backend.tests.helpers import as_lanes
 
 
@@ -63,14 +60,18 @@ def _official(db, race, round_obj, racers, heat_number):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=heat_number,
-        lane_results=json.dumps(
+    )
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
             [
                 {"lane": 1, "racer_id": racers[0].id, "time": None, "place": None},
                 {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
             ]
         ),
     )
-    db.add(heat)
     db.commit()
     return heat
 
@@ -82,25 +83,25 @@ def _free(db, race, racers):
         kind=models.HeatKind.FREE,
         heat_number=1,
         created_at="2020-01-01T00:00:00Z",
-        lane_results=json.dumps(
-            [{"lane": 1, "racer_id": racers[0].id, "time": None, "place": None}]
-        ),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes([{"lane": 1, "racer_id": racers[0].id, "time": None, "place": None}]),
+    )
     db.commit()
     return heat
 
 
 def _record(db, heat, seconds):
     """Record through crud, which is what stamps `recorded_at`."""
-    heat_lanes = lanes.parse(heat.lane_results)
+    heat_lanes = crud.heat_lanes_of(db, heat)
     for index, lane in enumerate(heat_lanes):
         lane.time = seconds + index / 10
         lane.place = index + 1
     if heat.kind is models.HeatKind.FREE:
-        crud.update_free_race_heat_result(
-            db, heat.id, as_lanes([lane.to_dict() for lane in heat_lanes])
-        )
+        crud.update_free_race_heat_result(db, heat.id, heat_lanes)
     else:
         crud.record_heat_result(db, heat.id, heat_lanes)
 
@@ -203,7 +204,7 @@ def test_clearing_a_result_unstamps_it(db, race, racers, round_one):
 
     cleared = [
         {"lane": lane.lane, "racer_id": lane.racer_id, "time": None, "place": None}
-        for lane in lanes.parse(heat.lane_results)
+        for lane in crud.heat_lanes_of(db, heat)
     ]
     crud.record_heat_result(db, heat.id, as_lanes(cleared))
 

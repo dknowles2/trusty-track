@@ -1,8 +1,7 @@
-import json
 import uuid
 
 from backend.db import crud, schemas
-from backend.tests.helpers import record_heat_result
+from backend.tests.helpers import lane_dicts, record_heat_result
 
 
 def get_unique_name(prefix: str) -> str:
@@ -78,7 +77,7 @@ def test_rerun_last_heat_clears_next_round(client, db):
     # Fill results
     for heat in gen_heats:
         results = []
-        lane_assignment = json.loads(heat.lane_results)
+        lane_assignment = lane_dicts(db, heat)
         for i, lane in enumerate(lane_assignment):
             lane["time"] = 1.0 + (i * 0.1)
             results.append(lane)
@@ -98,12 +97,12 @@ def test_rerun_last_heat_clears_next_round(client, db):
     db.expire_all()
     heats = crud.get_heats(db, race_id)
     champ_heats = [h for h in heats if h.round_id == champ_round_id]
-    first_heat_results = json.loads(champ_heats[0].lane_results)
+    first_heat_results = lane_dicts(db, champ_heats[0])
     assert any(r["racer_id"] > 0 for r in first_heat_results)
 
     # 7. Rerun Last Heat of General Round
     last_heat = gen_heats[-1]
-    results = json.loads(last_heat.lane_results)
+    results = lane_dicts(db, last_heat)
     for r in results:
         r["time"] = None
 
@@ -113,7 +112,7 @@ def test_rerun_last_heat_clears_next_round(client, db):
     db.expire_all()
     heats = crud.get_heats(db, race_id)
     champ_heats_after = [h for h in heats if h.round_id == champ_round_id]
-    first_heat_results_after = json.loads(champ_heats_after[0].lane_results)
+    first_heat_results_after = lane_dicts(db, champ_heats_after[0])
 
     has_actual_racers = any(
         r["racer_id"] is not None and r["racer_id"] > 0

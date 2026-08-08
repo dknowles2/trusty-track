@@ -6,7 +6,6 @@ meant every client also had to know that an undecided championship slot was a
 negative racer id.
 """
 
-import json
 from pathlib import Path
 
 import pytest
@@ -16,6 +15,7 @@ from backend.tests.helpers import (
     RECORD_FREE_RACE_RESULT,
     UPDATE_HEAT_RESULT,
     as_lanes,
+    lane_dicts,
     lane_input,
 )
 
@@ -59,9 +59,10 @@ def _heat(db, race, blob):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(blob),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(blob))
     db.commit()
     return heat
 
@@ -119,7 +120,7 @@ def test_a_placeholder_slot_survives_the_round_trip(client, db, race):
     assert (row.racer_id, row.placeholder_slot) == (None, 2)
     # Storage still encodes it the old way; that is step 5b's problem.
     db.refresh(heat)
-    assert json.loads(heat.lane_results)[0]["racer_id"] == -2
+    assert lane_dicts(db, heat)[0]["racer_id"] == -2
 
 
 def test_skipping_and_then_unskipping_a_heat(client, db, race, racer):
@@ -146,29 +147,15 @@ def test_skipping_and_then_unskipping_a_heat(client, db, race, racer):
     # both spellings and every reader has always treated absent as false, so
     # this normalises them without changing what any of them see.
     db.refresh(heat)
-    assert "skipped" not in json.loads(heat.lane_results)[0]
+    assert "skipped" not in lane_dicts(db, heat)[0]
 
 
-def test_keys_the_client_cannot_see_are_not_dropped(client, db, race, racer):
-    """The blob has always carried keys nothing models. A client that cannot
-    see them cannot send them back, so the server has to keep them."""
-    heat = _heat(
-        db, race, [{"lane": 1, "racer_id": racer.id, "someFutureKey": "keep me"}]
-    )
-
-    _post(
-        client,
-        UPDATE_HEAT_RESULT,
-        {
-            "heatId": heat.id,
-            "lanes": [lane_input({"lane": 1, "racer_id": racer.id, "time": 3.0})],
-        },
-    )
-
-    db.refresh(heat)
-    stored = json.loads(heat.lane_results)[0]
-    assert stored["someFutureKey"] == "keep me"
-    assert stored["time"] == 3.0
+# `test_keys_the_client_cannot_see_are_not_dropped` was here. It pinned
+# `lanes.carry_extras`: the blob could hold keys nothing modelled, a client that
+# could not see them could not send them back, and an update therefore had to
+# read the stored blob and merge. #72 removed the blob, and `heat_lanes` has a
+# column for every field there is — so there is no longer any such key to carry,
+# and no way to write one.
 
 
 def test_an_unknown_heat_is_answered_with_null(client, race):  # noqa: ARG001
@@ -260,6 +247,63 @@ def test_only_one_place_writes_a_heats_lanes():
                     ):
                         writers.add(f"{path.relative_to(backend)}:{func.name}")
 
-    assert writers == {"db/crud.py:set_heat_lanes"}, (
-        f"a heat's lanes are written outside crud.set_heat_lanes: {sorted(writers)}"
+    assert writers == set(), (
+        f"heats.lane_results was dropped in #72 but is still assigned: "
+        f"{sorted(writers)}"
+    )
+
+
+def test_only_lane_sync_writes_heat_lane_rows():
+    """The door moved with the storage (#72).
+
+    While the blob existed, "one door" meant one place assigning
+    `Heat.lane_results`. It is `heat_lanes` rows now, so that is what has to
+    have one writer — otherwise `crud.set_heat_lanes` stops being the thing a
+    reader can trust, and the projection can be bypassed exactly as the blob
+    once could.
+
+    `lane_sync` is that writer. `crud` reaches it through `set_heat_lanes`;
+    nothing else should construct a `HeatLane` or insert into the table.
+    """
+    import ast
+
+    backend = Path(__file__).resolve().parents[1]
+    writers = set()
+    for path in sorted(backend.rglob("*.py")):
+        parts = path.relative_to(backend).parts
+        # `lane_sync` is the writer; migrations build the table; tests read it.
+        if parts[0] in {"tests", "migrations"} or path.name == "lane_sync.py":
+            continue
+        tree = ast.parse(path.read_text())
+
+        # `HeatLane` is also the name of the *GraphQL* type in `api/schema.py`,
+        # which is a read-side shell and nothing to do with the table. Only a
+        # name bound to the ORM model counts.
+        imported = any(
+            isinstance(node, ast.ImportFrom)
+            and node.module
+            and node.module.endswith("db.models")
+            and any(alias.name == "HeatLane" for alias in node.names)
+            for node in ast.walk(tree)
+        )
+
+        def _is_model(node: ast.expr, imported: bool = imported) -> bool:
+            if isinstance(node, ast.Attribute):
+                return node.attr == "HeatLane"
+            return isinstance(node, ast.Name) and node.id == "HeatLane" and imported
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if _is_model(node.func):
+                writers.add(f"{path.relative_to(backend)}: constructs HeatLane")
+            elif (
+                isinstance(node.func, ast.Name)
+                and node.func.id in {"insert", "update"}
+                and any(_is_model(arg) for arg in node.args)
+            ):
+                writers.add(f"{path.relative_to(backend)}: {node.func.id}(HeatLane)")
+
+    assert writers == set(), (
+        f"heat_lanes rows are written outside lane_sync: {sorted(writers)}"
     )

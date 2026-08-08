@@ -473,10 +473,10 @@ def _seed_a_small_race(conn) -> None:
     ):
         conn.execute(
             text(
-                "INSERT INTO heats (id, race_id, round_id, kind, heat_number,"
-                " lane_results) VALUES (:i, 1, 1, 'OFFICIAL', :n, :b)"
+                "INSERT INTO heats (id, race_id, round_id, kind, heat_number)"
+                " VALUES (:i, 1, 1, 'OFFICIAL', :n)"
             ),
-            {"i": heat_id, "n": number, "b": blob},
+            {"i": heat_id, "n": number},
         )
         for lane in _lanes_of(blob):
             conn.execute(
@@ -492,9 +492,9 @@ def _seed_a_small_race(conn) -> None:
     conn.execute(
         text(
             "INSERT INTO heats (id, race_id, round_id, kind, heat_number,"
-            " lane_results, created_at) VALUES (4, 1, NULL, 'FREE', 1, :b, :c)"
+            " created_at) VALUES (4, 1, NULL, 'FREE', 1, :c)"
         ),
-        {"b": free, "c": "2026-03-01T10:00:00"},
+        {"c": "2026-03-01T10:00:00"},
     )
     for lane in _lanes_of(free):
         conn.execute(
@@ -528,7 +528,7 @@ def _race_shape(conn) -> dict:
     """What the round trip must not change."""
     return {
         "heats": conn.execute(
-            text("select id, kind, heat_number, lane_results from heats order by id")
+            text("select id, kind, heat_number from heats order by id")
         ).fetchall(),
         "lanes": conn.execute(
             text(

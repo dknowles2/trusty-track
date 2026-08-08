@@ -8,7 +8,6 @@ track.
 """
 
 import asyncio
-import json
 
 import pytest
 from sqlalchemy.orm import Session
@@ -19,7 +18,7 @@ from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
@@ -99,7 +98,7 @@ def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
 
 
 def _run_heat(db: Session, heat, offset: float = 0.0, reverse: bool = False) -> None:
-    results = json.loads(heat.lane_results)
+    results = lane_dicts(db, heat)
     for res in results:
         rid = res.get("racer_id")
         if rid is None or rid < 0:
@@ -113,7 +112,7 @@ def _armed_manager(db: Session, heat) -> TimerManager:
     """A manager armed for `heat`, exactly as the prepareHeat mutation does."""
     racer_by_lane = {
         lane.lane: lane.racer_id
-        for lane in lanes.parse(heat.lane_results)
+        for lane in crud.heat_lanes_of(db, heat)
         if lane.racer_id is not None
     }
     mask = 0
@@ -200,7 +199,7 @@ async def test_a_reused_heat_id_does_not_take_the_results(db: Session):
         _run_heat(db, heat)
 
     target = crud.get_heats(db, race.id, round_id=r2.id)[0]
-    armed_lanes = [lane.racer_id for lane in lanes.parse(target.lane_results)]
+    armed_lanes = [lane.racer_id for lane in crud.heat_lanes_of(db, target)]
     mgr = await _arm(db, target)
 
     # Re-record the prelim with the order flipped, so the championship field is
@@ -211,15 +210,15 @@ async def test_a_reused_heat_id_does_not_take_the_results(db: Session):
 
     reused = db.query(models.Heat).filter(models.Heat.id == target.id).first()
     assert reused is not None, "this test needs the id to be reused"
-    assert [
-        lane.racer_id for lane in lanes.parse(reused.lane_results)
-    ] != armed_lanes, "this test needs the lanes to have changed"
+    assert [lane.racer_id for lane in crud.heat_lanes_of(db, reused)] != armed_lanes, (
+        "this test needs the lanes to have changed"
+    )
 
     await _finish(mgr)
 
     db.expire_all()
     after = db.query(models.Heat).filter(models.Heat.id == target.id).one()
-    assert not lanes.has_results(lanes.parse(after.lane_results)), (
+    assert not lanes.has_results(crud.heat_lanes_of(db, after)), (
         "times were written against a heat the timer never armed"
     )
     status = mgr.status()
@@ -256,7 +255,7 @@ async def test_an_unchanged_heat_still_records(db: Session):
 
     db.expire_all()
     after = db.query(models.Heat).filter(models.Heat.id == target.id).one()
-    assert lanes.has_results(lanes.parse(after.lane_results))
+    assert lanes.has_results(crud.heat_lanes_of(db, after))
     assert mgr.status().state == TimerState.IDLE.value
     assert mgr.status().active_heat_id is None
 
@@ -281,7 +280,7 @@ async def test_a_free_heat_with_nobody_assigned_still_records(db: Session):
 
     db.expire_all()
     after = db.query(models.Heat).filter(models.Heat.id == free.id).one()
-    assert lanes.has_results(lanes.parse(after.lane_results))
+    assert lanes.has_results(crud.heat_lanes_of(db, after))
     assert mgr.status().state == TimerState.IDLE.value
 
 
@@ -303,7 +302,7 @@ async def test_arming_without_a_racer_mapping_still_records(db: Session):
 
     db.expire_all()
     after = db.query(models.Heat).filter(models.Heat.id == target.id).one()
-    assert lanes.has_results(lanes.parse(after.lane_results))
+    assert lanes.has_results(crud.heat_lanes_of(db, after))
     assert mgr.status().state == TimerState.IDLE.value
 
 
@@ -337,7 +336,7 @@ class TestProactiveDisarm:
         # revalidate path does, so a throwaway loop here is safe.
         racer_by_lane = {
             lane.lane: lane.racer_id
-            for lane in lanes.parse(heat.lane_results)
+            for lane in crud.heat_lanes_of(db, heat)
             if lane.racer_id is not None
         }
         mgr = TimerManager(
@@ -375,7 +374,7 @@ class TestProactiveDisarm:
         target = crud.get_heats(db, race.id, round_id=r2.id)[0]
         armed_field = {
             lane.lane: lane.racer_id
-            for lane in lanes.parse(target.lane_results)
+            for lane in crud.heat_lanes_of(db, target)
             if lane.racer_id is not None
         }
         mgr = self._arm_on_registry(db, registry, race, target)
@@ -391,7 +390,7 @@ class TestProactiveDisarm:
                 "time": 9.0 - (lane.racer_id or 0) / 100.0,
                 "place": lane.lane,
             }
-            for lane in lanes.parse(prelim.lane_results)
+            for lane in crud.heat_lanes_of(db, prelim)
         ]
         resp = client.post(
             "/graphql",
@@ -414,7 +413,7 @@ class TestProactiveDisarm:
         db.refresh(target)
         assert {
             lane.lane: lane.racer_id
-            for lane in lanes.parse(target.lane_results)
+            for lane in crud.heat_lanes_of(db, target)
             if lane.racer_id is not None
         } != armed_field
 
@@ -461,7 +460,7 @@ class TestProactiveDisarm:
                 "time": 3.0 + lane.lane / 10,
                 "place": lane.lane,
             }
-            for lane in lanes.parse(other.lane_results)
+            for lane in crud.heat_lanes_of(db, other)
         ]
         resp = client.post(
             "/graphql",

@@ -1,42 +1,38 @@
-"""The lane assignment/result value object, and the codec for the JSON blob.
+"""The lane assignment/result value object.
 
-``Heat.lane_results`` is a JSON string doing four jobs at once: it is the
-schedule (who is in which lane), the results (time and place), the placeholder
-list for unadvanced championship slots (negative racer ids), and the heat's
-status (inferred by looking for a recorded time or a ``skipped`` flag).
+:class:`Lane` is what the domain layer passes around — scheduling, scoring,
+advancement and ``heat_session`` all take parsed lanes — and what
+``crud.set_heat_lanes`` stores. It carries who is in a lane, their time and
+place, and whether the lane is an unadvanced championship slot.
 
-This module is the only place that knows that. Everything else works with
-:class:`Lane` objects. When issue #5 replaces the blob with a ``heat_lanes``
-table, :func:`parse` and :func:`serialize` are what get replaced.
+This module used to be the codec for ``Heat.lane_results`` as well: a JSON
+string doing four jobs at once, and the only place that knew it. #72 finished
+replacing that with the ``heat_lanes`` table, so ``parse``, ``serialize``,
+``from_dict``, ``to_dict`` and ``carry_extras`` are gone. What is left is the
+value and the predicates over it.
 
-Round-tripping is lossless on purpose
--------------------------------------
-The frontend writes keys the backend never reads — ``skipped`` is set by
-``RaceExecution.tsx`` to mark a heat that was passed over rather than run. Any
-key we do not model is carried in :attr:`Lane.extra` and re-emitted by
-:func:`serialize`, so a parse/modify/serialize cycle (which is what advancement
-does to every championship heat) cannot silently drop it.
+Two of the blob's conventions outlived it, and are deliberately still here:
 
-``time`` is likewise stored as it was found. The frontend sometimes writes it as
-a string, and rewriting ``"3.45"`` as ``3.45`` while resolving placeholders
-would be an unannounced change to the user's stored race data. Use
-:attr:`Lane.seconds` to get the numeric value.
+* an unadvanced slot is held as a *negative* ``racer_id``, read back through
+  :attr:`Lane.placeholder_slot`. ``heat_lanes`` has a real column for it, and
+  :func:`from_parts` re-encodes on the way in;
+* ``skipped`` lives in :attr:`Lane.extra` rather than being a field.
+
+Both are storage conventions with no storage left to justify them, and both are
+reachable only through the accessors, so nothing outside this module repeats
+them. Straightening them out is a change to this file and its constructors, and
+is worth doing separately from the migration that made it possible.
+
+``time`` is stored as it was found. ``heat_lanes.time_seconds`` is a float, so
+a string can no longer be *persisted*, but the field is still :class:`Any` and
+:attr:`Lane.seconds` is the coercion every reader goes through.
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
-
-#: Keys :class:`Lane` models directly; everything else round-trips via ``extra``.
-_KNOWN_KEYS = ("lane", "racer_id", "time", "place")
-
-#: Keys carried in ``extra`` that the GraphQL write path now states explicitly.
-#: :func:`carry_extras` must not restore these from the stored blob — an update
-#: that omits ``skipped`` is saying the heat is no longer skipped.
-_STRUCTURED_KEYS = ("skipped",)
 
 
 @dataclass
@@ -106,17 +102,6 @@ class Lane:
         except (TypeError, ValueError):
             return None
 
-    def to_dict(self) -> dict[str, Any]:
-        """Back to the blob's shape, known keys first, then anything carried."""
-        out: dict[str, Any] = {
-            "lane": self.lane,
-            "racer_id": self.racer_id,
-            "time": self.time,
-            "place": self.place,
-        }
-        out.update(self.extra)
-        return out
-
 
 def from_parts(
     *,
@@ -148,61 +133,6 @@ def from_parts(
         place=place,
         extra={"skipped": True} if skipped else {},
     )
-
-
-def from_dict(raw: dict[str, Any], lane_number: int) -> Lane:
-    """One entry of the blob. ``lane_number`` is read and checked by :func:`parse`."""
-    return Lane(
-        lane=lane_number,
-        racer_id=raw.get("racer_id"),
-        time=raw.get("time"),
-        place=raw.get("place"),
-        extra={k: v for k, v in raw.items() if k not in _KNOWN_KEYS},
-    )
-
-
-def parse(raw: str | None) -> list[Lane]:
-    """Decode a ``lane_results`` blob.
-
-    Returns ``[]`` for null, empty, or malformed input rather than raising.
-    Callers throughout the codebase already treat "can't read it" as "no
-    results" — a heat with a corrupt blob should show as unraced, not take down
-    the audience display mid-event.
-
-    An entry without a whole-number ``lane`` is dropped for the same reason: the
-    lane number is the key everything else sorts, arms and displays by, and no
-    write path produces an entry without one. This is not in tension with the
-    round-trip promise above, which is about keys we do not *model* — an entry
-    that is not a lane is not one of those.
-    """
-    if not raw:
-        return []
-    try:
-        decoded = json.loads(raw)
-    except (TypeError, ValueError):
-        return []
-    if not isinstance(decoded, list):
-        return []
-
-    parsed = []
-    for item in decoded:
-        if not isinstance(item, dict):
-            continue
-        lane_number = item.get("lane")
-        # `bool` is an `int`; `{"lane": true}` is not lane 1.
-        if not isinstance(lane_number, int) or isinstance(lane_number, bool):
-            continue
-        parsed.append(from_dict(item, lane_number))
-    return parsed
-
-
-def serialize(lanes: Iterable[Lane]) -> str:
-    return json.dumps([lane.to_dict() for lane in lanes])
-
-
-# --------------------------------------------------------------------------- #
-# Heat-level predicates                                                        #
-# --------------------------------------------------------------------------- #
 
 
 def has_results(lanes: Sequence[Lane]) -> bool:
@@ -256,37 +186,6 @@ def is_complete(lanes: Sequence[Lane]) -> bool:
 def real_racer_ids(lanes: Iterable[Lane]) -> list[int]:
     """Assigned, non-placeholder racer ids, in lane order."""
     return [racer_id for lane in lanes if (racer_id := lane.real_racer_id) is not None]
-
-
-def carry_extras(updates: Sequence[Lane], stored: Sequence[Lane]) -> list[Lane]:
-    """Return *updates* with each lane's unmodelled keys taken from *stored*.
-
-    Structured input names every field this module models, so rebuilding a blob
-    from it is lossless for everything we know about — but the blob has always
-    carried keys we do not model, and a client that cannot see them cannot send
-    them back. Matching on lane number keeps them.
-
-    ``skipped`` is deliberately *not* carried: it is modelled now, so an update
-    that omits it means the operator un-skipped the heat.
-    """
-    extras = {lane.lane: lane.extra for lane in stored}
-    merged = []
-    for update in updates:
-        carried = {
-            key: value
-            for key, value in extras.get(update.lane, {}).items()
-            if key not in update.extra and key not in _STRUCTURED_KEYS
-        }
-        merged.append(
-            Lane(
-                lane=update.lane,
-                racer_id=update.racer_id,
-                time=update.time,
-                place=update.place,
-                extra={**carried, **update.extra},
-            )
-        )
-    return merged
 
 
 def resolve_placeholders(lanes: Sequence[Lane], racer_ids: Sequence[int]) -> bool:

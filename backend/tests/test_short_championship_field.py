@@ -8,14 +8,12 @@ any placeholder remains and the operator screen offers no controls in that
 state, so the round could not be run, edited or skipped.
 """
 
-import json
-
 import pytest
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
 from backend.domain import heat_session, lanes
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _race(db: Session, label: str, racer_count: int) -> tuple:
@@ -62,7 +60,7 @@ def _race(db: Session, label: str, racer_count: int) -> tuple:
 def _run_round(db: Session, race_id: int, round_id: int) -> None:
     """Record a time for every real racer, which triggers advancement."""
     for heat in crud.get_heats(db, race_id, round_id=round_id):
-        results = json.loads(heat.lane_results)
+        results = lane_dicts(db, heat)
         for res in results:
             rid = res.get("racer_id")
             if rid is None or rid < 0:
@@ -100,7 +98,7 @@ def test_a_short_field_leaves_no_undecided_slot(db: Session, racer_count: int):
 
     for heat in crud.get_heats(db, race.id, round_id=r2.id):
         assert not [
-            lane for lane in lanes.parse(heat.lane_results) if lane.is_placeholder
+            lane for lane in crud.heat_lanes_of(db, heat) if lane.is_placeholder
         ]
 
 
@@ -115,7 +113,7 @@ def test_a_short_field_leaves_the_round_runnable(db: Session):
     _run_round(db, race.id, r1.id)
 
     phases = {
-        heat_session.phase(lanes.parse(heat.lane_results), timer_state="IDLE")
+        heat_session.phase(crud.heat_lanes_of(db, heat), timer_state="IDLE")
         for heat in crud.get_heats(db, race.id, round_id=r2.id)
     }
     assert phases == {heat_session.Phase.WAITING}
@@ -137,7 +135,7 @@ def test_the_round_is_rebuilt_for_the_field_that_qualified(db: Session):
     entered = {
         racer_id
         for heat in champ_heats
-        for racer_id in lanes.real_racer_ids(lanes.parse(heat.lane_results))
+        for racer_id in lanes.real_racer_ids(crud.heat_lanes_of(db, heat))
     }
     assert entered == {r.id for r in racers}
 
@@ -180,7 +178,7 @@ def test_an_exact_field_is_filled_without_regenerating(db: Session, monkeypatch)
     assert not [
         lane
         for heat in crud.get_heats(db, race.id, round_id=r2.id)
-        for lane in lanes.parse(heat.lane_results)
+        for lane in crud.heat_lanes_of(db, heat)
         if lane.is_placeholder
     ]
 
@@ -246,7 +244,7 @@ def test_a_raced_round_is_filled_in_place_even_when_short(db: Session):
     champ = crud.get_heats(db, race.id, round_id=r2.id)
     before_ids = [h.id for h in champ]
     target = champ[0]
-    results = json.loads(target.lane_results)
+    results = lane_dicts(db, target)
     results[0]["time"] = 3.21
     crud.record_heat_result(db, target.id, as_lanes(results))
 
@@ -255,9 +253,7 @@ def test_a_raced_round_is_filled_in_place_even_when_short(db: Session):
     after = crud.get_heats(db, race.id, round_id=r2.id)
     assert [h.id for h in after] == before_ids, "raced heats were wiped"
     assert any(
-        lane.time is not None
-        for heat in after
-        for lane in lanes.parse(heat.lane_results)
+        lane.time is not None for heat in after for lane in crud.heat_lanes_of(db, heat)
     ), "the recorded time was lost"
 
 
@@ -296,7 +292,7 @@ def test_manual_advance_also_handles_a_short_field(client, db: Session):
     db.expire_all()
     for heat in crud.get_heats(db, race.id, round_id=r2.id):
         assert not [
-            lane for lane in lanes.parse(heat.lane_results) if lane.is_placeholder
+            lane for lane in crud.heat_lanes_of(db, heat) if lane.is_placeholder
         ]
 
 
@@ -306,9 +302,9 @@ def test_populating_with_nobody_changes_nothing(db: Session):
     db.flush()
     crud.generate_heats_for_round(db, r1.id)
     r2 = _champ_round(db, race.id, slots=4)
-    before = [h.lane_results for h in crud.get_heats(db, race.id, round_id=r2.id)]
+    before = [lane_dicts(db, h) for h in crud.get_heats(db, race.id, round_id=r2.id)]
 
     crud.populate_round_field(db, r2.id, [])
 
-    after = [h.lane_results for h in crud.get_heats(db, race.id, round_id=r2.id)]
+    after = [lane_dicts(db, h) for h in crud.get_heats(db, race.id, round_id=r2.id)]
     assert after == before

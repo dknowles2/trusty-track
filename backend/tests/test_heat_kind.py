@@ -8,12 +8,11 @@ The failure this guards against is quiet: a missing `kind` filter does not
 raise, it just adds an exhibition run to someone's standings.
 """
 
-import json
-
 import pytest
 
 from backend.db import crud, models, schemas
 from backend.services import scoring, stats
+from backend.tests.helpers import as_lanes
 
 
 @pytest.fixture
@@ -60,14 +59,18 @@ def official_heat(db, race, racers):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(
+    )
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
             [
                 {"lane": 1, "racer_id": racers[0].id, "time": 9.0, "place": 1},
                 {"lane": 2, "racer_id": racers[1].id, "time": 9.5, "place": 2},
             ]
         ),
     )
-    db.add(heat)
     db.commit()
     return heat
 
@@ -81,14 +84,18 @@ def free_heat(db, race, racers):
         kind=models.HeatKind.FREE,
         heat_number=1,
         created_at="2026-07-25T12:00:00Z",
-        lane_results=json.dumps(
+    )
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
             [
                 {"lane": 1, "racer_id": racers[0].id, "time": 0.1, "place": 1},
                 {"lane": 2, "racer_id": racers[1].id, "time": 0.2, "place": 2},
             ]
         ),
     )
-    db.add(heat)
     db.commit()
     return heat
 

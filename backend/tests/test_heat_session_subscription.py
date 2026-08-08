@@ -14,7 +14,6 @@ for exactly this.
 """
 
 import asyncio
-import json
 
 import pytest
 from sqlalchemy.orm import Session
@@ -26,7 +25,7 @@ from backend.db import crud, models, schemas
 from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 @pytest.fixture(autouse=True)
@@ -70,14 +69,18 @@ def _race(db, lane_count=2, label="Sub"):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(
+    )
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
             [
                 {"lane": 1, "racer_id": racers[0].id, "time": None, "place": None},
                 {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
             ]
         ),
     )
-    db.add(heat)
     db.commit()
     return race, track, heat, racers
 
@@ -205,7 +208,7 @@ async def test_the_session_is_re_read_rather_than_replayed(db):
     heat_id, racer_id = heat.id, racers[0].id
 
     # Load the heat into the subscription's session so it has something stale.
-    assert db.query(models.Heat).filter(models.Heat.id == heat_id).one().lane_results
+    assert lane_dicts(db, db.query(models.Heat).filter(models.Heat.id == heat_id).one())
 
     writer = Session(bind=db.get_bind())
 

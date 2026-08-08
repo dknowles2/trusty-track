@@ -6,8 +6,6 @@ storage format, so these check the projection against what was stored — read
 from the row rather than through the API, since the API no longer offers it.
 """
 
-import json
-
 import pytest
 
 from backend.db import crud, models, schemas
@@ -86,9 +84,10 @@ def _heat(db, race, blob):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(blob),
     )
     db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(blob))
     db.commit()
     return heat
 

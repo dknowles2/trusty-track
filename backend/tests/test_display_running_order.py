@@ -10,12 +10,10 @@ is recoverable from the operator screen — hence heats here with more than one
 lane, which is what the pre-existing subscription tests lack.
 """
 
-import json
-
 import pytest
 
 from backend.db import crud, models, schemas
-from backend.domain import lanes
+from backend.tests.helpers import as_lanes
 
 
 @pytest.fixture
@@ -62,7 +60,12 @@ def two_heats(db, race, racers):
             race_id=race.id,
             round_id=round_obj.id,
             heat_number=number,
-            lane_results=json.dumps(
+        )
+        db.add(heat)
+        db.flush()
+        crud.set_heat_lanes(
+            heat,
+            as_lanes(
                 [
                     {
                         "lane": 1,
@@ -79,7 +82,6 @@ def two_heats(db, race, racers):
                 ]
             ),
         )
-        db.add(heat)
         heats.append(heat)
     db.commit()
     return heats
@@ -87,12 +89,12 @@ def two_heats(db, race, racers):
 
 def _skip(db, heat):
     """What `RaceExecution.handleSkipHeat` writes: no times, `skipped` set."""
-    heat_lanes = lanes.parse(heat.lane_results)
+    heat_lanes = crud.heat_lanes_of(db, heat)
     for lane in heat_lanes:
         lane.time = None
         lane.place = None
         lane.extra["skipped"] = True
-    heat.lane_results = lanes.serialize(heat_lanes)
+    crud.set_heat_lanes(heat, heat_lanes)
     db.commit()
 
 
@@ -102,11 +104,14 @@ def _empty_lane_one(db, heat, racers):
     `crud._vacate_lanes` empties the lane rather than dropping it, so lane 1
     ends up holding no racer and no time.
     """
-    heat.lane_results = json.dumps(
-        [
-            {"lane": 1, "racer_id": None, "time": None, "place": None},
-            {"lane": 2, "racer_id": racers[1].id, "time": 3.4, "place": 1},
-        ]
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": None, "time": None, "place": None},
+                {"lane": 2, "racer_id": racers[1].id, "time": 3.4, "place": 1},
+            ]
+        ),
     )
     db.commit()
 
@@ -190,10 +195,10 @@ async def test_a_skipped_heat_has_no_timing_stats(db, race, two_heats):
 
 @pytest.mark.anyio
 async def test_timing_stats_report_every_lane_of_the_last_run_heat(db, race, two_heats):
-    heat_lanes = lanes.parse(two_heats[0].lane_results)
+    heat_lanes = crud.heat_lanes_of(db, two_heats[0])
     heat_lanes[0].time, heat_lanes[0].place = 3.1, 1
     heat_lanes[1].time, heat_lanes[1].place = 3.2, 2
-    two_heats[0].lane_results = lanes.serialize(heat_lanes)
+    crud.set_heat_lanes(two_heats[0], heat_lanes)
     db.commit()
 
     stats = await _first(db, "timing_stats", race.id)
@@ -209,12 +214,17 @@ async def test_timing_stats_report_every_lane_of_the_last_run_heat(db, race, two
 
 @pytest.mark.anyio
 async def test_timing_stats_read_a_time_stored_as_a_string(db, race, two_heats):
-    """The frontend has written `time` as a string, and `lane_results` keeps it
-    as it was found. The GraphQL field is a Float, so the resolver has to be the
-    thing that converts."""
-    heat_lanes = lanes.parse(two_heats[0].lane_results)
+    """A string time still converts on the way to the Float field.
+
+    It can no longer be *stored* as one — `heat_lanes.time_seconds` is a float
+    column and `HeatLaneInput.time` is a Float, so the blob's mixed types went
+    with the blob (#72). `Lane.time` is still `Any`, and the coercion in
+    `Lane.seconds` is what every reader goes through, so this keeps a string
+    reaching the resolver and asserts it arrives as a number.
+    """
+    heat_lanes = crud.heat_lanes_of(db, two_heats[0])
     heat_lanes[0].time, heat_lanes[0].place = "3.45", 1
-    two_heats[0].lane_results = lanes.serialize(heat_lanes)
+    crud.set_heat_lanes(two_heats[0], heat_lanes)
     db.commit()
 
     stats = await _first(db, "timing_stats", race.id)
@@ -228,11 +238,14 @@ def test_placeholder_slots_are_not_scheduled_racers(db, race, racers, two_heats)
     slot is a negative id, and no racer is in it yet."""
     from backend.api.loaders import RequestLoaders
 
-    two_heats[1].lane_results = json.dumps(
-        [
-            {"lane": 1, "racer_id": -1, "time": None, "place": None},
-            {"lane": 2, "racer_id": -2, "time": None, "place": None},
-        ]
+    crud.set_heat_lanes(
+        two_heats[1],
+        as_lanes(
+            [
+                {"lane": 1, "racer_id": -1, "time": None, "place": None},
+                {"lane": 2, "racer_id": -2, "time": None, "place": None},
+            ]
+        ),
     )
     db.commit()
 

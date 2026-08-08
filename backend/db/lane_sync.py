@@ -1,36 +1,23 @@
-"""Keeps ``heat_lanes`` in step with the ``lane_results`` blobs.
+"""Writes a heat's lanes into ``heat_lanes``.
 
-Issue #5, step two. The table was backfilled by migration ``0003``, but the
-application still writes only the blob — so without this the table would be
-correct once and then decay from the first recorded result.
+Issue #5, step two, and #72 to its conclusion. The table was backfilled by
+migration ``0003``, projected from the ``lane_results`` blob while that was
+still the source of truth, and is now the only copy — the column was dropped in
+``0013``.
 
-Why a session event rather than calls at each write site
---------------------------------------------------------
-The blob is written from at least eight places across ``crud.py``, plus the
-free-race helpers, plus ``TimerManager`` on its own session outside the request
-lifecycle. Adding a call to each is a standing invitation to miss one, and a
-missed one is invisible: the blob stays right, the table quietly drifts, and
-nothing fails until the readers switch over.
+Immediate, except when there is no id yet
+-----------------------------------------
+``crud.set_heat_lanes`` — the one door for a heat's lanes since #119 — calls
+:func:`stage`, which writes the rows straight away for a heat that is already
+persistent. A heat that has just been constructed has no id, and the rows need
+one, so its values are left on the instance and written by the ``after_flush``
+listener below, which is the first moment the id exists.
 
-Listening on the session catches every writer by construction, including any
-added later.
-
-Direction of truth
-------------------
-The rows now come from the lane *values* a writer supplied, not from parsing
-the string it also wrote. ``crud.set_heat_lanes`` — the one door for a heat's
-lanes since #119 — stages those values on the instance, and this module writes
-them when the flush gives the heat an id.
-
-That is the change of direction #72 asks for, less the last step: a malformed
-or hand-edited blob can no longer reach ``heat_lanes``, and ``lane_results`` is
-a derived column rather than the source. It is still *written*, so a rollback
-has data and the readers can move one at a time.
-
-Parsing the blob survives only as a fallback for a heat whose lanes were
-written some other way. Nothing does that — ``test_heat_lanes_write.py`` walks
-``crud.py``'s AST to keep it so — and the fallback exists because the failure
-it prevents is silent.
+That split used to be invisible, and getting it wrong was silent. While
+``lane_results`` was written alongside, *that* assignment is what made the
+instance dirty and pulled it into the flush the listener watches. ``STAGED`` is
+not a mapped attribute, so once the column went, an update to an existing heat
+marked nothing dirty — and ``Session.commit`` does not flush a clean session.
 
 Deletion is not this module's problem
 ------------------------------------
@@ -43,21 +30,19 @@ that a real constraint refuses — and neither was needed once
 schema now, where it covers every writer including ones that never touch this
 session.
 
-:func:`lanes_out_of_sync` proves the two still agree, and ``conftest.py``
-asserts it after every test in the suite.
+Nothing verifies this against a second copy any more, because there is not one.
+``test_heat_lanes_write.py`` holds the property earlier instead: nothing outside
+this module writes a ``heat_lanes`` row.
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
-from typing import Any
 
-from sqlalchemy import delete, event, insert, inspect
-from sqlalchemy.orm import Session
+from sqlalchemy import delete, event, insert
+from sqlalchemy.orm import Session, object_session
 
 from backend.db import models
-from backend.domain import lanes as domain_lanes
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +56,25 @@ STAGED = "_tt_staged_lanes"
 
 
 def stage(heat: models.Heat, heat_lanes) -> None:
-    """Hand this flush the lanes to store for ``heat``."""
-    setattr(heat, STAGED, list(heat_lanes))
+    """Store this heat's lanes — now if it has an id, otherwise on the flush.
+
+    Deferring was never the goal; it was the price of a heat that does not have
+    an id yet, and the rows need one. A heat that is already persistent has an
+    id, so its rows are written immediately.
+
+    That distinction used to be invisible, because ``lane_results`` was written
+    alongside and *that* is what made the instance dirty and pulled it into the
+    flush the listener watches. ``STAGED`` is not a mapped attribute, so with
+    the column gone (#72) an update to an existing heat marked nothing dirty —
+    and ``Session.commit`` does not flush a clean session, so the listener never
+    ran and the lanes were silently dropped.
+    """
+    values = list(heat_lanes)
+    session = object_session(heat)
+    if heat.id is not None and session is not None:
+        _project(session, heat.id, values)
+        return
+    setattr(heat, STAGED, values)
 
 
 def _rows_for(heat_id: int, parsed) -> list[dict]:
@@ -105,13 +107,6 @@ def _project(session: Session, heat_id: int, parsed) -> None:
         session.execute(insert(models.HeatLane), rows)
 
 
-def _blob_changed(obj: Any, *fields: str) -> bool:
-    state = inspect(obj)
-    if state.transient or state.pending:
-        return True
-    return any(getattr(state.attrs, field).history.has_changes() for field in fields)
-
-
 @event.listens_for(Session, "after_flush")
 def _sync_heat_lanes(session: Session, _flush_context) -> None:
     """Project every heat whose blob was touched in this flush.
@@ -131,85 +126,9 @@ def _sync_heat_lanes(session: Session, _flush_context) -> None:
             continue
 
         staged = getattr(obj, STAGED, None)
-        if staged is not None:
-            # Cleared before writing. Not because a replay would corrupt
-            # anything — a second door call re-stages, and a flush with no lane
-            # change would rewrite identical rows — but because leaving it set
-            # would keep the fallback below from ever engaging for this heat,
-            # which is the one case the fallback exists for.
-            delattr(obj, STAGED)
-            _project(session, obj.id, staged)
-        elif _blob_changed(obj, "lane_results"):
-            # Nobody should reach this. Kept because what it prevents — a heat
-            # whose lanes were written some other way, leaving the table
-            # holding the previous ones — fails silently.
-            logger.warning(
-                "Heat %s had its blob written without staging its lanes; "
-                "falling back to parsing it. Use crud.set_heat_lanes.",
-                obj.id,
-            )
-            _project(session, obj.id, domain_lanes.parse(obj.lane_results))
-
-
-# --------------------------------------------------------------------------- #
-# Verification                                                                 #
-# --------------------------------------------------------------------------- #
-
-
-def lanes_out_of_sync(session: Session) -> list[str]:
-    """Every disagreement between the blobs and ``heat_lanes``.
-
-    The safety net for the switch-over: while the blob is authoritative this
-    should always be empty, and if it is not, the readers must not be moved.
-    Returns human-readable descriptions rather than a bool so a failure says
-    which heat and which lane.
-    """
-    problems: list[str] = []
-
-    rows_by_heat: dict[int, dict] = {}
-    for row in session.query(models.HeatLane).all():
-        rows_by_heat.setdefault(row.heat_id, {})[row.lane] = row
-
-    def compare(heat_id: int, parsed: Iterable) -> None:
-        rows = rows_by_heat.get(heat_id, {})
-        parsed = list(parsed)
-        if len(rows) != len(parsed):
-            problems.append(
-                f"heat {heat_id}: {len(rows)} rows vs {len(parsed)} lanes in the blob"
-            )
-            return
-        for lane in parsed:
-            row = rows.get(lane.lane)
-            if row is None:
-                problems.append(f"heat {heat_id}: lane {lane.lane} missing")
-                continue
-            expected_racer = lane.racer_id if (lane.racer_id or 0) > 0 else None
-            expected_slot = abs(lane.racer_id) if (lane.racer_id or 0) < 0 else None
-            actual = (
-                row.racer_id,
-                row.placeholder_slot,
-                row.time_seconds,
-                row.place,
-                row.skipped,
-            )
-            expected = (
-                expected_racer,
-                expected_slot,
-                lane.seconds,
-                lane.place,
-                lane.skipped,
-            )
-            if actual != expected:
-                problems.append(
-                    f"heat {heat_id} lane {lane.lane}: row={actual} blob={expected}"
-                )
-
-    seen: set[int] = set()
-    for heat in session.query(models.Heat).all():
-        seen.add(heat.id)
-        compare(heat.id, domain_lanes.parse(heat.lane_results))
-
-    for heat_id in rows_by_heat.keys() - seen:
-        problems.append(f"heat {heat_id}: rows for a heat that is gone")
-
-    return problems
+        if staged is None:
+            continue
+        # Cleared before writing, so a heat flushed again without a lane change
+        # does not rewrite rows it did not touch.
+        delattr(obj, STAGED)
+        _project(session, obj.id, staged)

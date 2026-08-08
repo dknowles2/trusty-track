@@ -1,7 +1,5 @@
-import json
-
 from backend.db import crud, schemas
-from backend.tests.helpers import record_heat_result
+from backend.tests.helpers import lane_dicts, record_heat_result
 
 
 def test_full_advancement_flow(client, db):
@@ -67,7 +65,7 @@ def test_full_advancement_flow(client, db):
     )  # Depends on lanes/racers, but for 2 racers/4 lanes -> 1 heat or more?
     # Wait, placeholder is for 2 racers.
 
-    res0 = json.loads(heats_r2[0].lane_results)
+    res0 = lane_dicts(db, heats_r2[0])
     # Placeholder IDs are negative or we check logic
     # In `crud.generate_placeholder_heats`, it uses negative IDs.
     assert res0[0]["racer_id"] < 0
@@ -93,7 +91,7 @@ def test_full_advancement_flow(client, db):
     heats_r1 = [h for h in crud.get_heats(db, race_id) if h.round_id == round1_id]
 
     for h in heats_r1:
-        lane_res = json.loads(h.lane_results)
+        lane_res = lane_dicts(db, h)
         for res in lane_res:
             rid = res["racer_id"]
             if rid == racer_ids[0]:
@@ -130,7 +128,7 @@ def test_full_advancement_flow(client, db):
     heats_after = crud.get_heats(db, race_id)
     heats_r2_after = [h for h in heats_after if h.round_id == round2_id]
 
-    res0_after = json.loads(heats_r2_after[0].lane_results)
+    res0_after = lane_dicts(db, heats_r2_after[0])
     # Check if we have positive IDs now
     assert res0_after[0]["racer_id"] in [racer_ids[0], racer_ids[1]]
     assert res0_after[0]["racer_id"] > 0

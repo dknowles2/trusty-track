@@ -13,7 +13,6 @@ These tests hold the invariant that made the class of bug impossible, rather
 than the workaround that made it survivable.
 """
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -23,7 +22,7 @@ from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _mock_session(db):
@@ -56,14 +55,18 @@ def _official_heat(db, race, racers):
         race_id=race.id,
         round_id=round_obj.id,
         heat_number=1,
-        lane_results=json.dumps(
+    )
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(
+        heat,
+        as_lanes(
             [
                 {"lane": 1, "racer_id": racers[0].id, "time": None, "place": None},
                 {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
             ]
         ),
     )
-    db.add(heat)
     db.commit()
     return heat
 
@@ -133,10 +136,10 @@ async def test_a_free_race_run_leaves_official_heats_alone(db):
     db.expire_all()
 
     recorded = db.query(models.Heat).filter(models.Heat.id == free.id).first()
-    assert [r["time"] for r in json.loads(recorded.lane_results)] == [3.111, 3.222]
+    assert [r["time"] for r in lane_dicts(db, recorded)] == [3.111, 3.222]
 
     untouched = db.query(models.Heat).filter(models.Heat.id == official.id).first()
-    results = json.loads(untouched.lane_results)
+    results = lane_dicts(db, untouched)
     assert all(r["time"] is None for r in results), (
         f"free-race results leaked into an official heat: {untouched.lane_results}"
     )
@@ -171,11 +174,11 @@ async def test_an_official_run_leaves_free_heats_alone(db):
 
     db.expire_all()
     recorded = db.query(models.Heat).filter(models.Heat.id == official.id).first()
-    assert [r["time"] for r in json.loads(recorded.lane_results)] == [4.0, 4.5]
+    assert [r["time"] for r in lane_dicts(db, recorded)] == [4.0, 4.5]
 
     untouched = db.query(models.Heat).filter(models.Heat.id == free.id).first()
     # An unrun free heat holds only its schedule, with no time key at all.
-    assert all(r.get("time") is None for r in json.loads(untouched.lane_results))
+    assert all(r.get("time") is None for r in lane_dicts(db, untouched))
 
 
 @pytest.mark.anyio
@@ -213,4 +216,4 @@ async def test_recording_reads_the_kind_off_the_heat(db):
     official_path.assert_not_called()
     db.expire_all()
     recorded = db.query(models.Heat).filter(models.Heat.id == free.id).first()
-    assert json.loads(recorded.lane_results)[0]["time"] == 3.0
+    assert lane_dicts(db, recorded)[0]["time"] == 3.0

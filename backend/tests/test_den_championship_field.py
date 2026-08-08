@@ -5,14 +5,12 @@ that wrong does not fail loudly — the round simply comes back with fewer heats
 and fewer racers, and the ones dropped are racers who had qualified for it.
 """
 
-import json
-
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
 from backend.domain import lanes
 from backend.services import scoring
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 DENS = 2
 PER_DEN = 2
@@ -86,14 +84,14 @@ def _slots(db: Session, race, round_obj) -> set[int]:
     return {
         lane.racer_id
         for heat in crud.get_heats(db, race.id, round_id=round_obj.id)
-        for lane in lanes.parse(heat.lane_results)
+        for lane in crud.heat_lanes_of(db, heat)
         if lane.is_placeholder
     }
 
 
 def _run_round(db: Session, race, round_obj) -> None:
     for heat in crud.get_heats(db, race.id, round_id=round_obj.id):
-        results = json.loads(heat.lane_results)
+        results = lane_dicts(db, heat)
         for res in results:
             rid = res.get("racer_id")
             if rid is None or rid < 0:
@@ -124,7 +122,7 @@ def test_everyone_who_qualifies_races_the_final(db: Session):
     finalists = {
         racer_id
         for heat in crud.get_heats(db, race.id, round_id=r2.id)
-        for racer_id in lanes.real_racer_ids(lanes.parse(heat.lane_results))
+        for racer_id in lanes.real_racer_ids(crud.heat_lanes_of(db, heat))
     }
     assert qualified == finalists
 
@@ -306,7 +304,7 @@ def test_invalidation_puts_an_advanced_round_back_to_placeholders(db: Session):
     advanced = {
         racer_id
         for heat in crud.get_heats(db, race.id, round_id=r2.id)
-        for racer_id in lanes.real_racer_ids(lanes.parse(heat.lane_results))
+        for racer_id in lanes.real_racer_ids(crud.heat_lanes_of(db, heat))
     }
     assert advanced, "the round should hold real racers before we invalidate it"
 
@@ -316,7 +314,7 @@ def test_invalidation_puts_an_advanced_round_back_to_placeholders(db: Session):
     assert not [
         racer_id
         for heat in crud.get_heats(db, race.id, round_id=r2.id)
-        for racer_id in lanes.real_racer_ids(lanes.parse(heat.lane_results))
+        for racer_id in lanes.real_racer_ids(crud.heat_lanes_of(db, heat))
     ]
 
 

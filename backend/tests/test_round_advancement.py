@@ -1,10 +1,8 @@
-import json
-
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
 from backend.services import scoring
-from backend.tests.helpers import as_lanes
+from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def test_advancement_restricted_to_round(db: Session):
@@ -86,7 +84,7 @@ def test_advancement_restricted_to_round(db: Session):
     # 4. Run Round 1
     r1_heats = crud.get_heats(db, race.id, round_id=r1.id)
     for heat in r1_heats:
-        results = json.loads(heat.lane_results)
+        results = lane_dicts(db, heat)
         for res in results:
             rid = res.get("racer_id")
             if rid is None or rid < 0:
@@ -107,7 +105,7 @@ def test_advancement_restricted_to_round(db: Session):
     # In R2: 2,3 (0.8s) vs 0,1 (1.1s)
     r2_heats = crud.get_heats(db, race.id, round_id=r2.id)
     for heat in r2_heats:
-        results = json.loads(heat.lane_results)
+        results = lane_dicts(db, heat)
         for res in results:
             rid = res.get("racer_id")
             if rid is None or rid < 0:

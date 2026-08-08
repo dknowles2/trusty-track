@@ -969,16 +969,15 @@ class HeatLaneInput:
     skipped: bool = False
 
 
-def _lanes_from_input(
-    lane_inputs: list[HeatLaneInput], stored: str | None
-) -> list[lanes.Lane]:
+def _lanes_from_input(lane_inputs: list[HeatLaneInput]) -> list[lanes.Lane]:
     """Structured input as :class:`~backend.domain.lanes.Lane` objects.
 
-    Keys the blob carries but nothing models are taken from *stored* — a client
-    that cannot see them cannot send them back, and dropping them silently is
-    how the ``skipped`` flag used to get lost.
+    Took the stored blob as a second argument until #72 dropped the column, so
+    that ``lanes.carry_extras`` could preserve keys a client cannot see and so
+    cannot send back. ``heat_lanes`` models every field there is now, so there
+    is nothing left to carry.
     """
-    updates = [
+    return [
         lanes.Lane(
             lane=item.lane,
             racer_id=(
@@ -992,7 +991,6 @@ def _lanes_from_input(
         )
         for item in lane_inputs
     ]
-    return lanes.carry_extras(updates, lanes.parse(stored))
 
 
 @strawberry.type
@@ -2215,7 +2213,7 @@ class Mutation:
         heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
         if heat is None:
             return None
-        results = _lanes_from_input(lanes_input, heat.lane_results)
+        results = _lanes_from_input(lanes_input)
         updated_heat = typing.cast(Any, crud.record_heat_result(db, heat_id, results))
         # Recording here can re-field a later championship round (#50).
         await _revalidate_timers(info)
@@ -2677,7 +2675,7 @@ class Mutation:
         heat = crud.get_free_race_heat(db, heat_id)
         if heat is None:
             return None
-        lane_results = _lanes_from_input(lanes_input, heat.lane_results)
+        lane_results = _lanes_from_input(lanes_input)
         updated = typing.cast(
             Any, crud.update_free_race_heat_result(db, heat_id, lane_results)
         )

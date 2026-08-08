@@ -269,7 +269,6 @@ class Heat(Base):
         index=True,
     )
     heat_number: Mapped[int] = mapped_column(Integer)
-    lane_results: Mapped[str | None] = mapped_column(String, nullable=True)
     # Free race heats are listed newest first; official heats order by round and
     # heat number and leave this null.
     created_at: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -367,3 +366,22 @@ class HeatLane(Base):
     skipped: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false()
     )
+
+
+class HeatLaneBlobArchive(Base):
+    """Blobs that could not be rebuilt from ``heat_lanes`` (#72, migration 0013).
+
+    Expected to be empty, on every install. ``lane_results`` was the only copy
+    of anything the table does not model — a time that was not a number, or a
+    key no version ever wrote — so the migration that dropped the column
+    verified each blob against a rebuild first and parked the ones that did not
+    match rather than losing them.
+
+    An empty table is the evidence that this install's drop was clean. Nothing
+    reads it; it is a record, and `0013`'s downgrade restores from it.
+    """
+
+    __tablename__ = "heat_lane_blob_archive"
+
+    heat_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lane_results: Mapped[str | None] = mapped_column(String, nullable=True)

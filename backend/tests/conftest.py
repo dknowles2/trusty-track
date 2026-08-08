@@ -13,7 +13,6 @@ from sqlalchemy.pool import StaticPool
 from backend.api.main import app, get_db
 from backend.db import crud, schemas
 from backend.db.database import Base
-from backend.db.lane_sync import lanes_out_of_sync
 from backend.services.timer import probe
 
 # Use in-memory SQLite database
@@ -45,26 +44,17 @@ def db_session(engine):
         Base.metadata.drop_all(bind=engine)
 
 
-@pytest.fixture(scope="function", autouse=True)
-def heat_lanes_stay_in_sync(db_session):
-    """Assert `heat_lanes` still matches the blobs at the end of every test.
-
-    Issue #5, step two. The projection in `db/lane_sync.py` has to hold for
-    every path that writes a blob, and there are more of those than anyone can
-    enumerate — eight or so in `crud.py`, plus the free-race helpers, plus
-    `TimerManager` writing from outside the request lifecycle.
-
-    Rather than trying to list them, this makes the whole existing suite the
-    test: scheduling, advancement, result recording, racer deletion, free race
-    and the timer are all already covered, so a write site that forgets to go
-    through the ORM fails here instead of silently rotting the table.
-    """
-    yield
-    # Anything a test left pending is a change the listener has not seen yet;
-    # flushing it is what a request or a commit would have done anyway.
-    db_session.flush()
-    problems = lanes_out_of_sync(db_session)
-    assert not problems, "heat_lanes drifted from lane_results:\n" + "\n".join(problems)
+# `heat_lanes_stay_in_sync` used to live here: an autouse fixture asserting
+# `lanes_out_of_sync()` was empty after every test in the suite. It made the
+# whole suite a test of the projection, and it is what validated every step
+# from #119 to #129.
+#
+# It went with the blob (#72). There is one copy of a heat's lanes now, so
+# there is nothing to compare it against — the check could only ever compare
+# `heat_lanes` with itself. What replaces it is narrower and earlier:
+# `test_heat_lanes_write.py` holds `crud.set_heat_lanes` as the only writer,
+# across the whole backend package, so the paths this used to catch cannot be
+# written in the first place.
 
 
 @pytest.fixture(scope="function", autouse=True)

@@ -164,14 +164,66 @@ def record_heat_result(client, heat_id: int, entries: list[dict]) -> dict:
 
 
 def as_lanes(rows: list[dict]) -> list[Any]:
-    """Dict literals from a test, as the ``Lane`` objects the free-race
-    helpers in ``crud`` take.
+    """Dict literals from a test, as the ``Lane`` objects ``crud`` takes.
 
-    Those two used to ``json.dumps`` their argument, which is a second copy of
-    the blob's codec in exactly the two places #72 has to change. They go
-    through ``lanes.serialize`` now like every other write; this keeps the test
-    call sites readable as the dict literals they always were.
+    Kept after the blob went (#72) because the dict literal is still the most
+    readable way to write a heat's lanes in a test — it is just no longer a
+    storage format. Builds ``Lane`` directly rather than going through a codec,
+    since there is none.
+
+    A negative ``racer_id`` still means an unadvanced championship slot, which
+    is what ``Lane`` holds internally.
     """
     from backend.domain import lanes
 
-    return [lanes.from_dict(row, row["lane"]) for row in rows]
+    known = ("lane", "racer_id", "time", "place")
+    return [
+        lanes.Lane(
+            lane=row["lane"],
+            racer_id=row.get("racer_id"),
+            time=row.get("time"),
+            place=row.get("place"),
+            extra={k: v for k, v in row.items() if k not in known},
+        )
+        for row in rows
+    ]
+
+
+def add_heat(db: Any, heat: Any, rows: list[dict]) -> Any:
+    """A heat and its lanes, the way production writes them.
+
+    Tests used to pass ``lane_results=json.dumps([...])`` to the constructor.
+    With the column gone (#72) lanes go through ``crud.set_heat_lanes`` — which
+    stages them for the listener, so the heat needs to be in the session first
+    and the id arrives on flush.
+    """
+    from backend.db import crud
+
+    db.add(heat)
+    db.flush()
+    crud.set_heat_lanes(heat, as_lanes(rows))
+    db.commit()
+    return heat
+
+
+def lane_dicts(db: Any, heat: Any) -> list[dict]:
+    """A heat's lanes as the dict shape tests have always asserted against.
+
+    Replaces `json.loads(heat.lane_results)`. The column is gone (#72); the
+    lanes come off `heat_lanes`, and the dicts are rebuilt here so the
+    assertions around them did not all have to change at once. A placeholder is
+    a negative ``racer_id``, as the blob had it and as ``Lane`` still holds it.
+    """
+    from backend.db import crud
+
+    out = []
+    for lane in crud.heat_lanes_of(db, heat):
+        entry = {
+            "lane": lane.lane,
+            "racer_id": lane.racer_id,
+            "time": lane.time,
+            "place": lane.place,
+        }
+        entry.update(lane.extra)
+        out.append(entry)
+    return out
