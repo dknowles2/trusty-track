@@ -784,16 +784,70 @@ def lane_count_for_race(db: Session, race_id: int) -> int:
     return race.track.lane_count if race and race.track else 4
 
 
+def lane_outages_for_track(db: Session, track_id: int) -> list[int]:
+    """Lanes of this track that are out of service, in order (#171)."""
+    rows = (
+        db.query(models.LaneOutage)
+        .filter(models.LaneOutage.track_id == track_id)
+        .order_by(models.LaneOutage.lane)
+        .all()
+    )
+    return [row.lane for row in rows]
+
+
+def set_lane_outages(db: Session, track_id: int, lanes: Sequence[int]) -> list[int]:
+    """Record exactly which of a track's lanes are out of service.
+
+    Takes the whole set rather than one lane at a time, because that is what the
+    operator screen has: a row of checkboxes, submitted together. A lane that
+    has come back is simply absent from the list.
+
+    Lanes outside ``1..lane_count`` are dropped rather than stored. A stale
+    outage on lane 6 of a track that has been reconfigured to four lanes would
+    never be visible to un-set, and would silently shrink nothing.
+    """
+    track = db.query(models.Track).filter(models.Track.id == track_id).first()
+    if track is None:
+        return []
+
+    wanted = {lane for lane in lanes if 1 <= lane <= track.lane_count}
+
+    existing = (
+        db.query(models.LaneOutage).filter(models.LaneOutage.track_id == track_id).all()
+    )
+    for row in existing:
+        if row.lane not in wanted:
+            db.delete(row)
+    already = {row.lane for row in existing}
+    for lane in sorted(wanted - already):
+        db.add(models.LaneOutage(track_id=track_id, lane=lane))
+
+    db.commit()
+    return sorted(wanted)
+
+
 def usable_lanes_for_race(db: Session, race_id: int) -> list[int]:
     """Which lanes a schedule for this race may use (#171).
 
-    Every lane the track has, today. It is a function rather than
-    ``range(1, lane_count + 1)`` written out at each call site because that is
-    the one place a lane taken out of service has to change — and #48 is the
-    standing reminder about a rule that reaches only some of the paths that
-    need it.
+    Every lane the track has, less any that are out of service. The one place
+    that decides, so taking a lane out of service is a change here rather than
+    at each of the four call sites — #48 is the standing reminder about a rule
+    that reaches only some of the paths needing it.
+
+    A race with no track gets four lanes, as it always has.
     """
-    return list(range(1, lane_count_for_race(db, race_id) + 1))
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None or race.track is None:
+        return [1, 2, 3, 4]
+
+    # `race.track.id` rather than `race.track_id`: the same value, but the
+    # checker can see this one is not None after the guard above.
+    out_of_service = set(lane_outages_for_track(db, race.track.id))
+    return [
+        lane
+        for lane in range(1, race.track.lane_count + 1)
+        if lane not in out_of_service
+    ]
 
 
 def _reset_heats_in_place(

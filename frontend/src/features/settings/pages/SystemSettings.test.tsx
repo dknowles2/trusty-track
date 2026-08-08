@@ -5,6 +5,17 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import SystemSettings from './SystemSettings';
 import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
+import { print } from 'graphql';
+
+/**
+ * The document a `useMutation` mock was handed, as text.
+ *
+ * This page's own documents are plain template literals; the Lane outage panel
+ * it renders uses urql's `gql` tag, which yields a DocumentNode with no
+ * `.includes`. Normalising here rather than at each call site.
+ */
+const documentText = (query: unknown): string =>
+    typeof query === 'string' ? query : print(query as Parameters<typeof print>[0]);
 import { useQuery, useMutation } from 'urql';
 
 // Mock urql
@@ -242,7 +253,7 @@ describe('a saved track with no length', () => {
 
         const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
         (useMutation as any).mockImplementation((query: any) =>
-            query.includes('mutation UpdateInitialConfig')
+            documentText(query).includes('mutation UpdateInitialConfig')
                 ? [{ fetching: false }, mockUpdate]
                 : [{ fetching: false }, vi.fn()],
         );
@@ -266,6 +277,71 @@ describe('a saved track with no length', () => {
 
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
         expect(mockUpdate.mock.calls[0][0].config.tracks[1].lengthFeet).toBe(40);
+    });
+});
+
+describe('lanes out of service', () => {
+    afterEach(cleanup);
+
+    // It belongs to a track, so it lives in that track's card. It was briefly
+    // its own section at the foot of the page, which meant repeating the
+    // track's name to say which track it meant.
+
+    const configuredWith = (tracks: unknown[]) => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    groupName: 'Pack 42',
+                    debugMode: false,
+                    tracks,
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+    };
+
+    it('offers a control per lane of a saved track', async () => {
+        configuredWith([
+            { id: 1, name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, laneOutages: [2] },
+        ]);
+
+        expect(await screen.findByLabelText('Lane 1 works')).toBeChecked();
+        expect(screen.getByLabelText('Lane 2 works')).not.toBeChecked();
+        expect(screen.getByLabelText('Lane 3 works')).toBeChecked();
+    });
+
+    it('leads with how many lanes are left', async () => {
+        configuredWith([
+            { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, laneOutages: [3] },
+        ]);
+
+        expect(
+            await screen.findByText(/3 of 4 lanes in use — Lane 3 out of service/),
+        ).toBeInTheDocument();
+    });
+
+    it('is absent from a track that has not been saved yet', async () => {
+        // No id, so nothing to set an outage against — and a track that does
+        // not exist cannot have a broken lane.
+        configuredWith([
+            { id: 1, name: 'Main Track', laneCount: 2, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, laneOutages: [] },
+        ]);
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        await user.click(await screen.findByText('+ Add Another Track'));
+
+        // Still only the saved track's two lanes.
+        expect(screen.getAllByLabelText(/^Lane \d+ works$/)).toHaveLength(2);
     });
 });
 

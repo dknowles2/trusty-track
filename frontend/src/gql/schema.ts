@@ -275,6 +275,7 @@ export type Mutation = {
   reorderAwards: Array<Award>;
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
+  setLaneOutages: Array<Scalars['Int']['output']>;
   startFreeRaceHeat: FreeRaceHeat;
   updateAward?: Maybe<Award>;
   updateDen?: Maybe<Den>;
@@ -491,6 +492,12 @@ export type MutationReorderHeatsArgs = {
 
 
 export type MutationResetTimerArgs = {
+  trackId: Scalars['Int']['input'];
+};
+
+
+export type MutationSetLaneOutagesArgs = {
+  lanes: Array<Scalars['Int']['input']>;
   trackId: Scalars['Int']['input'];
 };
 
@@ -922,6 +929,7 @@ export type TimingStatsLane = {
 export type Track = {
   id: Scalars['Int']['output'];
   laneCount: Scalars['Int']['output'];
+  laneOutages: Array<Scalars['Int']['output']>;
   lengthFeet?: Maybe<Scalars['Int']['output']>;
   name: Scalars['String']['output'];
   races: Array<Race>;

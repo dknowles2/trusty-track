@@ -200,3 +200,33 @@ numbering: lane 1 in Trusty Track must be the lane the timer calls `A`.
 **A heat was armed and then the schedule changed.** The timer disarms itself
 and says so rather than recording times against a field that has moved. Re-arm
 the heat and run it again.
+
+
+## If a lane stops working
+
+A sensor fails, a connector comes loose, and one lane of the track stops
+reporting. It happens, usually on the morning of the event.
+
+**Settings → Tracks → Lanes in service.** Untick the lane on the track it
+belongs to, and every round you generate from then on is scheduled around it — the remaining lanes are used,
+everybody still races the same number of times, and the heats name the lanes
+that actually exist rather than renumbering them.
+
+> [!IMPORTANT]
+> This affects **new** schedules. Heats that already exist are left exactly as
+> they are: a round that has been raced holds real results, and one that has
+> not is still the schedule on your screen. If a lane dies partway through a
+> round, finish that round on the lanes it was built for — or skip its
+> remaining heats — and generate the next one with the lane turned off.
+>
+> Re-laning a round that is already under way is not something Trusty Track
+> does yet.
+
+Unlike the rest of the track's settings, this applies as soon as you click it
+rather than when you press **Save Settings** — a lane going out of service is
+something that happens to you mid-event, not something you plan.
+
+Tick the lane again when it is fixed, and the next round uses it.
+
+A track with no working lanes generates no schedule at all, and the settings
+page says so.
