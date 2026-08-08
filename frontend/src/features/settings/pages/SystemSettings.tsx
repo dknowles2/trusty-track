@@ -69,7 +69,13 @@ export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
   const [debugMode, setDebugMode] = useState(false);
-  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
+  // The length a track gets when nothing says otherwise. `lengthFeet` is
+  // nullable on the server and the submit handler already falls back to this,
+  // so the form has to show it rather than an empty required field — see where
+  // saved tracks are seeded below.
+  const DEFAULT_LENGTH_FEET = 40;
+
+  const [tracks, setTracks] = useState([{ name: 'Main Track', laneCount: 3, lengthFeet: DEFAULT_LENGTH_FEET, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -110,7 +116,7 @@ export default function SystemConfig() {
           setTracks(savedTracks.map((t: {
             name: string;
             laneCount: number;
-            lengthFeet: number;
+            lengthFeet: number | null;
             timerType: string;
             serialPort?: string;
             timerProfile?: string | null;
@@ -118,7 +124,11 @@ export default function SystemConfig() {
           }) => ({
             name: t.name,
             laneCount: t.laneCount,
-            lengthFeet: t.lengthFeet,
+            // Null is legitimate — the column is nullable and `createTrack`
+            // does not require a length — but the input is `required`, so a
+            // null here renders an empty box that blocks the whole form from
+            // submitting, with nothing on screen naming the track at fault.
+            lengthFeet: t.lengthFeet ?? DEFAULT_LENGTH_FEET,
             timerType: t.timerType,
             serialPort: t.serialPort || '',
             timerProfile: t.timerProfile || '',
@@ -136,7 +146,7 @@ export default function SystemConfig() {
   };
 
   const addTrack = () => {
-    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
+    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: DEFAULT_LENGTH_FEET, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
   };
 
   const removeTrack = (index: number) => {
@@ -166,7 +176,7 @@ export default function SystemConfig() {
           tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
             name,
             laneCount,
-            lengthFeet: lengthFeet || 40,
+            lengthFeet: lengthFeet || DEFAULT_LENGTH_FEET,
             timerType,
             serialPort: timerType === 'AUTO_DETECT_BACKEND' ? serialPort : null,
             // Empty means "work it out", which is what null is on the server.

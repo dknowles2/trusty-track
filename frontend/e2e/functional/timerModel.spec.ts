@@ -12,6 +12,11 @@
  * in `test_timer_model_choice.py`; this is the part no unit test can see —
  * that the control exists, is only offered when it means something, and that
  * what it sends comes back.
+ *
+ * Scoped to the first track's own controls rather than to the page. Tracks are
+ * *global* state on the shared backend — unlike a race, which each spec seeds
+ * for itself — so any other spec that adds one puts a second Timer Type select
+ * on this page, and an unscoped `getByLabel` then matches two.
  */
 
 import { test, expect } from '@playwright/test';
@@ -25,10 +30,12 @@ test('a timer model can be chosen, and the undetectable one is marked', async ({
     // No model to pick on the fake timer: it is chosen by transport, and
     // offering it in both places would let a track ask for a fake timer over a
     // real serial port.
-    await expect(page.getByLabel(/Timer Model/)).toHaveCount(0);
+    const timerType = page.locator('#track-timer-type-0');
+    const picker = page.locator('#track-model-0');
+    await expect(timerType).toBeVisible();
+    await expect(picker).toHaveCount(0);
 
-    await page.getByLabel('Timer Type').selectOption('AUTO_DETECT_BACKEND');
-    const picker = page.getByLabel(/Timer Model/);
+    await timerType.selectOption('AUTO_DETECT_BACKEND');
     await expect(picker).toBeVisible();
 
     const options = await picker.locator('option').allInnerTexts();
@@ -51,11 +58,14 @@ test('a timer model can be chosen, and the undetectable one is marked', async ({
 
     await expect
         .poll(async () => {
-            const data = await gql<{ tracks: { timerProfile: string | null }[] }>(
-                page,
-                `query { tracks { timerProfile } }`,
-            );
-            return data.tracks[0].timerProfile;
+            // Read back through `initialConfig`, which is what the settings
+            // page renders from, so "the first track" means the same row here
+            // as it does on screen. `Query.tracks` is a different resolver and
+            // need not agree on order once another spec has added a track.
+            const data = await gql<{
+                initialConfig: { tracks: { timerProfile: string | null }[] };
+            }>(page, `query { initialConfig { tracks { timerProfile } } }`);
+            return data.initialConfig.tracks[0].timerProfile;
         }, { timeout: 30000 })
         .toBeTruthy();
 });

@@ -7,6 +7,7 @@ export const GET_RACE_DETAILS = gql`
       name
       dateTime
       location
+      trackId
       scoringStrategy
       carNumberingStrategy
       globalStartNumber
@@ -77,6 +78,7 @@ export const UPDATE_RACE = gql`
       name
       dateTime
       location
+      trackId
       scoringStrategy
       carNumberingStrategy
       globalStartNumber
