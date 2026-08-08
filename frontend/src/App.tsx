@@ -25,6 +25,7 @@ import Observation from './features/observation/pages/Observation';
 import Standings from './features/stats/pages/Standings';
 import RaceStats from './features/stats/pages/RaceStats';
 import Awards from './features/awards/pages/Awards';
+import AwardCeremony from './features/awards/pages/AwardCeremony';
 import Printables from './features/printables/pages/Printables';
 import TimerDiagnostics from './features/settings/pages/TimerDiagnostics';
 
@@ -79,6 +80,7 @@ function App() {
                 <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
                 <Route path="/race/:raceId/standings" element={<ProtectedRoute><Standings /></ProtectedRoute>} />
                 <Route path="/race/:raceId/awards" element={<ProtectedRoute><Awards /></ProtectedRoute>} />
+                <Route path="/race/:raceId/awards/present" element={<ProtectedRoute><AwardCeremony /></ProtectedRoute>} />
                 <Route path="/race/:raceId/stats" element={<ProtectedRoute><RaceStats /></ProtectedRoute>} />
                 <Route path="/race/:raceId/print" element={<ProtectedRoute><Printables /></ProtectedRoute>} />
                 <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />

@@ -106,6 +106,7 @@ frontend/src/
       scanning.ts             #   reading a scanned code back — pure, no React
     awards/                   # Trophies: speed and judged
       awardText.ts            #   saying what an award is for — pure, no React
+      ceremony.ts             #   stepping through them on a projector — pure
     stats/                    # Standings, RaceStats, Leaderboard
     settings/                 # SystemSettings first-run wizard
       backupClient.ts         #   the two REST calls — no React
@@ -454,6 +455,8 @@ Rules in `domain/awards.py`, database wiring in `services/awards.py`, storage in
 **`Race.championship_trophies` is not this.** It means how many cars advance to the final — a scheduling input. An award is an outcome.
 
 On the frontend, `/race/:raceId/awards` is a fourth tab on `RaceModeToggle` beside Roster, Standings and Stats. `features/awards/awardText.ts` turns a stored rule into the sentence both the operator screen and (later) the presentation display show — `{source: "ROUND:4", place: 1, denId: 3}` is exactly the wrong thing to put in front of somebody choosing trophies. It is pure, and it holds the ordinal edge cases (11th, not 11st) and the two "that no longer exists" messages for a round or den deleted out from under an award. **Editing a speed award must not seed the racer picker from its computed recipient** — switching it to judged would then freeze the trophy on whoever happened to be fastest at that moment.
+
+**The ceremony is its own route** (`/race/:raceId/awards/present`), not another tab on the audience display. The observation views rotate on a timer because nobody is driving them; a ceremony is paced by whoever is holding the microphone, and a screen that advanced on its own would announce the next trophy over the applause for the last one. `ceremony.ts` holds the stepping rules: it **clamps rather than wraps**, because putting the first award back up reads as "we are starting again" and the last slide is the one people photograph, and it shows an award with no recipient rather than skipping it, because most are undecided right up until they are announced. It sits at `zIndex: 3000` — the navigation is 1000 and painted its Details/Control/Standings menu across the top of a projector until somebody loaded the page.
 
 ### Car numbering
 

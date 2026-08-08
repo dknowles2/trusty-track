@@ -61,12 +61,29 @@ run. This is expected during an event.
 If an award says **"Not set up — this award cannot be won"**, its rule is
 missing. Edit it and choose a standings source and a position.
 
+## Announcing them
+
+**Present** opens the ceremony: one award at a time, filling the screen, with
+the winner's photo. Click or press the right arrow for the next one — a
+presenter remote works too, since it sends the same keys.
+
+It is an ordinary address (`/race/1/awards/present`), so you can also open it
+directly on the machine driving the projector.
+
+It does not move on by itself. The other audience screens rotate on a timer
+because nobody is driving them; this one waits for you, so it will not announce
+the next trophy over the applause for the last one. It also stops on the last
+award rather than starting again, which is the one people photograph.
+
+Awards nobody has won yet still appear, marked *Still to be decided* — most of
+them are, right up until the moment you announce them.
+
 ## What awards do not do
 
 - **They are not the championship.** How many cars go through to the final is
   set when you create the round, not here.
-- **They are not printed yet.** The list is on screen; a printed results sheet
-  carrying the awards is still to come.
+- **They are not printed.** The list is on screen and the ceremony fills a
+  projector; a printed results sheet carrying the awards is still to come.
 - **Only the operator can change them.** If [a PIN is set](access-and-network.md),
   the check-in desk and the audience displays can see the awards but not edit
   them.

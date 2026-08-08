@@ -1,0 +1,154 @@
+/**
+ * The awards, one at a time, on the big screen (#170).
+ *
+ * `/race/:raceId/awards/present`. A separate route rather than another tab on
+ * the audience display: the other views rotate on a timer because nobody is
+ * driving them, and a ceremony is paced by whoever is holding the microphone.
+ *
+ * Advance with the arrow keys, space, or a click anywhere. A presenter remote
+ * is a keyboard that sends Page Up and Page Down, which is why those are in
+ * `deltaForKey` too.
+ */
+
+import { useCallback, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useQuery } from 'urql';
+import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
+import { RACE_AWARDS_QUERY } from '../graphql/queries';
+
+export default function AwardCeremony() {
+  const { raceId } = useParams<{ raceId: string }>();
+  const id = parseInt(raceId || '0');
+  const [index, setIndex] = useState(0);
+
+  const [result] = useQuery({
+    query: RACE_AWARDS_QUERY,
+    variables: { raceId: id },
+    pause: !id || isNaN(id),
+  });
+
+  const race = result.data?.race;
+  const awards: CeremonyAward[] = race?.awards ?? [];
+  const rounds = race?.rounds ?? [];
+  const dens = race?.dens ?? [];
+
+  const step = useCallback(
+    (delta: number) => setIndex((current) => stepIndex(current, delta, awards.length)),
+    [awards.length],
+  );
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const delta = deltaForKey(event.key);
+      if (delta === null) return;
+      // Space scrolls and the arrows move the page otherwise, and a ceremony
+      // that jumps a line every time the announcer clicks forward is a mess.
+      event.preventDefault();
+      step(delta);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [step]);
+
+  // A projector wants no scrollbars and no page chrome.
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
+
+  const slide = slideFor(awards, index, rounds, dens);
+
+  return (
+    <div
+      onClick={() => step(1)}
+      role="presentation"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        // Above the app navigation, which is `zIndex: 1000` and would otherwise
+        // paint its Details/Control/Standings menu across the top of a
+        // ceremony that is on a projector in front of the whole pack. Found by
+        // loading the page rather than by any test.
+        zIndex: 3000,
+        background: 'var(--scouting-blue, #003F87)',
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        padding: '4vh 6vw',
+        cursor: 'pointer',
+        userSelect: 'none',
+      }}
+    >
+      {!slide ? (
+        <p style={{ fontSize: '3vh', opacity: 0.8 }}>
+          {result.fetching ? 'Loading…' : 'No awards have been set up for this race yet.'}
+        </p>
+      ) : (
+        <>
+          <h1
+            style={{
+              fontSize: 'clamp(2rem, 8vh, 6rem)',
+              margin: 0,
+              color: 'var(--cub-scouting-gold, #FCD116)',
+            }}
+          >
+            {slide.title}
+          </h1>
+          <p style={{ fontSize: 'clamp(1rem, 3vh, 2rem)', opacity: 0.85, marginTop: '1vh' }}>
+            {slide.subtitle}
+          </p>
+
+          {slide.racerImageUrl && (
+            <img
+              src={slide.racerImageUrl}
+              alt=""
+              style={{
+                width: 'clamp(120px, 24vh, 320px)',
+                height: 'clamp(120px, 24vh, 320px)',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                margin: '4vh 0 2vh',
+                border: '4px solid var(--cub-scouting-gold, #FCD116)',
+              }}
+            />
+          )}
+
+          <p
+            style={{
+              fontSize: 'clamp(1.5rem, 6vh, 4rem)',
+              fontWeight: 'bold',
+              margin: slide.racerImageUrl ? 0 : '4vh 0 0',
+            }}
+          >
+            {/* An award with nobody yet is still a slide: most stay unresolved
+                until the very end, and skipping it would leave the announcer
+                reading from a screen that had moved on. */}
+            {slide.winner ?? <span style={{ opacity: 0.6 }}>Still to be decided</span>}
+          </p>
+        </>
+      )}
+
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '3vh',
+          fontSize: '2vh',
+          opacity: 0.5,
+          display: 'flex',
+          gap: '1.5rem',
+          alignItems: 'center',
+        }}
+      >
+        {slide && <span>{slide.position}</span>}
+        <span>Click or press → for the next award</span>
+      </div>
+    </div>
+  );
+}

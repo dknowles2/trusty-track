@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiArrowDown, mdiArrowUp, mdiPencil, mdiTrashCan, mdiTrophyOutline } from '@mdi/js';
@@ -143,7 +143,20 @@ export default function Awards() {
       >
         <div style={{ minWidth: '160px' }} />
         <RaceModeToggle />
-        <div style={{ minWidth: '160px', textAlign: 'right' }}>
+        <div
+          style={{
+            minWidth: '160px',
+            textAlign: 'right',
+            display: 'flex',
+            gap: '0.5rem',
+            justifyContent: 'flex-end',
+          }}
+        >
+          {/* Opens the ceremony on this screen. It is an ordinary route, so it
+              is also the address to point a projector at. */}
+          <Link to={`/race/${id}/awards/present`} className="secondary-btn">
+            Present
+          </Link>
           <button type="button" className="primary-btn" onClick={() => setAdding(true)}>
             Add an award
           </button>
