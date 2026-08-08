@@ -231,7 +231,11 @@ The UI will strictly follow the BSA Official Guidelines outlined in [the specifi
 -   **Typography:**
     -   Headers: `Roboto Condensed Bold`
     -   Body: `Roboto Regular`
-    -   Fonts will be loaded from a reliable source (e.g., Google Fonts).
+    -   Fonts are **bundled with the app**, not fetched from a font CDN. The
+        machine is usually a Raspberry Pi at a venue, frequently with no
+        internet, so a remote font would fail exactly where it matters and
+        succeed only on a developer's laptop. One variable file per family
+        covers every weight the UI uses; see `frontend/src/assets/fonts/`.
 -   **Design Elements:**
     -   Rounded corners (12px radius) will be applied consistently to interactive elements and containers.
     -   High-contrast themes will be available, particularly for observation views ("Projector Mode"), to ensure readability in various lighting conditions and on large displays.
