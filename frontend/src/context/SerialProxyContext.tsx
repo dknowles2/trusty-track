@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
+import { withPin } from '../api/pin';
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -161,7 +162,9 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
             // 2. Open WebSocket
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/ws/timer/${trackId}`;
+            // Operator-only when a PIN is set (#15). This socket is the timer:
+            // what it reports becomes the result of a heat.
+            const wsUrl = withPin(`${protocol}//${window.location.host}/ws/timer/${trackId}`);
             const ws = new WebSocket(wsUrl);
             wsRef.current = ws;
 

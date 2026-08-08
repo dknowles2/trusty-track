@@ -567,6 +567,8 @@ Two traps, both recorded on #15 and both still true:
 
 **The PIN travels in the `x-trustytrack-pin` header**, or as a `?pin=` query parameter on the WebSocket, which has no headers of its own. Not a cookie: same-origin, so CORS stays simple and `allow_credentials` is off — the old `allow_origins=["*"]` with `allow_credentials=True` was rejected by browsers outright, so it was broken *and* permissive.
 
+**`/ws/timer/{track_id}` is operator-only**, and its check runs *before* the track lookup so an unauthenticated caller learns nothing — not whether the track exists, nor whether proxy mode is on. It is not GraphQL, so the role policy does not reach it, and it is the one path that could change who won without touching a mutation: on a proxied track that socket *is* the timer. Refusals close with **4403**; 4000 is anything about the track.
+
 **Role resolution is lazy** (`auth.resolve_role`). It costs a query for the configured PINs, and only a mutation ever asks — an audience display resolves no role at all. `test_query_counts.py` caught the eager version.
 
 **Absent and empty PINs mean different things** in `InitialConfigInput`. Absent is *leave alone*; empty is *clear*. The settings page re-submits the whole config on every save and cannot send back a PIN it is never given, so treating absent as "clear" would switch enforcement off whenever the operator renamed a track.

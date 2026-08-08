@@ -383,3 +383,70 @@ def test_an_explicit_empty_pin_clears_it(client, db):
         _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]["pinRequired"]
         is False
     )
+
+
+# --------------------------------------------------------------------------- #
+# The timer socket, which is not GraphQL                                       #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def proxy_track(db):
+    """A configured install with a proxy-mode track and an operator PIN."""
+    group = crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    group.operator_pin_hash = auth.hash_pin("1111")
+    group.checkin_pin_hash = auth.hash_pin("2222")
+    db.commit()
+    return crud.create_track(
+        db,
+        schemas.TrackCreate(
+            name="Proxy Track", lane_count=4, timer_type="AUTO_DETECT_PROXY"
+        ),
+    )
+
+
+def _timer_socket_close_code(client, track_id, pin=None):
+    """The code the server closed with, whatever the reason.
+
+    Every path here closes rather than rejecting the handshake, so the code is
+    the only thing that says *why* — 4403 for the credential, 4000 for anything
+    about the track.
+    """
+    url = f"/ws/timer/{track_id}" + (f"?pin={pin}" if pin else "")
+    with client.websocket_connect(url) as ws:
+        message = ws.receive()
+    return message.get("code")
+
+
+def test_the_timer_socket_refuses_a_viewer(client, proxy_track):
+    """The one path that changes who won without touching a mutation.
+
+    This socket *is* the timer on a proxied track — whatever connects here
+    reports the lane times that become a heat's result. The role policy guards
+    GraphQL, and this is not GraphQL.
+    """
+    assert _timer_socket_close_code(client, proxy_track.id) == 4403
+
+
+def test_the_timer_socket_refuses_check_in(client, proxy_track):
+    """Registration has no business driving the timer."""
+    assert _timer_socket_close_code(client, proxy_track.id, pin="2222") == 4403
+
+
+def test_the_timer_socket_accepts_the_operator(client, proxy_track):
+    """Refused for the *right* reason, not by accident: with the operator PIN
+    the connection gets past the credential check and fails later, on the track
+    having no manager registered in this test app."""
+    assert _timer_socket_close_code(client, proxy_track.id, pin="1111") != 4403
+
+
+def test_an_unsecured_install_leaves_the_timer_socket_open(client, db):
+    """No PIN set is no enforcement, here as everywhere — a proxied timer must
+    keep working through an upgrade that nobody has configured."""
+    crud.create_group(db, schemas.GroupCreate(name="Open Pack"))
+    track = crud.create_track(
+        db,
+        schemas.TrackCreate(name="T", lane_count=4, timer_type="AUTO_DETECT_PROXY"),
+    )
+
+    assert _timer_socket_close_code(client, track.id) != 4403
