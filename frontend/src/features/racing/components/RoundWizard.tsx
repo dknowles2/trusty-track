@@ -3,6 +3,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { useMutation } from 'urql';
 import { CREATE_ROUND_WIZARD } from '../graphql/queries';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
+import { minutesEstimate } from '../../../utils/duration';
 import Modal from '../../../components/ui/Modal';
 
 interface RoundWizardProps {
@@ -372,7 +373,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               <div style={{ backgroundColor: '#eff6ff', padding: '1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '1.5rem', marginRight: '0.75rem' }}>⏱️</span>
                 <div>
-                  <div style={{ fontWeight: 'bold', color: '#1e3a8a' }}>Estimated Grand Total: ~{totalDuration} mins</div>
+                  <div style={{ fontWeight: 'bold', color: '#1e3a8a' }}>Estimated Grand Total: {minutesEstimate(totalDuration)}</div>
                   <div style={{ color: '#1d4ed8', fontSize: '0.875rem' }}>Total Heats: {totalHeats}</div>
                 </div>
               </div>
@@ -387,7 +388,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <h4 style={{ fontWeight: 'bold', color: '#111827', margin: 0 }}>{idx + 1}. {roundInfo.name}</h4>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.875rem' }}>~{roundInfo.duration} mins</div>
+                        <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.875rem' }}>{minutesEstimate(roundInfo.duration)}</div>
                         <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{roundInfo.heats} {roundInfo.heats === 1 ? 'heat' : 'heats'}</div>
                       </div>
                     </div>
