@@ -1,9 +1,26 @@
 import os
+import shutil
+import tempfile
 
 import pytest
 
-# Set this before importing any backend modules to ensure they use the test directory
-os.environ["TRUSTYTRACK_DATA_DIR"] = "/tmp/trustytrack_test"
+# Set this before importing any backend modules so they use the test directory:
+# `database.py` reads it at import time and creates the uploads directory as a
+# side effect, so anything importing the app first would already have pointed at
+# the operator's own `~/.trustytrack`.
+#
+# `$TMPDIR/trustytrack_test` rather than a literal `/tmp/trustytrack_test`,
+# which is what this used to be: `gettempdir()` honours `TMPDIR`, and on macOS
+# that is a per-user directory rather than `/tmp`. Worth knowing when you go
+# looking for a failed run's database — `_data_dir()` below prints it if you
+# import it, and `test_init_db.py` asserts the app agrees with it.
+#
+# This assignment has to be the *only* statement before the imports below: ruff
+# tolerates an `os.environ` write ahead of them (E402) and nothing else, which
+# is why the wipe happens afterwards rather than here.
+os.environ["TRUSTYTRACK_DATA_DIR"] = os.path.join(
+    tempfile.gettempdir(), "trustytrack_test"
+)
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -12,8 +29,32 @@ from sqlalchemy.pool import StaticPool
 
 from backend.api.main import app, get_db
 from backend.db import crud, schemas
-from backend.db.database import Base
+from backend.db.database import DATA_DIR, UPLOAD_DIR, Base
 from backend.services.timer import probe
+
+#: Read back from the module rather than recomputed, so there is one answer to
+#: "where does the suite write" and tests can assert against it.
+TEST_DATA_DIR = DATA_DIR
+
+# Wiped at the *start* of a run rather than the end. `POST /upload/` names each
+# file after a fresh uuid and nothing ever removed them, so this directory grew
+# by every image every run had ever written — 8,000 files and 3.5 GB before
+# anybody looked. A run now leaves about 40 files behind.
+#
+# Up front rather than in teardown because a run that crashes or is killed still
+# leaves a virgin directory for the next one, which teardown cannot promise; and
+# because the artefacts of a failed run stay put to be looked at. Same trade the
+# e2e config makes per invocation.
+#
+# The uploads directory is recreated immediately: `database.py` made it on
+# import, `main.py` mounted it as static files, and removing it without putting
+# it back would break every upload test.
+#
+# One consequence, already true of the fixed path this replaces: two pytest runs
+# on one machine at the same time will stand on each other. CI runs 3.10 and
+# 3.12 as separate jobs on separate runners, so this only bites locally.
+shutil.rmtree(TEST_DATA_DIR, ignore_errors=True)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Use in-memory SQLite database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
