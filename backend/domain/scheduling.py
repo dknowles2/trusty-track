@@ -11,6 +11,7 @@ See ``docs/scheduling-algorithms.md`` for the algorithm's intent.
 from __future__ import annotations
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 
@@ -18,13 +19,30 @@ from dataclasses import dataclass
 class HeatPlan:
     """One scheduled heat: which racer is in which lane.
 
-    ``lanes`` is indexed by lane position, so ``lanes[0]`` is lane 1. ``None``
-    means the lane is unused, which happens when there are fewer racers than
-    lanes.
+    ``lanes`` is indexed by *position within this schedule*, and
+    ``lane_numbers`` says which lane each position is. On an undamaged track
+    those are the same thing — position 0 is lane 1 — which is why the
+    distinction did not exist until a lane could be out of service (#171).
+
+    Consume :attr:`assignments` rather than pairing ``lanes`` with its index.
+    That was `crud._generate_ppc`'s ``index + 1``, and with lane 3 unusable it
+    quietly writes the lane 4 racer into lane 3.
+
+    ``None`` means the lane is unused in this heat, which happens when there are
+    fewer racers than usable lanes.
     """
 
     heat_number: int
     lanes: tuple[int | None, ...]
+    lane_numbers: tuple[int, ...]
+
+    @property
+    def assignments(self) -> list[tuple[int, int | None]]:
+        """``(lane number, racer id)``, which is what a caller wants to store."""
+        # `strict` on purpose: the two tuples are built together and a mismatch
+        # means positions and lane numbers have come apart, which is exactly the
+        # silent off-by-one this field exists to prevent.
+        return list(zip(self.lane_numbers, self.lanes, strict=True))
 
     @property
     def racer_ids(self) -> list[int]:
@@ -33,22 +51,22 @@ class HeatPlan:
 
 def generate_ppc(
     racer_ids: list[int],
-    lane_count: int,
+    usable_lanes: Sequence[int],
     start_heat_number: int = 1,
     rng: random.Random | None = None,
 ) -> list[HeatPlan]:
     """Build a PPC schedule: one heat per racer, each racer once per lane.
 
-    Lane 1 is seeded with every racer, which is what fixes the heat count at
-    ``len(racer_ids)``. Each remaining lane is then filled by :func:`_fill_lane`,
-    which places every racer exactly once and prefers, for each heat, whoever has
-    faced that heat's current occupants least often.
+    The **first usable lane** is seeded with every racer, which is what fixes the
+    heat count at ``len(racer_ids)``. Each remaining usable lane is then filled
+    by :func:`_fill_lane`, which places every racer exactly once and prefers, for
+    each heat, whoever has faced that heat's current occupants least often.
 
-    Guarantees:
+    Guarantees, all stated over the *usable* lanes:
 
     * no racer appears twice in a heat
     * no racer appears twice in a lane
-    * every heat is full — ``min(len(racer_ids), lane_count)`` racers
+    * every heat is full — ``min(len(racer_ids), len(usable_lanes))`` racers
 
     The last one only became true with the fix for issue #26. Opponent variety
     remains a heuristic: this is a *partial* perfect chart, not an optimal one,
@@ -57,12 +75,27 @@ def generate_ppc(
     A heat is short only when the field itself is smaller than the track is
     wide; three racers cannot fill four lanes.
 
+    ``usable_lanes`` is which lanes, not how many (#171). On an undamaged track
+    that is ``range(1, lane_count + 1)`` and nothing has changed; when lane 3's
+    sensor has failed it is ``[1, 2, 4]``, and the resulting heats name lanes 1,
+    2 and 4 rather than 1, 2 and 3. Duplicates and order are the caller's
+    problem — this sorts and de-duplicates, because a schedule listing lane 4
+    before lane 2 would be read out in that order at the track.
+
     ``rng`` is injectable so tests can pin the shuffle; production passes
     nothing and gets a fresh generator. A fresh one rather than the module-level
     functions: `random.shuffle` is a bound method of a hidden shared instance,
     which is not a `Random` as far as a type checker is concerned, and nothing
     here wants the global seed anyway.
     """
+    lane_numbers = tuple(sorted(set(usable_lanes)))
+    lane_count = len(lane_numbers)
+    if lane_count == 0:
+        # A track with no usable lane cannot run a heat. Returning no schedule
+        # says so; the alternative is heats of nothing but empty lanes, which
+        # the operator screen would happily offer to run.
+        return []
+
     shuffle = (rng or random.Random()).shuffle
 
     # Copy: the caller's list must not be reordered under them.
@@ -88,7 +121,11 @@ def generate_ppc(
         _fill_lane(heat_matrix, j, available_racers, matchups)
 
     return [
-        HeatPlan(heat_number=start_heat_number + i, lanes=tuple(heat_matrix[i]))
+        HeatPlan(
+            heat_number=start_heat_number + i,
+            lanes=tuple(heat_matrix[i]),
+            lane_numbers=lane_numbers,
+        )
         for i in range(p_count)
     ]
 

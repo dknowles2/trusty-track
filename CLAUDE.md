@@ -405,6 +405,12 @@ Lane 1 is seeded with every racer, which fixes the heat count at one per racer; 
 
 Greedy alone finds a *maximal* matching, not a *maximum* one, so it used to strand a lane in roughly 1 in 4 four-lane schedules — giving one racer a heat fewer, which under `POINTS` scoring made their score *better*. Fixed in #26 by repairing the greedy result with augmenting paths. `test_domain_scheduling.py` holds the properties; **every heat is full** is the one that regressed silently for a long time, so keep it.
 
+**`generate_ppc` takes *which* lanes, not how many** (#171, step 1). `usable_lanes` is a sequence of lane numbers — `[1, 2, 4]` when lane 3's sensor has failed — and every property is stated over that set. It sorts and de-duplicates, and an empty set schedules nothing rather than heats of empty lanes.
+
+That makes a heat's **position** in the schedule and its **lane number** different things, which they never were before. `HeatPlan.lane_numbers` carries the mapping and **`HeatPlan.assignments` is what callers consume**; `enumerate(plan.lanes)` was the old idiom and with a gap it writes lane 4's racer into lane 3. Both write paths do this — `crud._generate_ppc` and `crud._reset_heats_in_place`, which builds its own schedule (#50) — and each has a test that fails to the one-line reversion. On an undamaged track the two agree, so nothing else in the suite can tell the difference.
+
+**`crud.usable_lanes_for_race` is the one place that decides.** Today it is `range(1, lane_count + 1)`; taking a lane out of service is a change to that function rather than to every call site, which is the #48 lesson applied in advance. Steps 2 and 3 of #171 — persisting availability and the operator control — are still open.
+
 ### Scoring
 
 Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` averages heat times (a recorded `0.0` is treated as a 9.999s DNF penalty); `POINTS` sums placements. Both are lower-is-better. `get_leaderboard(db, race_id)` returns sorted standings.

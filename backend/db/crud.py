@@ -531,21 +531,28 @@ def _generate_ppc(
     race_id: int,
     round_id: int,
     p_ids: list[int],
-    lane_count: int,
+    usable_lanes: Sequence[int],
     start_heat_num: int = 1,
 ) -> list[models.Heat]:
     """Persist a PPC schedule for the given racers.
 
     The algorithm itself is :func:`backend.domain.scheduling.generate_ppc`; this
     is only the part that turns heat plans into rows.
+
+    ``usable_lanes`` is which lanes, not how many (#171).
     """
-    plans = scheduling.generate_ppc(p_ids, lane_count, start_heat_number=start_heat_num)
+    plans = scheduling.generate_ppc(
+        p_ids, usable_lanes, start_heat_number=start_heat_num
+    )
 
     generated_heats: list[models.Heat] = []
     for plan in plans:
+        # `plan.assignments`, never `enumerate(plan.lanes)`: the position of a
+        # racer in the schedule is not their lane number once a lane is out of
+        # service, and pairing them by index writes lane 4's racer into lane 3.
         lane_assignment = [
-            lanes.from_participant(index + 1, participant_id)
-            for index, participant_id in enumerate(plan.lanes)
+            lanes.from_participant(lane_number, participant_id)
+            for lane_number, participant_id in plan.assignments
         ]
         heat = models.Heat(
             race_id=race_id,
@@ -582,8 +589,7 @@ def generate_heats_for_round(
         raise ValueError(f"Round {round_id} not found")
 
     race_id = round_obj.race_id
-    race = db.query(models.Race).filter(models.Race.id == race_id).first()
-    lane_count = race.track.lane_count if race and race.track else 4
+    usable_lanes = usable_lanes_for_race(db, race_id)
 
     # Check for existing heats
     existing_heats = (
@@ -637,7 +643,7 @@ def generate_heats_for_round(
 
     # Generate heats using PPC strategy
     new_heats = _generate_ppc(
-        db, race_id, round_id, p_ids, lane_count, start_heat_num=start_heat_num
+        db, race_id, round_id, p_ids, usable_lanes, start_heat_num=start_heat_num
     )
 
     db.commit()
@@ -778,8 +784,20 @@ def lane_count_for_race(db: Session, race_id: int) -> int:
     return race.track.lane_count if race and race.track else 4
 
 
+def usable_lanes_for_race(db: Session, race_id: int) -> list[int]:
+    """Which lanes a schedule for this race may use (#171).
+
+    Every lane the track has, today. It is a function rather than
+    ``range(1, lane_count + 1)`` written out at each call site because that is
+    the one place a lane taken out of service has to change — and #48 is the
+    standing reminder about a rule that reaches only some of the paths that
+    need it.
+    """
+    return list(range(1, lane_count_for_race(db, race_id) + 1))
+
+
 def _reset_heats_in_place(
-    db: Session, round_id: int, p_ids: list[int], lane_count: int
+    db: Session, round_id: int, p_ids: list[int], usable_lanes: Sequence[int]
 ) -> bool:
     """Rewrite a round's existing heats instead of replacing the rows (#50).
 
@@ -801,7 +819,7 @@ def _reset_heats_in_place(
     if not existing:
         return False
 
-    plans = scheduling.generate_ppc(p_ids, lane_count, start_heat_number=1)
+    plans = scheduling.generate_ppc(p_ids, usable_lanes, start_heat_number=1)
     if len(plans) != len(existing):
         return False
 
@@ -816,8 +834,8 @@ def _reset_heats_in_place(
         set_heat_lanes(
             heat,
             [
-                lanes.from_participant(index + 1, participant_id)
-                for index, participant_id in enumerate(plan.lanes)
+                lanes.from_participant(lane_number, participant_id)
+                for lane_number, participant_id in plan.assignments
             ],
         )
     db.commit()
@@ -836,14 +854,14 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
     see :func:`_reset_heats_in_place`.
     """
     all_rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
-    lane_count = lane_count_for_race(db, race_id)
+    usable_lanes = usable_lanes_for_race(db, race_id)
 
     for r in advancement.rounds_to_invalidate(all_rounds, current_round_number):
         if not advancement.may_rebuild(_round_heat_lanes(db, r.id)):
             continue
         size = round_field_size(db, r)
         if size > 0 and _reset_heats_in_place(
-            db, r.id, scheduling.placeholder_ids(size), lane_count
+            db, r.id, scheduling.placeholder_ids(size), usable_lanes
         ):
             continue
         generate_heats_for_round(
