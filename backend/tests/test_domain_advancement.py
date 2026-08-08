@@ -193,7 +193,7 @@ def test_a_round_that_has_been_raced_may_not_be_rebuilt():
 
 
 def test_an_unraced_round_may_be_rebuilt():
-    assert may_rebuild([[Lane(lane=1, racer_id=-1, time=None)]])
+    assert may_rebuild([[Lane(lane=1, placeholder_slot=1, time=None)]])
 
 
 def test_a_round_with_no_heats_may_be_rebuilt():
@@ -206,10 +206,9 @@ def _placeholder_round(slots: int, lanes_per_heat: int = 4) -> list[list[Lane]]:
     Every heat holds every slot, in a rotation, which is what PPC produces —
     so a slot nobody qualifies for is missing from *every* heat, not one.
     """
-    ids = [-(i + 1) for i in range(slots)]
     return [
         [
-            Lane(lane=lane + 1, racer_id=ids[(heat + lane) % slots])
+            Lane(lane=lane + 1, placeholder_slot=((heat + lane) % slots) + 1)
             for lane in range(min(lanes_per_heat, slots))
         ]
         for heat in range(slots)
@@ -218,12 +217,12 @@ def _placeholder_round(slots: int, lanes_per_heat: int = 4) -> list[list[Lane]]:
 
 def test_every_open_slot_is_counted_once():
     """Across heats, not per heat — the same slot appears in all of them."""
-    assert placeholder_slots(_placeholder_round(4)) == {-1, -2, -3, -4}
+    assert placeholder_slots(_placeholder_round(4)) == {1, 2, 3, 4}
 
 
 def test_real_racers_are_not_slots():
-    heat = [[Lane(lane=1, racer_id=7), Lane(lane=2, racer_id=-1)]]
-    assert placeholder_slots(heat) == {-1}
+    heat = [[Lane(lane=1, racer_id=7), Lane(lane=2, placeholder_slot=1)]]
+    assert placeholder_slots(heat) == {1}
 
 
 def test_an_empty_lane_is_not_a_slot():

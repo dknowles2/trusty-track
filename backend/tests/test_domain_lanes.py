@@ -17,13 +17,7 @@ from backend.domain import lanes
 
 def _lane(**kwargs) -> lanes.Lane:
     """A lane, defaulting the fields a given test does not care about."""
-    return lanes.Lane(
-        lane=kwargs.pop("lane", 1),
-        racer_id=kwargs.pop("racer_id", None),
-        time=kwargs.pop("time", None),
-        place=kwargs.pop("place", None),
-        extra=kwargs.pop("extra", {}),
-    )
+    return _lanes({"lane": 1, **kwargs})[0]
 
 
 @pytest.mark.parametrize("value", [None, "", "abc", [], {}])
@@ -32,25 +26,46 @@ def test_seconds_is_none_for_anything_unparseable(value):
 
 
 def _lanes(*entries) -> list[lanes.Lane]:
-    """Dict literals as lanes — still the most readable way to write a heat."""
-    known = ("lane", "racer_id", "time", "place")
-    return [
-        lanes.Lane(
-            lane=e["lane"],
-            racer_id=e.get("racer_id"),
-            time=e.get("time"),
-            place=e.get("place"),
-            extra={k: v for k, v in e.items() if k not in known},
+    """Dict literals as lanes — still the most readable way to write a heat.
+
+    A negative `racer_id` is an unadvanced championship slot, which is a fixture
+    shorthand rather than how `Lane` holds it (#164).
+    """
+    out = []
+    for e in entries:
+        racer_id = e.get("racer_id")
+        placeholder = -racer_id if racer_id is not None and racer_id < 0 else None
+        out.append(
+            lanes.Lane(
+                lane=e["lane"],
+                racer_id=None if placeholder is not None else racer_id,
+                placeholder_slot=placeholder,
+                time=e.get("time"),
+                place=e.get("place"),
+                skipped=bool(e.get("skipped")),
+            )
         )
-        for e in entries
-    ]
+    return out
 
 
 def test_lane_classification():
     assert lanes.Lane(lane=1).is_empty
-    assert lanes.Lane(lane=1, racer_id=-2).is_placeholder
-    assert lanes.Lane(lane=1, racer_id=7).is_real_racer
-    assert not lanes.Lane(lane=1, racer_id=-2).is_real_racer
+    assert lanes.Lane(lane=1, placeholder_slot=2).is_placeholder
+    assert not lanes.Lane(lane=1, racer_id=7).is_placeholder
+
+
+def test_an_undecided_slot_is_not_an_empty_lane():
+    """The trap in giving `Lane` real fields (#164).
+
+    A placeholder used to hold a negative id, so it was never empty. With the
+    id now `None`, an `is_empty` that asked only about `racer_id` would call it
+    empty — and `is_complete` skips empty lanes, so a round of slots nobody has
+    advanced into would read as finished.
+    """
+    slot = lanes.Lane(lane=1, placeholder_slot=1)
+    assert not slot.is_empty
+    assert lanes.Lane(lane=1).is_empty
+    assert not lanes.is_complete([slot])
 
 
 def test_has_results_only_looks_at_times():
@@ -107,7 +122,9 @@ def test_resolve_placeholders_leaves_unfilled_slots_alone():
     """Fewer racers advanced than the round has slots."""
     parsed = _lanes({"lane": 1, "racer_id": -1}, {"lane": 2, "racer_id": -2})
     assert lanes.resolve_placeholders(parsed, [77])
-    assert [lane.racer_id for lane in parsed] == [77, -2]
+    assert [lane.racer_id for lane in parsed] == [77, None]
+    # The filled lane stops being a placeholder; the unfilled one does not.
+    assert [lane.placeholder_slot for lane in parsed] == [None, 2]
 
 
 def test_resolve_placeholders_reports_no_change():
@@ -132,15 +149,31 @@ def test_real_racer_ids_excludes_placeholders_and_gaps():
 # --------------------------------------------------------------------------- #
 
 
-def test_a_placeholder_reports_its_slot():
-    """The sign convention lives in one property rather than an `abs()` at each
-    call site."""
-    assert lanes.Lane(lane=1, racer_id=-3).placeholder_slot == 3
-    assert lanes.Lane(lane=1, racer_id=7).placeholder_slot is None
-    assert lanes.Lane(lane=1, racer_id=None).placeholder_slot is None
+def test_the_scheduler_s_negative_ids_are_decoded_at_one_boundary():
+    """`from_participant` is where the convention lives now (#164).
+
+    `domain/scheduling.py` matches opaque ids and hands out negative ones for
+    undecided slots. That is the scheduler's vocabulary; `Lane` no longer
+    speaks it, and this is the only place on the write path that translates.
+    """
+    slot = lanes.from_participant(1, -3)
+    assert (slot.placeholder_slot, slot.racer_id) == (3, None)
+
+    racer = lanes.from_participant(2, 7)
+    assert (racer.placeholder_slot, racer.racer_id) == (None, 7)
+
+    empty = lanes.from_participant(3, None)
+    assert (empty.placeholder_slot, empty.racer_id) == (None, None)
+    assert empty.is_empty
 
 
-def test_a_real_racer_reports_its_id():
-    assert lanes.Lane(lane=1, racer_id=7).real_racer_id == 7
-    assert lanes.Lane(lane=1, racer_id=-1).real_racer_id is None
-    assert lanes.Lane(lane=1, racer_id=None).real_racer_id is None
+def test_real_racer_ids_is_dense():
+    """It drops unused lanes and undecided slots rather than yielding None."""
+    assert lanes.real_racer_ids(
+        [
+            lanes.Lane(lane=1, racer_id=7),
+            lanes.Lane(lane=2, placeholder_slot=1),
+            lanes.Lane(lane=3),
+            lanes.Lane(lane=4, racer_id=9),
+        ]
+    ) == [7, 9]

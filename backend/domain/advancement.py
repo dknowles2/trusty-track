@@ -206,7 +206,10 @@ def placeholder_slots(heats_lanes: Iterable[Sequence]) -> set[int]:
     *per den* — and what matters here is what was actually generated.
     """
     return {
-        lane.racer_id for lanes in heats_lanes for lane in lanes if lane.is_placeholder
+        lane.placeholder_slot
+        for lanes in heats_lanes
+        for lane in lanes
+        if lane.placeholder_slot is not None
     }
 
 

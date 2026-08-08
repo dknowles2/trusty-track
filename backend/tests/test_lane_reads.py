@@ -107,17 +107,21 @@ def test_lanes_come_back_in_lane_order(db: Session):
 
 
 def test_a_placeholder_survives_the_round_trip(db: Session):
-    """Stored as `placeholder_slot`, read back as the negative racer id `Lane`
-    still speaks. Retiring the column is what lets the dataclass carry the slot
-    directly."""
+    """Stored and read back as `placeholder_slot`, both sides.
+
+    It used to come back as the negative racer id `Lane` spoke internally, so
+    the crossing had to re-encode. #164 gave the dataclass the field, and the
+    round trip is now the identity — which is the point of the change: an
+    undecided slot has no racer, and says so.
+    """
     round_obj = _round(db)
-    _heat(db, round_obj, 1, [lanes.Lane(lane=1, racer_id=-2)])
+    _heat(db, round_obj, 1, [lanes.Lane(lane=1, placeholder_slot=2)])
 
     (heat,) = crud._round_heat_lanes(db, round_obj.id)
 
     assert heat[0].placeholder_slot == 2
-    assert heat[0].racer_id == -2
-    assert heat[0].real_racer_id is None
+    assert heat[0].racer_id is None
+    assert not heat[0].is_empty
 
 
 def test_a_skipped_lane_survives_the_round_trip(db: Session):
@@ -130,7 +134,7 @@ def test_a_skipped_lane_survives_the_round_trip(db: Session):
         db,
         round_obj,
         1,
-        [lanes.Lane(lane=1, racer_id=racer_id, extra={"skipped": True})],
+        [lanes.Lane(lane=1, racer_id=racer_id, skipped=True)],
     )
 
     (heat,) = crud._round_heat_lanes(db, round_obj.id)

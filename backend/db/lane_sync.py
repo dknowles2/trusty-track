@@ -88,7 +88,7 @@ def _rows_for(heat_id: int, parsed) -> list[dict]:
         {
             "heat_id": heat_id,
             "lane": lane.lane,
-            "racer_id": lane.real_racer_id,
+            "racer_id": lane.racer_id,
             "placeholder_slot": lane.placeholder_slot,
             "time_seconds": lane.seconds,
             "place": lane.place,

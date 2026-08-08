@@ -146,7 +146,7 @@ def merge(
 
 
 def _from_stored(lane: domain_lanes.Lane, clear_results: bool = False) -> LiveLane:
-    racer_id = lane.real_racer_id
+    racer_id = lane.racer_id
     slot = lane.placeholder_slot
     return LiveLane(
         lane=lane.lane,

@@ -82,7 +82,7 @@ def _rounds(db: Session, race, source: str, num_racers: int, slots: int):
 
 def _slots(db: Session, race, round_obj) -> set[int]:
     return {
-        lane.racer_id
+        lane.placeholder_slot
         for heat in crud.get_heats(db, race.id, round_id=round_obj.id)
         for lane in crud.heat_lanes_of(db, heat)
         if lane.is_placeholder

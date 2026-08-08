@@ -93,7 +93,7 @@ def _skip(db, heat):
     for lane in heat_lanes:
         lane.time = None
         lane.place = None
-        lane.extra["skipped"] = True
+        lane.skipped = True
     crud.set_heat_lanes(heat, heat_lanes)
     db.commit()
 

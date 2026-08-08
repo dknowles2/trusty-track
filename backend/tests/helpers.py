@@ -176,17 +176,25 @@ def as_lanes(rows: list[dict]) -> list[Any]:
     """
     from backend.domain import lanes
 
-    known = ("lane", "racer_id", "time", "place")
-    return [
-        lanes.Lane(
-            lane=row["lane"],
-            racer_id=row.get("racer_id"),
-            time=row.get("time"),
-            place=row.get("place"),
-            extra={k: v for k, v in row.items() if k not in known},
+    out = []
+    for row in rows:
+        racer_id = row.get("racer_id")
+        # A negative id is still how a test writes an unadvanced championship
+        # slot — it is compact and every fixture here already used it. It is a
+        # *fixture* convention now rather than a storage one (#164): `Lane`
+        # carries the slot in its own field, so the translation happens here.
+        placeholder = -racer_id if racer_id is not None and racer_id < 0 else None
+        out.append(
+            lanes.Lane(
+                lane=row["lane"],
+                racer_id=None if placeholder is not None else racer_id,
+                placeholder_slot=placeholder,
+                time=row.get("time"),
+                place=row.get("place"),
+                skipped=bool(row.get("skipped")),
+            )
         )
-        for row in rows
-    ]
+    return out
 
 
 def add_heat(db: Any, heat: Any, rows: list[dict]) -> Any:
@@ -218,12 +226,15 @@ def lane_dicts(db: Any, heat: Any) -> list[dict]:
 
     out = []
     for lane in crud.heat_lanes_of(db, heat):
-        entry = {
+        entry: dict = {
             "lane": lane.lane,
-            "racer_id": lane.racer_id,
+            "racer_id": -lane.placeholder_slot
+            if lane.placeholder_slot is not None
+            else lane.racer_id,
             "time": lane.time,
             "place": lane.place,
         }
-        entry.update(lane.extra)
+        if lane.skipped:
+            entry["skipped"] = True
         out.append(entry)
     return out
