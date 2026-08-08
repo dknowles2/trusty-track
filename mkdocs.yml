@@ -38,6 +38,7 @@ nav:
   - Hardware Timer: hardware-timer.md
   - Fake Timer: fake-timer.md
   - Observation Displays: observation-displays.md
+  - Access and Your Network: access-and-network.md
   - Race Stats: race-stats.md
   - Developers:
     - Development Guide: development.md

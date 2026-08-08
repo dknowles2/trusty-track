@@ -231,7 +231,29 @@ if FRONTEND_DIST.exists():
 
 @app.websocket("/ws/timer/{track_id}")
 async def timer_websocket(websocket: WebSocket, track_id: int):
-    """WebSocket endpoint for frontend-proxy timer mode."""
+    """WebSocket endpoint for frontend-proxy timer mode.
+
+    Operator-only when a PIN is set (#15). This socket *is* the timer on a
+    proxied track: whatever connects here reports the lane times that become the
+    result of a heat. Left open it is the one path where someone on the venue
+    wifi could change who won, without touching a mutation — the role policy in
+    `api/auth.py` guards GraphQL and this is not GraphQL.
+
+    The PIN arrives as a query parameter for the same reason it does on the
+    subscription socket: a browser cannot set headers on a WebSocket handshake.
+    """
+    # Credentials before anything else, so an unauthenticated caller learns
+    # nothing — not whether the track exists, nor whether proxy mode is on.
+    db = SessionLocal()
+    try:
+        role = _role_for_request(db, websocket.query_params.get("pin"))
+    finally:
+        db.close()
+    if role is not auth.Role.OPERATOR:
+        await websocket.accept()
+        await websocket.close(code=4403, reason="Operator PIN required")
+        return
+
     if track_id not in TIMER_MANAGERS:
         await websocket.accept()
         await websocket.close(code=4000, reason="Track not found")
