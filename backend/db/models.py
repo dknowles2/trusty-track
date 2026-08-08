@@ -63,6 +63,15 @@ class Den(Base):
     racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="den")
 
 
+class AwardKind(str, enum.Enum):
+    """Where an award's recipient comes from — see :class:`Award`."""
+
+    #: Computed from the standings: a source and a place.
+    SPEED = "SPEED"
+    #: Chosen by a person: Best Paint, Most Original, Judges' Choice.
+    SPECIAL = "SPECIAL"
+
+
 class SchedulingStrategy(str, enum.Enum):
     PPC = "PPC"
 
@@ -166,6 +175,9 @@ class Race(Base):
     )
     # Both kinds; `Heat.kind` distinguishes them (#6).
     heats: Mapped[list["Heat"]] = relationship("Heat", back_populates="race")
+    awards: Mapped[list["Award"]] = relationship(
+        "Award", back_populates="race", cascade="all, delete-orphan"
+    )
 
 
 class Racer(Base):
@@ -373,6 +385,72 @@ class HeatLane(Base):
     skipped: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false()
     )
+
+
+class Award(Base):
+    """One trophy, and where its recipient comes from (#170).
+
+    Two kinds, and the difference is only that:
+
+    ``SPEED``
+        Names a **source** rather than a winner — ``source`` plus ``place``,
+        optionally narrowed to one den. The recipient is computed from the
+        standings every time it is asked for, so it stays correct when a time
+        is corrected after the award was defined. Storing the racer id here
+        would make this the first thing in the app able to disagree with the
+        leaderboard, which is the loop #17 closed.
+
+    ``SPECIAL``
+        Carries ``racer_id``, chosen by a person, and no source. Best Paint,
+        Most Original, Judges' Choice — the awards every pack actually gives
+        and the app had nowhere to record.
+
+    ``racer_id`` sets null rather than cascading: deleting a racer should
+    un-assign the award, not delete the trophy. An award with no recipient is
+    an ordinary state — most of them have none until the end of the event.
+
+    The rules are in :mod:`backend.domain.awards`; this is where they are
+    stored, and ``services/awards.py`` is what loads standings for them.
+
+    ``championship_trophies`` on `Race` is *not* this. It means how many cars
+    advance to the final, which is a scheduling input; an award is an outcome.
+    """
+
+    __tablename__ = "awards"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    race_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("races.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    kind: Mapped[AwardKind] = mapped_column(
+        SAEnum(AwardKind), nullable=False, default=AwardKind.SPECIAL
+    )
+    #: Presentation order. Awards are announced in sequence at the end of an
+    #: event, and the order is the operator's choice — usually the speed awards
+    #: last, because that is the one everybody is waiting for.
+    sort_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+    #: SPEED only. ``"PACK"`` or ``"ROUND:<id>"``, the same vocabulary
+    #: `Round.advancement_source` uses — but never ``"DEN"``; see
+    #: `domain/awards.py` for why a den-scoped award sets `den_id` instead.
+    source: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: SPEED only, 1-based: 1 is the winner.
+    place: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: SPEED only. Narrows the standings to one den, so "fastest Wolf" is the
+    #: ordinary standings filtered rather than a third kind of source.
+    den_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("dens.id", ondelete="CASCADE"), nullable=True
+    )
+
+    #: SPECIAL only. Null until somebody decides.
+    racer_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("racers.id", ondelete="SET NULL"), nullable=True
+    )
+
+    race: Mapped["Race"] = relationship("Race", back_populates="awards")
 
 
 class HeatLaneBlobArchive(Base):

@@ -29,6 +29,29 @@ export type AdvancementStatus = {
   source?: Maybe<Scalars['String']['output']>;
 };
 
+export type Award = {
+  den?: Maybe<Den>;
+  denId?: Maybe<Scalars['Int']['output']>;
+  id: Scalars['Int']['output'];
+  kind: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  place?: Maybe<Scalars['Int']['output']>;
+  raceId: Scalars['Int']['output'];
+  recipient?: Maybe<Racer>;
+  sortOrder: Scalars['Int']['output'];
+  source?: Maybe<Scalars['String']['output']>;
+};
+
+export type AwardInput = {
+  denId?: InputMaybe<Scalars['Int']['input']>;
+  kind?: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  place?: InputMaybe<Scalars['Int']['input']>;
+  racerId?: InputMaybe<Scalars['Int']['input']>;
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
+  source?: InputMaybe<Scalars['String']['input']>;
+};
+
 export type Den = {
   carNumberRangeEnd?: Maybe<Scalars['Int']['output']>;
   carNumberRangeStart?: Maybe<Scalars['Int']['output']>;
@@ -223,6 +246,7 @@ export type Mutation = {
   bulkDeleteRacers: Scalars['Boolean']['output'];
   bulkMoveToDen: Scalars['Boolean']['output'];
   checkInRacer?: Maybe<Racer>;
+  createAward: Award;
   createDen: Den;
   createInitialConfig: InitialConfigStatus;
   createRace: Race;
@@ -230,6 +254,7 @@ export type Mutation = {
   createRound: Array<Round>;
   createRoundWizard: Array<Round>;
   createTrack: Track;
+  deleteAward: Scalars['Boolean']['output'];
   deleteDen: Scalars['Boolean']['output'];
   deleteFreeRaceHeat: Scalars['Boolean']['output'];
   deleteHeat: Scalars['Boolean']['output'];
@@ -247,9 +272,11 @@ export type Mutation = {
   recordFreeRaceResult?: Maybe<FreeRaceHeat>;
   regenerateRound: Array<Heat>;
   releaseStartGate?: Maybe<Scalars['String']['output']>;
+  reorderAwards: Array<Award>;
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
   startFreeRaceHeat: FreeRaceHeat;
+  updateAward?: Maybe<Award>;
   updateDen?: Maybe<Den>;
   updateHeatResult?: Maybe<Heat>;
   updateInitialConfig: InitialConfigStatus;
@@ -312,6 +339,12 @@ export type MutationCheckInRacerArgs = {
 };
 
 
+export type MutationCreateAwardArgs = {
+  award: AwardInput;
+  raceId: Scalars['Int']['input'];
+};
+
+
 export type MutationCreateDenArgs = {
   den: DenInput;
   raceId: Scalars['Int']['input'];
@@ -347,6 +380,11 @@ export type MutationCreateRoundWizardArgs = {
 
 export type MutationCreateTrackArgs = {
   track: TrackInput;
+};
+
+
+export type MutationDeleteAwardArgs = {
+  id: Scalars['Int']['input'];
 };
 
 
@@ -441,6 +479,12 @@ export type MutationReleaseStartGateArgs = {
 };
 
 
+export type MutationReorderAwardsArgs = {
+  awardIds: Array<Scalars['Int']['input']>;
+  raceId: Scalars['Int']['input'];
+};
+
+
 export type MutationReorderHeatsArgs = {
   heatUpdates: Array<HeatReorderItemInput>;
 };
@@ -454,6 +498,12 @@ export type MutationResetTimerArgs = {
 export type MutationStartFreeRaceHeatArgs = {
   laneAssignments: Array<FreeRaceLaneAssignmentInput>;
   raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationUpdateAwardArgs = {
+  award: AwardInput;
+  id: Scalars['Int']['input'];
 };
 
 
@@ -598,6 +648,7 @@ export type QueryTimerStatusArgs = {
 
 export type Race = {
   autoAdvanceHeat: Scalars['Boolean']['output'];
+  awards: Array<Award>;
   carNumberingStrategy: Scalars['String']['output'];
   championshipTrophies: Scalars['Int']['output'];
   checkedInCount: Scalars['Int']['output'];

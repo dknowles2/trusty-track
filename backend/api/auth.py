@@ -124,6 +124,13 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         # Results and advancement
         "advanceRound",
         "updateHeatResult",
+        # Awards (#170). Operator rather than check-in: an award is an outcome,
+        # and deciding Best Paint from the registration tablet is not a thing
+        # the desk should be able to do.
+        "createAward",
+        "updateAward",
+        "deleteAward",
+        "reorderAwards",
         # Timer
         "prepareHeat",
         "abortHeat",

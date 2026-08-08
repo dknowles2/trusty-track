@@ -768,6 +768,66 @@ class Racer:
 
 
 @strawberry.type
+class Award:
+    """One trophy, and whoever is holding it (#170).
+
+    ``recipient`` is a **field**, not a column. For a `SPEED` award it is worked
+    out from the standings every time it is asked for, so an award defined
+    before the racing starts stays correct when a time is corrected at the end
+    of it. Storing it would make this the first thing in the app able to
+    disagree with the leaderboard.
+
+    A null recipient is the ordinary state for most of an event, not an error:
+    third place has nobody until three cars have run, and Best Paint has nobody
+    until somebody decides.
+    """
+
+    id: int
+    race_id: int
+    name: str
+    kind: str
+    sort_order: int
+    #: `SPEED` only: `"PACK"` or `"ROUND:<id>"`, and a 1-based `place`.
+    source: str | None
+    place: int | None
+    den_id: int | None
+
+    @strawberry.field
+    def recipient(self, info: Info) -> "Racer | None":
+        """Whoever has won this, or null if nobody has yet."""
+        racer_id = _loaders(info).award_recipients(self.race_id).get(self.id)
+        if racer_id is None:
+            return None
+        return typing.cast(Any, _loaders(info).racer_by_id(self.race_id, racer_id))
+
+    @strawberry.field
+    def den(self, info: Info) -> Den | None:
+        """The den this award is narrowed to, if any."""
+        if not self.den_id:
+            return None
+        return typing.cast(Any, _loaders(info).den_by_id(self.race_id, self.den_id))
+
+
+@strawberry.input
+class AwardInput:
+    """Creating or editing an award.
+
+    Every field but `name` is optional, and the ones belonging to the other kind
+    are cleared server-side — `crud._clear_fields_of_other_kind`. A client that
+    switches an award from `SPEED` to `SPECIAL` should not also have to remember
+    to null the source.
+    """
+
+    name: str
+    kind: str = "SPECIAL"
+    source: str | None = None
+    place: int | None = None
+    den_id: int | None = None
+    racer_id: int | None = None
+    sort_order: int | None = None
+
+
+@strawberry.type
 class Race:
     """
     Represents a Race event, which contains multiple racers, dens, and rounds.
@@ -807,6 +867,11 @@ class Race:
             LeaderboardEntry(**s)
             for s in _loaders(info).leaderboard(self.id, round_id=round_id, scope=scope)
         ]
+
+    @strawberry.field
+    def awards(self, info: Info) -> list[Award]:
+        """The trophies this race hands out, in presentation order (#170)."""
+        return typing.cast(Any, _loaders(info).awards_for_race(self.id))
 
     @strawberry.field
     def registered_count(self, info: Info) -> int:
@@ -1737,6 +1802,51 @@ class Mutation:
         if race_id:
             await _publish_race_state(race_id)
         return result
+
+    # Award Mutations (#170)
+    @strawberry.mutation
+    async def create_award(self, info: Info, race_id: int, award: AwardInput) -> Award:
+        """Add an award to a race, at the end of the running order."""
+        db = info.context["db"]
+        award_in = schemas.AwardCreate(**typing.cast(Any, strawberry.asdict(award)))
+        created = typing.cast(Any, crud.create_award(db, race_id, award_in))
+        await _publish_race_state(race_id)
+        return created
+
+    @strawberry.mutation
+    async def update_award(
+        self, info: Info, id: int, award: AwardInput
+    ) -> Award | None:
+        """Edit an award, including reassigning a special award's recipient."""
+        db = info.context["db"]
+        award_update = schemas.AwardUpdate(**typing.cast(Any, strawberry.asdict(award)))
+        updated = typing.cast(
+            Any, crud.update_award(db, award_id=id, award_update=award_update)
+        )
+        if updated:
+            await _publish_race_state(updated.race_id)
+        return updated
+
+    @strawberry.mutation
+    async def delete_award(self, info: Info, id: int) -> bool:
+        """Remove an award."""
+        db = info.context["db"]
+        award = db.query(models.Award).filter(models.Award.id == id).first()
+        race_id = award.race_id if award else None
+        deleted = crud.delete_award(db, award_id=id) is not None
+        if race_id:
+            await _publish_race_state(race_id)
+        return deleted
+
+    @strawberry.mutation
+    async def reorder_awards(
+        self, info: Info, race_id: int, award_ids: list[int]
+    ) -> list[Award]:
+        """Set the order awards are presented in, first to last."""
+        db = info.context["db"]
+        reordered = typing.cast(Any, crud.reorder_awards(db, race_id, award_ids))
+        await _publish_race_state(race_id)
+        return reordered
 
     # Track Mutations
     @strawberry.mutation
