@@ -554,14 +554,14 @@ A scan has **four** outcomes, not racer-or-nothing (`scanning.resolveScan`): the
 
 ## Known architectural debt
 
-An architecture review is tracked in **issue #18**. Before making a substantial change, check whether it overlaps.
+The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dknowles2/trusty-track/issues/18)) — all three of its theses are resolved and its backlog is empty. It is worth reading before a substantial change anyway, not as a tracker but as a retrospective: it records which of its own premises expired between filing and implementation, what verification caught that reading the code did not, and when a surviving mutation is evidence versus a broken harness. None of that is re-derivable from the tree.
 
-**Still open:**
+**Still open, and neither is engineering work:**
 
 | Issue | Area |
 | --- | --- |
-| #14 | Whether GraphQL is still the right choice — a question to revisit, not scheduled work. The case is materially weaker since #10, #11 and #12 |
 | #15 | No authentication on mutations; CORS misconfigured. **Deferred by decision** — it adds a prompt to the operator flow |
+| #112 | SuperTimer II timer profile. **Needs hardware** — two-part results, a binary lane mask and a 10000 scale factor, none reusable, and a test written from the same notes as the profile would agree with its mistakes |
 
 **Closed, and load-bearing — don't undo them:**
 
@@ -578,6 +578,9 @@ An architecture review is tracked in **issue #18**. Before making a substantial 
 | #26 | The PPC scheduler fills every lane; `test_domain_scheduling.py` holds the properties |
 | #45 | `ruff check` and `ruff format --check` gate CI over `backend scripts packaging`. Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
 | #125 | Foreign keys are enforced on every connection, and `heat_lanes` carries `ON DELETE` actions. Deletion ordering is the schema's rule, not Python's |
+| #14 | **Keep GraphQL.** 42 mutations against 13 queries — the cost sits where GraphQL adds nothing, and does not shrink in REST |
+| #72 | `heats.lane_results` is dropped. `heat_lanes` is the only copy; migration `0013` proved that per database rather than waiting on a release |
+| #164 | `Lane` mirrors the table — `placeholder_slot` and `skipped` are fields. The negative-id convention survives only in `domain/scheduling.py`, crossed at `lanes.from_participant` |
 
 ---
 
