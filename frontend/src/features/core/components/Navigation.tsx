@@ -9,6 +9,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiCardSearch, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
 import logoUrl from '../../../assets/logo_transparent.png';
+import { UnlockButton } from './UnlockButton';
 
 export default function Navigation() {
   const { showAlert } = useAlert();
@@ -17,6 +18,11 @@ export default function Navigation() {
 
   const [{ data: configData }] = useQuery({ query: INITIAL_CONFIG_QUERY });
   const version = configData?.initialConfig?.version || '0.0.0';
+  // Only shown when the install has a PIN. An event that never turned
+  // enforcement on sees no lock at all, which is the point of it being off by
+  // default (#15).
+  const pinRequired = !!configData?.initialConfig?.pinRequired;
+  const isOperator = configData?.initialConfig?.isOperator !== false;
 
   const [, createRaceMutation] = useMutation(CREATE_RACE);
 
@@ -215,6 +221,7 @@ export default function Navigation() {
                   GitHub
                 </a>
               </div>
+              {pinRequired && <UnlockButton isOperator={isOperator} />}
               <Link
                 to="/system-settings"
                 title="System Settings"
@@ -395,6 +402,14 @@ export default function Navigation() {
 
               {/* Drawer Footer - Pinned Settings */}
               <div style={{ borderTop: '1px solid #eee', padding: '1rem' }}>
+                {/* The drawer is a second navigation surface, not a mirror of
+                    the header — a phone at the check-in desk only ever sees
+                    this one, so the lock has to be reachable from here too. */}
+                {pinRequired && (
+                  <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '0.8rem' }}>
+                    <UnlockButton isOperator={isOperator} />
+                  </div>
+                )}
                 <Link
                   to="/system-settings"
                   onClick={() => setIsMobileMenuOpen(false)}

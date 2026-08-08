@@ -24,6 +24,8 @@ export const INITIAL_CONFIG_QUERY = `
       initialized
       version
       debugMode
+      pinRequired
+      isOperator
     }
   }
 `;
