@@ -412,3 +412,64 @@ test('the wizard promises the heat count the backend then generates', async ({ p
     expect(heats.filter((h) => h.roundId === prelim.id)).toHaveLength(racers.length);
     expect(racers.length).toBeGreaterThan(laneCount);
 });
+
+test('a live screen recovers when the network drops under it', async ({ page, context, request }) => {
+    // The deployment is a Pi at the front of a room and screens on venue wifi,
+    // so a subscription socket dropping mid-event is ordinary rather than
+    // exceptional. Every payload these subscriptions send is a full snapshot,
+    // which is what makes recovery possible at all — there is no delta stream
+    // to fall behind in — but only if the client reconnects.
+    //
+    // What this pins is that recovery happens end to end: the socket comes
+    // back, resubscribes, and the snapshot lands in the normalized cache with
+    // no reload. The specific retry and keep-alive policy is pinned by
+    // `liveConnection.test.ts`; a short outage like this one would be survived
+    // by a laxer policy too.
+    const { raceId, racers } = await seedRace(page, 'Race Day Reconnect');
+    await createSchedule(page, raceId);
+    const heats = await readHeats(page, raceId);
+
+    await page.goto(`/race/${raceId}/standings`);
+    await expect(page.getByText('No results yet')).toBeVisible({ timeout: 30000 });
+
+    await context.setOffline(true);
+
+    // Recorded through Playwright's own request context, which is not tied to
+    // the browser context and so is still reachable while the page is not.
+    // Everything that would tell the page about this arrives over the socket
+    // that is currently down.
+    for (const heat of heats) {
+        const lanes = heat.lanes.map((lane) => {
+            const racer = racers.find((r) => r.id === lane.racerId);
+            return {
+                lane: lane.lane,
+                racerId: lane.racerId,
+                placeholderSlot: lane.placeholderSlot,
+                time: racer ? 3 + racer.carNumber / 100 : null,
+                place: null,
+                skipped: false,
+            };
+        });
+        const response = await request.post('http://127.0.0.1:8002/graphql', {
+            data: JSON.stringify({
+                query: `mutation Rec($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+                    updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+                }`,
+                variables: { heatId: heat.id, lanes },
+            }),
+            headers: { 'Content-Type': 'application/json' },
+        });
+        expect((await response.json()).errors).toBeUndefined();
+    }
+
+    // Still nothing on screen: the results exist, and the page cannot hear it.
+    await expect(page.getByText('No results yet')).toBeVisible();
+
+    await context.setOffline(false);
+
+    // No reload anywhere in this test. If the standings appear, the socket
+    // reconnected and the resubscribe snapshot reached the cache.
+    await expect(page.getByRole('row').filter({ hasText: 'Ada Ant' })).toBeVisible({
+        timeout: 60000,
+    });
+});

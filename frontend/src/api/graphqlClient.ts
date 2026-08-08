@@ -1,14 +1,23 @@
 import { Client, fetchExchange, subscriptionExchange } from 'urql';
 import { cacheExchange, type UpdateResolver } from '@urql/exchange-graphcache';
 import { createClient as createWsClient } from 'graphql-ws';
+import { liveConnectionOptions } from './liveConnection';
 
 /**
  * WebSocket client for GraphQL subscriptions.
  * Uses the same host/port as the page but with the ws(s):// scheme.
+ *
+ * The retry and keep-alive settings are not `graphql-ws`'s defaults, and
+ * `liveConnection.ts` explains why in full. Briefly: this runs on a Pi at a
+ * venue with screens on wifi, where giving up after five reconnections leaves a
+ * display frozen for the rest of the event, and never pinging means a half-open
+ * connection is never noticed at all.
  */
-const wsClient = createWsClient({
-  url: `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/graphql`,
-});
+const wsClient = createWsClient(
+  liveConnectionOptions(
+    `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/graphql`,
+  ),
+);
 
 /**
  * Types with no `id`, which graphcache has to be told about explicitly.
