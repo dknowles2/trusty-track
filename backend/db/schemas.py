@@ -61,6 +61,12 @@ class InitialConfigCreate(BaseModel):
     group_name: str
     debug_mode: bool = False
     tracks: list[TrackCreate]
+    # Accepted and ignored here: the PINs are hashed in `schema._apply_pins`
+    # rather than carried through `crud`, so a plaintext PIN never reaches a
+    # persistence helper. Declared so `strawberry.asdict(config)` can be handed
+    # over whole without the extra keys raising.
+    operator_pin: str | None = None
+    checkin_pin: str | None = None
 
 
 class RacerBase(BaseModel):

@@ -151,6 +151,8 @@ input InitialConfigInput {
   groupName: String!
   debugMode: Boolean! = false
   tracks: [TrackInput!]!
+  operatorPin: String = null
+  checkinPin: String = null
 }
 
 type InitialConfigStatus {
@@ -160,6 +162,8 @@ type InitialConfigStatus {
   debugMode: Boolean!
   tracks: [Track!]!
   currentRaceId: Int
+  pinRequired: Boolean!
+  isOperator: Boolean!
 }
 
 type LaneResult {

@@ -19,6 +19,7 @@ from fastapi import (
     FastAPI,
     File,
     HTTPException,
+    Request,
     Response,
     UploadFile,
     WebSocket,
@@ -30,6 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
+from backend.api import auth
 from backend.api.loaders import RequestLoaders
 from backend.api.schema import schema
 from backend.db import models
@@ -82,8 +84,15 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
+    # `allow_origins=["*"]` with `allow_credentials=True` is rejected outright
+    # by browsers — the wildcard is not permitted on a credentialed request — so
+    # the old pairing was broken *and* permissive (#15). Nothing here uses
+    # cookies: the operator PIN travels in a header on a same-origin request, so
+    # credentials are off and the wildcard is honest. A display or a phone on
+    # the venue wifi loads the served page from this origin; a wildcard here
+    # does not widen what they can do, because the PIN is what the server checks.
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -112,10 +121,45 @@ FRONTEND_DIST = _BASE_DIR / "frontend" / "dist"
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 
-async def get_graphql_context(db: Session = Depends(get_db)) -> dict:
-    """Provide the database session, timer managers, and per-operation loaders."""
+def _role_for_request(db: Session, pin: str | None) -> auth.Role:
+    """The caller's role, from the PIN they sent and the PINs that are set.
+
+    Reads the single `Group` rather than taking a race — roles are install-wide,
+    and an install has one group. No group yet (the first run, before the wizard
+    has saved) means nothing is configured, so `role_for` returns operator.
+    """
+    group = db.query(models.Group).first()
+    return auth.role_for(
+        pin,
+        operator_pin_hash=getattr(group, "operator_pin_hash", None),
+        checkin_pin_hash=getattr(group, "checkin_pin_hash", None),
+    )
+
+
+async def get_graphql_context(
+    request: Request = None,  # type: ignore[assignment]
+    websocket: WebSocket = None,  # type: ignore[assignment]
+    db: Session = Depends(get_db),
+) -> dict:
+    """Provide the database session, timer managers, loaders and the role.
+
+    Strawberry hands this a `Request` for HTTP and a `WebSocket` for
+    subscriptions, never both — so the PIN is read from whichever arrived. The
+    socket carries it as a query parameter because `graphql-ws` has no headers
+    of its own; the browser cannot set them on a WebSocket handshake.
+    """
+    if request is not None:
+        pin = request.headers.get(auth.PIN_HEADER)
+    elif websocket is not None:
+        pin = websocket.query_params.get("pin")
+    else:  # pragma: no cover - Strawberry always supplies one
+        pin = None
+
     return {
         "db": db,
+        # A callable, not a value: see `auth.resolve_role`. Only a mutation
+        # asks, and working it out costs a query.
+        "role_resolver": lambda: _role_for_request(db, pin),
         "timer_managers": TIMER_MANAGERS,
         "loaders": RequestLoaders(db),
         # Managers created mid-request (e.g. by createTrack) need a factory for

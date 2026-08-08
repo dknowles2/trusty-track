@@ -19,6 +19,8 @@ import strawberry
 from sqlalchemy.orm import Session, object_session
 from strawberry.types import Info
 
+from backend.api import auth
+from backend.api.auth import RolePolicyExtension
 from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
@@ -418,6 +420,13 @@ class InitialConfigStatus:
     debug_mode: bool = False
     tracks: list["Track"] = strawberry.field(default_factory=list)
     current_race_id: int | None = None
+    #: Whether an operator PIN is set — i.e. whether roles are enforced at all
+    #: (#15). Never the PIN or its hash: this says only that a lock exists, so
+    #: the settings page can tell the operator which state they are in.
+    pin_required: bool = False
+    #: Whether the *caller* currently holds the operator role. Lets the UI ask
+    #: for the PIN before an action fails rather than after.
+    is_operator: bool = True
 
 
 @strawberry.input
@@ -429,6 +438,12 @@ class InitialConfigInput:
     group_name: str
     debug_mode: bool = False
     tracks: list["TrackInput"]
+    #: Four digits, or empty/None to leave unchanged. Setting the operator PIN
+    #: is what turns enforcement on; clearing it turns it off again, which is
+    #: the escape hatch for an operator who has locked themselves out and can
+    #: reach the machine (#15).
+    operator_pin: str | None = None
+    checkin_pin: str | None = None
 
 
 @strawberry.input
@@ -1310,6 +1325,7 @@ class Query:
         if tracks:
             group = db.query(models.Group).first()
             race = db.query(models.Race).first()
+            pin_required = bool(group and group.operator_pin_hash)
             return InitialConfigStatus(
                 initialized=True,
                 version=_version,
@@ -1317,6 +1333,11 @@ class Query:
                 debug_mode=group.debug_mode if group else False,
                 tracks=typing.cast(Any, tracks),
                 current_race_id=race.id if race else None,
+                pin_required=pin_required,
+                # Resolved here rather than left to the extension: this is a
+                # *query*, so nothing has asked for a role yet, and the point is
+                # to let the UI prompt before an action fails.
+                is_operator=auth.resolve_role(info.context) is auth.Role.OPERATOR,
             )
         return InitialConfigStatus(initialized=False, version=_version)
 
@@ -1564,6 +1585,25 @@ def _start_backend_direct(
         asyncio.create_task(mgr.connect_direct(serial_port))
     else:
         asyncio.create_task(mgr.autodetect([profile] if profile else None))
+
+
+def _apply_pins(group: Any, config: "InitialConfigInput") -> None:
+    """Store whichever PINs the wizard sent, hashed (#15).
+
+    Absent means *leave alone* and an explicit empty string means *clear*. The
+    two have to differ: the settings page re-submits the whole config on every
+    save, and it cannot send back a PIN it is never given — so treating "not
+    supplied" as "clear it" would switch enforcement off every time the operator
+    changed a track name.
+    """
+    for field, column in (
+        ("operator_pin", "operator_pin_hash"),
+        ("checkin_pin", "checkin_pin_hash"),
+    ):
+        value = getattr(config, field, None)
+        if value is None:
+            continue
+        setattr(group, column, auth.hash_pin(value) if value else None)
 
 
 @strawberry.type
@@ -2337,6 +2377,8 @@ class Mutation:
         config_dict = strawberry.asdict(config)
         config_in = schemas.InitialConfigCreate(**config_dict)
         group, tracks = crud.create_initial_config(db, config_in)
+        _apply_pins(group, config)
+        db.commit()
 
         # Register a TimerManager for each newly created track so that
         # prepare_heat works immediately without requiring a server restart.
@@ -2360,6 +2402,10 @@ class Mutation:
             group_name=group.name,
             debug_mode=group.debug_mode,
             tracks=typing.cast(Any, tracks),
+            pin_required=bool(group.operator_pin_hash),
+            # The caller who just set the PIN keeps the role they had for this
+            # response; the next request resolves it from what they send.
+            is_operator=True,
         )
 
     @strawberry.mutation
@@ -2388,6 +2434,10 @@ class Mutation:
                     raise ValueError(f"Group '{config.group_name}' already exists")
             crud.update_group(db, group, config.group_name, config.debug_mode)
             db.refresh(group)
+
+        if group:
+            _apply_pins(group, config)
+            db.commit()
 
         # Update Tracks by index (setup wizard style)
         db_tracks = crud.get_tracks(db)
@@ -2470,6 +2520,8 @@ class Mutation:
             group_name=group.name if group else None,
             debug_mode=group.debug_mode if group else False,
             tracks=typing.cast(Any, tracks),
+            pin_required=bool(group and group.operator_pin_hash),
+            is_operator=True,
         )
 
     @strawberry.mutation
@@ -3256,4 +3308,12 @@ class Subscription:
                 yield _get_active_free()
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation, subscription=Subscription)
+schema = strawberry.Schema(
+    query=Query,
+    mutation=Mutation,
+    subscription=Subscription,
+    # Refuses a mutation the caller's role does not carry (#15). One seam, and
+    # it covers the WebSocket as well as HTTP — see `api/auth.py` for why the
+    # second layer the design sketch proposed is not here.
+    extensions=[RolePolicyExtension],
+)

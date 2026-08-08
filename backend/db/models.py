@@ -83,6 +83,13 @@ class Group(Base):
         Boolean, default=False, server_default=false()
     )
 
+    # Operator and check-in PINs, as `salt$hash` (#15). Null means unset, and an
+    # unset *operator* PIN means no enforcement at all — see `api/auth.py`.
+    # There is one Group per install, so this is where install-wide settings
+    # live; it is not a per-race setting.
+    operator_pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    checkin_pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+
     races: Mapped[list["Race"]] = relationship("Race", back_populates="group")
 
 

@@ -158,8 +158,10 @@ export type HeatSession = {
 };
 
 export type InitialConfigInput = {
+  checkinPin?: InputMaybe<Scalars['String']['input']>;
   debugMode?: Scalars['Boolean']['input'];
   groupName: Scalars['String']['input'];
+  operatorPin?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
 };
 
@@ -168,6 +170,8 @@ export type InitialConfigStatus = {
   debugMode: Scalars['Boolean']['output'];
   groupName?: Maybe<Scalars['String']['output']>;
   initialized: Scalars['Boolean']['output'];
+  isOperator: Scalars['Boolean']['output'];
+  pinRequired: Scalars['Boolean']['output'];
   tracks: Array<Track>;
   version: Scalars['String']['output'];
 };

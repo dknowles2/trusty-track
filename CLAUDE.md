@@ -546,6 +546,27 @@ The payload is `TT1:<race_id>:<racer_id>` — versioned because these live on pa
 
 A scan has **four** outcomes, not racer-or-nothing (`scanning.resolveScan`): the racer, not one of ours, a code from another race, or a racer deleted since printing. They are separate because the operator's next move differs for each.
 
+### Roles and the operator PIN
+
+`backend/api/auth.py`. Three roles — `VIEWER` (the wall displays, no credential, **no mutations at all**), `CHECKIN` (the registration desk: racers, photos, check-in), `OPERATOR` (everything). Derived from who is physically in the room, not from an abstract permission model.
+
+**Off until a PIN is set.** An install with no `Group.operator_pin_hash` treats every caller as `OPERATOR`, which is exactly what every install did before #15. That is what lets this land without locking an operator out of their own event mid-season, and it is why the deferral's concern — nobody wants a login prompt on race morning — is met: the prompt exists only if they choose to set a PIN.
+
+**One enforcement seam, not the two the design sketch proposed.** `RolePolicyExtension.resolve` checks `info.field_name` against `POLICY[role]` for any field whose parent is `Mutation`. The sketch's second layer (`allowed_operation_types` for `VIEWER`) is *not* here, for three measured reasons: `AsyncBaseHTTPView.execute_single` recomputes that set from the HTTP method, so overriding `execute_operation` — the seam the sketch names — misses the ordinary path; `VIEWER` holds an empty set so every mutation is refused anyway; and `resolve` fires on the **WebSocket** too, which closes the gap the sketch flagged (`graphql-ws` permits a mutation on the socket a subscription arrived on, and observation is almost all subscriptions).
+
+Two traps, both recorded on #15 and both still true:
+
+- **`on_execute` swallows the exception** — the mutation runs to completion and returns data. Use `resolve`. Any test here must assert the mutation was *refused* (the row is absent), never that the check ran.
+- **There are two `OperationType` enums** with identical reprs and no overlap under `is`. Not relevant now that layer 1 is gone, but it is why it was tried.
+
+**Adding a mutation means classifying it.** `test_auth_policy.py::test_every_mutation_is_classified` compares `CHECKIN_MUTATIONS | OPERATOR_ONLY_MUTATIONS` against the schema **in both directions** — a new mutation nobody bucketed is denied to *every* role including the operator, silently, so this turns that into a red build; and the reverse direction catches an entry outliving the mutation it named.
+
+**The PIN travels in the `x-trustytrack-pin` header**, or as a `?pin=` query parameter on the WebSocket, which has no headers of its own. Not a cookie: same-origin, so CORS stays simple and `allow_credentials` is off — the old `allow_origins=["*"]` with `allow_credentials=True` was rejected by browsers outright, so it was broken *and* permissive.
+
+**Role resolution is lazy** (`auth.resolve_role`). It costs a query for the configured PINs, and only a mutation ever asks — an audience display resolves no role at all. `test_query_counts.py` caught the eager version.
+
+**Absent and empty PINs mean different things** in `InitialConfigInput`. Absent is *leave alone*; empty is *clear*. The settings page re-submits the whole config on every save and cannot send back a PIN it is never given, so treating absent as "clear" would switch enforcement off whenever the operator renamed a track.
+
 ### First-run gate
 
 `App.tsx` queries `initialConfig()`; if the system is unconfigured, all routes redirect to `/system-settings`, which creates the `Group` and `Track`.
@@ -560,7 +581,7 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 
 | Issue | Area |
 | --- | --- |
-| #15 | No authentication on mutations; CORS misconfigured. **Deferred by decision** — it adds a prompt to the operator flow |
+| #15 | Auth. **Backend done** — roles, policy and the PIN are in `api/auth.py`, enforced and off until a PIN is set. What is left is the UI to set and send one; until then an install has no way to turn it on except through `updateInitialConfig` |
 | #112 | SuperTimer II timer profile. **Needs hardware** — two-part results, a binary lane mask and a 10000 scale factor, none reusable, and a test written from the same notes as the profile would agree with its mistakes |
 
 **Closed, and load-bearing — don't undo them:**
