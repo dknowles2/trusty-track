@@ -50,8 +50,8 @@ def build_pre_alembic_database(
     way.
 
     Args:
-        legacy_debug_mode: the column definition the old hand-rolled ALTER left
-            on ``groups.debug_mode``, or None for an install where it never ran.
+        legacy_debug_mode: the column definition ``groups.debug_mode`` was left
+            with, or None for a database that has no such column at all.
         seed: called with an open connection to insert rows.
     """
     db = tmp_path / "trusty-track.db"
@@ -63,13 +63,49 @@ def build_pre_alembic_database(
         # Un-manage it: this is what a database from before migrations looks like.
         conn.execute(text("DROP TABLE alembic_version"))
         if legacy_debug_mode:
-            conn.execute(
-                text(f"ALTER TABLE groups ADD COLUMN debug_mode {legacy_debug_mode}")
-            )
+            _add_legacy_debug_mode(conn, legacy_debug_mode)
         if seed is not None:
             seed(conn)
     engine.dispose()
     return db
+
+
+def _add_legacy_debug_mode(conn: Any, definition: str) -> None:
+    """Put ``groups.debug_mode`` on the table the way a legacy install got it.
+
+    Two mechanisms produced the column before Alembic, and they left different
+    schemas — which is the whole subject of issue #32:
+
+    * the hand-rolled ``ALTER TABLE`` in the old ``init_db()``, on a database
+      predating the column entirely;
+    * ``create_all()``, on any install from a version whose model already had
+      it — which is every ``v1.0.0`` install, since ``create_all()`` runs first
+      and the ALTER then finds nothing to do.
+
+    The second shape cannot be reached by ALTER at all: SQLite rejects adding a
+    NOT NULL column with no default. So it is built the way ``create_all()``
+    built it, inline in the ``CREATE TABLE``.
+    """
+    if "NOT NULL" in definition and "DEFAULT" not in definition:
+        # Dropped and rebuilt rather than renamed: SQLite rewrites referencing
+        # foreign keys to follow a `RENAME TO`, so `races.group_id` would end up
+        # pointing at the temporary name. The table is empty at this point —
+        # `seed` has not run — so there is nothing to carry across.
+        conn.execute(text("DROP TABLE groups"))
+        conn.execute(
+            text(
+                "CREATE TABLE groups ("
+                " id INTEGER NOT NULL,"
+                " name VARCHAR NOT NULL,"
+                f" debug_mode {definition},"
+                " PRIMARY KEY (id))"
+            )
+        )
+        conn.execute(text("CREATE UNIQUE INDEX ix_groups_name ON groups (name)"))
+        conn.execute(text("CREATE INDEX ix_groups_id ON groups (id)"))
+        return
+
+    conn.execute(text(f"ALTER TABLE groups ADD COLUMN debug_mode {definition}"))
 
 
 UPDATE_HEAT_RESULT = """
