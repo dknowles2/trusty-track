@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
+import type { GetRaceDetailsQuery } from '../../../gql/operations';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 
 import { useAlert } from '../../../context/AlertContext';
@@ -24,31 +25,21 @@ import {
 import CheckInScanner from '../../printables/components/CheckInScanner';
 import * as GQL from '../graphql/queries';
 
-interface GQLDen {
-    id: number;
-    name: string;
-    color: string;
-    rank?: string;
-    carNumberRangeStart?: number;
-    carNumberRangeEnd?: number;
-}
-
-interface GQLRacer {
-    id: number;
-    firstName: string;
-    lastName: string;
-    carNumber?: number | string;
-    denId?: number;
-    carName?: string;
-    carPassedInspection: boolean;
-    carWeight?: number;
-    racerImageUrl?: string;
-    carImageUrl?: string;
-}
+/**
+ * The shapes the query actually returns, derived rather than restated.
+ *
+ * These were hand-written copies, and they had drifted: `carNumber` was
+ * `number | string`, and every nullable field was declared optional rather than
+ * nullable. A hand-written copy of a generated type agrees with the server
+ * right up until the document changes, which is what `trackId` going missing
+ * from this query demonstrated.
+ */
+type GQLRace = NonNullable<GetRaceDetailsQuery['race']>;
+type GQLDen = GQLRace['dens'][number];
+type GQLRacer = GQLRace['racers'][number];
 
 interface Race extends RaceFormData {
     id: number;
-    track_id: number;
 }
 
 interface Racer extends RacerData {
@@ -62,7 +53,11 @@ export default function RaceDetails() {
   const navigate = useNavigate();
 
   // GraphQL Queries
-  const [raceDetailsResult, reexecuteRaceDetails] = useQuery({
+  // Typed with the generated operation type on purpose. Untyped, `data` is
+  // `any`, and reading a field the document does not select compiles happily
+  // and is `undefined` at runtime — which is how `trackId` went missing from
+  // this query and silently moved every edited race to the first track.
+  const [raceDetailsResult, reexecuteRaceDetails] = useQuery<GetRaceDetailsQuery>({
     query: GQL.GET_RACE_DETAILS,
     variables: { raceId: parsedRaceId },
     pause: !parsedRaceId,
@@ -92,14 +87,20 @@ export default function RaceDetails() {
     return {
       id: data.race.id,
       name: data.race.name,
-      date_time: data.race.dateTime,
-      location: data.race.location,
-      track_id: data.race.trackId,
+      // `RaceForm` drives controlled inputs from these, and React warns on a
+      // null `value`. GraphQL sends null for an unset optional; the form's
+      // vocabulary for the same thing is an empty string.
+      date_time: data.race.dateTime ?? '',
+      location: data.race.location ?? '',
+      // Nullable in the schema: a race need not name a track. `RaceForm` reads
+      // absence as "default to the first one", which is right when creating and
+      // is exactly what made a *missing* value destructive when editing.
+      track_id: data.race.trackId ?? undefined,
       scoring_strategy: data.race.scoringStrategy,
       car_numbering_strategy: data.race.carNumberingStrategy,
       global_start_number: data.race.globalStartNumber,
       championship_trophies: data.race.championshipTrophies,
-    } as Race;
+    } satisfies Race;
   }, [data]);
 
   const racers = useMemo<Racer[]>(() => {
@@ -108,13 +109,13 @@ export default function RaceDetails() {
       id: r.id,
       first_name: r.firstName,
       last_name: r.lastName,
-      car_number: r.carNumber,
-      den_id: r.denId,
-      car_name: r.carName,
+      car_number: r.carNumber ?? undefined,
+      den_id: r.denId ?? undefined,
+      car_name: r.carName ?? undefined,
       car_passed_inspection: r.carPassedInspection,
-      car_weight: r.carWeight,
-      racer_image_url: r.racerImageUrl,
-      car_image_url: r.carImageUrl,
+      car_weight: r.carWeight ?? undefined,
+      racer_image_url: r.racerImageUrl ?? undefined,
+      car_image_url: r.carImageUrl ?? undefined,
     }));
   }, [data]);
 
@@ -124,9 +125,9 @@ export default function RaceDetails() {
       id: d.id,
       name: d.name,
       color: d.color,
-      rank: d.rank,
-      car_number_range_start: d.carNumberRangeStart,
-      car_number_range_end: d.carNumberRangeEnd,
+      rank: d.rank ?? undefined,
+      car_number_range_start: d.carNumberRangeStart ?? undefined,
+      car_number_range_end: d.carNumberRangeEnd ?? undefined,
     }));
   }, [data]);
 

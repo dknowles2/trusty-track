@@ -5,7 +5,11 @@ export interface RaceFormData {
     date_time: string;
     location: string;
     group_id?: number;
-    track_id: number;
+    // Optional because a race need not name a track, and because the form
+    // itself supplies one when it does not. Declaring it required meant a
+    // missing value had to be smuggled through as `undefined` anyway, which is
+    // how it reached `tracks[0]` unnoticed.
+    track_id?: number;
     scoring_strategy: string;
     car_numbering_strategy: string;
     global_start_number: number;
@@ -87,8 +91,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
     return (
         <form onSubmit={handleSubmit}>
             <div>
-                <label style={labelStyle}>Event Name</label>
+                <label style={labelStyle} htmlFor="race-name">Event Name</label>
                 <input
+                    id="race-name"
                     type="text"
                     value={formData.name}
                     onChange={e => handleChange('name', e.target.value)}
@@ -98,8 +103,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 />
             </div>
             <div>
-                <label style={labelStyle}>Date & Time</label>
+                <label style={labelStyle} htmlFor="race-date-time">Date & Time</label>
                 <input
+                    id="race-date-time"
                     type="datetime-local"
                     value={formData.date_time}
                     onChange={e => handleChange('date_time', e.target.value)}
@@ -107,8 +113,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 />
             </div>
             <div>
-                <label style={labelStyle}>Location</label>
+                <label style={labelStyle} htmlFor="race-location">Location</label>
                 <input
+                    id="race-location"
                     type="text"
                     value={formData.location}
                     onChange={e => handleChange('location', e.target.value)}
@@ -119,8 +126,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                    <label style={labelStyle}>Scoring</label>
+                    <label style={labelStyle} htmlFor="race-scoring">Scoring</label>
                     <select
+                        id="race-scoring"
                         value={formData.scoring_strategy}
                         onChange={e => handleChange('scoring_strategy', e.target.value)}
                         style={inputStyle}
@@ -130,8 +138,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     </select>
                 </div>
                 <div>
-                    <label style={labelStyle}>Championship Trophies</label>
+                    <label style={labelStyle} htmlFor="race-trophies">Championship Trophies</label>
                     <input
+                        id="race-trophies"
                         type="number"
                         value={formData.championship_trophies || 3}
                         onChange={e => handleChange('championship_trophies', parseInt(e.target.value) || 3)}
@@ -145,11 +154,12 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 </div>
             </div>
             <div>
-                <label style={labelStyle}>Track / Timer</label>
+                <label style={labelStyle} htmlFor="race-track">Track / Timer</label>
                 {fetchingTracks ? (
                     <p style={{ fontSize: '0.8rem', color: '#666' }}>Loading tracks...</p>
                 ) : (
                 <select
+                    id="race-track"
                     value={trackId}
                     onChange={e => handleChange('track_id', parseInt(e.target.value))}
                     style={inputStyle}
@@ -163,8 +173,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
             </div>
 
             <div>
-                <label style={labelStyle}>Car Numbering</label>
+                <label style={labelStyle} htmlFor="race-car-numbering">Car Numbering</label>
                 <select
+                    id="race-car-numbering"
                     value={formData.car_numbering_strategy}
                     onChange={e => handleChange('car_numbering_strategy', e.target.value)}
                     style={inputStyle}
@@ -176,8 +187,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
             </div>
              {formData.car_numbering_strategy === 'GLOBAL' && (
                 <div>
-                     <label style={labelStyle}>Global Start Number</label>
+                     <label style={labelStyle} htmlFor="race-global-start">Global Start Number</label>
                     <input
+                        id="race-global-start"
                         type="number"
                         value={formData.global_start_number}
                         onChange={e => handleChange('global_start_number', parseInt(e.target.value))}

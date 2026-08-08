@@ -2,6 +2,7 @@
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import RaceDetails from './RaceDetails';
 
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -282,5 +283,113 @@ describe('RaceDetails', () => {
         });
 
         expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
+    });
+});
+
+describe('the fields GetRaceDetails actually asks for', () => {
+    /**
+     * Field names selected directly on `race` — not inside a nested selection.
+     */
+    function raceFields(document: { definitions: readonly any[] }): Set<string> {
+        const operation = document.definitions[0];
+        const race = operation.selectionSet.selections.find(
+            (s: any) => s.name.value === 'race',
+        );
+        return new Set(
+            race.selectionSet.selections
+                .filter((s: any) => !s.selectionSet)
+                .map((s: any) => s.name.value),
+        );
+    }
+
+    it('asks for trackId, which the settings panel and the edit form both need', async () => {
+        // The bug this pins was one missing line in the document, and every
+        // test in this file was blind to it: they mock the query result, and a
+        // mock is written from what the component reads rather than from what
+        // the document selects. So the component read `trackId`, the mocks
+        // supplied it, and the server never sent it.
+        //
+        // Two things followed. The settings panel showed "Track: Unknown" for
+        // every race ever created. Worse, opening Edit Details and saving —
+        // without touching a field — moved the race to whichever track happened
+        // to be first, because `RaceForm` falls back to `tracks[0]` when it has
+        // no track. A six-lane race silently became a four-lane one.
+        const GQL = await import('../graphql/queries');
+        expect(raceFields(GQL.GET_RACE_DETAILS as any)).toContain('trackId');
+    });
+
+    it('asks for every scalar the page maps off the race', async () => {
+        // Same class, caught generally: anything the mapper reads and the
+        // document does not select is `undefined` at runtime and mocked-in at
+        // test time.
+        const GQL = await import('../graphql/queries');
+        const selected = raceFields(GQL.GET_RACE_DETAILS as any);
+        for (const field of [
+            'id',
+            'name',
+            'dateTime',
+            'location',
+            'trackId',
+            'scoringStrategy',
+            'carNumberingStrategy',
+            'globalStartNumber',
+            'championshipTrophies',
+        ]) {
+            expect(selected).toContain(field);
+        }
+    });
+});
+
+describe('editing a race that is not on the first track', () => {
+    it('opens the form on the track the race is actually on', async () => {
+        // `RaceForm` defaults a missing track to `tracks[0]`, which is right
+        // when creating and destructive when editing: the operator opens the
+        // form to change a name and the track field is already wrong.
+        const user = userEvent.setup();
+        (useQuery as any).mockReturnValue([
+            {
+                data: {
+                    race: {
+                        id: 1,
+                        name: 'Test Race',
+                        dateTime: '2026-03-15T10:00:00',
+                        location: 'Gym',
+                        trackId: 2,
+                        scoringStrategy: 'TIMED',
+                        carNumberingStrategy: 'GLOBAL',
+                        globalStartNumber: 1,
+                        championshipTrophies: 3,
+                        racers: [],
+                        dens: [],
+                        leaderboard: [],
+                    },
+                    tracks: [
+                        { id: 1, name: 'Main Track', laneCount: 4 },
+                        { id: 2, name: 'Second Track', laneCount: 6 },
+                    ],
+                },
+                fetching: false,
+                error: null,
+            },
+            vi.fn(),
+        ]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes>
+                    <Route path="/races/:raceId" element={<RaceDetails />} />
+                </Routes>
+            </MemoryRouter>,
+        );
+
+        await waitFor(() => expect(screen.getByText('Race Settings')).toBeInTheDocument());
+        // The panel names it too, rather than saying "Unknown".
+        expect(screen.getByText('Second Track')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: /edit details/i }));
+
+        const trackSelect = await screen.findByLabelText(/track/i);
+        expect((trackSelect as HTMLSelectElement).value).toBe('2');
     });
 });

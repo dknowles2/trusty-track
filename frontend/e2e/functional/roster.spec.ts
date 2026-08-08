@@ -117,3 +117,62 @@ test('a racer checked in through the UI stays checked in', async ({ page }) => {
     await page.reload();
     await expect(checkedIn).toBeVisible();
 });
+
+test('editing a race keeps it on the track it was on', async ({ page }) => {
+    // A missing field in one query made this destructive rather than cosmetic.
+    // `GetRaceDetails` did not select `trackId`, so the settings panel showed
+    // "Track: Unknown" and — because `RaceForm` defaults a missing track to the
+    // first one — opening Edit Details and saving moved the race to whichever
+    // track happened to be first. Changing a race's name changed its lane count
+    // and its timer.
+    //
+    // The unit tests could not catch it: they mock the query result, and a mock
+    // is written from what the component reads rather than from what the
+    // document selects. This is the level the bug was reachable at.
+    await ensureConfigured(page);
+
+    const { createTrack } = await gql<{ createTrack: { id: number } }>(
+        page,
+        `mutation MakeSecondTrack($track: TrackInput!) {
+            createTrack(track: $track) { id }
+        }`,
+        { track: { name: `Second Track ${Date.now()}`, laneCount: 6, timerType: 'FAKE' } },
+    );
+
+    const { createRace } = await gql<{ createRace: { id: number } }>(
+        page,
+        `mutation MakeRaceOnSecondTrack($race: RaceInput!) {
+            createRace(race: $race) { id }
+        }`,
+        {
+            race: {
+                name: `Track Preserved ${Date.now()}`,
+                trackId: createTrack.id,
+                carNumberingStrategy: 'MANUAL',
+                scoringStrategy: 'TIMED',
+            },
+        },
+    );
+
+    await page.goto(`/race/${createRace.id}`);
+
+    // The panel names the track rather than saying "Unknown".
+    await expect(page.getByText('Second Track', { exact: false })).toBeVisible({
+        timeout: 30000,
+    });
+
+    await page.getByRole('button', { name: /edit details/i }).click();
+    // Preselected on the race's own track, not on the first one in the list.
+    await expect(page.getByLabel(/track/i)).toHaveValue(String(createTrack.id));
+
+    // Save without touching anything — the operator's "I only changed the name"
+    // case, reduced to changing nothing at all.
+    await page.getByRole('button', { name: /save changes/i }).click();
+
+    const after = await gql<{ race: { trackId: number } }>(
+        page,
+        `query TrackAfterEdit($raceId: Int!) { race(raceId: $raceId) { trackId } }`,
+        { raceId: createRace.id },
+    );
+    expect(after.race.trackId).toBe(createTrack.id);
+});

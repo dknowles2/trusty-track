@@ -195,3 +195,57 @@ describe('SystemSettings', () => {
         expect(config.tracks[0].serialPort).toBeFalsy();
     });
 });
+
+describe('a saved track with no length', () => {
+    it('stays editable rather than blocking the whole form', async () => {
+        // `lengthFeet` is nullable on the server and `createTrack` does not
+        // require it, so a track can legitimately have none. The input is
+        // `required`, so a null rendered an empty box and the form silently
+        // refused to submit — every other setting on the page along with it,
+        // and nothing on screen naming the track at fault.
+        //
+        // The submit handler already treated a missing length as 40. The form
+        // now shows that rather than contradicting it.
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    groupName: 'Pack 42',
+                    debugMode: false,
+                    tracks: [
+                        { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                        // Created through the API, which does not ask for a length.
+                        { id: 2, name: 'Second Track', laneCount: 6, lengthFeet: null, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                    ],
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
+        (useMutation as any).mockImplementation((query: any) =>
+            query.includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        render(
+            <MemoryRouter>
+                <SystemSettings />
+            </MemoryRouter>,
+        );
+
+        const lengths = await screen.findAllByLabelText('Length (Feet)');
+        expect((lengths[1] as HTMLInputElement).value).toBe('40');
+        // The whole point: nothing on the form is blocking submission.
+        expect(document.querySelector('form')!.checkValidity()).toBe(true);
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        expect(mockUpdate.mock.calls[0][0].config.tracks[1].lengthFeet).toBe(40);
+    });
+});
