@@ -68,7 +68,7 @@ describe('RaceDetails Bulk Actions', () => {
                     dateTime: mockRace.date_time,
                     scoringStrategy: 'TIMED',
                     carNumberingStrategy: 'PER_GROUP',
-                    racers: mockRacers.map(r => ({ 
+                    racers: mockRacers.map(r => ({
                         id: r.id,
                         firstName: r.first_name,
                         lastName: r.last_name,
@@ -97,7 +97,7 @@ describe('RaceDetails Bulk Actions', () => {
 
     };
 
-    it('enables bulk actions menu after selecting racers', async () => {
+    it('shows the selection bar once racers are selected', async () => {
         setupMocks();
         render(
             <MemoryRouter initialEntries={['/races/1']}>
@@ -107,14 +107,14 @@ describe('RaceDetails Bulk Actions', () => {
 
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
 
-        const bulkMenuBtn = screen.getByRole('button', { name: /Bulk Actions/i });
-        expect(bulkMenuBtn).toBeDisabled();
 
         const alphaCheckbox = screen.getByTestId('racer-select-1');
         fireEvent.click(alphaCheckbox);
 
-        expect(bulkMenuBtn).not.toBeDisabled();
-        expect(screen.getByText('Bulk Actions (1)')).toBeInTheDocument();
+        // The actions arrive with the selection rather than behind a button
+        // that is disabled until there is one.
+        expect(screen.getByTestId('roster-selection-bar')).toBeInTheDocument();
+        expect(screen.getByText('1 selected')).toBeInTheDocument();
     });
 
     it('toggles all racers with select all checkbox', async () => {
@@ -130,18 +130,16 @@ describe('RaceDetails Bulk Actions', () => {
         const selectAllCheckbox = screen.getByTestId('select-all-header');
         fireEvent.click(selectAllCheckbox);
 
-        expect(screen.getByText('Bulk Actions (2)')).toBeInTheDocument();
+        expect(screen.getByText('2 selected')).toBeInTheDocument();
 
         fireEvent.click(selectAllCheckbox);
-        const bulkMenuBtn = screen.getByRole('button', { name: /Bulk Actions/i });
-        expect(bulkMenuBtn).toBeDisabled();
     });
 
     it('triggers bulk auto-number action', async () => {
         setupMocks();
-        
+
         const user = (await import('@testing-library/user-event')).default.setup();
-        
+
         render(
             <MemoryRouter initialEntries={['/races/1']}>
                 <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
@@ -153,8 +151,6 @@ describe('RaceDetails Bulk Actions', () => {
         const selectAllCheckbox = screen.getByTestId('select-all-header');
         await user.click(selectAllCheckbox);
 
-        const bulkMenuBtn = screen.getByRole('button', { name: /Bulk Actions/i });
-        await user.click(bulkMenuBtn);
 
         const autoNumBtn = await screen.findByTestId('bulk-auto-number-btn');
         await user.click(autoNumBtn);
@@ -168,9 +164,9 @@ describe('RaceDetails Bulk Actions', () => {
     it('triggers bulk delete action after confirmation', async () => {
         setupMocks();
         mockShowConfirm.mockResolvedValue(true);
-        
+
         const user = (await import('@testing-library/user-event')).default.setup();
-        
+
         render(
             <MemoryRouter initialEntries={['/races/1']}>
                 <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
@@ -182,8 +178,6 @@ describe('RaceDetails Bulk Actions', () => {
         const alphaCheckbox = screen.getByTestId('racer-select-1');
         await user.click(alphaCheckbox);
 
-        const bulkMenuBtn = screen.getByRole('button', { name: /Bulk Actions/i });
-        await user.click(bulkMenuBtn);
 
         const deleteBtn = await screen.findByTestId('bulk-delete-btn');
         await user.click(deleteBtn);
@@ -194,10 +188,10 @@ describe('RaceDetails Bulk Actions', () => {
         });
     });
 
-    it('renders den options in Move to den submenu', async () => {
+    it('renders den options in the Move to den menu', async () => {
         setupMocks();
         const user = (await import('@testing-library/user-event')).default.setup();
-        
+
         render(
             <MemoryRouter initialEntries={['/races/1']}>
                 <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
@@ -207,10 +201,10 @@ describe('RaceDetails Bulk Actions', () => {
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
 
         await user.click(screen.getByTestId('racer-select-1'));
-        await user.click(screen.getByRole('button', { name: /Bulk Actions/i }));
 
-        const expandBtn = await screen.findByTestId('bulk-move-to-den-expand-btn');
-        await user.hover(expandBtn);
+        // A click, not a hover. The list used to fly out sideways on hover and
+        // had to measure which side had room; it opens downward now.
+        await user.click(await screen.findByTestId('bulk-move-to-den-expand-btn'));
 
         const tigerOption = await screen.findByTestId('bulk-move-to-den-1');
         expect(tigerOption).toHaveTextContent('Tigers');
@@ -220,9 +214,9 @@ describe('RaceDetails Bulk Actions', () => {
     it('triggers bulk check-in action after confirmation', async () => {
         setupMocks();
         mockShowConfirm.mockResolvedValue(true);
-        
+
         const user = (await import('@testing-library/user-event')).default.setup();
-        
+
         render(
             <MemoryRouter initialEntries={['/races/1']}>
                 <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
@@ -234,8 +228,6 @@ describe('RaceDetails Bulk Actions', () => {
         const selectAllCheckbox = screen.getByTestId('select-all-header');
         await user.click(selectAllCheckbox);
 
-        const bulkMenuBtn = screen.getByRole('button', { name: /Bulk Actions/i });
-        await user.click(bulkMenuBtn);
 
         const checkInBtn = await screen.findByTestId('bulk-check-in-btn');
         await user.click(checkInBtn);
@@ -245,5 +237,77 @@ describe('RaceDetails Bulk Actions', () => {
             racerIds: [1, 2],
             passedInspection: true
         });
+    });
+
+    it('keeps the first row to three controls', async () => {
+        // The whole point of the reorganisation: six buttons competing for one
+        // row is what made their labels wrap. Manage dens, photos and print are
+        // set-up actions and live behind the overflow.
+        setupMocks();
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+
+        // Anchored: the split button's arrow is labelled 'More ways to add
+        // racers', which an unanchored match also finds.
+        expect(screen.getByRole('button', { name: /^Add Racer$/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^Scan$/i })).toBeInTheDocument();
+        expect(screen.getByTestId('roster-more-menu')).toBeInTheDocument();
+
+        expect(screen.queryByRole('button', { name: /Manage Dens/i })).toBeNull();
+        expect(screen.queryByRole('button', { name: /Upload Photos/i })).toBeNull();
+        expect(screen.queryByRole('button', { name: /^Print/i })).toBeNull();
+    });
+
+    it('offers the set-up actions in the overflow menu', async () => {
+        setupMocks();
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+        await user.click(screen.getByTestId('roster-more-menu'));
+
+        expect(screen.getByRole('button', { name: /Manage Dens/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Upload Photos/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /^Print/i })).toBeInTheDocument();
+    });
+
+    it('has no selection bar until something is selected', async () => {
+        // It replaced a button that was disabled for most of the day, so it
+        // must not simply be that button wearing a different shape.
+        setupMocks();
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+        expect(screen.queryByTestId('roster-selection-bar')).toBeNull();
+    });
+
+    it('clears the selection, which puts the bar away', async () => {
+        setupMocks();
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+        await user.click(screen.getByTestId('racer-select-1'));
+        expect(screen.getByTestId('roster-selection-bar')).toBeInTheDocument();
+
+        await user.click(screen.getByTestId('clear-selection'));
+        expect(screen.queryByTestId('roster-selection-bar')).toBeNull();
     });
 });

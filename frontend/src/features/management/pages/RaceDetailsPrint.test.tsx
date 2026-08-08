@@ -90,6 +90,9 @@ describe('printing from the roster', () => {
         openRoster();
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
 
+        // Print moved into the overflow menu: it is something an operator does
+        // once before check-in opens, not repeatedly during the event.
+        fireEvent.click(screen.getByTestId('roster-more-menu'));
         fireEvent.click(screen.getByRole('button', { name: /^Print$/ }));
 
         // No `racers=` at all, which the print page reads as everyone. A "0
@@ -103,6 +106,7 @@ describe('printing from the roster', () => {
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
 
         fireEvent.click(screen.getByTestId('racer-select-2'));
+        fireEvent.click(screen.getByTestId('roster-more-menu'));
         fireEvent.click(screen.getByRole('button', { name: /Print \(1\)/ }));
 
         expect(screen.getByTestId('destination')).toHaveTextContent(
@@ -116,6 +120,7 @@ describe('printing from the roster', () => {
 
         fireEvent.click(screen.getByTestId('select-all-header'));
 
+        fireEvent.click(screen.getByTestId('roster-more-menu'));
         expect(screen.getByRole('button', { name: /Print \(2\)/ })).toBeInTheDocument();
     });
 });
