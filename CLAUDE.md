@@ -595,6 +595,14 @@ Two things it settles that were previously accidents:
 
 `roundCompletion.ts` is the matching piece for `RaceControl.tsx`: there is no event for "a round's field was just decided", so it is recovered by comparing one query result against the last. `seen === null` means "first look", where every decided round is history rather than news.
 
+### One row of race navigation
+
+`Navigation.tsx` holds every race view — Roster, Control, Standings, Awards, Stats, Live — and that is the only race navigation there is. There used to be a second: a `RaceModeToggle` rendered by four pages, offering Roster/Standings/Awards/Stats. Standings and Stats therefore appeared **twice**, two rows apart, and the same page was called Details in one and Roster in the other. Awards appeared only on the toggle, so it was unreachable from Control or Live.
+
+The merged row keeps the toggle's word — **Roster**, which is what the page calls itself — and Standings and RaceStats lost header rows that existed only to centre the toggle between two spacer divs.
+
+If you add a race view, it goes in `links` in `Navigation.tsx`. Don't reintroduce a per-page toggle.
+
 ### The roster toolbar
 
 `RaceDetails.tsx`. Six buttons competed for one row and four of them wrapped their labels at 1280px. The rule now: **the first row holds Add Racer, Scan and an overflow menu, and nothing else.** Manage dens, upload photos and print are things an operator does once before an event, so they live behind the `⋯`; add and scan are the two reached for repeatedly. Search and the group-by-den toggle sit on their own row beneath.

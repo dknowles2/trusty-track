@@ -14,7 +14,6 @@ import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
-import RaceModeToggle from '../../racing/components/RaceModeToggle';
 import { Icon } from '@mdi/react';
 import {
   mdiMagnify, mdiNumeric,
@@ -497,7 +496,6 @@ export default function RaceDetails() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
           <div style={{ minWidth: '160px' }} />
 
-          <RaceModeToggle />
 
           <div style={{ minWidth: '160px' }} />
       </div>

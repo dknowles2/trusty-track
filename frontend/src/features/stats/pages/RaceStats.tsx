@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
-import RaceModeToggle from '../../racing/components/RaceModeToggle';
 import {
   BarChart,
   Bar,
@@ -216,15 +215,6 @@ export default function RaceStats() {
 
   return (
     <div className="container race-stats" style={{ padding: '2rem' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
-        <div style={{ minWidth: '160px' }} />
-
-        <RaceModeToggle />
-
-        <div style={{ minWidth: '160px' }} />
-      </div>
-
       {/* Overview Cards */}
       <div className="race-stats__overview-cards">
         <div className="race-stats__overview-card race-stats__overview-card--badge">
