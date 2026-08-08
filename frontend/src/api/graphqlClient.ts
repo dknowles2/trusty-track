@@ -22,6 +22,11 @@ const wsClient = createWsClient({
  * a championship round's standings with different scores and ranks, so the two
  * rows would collide and overwrite each other.
  *
+ * `TimerModel` does have a stable `key`, and is embedded anyway. It is a
+ * catalogue the server compiles in — the same list for every caller, changing
+ * only when the app is upgraded — so there is nothing for identity to buy, and
+ * a keyed entity would outlive the query that fetched it for no reason.
+ *
  * `graphqlClient.test.ts` asserts this list matches `schema.graphql` exactly,
  * so adding a type without an `id` fails the build rather than silently
  * producing an unkeyable entity at runtime.
@@ -45,6 +50,7 @@ export const EMBEDDED_TYPES = [
   'RaceStats',
   'RacerStat',
   'SerialLogEntry',
+  'TimerModel',
   'TimerStateChangedEvent',
   'TimerStatus',
   'TimesPerLane',
