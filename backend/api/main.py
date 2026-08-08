@@ -29,14 +29,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
 from strawberry.fastapi import GraphQLRouter
 
 from backend.api import auth
 from backend.api.loaders import RequestLoaders
 from backend.api.schema import schema
 from backend.db import models
-from backend.db.database import UPLOAD_DIR, SessionLocal, init_db
-from backend.services import printables
+from backend.db.database import (
+    DATA_DIR,
+    UPLOAD_DIR,
+    SessionLocal,
+    database_path,
+    engine,
+    init_db,
+    known_revisions,
+)
+from backend.services import backup, printables
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer import devices
 from backend.services.timer.manager import TimerManager, initialize_timer_managers
@@ -214,6 +223,150 @@ def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
         # and the operator will reprint it more than once.
         headers={"Cache-Control": "public, max-age=31536000, immutable"},
     )
+
+
+def _require_operator(request: Request, db: Session) -> None:
+    """Refuse anyone but the operator, for a route the role policy cannot see.
+
+    `RolePolicyExtension` guards GraphQL mutations and these are not GraphQL, so
+    the check is made here for the same reason the timer socket makes its own
+    (#15). Backup is operator-only in both directions: the archive holds every
+    racer's name and photograph, and a restore replaces the running event.
+    """
+    if _role_for_request(db, request.headers.get(auth.PIN_HEADER)) is not (
+        auth.Role.OPERATOR
+    ):
+        raise HTTPException(status_code=403, detail="Operator PIN required")
+
+
+def _staging_dir() -> Path:
+    """Scratch space beside the data it is staging.
+
+    Inside the data directory rather than the system temp directory so that
+    `os.replace` is a rename rather than a copy across filesystems — on a Pi the
+    two are usually different devices, and a cross-device restore would copy the
+    database twice and lose the atomicity the rename gives.
+    """
+    return Path(DATA_DIR) / ".backup-staging"
+
+
+# Both paths, as with the printables barcode above: the built frontend asks for
+# `/api/...` and the Vite dev proxy strips the prefix before forwarding.
+@app.get("/backup")
+@app.get("/api/backup")
+def download_backup(request: Request, db: Session = Depends(get_db)) -> FileResponse:
+    """The whole event as one file: the database and every photograph.
+
+    REST rather than GraphQL because the response is a zip. Streamed from a
+    temporary file rather than built in memory — an archive is a database plus
+    sixty photographs, and the machine this runs on has a gigabyte of RAM.
+    """
+    _require_operator(request, db)
+
+    path = database_path()
+    if path is None:
+        raise HTTPException(
+            status_code=503,
+            detail="This install does not store its data in a file, so it "
+            "cannot be backed up here.",
+        )
+
+    try:
+        from ..version import __version__ as app_version
+    except ImportError:  # pragma: no cover - version is generated at build time
+        app_version = "unknown"
+
+    staging = _staging_dir()
+    staging.mkdir(parents=True, exist_ok=True)
+    archive_path = staging / f"trusty-track-backup-{uuid.uuid4().hex}.zip"
+
+    manifest = backup.write_archive(
+        archive_path,
+        engine=engine,
+        upload_dir=Path(UPLOAD_DIR),
+        app_version=app_version,
+        staging_dir=staging,
+    )
+
+    stamp = manifest.created_at.replace(":", "").replace("-", "")[:15]
+    return FileResponse(
+        archive_path,
+        media_type="application/zip",
+        filename=f"trusty-track-backup-{stamp}.zip",
+        # The archive exists only to be sent. Deleting it after the response
+        # keeps a series of backups from filling the card they protect.
+        background=BackgroundTask(archive_path.unlink, missing_ok=True),
+    )
+
+
+@app.post("/backup/restore")
+@app.post("/api/backup/restore")
+async def restore_backup(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Replace the running event with the contents of an archive.
+
+    Destructive and deliberately so — the confirmation belongs to the client,
+    which is the only place that can ask a person. What this owes them is that a
+    refusal costs nothing: `restore_archive` validates the manifest, checks the
+    schema version and unpacks every member before it moves anything, so a
+    damaged or too-new archive leaves the event exactly as it was.
+
+    The database that was replaced is kept beside the new one with a
+    `.pre-restore` suffix, and the uploads directory likewise.
+    """
+    _require_operator(request, db)
+
+    path = database_path()
+    if path is None:
+        raise HTTPException(
+            status_code=503,
+            detail="This install does not store its data in a file, so it "
+            "cannot be restored here.",
+        )
+
+    # The request's own session holds a connection to the database that is about
+    # to be replaced. Close it before the swap rather than after.
+    db.close()
+
+    # Timer managers hold serial ports and write through their own sessions
+    # (#9), and the track ids they are keyed on are about to change. Stop them
+    # before the swap; they are rebuilt from the restored tracks below.
+    for manager in list(TIMER_MANAGERS.values()):
+        try:
+            await manager.stop()
+        except Exception as exc:  # pragma: no cover - best effort teardown
+            logger.warning("Timer manager did not stop cleanly: %s", exc)
+    TIMER_MANAGERS.clear()
+
+    try:
+        manifest = backup.restore_archive(
+            file.file,
+            database_path=path,
+            upload_dir=Path(UPLOAD_DIR),
+            staging_dir=_staging_dir(),
+            known_revisions=known_revisions(),
+            dispose=engine.dispose,
+        )
+    except backup.ArchiveError as exc:
+        # Nothing was moved, so the event is untouched — but the managers were
+        # stopped, so put them back before reporting the refusal.
+        await initialize_timer_managers(TIMER_MANAGERS, session_factory=SessionLocal)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # An older archive is restored as it was and then upgraded, which is the
+    # same path a pre-Alembic database already takes at startup.
+    init_db()
+    await initialize_timer_managers(TIMER_MANAGERS, session_factory=SessionLocal)
+
+    return {
+        "restored": True,
+        "created_at": manifest.created_at,
+        "app_version": manifest.app_version,
+        "upload_count": manifest.upload_count,
+    }
 
 
 # Mount static assets if the built frontend exists

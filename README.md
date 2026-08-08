@@ -50,6 +50,8 @@ For the full documentation and user guides, visit: **[https://dknowles2.github.i
 | [Free Race](https://dknowles2.github.io/trusty-track/free-race/)                       | Practice and exhibition heats that count for nothing              |
 | [Observation Displays](https://dknowles2.github.io/trusty-track/observation-displays/) | Setting up audience screens and projectors                        |
 | [Race Stats](https://dknowles2.github.io/trusty-track/race-stats/)                     | Lane fairness, per-racer numbers, and CSV exports                 |
+| [Access and Your Network](https://dknowles2.github.io/trusty-track/access-and-network/) | PINs, which network to use, and what a display may do             |
+| [Backup and Restore](https://dknowles2.github.io/trusty-track/backup-and-restore/)     | Saving the whole event to one file, and putting it back           |
 
 ### Installation
 

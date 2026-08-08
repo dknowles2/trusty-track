@@ -77,6 +77,7 @@ backend/
     heat_session.py   # What is on the track right now: heat + timer, merged
   migrations/         # Alembic environment and versions
   services/
+    backup.py         # The install as one zip, and putting it back
     scoring.py        # Leaderboard and advancement, wired to the DB
     stats.py          # Race statistics
     image_processing.py
@@ -103,6 +104,7 @@ frontend/src/
       scanning.ts             #   reading a scanned code back — pure, no React
     stats/                    # Standings, RaceStats, Leaderboard
     settings/                 # SystemSettings first-run wizard
+      backupClient.ts         #   the two REST calls — no React
   gql/                        # GENERATED — do not edit (see below)
   components/ui/              # Modal, CameraCapture
   context/                    # AlertContext, SerialProxyContext
@@ -572,6 +574,27 @@ Two traps, both recorded on #15 and both still true:
 **Role resolution is lazy** (`auth.resolve_role`). It costs a query for the configured PINs, and only a mutation ever asks — an audience display resolves no role at all. `test_query_counts.py` caught the eager version.
 
 **Absent and empty PINs mean different things** in `InitialConfigInput`. Absent is *leave alone*; empty is *clear*. The settings page re-submits the whole config on every save and cannot send back a PIN it is never given, so treating absent as "clear" would switch enforcement off whenever the operator renamed a track.
+
+### Backup and restore
+
+`backend/services/backup.py`, `GET /api/backup` and `POST /api/backup/restore`, the panel at the foot of System Settings. An archive is a zip of three things: a database snapshot, the uploads directory, and a `manifest.json`.
+
+**The service imports nothing from the app.** It takes an engine and two directories, which is what lets a test run a real restore against a temporary data directory rather than the operator's own. Keep it that way — a restore is the one operation in the tree that overwrites everything, so it must be testable without pointing it at the install.
+
+Four rules, each of which is a way of getting it wrong:
+
+- **The snapshot goes through SQLite's backup API, never `shutil.copy`.** The app is serving while it runs and the timer writes through its own session (#9), so a file copy can catch a half-written page. The backup API takes a read lock and produces a database that opens.
+- **Everything refusable is refused before anything moves.** The manifest is read, the schema revision is checked and every member is unpacked into staging *first*; only then is anything swapped. A damaged or too-new archive leaves the running event untouched, which is what `test_a_refusal_leaves_the_running_event_untouched` pins.
+- **`dispose` runs between staging and the swap.** SQLAlchemy pools connections, and replacing the file underneath an open one leaves it addressing a database that no longer exists. `test_the_connection_pool_is_dropped_before_the_swap` asserts the ordering rather than the call.
+- **A stale `-wal`/`-shm` beside a replaced database is a corrupt read, not an error.** They belong to the file that was just moved aside, so they are removed with it.
+
+**Recognition is by Alembic revision, not by version number** (`database.known_revisions`). A *newer* archive holds a schema this install has no migrations for and no downgrade path back from, so it is refused; an *older* one is restored and then upgraded forward by `init_db()`, which is the path a legacy database already takes at startup. The revision comes out of the archived database rather than being asserted by the manifest.
+
+**Member names are checked, not sanitised.** An archive arrives from whoever holds the operator PIN. A backup we wrote contains exactly three kinds of entry, so anything else — `uploads/../../etc/passwd` being the classic — is a reason to stop rather than to guess.
+
+**Both endpoints check the role themselves.** `RolePolicyExtension` guards GraphQL mutations and these are not GraphQL, the same reason `/ws/timer/{track_id}` does its own. Operator-only in both directions: the archive holds every racer's name and photograph, and a restore replaces a running event.
+
+**One level of undo, deliberately.** What is replaced is kept as `trusty-track.db.pre-restore` and `uploads.pre-restore/`. An unbounded history of 60-photo directories would fill the SD card the backup exists to protect.
 
 ### First-run gate
 
