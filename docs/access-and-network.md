@@ -117,9 +117,11 @@ Being straight about the limits:
   already on that network with the right tools could read the PIN as it goes
   past. Against the threat this is designed for — casual mischief in the room —
   that does not change much, but it is the honest position.
-- **There are no user accounts**, and no record of who did what. One shared PIN
-  per role, which is the right size of solution for a pack derby and would not
-  be for anything larger.
+- **There are no user accounts.** One shared PIN per role, which is the right
+  size of solution for a pack derby and would not be for anything larger. The
+  [activity log](#the-activity-log) below records which *role* did what, and
+  from which device — not which person, because the app has no way of knowing
+  that.
 
 
 ## The activity log

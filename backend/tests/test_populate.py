@@ -2,6 +2,7 @@
 
 import pytest
 
+from backend import demo_seed
 from backend.db import crud, models, populate, schemas
 
 
@@ -12,16 +13,24 @@ def _race(db, **overrides) -> models.Race:
     enforces it now (#125), so a race hung off a bare ``group_id=1`` cannot be
     inserted at all — these tests used to get away with it because nothing was
     checking.
+
+    The group and track are named after the race, so a test that wants two
+    races is not stopped by a unique constraint on something it does not care
+    about.
     """
-    group = crud.create_group(db, schemas.GroupCreate(name="Test Pack"))
+    name = overrides.pop("name", "Test Race")
+    group = crud.create_group(db, schemas.GroupCreate(name=f"Test Pack for {name}"))
     track = crud.create_track(
-        db, schemas.TrackCreate(name="Test Track", lane_count=4, timer_type="FAKE")
+        db,
+        schemas.TrackCreate(
+            name=f"Test Track for {name}", lane_count=4, timer_type="FAKE"
+        ),
     )
     return crud.create_race(
         db,
         schemas.RaceCreate(
             group_id=group.id,
-            name="Test Race",
+            name=name,
             date_time="2024-01-01T10:00:00",
             location="Test Location",
             track_id=track.id,
@@ -122,6 +131,56 @@ def test_populate_with_manual_numbering(db):
 
     # Verify car numbers are None (manual assignment)
     assert all(r.car_number is None for r in racers)
+
+
+class TestRepeatability:
+    """The roster is invented, and the documentation screenshots photograph it.
+
+    Random by default — a practice race that introduced the operator to the
+    same thirty children every evening would be a worse rehearsal. Repeatable
+    when asked, because otherwise every name in every screenshot changed on
+    every run, so a change to one page rewrote fifty binary files and two
+    documentation branches conflicted on all fifty. See `backend.demo_seed`.
+    """
+
+    def _roster(self, db, race) -> list[str]:
+        """Populate from empty and report who turned up.
+
+        Cleared first, because `get_unique_name` refuses a name the race
+        already holds — so a second populate on a full race would differ for
+        that reason rather than for the one under test. Clearing reproduces
+        what the screenshot run actually does, which is start from an empty
+        data directory every time.
+        """
+        already = crud.get_racers(db, race_id=race.id)
+        crud.bulk_delete_racers(db, [r.id for r in already])
+        populate.generate_fake_racers(
+            db, race.id, count=6, add_racer_photos=False, add_car_photos=False
+        )
+        return [
+            f"{r.first_name} {r.last_name}"
+            for r in crud.get_racers(db, race_id=race.id)
+        ]
+
+    def test_an_unseeded_roster_differs_every_time(self, db, monkeypatch):
+        monkeypatch.delenv(demo_seed.SEED_VARIABLE, raising=False)
+        race = _race(db)
+
+        assert self._roster(db, race) != self._roster(db, race)
+
+    def test_a_seeded_roster_repeats(self, db, monkeypatch):
+        monkeypatch.setenv(demo_seed.SEED_VARIABLE, "a-fixed-seed")
+        race = _race(db)
+
+        assert self._roster(db, race) == self._roster(db, race)
+
+    def test_two_races_still_get_different_rosters(self, db, monkeypatch):
+        """Keyed on the race, so one seed does not make every race identical."""
+        monkeypatch.setenv(demo_seed.SEED_VARIABLE, "a-fixed-seed")
+        first = _race(db)
+        second = _race(db, name="Another Race")
+
+        assert self._roster(db, first) != self._roster(db, second)
 
 
 if __name__ == "__main__":

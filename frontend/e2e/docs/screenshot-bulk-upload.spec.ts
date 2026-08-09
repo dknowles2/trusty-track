@@ -9,7 +9,7 @@
  * backend is reachable (the Vite proxy handles the SSL tunnel to port 8005).
  */
 
-import { test } from '@playwright/test';
+import { test } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';

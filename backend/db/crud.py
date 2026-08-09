@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from backend import demo_seed
 from backend.domain import advancement, audit, lanes, latecomers, scheduling
 
 from . import lane_sync, models, schemas
@@ -527,6 +528,21 @@ def delete_free_race_heat(db: Session, heat_id: int) -> bool:
     return False
 
 
+def _schedule_rng(db: Session, race_id: int, round_id: int) -> random.Random | None:
+    """Where the shuffle comes from — ordinarily nowhere, so PPC makes its own.
+
+    `domain.scheduling` takes an injectable generator and stays pure; reading
+    the environment is I/O and belongs here. The key is the race's *name* and
+    the round's number rather than their ids, which depend on how much was
+    created before them. See `backend.demo_seed`.
+    """
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    name = race.name if race else race_id
+    number = round_obj.round_number if round_obj else round_id
+    return demo_seed.rng(f"schedule:{name}:{number}")
+
+
 def _generate_ppc(
     db: Session,
     race_id: int,
@@ -543,7 +559,10 @@ def _generate_ppc(
     ``usable_lanes`` is which lanes, not how many (#171).
     """
     plans = scheduling.generate_ppc(
-        p_ids, usable_lanes, start_heat_number=start_heat_num
+        p_ids,
+        usable_lanes,
+        start_heat_number=start_heat_num,
+        rng=_schedule_rng(db, race_id, round_id),
     )
 
     generated_heats: list[models.Heat] = []
@@ -1085,7 +1104,12 @@ def _reset_heats_in_place(
     if not existing:
         return False
 
-    plans = scheduling.generate_ppc(p_ids, usable_lanes, start_heat_number=1)
+    plans = scheduling.generate_ppc(
+        p_ids,
+        usable_lanes,
+        start_heat_number=1,
+        rng=_schedule_rng(db, existing[0].race_id, round_id),
+    )
     if len(plans) != len(existing):
         return False
 
@@ -1598,7 +1622,10 @@ def get_random_lane_assignments(
         .filter(models.Racer.race_id == race_id, models.Racer.car_passed_inspection)
         .all()
     )
-    random.shuffle(pool)
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    demo_seed.generator(f"free-race lanes:{race.name if race else race_id}").shuffle(
+        pool
+    )
     selected = pool[:lane_count]
 
     assignments = []

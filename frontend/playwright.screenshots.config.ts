@@ -45,6 +45,14 @@ export default defineConfig({
       env: {
         TRUSTYTRACK_DATA_DIR: TEST_DATA_DIR,
         PYTHONPATH: PROJECT_ROOT,
+        // Two things the app invents are what made every screenshot differ on
+        // every run: the fake timer's lane times, and the roster `populateRace`
+        // makes up. This makes both repeat, so a regeneration that changed
+        // nothing visible produces no diff at all — which is the difference
+        // between fifty binary files being a signal and being noise. The value
+        // is arbitrary; what matters is that it never changes. See
+        // `backend/demo_seed.py`.
+        TRUSTYTRACK_DEMO_SEED: 'trusty-track-docs',
       },
     },
     {

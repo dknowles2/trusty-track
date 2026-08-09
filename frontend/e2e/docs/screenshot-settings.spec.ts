@@ -12,7 +12,7 @@
  * "Settings → Tracks" and still leave somebody scrolling.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';

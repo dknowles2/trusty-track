@@ -2113,6 +2113,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "httpx" },
+    { name = "markdown" },
     { name = "mkdocs-callouts" },
     { name = "mypy" },
     { name = "pre-commit" },
@@ -2145,6 +2146,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "httpx" },
+    { name = "markdown" },
     { name = "mkdocs-callouts", specifier = ">=1.16.1" },
     { name = "mypy" },
     { name = "pre-commit" },

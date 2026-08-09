@@ -2,7 +2,7 @@
 
 `mkdocs build --strict` catches a broken link and a missing image, and it
 cannot catch a sentence that is simply wrong — which is the failure that keeps
-happening. Most of that is prose and stays a human problem. But three kinds of
+happening. Most of that is prose and stays a human problem. But four kinds of
 staleness are mechanical, and every one of them has shipped at least once with
 CI fully green:
 
@@ -11,10 +11,15 @@ CI fully green:
 * a model added and never written into the data model section (`LaneOutage`);
 * a screenshot whose subject was removed, left behind under a filename that
   still promises it (`09-bulk-actions-menu.png` outlived the Bulk Actions menu
-  by a release).
+  by a release);
+* a link to a heading that does not exist. `--strict` validates the *file*
+  half of `race-day.md#part-4-standings-and-results` and ignores everything
+  after the hash, so a link to a section that was renamed lands the reader at
+  the top of the right page and says nothing. Two were written and merged in a
+  single afternoon.
 
-A guideline in `CLAUDE.md` said to update all three, and was followed, and they
-drifted anyway. So the rule lives here instead: this file is the reason the
+A guideline in `CLAUDE.md` said to update all of these, and was followed, and
+they drifted anyway. So the rule lives here instead: this file is the reason the
 lists cannot rot, in the same way `test_auth_policy` is the reason a new
 mutation cannot go unclassified.
 
@@ -25,8 +30,11 @@ that leaves a reader hunting for a mutation that no longer exists.
 
 import inspect
 import re
+from collections.abc import Iterable
 from pathlib import Path
+from typing import NamedTuple
 
+import markdown
 import pytest
 
 from backend.api.schema import schema
@@ -222,3 +230,105 @@ def test_every_screenshot_is_used_by_a_page():
         "them was rewritten and they should go, or a link is broken in a way "
         "mkdocs cannot see because it only checks the links that exist."
     )
+
+
+class Anchor(NamedTuple):
+    """A link into a heading, and where it was written."""
+
+    source: Path
+    target: Path
+    fragment: str
+
+    def __str__(self) -> str:
+        return (
+            f"{self.source.relative_to(REPO_ROOT)} -> "
+            f"{self.target.relative_to(DOCS_DIR)}#{self.fragment}"
+        )
+
+
+#: The heading ids of a page, rendered rather than guessed.
+#:
+#: `toc` is the extension that assigns them, so asking it is the only way to
+#: be sure of matching what the site serves — the slug rules strip punctuation,
+#: fold case and disambiguate repeats, and a reimplementation would agree right
+#: up until a heading with a bracket in it. `attr_list` is what makes an
+#: explicit `{#custom-id}` count, and `fenced_code` keeps a `#` comment inside
+#: a code block from being read as a heading.
+_ANCHOR_EXTENSIONS = ["toc", "attr_list", "fenced_code"]
+
+#: An explicitly written anchor, which `toc` knows nothing about.
+_EXPLICIT_ID = re.compile(r"""<a\s[^>]*\bid=["']([^"']+)["']""")
+
+#: `[text](target)`, with an image's leading `!` excluded — an image cannot
+#: carry a fragment and `attr_list` sizing syntax trails the closing bracket.
+_LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def _pages() -> list[Path]:
+    return sorted(DOCS_DIR.rglob("*.md"))
+
+
+def _headings_of(page: Path) -> set[str]:
+    text = page.read_text()
+    renderer = markdown.Markdown(extensions=_ANCHOR_EXTENSIONS)
+    renderer.convert(text)
+
+    found: set[str] = set(_EXPLICIT_ID.findall(text))
+
+    def walk(tokens: Iterable[dict]) -> None:
+        for token in tokens:
+            found.add(token["id"])
+            walk(token.get("children", []))
+
+    walk(getattr(renderer, "toc_tokens", []))
+    return found
+
+
+def _anchor_links() -> list[Anchor]:
+    links: list[Anchor] = []
+    for page in _pages():
+        for target in _LINK.findall(page.read_text()):
+            if "#" not in target:
+                continue
+            if target.startswith(("http://", "https://", "mailto:")):
+                continue
+            path, _, fragment = target.partition("#")
+            if not fragment:
+                continue
+            destination = page if not path else (page.parent / path)
+            links.append(Anchor(page, destination.resolve(), fragment))
+    return links
+
+
+ANCHOR_LINKS = _anchor_links()
+
+
+@pytest.mark.parametrize("link", ANCHOR_LINKS, ids=str)
+def test_every_link_into_a_heading_lands_on_one(link: Anchor):
+    """`--strict` checks the file and ignores the fragment.
+
+    So a link to a section that has since been renamed still builds, still
+    passes CI, and drops the reader at the top of the page with no sign that
+    anything went wrong — which is worse than a broken link, because a broken
+    link is at least visible.
+    """
+    assert link.target.exists(), (
+        f"{link} points at a file that is not there. mkdocs catches this one; "
+        "if you are seeing it here the path is wrong in a way that stopped it "
+        "being a link at all."
+    )
+
+    headings = _headings_of(link.target)
+    assert link.fragment in headings, (
+        f"{link} names a heading that page does not have. It has: {sorted(headings)}"
+    )
+
+
+def test_the_documentation_actually_contains_anchor_links():
+    """Otherwise the check above passes an empty list and proves nothing.
+
+    The parametrised test disappears rather than fails if the pattern above
+    ever stops matching, which is exactly the shape of guard that rots
+    silently.
+    """
+    assert len(ANCHOR_LINKS) >= 5

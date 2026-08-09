@@ -1,11 +1,12 @@
 import os
-import random
 import shutil
 import sys
 import uuid
 from pathlib import Path
 
 from sqlalchemy.orm import Session
+
+from backend import demo_seed
 
 from . import crud, models, schemas
 from .database import DATA_DIR
@@ -98,16 +99,17 @@ def ensure_dens(db: Session, race_id: int):
     return existing_dens
 
 
-def get_unique_name(existing_names):
+def get_unique_name(existing_names, source=None):
+    source = source or demo_seed.generator("names")
     for _ in range(100):  # Try 100 times to get a unique name
-        first = random.choice(FIRST_NAMES)
-        last = random.choice(LAST_NAMES)
+        first = source.choice(FIRST_NAMES)
+        last = source.choice(LAST_NAMES)
         full_name = f"{first} {last}"
         if full_name not in existing_names:
             existing_names.add(full_name)
             return first, last
     # Fallback if we accidentally exhaust combinations (unlikely)
-    return f"Racer{random.randint(1000, 9999)}", "Doe"
+    return f"Racer{source.randint(1000, 9999)}", "Doe"
 
 
 def generate_fake_racers(
@@ -132,17 +134,26 @@ def generate_fake_racers(
     assets_base = str(backend_dir / "assets" / "defaults")
     uploads_dir = os.path.join(DATA_DIR, "uploads")
 
+    # Everything invented below comes from here. Keyed on the race's *name*
+    # rather than its id, which depends on how many races were created before
+    # it — see `backend.demo_seed`. Unseeded in every real install, where this
+    # is the ordinary global generator.
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    source = demo_seed.generator(f"roster:{race.name if race else race_id}")
+
+    # Sorted, because `os.listdir` promises no order and the photographs are
+    # dealt out in the order they arrive.
     racer_assets = []
     if add_racer_photos and os.path.exists(f"{assets_base}/racers"):
-        racer_assets = [
+        racer_assets = sorted(
             f for f in os.listdir(f"{assets_base}/racers") if f.endswith(".png")
-        ]
+        )
 
     car_assets = []
     if add_car_photos and os.path.exists(f"{assets_base}/cars"):
-        car_assets = [
+        car_assets = sorted(
             f for f in os.listdir(f"{assets_base}/cars") if f.endswith(".png")
-        ]
+        )
 
     # Get existing names to enforce uniqueness
     existing_racers = crud.get_racers(db, race_id=race_id)
@@ -157,20 +168,20 @@ def generate_fake_racers(
 
     # Shuffle assets for variety in this batch
     if add_racer_photos:
-        random.shuffle(racer_assets)
+        source.shuffle(racer_assets)
     if add_car_photos:
-        random.shuffle(car_assets)
+        source.shuffle(car_assets)
 
     racer_asset_idx = 0
     car_asset_idx = 0
 
     for _ in range(count):
         # Pick unique names
-        first, last = get_unique_name(existing_names)
+        first, last = get_unique_name(existing_names, source)
 
         den_id = None
         if assign_dens and dens:
-            den = random.choice(dens)
+            den = source.choice(dens)
             den_id = den.id
 
         # Handle Racer Images (Cycling)
