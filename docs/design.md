@@ -46,9 +46,14 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `id` (PK)
     -   `lane_count`
     -   `length_feet`
-    -   `timer_type` (Enum: `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`)
+    -   `timer_type` (Enum: `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`) — the **transport**
+    -   `timer_profile` (optional) — the **model**. Separate from the transport because the same device can be on either, and knowing the model does not tell you which; null means detect it (#143)
     -   `serial_port` (for direct backend connection)
     -   `remote_start_installed` (a solenoid is fitted to the start gate)
+-   **`LaneOutage`**: A lane that does not work (#171).
+    -   `id` (PK), `track_id` (FK to Track, `ON DELETE CASCADE`), `lane`, unique on (`track_id`, `lane`)
+    -   A row means the lane is out of service and its absence means it works. There is deliberately no `is_out_of_service` flag, which could disagree with the row's own absence, and no list-of-lanes column — a schedule asks for a *set* of lanes, and a set of small integers in a string column is the shape #5 spent a release removing.
+    -   Scoped to the track, not the race: the sensor is hardware in the room, so a venue running two races has the same dead lane in both.
 -   **`Race`**: Specific race event instance.
     -   `id` (PK)
     -   `group_id` (FK to Group)
@@ -93,6 +98,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `scheduling_strategy` (Enum: `PPC`)
     -   `advancement_source` (optional: `PACK`, `DEN`, or `ROUND:<id>`)
     -   `advancement_num_racers` (optional — **per den** when the source is `DEN`, absolute otherwise)
+    -   `disrupted` — set when the round was raced on an uneven field: a lane went out of service part-way through (#171), or a latecomer was admitted and heats were appended (#172). Either way some racers ran more often than others, which `TIMED` tolerates (an average is scale-free) and `POINTS` does not (a sum where lower is better). Disrupted rounds are dropped from `POINTS` standings only.
 
 -   **`Heat`**: Individual race instances. Official heats belong to a round; free race heats do not.
     -   `id` (PK)
@@ -142,6 +148,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `advancementStatus(raceId, roundId)` — Check round advancement eligibility.
 -   `raceStats(raceId)` — Lane fairness, per-racer aggregates, top moments, den comparison.
 -   `timerStatus(trackId)` — Device state for a track's timer.
+-   `timerModels()` — The timer models an operator can pick from, with the provenance of each profile. The fake timer is deliberately absent: it is reachable by `timer_type`, and offering it as a *model* would let a track ask for a fake timer over a real serial port.
 -   `heatSession(trackId, heatId)` — What is on the track right now (see below).
 -   `freeRaceHeats(raceId)`, `activeFreeRaceHeat(raceId)`, `randomFreeRaceLanes(raceId)`
 -   `version` — Running application version.
@@ -153,7 +160,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 -   Den: `createDen`, `updateDen`, `deleteDen`
 -   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored)
--   Track: `createTrack`, `updateTrack`, `deleteTrack`
+-   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages` (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)
 -   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
 -   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
@@ -358,4 +365,4 @@ all gating CI) and a Docker image. Still open:
 -   **Advanced Reporting:** More detailed race analytics and customizable reports.
 -   **Internationalization (i18n):** Support for multiple languages.
 -   **Accessibility (WCAG):** Ensure all UI components adhere to WCAG guidelines for inclusive design.
--   **Security:** Authentication and authorization on mutations, and a CORS policy narrower than `*`. Deferred by decision — it adds a prompt to a single-operator flow on a venue LAN — and tracked as issue #15.
+-   **Multiple operator accounts:** roles are derived from a shared PIN per device, with no record of who did what. Individual accounts would be a different model, and a heavier one than a pack needs.

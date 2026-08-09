@@ -53,13 +53,13 @@ Once your system settings are configured, you're ready to create a race event.
 
 ![New Race Form](assets/screenshots/getting-started/03-new-race-form.png)
 
-After clicking **Create Race**, you will be taken to the **Race Details** page.
+After clicking **Create Race**, you will be taken to the **Roster** page.
 
 ## 5. Setting Up Dens
 
 Before adding racers, you should define your racing groups, typically called "Dens" in Cub Scouting.
 
-1. On the **Race Details** page, click **Manage Dens**.
+1. On the **Roster** page, click **⋯** at the top right of the roster and choose **Manage Dens**.
 2. Click **+ Add New Den** and enter the name (e.g., "Lions", "Tigers").
 3. Each den is offered a car number range to itself — 100–199 for the first den, 200–299 for the next. Change or clear those numbers if you number cars some other way.
 
