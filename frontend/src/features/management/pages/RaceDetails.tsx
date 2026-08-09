@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import type { GetRaceDetailsQuery } from '../../../gql/operations';
@@ -840,8 +840,12 @@ export default function RaceDetails() {
                             const denColor = group.denId === -1 ? "#eee" : (den?.color || '#eee');
 
                             return (
-                                <>
-                                    <tr key={`header-${group.denId}`} className="group-row" style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
+                                // A keyed Fragment, not <>: the shorthand takes
+                                // no key, and a den header plus its rows have
+                                // to be siblings of the other groups' rows for
+                                // the table to be valid.
+                                <Fragment key={`group-${group.denId}`}>
+                                    <tr className="group-row" style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
                                         <td colSpan={7} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{
                                                 display: 'inline-block',
@@ -927,7 +931,7 @@ export default function RaceDetails() {
                                             </td>
                                         </tr>
                                     ))}
-                                </>
+                                </Fragment>
                             );
                         })
                     ) : (

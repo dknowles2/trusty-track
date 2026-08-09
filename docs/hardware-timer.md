@@ -212,6 +212,8 @@ belongs to, and every round you generate from then on is scheduled around it —
 everybody still races the same number of times, and the heats name the lanes
 that actually exist rather than renumbering them.
 
+![Lane 3 out of service, inside the track's own card](assets/screenshots/settings/01-lanes-in-service.png)
+
 ### What happens to the round you are in the middle of
 
 It depends on how far it has got:

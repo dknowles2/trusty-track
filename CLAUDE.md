@@ -784,7 +784,7 @@ Three conventions, each learned from a failure:
 
 ### The screenshots
 
-They come from Playwright specs in `frontend/e2e/docs/` — `screenshots.spec.ts` (getting started, setup, race day), `screenshot-bulk-upload.spec.ts`, `screenshot-printables.spec.ts`, `screenshot-free-race.spec.ts`. Each builds its own data against a real backend:
+They come from Playwright specs in `frontend/e2e/docs/` — `screenshots.spec.ts` (getting started, setup, race day), `screenshot-bulk-upload.spec.ts`, `screenshot-printables.spec.ts`, `screenshot-free-race.spec.ts`, `screenshot-awards.spec.ts`, `screenshot-settings.spec.ts`. Each builds its own data against a real backend:
 
 ```bash
 cd frontend && npx playwright test --config=playwright.screenshots.config.ts e2e/docs/screenshot-printables.spec.ts
@@ -798,9 +798,11 @@ Two things that job protects, both learned the hard way:
 
 - **A spec that dies part-way looks like a spec that ran.** This one is a single 500-line `test()` where each step depends on the last, so a break anywhere silently stops every screenshot after it.
 - **The CI job retries once, and gives a test five minutes rather than ten.** They drive a real backend, a real browser and a fake timer over a WebSocket on a shared runner; a heat that does not arm inside the deadline is usually that. A break that reproduces still fails twice, and a stuck spec now says so in five minutes instead of ten.
-- **They share one backend when run together**, which is what CI does. That means: no two specs may use the same race name (`races.name` is unique), no spec may assume its race is id 1, and the first-run setup screen is only there for whichever spec runs first. **Regenerate images one spec at a time** — the documented command above — and the config wipes the data directory per invocation, so that run always gets a virgin system.
+- **They share one backend when run together**, which is what CI does. That means: no two specs may use the same race name (`races.name` is unique), no spec may assume its race is id 1, and the first-run setup screen is only there for whichever spec runs first. **Regenerate images one spec at a time** — the documented command above — and the config wipes the data directory per invocation, so that run always gets a virgin system. **Run the whole set once before committing, though**: a spec that scopes nothing to its own race passes alone and fails beside the others, which is a break CI finds and a single-spec run cannot.
 
 Fixing the harness is how three app bugs surfaced: the first-run gate bouncing back to setup, a "Round Complete!" summary over an unraced race, and identical concurrent `uploadImage` mutations not all returning.
+
+**A new screen with no spec is the failure this section cannot see.** The `Doc Screenshots` job proves the *existing* specs still drive the app; it says nothing about a page nobody photographed. Awards, the backup panel and lanes-in-service all shipped documented and unillustrated, and everything was green throughout. **If a change adds a screen the docs describe, it needs a spec in the same change** — a picture is the part of a page `mkdocs --strict` cannot check and a reader notices first.
 
 ### What the gate does and does not catch
 

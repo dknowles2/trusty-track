@@ -78,6 +78,25 @@ button {
   transition: background-color 0.2s;
 }
 
+/* The shape of a button — padding, radius, font — sat on the `button` element
+   alone, so a link wearing .primary-btn or .secondary-btn picked up the colour
+   and none of it: a squashed box with its label spilling out. Home.tsx worked
+   around that with the same inline styles at both of its call sites. Scoped to
+   `a` so no existing button changes. */
+a.primary-btn,
+a.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-header);
+  border-radius: var(--border-radius);
+  padding: 10px 20px;
+  font-size: 1rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
 .primary-btn {
   background-color: var(--scouting-blue);
   color: var(--white);

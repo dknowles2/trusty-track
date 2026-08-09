@@ -83,7 +83,7 @@ Tick the checkboxes on the left of any rows you want to change. A bar appears
 above the table showing how many you have selected and what you can do with
 them.
 
-![The selection bar](assets/screenshots/race-setup/09-bulk-actions-menu.png)
+![The selection bar](assets/screenshots/race-setup/09-selection-bar.png)
 
 - **Check In**: Mark the selected racers as passed inspection and checked in.
 - **Auto number**: Assign car numbers to the selected racers, following the race's **Car Numbering** setting — sequentially from the global start number, or from each den's own range. A race set to Manual numbering is left alone.

@@ -71,6 +71,7 @@ export default function BackupPanel() {
 
   return (
     <div
+      data-testid="backup-panel"
       style={{
         marginTop: '2rem',
         padding: '1rem',

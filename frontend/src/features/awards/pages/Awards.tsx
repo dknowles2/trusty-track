@@ -133,13 +133,16 @@ export default function Awards() {
           display: 'flex',
           flexWrap: 'wrap',
           gap: '15px',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '2rem',
           borderBottom: '1px solid #eee',
           paddingBottom: '1rem',
         }}
       >
+        {/* The row held only its buttons once the mode toggle went, so it read
+            as an empty bar with a rule under it. */}
+        <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Awards</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           {/* Opens the ceremony on this screen. It is an ordinary route, so it
               is also the address to point a projector at. */}
