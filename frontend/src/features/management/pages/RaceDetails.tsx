@@ -8,6 +8,7 @@ import { useAlert } from '../../../context/AlertContext';
 
 import { getContrastColor } from '../../../utils/colors';
 import RacerForm, { RacerData, Den } from '../components/RacerForm';
+import NoHeatsBadge from '../components/NoHeatsBadge';
 import DenManager from '../components/DenManager';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
@@ -131,6 +132,16 @@ export default function RaceDetails() {
   }, [data]);
 
   const tracks = useMemo(() => data?.tracks || [], [data]);
+
+  // Who is in a heat. Its emptiness doubles as "no round has been generated
+  // yet", which is what keeps the "No heats" badge quiet while a roster is
+  // still being built — before the first round, nobody is scheduled and
+  // flagging everybody would say nothing.
+  const scheduledRacerIds = useMemo(
+    () => data?.race?.scheduledRacerIds ?? [],
+    [data],
+  );
+  const anyHeatsScheduled = scheduledRacerIds.length > 0;
 
   const loading = fetching && !data;
 
@@ -378,7 +389,6 @@ export default function RaceDetails() {
   };
 
   const handleBulkDelete = async () => {
-    const scheduledRacerIds = data?.race?.scheduledRacerIds || [];
     const scheduledSelected = selectedRacerIds.filter(id => scheduledRacerIds.includes(id));
 
     let message = `Are you sure you want to delete ${selectedRacerIds.length} racers? This action cannot be undone.`;
@@ -483,6 +493,11 @@ export default function RaceDetails() {
                       'Check In'
                   )}
               </button>
+              <NoHeatsBadge
+                  racer={{ id: racer.id, carPassedInspection: racer.car_passed_inspection }}
+                  scheduledRacerIds={scheduledRacerIds}
+                  anyHeatsScheduled={anyHeatsScheduled}
+              />
           </div>
       </div>
     );
@@ -928,6 +943,11 @@ export default function RaceDetails() {
                                                          'Check In'
                                                      )}
                                                  </button>
+                                                 <NoHeatsBadge
+                                                     racer={{ id: racer.id, carPassedInspection: racer.car_passed_inspection }}
+                                                     scheduledRacerIds={scheduledRacerIds}
+                                                     anyHeatsScheduled={anyHeatsScheduled}
+                                                 />
                                             </td>
                                         </tr>
                                     ))}
@@ -1013,6 +1033,11 @@ export default function RaceDetails() {
                                                  'Check In'
                                              )}
                                          </button>
+                                         <NoHeatsBadge
+                                             racer={{ id: racer.id, carPassedInspection: racer.car_passed_inspection }}
+                                             scheduledRacerIds={scheduledRacerIds}
+                                             anyHeatsScheduled={anyHeatsScheduled}
+                                         />
                                     </span>
                                 </td>
                             </tr>

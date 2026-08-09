@@ -428,6 +428,28 @@ That makes a heat's **position** in the schedule and its **lane number** differe
 
 **Ids survive.** The pending heats are rewritten through `set_heat_lanes` rather than deleted and regenerated, so an armed heat is not swapped underneath the operator (#50) — and `setLaneOutages` awaits `_revalidate_timers` for the round it *does* regenerate. That await is not decorative: it was missing on the first attempt, the tests passed, and the only evidence was a `coroutine was never awaited` warning.
 
+### A racer who arrives after the racing has started
+
+Rule in `domain/latecomers.py`, database wiring in `crud.admit_late_racers` (#172). **The same three cases as a lane going out of service, and deliberately so** — both are "a round already under way has to change, and the heats people ran must survive it":
+
+| Round | What happens |
+| --- | --- |
+| nothing raced | regenerated with the newcomer in it — the outcome to prefer whenever it is available |
+| part-way through | recorded heats untouched; heats appended at the end; `Round.disrupted` set |
+| finished | untouched; they join from the next round |
+
+**`disrupted` is the same flag with the same justification**, so `counts_a_disrupted_round` needed no change: whoever fills the other lanes of the appended heats runs more often than their peers, and under `POINTS` an extra heat can only add to a total where lower is better. This is #26 arriving by a fourth route.
+
+**What admission has to get right is lane balance, not opponents.** A newcomer takes each usable lane exactly once — PPC exists because lanes are not equal, and who you race matters far less. Newcomers fill each other's remaining lanes before any established racer is pulled in, so two children arriving together share heats rather than each dragging a separate set of veterans into extra runs.
+
+**Check-in is the trigger, not creation.** `car_passed_inspection` is what the generator fields from, so a racer on the roster and not yet inspected is not eligible for a heat. Four resolvers call `_admit_late_racers` — `createRacer`, `updateRacer`, `checkInRacer` and `bulkCheckIn` — which is #48's shape again; the function is idempotent and asks who is *missing* rather than being told who arrived, so `bulkCheckIn` calls it **once for the batch**. Per-racer it would regenerate an unraced round sixty times over a desk queue.
+
+**Only general rounds.** A championship field is drawn from the standings; a latecomer becomes eligible for it by racing the preliminaries. Note the test for this has to *advance* the final first — while it still holds placeholders, dropping the championship filter regenerates it into an identical round of placeholders and the check passes either way.
+
+`_admit_late_racers` awaits `_revalidate_timers` for the same reason `setLaneOutages` does: the unraced case rebuilds heats, and an armed heat must not be swapped underneath the operator (#50).
+
+On the roster, `features/management/rosterStatus.ts` is what puts a **No heats** badge against a racer who is checked in and in none — the one case admission cannot fix, where they arrived after the round finished. It is quiet until a round exists: before the first one nobody is scheduled, and flagging the whole roster is how an operator learns to ignore a badge.
+
 ### Scoring
 
 Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` averages heat times (a recorded `0.0` is treated as a 9.999s DNF penalty); `POINTS` sums placements. Both are lower-is-better. `get_leaderboard(db, race_id)` returns sorted standings.
@@ -685,11 +707,10 @@ Four rules, each of which is a way of getting it wrong:
 
 The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dknowles2/trusty-track/issues/18)) — all three of its theses are resolved and its backlog is empty. It is worth reading before a substantial change anyway, not as a tracker but as a retrospective: it records which of its own premises expired between filing and implementation, what verification caught that reading the code did not, and when a surviving mutation is evidence versus a broken harness. None of that is re-derivable from the tree.
 
-**Still open, and neither is engineering work:**
+**Still open, and it is not engineering work:**
 
 | Issue | Area |
 | --- | --- |
-| #15 | Auth. **Backend done** — roles, policy and the PIN are in `api/auth.py`, enforced and off until a PIN is set. What is left is the UI to set and send one; until then an install has no way to turn it on except through `updateInitialConfig` |
 | #112 | SuperTimer II timer profile. **Needs hardware** — two-part results, a binary lane mask and a 10000 scale factor, none reusable, and a test written from the same notes as the profile would agree with its mistakes |
 
 **Closed, and load-bearing — don't undo them:**
@@ -710,6 +731,7 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 | #14 | **Keep GraphQL.** 42 mutations against 13 queries — the cost sits where GraphQL adds nothing, and does not shrink in REST |
 | #72 | `heats.lane_results` is dropped. `heat_lanes` is the only copy; migration `0013` proved that per database rather than waiting on a release |
 | #164 | `Lane` mirrors the table — `placeholder_slot` and `skipped` are fields. The negative-id convention survives only in `domain/scheduling.py`, crossed at `lanes.from_participant` |
+| #172 | A late racer is admitted on check-in. Same three cases as #171, and `disrupted` is the same flag |
 
 ---
 

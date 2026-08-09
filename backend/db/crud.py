@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.domain import advancement, lanes, scheduling
+from backend.domain import advancement, lanes, latecomers, scheduling
 
 from . import lane_sync, models, schemas
 
@@ -900,6 +900,141 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
 
     db.commit()
     return disrupted_round_ids
+
+
+def admit_late_racers(db: Session, race_id: int) -> list[int]:
+    """Put checked-in racers who are in no heat into the rounds already built (#172).
+
+    Returns the ids of rounds that were disrupted admitting them.
+
+    A child who arrives after the schedule was generated used to sit in the
+    roster and in no heat, with nothing on screen saying why: ``may_rebuild``
+    refuses to regenerate a round holding a result, and there was no other path.
+
+    The three cases are the ones a lane going out of service already has, for
+    the same reason — something changed about a round that is under way, and the
+    recorded heats have to survive it:
+
+    **A round nobody has raced** is regenerated with the newcomer in it, which
+    is the outcome to prefer whenever it is available: everybody ends up with an
+    equal schedule and nothing is at risk.
+
+    **A round part-way through** keeps every recorded heat and gets heats
+    appended, planned by :mod:`backend.domain.latecomers`. Whoever fills the
+    other lanes of those heats runs more often than their peers, so the round is
+    marked ``disrupted`` and drops out of ``POINTS`` standings exactly as a
+    re-laned one does.
+
+    **A round already finished** is left alone. Appending to it would be asking
+    people to come back to a round they have finished; the newcomer joins from
+    the next one.
+
+    Only general rounds are considered. A championship field is drawn from the
+    standings, so there is no sense in which a latecomer belongs in one — they
+    become eligible for it by racing the preliminaries like everybody else.
+    """
+    rounds = (
+        db.query(models.Round)
+        .filter(
+            models.Round.race_id == race_id,
+            models.Round.advancement_source.is_(None),
+        )
+        .all()
+    )
+    if not rounds:
+        return []
+
+    usable = usable_lanes_for_race(db, race_id)
+    disrupted_round_ids: list[int] = []
+
+    for round_obj in rounds:
+        heats = [
+            h
+            for h in db.query(models.Heat)
+            .filter(models.Heat.round_id == round_obj.id)
+            .all()
+            if h.kind is models.HeatKind.OFFICIAL
+        ]
+        if not heats:
+            # Not generated yet; whenever it is, it will field whoever has
+            # checked in by then.
+            continue
+
+        eligible = _eligible_racer_ids(db, race_id, round_obj.den_id)
+        heat_lanes = lanes_for_heats(db, heats)
+        already = {
+            racer_id for heat in heat_lanes for racer_id in lanes.real_racer_ids(heat)
+        }
+        missing = [racer_id for racer_id in eligible if racer_id not in already]
+        if not missing or not usable:
+            continue
+
+        if advancement.may_rebuild(heat_lanes):
+            generate_heats_for_round(db, round_obj.id, clear_existing=True)
+            continue
+
+        if advancement.is_round_complete(heat_lanes):
+            continue
+
+        appended = latecomers.plan_late_entry(
+            missing, sorted(already), usable, met=_met_counts(heat_lanes, missing)
+        )
+        if not appended:
+            continue
+
+        next_number = max(h.heat_number for h in heats) + 1
+        for offset, plan in enumerate(appended):
+            heat = models.Heat(
+                race_id=race_id,
+                round_id=round_obj.id,
+                heat_number=next_number + offset,
+            )
+            set_heat_lanes(
+                heat,
+                [
+                    lanes.Lane(lane=lane, racer_id=racer_id)
+                    for lane, racer_id in plan.assignments
+                ],
+            )
+            db.add(heat)
+
+        if not round_obj.disrupted:
+            round_obj.disrupted = True
+            disrupted_round_ids.append(round_obj.id)
+
+    db.commit()
+    return disrupted_round_ids
+
+
+def _eligible_racer_ids(db: Session, race_id: int, den_id: int | None) -> list[int]:
+    """Who a general round's field is drawn from — the same query the generator uses."""
+    query = db.query(models.Racer).filter(
+        models.Racer.race_id == race_id, models.Racer.car_passed_inspection
+    )
+    if den_id:
+        query = query.filter(models.Racer.den_id == den_id)
+    return [racer.id for racer in query.all()]
+
+
+def _met_counts(
+    heat_lanes: Sequence[Sequence[lanes.Lane]], newcomers: Sequence[int]
+) -> dict[int, dict[int, int]]:
+    """How often each newcomer has already raced each other racer.
+
+    Always zero on a first admission, and not always: a racer admitted late,
+    then a second one arriving later still, has a history by then.
+    """
+    counts: dict[int, dict[int, int]] = {racer: {} for racer in newcomers}
+    joining = set(newcomers)
+    for heat in heat_lanes:
+        racer_ids = lanes.real_racer_ids(heat)
+        for racer_id in racer_ids:
+            if racer_id not in joining:
+                continue
+            for other in racer_ids:
+                if other != racer_id:
+                    counts[racer_id][other] = counts[racer_id].get(other, 0) + 1
+    return counts
 
 
 def usable_lanes_for_race(db: Session, race_id: int) -> list[int]:

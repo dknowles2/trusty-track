@@ -1608,6 +1608,21 @@ async def _revalidate_timers(info: Info) -> None:
             logger.warning("Track %d disarmed: %s", mgr.track_id, reason)
 
 
+async def _admit_late_racers(info: Info, race_id: int) -> None:
+    """Give a newly checked-in racer a place in the rounds already built (#172).
+
+    Call after anything that adds somebody to a round's field — check-in is the
+    gate, since ``car_passed_inspection`` is what the generator draws from, so
+    creating a racer is not enough on its own.
+
+    Timers are revalidated afterwards for the same reason ``regenerateRound``
+    does it: admitting into an unraced round rebuilds its heats, and an armed
+    heat must not be swapped underneath the operator (#50).
+    """
+    crud.admit_late_racers(info.context["db"], race_id)
+    await _revalidate_timers(info)
+
+
 def _device_for(track: Any) -> TimerProfile:
     """The profile a track should run on.
 
@@ -1723,6 +1738,11 @@ class Mutation:
         db = info.context["db"]
         racer_in = schemas.RacerCreate(**typing.cast(Any, strawberry.asdict(racer)))
         new_racer = typing.cast(Any, crud.create_racer(db, racer_in))
+        if new_racer.car_passed_inspection:
+            # A racer created already inspected — the check-in desk adding
+            # somebody who was never on the roster, which is the commonest way
+            # a latecomer actually arrives.
+            await _admit_late_racers(info, new_racer.race_id)
         await _publish_race_state(
             new_racer.race_id, kind=RaceChangeKind.ROSTER, racer=new_racer
         )
@@ -1741,6 +1761,8 @@ class Mutation:
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
         if updated:
+            if updated.car_passed_inspection:
+                await _admit_late_racers(info, updated.race_id)
             await _publish_race_state(
                 updated.race_id, kind=RaceChangeKind.RACER, racer=updated
             )
@@ -1779,6 +1801,8 @@ class Mutation:
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
         if updated:
+            if passed_inspection:
+                await _admit_late_racers(info, updated.race_id)
             await _publish_race_state(
                 updated.race_id, kind=RaceChangeKind.RACER, racer=updated
             )
@@ -2464,6 +2488,11 @@ class Mutation:
         if not racer:
             return False
         crud.bulk_check_in_racers(db, racer_ids, passed_inspection)
+        if passed_inspection:
+            # Once for the batch, not once per racer: admission is idempotent
+            # and looks at everybody who is missing, so a per-racer call would
+            # regenerate an unraced round sixty times over a desk queue.
+            await _admit_late_racers(info, racer.race_id)
         await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
         return True
 
