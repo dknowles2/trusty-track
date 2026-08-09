@@ -242,7 +242,12 @@ export default function Observation() {
   }, [initialData]);
 
   const officialCurrentHeat = currentlyRacingData?.currentlyRacing;
-  const onDeckHeat = onDeckData?.onDeck;
+  // Two heats now, nearest first (#209). One was not enough to stage with: the
+  // child it names is in the bleachers rather than watching the screen, so by
+  // the time their heat is on it the announcer is already calling them.
+  const onDeckHeats = onDeckData?.onDeck ?? [];
+  const onDeckHeat = onDeckHeats[0];
+  const afterThatHeat = onDeckHeats[1];
   const standings = (leaderboardData?.leaderboard || []) as Standing[];
   const lastHeatResults = timingStatsData?.timingStats;
   const activeFreeRace = activeFreeRaceData?.activeFreeRaceHeat;
@@ -297,6 +302,12 @@ export default function Observation() {
     () => (onDeckHeat ? racersInLanes(onDeckHeat.lanes) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [onDeckHeat, racersMap],
+  );
+
+  const afterThatRacers = useMemo(
+    () => (afterThatHeat ? racersInLanes(afterThatHeat.lanes) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [afterThatHeat, racersMap],
   );
 
   if (!id || isNaN(id)) return <div className="container" style={{ padding: '20px' }}>Invalid Race ID</div>;
@@ -469,7 +480,7 @@ export default function Observation() {
           </button>
         </div>
 
-        <div className="heat-cards-layout" style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
+        <div className="heat-cards-layout" data-on-deck-count={onDeckHeats.length} style={{ display: 'flex', gap: '20px', marginBottom: '30px', flexWrap: 'wrap' }}>
           {renderHeatCard(
             "Now Racing",
             currentHeatRacers,
@@ -491,6 +502,17 @@ export default function Observation() {
             // bare racer list: the panel exists so cars can be staged, and
             // which heat they are staging for is part of that.
             onDeckHeat ? `Round ${onDeckHeat.roundNumber}, Heat ${onDeckHeat.globalHeatNumber ?? onDeckHeat.heatNumber}` : undefined
+          )}
+          {/* "After That" rather than the derby term "in the hole", which is
+              vocabulary a first-time announcer reading this screen aloud does
+              not have. It is only rendered when there *is* one, so the last
+              two heats of a race do not leave an empty card on the wall. */}
+          {afterThatHeat && renderHeatCard(
+            "After That",
+            afterThatRacers,
+            true,
+            mdiChevronDoubleRight,
+            `Round ${afterThatHeat.roundNumber}, Heat ${afterThatHeat.globalHeatNumber ?? afterThatHeat.heatNumber}`
           )}
         </div>
 

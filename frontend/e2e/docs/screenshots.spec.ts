@@ -328,6 +328,24 @@ test('take screenshots', async ({ page, browser }) => {
   // 14: heat complete with times and placements
   await page.screenshot({ path: path.join(screenshotsDir, 'race-day/14-heat-results.png') });
 
+  // The staging panels, shot here rather than in the observation section below
+  // (#209). Both only exist while there is a heat after next, and by the time
+  // this spec reaches the observation shots the race is on the last heat of
+  // its final — so a picture taken there can only ever show one of them, and
+  // the caption beneath it would be a claim about a panel that is not in it.
+  await page.goto(`/race/${raceId}/observation`);
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('.heat-cards-layout')).toHaveAttribute('data-on-deck-count', '2');
+  const staging = await page.locator('.heat-cards-layout').boundingBox();
+  await page.screenshot({
+    path: path.join(screenshotsDir, 'observation/04-on-deck-panel.png'),
+    ...(staging
+      ? { clip: { x: staging.x, y: staging.y, width: staging.width, height: staging.height } }
+      : {}),
+  });
+  await page.goto(`/race/${raceId}/control/race`);
+  await page.waitForLoadState('networkidle');
+
   // Navigate to standings to capture live leaderboard mid-race.
   // Standings, not Stats: this shot is captioned as the leaderboard, and
   // clicking Stats made it a picture of the lane-fairness chart (#144).
@@ -571,19 +589,8 @@ test('take screenshots', async ({ page, browser }) => {
     await page.screenshot({ path: path.join(screenshotsDir, 'observation/03-now-racing-panel.png') });
   }
 
-  // 04: "On Deck" card area
-  const onDeckCard = page.locator('.heat-card').nth(1);
-  if (await onDeckCard.isVisible()) {
-    const box = await onDeckCard.boundingBox();
-    if (box) {
-      await page.screenshot({
-        path: path.join(screenshotsDir, 'observation/04-on-deck-panel.png'),
-        clip: { x: box.x, y: box.y, width: box.width, height: box.height }
-      });
-    }
-  } else {
-    await page.screenshot({ path: path.join(screenshotsDir, 'observation/04-on-deck-panel.png') });
-  }
+  // 04 (the staging panels) is taken earlier, mid preliminary round — see
+  // the note there for why it cannot be shot from here.
 
   // Ensure Standings tab is active. This is the *observation page's* own
   // standings/timing tab, not the race-mode toggle that #186 removed — it is

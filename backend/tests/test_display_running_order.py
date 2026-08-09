@@ -87,6 +87,24 @@ def two_heats(db, race, racers):
     return heats
 
 
+@pytest.fixture
+def four_heats(db, race, racers):
+    """Four one-lane heats in one round, for the on-deck depth (#209)."""
+    round_obj = crud.create_round(db, race_id=race.id, round_number=1)
+    heats = []
+    for number, racer in enumerate(racers, start=1):
+        heat = models.Heat(race_id=race.id, round_id=round_obj.id, heat_number=number)
+        db.add(heat)
+        db.flush()
+        crud.set_heat_lanes(
+            heat,
+            as_lanes([{"lane": 1, "racer_id": racer.id, "time": None, "place": None}]),
+        )
+        heats.append(heat)
+    db.commit()
+    return heats
+
+
 def _skip(db, heat):
     """What `RaceExecution.handleSkipHeat` writes: no times, `skipped` set."""
     heat_lanes = crud.heat_lanes_of(db, heat)
@@ -153,7 +171,15 @@ async def test_nothing_is_on_deck_behind_a_skipped_heat(db, race, two_heats):
     """
     _skip(db, two_heats[0])
 
-    assert await _first(db, "on_deck", race.id) is None
+    assert await _first(db, "on_deck", race.id) == []
+
+
+@pytest.mark.anyio
+async def test_on_deck_never_includes_the_heat_on_the_track(db, race, two_heats):
+    """Heat 1 is racing, so on deck starts at heat 2."""
+    on_deck = await _first(db, "on_deck", race.id)
+
+    assert [heat.id for heat in on_deck] == [two_heats[1].id]
 
 
 @pytest.mark.anyio
@@ -180,8 +206,7 @@ async def test_an_unrun_heat_is_still_currently_racing(db, race, two_heats):
 
     assert current is not None
     assert current.id == two_heats[0].id
-    assert on_deck is not None
-    assert on_deck.id == two_heats[1].id
+    assert [heat.id for heat in on_deck] == [two_heats[1].id]
 
 
 @pytest.mark.anyio
@@ -252,3 +277,36 @@ def test_placeholder_slots_are_not_scheduled_racers(db, race, racers, two_heats)
     scheduled = RequestLoaders(db).scheduled_racer_ids(race.id)
 
     assert scheduled == sorted([racers[0].id, racers[1].id])
+
+
+@pytest.mark.anyio
+async def test_on_deck_carries_two_heats(db, race, four_heats):
+    """One was not enough to stage with (#209).
+
+    The child named on the wall is in the bleachers rather than watching it, so
+    a display that shows only the next heat names them at the moment the
+    announcer is already calling for them.
+    """
+    on_deck = await _first(db, "on_deck", race.id)
+
+    assert [heat.id for heat in on_deck] == [four_heats[1].id, four_heats[2].id]
+
+
+@pytest.mark.anyio
+@pytest.mark.usefixtures("four_heats")
+async def test_on_deck_stops_at_two(db, race):
+    """Three would be a wall of names nobody reads."""
+    on_deck = await _first(db, "on_deck", race.id)
+
+    assert len(on_deck) == 2
+
+
+@pytest.mark.anyio
+async def test_on_deck_shortens_towards_the_end_of_a_race(db, race, four_heats):
+    """The last two heats leave one on deck, and the last leaves none."""
+    for heat in four_heats[:2]:
+        _skip(db, heat)
+
+    on_deck = await _first(db, "on_deck", race.id)
+
+    assert [heat.id for heat in on_deck] == [four_heats[3].id]

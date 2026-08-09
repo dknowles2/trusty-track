@@ -501,7 +501,7 @@ type Subscription {
   leaderboard(raceId: Int!): [LeaderboardEntry!]!
   displayAssignment(displayId: String!, raceId: Int!, name: String = null): Display!
   displays(raceId: Int!): [Display!]!
-  onDeck(raceId: Int!): Heat
+  onDeck(raceId: Int!): [Heat!]!
   currentlyRacing(raceId: Int!): Heat
   timingStats(raceId: Int!): TimingStats
   heats(raceId: Int!): [Round!]!

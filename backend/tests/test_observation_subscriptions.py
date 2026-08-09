@@ -185,13 +185,13 @@ async def test_on_deck_subscription(db_session) -> None:
         schema_mod.pubsub = original_pubsub
 
     assert len(collected) == 2
-    # The heat, not its racers (#141) — the lane a car is in is part of the
-    # answer, and a racer list cannot carry it.
+    # The heats, not their racers (#141) — the lane a car is in is part of the
+    # answer, and a racer list cannot carry it. A list of them since #209, so
+    # a display can name two heats and give a family a heat's notice.
     # Initially h1 is current, h2 is on deck.
-    assert collected[0] is not None
-    assert collected[0].id == h2_id
+    assert [heat.id for heat in collected[0]] == [h2_id]
     # After h1 is done, h2 is current and nothing is on deck.
-    assert collected[1] is None
+    assert collected[1] == []
 
 
 @pytest.mark.anyio
