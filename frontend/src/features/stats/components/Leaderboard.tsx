@@ -3,6 +3,8 @@ import { useQuery, useSubscription } from 'urql';
 import { LeaderboardSubscription } from '../../observation/graphql/queries';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { RoundSummary, exclusionNotice, roundLabel } from '../disruptedRounds';
+import { standingsRows, standingsSuffix } from '../standingsExport';
+import { downloadCsv, filenameFor } from '../../../utils/csv';
 
 export interface LeaderboardEntry {
   racerId: number;
@@ -20,6 +22,7 @@ const GET_LEADERBOARD_METADATA = `
   query GetLeaderboardMetadata($raceId: Int!) {
     race(raceId: $raceId) {
       id
+      name
       scoringStrategy
       rounds {
         id
@@ -176,6 +179,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
             : roundLabel(rounds.find((r) => r.id === selectedRoundId)!)}
         </h2>
 
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
         {championshipRounds.length > 0 && (
           <select
             aria-label="Standings scope"
@@ -189,6 +193,32 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
             ))}
           </select>
         )}
+
+        {/* The standings never left the screen before (#173). Which standings
+            these are travels in the filename, because the overall ones and a
+            championship round's disagree on purpose (#17). */}
+        <button
+          type="button"
+          className="secondary-btn"
+          data-testid="export-standings"
+          onClick={() =>
+            downloadCsv(
+              filenameFor(
+                race?.name ?? 'race',
+                standingsSuffix(
+                  selectedRoundId === null
+                    ? null
+                    : roundLabel(rounds.find((r) => r.id === selectedRoundId)!),
+                ),
+              ),
+              standingsRows(leaderboard, scoringStrategy),
+            )
+          }
+          style={{ padding: '8px 14px', fontSize: '0.9rem' }}
+        >
+          Export CSV
+        </button>
+        </div>
       </div>
 
       {selectedRoundId === null && championshipRounds.length > 0 && (
