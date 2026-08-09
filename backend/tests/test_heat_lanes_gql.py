@@ -9,6 +9,7 @@ from the row rather than through the API, since the API no longer offers it.
 import pytest
 
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.tests.helpers import as_lanes
 
 LANES_QUERY = """
@@ -163,6 +164,7 @@ def test_lanes_track_the_blob_after_a_result_is_recorded(client, db, race, racer
         db,
         heat.id,
         as_lanes([{"lane": 1, "racer_id": racers[0].id, "time": 3.2, "place": 1}]),
+        source=audit.ResultSource.OPERATOR,
     )
 
     lane = _run(client, LANES_QUERY, race.id)["race"]["heats"][0]["lanes"][0]
@@ -219,6 +221,7 @@ def test_free_race_lanes_merge_the_schedule_and_the_results(client, db, race, ra
                 {"lane": 2, "racer_id": racers[1].id, "time": None, "place": None},
             ]
         ),
+        source=audit.ResultSource.OPERATOR,
     )
     db.commit()
 

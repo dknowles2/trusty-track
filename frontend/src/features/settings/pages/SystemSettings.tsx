@@ -562,6 +562,11 @@ export default function SystemConfig() {
       */}
       <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem' }}>
         <Link to="/timer-check">Check the timer connection &rarr;</Link>
+        {/* The activity log (#219), beside the other diagnostic link rather
+            than in the race navigation: it spans every race and answers a
+            question nobody asks until something has already gone wrong. */}
+        {' · '}
+        <Link to="/activity">See what has happened &rarr;</Link>
       </p>
 
       {/*

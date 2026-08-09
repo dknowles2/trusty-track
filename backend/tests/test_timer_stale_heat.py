@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
-from backend.domain import lanes
+from backend.domain import audit, lanes
 from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult
 from backend.services.timer.manager import TimerManager
@@ -105,7 +105,9 @@ def _run_heat(db: Session, heat, offset: float = 0.0, reverse: bool = False) -> 
             continue
         base = (10 - rid) if reverse else rid
         res["time"] = 1.0 + offset + base / 100.0
-    crud.record_heat_result(db, heat.id, as_lanes(results))
+    crud.record_heat_result(
+        db, heat.id, as_lanes(results), source=audit.ResultSource.OPERATOR
+    )
 
 
 def _armed_manager(db: Session, heat) -> TimerManager:

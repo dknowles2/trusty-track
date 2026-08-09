@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from backend.api.pubsub import pubsub
 from backend.db import crud, models
 from backend.db.database import SessionLocal
+from backend.domain import audit
 
 from . import probe
 from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
@@ -952,9 +953,13 @@ class TimerManager:
                 # Deliberately not `record_heat_result`: that re-runs
                 # advancement, and an exhibition run must not move a
                 # championship field.
-                crud.update_free_race_heat_result(db, heat_id, heat_lanes)
+                crud.update_free_race_heat_result(
+                    db, heat_id, heat_lanes, source=audit.ResultSource.TIMER
+                )
             else:
-                crud.record_heat_result(db, heat_id, heat_lanes)
+                crud.record_heat_result(
+                    db, heat_id, heat_lanes, source=audit.ResultSource.TIMER
+                )
             race_id = heat.race_id
         finally:
             db.close()

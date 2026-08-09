@@ -20,6 +20,7 @@ across the whole backend package.
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.tests.helpers import as_lanes, lane_dicts
 
 
@@ -92,7 +93,9 @@ def test_recording_a_result_lands_in_the_table(db: Session):
     blob = lane_dicts(db, heat)
     blob[0]["time"] = 3.421
     blob[0]["place"] = 1
-    crud.record_heat_result(db, heat.id, as_lanes(blob))
+    crud.record_heat_result(
+        db, heat.id, as_lanes(blob), source=audit.ResultSource.OPERATOR
+    )
 
     row = _lanes(db, heat.id)[0]
     assert row.time_seconds == 3.421
@@ -107,11 +110,15 @@ def test_clearing_a_result_clears_the_row(db: Session):
 
     blob = lane_dicts(db, heat)
     blob[0]["time"] = 3.421
-    crud.record_heat_result(db, heat.id, as_lanes(blob))
+    crud.record_heat_result(
+        db, heat.id, as_lanes(blob), source=audit.ResultSource.OPERATOR
+    )
     assert _lanes(db, heat.id)[0].time_seconds == 3.421
 
     blob[0]["time"] = None
-    crud.record_heat_result(db, heat.id, as_lanes(blob))
+    crud.record_heat_result(
+        db, heat.id, as_lanes(blob), source=audit.ResultSource.OPERATOR
+    )
     assert _lanes(db, heat.id)[0].time_seconds is None
 
 
@@ -125,7 +132,9 @@ def test_the_skipped_flag_is_projected(db: Session):
     blob = lane_dicts(db, heat)
     for lane in blob:
         lane["skipped"] = True
-    crud.record_heat_result(db, heat.id, as_lanes(blob))
+    crud.record_heat_result(
+        db, heat.id, as_lanes(blob), source=audit.ResultSource.OPERATOR
+    )
 
     assert all(row.skipped for row in _lanes(db, heat.id))
 
@@ -242,6 +251,7 @@ def test_free_race_heats_project_assignments_then_results(db: Session):
                 {"lane": 2, "racer_id": racer_ids[1], "time": 3.4, "place": 2},
             ]
         ),
+        source=audit.ResultSource.OPERATOR,
     )
     db.commit()
 

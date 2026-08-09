@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import random
 from collections.abc import Sequence
 from datetime import datetime, timezone
@@ -7,7 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.domain import advancement, lanes, latecomers, scheduling
+from backend.domain import advancement, audit, lanes, latecomers, scheduling
 
 from . import lane_sync, models, schemas
 
@@ -1204,7 +1205,11 @@ def set_heat_lanes(heat: models.Heat, heat_lanes: Sequence[lanes.Lane]) -> None:
 
 
 def record_heat_result(
-    db: Session, heat_id: int, heat_lanes: Sequence[lanes.Lane] | None
+    db: Session,
+    heat_id: int,
+    heat_lanes: Sequence[lanes.Lane] | None,
+    *,
+    source: audit.ResultSource,
 ) -> models.Heat | None:
     """Store a heat's results and re-settle everything downstream of them.
 
@@ -1217,6 +1222,15 @@ def record_heat_result(
     in the codebase that spoke the storage format instead of the value, which
     made every caller serialize before calling and left #72 with one more shape
     to change.
+
+    ``source`` is required, and it is keyword-only so it cannot be supplied by
+    accident (#219). Results arrive here by two routes — the timer, through its
+    own session and outside any request, and a person typing into the override
+    box — and only the second is a GraphQL mutation. An audit log built on the
+    mutation seam alone therefore records every *correction* to a time and
+    never the time it corrected, which is precisely backwards for the dispute
+    it exists to settle. Making the argument mandatory is the #48 lesson: a
+    rule that depends on each caller remembering reaches only some of them.
     """
     heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
     if heat and heat_lanes is not None:
@@ -1229,7 +1243,44 @@ def record_heat_result(
             invalidate_future_rounds(db, heat.race_id, heat.round.round_number)
             trigger_auto_advancements(db, heat.race_id, heat.round.id)
 
+        _record_result_audit(db, heat, heat_lanes, source)
+
     return heat
+
+
+def _record_result_audit(
+    db: Session,
+    heat: models.Heat,
+    heat_lanes: Sequence[lanes.Lane],
+    source: audit.ResultSource,
+) -> None:
+    """One audit entry for a recorded heat, whichever route it came by.
+
+    The times themselves are not copied in: they are in ``heat_lanes``, which
+    is the record, and duplicating them here would make the log a second and
+    divergeable copy of the results. What the entry carries is enough to find
+    the heat and to know how the numbers got there.
+    """
+    timed = [lane for lane in heat_lanes if lane.time is not None]
+    record_audit(
+        db,
+        "heatResultRecorded",
+        role=(
+            audit.ActorRole.SYSTEM.value
+            if source is audit.ResultSource.TIMER
+            else audit.ActorRole.OPERATOR.value
+        ),
+        race_id=heat.race_id,
+        details={
+            "source": source.value,
+            "heatId": heat.id,
+            "heatNumber": heat.heat_number,
+            "lanesTimed": len(timed),
+            "skipped": all(lane.skipped for lane in heat_lanes)
+            if heat_lanes
+            else False,
+        },
+    )
 
 
 def auto_number_racers(
@@ -1491,11 +1542,17 @@ def update_free_race_heat_result(
     db: Session,
     heat_id: int,
     lane_results: list[lanes.Lane],
+    *,
+    source: audit.ResultSource,
 ) -> models.Heat | None:
     """Record results for a free race heat.
 
     Lanes rather than dicts, for the same reason as
     :func:`create_free_race_heat` — one codec, in ``domain/lanes.py``.
+
+    ``source`` for the same reason as :func:`record_heat_result`: an exhibition
+    run reaches the database by the same two routes, and the log should be able
+    to say which.
     """
     heat = get_free_race_heat(db, heat_id)
     if heat is None:
@@ -1504,6 +1561,7 @@ def update_free_race_heat_result(
     stamp_recorded(heat, lane_results)
     db.commit()
     db.refresh(heat)
+    _record_result_audit(db, heat, lane_results, source)
     return heat
 
 
@@ -1803,3 +1861,111 @@ def create_practice_race(db: Session) -> models.Race:
     db.commit()
     db.refresh(race)
     return race
+
+
+# --- The audit log (#219) -----------------------------------------------
+
+
+#: How many entries to keep.
+#:
+#: An event is a few thousand rows, so this is many events' worth — and the
+#: table lives on an SD card in a Raspberry Pi, which is why there is a number
+#: here at all rather than a promise to look at it later. Trimmed at startup by
+#: :func:`prune_audit_log`; nothing runs in the background.
+AUDIT_LOG_MAX_ENTRIES = 50_000
+
+
+def record_audit(
+    db: Session,
+    action: str,
+    *,
+    role: str,
+    outcome: str = audit.Outcome.OK.value,
+    source_ip: str | None = None,
+    race_id: int | None = None,
+    details: dict[str, audit.Detail] | None = None,
+) -> audit.Entry:
+    """Append one entry.
+
+    Committed on its own rather than left to the caller's transaction. The
+    interesting entries are the ones that accompany something going wrong, and
+    an entry that rolls back with the operation it was describing is missing
+    exactly when it is wanted.
+    """
+    at = datetime.now(timezone.utc).isoformat()
+    row = models.AuditEntry(
+        at=at,
+        action=action,
+        role=role,
+        outcome=outcome,
+        source_ip=source_ip,
+        race_id=race_id,
+        details=json.dumps(details) if details else None,
+    )
+    db.add(row)
+    db.commit()
+
+    # A value, not the row. `db.commit()` expires the instance, so handing back
+    # the ORM object would make reading any field of it a second SELECT — which
+    # is a query per mutation for something every caller already knows, and
+    # `test_query_counts.py` measures it.
+    return audit.Entry(
+        action=action,
+        role=audit.ActorRole(role),
+        at=at,
+        outcome=audit.Outcome(outcome),
+        source_ip=source_ip,
+        race_id=race_id,
+        details=dict(details or {}),
+    )
+
+
+def get_audit_entries(
+    db: Session,
+    race_id: int | None = None,
+    limit: int = 200,
+    before_id: int | None = None,
+) -> list[models.AuditEntry]:
+    """The most recent entries first, newest page first.
+
+    ``race_id`` narrows to one race *and* keeps the entries that concern no
+    particular race — setting up a track, restoring a backup — out of the way.
+    Paging is by id rather than by timestamp because two entries can share a
+    timestamp and an offset would skip rows as new ones arrive at the head.
+    """
+    query = db.query(models.AuditEntry)
+    if race_id is not None:
+        query = query.filter(models.AuditEntry.race_id == race_id)
+    if before_id is not None:
+        query = query.filter(models.AuditEntry.id < before_id)
+    return query.order_by(models.AuditEntry.id.desc()).limit(limit).all()
+
+
+def prune_audit_log(db: Session, keep: int = AUDIT_LOG_MAX_ENTRIES) -> int:
+    """Drop all but the newest ``keep`` entries. Returns how many went.
+
+    Called from ``init_db`` rather than on every write: trimming per insert
+    would put a count and a delete in the path of every mutation, and the table
+    being briefly over its cap between restarts costs nothing.
+    """
+    total = db.query(func.count(models.AuditEntry.id)).scalar() or 0
+    if total <= keep:
+        return 0
+
+    cutoff = (
+        db.query(models.AuditEntry.id)
+        .order_by(models.AuditEntry.id.desc())
+        .offset(keep - 1)
+        .limit(1)
+        .scalar()
+    )
+    if cutoff is None:
+        return 0
+
+    removed = (
+        db.query(models.AuditEntry)
+        .filter(models.AuditEntry.id < cutoff)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return removed

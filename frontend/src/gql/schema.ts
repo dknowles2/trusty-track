@@ -29,6 +29,19 @@ export type AdvancementStatus = {
   source?: Maybe<Scalars['String']['output']>;
 };
 
+export type AuditLogEntry = {
+  action: Scalars['String']['output'];
+  at: Scalars['String']['output'];
+  details?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  noteworthy: Scalars['Boolean']['output'];
+  outcome: Scalars['String']['output'];
+  raceId?: Maybe<Scalars['Int']['output']>;
+  role: Scalars['String']['output'];
+  sourceIp?: Maybe<Scalars['String']['output']>;
+  summary: Scalars['String']['output'];
+};
+
 export type Award = {
   den?: Maybe<Den>;
   denId?: Maybe<Scalars['Int']['output']>;
@@ -613,6 +626,7 @@ export type PopulateTestDataInput = {
 export type Query = {
   activeFreeRaceHeat?: Maybe<FreeRaceHeat>;
   advancementStatus: AdvancementStatus;
+  auditLog: Array<AuditLogEntry>;
   displays: Array<Display>;
   freeRaceHeats: Array<FreeRaceHeat>;
   groups: Array<Group>;
@@ -640,6 +654,13 @@ export type QueryActiveFreeRaceHeatArgs = {
 export type QueryAdvancementStatusArgs = {
   raceId: Scalars['Int']['input'];
   roundId: Scalars['Int']['input'];
+};
+
+
+export type QueryAuditLogArgs = {
+  beforeId?: InputMaybe<Scalars['Int']['input']>;
+  limit?: Scalars['Int']['input'];
+  raceId?: InputMaybe<Scalars['Int']['input']>;
 };
 
 

@@ -339,7 +339,7 @@ Databases created before Alembic are detected at startup (app tables present, no
 
 Defined entirely in `backend/api/schema.py`.
 
-**Queries:** `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `version`
+**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `version`
 
 **Mutations:**
 
@@ -750,6 +750,26 @@ Two traps, both recorded on #15 and both still true:
 **Role resolution is lazy** (`auth.resolve_role`). It costs a query for the configured PINs, and only a mutation ever asks — an audience display resolves no role at all. `test_query_counts.py` caught the eager version.
 
 **Absent and empty PINs mean different things** in `InitialConfigInput`. Absent is *leave alone*; empty is *clear*. The settings page re-submits the whole config on every save and cannot send back a PIN it is never given, so treating absent as "clear" would switch enforcement off whenever the operator renamed a track.
+
+### The activity log
+
+`backend/domain/audit.py` for the vocabulary, `models.AuditEntry` for the row, and two seams that write it ([#219](https://github.com/dknowles2/trusty-track/issues/219)). The database held the current state and no record of how it got there, so "who deleted that round" had no answer but whoever happened to be watching.
+
+**Two seams, because one is not enough.** `AuditExtension` records every mutation at the same hook `RolePolicyExtension` uses. That alone would miss the results, which is the thing a dispute is actually about: `TimerManager` calls `crud.record_heat_result` through its own session outside any request (#9), so a mutation-only log records every *correction* to a time and never the time it corrected. `record_heat_result` and `update_free_race_heat_result` therefore take a **required keyword-only `source`**, and record the entry themselves — #48's lesson, that a rule depending on each caller remembering reaches only some of them.
+
+**Extension order is load-bearing and reads backwards.** A *later* extension wraps an earlier one, so `AuditExtension` is listed **after** `RolePolicyExtension` in order to catch the `PermissionDeniedError` and record a refusal — which is the most interesting line the log holds. Listed first it records no refusals at all. Measured, not assumed; the first draft had them the other way round. `test_audit_log.py::TestRefusals` fails if they are swapped.
+
+**Redaction is three defences, not a list.** `createInitialConfig` carries both PINs in plaintext, so this is the one part of the feature where being wrong writes a credential into a readable table. Names are matched as *fragments* on a normalised form, because a denylist that spelled `data_url` let `dataUrl` straight through — found by smoke-testing `redact`, not by reading it. Then the value is checked regardless of its name, and anything past `DROP_STRING_OVER` is dropped rather than shortened. Nested inputs are flattened one level, and every leaf goes through the same checks: `createInitialConfig` hides its PINs *inside* `config`, so a flattener trusting the outer name would undo the whole module.
+
+**An entry is self-contained.** `describe` renders the sentence from the entry alone and never looks an id back up. That is the opposite of the standings, awards and recipients — all computed on demand so they cannot disagree with the race — and right for the opposite reason: an audit entry is a claim about a moment that has passed, and one that changed its story as the data moved would be a second view of the present.
+
+**`race_id` is a plain integer, not a foreign key.** The one place the schema declines a cascade (#125): deleting a race must not take the record of what was done to it.
+
+**A query, not a subscription.** Half the entries are written from `crud`, and publishing from there would mean `db` importing the api layer's pub/sub. The page refetches instead.
+
+**The query guards itself.** `RolePolicyExtension` covers mutations only, so `auditLog` calls `_require_operator_role` — the same gap `/api/backup` and `/ws/timer/{track_id}` each close for themselves. `sourceIp` is a separate field so a screen can decline to ask, and the page does not show it by default.
+
+**One insert per mutation, and `test_query_counts.py` measures it.** `record_audit` returns a value object rather than the ORM row: `db.commit()` expires the instance, so handing the row back made reading any field a second SELECT.
 
 ### Backup and restore
 

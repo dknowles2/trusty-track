@@ -31,6 +31,7 @@ import Printables from './features/printables/pages/Printables';
 import HeatSheet from './features/printables/pages/HeatSheet';
 import ResultsSheet from './features/printables/pages/ResultsSheet';
 import TimerDiagnostics from './features/settings/pages/TimerDiagnostics';
+import ActivityLog from './features/settings/pages/ActivityLog';
 
 import { INITIAL_CONFIG_QUERY } from './features/core/graphql/queries';
 
@@ -82,6 +83,7 @@ function App() {
                 <Route path="/system-settings" element={<ProtectedRoute><SystemSettings /></ProtectedRoute>} />
                 <Route path="/system-config" element={<Navigate to="/system-settings" replace />} />
                 <Route path="/timer-check" element={<ProtectedRoute><TimerDiagnostics /></ProtectedRoute>} />
+                <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
                 <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
                 <Route path="/race/:raceId/standings" element={<ProtectedRoute><Standings /></ProtectedRoute>} />

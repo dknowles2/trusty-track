@@ -53,11 +53,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import inspect
+import logging
 import secrets
 from enum import Enum
 from typing import Any
 
 from strawberry.extensions import SchemaExtension
+
+logger = logging.getLogger(__name__)
 
 #: Header the client sends its PIN in. Same-origin, so no cookie and no CORS
 #: exposure; on a LAN over plain HTTP a bearer token would be no less readable
@@ -256,3 +260,103 @@ def resolve_role(context: dict) -> Role:
         role = resolver() if resolver else Role.OPERATOR
         context["role"] = role
     return role
+
+
+class AuditExtension(SchemaExtension):
+    """Record every mutation, including the ones that are turned away (#219).
+
+    The same seam as :class:`RolePolicyExtension`, for the same reasons: it
+    fires for every field on both transports, and scoping it to fields whose
+    parent is ``Mutation`` costs a query or subscription one string compare.
+
+    It wraps the policy rather than sitting beside it. ``PermissionDeniedError``
+    is raised from a ``resolve`` further in, so catching it here is what lets a
+    refusal be recorded — and a refusal is the most interesting thing this log
+    holds.
+
+    Registration order in ``schema.py`` is therefore load-bearing, and it reads
+    backwards: a *later* extension wraps an earlier one, so this one is listed
+    **after** :class:`RolePolicyExtension`. Listed before it, the policy raises
+    outside this hook and refusals are recorded nowhere —
+    ``test_audit_log.py::TestRefusals`` is what says so.
+
+    Failures are recorded and re-raised. An audit log that swallowed the
+    exception would turn a broken mutation into a silent one.
+    """
+
+    def resolve(
+        self, _next: Any, root: Any, info: Any, *args: Any, **kwargs: Any
+    ) -> Any:
+        if info.parent_type.name != "Mutation":
+            return _next(root, info, *args, **kwargs)
+
+        from backend.db import crud
+        from backend.domain import audit as audit_domain
+
+        context = info.context
+        details = audit_domain.redact(kwargs)
+        race_id = _race_id_from(kwargs)
+
+        def record(outcome: audit_domain.Outcome) -> None:
+            # Never let the record-keeping take down the thing it is recording.
+            # A full disk or a locked table should cost an audit line, not the
+            # operator's heat result.
+            try:
+                crud.record_audit(
+                    context["db"],
+                    info.field_name,
+                    role=resolve_role(context).value.upper(),
+                    outcome=outcome.value,
+                    source_ip=context.get("source_ip"),
+                    race_id=race_id,
+                    details=details,
+                )
+            except Exception:  # pragma: no cover - defensive
+                logger.exception("Could not record an audit entry")
+
+        try:
+            result = _next(root, info, *args, **kwargs)
+        except PermissionDeniedError:
+            record(audit_domain.Outcome.REFUSED)
+            raise
+        except Exception:
+            record(audit_domain.Outcome.FAILED)
+            raise
+
+        # An async resolver hands back a coroutine that has not run yet, so the
+        # outcome is not known here. Awaiting it in a wrapper is what makes the
+        # difference between "this mutation was called" and "this mutation
+        # worked" — and most of the interesting ones are async.
+        if inspect.isawaitable(result):
+            return _record_when_done(result, record, audit_domain)
+
+        record(audit_domain.Outcome.OK)
+        return result
+
+
+async def _record_when_done(awaitable: Any, record: Any, audit_domain: Any) -> Any:
+    try:
+        value = await awaitable
+    except PermissionDeniedError:
+        record(audit_domain.Outcome.REFUSED)
+        raise
+    except Exception:
+        record(audit_domain.Outcome.FAILED)
+        raise
+    record(audit_domain.Outcome.OK)
+    return value
+
+
+def _race_id_from(kwargs: dict[str, Any]) -> int | None:
+    """Which race a mutation concerned, when it says so plainly.
+
+    Only from an argument actually named for it. Chasing a `heat_id` back to
+    its race would mean a query per mutation and a guess when the row has
+    already been deleted — and `deleteRace` is exactly the case where the row
+    is gone by the time anybody asks.
+    """
+    for name in ("race_id", "raceId"):
+        value = kwargs.get(name)
+        if isinstance(value, int):
+            return value
+    return None

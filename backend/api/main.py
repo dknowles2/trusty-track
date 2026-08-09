@@ -35,7 +35,7 @@ from strawberry.fastapi import GraphQLRouter
 from backend.api import auth
 from backend.api.loaders import RequestLoaders
 from backend.api.schema import schema
-from backend.db import models
+from backend.db import crud, models
 from backend.db.database import (
     DATA_DIR,
     UPLOAD_DIR,
@@ -45,6 +45,7 @@ from backend.db.database import (
     init_db,
     known_revisions,
 )
+from backend.domain import audit
 from backend.services import backup, printables
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer import devices
@@ -78,6 +79,18 @@ async def lifespan(_app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         # In a real production app, you might want to exit here
+
+    # Trim the audit log (#219). At startup rather than per write: counting and
+    # deleting on every mutation would put two statements in the path of every
+    # heat result, and the table being briefly over its cap between restarts
+    # costs nothing.
+    try:
+        with SessionLocal() as session:
+            removed = crud.prune_audit_log(session)
+        if removed:
+            logger.info("Pruned %d old audit entries.", removed)
+    except Exception as e:
+        logger.error("Could not prune the audit log: %s", e)
 
     logger.info("Initializing timer managers...")
     try:
@@ -164,8 +177,20 @@ async def get_graphql_context(
     else:  # pragma: no cover - Strawberry always supplies one
         pin = None
 
+    # Where the request came from, for the audit log (#219). Read here because
+    # this is the only place that still holds the `Request`; by the time a
+    # resolver runs there is nothing left to ask. `client` is None behind some
+    # proxies and in the test client, and null is the honest answer then rather
+    # than a placeholder that looks like an address.
+    source_ip = None
+    if request is not None and request.client is not None:
+        source_ip = request.client.host
+    elif websocket is not None and websocket.client is not None:
+        source_ip = websocket.client.host
+
     return {
         "db": db,
+        "source_ip": source_ip,
         # A callable, not a value: see `auth.resolve_role`. Only a mutation
         # asks, and working it out costs a query.
         "role_resolver": lambda: _role_for_request(db, pin),
@@ -288,6 +313,16 @@ def download_backup(request: Request, db: Session = Depends(get_db)) -> FileResp
         staging_dir=staging,
     )
 
+    # An archive holds every racer's name and photograph, so leaving the
+    # building is worth a line (#219).
+    crud.record_audit(
+        db,
+        "backupDownloaded",
+        role=audit.ActorRole.OPERATOR.value,
+        source_ip=request.client.host if request.client else None,
+        details={"uploadCount": manifest.upload_count},
+    )
+
     stamp = manifest.created_at.replace(":", "").replace("-", "")[:15]
     return FileResponse(
         archive_path,
@@ -360,6 +395,28 @@ async def restore_backup(
     # same path a pre-Alembic database already takes at startup.
     init_db()
     await initialize_timer_managers(TIMER_MANAGERS, session_factory=SessionLocal)
+
+    # Recorded *after* the swap and through a new session, which is the whole
+    # subtlety here: the request's own session was closed and its database has
+    # been moved aside, so an entry written any earlier would be filed in the
+    # copy nobody will ever open again. This one belongs in the database that
+    # now exists, where somebody looking for "why is this not my event" will
+    # actually find it.
+    try:
+        with SessionLocal() as session:
+            crud.record_audit(
+                session,
+                "backupRestored",
+                role=audit.ActorRole.OPERATOR.value,
+                source_ip=request.client.host if request.client else None,
+                details={
+                    "createdAt": manifest.created_at,
+                    "appVersion": manifest.app_version,
+                    "uploadCount": manifest.upload_count,
+                },
+            )
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Could not record the restore in the audit log: %s", exc)
 
     return {
         "restored": True,

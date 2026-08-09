@@ -279,13 +279,15 @@ def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
     # with slack in it would not have caught it.
     #
     # Four, not three, since #15: a mutation reads the configured PINs once to
-    # work out the caller's role. That read is constant and only a mutation pays
-    # it — queries and subscriptions resolve no role at all, which is why this
-    # is the only count in this file that moved. What the number still holds is
-    # the property that matters: it does not grow with the racers moved.
-    assert counter.count <= 4, (
+    # work out the caller's role. Five since #219: it also writes one audit
+    # entry. Both are constant and only a mutation pays either — queries and
+    # subscriptions resolve no role and record nothing, which is why this is
+    # the only count in this file that has moved. What the number still holds
+    # is the property that matters: it does not grow with the racers moved.
+    assert counter.count <= 5, (
         f"Moving {len(racer_ids)} racers issued {counter.count} SQL statements; "
-        f"it should be the UPDATE, the role lookup, and little else."
+        f"it should be the UPDATE, the role lookup, the audit entry, and little "
+        f"else."
     )
 
 

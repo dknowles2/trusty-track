@@ -20,14 +20,14 @@ from sqlalchemy.orm import Session, object_session
 from strawberry.types import Info
 
 from backend.api import auth
-from backend.api.auth import RolePolicyExtension
+from backend.api.auth import AuditExtension, RolePolicyExtension
 from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
+from backend.domain import audit, lanes
 from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
-from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
 from backend.services import displays as displays_service
 from backend.services import scoring
@@ -1164,6 +1164,81 @@ HeatPhase = strawberry.enum(domain_heat_session.Phase, name="HeatPhase")
 DisplayViewEnum = strawberry.enum(domain_displays.DisplayView, name="DisplayView")
 
 
+def _require_operator_role(info: Info) -> None:
+    """Refuse anything but an operator.
+
+    `RolePolicyExtension` guards *mutations*, and this is a query — the same
+    gap `/api/backup` and `/ws/timer/{track_id}` each close for themselves. It
+    matters more here than most: the log says which device did what, and
+    handing that to a wall display would be worse than the log not existing.
+    """
+    if auth.resolve_role(info.context) is not auth.Role.OPERATOR:
+        raise auth.PermissionDeniedError("The activity log is operator-only")
+
+
+@strawberry.type
+class AuditLogEntry:
+    """One line of the timeline (#219).
+
+    Everything a screen needs to render the entry is on the entry. Nothing here
+    is looked up against the race, deliberately: a round deleted in March
+    cannot be named by asking what round 4 is called today, and an entry whose
+    story changed as the data moved would be a second view of the present
+    rather than a record of the past.
+    """
+
+    id: int
+    #: ISO 8601 UTC.
+    at: str
+    action: str
+    role: str
+    outcome: str
+    race_id: int | None
+    #: The redacted details, as a JSON object. A string because the shape
+    #: differs per action and a typed field per action would be forty of them.
+    details: str | None
+
+    @strawberry.field
+    def source_ip(self, info: Info) -> str | None:
+        """Where the request came from.
+
+        Operator-only, like the query that reaches it — but named as its own
+        field so a screen can choose not to ask. The timeline does not, by
+        default: an address against every line is noise until the one evening
+        somebody needs to know which device did something.
+        """
+        _require_operator_role(info)
+        # `self` is the ORM row, not this class — Strawberry types here are
+        # duck-typed shells. So this reads the column rather than recursing.
+        return self.source_ip  # type: ignore[attr-defined,no-any-return]
+
+    @strawberry.field
+    def summary(self) -> str:
+        """The sentence to show, rendered from this entry alone."""
+        return audit.describe(
+            audit.Entry(
+                action=self.action,
+                role=audit.ActorRole(self.role),
+                at=self.at,
+                outcome=audit.Outcome(self.outcome),
+                race_id=self.race_id,
+                details=json.loads(self.details) if self.details else {},
+            )
+        )
+
+    @strawberry.field
+    def noteworthy(self) -> bool:
+        """Whether this one deserves attention rather than merely a line."""
+        return audit.is_noteworthy(
+            audit.Entry(
+                action=self.action,
+                role=audit.ActorRole(self.role),
+                at=self.at,
+                outcome=audit.Outcome(self.outcome),
+            )
+        )
+
+
 @strawberry.type
 class Display:
     """One audience display, and what it has been told to show (#174).
@@ -1398,6 +1473,44 @@ class Query:
         dropped off the wifi is the one the operator most wants to see.
         """
         return [_display(d) for d in displays_service.registry.for_race(race_id)]
+
+    @strawberry.field
+    def audit_log(
+        self,
+        info: Info,
+        race_id: int | None = None,
+        limit: int = 200,
+        before_id: int | None = None,
+    ) -> list[AuditLogEntry]:
+        """The timeline, newest first (#219).
+
+        Operator-only, and it says so itself: the role policy only guards
+        mutations, and this query is exactly the sort a wall display must never
+        be able to run.
+
+        ``raceId`` narrows to one race. Entries that concern no particular race
+        — setting up a track, restoring a backup — are then out of the way,
+        which is what makes a race filter useful rather than merely a filter.
+
+        **A query and not a subscription**, which is a departure from every
+        other live view here and is about layering rather than taste. Half the
+        entries are written from ``crud`` — the timer records a heat through
+        its own session, outside any request (#9) — and publishing from there
+        would mean ``db`` importing the api layer's pub/sub to announce its own
+        writes. The timeline refetches on ``raceStateChanged`` instead, which
+        fires for everything a race-scoped log would want to show and which the
+        client already subscribes to.
+        """
+        _require_operator_role(info)
+        return typing.cast(
+            Any,
+            crud.get_audit_entries(
+                info.context["db"],
+                race_id=race_id,
+                limit=min(limit, 500),
+                before_id=before_id,
+            ),
+        )
 
     @strawberry.field
     def races(self, info: Info, skip: int = 0, limit: int = 100) -> list[Race]:
@@ -2577,7 +2690,14 @@ class Mutation:
         if heat is None:
             return None
         results = _lanes_from_input(lanes_input)
-        updated_heat = typing.cast(Any, crud.record_heat_result(db, heat_id, results))
+        # A person typed this: Edit, Override, or a skipped heat. The timer's
+        # own results come by a different route entirely (#219).
+        updated_heat = typing.cast(
+            Any,
+            crud.record_heat_result(
+                db, heat_id, results, source=audit.ResultSource.OPERATOR
+            ),
+        )
         # Recording here can re-field a later championship round (#50).
         await _revalidate_timers(info)
         if updated_heat:
@@ -3071,7 +3191,10 @@ class Mutation:
             return None
         lane_results = _lanes_from_input(lanes_input)
         updated = typing.cast(
-            Any, crud.update_free_race_heat_result(db, heat_id, lane_results)
+            Any,
+            crud.update_free_race_heat_result(
+                db, heat_id, lane_results, source=audit.ResultSource.OPERATOR
+            ),
         )
         if updated:
             await _publish_race_state(updated.race_id)
@@ -3711,5 +3834,12 @@ schema = strawberry.Schema(
     # Refuses a mutation the caller's role does not carry (#15). One seam, and
     # it covers the WebSocket as well as HTTP — see `api/auth.py` for why the
     # second layer the design sketch proposed is not here.
-    extensions=[RolePolicyExtension],
+    # Order is load-bearing and reads backwards: a later extension *wraps* an
+    # earlier one, so `AuditExtension` has to come second to see the
+    # `PermissionDeniedError` the policy raises — otherwise a refused mutation
+    # is turned away with nothing recorded, which is the line the log most
+    # wants (#219). Measured rather than assumed; the first draft had these the
+    # other way round and recorded no refusals at all.
+    # `test_audit_log.py::TestRefusals` fails if they are swapped back.
+    extensions=[RolePolicyExtension, AuditExtension],
 )
