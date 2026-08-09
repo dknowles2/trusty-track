@@ -286,6 +286,34 @@ After reviewing results, click **Next Heat** to advance to the next heat — or 
 > [!TIP]
 > The **Auto-advance** toggle is in the lower section of the active heat card. When on, the display counts down and advances without any button click.
 
+### Keyboard Shortcuts
+
+The race control operator usually has a microphone in one hand. Three keys cover
+the repetitive parts, and each is printed on the button it mirrors:
+
+| Key | What it does |
+|-----|--------------|
+| **Space** | Move on to the next heat, once the current one is recorded. |
+| **E** | Open the result editor — **Edit** after a heat, **Override** before one. |
+| **Esc** | Cancel the auto-advance countdown. |
+
+They do nothing while you are typing in a box, while a dialog is open, or when
+held with Ctrl, Cmd or Alt — so correcting a car name never advances the race,
+and the browser keeps its own shortcuts. Space deliberately does not *start* a
+heat: on a real timer the gate is released by hand.
+
+### The Finish Sound
+
+**Finish sound**, beside the auto-advance toggle, plays a short chime when a
+heat's results are recorded. Forty feet from the screen nobody knows the result
+is in until somebody says so, and the chime tells the room without anyone
+looking at a monitor.
+
+It is off until you switch it on, and the setting is remembered on that device
+only — your laptop can have it while the wall displays stay silent. Switching it
+on plays the sound once, which is how you find out whether the machine is muted
+without waiting for a heat to finish.
+
 ---
 
 ### Correcting a Result

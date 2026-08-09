@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSubscription, useMutation } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { FakeTimerMole } from './FakeTimerMole';
@@ -24,6 +24,8 @@ export type {
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import type { HeatPhase } from '../../../gql/operations';
 import { hasRun, hasTimes, toInput } from '../lanes';
+import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime';
+import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
 
 /**
@@ -32,6 +34,18 @@ import { useRaceFlow } from '../useRaceFlow';
  * for the cursor. It becomes a number on save.
  */
 type EditableLane = LaneInput & { timeText: string };
+
+/** How a keyboard hint looks on the button it mirrors (#207). */
+const KBD_STYLE: React.CSSProperties = {
+    marginLeft: '2px',
+    padding: '1px 5px',
+    fontSize: '0.7rem',
+    fontFamily: 'inherit',
+    lineHeight: 1.5,
+    border: '1px solid currentColor',
+    borderRadius: '4px',
+    opacity: 0.65,
+};
 
 interface RaceExecutionProps {
     activeExecutionHeat: Heat | null;
@@ -143,7 +157,65 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         },
     );
     const autoAdvanceCountdown = flow.countdown;
+
+    // The finish chime (#208). The edge, not the state: RECORDED persists for
+    // as long as the operator leaves the heat on screen, and a payload arrives
+    // for every lane time and every check-in.
+    const [chimeOn, setChimeOn] = useState(() => chimeEnabled(window.localStorage));
+    const previousPhase = useRef<HeatPhase | null>(null);
+    useEffect(() => {
+        if (chimeOn && shouldChime(previousPhase.current, phase)) playChime();
+        previousPhase.current = phase;
+    }, [phase, chimeOn]);
+
+
     const isRoundSummaryOpen = flow.screen.kind === 'ROUND_SUMMARY';
+
+    const handleEditOpen = () => {
+        setEditingResults(storedLanes.map((l) => ({
+            ...toInput(l),
+            timeText: l.time === null ? '' : String(l.time),
+        })));
+        setIsEditModalOpen(true);
+    };
+
+    // Keys the operator can reach without the mouse (#207). The rules are in
+    // `shortcuts.ts`; this is the wiring and nothing else.
+    //
+    // Up here with the other hooks rather than beside the buttons it drives:
+    // there are two early returns below — no heat, and a round whose field is
+    // undecided — and a hook after them does not run on every render.
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            const action = shortcutFor(
+                event.key,
+                { ctrl: event.ctrlKey, meta: event.metaKey, alt: event.altKey },
+                {
+                    phase,
+                    hasNextHeat: !!nextExecutionHeat,
+                    countingDown: flow.countdown !== null,
+                    modalOpen: isEditModalOpen || isRoundSummaryOpen,
+                    typing: isTypingTarget(event.target),
+                },
+            );
+            if (!action) return;
+            // Only once we have decided to act: Space scrolls a page and
+            // Escape closes things, and taking either away from a keystroke we
+            // are going to ignore would be worse than having no shortcut.
+            event.preventDefault();
+            if (action === 'ADVANCE') {
+                flow.cancelCountdown();
+                onNextHeat();
+            } else if (action === 'EDIT') {
+                handleEditOpen();
+            } else {
+                flow.cancelCountdown();
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    });
+
 
     useEffect(() => {
         if (!isRunning) return;
@@ -186,20 +258,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
         );
     }
 
-    const handleEditOpen = () => {
-        setEditingResults(storedLanes.map((l) => ({
-            ...toInput(l),
-            timeText: l.time === null ? '' : String(l.time),
-        })));
-        setIsEditModalOpen(true);
-    };
-
     const handleResultChange = (index: number, field: 'time' | 'place', value: string) => {
         const newResults = [...editingResults];
         if (field === 'time') newResults[index].timeText = value;
         else if (field === 'place') newResults[index].place = parseInt(value) || null;
         setEditingResults(newResults);
     };
+
 
     const handleSaveResults = async () => {
         const edited = editingResults.map(({ timeText, ...rest }) => {
@@ -280,6 +345,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             }}
                                         >
                                             Next Heat{autoAdvanceCountdown !== null ? ` (${autoAdvanceCountdown}s)` : ''} <Icon path={mdiArrowRight} size={0.8} />
+                                            <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.ADVANCE}</kbd>
                                         </button>
                                         {autoAdvanceCountdown !== null && (
                                             <button
@@ -297,6 +363,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                 }}
                                             >
                                                 Cancel
+                                                <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.CANCEL_COUNTDOWN}</kbd>
                                             </button>
                                         )}
                                     </div>
@@ -439,6 +506,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             }}
                                         >
                                             <Icon path={mdiPencil} size={0.7} /> Edit
+                                            <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.EDIT}</kbd>
                                         </button>
                                         <button
                                             onClick={() => onRunHeat(activeExecutionHeat, false)}
@@ -494,6 +562,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiPencil} size={0.7} /> Override
+                                            <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.EDIT}</kbd>
                                         </button>
                                         <button
                                             onClick={handleSkipHeat}
@@ -506,7 +575,32 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 )}
                             </div>
 
-                            {/* BOTTOM RIGHT: Auto-advance */}
+                            {/* BOTTOM RIGHT: sound, then auto-advance */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+                            {/* The finish chime (#208). Off until somebody asks
+                                for it, and remembered per device — the
+                                operator's laptop wants it, a wall display does
+                                not. */}
+                            <label
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', color: '#555', cursor: 'pointer', userSelect: 'none' }}
+                                title="Play a short sound when a heat's results are recorded."
+                            >
+                                <input
+                                    type="checkbox"
+                                    data-testid="finish-chime-toggle"
+                                    checked={chimeOn}
+                                    onChange={(e) => {
+                                        setChimeEnabled(window.localStorage, e.target.checked);
+                                        setChimeOn(e.target.checked);
+                                        // Played on the way on, never on the way
+                                        // off: it is the only way to find out
+                                        // whether the machine's sound is muted
+                                        // without waiting for a heat to finish.
+                                        if (e.target.checked) playChime();
+                                    }}
+                                />
+                                Finish sound
+                            </label>
                             {onToggleAutoAdvance && (
                                 <div
                                     style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}
@@ -536,6 +630,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
                                         <input
                                             type="checkbox"
+                                            data-testid="auto-advance-toggle"
+                                            aria-label="Auto-advance"
                                             checked={autoAdvanceHeat}
                                             onChange={(e) => onToggleAutoAdvance(e.target.checked)}
                                             style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
@@ -559,6 +655,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     </label>
                                 </div>
                             )}
+                            </div>
                         </div>
                     </div>
                 </div>

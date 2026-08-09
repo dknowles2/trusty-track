@@ -602,6 +602,22 @@ Three things about that header, each of which has a wrong-looking alternative:
 - **`_record_results` verifies before writing.** It compares the heat's current lane assignment against the `racer_by_lane` it was armed with and calls `_abandon_run` on a mismatch. `racer_by_lane` absent means *unknown*, not *no racers*, so the check sits out when the caller did not supply one.
 - **`_revalidate_timers(info)` disarms proactively.** Call it from any mutation that regenerates, deletes or re-fields heats — it is already on `updateHeatResult`, `regenerateRound`, `deleteRound`, `deleteHeat` and `advanceRound`. Without it the operator only finds out after a run, holding times they must key in by hand.
 
+### Race-day keys and the finish sound
+
+`features/racing/shortcuts.ts` and `features/racing/chime.ts`, wired in `RaceExecution` ([#207](https://github.com/dknowles2/trusty-track/issues/207), [#208](https://github.com/dknowles2/trusty-track/issues/208)). Both are pure rules with the doing in the component, the same split as `raceFlow.ts`.
+
+**Three keys, and each is printed on the button it mirrors.** Space advances, E opens the editor, Escape cancels the countdown. A screen somebody uses once a year cannot amortise a cheat sheet, so a fourth key is a cost rather than a feature.
+
+**Space does not start a heat.** On a real timer the gate is released by hand, and on the fake one the control is a debugging panel rather than part of the flow — so there is no "start" for a key to mean.
+
+**Nothing fires while typing, with a dialog open, or with a modifier held**, and `preventDefault` is called *only* once an action has been decided. Space scrolls a page and Escape closes things; taking either away from a keystroke we are going to ignore is worse than having no shortcut.
+
+**The hooks sit above `RaceExecution`'s two early returns** — no heat, and a round whose field is undecided. A hook after them does not run on every render, which is what `react-hooks/rules-of-hooks` catches.
+
+**The chime is an edge, not a state.** `RECORDED` persists for as long as the operator leaves the heat on screen and a payload arrives for every lane time and every check-in, so `shouldChime` compares the previous phase. A null previous phase is a page load, which is not a heat finishing.
+
+**Off by default, remembered per device**, like the PIN: the operator's laptop wants it and a wall display does not. Switching it on plays it once — the only way to find out whether the machine is muted without waiting for a heat. It is two WebAudio oscillators rather than an asset, because these machines have no internet.
+
 ### What is on the track right now
 
 `heatSession(trackId, heatId)` merges the heat row (schedule, and results once saved) with the `TimerManager`'s pending lane times, and reports a `phase` — `NO_HEAT`, `NOT_READY`, `WAITING`, `RUNNING`, `RECORDED`. The rule is `domain/heat_session.py`; the resolver loads the two sides and calls it.

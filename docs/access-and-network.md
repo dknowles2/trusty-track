@@ -35,8 +35,10 @@ which is the behaviour you want on a screen taped to a wall.
 
 - **Operator PIN** — required for the rest to mean anything. Setting it is what
   turns access control on.
-- **Check-in PIN** — optional. Only worth setting if someone other than you is
-  running the registration table.
+- **Check-in PIN** — optional. Worth setting if the registration desk runs on a
+  device of its own: that device can add racers and check them in, and nothing
+  else, so a tablet left on the table cannot delete a round. The Access panel
+  says as much beside the field.
 
 > [!TIP]
 > Pick something you will not have to think about at 8am. It is protecting the
