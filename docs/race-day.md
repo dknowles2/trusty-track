@@ -132,7 +132,24 @@ Photos that are uploaded but not assigned to any racer are silently skipped — 
 Once check-in is underway, the race control operator can move to the **Race Control** page to build the heat schedule. Click the **Control** link in the top navigation bar.
 
 ![Race Control — Empty State](assets/screenshots/race-day/06-race-control-empty.png)
-_The Race Control page before any rounds have been added. Click "Start Round Creation Wizard" to begin._
+_The Race Control page before any rounds have been added. The readiness panel at the top is reporting the missing schedule; click "Start Round Creation Wizard" to begin._
+
+---
+
+### The Readiness Check
+
+Until the first heat has been recorded, a readiness panel sits at the top of the **Schedule** and **Race** tabs. It answers the four questions that otherwise only surface as an error at the start line:
+
+| Item | What it tells you |
+|------|-------------------|
+| **Timer** | Whether the timer is connected and which model it reported. **Check it** opens the [timer diagnostics page](hardware-timer.md#checking-it-works), where the profile's provenance and the serial log live. |
+| **Check-in** | How many cars are through inspection. Only checked-in cars are put into heats. |
+| **Schedule** | How many heats exist. |
+| **Displays** | How many audience screens are currently connected. |
+
+Red means you cannot run a heat yet; amber means you can, but something is worth a look — a queue still at the check-in desk, most often. Displays are reported in grey because having no audience screen is a choice rather than a problem.
+
+Once nothing needs attention the panel collapses to a single line, and it disappears entirely as soon as a heat has been recorded — from that point the timer badge and the race execution screen report anything that goes wrong.
 
 ---
 

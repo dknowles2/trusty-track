@@ -7,12 +7,14 @@ import { useAlert } from '../../../context/AlertContext';
 import { ScheduleManagement } from '../components/ScheduleManagement';
 import DisplaysPanel from '../../observation/components/DisplaysPanel';
 import { RaceExecution } from '../components/RaceExecution';
+import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
 import { hasRun, hasTimes, byPlace, cleared } from '../lanes';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
+import { shouldShowReadiness } from '../readiness';
 
 const GET_RACE_CONTROL_DATA = gql`
   query GetRaceControlData($id: Int!) {
@@ -25,6 +27,8 @@ const GET_RACE_CONTROL_DATA = gql`
       championshipTrophies
       scoringStrategy
       autoAdvanceHeat
+      registeredCount
+      checkedInCount
       track {
         id
         laneCount
@@ -567,6 +571,12 @@ export default function RaceControl() {
     return Object.values(rounds).sort((a, b) => a.roundNumber - b.roundNumber);
   }, [heats, activeExecutionHeat]);
 
+  // The pre-flight check (#200). It answers, before the first heat is armed,
+  // the four questions the operator otherwise discovers one error at a time —
+  // and it goes as soon as anything has been recorded, because from then on the
+  // race has answered them by demonstration.
+  const anyHeatRecorded = heats.some((heat: Heat) => hasTimes(heat.lanes));
+
   if (fetching && !data) return <div>Loading Race Control...</div>;
 
   if (!race && !fetching) return (
@@ -668,6 +678,19 @@ export default function RaceControl() {
 
         <div style={{ minWidth: '160px' }} />
       </div>
+
+      {/* Pre-flight (#200). Not on the Free Race tab, where an exhibition run
+          does not care whether the championship schedule exists, and not on
+          Displays, which is itself one of the four answers. */}
+      {shouldShowReadiness(anyHeatRecorded) && (viewMode === 'SCHEDULE' || viewMode === 'EXECUTION') && (
+        <ReadinessStrip
+          raceId={id}
+          trackId={race?.track?.id ?? null}
+          registeredCount={race?.registeredCount ?? 0}
+          checkedInCount={race?.checkedInCount ?? 0}
+          heatCount={heats.length}
+        />
+      )}
 
       {viewMode === 'DISPLAYS' ? (
         <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>

@@ -484,6 +484,13 @@ export type FakeTimerFinishMutationVariables = Exact<{
 
 export type FakeTimerFinishMutation = { fakeTimerFinish: boolean };
 
+export type TimerReadinessSubscriptionVariables = Exact<{
+  trackId: number;
+}>;
+
+
+export type TimerReadinessSubscription = { timerStatus: { status: { state: string, deviceName: string | null, deviceProvenance: string | null } } };
+
 export type TimerStatusSubscriptionVariables = Exact<{
   trackId: number;
 }>;
@@ -540,7 +547,7 @@ export type GetRaceControlDataQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceControlDataQuery = { initialConfig: { debugMode: boolean }, race: { id: number, name: string, championshipTrophies: number, scoringStrategy: string, autoAdvanceHeat: boolean, track: { id: number, laneCount: number, timerType: string } | null, dens: Array<{ id: number, name: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null, carImageUrl: string | null }>, heats: Array<{ id: number, heatNumber: number, roundNumber: number, roundId: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> }>, rounds: Array<{ id: number, roundNumber: number, name: string | null, advancementSource: string | null, advancementStatus: { isReady: boolean, requiresAdvancement: boolean, alreadyAdvanced: boolean, source: string | null, numRacers: number | null, advancingRacers: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, denName: string, score: number, rank: number, isAdvancing: boolean }> } }> } | null };
+export type GetRaceControlDataQuery = { initialConfig: { debugMode: boolean }, race: { id: number, name: string, championshipTrophies: number, scoringStrategy: string, autoAdvanceHeat: boolean, registeredCount: number, checkedInCount: number, track: { id: number, laneCount: number, timerType: string } | null, dens: Array<{ id: number, name: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null, carImageUrl: string | null }>, heats: Array<{ id: number, heatNumber: number, roundNumber: number, roundId: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> }>, rounds: Array<{ id: number, roundNumber: number, name: string | null, advancementSource: string | null, advancementStatus: { isReady: boolean, requiresAdvancement: boolean, alreadyAdvanced: boolean, source: string | null, numRacers: number | null, advancingRacers: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, denName: string, score: number, rank: number, isAdvancing: boolean }> } }> } | null };
 
 export type CreateRoundMutationVariables = Exact<{
   raceId: number;
