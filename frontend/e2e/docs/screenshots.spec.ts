@@ -5,6 +5,34 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * One of the app's own sample images, as a data URL.
+ *
+ * Read from disk rather than inlined: these are the illustrations `populateRace`
+ * hands out, so a screenshot seeded with them looks like a real event rather
+ * than like a test fixture.
+ */
+function sampleImage(kind: 'racers' | 'cars'): string {
+  const dir = path.resolve(__dirname, '../../../backend/assets/defaults', kind);
+  const file = fs.readdirSync(dir).filter((f) => f.endsWith('.png')).sort()[0];
+  const data = fs.readFileSync(path.join(dir, file)).toString('base64');
+  return `data:image/png;base64,${data}`;
+}
+
+async function gqlRequest(
+  page: import('@playwright/test').Page,
+  query: string,
+  variables: Record<string, unknown> = {},
+) {
+  const response = await page.request.post('http://127.0.0.1:8001/graphql', {
+    data: JSON.stringify({ query, variables }),
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const body = await response.json();
+  if (body.errors) throw new Error(JSON.stringify(body.errors));
+  return body.data;
+}
+
 test('take screenshots', async ({ page, browser }) => {
   const screenshotsDir = path.resolve(__dirname, '../../../docs/assets/screenshots');
   fs.mkdirSync(path.join(screenshotsDir, 'getting-started'), { recursive: true });
@@ -457,6 +485,47 @@ test('take screenshots', async ({ page, browser }) => {
 
   // 01: full observation page
   await page.screenshot({ path: path.join(screenshotsDir, 'observation/01-observation-overview.png') });
+
+  // 09: the photo slideshow (#175). The photos are seeded here through the API
+  // rather than relied upon from the populate step far above: this shot is the
+  // only one that depends on a racer having an image, and a screenshot that
+  // silently documents the empty state is exactly the failure the audit of
+  // this suite kept turning up.
+  const roster = await gqlRequest(page, `query Ph($id: Int!) {
+    race(raceId: $id) { racers { id firstName lastName racerImageUrl carImageUrl } }
+  }`, { id: raceId });
+  const needsPhoto = (roster.race?.racers ?? []).filter(
+    (r: { racerImageUrl?: string; carImageUrl?: string }) => !r.racerImageUrl && !r.carImageUrl,
+  );
+  const racerPhoto = sampleImage('racers');
+  const carPhoto = sampleImage('cars');
+  for (const racer of needsPhoto.slice(0, 4)) {
+    const head = await gqlRequest(page, `mutation Up($d: String!) { uploadImage(dataUrl: $d) }`, {
+      d: racerPhoto,
+    });
+    const car = await gqlRequest(page, `mutation Up($d: String!) { uploadImage(dataUrl: $d) }`, {
+      d: carPhoto,
+    });
+    await gqlRequest(page, `mutation Set($id: Int!, $racer: RacerInput!) {
+      updateRacer(id: $id, racer: $racer) { id }
+    }`, {
+      id: racer.id,
+      racer: {
+        firstName: racer.firstName,
+        lastName: racer.lastName,
+        racerImageUrl: head.uploadImage,
+        carImageUrl: car.uploadImage,
+      },
+    });
+  }
+
+  await page.goto(`/race/${raceId}/observation?view=slideshow`);
+  // Wait for a slide rather than for the network: the empty state and the
+  // loading state look alike at a glance, and a screenshot taken during the
+  // first fetch would document the wrong one.
+  await expect(page.getByTestId('slideshow')).toBeVisible();
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: path.join(screenshotsDir, 'observation/09-slideshow.png') });
 
   // 08: the operator's list of displays (#174). A display registers by holding
   // its subscription open, so the screen has to stay open in a second context

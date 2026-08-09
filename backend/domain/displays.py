@@ -47,6 +47,10 @@ class DisplayView(str, Enum):
     PROJECTOR = "PROJECTOR"
     #: The awards ceremony, stepped through by whoever holds the microphone.
     AWARDS = "AWARDS"
+    #: The racers' photographs, rotating (#175). Most of an event is the gaps
+    #: between heats, and the audience is mostly families looking for their own
+    #: child.
+    SLIDESHOW = "SLIDESHOW"
 
 
 #: What a display shows when nobody has told it anything. Standings rather than
@@ -92,9 +96,12 @@ def describe(assignment: Assignment) -> str:
     """One line naming what a screen is showing, for the operator's list."""
     if assignment.view is DisplayView.CYCLE:
         return f"Standings and timing, every {assignment.cycle_seconds}s"
+    if assignment.view is DisplayView.SLIDESHOW:
+        return f"Racer photos, every {assignment.cycle_seconds}s"
     return {
         DisplayView.STANDINGS: "Standings",
         DisplayView.TIMING: "Last heat's times",
         DisplayView.PROJECTOR: "Projector — now racing and on deck",
         DisplayView.AWARDS: "Awards ceremony",
+        DisplayView.SLIDESHOW: "Racer photos",
     }[assignment.view]

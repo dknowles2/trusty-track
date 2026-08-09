@@ -10,8 +10,10 @@ import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiAccountGroup, mdiMedal, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
 import logoUrl from '../../../assets/logo_transparent.png';
 import { UnlockButton } from './UnlockButton';
+import { useChrome } from '../../../context/ChromeContext';
 
 export default function Navigation() {
+  const { hidden: chromeHidden } = useChrome();
   const { showAlert } = useAlert();
   const [{ data: navData }] = useQuery({ query: GET_RACES_NAV });
   const races: { id: number; name: string }[] = navData?.races || [];
@@ -88,9 +90,12 @@ export default function Navigation() {
     }
   };
 
+  // The URL still counts, because a display nobody has assigned anything
+  // reaches projector mode that way — but an *assigned* full-screen view
+  // changes no URL at all, so the view itself has to say so (#175).
   const isProjectorMode = new URLSearchParams(location.search).get('projector') === 'true';
 
-  if (isProjectorMode) return null;
+  if (isProjectorMode || chromeHidden) return null;
 
   return (
     <>

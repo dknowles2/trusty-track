@@ -26,6 +26,7 @@ export type DisplayView =
   | 'AWARDS'
   | 'CYCLE'
   | 'PROJECTOR'
+  | 'SLIDESHOW'
   | 'STANDINGS'
   | 'TIMING';
 

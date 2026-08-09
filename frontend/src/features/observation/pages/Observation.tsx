@@ -5,7 +5,9 @@ import { Icon } from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import TimerStatusBadge from '../../racing/components/timer/TimerStatusBadge';
+import PhotoSlideshow from '../components/PhotoSlideshow';
 import { displayId } from '../displayIdentity';
+import { useChrome } from '../../../context/ChromeContext';
 import { readUrl, resolveView } from '../displayView';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import {
@@ -30,7 +32,14 @@ const GET_INITIAL_DATA = `
         lastName
         carNumber
         racerImageUrl
+        carImageUrl
         carName
+        denId
+      }
+      dens {
+        id
+        name
+        color
       }
     }
   }
@@ -124,15 +133,30 @@ export default function Observation() {
     if (behaviour.redirectTo) navigate(behaviour.redirectTo, { replace: true });
   }, [behaviour.redirectTo, navigate]);
 
-  // Ensure body scroll is hidden in projector mode
+  // Ensure body scroll is hidden in the full-screen views. The slideshow is
+  // one of them (#175) — it fills the viewport, and a scrollbar down the side
+  // of a photo on a projector is exactly the sort of thing nobody notices
+  // until the room is full.
+  const isFullScreenView = isProjectorMode || behaviour.slideshow;
+
+  // Tell the app's furniture to get out of the way. `Navigation` cannot work
+  // this out for itself any more: an assigned view changes no URL, so before
+  // this an operator switching a screen to Projector from across the room got
+  // the navigation bar painted across the top of it (#175).
+  const { setHidden: setChromeHidden } = useChrome();
   useEffect(() => {
-    if (isProjectorMode) {
+    setChromeHidden(isFullScreenView);
+    return () => setChromeHidden(false);
+  }, [isFullScreenView, setChromeHidden]);
+
+  useEffect(() => {
+    if (isFullScreenView) {
       document.body.style.overflow = 'hidden';
       return () => {
         document.body.style.overflow = '';
       };
     }
-  }, [isProjectorMode]);
+  }, [isFullScreenView]);
 
   // Initial query for static-ish data (racers)
   const [initialResult] = useQuery({
@@ -398,6 +422,23 @@ export default function Observation() {
       </div>
     );
   };
+
+  // --- SLIDESHOW (#175) ---
+  // Ahead of both other modes: it is a full-screen view of its own rather than
+  // a tab, and it deliberately shows none of the race furniture — the point is
+  // the photographs, on a screen across a room.
+  if (behaviour.slideshow) {
+    return (
+      <div className="container projector-mode" style={{ maxWidth: '100%', padding: 0, background: '#111' }}>
+        <PhotoSlideshow
+          racers={initialData?.race?.racers ?? []}
+          dens={initialData?.race?.dens ?? []}
+          intervalMs={behaviour.cycleMs}
+          loading={initialResult.fetching && !initialData}
+        />
+      </div>
+    );
+  }
 
   // --- STANDARD MODE RENDER ---
   if (!isProjectorMode) {

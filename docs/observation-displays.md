@@ -76,6 +76,32 @@ _The live leaderboard showing current standings with average times and placement
 
 ---
 
+### Racer photos
+
+Check-in collects a photo of each scout and of their car, and until now they
+appeared on screen only while that racer was in the heat — a few seconds each,
+once per round. Most of an event is the gaps between heats.
+
+The **Racer photos** view fills a screen with them, one racer at a time: the
+headshot, the car, the name, car number and den.
+
+![The photo slideshow](assets/screenshots/observation/09-slideshow.png)
+
+It goes in **car number order rather than shuffling**, deliberately. The
+audience is mostly families watching for their own child, and with a shuffle
+nobody can tell whether they have missed them or are about to see them. In
+order, everybody comes round once per cycle.
+
+Racers with no photo are skipped rather than shown as a blank card, and a race
+where nobody has a photo yet says so instead of showing an empty screen.
+
+> [!TIP]
+> This is the view to leave up during check-in and between rounds. Set the
+> interval on the same row in **Race Control → Displays** — about five seconds
+> per racer suits a small pack, longer for a big one.
+
+---
+
 ## Changing what a screen shows, from where you are
 
 With four screens taped around a gym, changing one used to mean finding it and

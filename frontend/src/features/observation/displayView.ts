@@ -11,13 +11,21 @@
  * one. See `resolveView`.
  */
 
-export type DisplayView = 'STANDINGS' | 'TIMING' | 'CYCLE' | 'PROJECTOR' | 'AWARDS';
+export type DisplayView =
+    | 'STANDINGS'
+    | 'TIMING'
+    | 'CYCLE'
+    | 'PROJECTOR'
+    | 'AWARDS'
+    | 'SLIDESHOW';
 
 /** What the observation page actually does, once everything is resolved. */
 export interface ViewBehaviour {
     tab: 'standings' | 'timing';
     projector: boolean;
     cycle: boolean;
+    /** The racers' photographs, rotating (#175). */
+    slideshow: boolean;
     cycleMs: number;
     /** The ceremony is its own route, so the page redirects rather than renders. */
     redirectTo: string | null;
@@ -41,7 +49,13 @@ export function readUrl(params: URLSearchParams): UrlIntent {
 }
 
 export function behaviourFor(view: DisplayView, cycleSeconds: number, raceId: number): ViewBehaviour {
-    const base = { projector: false, cycle: false, cycleMs: cycleSeconds * 1000, redirectTo: null };
+    const base = {
+        projector: false,
+        cycle: false,
+        slideshow: false,
+        cycleMs: cycleSeconds * 1000,
+        redirectTo: null,
+    };
     switch (view) {
         case 'TIMING':
             return { ...base, tab: 'timing' };
@@ -49,6 +63,8 @@ export function behaviourFor(view: DisplayView, cycleSeconds: number, raceId: nu
             return { ...base, tab: 'standings', cycle: true };
         case 'PROJECTOR':
             return { ...base, tab: 'standings', projector: true };
+        case 'SLIDESHOW':
+            return { ...base, tab: 'standings', slideshow: true };
         case 'AWARDS':
             return { ...base, tab: 'standings', redirectTo: `/race/${raceId}/awards/present` };
         case 'STANDINGS':
@@ -83,6 +99,10 @@ export function resolveView(
         tab: url.view === 'timing' ? 'timing' : 'standings',
         projector: url.projector,
         cycle: url.cycle,
+        // Reachable by URL too, so a display nobody assigns can still be a
+        // photo kiosk — the fallback stays complete rather than gaining a view
+        // only the operator's list can select.
+        slideshow: url.view === 'slideshow',
         cycleMs: url.cycleMs,
         redirectTo: null,
     };
@@ -94,5 +114,6 @@ export const VIEW_OPTIONS: readonly { view: DisplayView; label: string }[] = [
     { view: 'TIMING', label: "Last heat's times" },
     { view: 'CYCLE', label: 'Cycle between both' },
     { view: 'PROJECTOR', label: 'Projector' },
+    { view: 'SLIDESHOW', label: 'Racer photos' },
     { view: 'AWARDS', label: 'Awards ceremony' },
 ];

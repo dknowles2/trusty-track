@@ -87,6 +87,7 @@ enum DisplayView {
   CYCLE
   PROJECTOR
   AWARDS
+  SLIDESHOW
 }
 
 type FreeRaceHeat {
