@@ -463,6 +463,13 @@ export type GetHeatSheetQueryVariables = Exact<{
 
 export type GetHeatSheetQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, rounds: Array<{ id: number, name: string | null, roundNumber: number, advancementSource: string | null }>, heats: Array<{ id: number, heatNumber: number, roundId: number, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null }> }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null }> } | null, tracks: Array<{ id: number, laneCount: number }> };
 
+export type GetResultsSheetQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetResultsSheetQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, scoringStrategy: string, leaderboard: Array<{ racerId: number, rank: number, firstName: string, lastName: string, carNumber: number | null, denName: string, score: number, heatsCompleted: number }>, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null } | null }> } | null };
+
 export type CreateRoundWizardMutationVariables = Exact<{
   raceId: number;
   config: Types.WizardConfigurationInput;

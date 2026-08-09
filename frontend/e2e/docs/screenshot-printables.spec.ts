@@ -170,4 +170,81 @@ test('screenshot the print sheets', async ({ page }) => {
     await expect(page.locator('.heat-sheet table').first()).toBeVisible();
     await page.waitForLoadState('networkidle');
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'heat-sheet.png') });
+
+    // The results sheet is the other half of the pair (#206): the heat sheet
+    // before the racing, this one after it. Both wanted here rather than in a
+    // spec of their own, because they share this race's roster and schedule.
+    // A second den, added only now so the card screenshots above are untouched
+    // — and worth adding at all because the per-den tables collapse when a race
+    // has one den, which would leave that half of the sheet unillustrated.
+    const bears = await gql(
+        page,
+        `mutation SecondDen($raceId: Int!, $den: DenInput!) {
+            createDen(raceId: $raceId, den: $den) { id }
+        }`,
+        { raceId, den: { name: 'Bears', color: '#1F4E79', rank: 'BEAR' } },
+    );
+    const half = roster.race.racers.slice(3).map((r: { id: number }) => r.id);
+    await gql(
+        page,
+        `mutation SheetMove($ids: [Int!]!, $denId: Int) {
+            bulkMoveToDen(racerIds: $ids, denId: $denId)
+        }`,
+        { ids: half, denId: bears.createDen.id },
+    );
+
+    const heats = await gql(
+        page,
+        `query SheetHeats($raceId: Int!) {
+            race(raceId: $raceId) {
+                racers { id carNumber }
+                heats { id lanes { lane racerId placeholderSlot } }
+            }
+        }`,
+        { raceId },
+    );
+    // Times keyed off the car number rather than the lane, so every racer gets
+    // a distinct average and the standings read as a real ranking. Keyed off
+    // the lane, everybody scored the same and the order looked arbitrary.
+    const carNumber = new Map<number, number>(
+        heats.race.racers.map((r: { id: number; carNumber: number }) => [r.id, r.carNumber]),
+    );
+    for (const heat of heats.race.heats) {
+        const occupied = heat.lanes.filter(
+            (lane: { racerId: number | null }) => lane.racerId !== null,
+        );
+        if (occupied.length === 0) continue;
+        const timed = occupied.map((lane: { lane: number; racerId: number }) => ({
+            lane: lane.lane,
+            racerId: lane.racerId,
+            time: 3.1 + (carNumber.get(lane.racerId) ?? 0) / 100,
+        }));
+        const order = [...timed].sort((a, b) => a.time - b.time);
+        const place = new Map(order.map((lane, index) => [lane.lane, index + 1]));
+        await gql(
+            page,
+            `mutation SheetResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+                updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
+            }`,
+            {
+                heatId: heat.id,
+                lanes: timed.map((lane) => ({ ...lane, place: place.get(lane.lane)! })),
+            },
+        );
+    }
+    await gql(
+        page,
+        `mutation SheetAward($raceId: Int!, $award: AwardInput!) {
+            createAward(raceId: $raceId, award: $award) { id }
+        }`,
+        {
+            raceId,
+            award: { name: 'Fastest Car', kind: 'SPEED', source: 'PACK', place: 1 },
+        },
+    );
+
+    await page.goto(`/race/${raceId}/print/results`);
+    await expect(page.getByTestId('results-sheet')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'results-sheet.png') });
 });
