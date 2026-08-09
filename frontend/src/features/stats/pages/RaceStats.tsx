@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { downloadCsv, filenameFor, type CsvRow } from '../../../utils/csv';
 import { useParams } from 'react-router-dom';
 import { useQuery } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
@@ -92,18 +93,6 @@ interface RaceStatsData {
 
 // ---- CSV helpers ----
 
-type CsvRow = (string | number | null)[];
-
-function downloadCsv(filename: string, rows: CsvRow[]) {
-  const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
 function exportHeatResults(heatResults: HeatResultRow[], raceName: string) {
   const header: CsvRow = ['Round', 'Heat #', 'Global Heat #', 'Lane', 'Car #', 'First Name', 'Last Name', 'Time (s)', 'Place'];
   const rows = heatResults.map(r => [
@@ -117,7 +106,7 @@ function exportHeatResults(heatResults: HeatResultRow[], raceName: string) {
     r.time,
     r.place,
   ] as CsvRow);
-  downloadCsv(`${raceName}-heat-results.csv`, [header, ...rows]);
+  downloadCsv(filenameFor(raceName, 'heat-results'), [header, ...rows]);
 }
 
 function exportRacerStats(racerStats: RacerStat[], raceName: string) {
@@ -133,7 +122,7 @@ function exportRacerStats(racerStats: RacerStat[], raceName: string) {
     r.maxTime,
     r.stdDev,
   ] as CsvRow);
-  downloadCsv(`${raceName}-racer-stats.csv`, [header, ...rows]);
+  downloadCsv(filenameFor(raceName, 'racer-stats'), [header, ...rows]);
 }
 
 // ---- Sort helper ----

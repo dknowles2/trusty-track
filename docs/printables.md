@@ -116,3 +116,26 @@ setting the first time:
     column.
 
 The dashed lines on screen are cut guides — they do not print.
+
+## The heat sheet
+
+The running order on paper: a table per round, a row per heat, a column per
+lane, and an empty **Result** column to write the finishing order into.
+
+**Race Control → Schedule → Heat sheet.** It lives there rather than with the
+cards above because it prints the *schedule* rather than the roster.
+
+![The printed heat sheet](assets/screenshots/printables/heat-sheet.png)
+
+This is the artefact that matters when something goes wrong. The wifi drops,
+the laptop runs flat, the timer stops talking — and the announcer still has to
+know which cars are next. Print it once the schedule is settled and put it on
+the table.
+
+Two things it shows that a screen does not have to:
+
+- A championship round whose field is not decided yet reads **To be decided**
+  in each lane, rather than being blank. Somebody will write a name in.
+- A lane nobody is in reads **—**. That happens with an odd number of racers,
+  or where a lane is [out of service](hardware-timer.md#if-a-lane-stops-working),
+  and the difference from the line above matters: nobody is coming.

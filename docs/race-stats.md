@@ -119,6 +119,17 @@ Use this for awards, records, or sharing results with the pack after the event.
 ![Export Buttons](assets/screenshots/race-stats/07-export-buttons.png)
 _The Export section at the bottom of the page. Both buttons download CSV files that open in any spreadsheet application._
 
+### Exporting the standings
+
+The final placings come from the **Standings** page rather than this one —
+**Export CSV** beside the round selector. Columns:
+
+`Rank, Car #, First Name, Last Name, Den, Average Time (s) or Points, Heats`
+
+The score column is named for the race's scoring method, and the file is named
+for the standings it holds: exporting a championship round gives you that
+round's results, not the overall ones. They are [different on purpose](race-day.md#part-5-final-standings).
+
 ---
 
 ## Live Updates During the Race
