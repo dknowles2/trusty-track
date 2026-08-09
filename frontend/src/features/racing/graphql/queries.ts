@@ -22,6 +22,25 @@ export const FAKE_TIMER_FINISH = gql`
   }
 `;
 
+/**
+ * Just enough of the timer to say whether a heat could be armed (#200).
+ *
+ * Deliberately not TIMER_STATUS_SUBSCRIPTION, which carries the whole serial
+ * log and every pending lane time — a lot of traffic for a strip that wants a
+ * state and a device name.
+ */
+export const TIMER_READINESS_SUBSCRIPTION = gql`
+  subscription TimerReadiness($trackId: Int!) {
+    timerStatus(trackId: $trackId) {
+      status {
+        state
+        deviceName
+        deviceProvenance
+      }
+    }
+  }
+`;
+
 export const TIMER_STATUS_SUBSCRIPTION = gql`
   subscription TimerStatus($trackId: Int!) {
     timerStatus(trackId: $trackId) {
