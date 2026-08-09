@@ -141,7 +141,8 @@ Track           id, name, lane_count, length_feet, timer_type, serial_port,
 
 Race            id, name, date_time, location, group_id, track_id,
                 car_numbering_strategy, global_start_number, scoring_strategy,
-                championship_trophies, rules_configuration, auto_advance_heat
+                championship_trophies, rules_configuration, auto_advance_heat,
+                weight_limit_oz?
   ├─ Den[]            (cascade delete)
   ├─ Racer[]
   ├─ Round[]          (cascade delete)
@@ -508,6 +509,22 @@ On the frontend, `/race/:raceId/awards` is a fourth tab on `RaceModeToggle` besi
 ### Car numbering
 
 `PER_GROUP` fills within each den's range; `GLOBAL` numbers sequentially from `global_start_number`; `MANUAL` disables auto-numbering.
+
+### The weight limit
+
+`Race.weight_limit_oz`, and the rule is on the frontend in `features/management/weightCheck.ts` ([#205](https://github.com/dknowles2/trusty-track/issues/205)). Check-in had recorded a weight "for documentation purposes", which misses the reason anybody weighs a car: the dispute happens at the scale with a queue behind it, and the app should back up the volunteer holding the car.
+
+**It is a warning, never a refusal.** Nothing on the server rejects an overweight car, and the save is not blocked. The inspector decides; the app makes the rule visible at the moment it matters. That is also why the rule lives on the client — it is shown while somebody types, not enforced at a boundary.
+
+**A column of its own, not a key in `rules_configuration`.** That column is a free-text string nothing reads and nothing writes, and a number in a string column is the shape [#5](https://github.com/dknowles2/trusty-track/issues/5) spent a release removing. The issue proposed reusing it; don't.
+
+**Null means no check, and there is deliberately no server default.** Every race that existed before this has null, and giving them a limit at migration time would suddenly flag cars a person had already passed at the inspection table. New races are offered 5.0 by `RaceForm` instead — the near-universal pack rule — which keeps the data model honest about what "no limit" means.
+
+**`clearWeightLimit` is why the check can be turned off.** `update_race` drops every null from its payload, so absent means "leave alone" — which is what lets a screen re-submit a whole race without wiping the fields it does not offer, and also means no field can be set *back* to null. Without the explicit flag the weight check could be switched on and never off again. Same shape and same reasoning as the PIN's removal control ([#192](https://github.com/dknowles2/trusty-track/issues/192)).
+
+**`TOLERANCE_OZ` is half a scale division, not a fudge.** Scales disagree in the last place, and refusing a car that reads 5.001 is a rule about the equipment rather than about the car. `0.005` is chosen so a car *displaying* 5.00 always passes a 5.0 limit and one displaying 5.01 never does.
+
+**Zero is "not weighed", not "very light".** An empty number input hands back `0`, and a green tick against a car nobody has put on the scale is worse than no answer at all.
 
 ### Timer integration
 

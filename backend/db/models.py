@@ -202,6 +202,18 @@ class Race(Base):
         SAEnum(ScoringStrategy), default=ScoringStrategy.TIMED
     )
     rules_configuration: Mapped[str | None] = mapped_column(String, nullable=True)
+    # The pack's weight limit, in ounces (#205).
+    #
+    # A column of its own rather than a key in ``rules_configuration``, which is
+    # a free-text string nothing reads and nothing writes: a number in a string
+    # column is the shape #5 spent a release removing, and the first thing to
+    # need it should not put it back.
+    #
+    # Null means no check, which is what every race created before this had.
+    # It is deliberately *not* given a server default — applying a limit to a
+    # race already part-way through inspection would suddenly flag cars a
+    # person had already passed. New races are offered 5.0 by the form instead.
+    weight_limit_oz: Mapped[float | None] = mapped_column(Float, nullable=True)
     auto_advance_heat: Mapped[bool] = mapped_column(Boolean, default=False)
 
     group: Mapped["Group"] = relationship("Group", back_populates="races")

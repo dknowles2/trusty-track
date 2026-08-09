@@ -107,6 +107,7 @@ class RaceBase(BaseModel):
     championship_trophies: int = 3
     scoring_strategy: ScoringStrategy = ScoringStrategy.TIMED
     rules_configuration: str | None = None
+    weight_limit_oz: float | None = None
 
     @field_validator("name")
     @classmethod
@@ -134,6 +135,7 @@ class RaceUpdate(BaseModel):
     global_start_number: int | None = None
     championship_trophies: int | None = None
     auto_advance_heat: bool | None = None
+    weight_limit_oz: float | None = None
 
 
 class GroupBase(BaseModel):

@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 
+import { DEFAULT_LIMIT_OZ, formatOunces } from '../weightCheck';
+
 export interface RaceFormData {
     name: string;
     date_time: string;
@@ -14,6 +16,8 @@ export interface RaceFormData {
     car_numbering_strategy: string;
     global_start_number: number;
     championship_trophies: number;
+    /** The pack's weight limit in ounces, or null for no check (#205). */
+    weight_limit_oz?: number | null;
 }
 
 
@@ -39,6 +43,10 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         car_numbering_strategy: 'GLOBAL',
         global_start_number: 1,
         championship_trophies: 3,
+        // New races are offered the near-universal pack rule; an existing race
+        // keeps whatever it has, including nothing. The column has no server
+        // default on purpose — see the model.
+        weight_limit_oz: DEFAULT_LIMIT_OZ,
         ...initialData
     });
     const [loading, setLoading] = useState(false);
@@ -152,6 +160,46 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         Number of trophies to award for the championship.
                     </p>
                 </div>
+            </div>
+
+            {/* The weight limit (#205). A checkbox as well as a number,
+                because "no limit" and "a limit of nothing" are different
+                answers and an empty box cannot tell them apart. */}
+            <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                    <input
+                        type="checkbox"
+                        id="race-check-weights"
+                        checked={formData.weight_limit_oz != null}
+                        onChange={e =>
+                            setFormData(prev => ({
+                                ...prev,
+                                weight_limit_oz: e.target.checked ? DEFAULT_LIMIT_OZ : null,
+                            }))
+                        }
+                    />
+                    <span>Check car weights at inspection</span>
+                </label>
+                {formData.weight_limit_oz != null && (
+                    <>
+                        <label style={labelStyle} htmlFor="race-weight-limit">Weight Limit (oz)</label>
+                        <input
+                            id="race-weight-limit"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={formatOunces(formData.weight_limit_oz)}
+                            onChange={e =>
+                                handleChange('weight_limit_oz', parseFloat(e.target.value) || DEFAULT_LIMIT_OZ)
+                            }
+                            style={inputStyle}
+                        />
+                    </>
+                )}
+                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    Check-in warns when a car is over this. It is a warning, not a refusal —
+                    the inspector decides.
+                </p>
             </div>
             <div>
                 <label style={labelStyle} htmlFor="race-track">Track / Timer</label>
