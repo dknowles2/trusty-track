@@ -6,6 +6,12 @@ This guide covers the essential steps to prepare your Pinewood Derby race roster
 
 Once you have created or selected a race from the Home page, you will be taken to the **Roster** page — the first tab in the race navigation. This is your central hub for roster management.
 
+### Sorting the roster
+
+Click any column header — **Car #**, **First Name**, **Last Name**, **Den**, or **Status / Edit** — to sort by it, and click it again to reverse. The roster starts in car number order, with racers who have no number yet at the end, where they are easy to find.
+
+Sorting by **Status / Edit** is the one worth remembering on race morning: it brings the racers who are *not* yet checked in to the top, which is the question a queue at the desk keeps asking.
+
 ![Race Details Overview](assets/screenshots/race-setup/01-race-details-overview.png)
 _The Roster page provides a summary of race settings and the current racer roster. On a race that is not yet set up, the checklist described in the [getting started guide](getting-started.md) sits above them._
 
@@ -46,7 +52,9 @@ You can add racers one by one for small events or late registrations, or bulk-im
 2. Enter the racer's **First Name** and **Last Name**.
 3. Enter a **Car Number** (if not using **Auto number** later).
 4. Select the appropriate **Den**. **Car Name**, **Car Weight** and a photo can all be filled in now or left until check-in.
-5. Click **Save Racer**.
+5. Click **Save Racer** — or **Save and add another**, which saves this racer and hands you the form back for the next one.
+
+**Save and add another** is for typing a roster in at a sitting. It keeps the den you were working through, since rosters usually arrive grouped that way, and clears everything else. The car number is deliberately *not* carried forward or incremented: under manual numbering, the next car is not reliably the last one plus one, and a wrong number that looks deliberate is worse than a blank one.
 
 ![Add Racer Form](assets/screenshots/race-setup/04-add-racer-form.png)
 
