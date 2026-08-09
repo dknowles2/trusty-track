@@ -328,6 +328,23 @@ To completely re-run a heat, click **Re-Run** — this clears the results and re
 
 ---
 
+### Skipping a Heat
+
+**Skip Heat** passes over the current heat without racing it — for when every
+car in it has scratched, say. The schedule moves on, and the skipped heat can
+be run later with **Run** if the cars turn up after all.
+
+Two things to know:
+
+- A skipped heat does not hold anything up. The round still finishes, and a
+  championship round waiting on it still fills.
+- **If your race is scored on points**, the cars in a skipped heat are scored
+  as if they finished last in it — a scratch classifies last, the same as in
+  any racing series. On a timed race a skipped heat simply is not part of
+  anyone's average.
+
+---
+
 ### Viewing the Live Leaderboard
 
 The leaderboard updates automatically after every heat. During the race you can check the current standings at any time from the **Standings** page in the top navigation bar, and the **Stats** page keeps count of the heats completed so far. The audience can follow standings live on the Observation page (see the [Observation Displays Guide](observation-displays.md)).
@@ -378,6 +395,13 @@ selector appears.
 
 ![Final Standings Page](assets/screenshots/race-day/18-final-standings.png)
 _The standings show rank, car number, name, den, heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
+
+> [!NOTE]
+> **A tie shares a rank.** Two racers with the same score both show the same
+> rank, and the next rank skips — 1st, 1st, 3rd. The app deliberately does not
+> break the tie for you: deciding one is a judgment call, and yours to make —
+> a race-off, or a corrected time from the [result editor](#correcting-a-result).
+> Ties are common in points-scored races and rare, but possible, in timed ones.
 
 ---
 

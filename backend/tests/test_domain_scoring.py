@@ -9,6 +9,7 @@ from backend.domain.scoring import (
     TIMED,
     rank_key,
     score_heats,
+    standings_ranks,
 )
 
 
@@ -74,9 +75,79 @@ def test_empty_lanes_are_skipped():
 
 
 def test_points_ignores_a_missing_place():
+    """A finished lane (a real time) that nobody assigned a place: uncounted.
+
+    Not a DNF and not a skip — those are penalised below. This is an entry
+    half-done by hand, and inventing a placement for it would be guessing.
+    """
     scores = score_heats([_heat((1, 3.0, None)), _heat((1, 3.0, 2))], POINTS)
     assert scores[1].heats_completed == 1
     assert scores[1].score == 2
+
+
+class TestPointsPenalisesAMissingPlacement:
+    """#225. POINTS sums placements, so a missing one used to be a *reward* —
+    the failure `counts_a_disrupted_round` guards, arriving by two more routes
+    it did not cover."""
+
+    def test_a_skipped_heat_scores_last_place(self):
+        # Racer 1 raced everything and won a heat outright: 2 + 1 = 3.
+        # Racer 2 won their only raced heat and had the other skipped.
+        # Before: racer 2 summed 1 point and ranked ABOVE racer 1.
+        heats = [
+            _heat((1, 3.0, 2), (2, 2.9, 1)),
+            _heat((1, 3.0, 1)),
+            [
+                Lane(lane=1, racer_id=2, skipped=True),
+                Lane(lane=2, racer_id=3, skipped=True),
+            ],
+        ]
+        scores = score_heats(heats, POINTS)
+        assert scores[2].score == 1 + 2  # won one, scratched last of two
+        assert scores[2].score > scores[1].score or scores[2].score == 3
+        assert scores[2].heats_completed == 2
+
+    def test_a_dnf_scores_last_place(self):
+        # Racer 2 never finished heat 2: time 0.0 recorded, no place — which
+        # is what `_recalculate_places` produces for a time <= 0. Before, the
+        # DNF added nothing and racer 2 tied a racer who won everything.
+        heats = [
+            _heat((1, 3.0, 1), (2, 3.1, 2)),
+            _heat((1, 3.0, 1), (2, 0.0, None)),
+        ]
+        scores = score_heats(heats, POINTS)
+        assert scores[2].score == 2 + 2  # second, then classified last of two
+        assert scores[1].score == 2
+        assert scores[2].heats_completed == 2
+
+    def test_last_place_is_the_field_not_the_lane_count(self):
+        # Three cars in a heat on lanes 1, 2 and 5: a scratch is 3rd, not 5th.
+        heats = [
+            [
+                Lane(lane=1, racer_id=1, time=3.0, place=1),
+                Lane(lane=2, racer_id=2, time=3.1, place=2),
+                Lane(lane=5, racer_id=3, skipped=True),
+            ]
+        ]
+        assert score_heats(heats, POINTS)[3].score == 3
+
+    def test_timed_still_treats_a_skip_as_no_evidence(self):
+        # An average is scale-free, so TIMED needs no penalty for a skip: the
+        # heat that never ran simply is not in it. Only the DNF — a run that
+        # started and never finished — is penalised there.
+        heats = [
+            _heat((1, 3.0, 1)),
+            [Lane(lane=1, racer_id=1, skipped=True)],
+        ]
+        scores = score_heats(heats, TIMED)
+        assert scores[1].score == 3.0
+        assert scores[1].heats_completed == 1
+
+    def test_a_recorded_place_wins_over_the_skip_flag(self):
+        # A lane holding both is a re-run that never cleared its flag; the
+        # result on it is real and counts as itself.
+        heats = [[Lane(lane=1, racer_id=1, time=3.0, place=1, skipped=True)]]
+        assert score_heats(heats, POINTS)[1].score == 1
 
 
 def test_rank_key_sorts_lower_scores_first():
@@ -88,5 +159,34 @@ def test_rank_key_puts_racers_who_have_not_raced_last():
 
 
 def test_rank_key_breaks_ties_by_racer_id():
-    """Otherwise ordering would depend on dict iteration and could shift."""
+    """Otherwise ordering would depend on dict iteration and could shift.
+
+    The *order* only — the stamped rank shares on a tie, which is what stops
+    the tiebreak from silently deciding a trophy. See `standings_ranks`.
+    """
     assert rank_key(3.0, 1, 5) < rank_key(3.0, 1, 6)
+
+
+class TestStandingsRanks:
+    """#226. Equal scores share a rank, so a tie is visible."""
+
+    def test_a_tie_shares_a_rank_and_the_next_rank_skips(self):
+        assert standings_ranks([(3.0, 2), (3.0, 2), (3.5, 2)]) == [1, 1, 3]
+
+    def test_distinct_scores_rank_in_order(self):
+        assert standings_ranks([(3.0, 2), (3.1, 2), (3.5, 2)]) == [1, 2, 3]
+
+    def test_a_three_way_tie(self):
+        assert standings_ranks([(4, 1), (4, 1), (4, 1), (5, 1)]) == [1, 1, 1, 4]
+
+    def test_unraced_racers_do_not_tie_with_each_other(self):
+        # Their scores are all equally meaningless; a pre-race leaderboard
+        # where the whole roster shares rank 1 would be a wall of gold medals.
+        assert standings_ranks([(0.0, 0), (0.0, 0), (0.0, 0)]) == [1, 2, 3]
+
+    def test_a_raced_racer_never_ties_an_unraced_one(self):
+        # A raced 0.0 and an unraced 0.0 are different claims entirely.
+        assert standings_ranks([(0.0, 1), (0.0, 0)]) == [1, 2]
+
+    def test_nothing_ranks_nothing(self):
+        assert standings_ranks([]) == []

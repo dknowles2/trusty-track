@@ -1,4 +1,5 @@
-from backend.db import crud, schemas
+from backend.db import crud, models, schemas
+from backend.domain import audit, lanes
 from backend.tests.helpers import lane_dicts, record_heat_result
 
 
@@ -112,3 +113,84 @@ def test_auto_advancement_with_placeholders(client, db):
     assert not placeholders_remaining
     assert valid_racers_found
     print("Regression test passed!")
+
+
+def test_a_skipped_heat_does_not_stall_the_final(db):
+    """#224. Skipping one prelim heat used to leave the round incomplete
+    forever, so the championship's placeholders never filled and the operator
+    saw a final that never became ready — with the manual Advance button as
+    the only, undocumented, way out.
+
+    This is the executed probe that confirmed the bug, inverted: it now
+    asserts the final fills.
+    """
+    group = crud.create_group(db, schemas.GroupCreate(name="Skip Stall Group"))
+    track = crud.create_track(
+        db,
+        schemas.TrackCreate(name="Skip Stall Track", lane_count=2, timer_type="FAKE"),
+    )
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name="Skip Stall Race", group_id=group.id, track_id=track.id
+        ),
+    )
+    for i in range(4):
+        crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name=f"R{i}",
+                last_name="Skip",
+                race_id=race.id,
+                car_passed_inspection=True,
+            ),
+        )
+
+    prelim = crud.create_round(db, race_id=race.id, round_number=1)
+    crud.generate_heats_for_round(db, prelim.id)
+    final = crud.create_round(
+        db,
+        race_id=race.id,
+        round_number=2,
+        advancement_source="PACK",
+        advancement_num_racers=2,
+    )
+    crud.generate_heats_for_round(db, final.id)
+
+    heats = sorted(
+        db.query(models.Heat).filter(models.Heat.round_id == prelim.id).all(),
+        key=lambda h: h.heat_number,
+    )
+
+    # Race every heat but the last; skip that one exactly as the UI does —
+    # skipped lanes, no times, no places.
+    for heat in heats[:-1]:
+        raced = [
+            lanes.Lane(
+                lane=ln.lane,
+                racer_id=ln.racer_id,
+                time=3.0 + ln.lane / 10,
+                place=ln.lane,
+            )
+            for ln in crud.heat_lanes_of(db, heat)
+            if ln.racer_id is not None
+        ]
+        crud.record_heat_result(db, heat.id, raced, source=audit.ResultSource.OPERATOR)
+
+    skipped = [
+        lanes.Lane(lane=ln.lane, racer_id=ln.racer_id, skipped=True)
+        for ln in crud.heat_lanes_of(db, heats[-1])
+        if ln.racer_id is not None
+    ]
+    crud.record_heat_result(
+        db, heats[-1].id, skipped, source=audit.ResultSource.OPERATOR
+    )
+
+    assert crud.is_round_complete(db, prelim.id)
+    unfilled = {
+        lane.placeholder_slot
+        for heat_lanes in crud._round_heat_lanes(db, final.id)
+        for lane in heat_lanes
+        if lane.placeholder_slot is not None
+    }
+    assert unfilled == set(), f"the final still holds open slots: {unfilled}"

@@ -24,7 +24,7 @@ from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
-from backend.domain import audit, lanes
+from backend.domain import advancement, audit, lanes
 from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import scoring as domain_scoring
@@ -295,24 +295,22 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
 
     all_rounds = loaders.rounds_for_race(race_id)
 
-    # Ready when every earlier round has a result for every real racer. Note
-    # this accepts a place without a time, which is how a POINTS race records
-    # results — hence not domain `is_complete`, which requires a time.
+    # Ready when every earlier round is settled. This used to be a private
+    # copy of the rule that accepted a place without a time (how a POINTS race
+    # is entered by hand) while the domain's required a time — so the screen
+    # said ready while `trigger_auto_advancements`, reading the domain rule,
+    # never fired (#224). The domain rule accepts both now, and skipped heats
+    # too; this reads it rather than restating it.
     def _earlier_heats_finished() -> bool:
         for r in all_rounds:
             if r.round_number >= round_obj.round_number:
                 continue
-            for heat in loaders.heats_for_round(race_id, r.id):
-                heat_lanes = loaders.lane_values_for_heat(race_id, heat.id)
-                if not heat_lanes:
-                    return False
-                for lane in heat_lanes:
-                    if (
-                        lane.racer_id is not None
-                        and lane.time is None
-                        and lane.place is None
-                    ):
-                        return False
+            round_lanes = [
+                loaders.lane_values_for_heat(race_id, heat.id)
+                for heat in loaders.heats_for_round(race_id, r.id)
+            ]
+            if not advancement.is_round_complete(round_lanes):
+                return False
         return True
 
     is_ready = _earlier_heats_finished()

@@ -165,6 +165,34 @@ def test_a_round_with_no_heats_has_not_started():
     assert not is_round_complete([])
 
 
+def test_a_skipped_heat_does_not_block_the_round():
+    """#224. A skip used to leave its round incomplete forever, so one skipped
+    heat silently stopped every later championship round from ever filling —
+    the operator saw a final that never became ready, with no explanation. An
+    operator who skipped a heat is not coming back to it; the round is as
+    decided as it will ever be."""
+    heats = [
+        [Lane(lane=1, racer_id=1, time=3.0)],
+        [Lane(lane=1, racer_id=2, skipped=True)],
+    ]
+    assert is_round_complete(heats)
+
+
+def test_a_place_without_a_time_counts_as_settled():
+    """How a POINTS race is entered by hand. `advancementStatus` had a private
+    copy of this rule that accepted it while this one refused it, so the
+    screen said ready while the trigger never fired (#224)."""
+    heats = [[Lane(lane=1, racer_id=1, time=None, place=1)]]
+    assert is_round_complete(heats)
+
+
+def test_an_undecided_slot_still_blocks_the_round():
+    """The trap #164 documents: a placeholder must never read as settled,
+    however the rule above is loosened."""
+    heats = [[Lane(lane=1, racer_id=None, placeholder_slot=1)]]
+    assert not is_round_complete(heats)
+
+
 # --------------------------------------------------------------------------- #
 # Invalidation                                                                 #
 # --------------------------------------------------------------------------- #
