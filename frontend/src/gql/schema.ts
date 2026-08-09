@@ -872,7 +872,7 @@ export type Subscription = {
   heatSession: HeatSession;
   heats: Array<Round>;
   leaderboard: Array<LeaderboardEntry>;
-  onDeck?: Maybe<Heat>;
+  onDeck: Array<Heat>;
   raceStateChanged: RaceStateChangedEvent;
   timerStatus: TimerStateChangedEvent;
   timingStats?: Maybe<TimingStats>;

@@ -47,7 +47,7 @@ describe('Observation Page', () => {
 
         const defaultSubs = {
             leaderboard: [],
-            onDeck: null,
+            onDeck: [],
             currentlyRacing: null,
             timingStats: null,
             activeFreeRaceHeat: null,
@@ -75,10 +75,10 @@ describe('Observation Page', () => {
                 id: 2, roundNumber: 1, heatNumber: 2,
                 lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
             },
-            onDeck: {
+            onDeck: [{
                 id: 3, roundNumber: 1, heatNumber: 3,
                 lanes: [{ lane: 1, racerId: 3, placeholderSlot: null }],
-            }
+            }]
         });
 
         render(
@@ -97,6 +97,72 @@ describe('Observation Page', () => {
 
         expect(screen.getAllByText('Doc Hudson').length).toBeGreaterThan(0);
         expect(screen.getAllByText('Mater Tow').length).toBeGreaterThan(0);
+    });
+
+    it('shows a second heat so cars can be staged a heat early (#209)', async () => {
+        // The child named on screen is in the bleachers rather than watching
+        // it, so a display that names only the next heat names them at the
+        // moment the announcer is already calling for them.
+        setupMocks({
+            currentlyRacing: {
+                id: 2, roundNumber: 1, heatNumber: 2,
+                lanes: [{ lane: 1, racerId: 1, placeholderSlot: null }],
+            },
+            onDeck: [
+                {
+                    id: 3, roundNumber: 1, heatNumber: 3,
+                    lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                },
+                {
+                    id: 4, roundNumber: 1, heatNumber: 4,
+                    lanes: [{ lane: 1, racerId: 3, placeholderSlot: null }],
+                },
+            ],
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('On Deck')).toBeInTheDocument();
+        });
+        expect(screen.getByText('After That')).toBeInTheDocument();
+        expect(screen.getByText('(Round 1, Heat 4)')).toBeInTheDocument();
+    });
+
+    it('leaves the second card off when there is no heat after next', async () => {
+        // The last two heats of a race, where an empty card on the wall would
+        // read as something being broken.
+        setupMocks({
+            currentlyRacing: {
+                id: 2, roundNumber: 1, heatNumber: 2,
+                lanes: [{ lane: 1, racerId: 1, placeholderSlot: null }],
+            },
+            onDeck: [
+                {
+                    id: 3, roundNumber: 1, heatNumber: 3,
+                    lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                },
+            ],
+        });
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('On Deck')).toBeInTheDocument();
+        });
+        expect(screen.queryByText('After That')).not.toBeInTheDocument();
     });
 
     it('names the lane a car is really in, not its position in the list', async () => {

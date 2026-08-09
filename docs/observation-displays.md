@@ -12,13 +12,13 @@ This guide explains how to set up and use Trusty Track's audience display pages 
 Trusty Track includes a dedicated audience display — a page designed to be shown on a projector, large monitor, TV, or tablet. It updates automatically as the race progresses, showing:
 
 - **Which cars are currently on the track** ("Now Racing")
-- **Which cars race next** ("On Deck")
+- **Which cars race next** ("On Deck") and the heat after that ("After That")
 - **Live standings** for all racers
 
 No one needs to manually refresh the page — it stays current throughout the event.
 
 ![Full Observation Page](assets/screenshots/observation/01-observation-overview.png)
-_The Observation page in standard view, showing the "Now Racing" and "On Deck" panels above the live leaderboard._
+_The Observation page in standard view, showing the "Now Racing", "On Deck" and "After That" panels above the live leaderboard._
 
 ---
 
@@ -53,10 +53,14 @@ _The "Now Racing" panel, showing one card per lane with each racer's name, car n
 
 ### On Deck
 
-The "On Deck" panel shows which racers will compete in the **next heat**, so they can get their cars ready and line up at the starting gate.
+The "On Deck" panel shows which racers compete in the **next heat**, and "After That" shows the one following it.
 
-![On Deck Panel](assets/screenshots/observation/04-on-deck-panel.png)
-_The "On Deck" panel shows the upcoming heat's racers so they can prepare._
+Two heats rather than one, because the child named on the screen is usually in the bleachers rather than watching it. By the time their heat reaches the "On Deck" panel, the announcer is already calling for them. Reading the "After That" names aloud gives each family a heat's notice, so the cars are at the track when they are wanted.
+
+"After That" appears only when there is a heat to show, so the last two heats of a race do not leave an empty panel on the wall. Other timing systems call this position "in the hole"; the panel says "After That" because a first-time announcer reading the screen aloud should not need the vocabulary.
+
+![The staging panels](assets/screenshots/observation/04-on-deck-panel.png)
+_Mid-round: the heat on the track, the one on deck, and the one after that. Each panel names the round and heat number it is for._
 
 ---
 
@@ -160,7 +164,7 @@ _Click "Launch Projector Mode" to open the audience display in a new tab._
 
 Projector Mode fills the entire screen with a dark background and large, high-visibility text:
 
-- **Left side (65% of screen)**: "Now Racing" section (large racer cards with big names and avatars) above the "On Deck" section
+- **Left side (65% of screen)**: "Now Racing" section (large racer cards with big names and avatars) above the upcoming heats
 - **Right side (35% of screen)**: Top 5 standings with large rank numbers, racer avatars, and finish times
 
 ![Projector Mode — Full View](assets/screenshots/observation/07-projector-mode-full.png)
@@ -185,7 +189,7 @@ After each heat finishes, a brief **results overlay** appears over the full scre
 
 ### Tablet at the Track
 
-The standard Observation page (not Projector Mode) works well on a tablet placed near the starting gate. The race operator can quickly glance at "On Deck" to confirm who needs to stage their cars next.
+The standard Observation page (not Projector Mode) works well on a tablet placed near the starting gate. The race operator can glance at "On Deck" and "After That" to confirm who needs to stage their cars next.
 
 ### Multiple Displays
 

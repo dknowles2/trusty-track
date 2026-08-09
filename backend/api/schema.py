@@ -76,6 +76,14 @@ def _loaders(info: Info) -> RequestLoaders:
 #: to the mutation directly, and mirrors the same set in `csvMapping.ts`.
 _TRUTHY_CSV_VALUES = frozenset({"y", "yes", "true", "1", "x", "passed", "pass"})
 
+#: How many heats past the one on the track the audience display shows (#209).
+#:
+#: Two, because staging takes a heat's notice: the child in the bleachers is
+#: not watching the screen, so a display that names only the next heat names
+#: them at the moment the announcer is already calling for them. Three would be
+#: a wall of names nobody reads.
+ON_DECK_DEPTH = 2
+
 
 def _unfinished(db: Session, heats: Sequence[models.Heat]) -> list[models.Heat]:
     """The heats the race has not got to yet, in the order given.
@@ -3451,24 +3459,35 @@ class Subscription:
     @strawberry.subscription
     async def on_deck(
         self, info: Info, race_id: int
-    ) -> AsyncGenerator[Heat | None, None]:
-        """Subscribe to the heat after the current one, for a specific race.
+    ) -> AsyncGenerator[list[Heat], None]:
+        """Subscribe to the heats after the current one, for a specific race.
 
-        The heat, not its racers (#141). Handing back a racer list dropped the
-        lane each one is in — `lanes.real_racer_ids` is dense, so a vacated
+        **Two of them, nearest first** (#209). One was not enough to stage
+        with: the child it names is in the bleachers, not watching the screen,
+        so by the time their heat is on it the announcer is already calling
+        them. Two lets the announcer read names a heat early and have the cars
+        at the track when they are wanted.
+
+        A list rather than a second subscription: this is one question — what
+        is coming — asked with a bit more depth, and a second socket would have
+        to be kept in step with this one over the same channel. Empty is the
+        ordinary answer at the end of a race.
+
+        The heats, not their racers (#141). Handing back a racer list dropped
+        the lane each one is in — `lanes.real_racer_ids` is dense, so a vacated
         lane or an undecided championship slot simply closed the gap — and the
         audience display, having nothing else to go on, numbered them by
         position. A car in lane 3 of a heat whose lane 2 is empty was announced
         as being in lane 2.
 
-        Symmetric with :func:`currently_racing`, which has always returned the
-        heat. One shape for "what is on the track" and "what is next" is also
+        Symmetric with :func:`currently_racing`, which returns the heat on the
+        track. One shape for "what is on the track" and "what is next" is also
         one code path on the client.
         """
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             db = info.context["db"]
 
-            def _get_on_deck():
+            def _get_on_deck() -> list[Heat]:
                 heats = models.official_heats(
                     db.query(models.Heat).filter(models.Heat.race_id == race_id)
                 ).all()
@@ -3477,7 +3496,8 @@ class Subscription:
                     heats, key=lambda h: (h.round.round_number, h.heat_number)
                 )
                 uncompleted = _unfinished(db, sorted_heats)
-                return uncompleted[1] if len(uncompleted) > 1 else None
+                # Index 0 is on the track; the two after it are what to stage.
+                return typing.cast(Any, uncompleted[1 : 1 + ON_DECK_DEPTH])
 
             yield _get_on_deck()
             async for _ in stream:

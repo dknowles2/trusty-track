@@ -385,7 +385,7 @@ export type OnDeckSubscriptionSubscriptionVariables = Exact<{
 }>;
 
 
-export type OnDeckSubscriptionSubscription = { onDeck: { id: number, heatNumber: number, globalHeatNumber: number, roundNumber: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null }> } | null };
+export type OnDeckSubscriptionSubscription = { onDeck: Array<{ id: number, heatNumber: number, globalHeatNumber: number, roundNumber: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null }> }> };
 
 export type CurrentlyRacingSubscriptionSubscriptionVariables = Exact<{
   raceId: number;

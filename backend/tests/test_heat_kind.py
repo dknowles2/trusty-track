@@ -194,8 +194,9 @@ async def test_the_audience_subscriptions_ignore_free_heats(db, race, subscripti
 
     # Every official heat is raced, so there is nothing currently racing and
     # nothing on deck. A leaked free heat would show up as the next thing to
-    # run. Both answer with a heat since #141, so both say "none" the same way.
-    assert first is None
+    # run. `currently_racing` answers with a heat and `on_deck` with a list of
+    # them (#209), so "none" is spelled differently by each.
+    assert first is None or first == []
 
 
 @pytest.mark.parametrize("query_name", ["heats", "leaderboard"])
