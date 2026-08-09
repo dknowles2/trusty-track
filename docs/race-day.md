@@ -71,13 +71,19 @@ camera that will not focus.
 
 ### Tracking Check-In Progress
 
+A **checked in** count sits beside the **Racer Roster** heading — "43 of 60
+checked in" — so the question the room keeps asking can be answered without
+scrolling a list and counting buttons. It updates as check-ins land, including
+ones done on another device.
+
 The Status column shows where every racer stands: a green **Checked In / Edit**
-button once they are through, a gold **Check In** button until then. Turn on
+button once they are through, a gold **Check In** button until then. Click the
+**Status / Edit** header to bring everybody still to come to the top. Turn on
 **Group by Den** to work through one den at a time, which is usually how
 families arrive.
 
 ![Racer List Showing Inspection Status](assets/screenshots/race-day/05-check-in-progress.png)
-_The roster part-way through check-in — green for done, gold for still to come._
+_The roster part-way through check-in — green for done, gold for still to come, and the count beside the heading saying how far there is to go._
 
 ---
 

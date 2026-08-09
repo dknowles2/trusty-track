@@ -14,6 +14,8 @@ import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
 import SetupChecklist from '../components/SetupChecklist';
+import CheckInProgress from '../components/CheckInProgress';
+import SortableHeader from '../components/SortableHeader';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
 import { Icon } from '@mdi/react';
@@ -25,6 +27,7 @@ import {
 } from '@mdi/js';
 import CheckInScanner from '../../printables/components/CheckInScanner';
 import * as GQL from '../graphql/queries';
+import { DEFAULT_SORT, nextSortState, sortRacers, type SortKey, type SortState } from '../rosterSort';
 
 /**
  * The shapes the query actually returns, derived rather than restated.
@@ -187,6 +190,7 @@ export default function RaceDetails() {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isMoveToDenOpen, setIsMoveToDenOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
 
   // Selection State
   const [selectedRacerIds, setSelectedRacerIds] = useState<number[]>([]);
@@ -289,34 +293,51 @@ export default function RaceDetails() {
   const [, createRacerMutation] = useMutation(GQL.CREATE_RACER);
   const [, updateRacerMutation] = useMutation(GQL.UPDATE_RACER);
 
+  const saveRacer = async (formData: RacerData) => {
+      // Map snake_case to camelCase for GQL input
+      const racerInput = {
+          firstName: formData.first_name,
+          lastName: formData.last_name,
+          carNumber: formData.car_number,
+          denId: formData.den_id,
+          carName: formData.car_name,
+          carPassedInspection: formData.car_passed_inspection,
+          carWeight: formData.car_weight,
+          racerImageUrl: formData.racer_image_url,
+          carImageUrl: formData.car_image_url,
+          raceId: parsedRaceId
+      };
+
+      if (editingRacer) {
+          const result = await updateRacerMutation({ id: editingRacer.id, racer: racerInput });
+          if (result.error) throw result.error;
+      } else {
+          const result = await createRacerMutation({ racer: racerInput });
+          if (result.error) throw result.error;
+      }
+      refreshData();
+  };
+
   const handleRacerFormSubmit = async (formData: RacerData) => {
       try {
-          // Map snake_case to camelCase for GQL input
-          const racerInput = {
-              firstName: formData.first_name,
-              lastName: formData.last_name,
-              carNumber: formData.car_number,
-              denId: formData.den_id,
-              carName: formData.car_name,
-              carPassedInspection: formData.car_passed_inspection,
-              carWeight: formData.car_weight,
-              racerImageUrl: formData.racer_image_url,
-              carImageUrl: formData.car_image_url,
-              raceId: parsedRaceId
-          };
-
-          if (editingRacer) {
-              const result = await updateRacerMutation({ id: editingRacer.id, racer: racerInput });
-              if (result.error) throw result.error;
-          } else {
-              const result = await createRacerMutation({ racer: racerInput });
-              if (result.error) throw result.error;
-          }
-           setShowRacerForm(false);
-           refreshData();
+          await saveRacer(formData);
+          setShowRacerForm(false);
       } catch (e: unknown) {
           console.error("Failed to save", e);
           showAlert("Failed to save racer", "Error");
+      }
+  };
+
+  // "Save and add another" (#202). It rethrows where the ordinary save
+  // swallows, because the form only clears itself on success — reporting a
+  // failed save as done would throw away what the operator had typed.
+  const handleRacerFormSubmitAndContinue = async (formData: RacerData) => {
+      try {
+          await saveRacer(formData);
+      } catch (e: unknown) {
+          console.error("Failed to save", e);
+          showAlert("Failed to save racer", "Error");
+          throw e;
       }
   };
 
@@ -428,17 +449,26 @@ export default function RaceDetails() {
     }
   };
 
-  const filteredRacers = racers.filter(racer => {
-      const searchLower = searchTerm.toLowerCase();
-      const denName = dens.find(d => d.id === racer.den_id)?.name || '';
+  // Sorted as well as filtered (#203). The API returns insertion order, which
+  // is arbitrary to everyone except whoever typed it in; both the table and the
+  // mobile cards read this, so there is one order rather than two.
+  const filteredRacers = sortRacers(
+    racers.filter(racer => {
+        const searchLower = searchTerm.toLowerCase();
+        const denName = dens.find(d => d.id === racer.den_id)?.name || '';
 
-      return (
-          (racer.first_name || '').toLowerCase().includes(searchLower) ||
-          (racer.last_name || '').toLowerCase().includes(searchLower) ||
-          (racer.car_number || '').toString().includes(searchLower) ||
-          denName.toLowerCase().includes(searchLower)
-      );
-  });
+        return (
+            (racer.first_name || '').toLowerCase().includes(searchLower) ||
+            (racer.last_name || '').toLowerCase().includes(searchLower) ||
+            (racer.car_number || '').toString().includes(searchLower) ||
+            denName.toLowerCase().includes(searchLower)
+        );
+    }),
+    dens,
+    sort,
+  );
+
+  const toggleSort = (key: SortKey) => setSort(current => nextSortState(current, key));
 
   const renderRacerCard = (racer: Racer) => {
     const den = dens.find(d => d.id === racer.den_id);
@@ -592,6 +622,19 @@ export default function RaceDetails() {
             <h2 style={{ margin: 0, fontSize: '1.4rem' }}>
                 Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>({filteredRacers.length})</span>
             </h2>
+
+            {/* How far check-in has got (#204). It lives here rather than only
+                on Home, because this is the page the question gets asked on. */}
+            {/* Counted from the racers the page already holds rather than
+                read off `race.checkedInCount`. A check-in on another device
+                arrives as a RACER event carrying that racer, which graphcache
+                merges — so a derived count updates live, where the scalar on
+                Race has nothing to recompute it and sits stale until a
+                refetch. Same reasoning as #12. */}
+            <CheckInProgress
+                checkedIn={racers.filter(r => r.car_passed_inspection).length}
+                registered={racers.length}
+            />
 
             <div className="roster-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
                 <div className="dropdown" style={{ position: 'relative' }}>
@@ -843,12 +886,13 @@ export default function RaceDetails() {
                                 style={{ transform: 'scale(1.2)' }}
                             />
                         </th>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>Car #</th>
+                        <SortableHeader label="Car #" sortKey="car_number" sort={sort} onSort={toggleSort} />
+                        {/* Photo is the one column with nothing to sort on. */}
                         <th style={{ padding: '12px', textAlign: 'center' }}>Photo</th>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>First Name</th>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>Last Name</th>
-                        <th style={{ padding: '12px', textAlign: 'left' }}>Den</th>
-                        <th style={{ padding: '12px', textAlign: 'center' }}>Status / Edit</th>
+                        <SortableHeader label="First Name" sortKey="first_name" sort={sort} onSort={toggleSort} />
+                        <SortableHeader label="Last Name" sortKey="last_name" sort={sort} onSort={toggleSort} />
+                        <SortableHeader label="Den" sortKey="den" sort={sort} onSort={toggleSort} />
+                        <SortableHeader label="Status / Edit" sortKey="status" sort={sort} onSort={toggleSort} align="center" />
                     </tr>
                 </thead>
                 <tbody>
@@ -1124,6 +1168,9 @@ export default function RaceDetails() {
             onSubmit={handleRacerFormSubmit}
             onCancel={() => setShowRacerForm(false)}
             submitLabel={racerFormSubmitLabel}
+            // Only when adding: editing one racer has no "another" to go on
+            // to, and check-in is a different act again.
+            onSubmitAndContinue={editingRacer ? undefined : handleRacerFormSubmitAndContinue}
         />
       </Modal>
 
