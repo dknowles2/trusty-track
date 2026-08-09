@@ -52,6 +52,8 @@ You can add racers one by one for small events or late registrations, or bulk-im
 
 The racer will now appear in your roster.
 
+![The roster after adding a racer by hand](assets/screenshots/race-setup/05-racer-list-manual.png)
+
 ---
 
 ### Batch Import from CSV
