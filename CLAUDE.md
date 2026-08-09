@@ -353,7 +353,7 @@ Defined entirely in `backend/api/schema.py`.
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
 - Audience displays: `assignDisplay`, `renameDisplay`, `forgetDisplay`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
-- System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`
+- System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`, `createPracticeRace`
 
 **Subscriptions:** `raceStateChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`
 
@@ -509,6 +509,20 @@ On the frontend, `/race/:raceId/awards` is a fourth tab on `RaceModeToggle` besi
 ### Car numbering
 
 `PER_GROUP` fills within each den's range; `GLOBAL` numbers sequentially from `global_start_number`; `MANUAL` disables auto-numbering.
+
+### The practice race
+
+`crud.create_practice_race`, behind the `createPracticeRace` mutation and the **Try a practice race** button on Home ([#201](https://github.com/dknowles2/trusty-track/issues/201)). The operator is a parent volunteer who uses this app once a year, and the night before is when they want to know what race day feels like. Everything needed already existed — `populate` builds a believable roster, the fake timer runs heats without hardware — but reaching it meant creating a race, adding dens, populating, checking everybody in and running the round wizard, which is most of the thing being rehearsed.
+
+**One mutation, not five round trips.** A rehearsal that fails half way leaves the operator with a broken race to tidy up, which is the opposite of the confidence it exists to give.
+
+**It reuses a fake-timer track and only creates one if there is none.** An operator who rehearses three times must not end up with three tracks in System Settings — a track is global state, which is the same fact the e2e conventions are built around. It never picks a real one: arming a heat on a real timer sends a signal to a device in a room somebody may be standing in.
+
+**It includes a championship round.** Advancement is the part of race day that surprises people; a rehearsal that stops before the final leaves out the bit worth practising.
+
+**The name counts up.** `races.name` is unique, so a second rehearsal would otherwise fail at the point the operator is least equipped to understand why — and a counter reads better than a timestamp on the Home page.
+
+There is deliberately no "is a practice race" column. The name is what tells an operator, and a flag would be a schema change for something cosmetic that nothing else branches on.
 
 ### The weight limit
 

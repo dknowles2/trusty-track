@@ -169,7 +169,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
 -   Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 -   Config: `createInitialConfig`, `updateInitialConfig`
--   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data)
+-   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data), `createPracticeRace` (a whole rehearsal event on a fake timer)
 
 **REST Endpoints (binary responses):**
 

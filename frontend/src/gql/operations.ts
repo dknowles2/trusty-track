@@ -363,6 +363,11 @@ export type BulkAssignPhotosMutationVariables = Exact<{
 
 export type BulkAssignPhotosMutation = { bulkAssignPhotos: number };
 
+export type CreatePracticeRaceMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type CreatePracticeRaceMutation = { createPracticeRace: { id: number, name: string } };
+
 export type GetRacesQueryVariables = Exact<{ [key: string]: never; }>;
 
 

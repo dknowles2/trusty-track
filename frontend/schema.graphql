@@ -294,6 +294,7 @@ type Mutation {
   resetTimer(trackId: Int!): Boolean!
   updateInitialConfig(config: InitialConfigInput!): InitialConfigStatus!
   populateRace(raceId: Int!, config: PopulateTestDataInput!): String!
+  createPracticeRace: Race!
   importRacers(raceId: Int!, csvData: String!): Int!
   createRound(raceId: Int!, roundData: RoundCreateInput!): [Round!]!
   reorderHeats(heatUpdates: [HeatReorderItemInput!]!): HeatReorderResponse!

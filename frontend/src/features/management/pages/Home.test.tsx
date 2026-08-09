@@ -90,11 +90,34 @@ describe('Home Page', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('No races found. Create one to get started!')).toBeInTheDocument();
+            expect(screen.getByText(/No races found/)).toBeInTheDocument();
         });
-        
+
         // Colspan should be 6
-        const emptyCell = screen.getByText('No races found. Create one to get started!');
+        const emptyCell = screen.getByText(/No races found/).closest('td');
         expect(emptyCell).toHaveAttribute('colSpan', '6');
+    });
+
+    it('offers a rehearsal from the empty state', async () => {
+        // The night before an event is when a volunteer wants this, and an
+        // empty Home page is exactly where they are standing.
+        (useQuery as any).mockReturnValue([{
+            data: { races: [] },
+            fetching: false,
+            error: null
+        }, vi.fn()]);
+
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <Home />
+                </AlertProvider>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('practice-race-empty')).toBeInTheDocument();
+        });
+        expect(screen.getByTestId('practice-race')).toBeInTheDocument();
     });
 });

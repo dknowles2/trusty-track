@@ -219,3 +219,19 @@ export const BULK_ASSIGN_PHOTOS = gql`
     bulkAssignPhotos(assignments: $assignments)
   }
 `;
+
+/**
+ * A whole event on a fake timer, ready to run (#201).
+ *
+ * One mutation rather than the five round trips a client would need — race,
+ * dens, roster, check-in, rounds — because a rehearsal that fails half way
+ * leaves the operator with a broken race to tidy up.
+ */
+export const CREATE_PRACTICE_RACE = gql`
+  mutation CreatePracticeRace {
+    createPracticeRace {
+      id
+      name
+    }
+  }
+`;

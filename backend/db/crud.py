@@ -1667,3 +1667,139 @@ def reorder_awards(
             award.sort_order = position
     db.commit()
     return get_awards(db, race_id)
+
+
+# --- Practice race (#201) -----------------------------------------------
+
+
+#: The name of the track a practice race falls back to creating.
+PRACTICE_TRACK_NAME = "Practice Track"
+
+#: The stem every practice race is named from. It has to be recognisable at a
+#: glance on the Home page — the whole point is that nobody confuses it with
+#: the real event.
+PRACTICE_RACE_NAME = "Practice Race"
+
+#: Enough racers to feel like an event without being a chore to sit through.
+#: Twenty is `populate`'s default and twenty heats is most of an afternoon.
+PRACTICE_RACER_COUNT = 12
+
+#: How many cars reach the practice final.
+PRACTICE_FINALISTS = 4
+
+
+def practice_track(db: Session) -> models.Track:
+    """A track a practice race can safely be run on.
+
+    Any existing fake-timer track will do, and reusing one is the point: an
+    operator who rehearses three times should not end up with three tracks in
+    System Settings. Only a venue whose tracks are all real hardware gets a new
+    one, and it gets exactly one.
+    """
+    existing = (
+        db.query(models.Track)
+        .filter(models.Track.timer_type == models.TimerType.FAKE)
+        .order_by(models.Track.id)
+        .first()
+    )
+    if existing:
+        return existing
+
+    return create_track(
+        db,
+        schemas.TrackCreate(
+            name=PRACTICE_TRACK_NAME,
+            lane_count=4,
+            timer_type=models.TimerType.FAKE,
+        ),
+    )
+
+
+def _next_practice_name(db: Session) -> str:
+    """A free name, since ``races.name`` is unique.
+
+    Counts up rather than stamping a timestamp: an operator rehearsing twice
+    should see "Practice Race" and "Practice Race 2", not two names with
+    seconds in them.
+    """
+    taken = {
+        name
+        for (name,) in db.query(models.Race.name)
+        .filter(models.Race.name.like(f"{PRACTICE_RACE_NAME}%"))
+        .all()
+    }
+    if PRACTICE_RACE_NAME not in taken:
+        return PRACTICE_RACE_NAME
+    suffix = 2
+    while f"{PRACTICE_RACE_NAME} {suffix}" in taken:
+        suffix += 1
+    return f"{PRACTICE_RACE_NAME} {suffix}"
+
+
+def create_practice_race(db: Session) -> models.Race:
+    """A whole event, ready to run, on a fake timer (#201).
+
+    The operator is a parent volunteer who uses this app once a year, and the
+    night before is when they want to find out what race day feels like.
+    Everything needed already existed — `populate` builds a believable roster
+    and the fake timer runs heats without hardware — but neither was reachable
+    as a rehearsal: it took creating a race, adding dens, populating, checking
+    everybody in and running the round wizard, which is most of the thing being
+    rehearsed.
+
+    It includes a championship round on purpose. Advancement is the part of
+    race day that surprises people, and a rehearsal that stops before the final
+    leaves out the bit worth practising.
+    """
+    from backend.db import populate
+
+    group = db.query(models.Group).order_by(models.Group.id).first()
+    if group is None:
+        raise ValueError("Set the system up before creating a practice race")
+
+    track = practice_track(db)
+
+    race = create_race(
+        db,
+        schemas.RaceCreate(
+            name=_next_practice_name(db),
+            group_id=group.id,
+            track_id=track.id,
+            location="Practice",
+            car_numbering_strategy=models.CarNumberingStrategy.GLOBAL,
+            scoring_strategy=models.ScoringStrategy.TIMED,
+            championship_trophies=3,
+        ),
+    )
+
+    # Checked in, because `generate_heats_for_round` fields only racers that
+    # passed inspection — an uninspected roster produces an empty schedule
+    # rather than an error, which is a confusing way for a rehearsal to start.
+    populate.generate_fake_racers(
+        db,
+        race.id,
+        count=PRACTICE_RACER_COUNT,
+        add_racer_photos=True,
+        add_car_photos=True,
+        assign_dens=True,
+        check_in=True,
+    )
+
+    prelim = create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "All Pack")
+    generate_heats_for_round(db, prelim.id, clear_existing=True)
+
+    final = create_round(
+        db,
+        race.id,
+        2,
+        models.SchedulingStrategy.PPC,
+        "Final",
+        advancement_source="PACK",
+        advancement_num_racers=PRACTICE_FINALISTS,
+    )
+    db.flush()
+    generate_heats_for_round(db, final.id, clear_existing=True)
+
+    db.commit()
+    db.refresh(race)
+    return race

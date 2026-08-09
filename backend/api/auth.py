@@ -159,6 +159,7 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "createInitialConfig",
         "updateInitialConfig",
         "populateRace",
+        "createPracticeRace",
     }
 )
 
