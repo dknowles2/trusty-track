@@ -495,3 +495,29 @@ def test_an_unsecured_install_leaves_the_timer_socket_open(client, db):
     )
 
     assert _timer_socket_close_code(client, track.id) != 4403
+
+
+def test_a_viewer_cannot_assign_a_display(client, db):
+    """The asymmetry #174 is built on.
+
+    A screen holds no PIN and is a VIEWER. It registers by *subscribing* — the
+    display is the thing being told — and it must not be able to tell anything
+    else what to show. Anyone who could would be able to put the awards
+    ceremony on the projector mid-heat.
+    """
+    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
+    _post(client, SET_CONFIG, {"config": _config(operatorPin="1234")})
+
+    response = _post(
+        client,
+        """
+        mutation Assign($id: String!) {
+            assignDisplay(displayId: $id, view: PROJECTOR) { displayId }
+        }
+        """,
+        {"id": "abc"},
+    )
+
+    body = response.json()
+    assert "errors" in body, body

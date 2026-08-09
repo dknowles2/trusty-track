@@ -338,7 +338,7 @@ Databases created before Alembic are detected at startup (app tables present, no
 
 Defined entirely in `backend/api/schema.py`.
 
-**Queries:** `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `version`
+**Queries:** `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `version`
 
 **Mutations:**
 
@@ -350,10 +350,11 @@ Defined entirely in `backend/api/schema.py`.
 - Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
+- Audience displays: `assignDisplay`, `renameDisplay`, `forgetDisplay`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`
 
-**Subscriptions:** `raceStateChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`
+**Subscriptions:** `raceStateChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`
 
 ### Adding a mutation
 
@@ -617,6 +618,20 @@ Two things it settles that were previously accidents:
 - **A summary's presence and its id are separate fields.** `AdvancementStatus.roundId` is optional, so `hasRoundSummary` and `roundSummaryId` cannot be collapsed into one nullable number.
 
 `roundCompletion.ts` is the matching piece for `RaceControl.tsx`: there is no event for "a round's field was just decided", so it is recovered by comparing one query result against the last. `seen === null` means "first look", where every decided round is history rather than news.
+
+### Telling an audience display what to show
+
+Vocabulary in `domain/displays.py`, presence in `services/displays.py`, the operator's list at **Race Control → Displays** (#174).
+
+**A display registers by *subscribing*, and that is forced rather than chosen.** A screen holds no PIN and is a `VIEWER`, and a `VIEWER` may make no mutation at all (#15) — so presence cannot be announced by calling one. The constraint produces the right shape anyway: the display is the thing being told, not the thing asking. `displayAssignment` connects on entry and disconnects in a `finally`, because a browser tab closing arrives as cancellation.
+
+**Presence is in memory, not the database.** A display is a browser tab that is open right now; a row saying a screen was on a gym wall last March describes nothing that still exists, and nothing would ever delete it. Assignments go with it, and losing them on a restart is not a gap — an unassigned display falls back to its own URL, which is what every display did before this existed. That fallback is why the whole feature needs no migration.
+
+**`assigned` is a separate flag from the assignment**, and collapsing them breaks the fallback. Every connected display receives an opening payload carrying *an* assignment, so a client that treats "I have a payload" as "I have been told something" overrides the URL on every screen in the room the moment it connects. The end-to-end spec caught this; no unit test could, because each side was individually correct.
+
+**A screen that goes quiet stays listed.** It is how the operator finds out the projector at the back has dropped off the wifi, and nothing but a person can tell a switched-off screen from a dead network — so `forgetDisplay` is the only way a row leaves.
+
+`Display` is **keyed on `displayId`** in graphcache, not embedded: `assignDisplay` returns one and the panel's list has to recognise it as the row it is already holding. `CUSTOM_KEYED_TYPES` in `api/graphqlClient.ts` exists for it, and `graphqlClient.test.ts` requires every id-less type to be in exactly one of the two lists.
 
 ### One row of race navigation
 

@@ -69,6 +69,26 @@ type DenStat {
   bestRacerName: String
 }
 
+type Display {
+  displayId: String!
+  name: String!
+  raceId: Int!
+  view: DisplayView!
+  cycleSeconds: Int!
+  connected: Boolean!
+  assigned: Boolean!
+  description: String!
+  pacedByAPerson: Boolean!
+}
+
+enum DisplayView {
+  STANDINGS
+  TIMING
+  CYCLE
+  PROJECTOR
+  AWARDS
+}
+
 type FreeRaceHeat {
   id: Int!
   raceId: Int!
@@ -231,6 +251,9 @@ type Mutation {
   createRace(race: RaceInput!): Race!
   updateRace(id: Int!, race: RaceUpdateInput!): Race
   deleteRace(id: Int!): Boolean!
+  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null): Display
+  renameDisplay(displayId: String!, name: String!): Display
+  forgetDisplay(displayId: String!): Boolean!
   createRacer(racer: RacerInput!): Racer!
   updateRacer(id: Int!, racer: RacerInput!): Racer
   deleteRacer(id: Int!): Boolean!
@@ -293,6 +316,7 @@ input PopulateTestDataInput {
 }
 
 type Query {
+  displays(raceId: Int!): [Display!]!
   races(skip: Int! = 0, limit: Int! = 100): [Race!]!
   timerModels: [TimerModel!]!
   version: String!
@@ -469,6 +493,8 @@ type Subscription {
   heatSession(trackId: Int!, heatId: Int = null): HeatSession!
   raceStateChanged(raceId: Int!): RaceStateChangedEvent!
   leaderboard(raceId: Int!): [LeaderboardEntry!]!
+  displayAssignment(displayId: String!, raceId: Int!, name: String = null): Display!
+  displays(raceId: Int!): [Display!]!
   onDeck(raceId: Int!): Heat
   currentlyRacing(raceId: Int!): Heat
   timingStats(raceId: Int!): TimingStats

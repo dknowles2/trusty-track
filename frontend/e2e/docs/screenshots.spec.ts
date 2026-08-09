@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-test('take screenshots', async ({ page }) => {
+test('take screenshots', async ({ page, browser }) => {
   const screenshotsDir = path.resolve(__dirname, '../../../docs/assets/screenshots');
   fs.mkdirSync(path.join(screenshotsDir, 'getting-started'), { recursive: true });
   fs.mkdirSync(path.join(screenshotsDir, 'race-setup'), { recursive: true });
@@ -449,13 +449,34 @@ test('take screenshots', async ({ page }) => {
   // PART 2: OBSERVATION SCREENSHOTS
   // ============================================================
 
-  // Navigate to observation page
+  // Navigate to observation page. Opening it also registers this browser as a
+  // display (#174), which is what puts a row in the operator's list below.
   await page.goto(`/race/${raceId}/observation`);
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1500);
 
   // 01: full observation page
   await page.screenshot({ path: path.join(screenshotsDir, 'observation/01-observation-overview.png') });
+
+  // 08: the operator's list of displays (#174). A display registers by holding
+  // its subscription open, so the screen has to stay open in a second context
+  // while this page is captured — navigating this one away closes the socket
+  // and the row honestly, but unhelpfully, reads "Not connected".
+  const displayContext = await browser.newContext();
+  const audienceScreen = await displayContext.newPage();
+  await audienceScreen.goto(`/race/${raceId}/observation`);
+  await audienceScreen.waitForLoadState('networkidle');
+  await audienceScreen.waitForTimeout(500);
+
+  await page.goto(`/race/${raceId}/control/displays`);
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: path.join(screenshotsDir, 'observation/08-displays-panel.png') });
+  await displayContext.close();
+
+  await page.goto(`/race/${raceId}/observation`);
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(800);
 
   // 02: the race navigation, which is what the section around it is about —
   // finding the Live tab. It used to be a second copy of 01, captioned as
