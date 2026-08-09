@@ -7,7 +7,6 @@ import io
 import json
 import logging
 import os
-import random
 import typing
 import uuid
 from collections.abc import AsyncGenerator, Iterable, Mapping, Sequence
@@ -34,6 +33,7 @@ from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
 from backend.services.timer.devices import by_key as _profile_by_key
+from backend.services.timer.devices import fake as fake_timer
 from backend.services.timer.devices.base import (
     LaneResult as TimerLaneResult,
 )
@@ -2659,9 +2659,10 @@ class Mutation:
                 return False
             occupied = list(range(1, track.lane_count + 1))
 
-        # Generate random times and sort to assign placements
-        timed = [(lane, 3.0 + random.random()) for lane in occupied]
-        timed.sort(key=lambda x: x[1])
+        # Times, fastest first, so the enumeration below is the placement.
+        # Keyed on the heat rather than drawn from a running sequence — see
+        # `devices.fake.lane_times`.
+        timed = fake_timer.lane_times(occupied, key=f"{race.name}#{heat.heat_number}")
         for place, (lane, t) in enumerate(timed, start=1):
             await mgr.inject_event(
                 TimerLaneResult(lane=lane, time_seconds=t, place=place)

@@ -10,7 +10,8 @@
  * regenerated screenshot is a real diff rather than reshuffled names.
  */
 
-import { test, expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, jitter } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -393,13 +393,25 @@ test('take screenshots', async ({ page, browser }) => {
   const qualifyingHeats = allHeats.filter(h => h.roundId === qualifyingRound.id);
 
   // Force-complete any remaining qualifying heats via updateHeatResult
-  for (const heat of qualifyingHeats) {
+  for (const [position, heat] of qualifyingHeats.entries()) {
     const lanes = heat.lanes;
     if (lanes.length === 0) continue; // no assignments
     if (lanes.some(l => l.time !== null)) continue; // already run
 
     // Fake times, sorted to decide places, then put back in lane order.
-    const timed = lanes.map((l, i) => ({ ...l, time: 3.0 + i * 0.13 + Math.random() * 0.05 }));
+    //
+    // The jitter is derived rather than drawn: `Math.random()` here was the
+    // last thing making every standings, stats and observation screenshot
+    // differ on every run. It only has to look unpatterned in a picture, and
+    // it has to be the same picture next time.
+    const timed = lanes.map((l, i) => ({
+        ...l,
+        // Keyed on the heat's *position*, not its id — ids depend on how many
+        // races the specs before this one created, so a spec regenerated on
+        // its own would produce different times from the same spec regenerated
+        // alongside the others.
+        time: 3.0 + i * 0.13 + jitter(`${position}:${l.lane}`),
+    }));
     timed.sort((a, b) => a.time - b.time);
     const results = timed
       .map((l, idx) => ({ ...l, place: idx + 1 }))

@@ -222,7 +222,7 @@ export default function Navigation() {
           {!isMobile && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexShrink: 0 }}>
               <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', textAlign: 'right', lineHeight: '1.2' }}>
-                <div>v{version}</div>
+                <div data-testid="app-version">v{version}</div>
                 <a
                   href="https://github.com/dknowles2/trusty-track"
                   target="_blank"
@@ -439,7 +439,10 @@ export default function Navigation() {
                   <Icon path={mdiCog} size={0.9} />
                   System Settings
                 </Link>
-                <div style={{ marginTop: '0.8rem', textAlign: 'center', fontSize: '0.75rem', color: '#999' }}>
+                <div
+                  data-testid="app-version"
+                  style={{ marginTop: '0.8rem', textAlign: 'center', fontSize: '0.75rem', color: '#999' }}
+                >
                   v{version}
                 </div>
               </div>
