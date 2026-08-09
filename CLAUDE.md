@@ -902,6 +902,8 @@ Three conventions, each learned from a failure:
 | A feature worth a user's attention | `README.md`, `docs/index.md`, and `mkdocs.yml`'s nav |
 | A rule an agent needs | This file |
 
+**A new page goes *inside* a nav group, not beside one.** `navigation.tabs` turns every top-level entry into a tab across the top, and adding one page at a time got to fifteen — the row scrolled sideways, so several pages were reachable only by finding a scrollbar nobody looks for. It is seven now (Home, Install, Running a Race, Displays and Printouts, Timers, Network and Backups, Developers), and `docs/index.md` follows the same grouping, because a flat list there re-teaches the shape the tabs just lost. Grouping moves nothing on disk, so links and anchors are unaffected either way.
+
 ### Finding the prose that just went stale
 
 **The table above is not the hard part — following it is not enough, and that has been measured.** Every finding of the audit that produced this section came from a change whose docs task was done and whose CI was green.
