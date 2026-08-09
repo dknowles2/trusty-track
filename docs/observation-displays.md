@@ -76,6 +76,46 @@ _The live leaderboard showing current standings with average times and placement
 
 ---
 
+## Changing what a screen shows, from where you are
+
+With four screens taped around a gym, changing one used to mean finding it and
+driving its browser — the operator leaving the timer mid-event. They can be
+told instead.
+
+![The operator's list of audience displays](assets/screenshots/observation/08-displays-panel.png)
+
+**Race Control → Displays.** Every screen that has the Live page open appears
+in the list on its own; there is nothing to add, and nothing to set up before
+an event. Pick what each one shows from the dropdown beside it and the screen
+changes within a second or two.
+
+Two things worth knowing:
+
+- **Name them.** A list of "Display 1, Display 2, Display 3" is no help when
+  you are trying to change the one at the back. Click the pencil and call it
+  what you call it — "gym north", "by the doors". The name sticks to that
+  screen, including through a reload.
+- **A screen that has gone quiet stays in the list**, marked *Not connected*.
+  That is deliberate: it is how you find out the projector at the back has
+  dropped off the wifi. Trusty Track cannot tell a screen that was switched
+  off from one whose network died, so it leaves the row for you to clear with
+  the ✕.
+
+> [!NOTE]
+> Assigning the **Awards ceremony** to a screen puts the ceremony on it, and
+> that one waits for you — it does not advance on its own. See the
+> [Awards guide](awards.md#announcing-them).
+
+### If you never open that list
+
+Nothing changes. A screen that has not been assigned anything follows its own
+URL exactly as before, so `?view=timing` and `?projector=true` still work and
+still do what they always did. Assigning a screen overrides its URL; there is
+no way to get into a state where a screen cannot be reached from the operator's
+laptop, which is the point.
+
+---
+
 ## Projector Mode
 
 For large events with a big screen or projector, use **Projector Mode** — a full-screen, high-contrast layout designed for maximum visibility from a distance.

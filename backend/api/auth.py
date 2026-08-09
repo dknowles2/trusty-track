@@ -117,6 +117,14 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         # Which lanes are out of service (#171). Operator: it changes what
         # every future schedule looks like.
         "setLaneOutages",
+        # Audience displays (#174). Operator, and the asymmetry is the point:
+        # a display holds no PIN and is a VIEWER, so it can make none of these
+        # — it registers by subscribing and is *told* what to show. Anyone who
+        # could assign could put the awards ceremony on the projector
+        # mid-heat.
+        "assignDisplay",
+        "renameDisplay",
+        "forgetDisplay",
         # Scheduling
         "createRound",
         "createRoundWizard",

@@ -80,6 +80,25 @@ export type DenStat = {
   racerCount: Scalars['Int']['output'];
 };
 
+export type Display = {
+  assigned: Scalars['Boolean']['output'];
+  connected: Scalars['Boolean']['output'];
+  cycleSeconds: Scalars['Int']['output'];
+  description: Scalars['String']['output'];
+  displayId: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  pacedByAPerson: Scalars['Boolean']['output'];
+  raceId: Scalars['Int']['output'];
+  view: DisplayView;
+};
+
+export type DisplayView =
+  | 'AWARDS'
+  | 'CYCLE'
+  | 'PROJECTOR'
+  | 'STANDINGS'
+  | 'TIMING';
+
 export type FreeRaceHeat = {
   createdAt: Scalars['String']['output'];
   id: Scalars['Int']['output'];
@@ -240,6 +259,7 @@ export type LiveLane = {
 export type Mutation = {
   abortHeat: Scalars['Boolean']['output'];
   advanceRound: Scalars['Int']['output'];
+  assignDisplay?: Maybe<Display>;
   bulkAssignPhotos: Scalars['Int']['output'];
   bulkAutoNumber: Scalars['Int']['output'];
   bulkCheckIn: Scalars['Boolean']['output'];
@@ -266,6 +286,7 @@ export type Mutation = {
   fakeTimerFinish: Scalars['Boolean']['output'];
   fakeTimerStart: Scalars['Boolean']['output'];
   forceResults: Scalars['Boolean']['output'];
+  forgetDisplay: Scalars['Boolean']['output'];
   importRacers: Scalars['Int']['output'];
   populateRace: Scalars['String']['output'];
   prepareHeat: Scalars['Boolean']['output'];
@@ -273,6 +294,7 @@ export type Mutation = {
   recordFreeRaceResult?: Maybe<FreeRaceHeat>;
   regenerateRound: Array<Heat>;
   releaseStartGate?: Maybe<Scalars['String']['output']>;
+  renameDisplay?: Maybe<Display>;
   reorderAwards: Array<Award>;
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
@@ -297,6 +319,13 @@ export type MutationAbortHeatArgs = {
 export type MutationAdvanceRoundArgs = {
   raceId: Scalars['Int']['input'];
   roundId: Scalars['Int']['input'];
+};
+
+
+export type MutationAssignDisplayArgs = {
+  cycleSeconds?: InputMaybe<Scalars['Int']['input']>;
+  displayId: Scalars['String']['input'];
+  view: DisplayView;
 };
 
 
@@ -442,6 +471,11 @@ export type MutationForceResultsArgs = {
 };
 
 
+export type MutationForgetDisplayArgs = {
+  displayId: Scalars['String']['input'];
+};
+
+
 export type MutationImportRacersArgs = {
   csvData: Scalars['String']['input'];
   raceId: Scalars['Int']['input'];
@@ -478,6 +512,12 @@ export type MutationRegenerateRoundArgs = {
 
 export type MutationReleaseStartGateArgs = {
   trackId: Scalars['Int']['input'];
+};
+
+
+export type MutationRenameDisplayArgs = {
+  displayId: Scalars['String']['input'];
+  name: Scalars['String']['input'];
 };
 
 
@@ -571,6 +611,7 @@ export type PopulateTestDataInput = {
 export type Query = {
   activeFreeRaceHeat?: Maybe<FreeRaceHeat>;
   advancementStatus: AdvancementStatus;
+  displays: Array<Display>;
   freeRaceHeats: Array<FreeRaceHeat>;
   groups: Array<Group>;
   heatSession: HeatSession;
@@ -597,6 +638,11 @@ export type QueryActiveFreeRaceHeatArgs = {
 export type QueryAdvancementStatusArgs = {
   raceId: Scalars['Int']['input'];
   roundId: Scalars['Int']['input'];
+};
+
+
+export type QueryDisplaysArgs = {
+  raceId: Scalars['Int']['input'];
 };
 
 
@@ -814,6 +860,8 @@ export type SerialLogEntry = {
 export type Subscription = {
   activeFreeRaceHeat?: Maybe<FreeRaceHeat>;
   currentlyRacing?: Maybe<Heat>;
+  displayAssignment: Display;
+  displays: Array<Display>;
   freeRaceHeat?: Maybe<FreeRaceHeat>;
   heatSession: HeatSession;
   heats: Array<Round>;
@@ -831,6 +879,18 @@ export type SubscriptionActiveFreeRaceHeatArgs = {
 
 
 export type SubscriptionCurrentlyRacingArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type SubscriptionDisplayAssignmentArgs = {
+  displayId: Scalars['String']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type SubscriptionDisplaysArgs = {
   raceId: Scalars['Int']['input'];
 };
 

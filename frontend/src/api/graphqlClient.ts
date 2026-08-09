@@ -1,5 +1,5 @@
 import { Client, fetchExchange, subscriptionExchange } from 'urql';
-import { cacheExchange, type UpdateResolver } from '@urql/exchange-graphcache';
+import { cacheExchange, type Data, type UpdateResolver } from '@urql/exchange-graphcache';
 import { createClient as createWsClient } from 'graphql-ws';
 import { liveConnectionOptions } from './liveConnection';
 import { pinHeaders, withPin } from './pin';
@@ -70,7 +70,26 @@ export const EMBEDDED_TYPES = [
   'TimingStatsLane',
 ] as const;
 
-const keys = Object.fromEntries(EMBEDDED_TYPES.map((name) => [name, () => null]));
+/**
+ * Types that are records but do not call their identity `id`.
+ *
+ * `Display` is keyed on `displayId` rather than embedded (#174). It genuinely
+ * is a record — the same screen arrives from `displays(raceId)` for the
+ * operator's list and from `displayAssignment` on the screen itself, and
+ * `assignDisplay` returns it again. Embedded, the mutation result could not be
+ * recognised as the row the list is already holding, and the panel would keep
+ * showing the old view after the operator changed it. That is exactly the
+ * `InitialConfigStatus` failure described above, which is why it is worth not
+ * repeating.
+ */
+export const CUSTOM_KEYED_TYPES: Record<string, (data: Data) => string | null> = {
+  Display: (data) => (typeof data.displayId === 'string' ? data.displayId : null),
+};
+
+const keys = {
+  ...Object.fromEntries(EMBEDDED_TYPES.map((name) => [name, () => null])),
+  ...CUSTOM_KEYED_TYPES,
+};
 
 /**
  * Forget the cached answer to `initialConfig` once it has been changed.

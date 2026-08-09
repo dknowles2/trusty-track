@@ -22,6 +22,13 @@ export type DenInput = {
   rank?: string | null | undefined;
 };
 
+export type DisplayView =
+  | 'AWARDS'
+  | 'CYCLE'
+  | 'PROJECTOR'
+  | 'STANDINGS'
+  | 'TIMING';
+
 export type HeatLaneInput = {
   lane: number;
   place?: number | null | undefined;
@@ -391,6 +398,52 @@ export type ActiveFreeRaceHeatSubscriptionSubscriptionVariables = Exact<{
 
 
 export type ActiveFreeRaceHeatSubscriptionSubscription = { activeFreeRaceHeat: { id: number, createdAt: string, lanes: Array<{ lane: number, racerId: number | null }> } | null };
+
+export type DisplayAssignmentSubscriptionVariables = Exact<{
+  displayId: string;
+  raceId: number;
+}>;
+
+
+export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number } };
+
+export type DisplaysSubscriptionVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number }> };
+
+export type GetDisplaysQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number }> };
+
+export type AssignDisplayMutationVariables = Exact<{
+  displayId: string;
+  view: Types.DisplayView;
+  cycleSeconds?: number | null | undefined;
+}>;
+
+
+export type AssignDisplayMutation = { assignDisplay: { displayId: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, name: string, raceId: number } | null };
+
+export type RenameDisplayMutationVariables = Exact<{
+  displayId: string;
+  name: string;
+}>;
+
+
+export type RenameDisplayMutation = { renameDisplay: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number } | null };
+
+export type ForgetDisplayMutationVariables = Exact<{
+  displayId: string;
+}>;
+
+
+export type ForgetDisplayMutation = { forgetDisplay: boolean };
 
 export type GetPrintablesQueryVariables = Exact<{
   raceId: number;

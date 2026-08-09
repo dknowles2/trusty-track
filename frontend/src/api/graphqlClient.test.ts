@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { Client, gql, type Exchange, type OperationResult } from 'urql';
 import { cacheExchange } from '@urql/exchange-graphcache';
 import { pipe, map, filter } from 'wonka';
-import { CACHE_CONFIG, EMBEDDED_TYPES } from './graphqlClient';
+import { CACHE_CONFIG, CUSTOM_KEYED_TYPES, EMBEDDED_TYPES } from './graphqlClient';
 
 // Vitest runs with the frontend directory as cwd.
 const schemaPath = resolve(process.cwd(), 'schema.graphql');
@@ -34,8 +34,18 @@ function typesWithoutAnId(): string[] {
 }
 
 describe('graphcache key configuration', () => {
-  it('declares every id-less type as embedded', () => {
-    expect([...EMBEDDED_TYPES].sort()).toEqual(typesWithoutAnId());
+  it('accounts for every id-less type', () => {
+    // Either embedded, or keyed on a field that is not called `id`. What must
+    // not happen is a type in neither list: graphcache cannot key it and
+    // cannot be told it is a view, so it silently produces a stale entity.
+    const accounted = [...EMBEDDED_TYPES, ...Object.keys(CUSTOM_KEYED_TYPES)].sort();
+    expect(accounted).toEqual(typesWithoutAnId());
+  });
+
+  it('does not put a type in both lists', () => {
+    for (const name of Object.keys(CUSTOM_KEYED_TYPES)) {
+      expect(EMBEDDED_TYPES).not.toContain(name);
+    }
   });
 
   it('does not declare types that graphcache can key on their own id', () => {

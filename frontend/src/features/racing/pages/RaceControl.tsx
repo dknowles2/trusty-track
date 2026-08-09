@@ -5,10 +5,11 @@ import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useAlert } from '../../../context/AlertContext';
 import { ScheduleManagement } from '../components/ScheduleManagement';
+import DisplaysPanel from '../../observation/components/DisplaysPanel';
 import { RaceExecution } from '../components/RaceExecution';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import { Icon } from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
 import { hasRun, hasTimes, byPlace, cleared } from '../lanes';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
@@ -445,6 +446,8 @@ export default function RaceControl() {
     ? 'EXECUTION'
     : location.pathname.includes('/control/free-race')
     ? 'FREE_RACE'
+    : location.pathname.includes('/control/displays')
+    ? 'DISPLAYS'
     : 'SCHEDULE';
 
   // Re-fetch on view change to ensure fresh data (e.g., after reordering in Schedule)
@@ -637,13 +640,40 @@ export default function RaceControl() {
                 >
                     <Icon path={mdiRacingHelmet} size={0.8} /> Free Race
                 </button>
+                {/* Assigning what each audience screen shows, without walking
+                    to it (#174). On Race Control because that is where the
+                    operator is standing when a screen needs changing. */}
+                <button
+                    onClick={() => navigate(`/race/${id}/control/displays`)}
+                    data-testid="displays-tab"
+                    style={{
+                        padding: '6px 16px',
+                        fontSize: '0.95rem',
+                        whiteSpace: 'nowrap',
+                        borderRadius: '20px',
+                        border: 'none',
+                        background: viewMode === 'DISPLAYS' ? 'white' : 'transparent',
+                        boxShadow: viewMode === 'DISPLAYS' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                        fontWeight: viewMode === 'DISPLAYS' ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                >
+                    <Icon path={mdiMonitorMultiple} size={0.8} /> Displays
+                </button>
             </div>
         </div>
 
         <div style={{ minWidth: '160px' }} />
       </div>
 
-      {viewMode === 'FREE_RACE' ? (
+      {viewMode === 'DISPLAYS' ? (
+        <div style={{ maxWidth: '900px', margin: '0 auto', width: '100%' }}>
+          <DisplaysPanel raceId={id} />
+        </div>
+      ) : viewMode === 'FREE_RACE' ? (
         <FreeRaceTab
           raceId={id}
           laneCount={race?.track?.laneCount ?? 4}

@@ -148,6 +148,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `advancementStatus(raceId, roundId)` — Check round advancement eligibility.
 -   `raceStats(raceId)` — Lane fairness, per-racer aggregates, top moments, den comparison.
 -   `timerStatus(trackId)` — Device state for a track's timer.
+-   `displays(raceId)` — Audience displays known for this race, connected or not. Presence is in-memory (see below), so this is not a database read.
 -   `timerModels()` — The timer models an operator can pick from, with the provenance of each profile. The fake timer is deliberately absent: it is reachable by `timer_type`, and offering it as a *model* would let a track ask for a fake timer over a real serial port.
 -   `heatSession(trackId, heatId)` — What is on the track right now (see below).
 -   `freeRaceHeats(raceId)`, `activeFreeRaceHeat(raceId)`, `randomFreeRaceLanes(raceId)`
@@ -160,7 +161,8 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 -   Den: `createDen`, `updateDen`, `deleteDen`
 -   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored)
--   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages` (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)
+-   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
+-   Audience displays: `assignDisplay`, `renameDisplay`, `forgetDisplay` (operator-only — a display is a `VIEWER` and is *told*, never asks) (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)
 -   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
 -   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
@@ -198,6 +200,8 @@ Delivered over the existing `/graphql` endpoint using the `graphql-ws` subprotoc
 -   `subscription currentlyRacing(raceId)` — Current heat racers and lane assignments.
 -   `subscription timingStats(raceId)` — Per-lane timing for the most recently recorded heat, official or free.
 -   `subscription heats(raceId)` — Full round/heat list with completion status.
+-   `subscription displayAssignment(displayId, raceId, name)` — What one screen should show. **Subscribing is how a display registers**: it holds no PIN and is a `VIEWER`, so it can make no mutation, and the socket closing is the only signal it has gone.
+-   `subscription displays(raceId)` — The operator's list, as screens come and go.
 -   `subscription timerStatus(trackId)` — Device state.
 -   `subscription heatSession(trackId, heatId)` — The merged live view; see below.
 -   `subscription freeRaceHeat(heatId)`, `subscription activeFreeRaceHeat(raceId)`

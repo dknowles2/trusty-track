@@ -25,9 +25,11 @@ from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
+from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import lanes
 from backend.domain import scoring as domain_scoring
+from backend.services import displays as displays_service
 from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
@@ -1134,6 +1136,57 @@ class TimerStatus:
 #: vocabulary and a phase added there cannot be forgotten here.
 HeatPhase = strawberry.enum(domain_heat_session.Phase, name="HeatPhase")
 
+#: What an audience display is showing (#174). Wrapped for the same reason as
+#: the phase above: one copy of the vocabulary, and a view added to the domain
+#: cannot be forgotten here.
+DisplayViewEnum = strawberry.enum(domain_displays.DisplayView, name="DisplayView")
+
+
+@strawberry.type
+class Display:
+    """One audience display, and what it has been told to show (#174).
+
+    Presence lives in memory rather than the database — see
+    `services/displays.py` for why a screen that was on a wall last March is
+    not a row worth keeping.
+    """
+
+    display_id: str
+    name: str
+    race_id: int
+    view: DisplayViewEnum  # type: ignore[valid-type]
+    cycle_seconds: int
+    connected: bool
+    #: Whether an operator has told this display anything. False means it is
+    #: still following its own URL, which is what every display did before
+    #: #174 — see `services/displays.py`.
+    assigned: bool
+    #: What it is showing, in words, so the operator's list does not have to
+    #: reimplement the vocabulary to render a row.
+    description: str
+    #: Whether this view waits for a person. Only the ceremony does, and a
+    #: screen assigned to it that nobody drives simply sits on one trophy.
+    paced_by_a_person: bool
+
+
+def _display(display: displays_service.Display) -> Display:
+    return Display(
+        display_id=display.display_id,
+        name=display.name,
+        race_id=display.race_id,
+        view=display.assignment.view,
+        cycle_seconds=display.assignment.cycle_seconds,
+        connected=display.connected,
+        assigned=display.assigned,
+        description=domain_displays.describe(display.assignment),
+        paced_by_a_person=domain_displays.is_paced_by_a_person(display.assignment.view),
+    )
+
+
+async def _publish_displays(race_id: int) -> None:
+    """Tell the operator's list that something about a display changed."""
+    await pubsub.publish(f"displays:{race_id}", None)
+
 
 @strawberry.type
 class LiveLane:
@@ -1314,6 +1367,15 @@ class Query:
     """
     Root query type for fetching data.
     """
+
+    @strawberry.field
+    def displays(self, race_id: int) -> list[Display]:
+        """Every audience display known for this race (#174).
+
+        Includes ones that have gone quiet, deliberately: a screen that has
+        dropped off the wifi is the one the operator most wants to see.
+        """
+        return [_display(d) for d in displays_service.registry.for_race(race_id)]
 
     @strawberry.field
     def races(self, info: Info, skip: int = 0, limit: int = 100) -> list[Race]:
@@ -1737,6 +1799,53 @@ class Mutation:
         return crud.delete_race(db, race_id=id)
 
     # Racer Mutations
+    @strawberry.mutation
+    async def assign_display(
+        self,
+        view: DisplayViewEnum,  # type: ignore[valid-type]
+        display_id: str,
+        cycle_seconds: int | None = None,
+    ) -> Display | None:
+        """Tell an audience display what to show (#174).
+
+        Operator-only, and the display is the thing being told: it never asks
+        for this, it is handed the answer over the subscription it already
+        holds. Returns null for a display nobody has seen, which is what the
+        operator gets if a screen was forgotten between listing and clicking.
+        """
+        if cycle_seconds is not None and cycle_seconds < 1:
+            raise ValueError("cycle_seconds must be at least 1")
+        display = displays_service.registry.assign(display_id, view, cycle_seconds)
+        if display is None:
+            return None
+        await pubsub.publish(f"display_assignment:{display_id}", None)
+        await _publish_displays(display.race_id)
+        return _display(display)
+
+    @strawberry.mutation
+    async def rename_display(self, display_id: str, name: str) -> Display | None:
+        """Give a display a name the operator will recognise — "gym north"."""
+        display = displays_service.registry.rename(display_id, name)
+        if display is None:
+            return None
+        await _publish_displays(display.race_id)
+        return _display(display)
+
+    @strawberry.mutation
+    async def forget_display(self, display_id: str) -> bool:
+        """Drop a display from the list.
+
+        The only way one leaves it. A screen that is switched off looks exactly
+        like one whose wifi dropped, so nothing but a person can tell them
+        apart — and guessing either way is worse than a row somebody clears.
+        """
+        display = displays_service.registry.get(display_id)
+        race_id = display.race_id if display else None
+        removed = displays_service.registry.forget(display_id)
+        if removed and race_id is not None:
+            await _publish_displays(race_id)
+        return removed
+
     @strawberry.mutation
     async def create_racer(self, info: Info, racer: RacerInput) -> Racer:
         """Create a new racer."""
@@ -3264,6 +3373,49 @@ class Subscription:
                 yield [
                     LeaderboardEntry(**s) for s in scoring.get_leaderboard(db, race_id)
                 ]
+
+    @strawberry.subscription
+    async def display_assignment(
+        self, display_id: str, race_id: int, name: str | None = None
+    ) -> AsyncGenerator[Display, None]:
+        """What this display should be showing, pushed as it changes (#174).
+
+        **Subscribing is how a display registers.** It holds no PIN and is a
+        `VIEWER`, and a `VIEWER` may make no mutation at all (#15) — so
+        presence cannot be announced by calling one. That constraint produces
+        the right shape anyway: the display is the thing being told.
+
+        The registration happens before the opening payload, and the payload is
+        sent inside the `pubsub.subscribe` block, for the reason
+        `test_subscription_snapshot_race.py` exists: this queue must be
+        registered before anything it needs to hear can be published, or an
+        assignment made in that window reaches no one and the screen sits on
+        the wrong view for the rest of the event.
+        """
+        async with pubsub.subscribe(f"display_assignment:{display_id}") as stream:
+            display = displays_service.registry.connect(display_id, race_id, name)
+            await _publish_displays(race_id)
+            try:
+                yield _display(display)
+                async for _ in stream:
+                    current = displays_service.registry.get(display_id)
+                    if current is not None:
+                        yield _display(current)
+            finally:
+                # The socket closing is the only signal that a screen has gone
+                # away, so it has to be handled however the generator ends —
+                # cancellation included, which is what a browser tab closing
+                # produces.
+                displays_service.registry.disconnect(display_id)
+                await _publish_displays(race_id)
+
+    @strawberry.subscription
+    async def displays(self, race_id: int) -> AsyncGenerator[list[Display], None]:
+        """The operator's list of displays, as screens come and go (#174)."""
+        async with pubsub.subscribe(f"displays:{race_id}") as stream:
+            yield [_display(d) for d in displays_service.registry.for_race(race_id)]
+            async for _ in stream:
+                yield [_display(d) for d in displays_service.registry.for_race(race_id)]
 
     @strawberry.subscription
     async def on_deck(

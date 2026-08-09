@@ -1,17 +1,20 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useSubscription, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import TimerStatusBadge from '../../racing/components/timer/TimerStatusBadge';
+import { displayId } from '../displayIdentity';
+import { readUrl, resolveView } from '../displayView';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import {
   LeaderboardSubscription,
   OnDeckSubscription,
   CurrentlyRacingSubscription,
   TimingStatsSubscription,
-  ActiveFreeRaceHeatSubscription
+  ActiveFreeRaceHeatSubscription,
+  DisplayAssignmentSubscription,
 } from '../graphql/queries';
 
 const GET_INITIAL_DATA = `
@@ -43,14 +46,42 @@ interface Standing {
 export default function Observation() {
   const { raceId } = useParams<{ raceId: string }>();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const id = parseInt(raceId || '0');
 
-  const isProjectorMode = searchParams.get('projector') === 'true';
-  const shouldCycle = searchParams.get('cycle') === 'true';
-  const cycleInterval = parseInt(searchParams.get('cycle_interval') || '10000');
+  // This screen's identity, and what it has been told to show (#174). The
+  // subscription is also how the display registers itself: it holds no PIN and
+  // is a VIEWER, so it can make no mutation — it is told, it does not ask.
+  const thisDisplayId = useMemo(() => displayId(), []);
+  const [assignmentResult] = useSubscription({
+    query: DisplayAssignmentSubscription,
+    variables: { displayId: thisDisplayId, raceId: id },
+    pause: !id,
+  });
+  const assignment = assignmentResult.data?.displayAssignment ?? null;
 
-  const initialView = (searchParams.get('view') as 'standings' | 'timing') || 'standings';
-  const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(initialView);
+  const urlIntent = useMemo(() => readUrl(searchParams), [searchParams]);
+  const behaviour = useMemo(
+    () =>
+      resolveView(
+        // `assigned` rather than merely having a payload: every connected
+        // display receives one, carrying the default view, and treating that
+        // as an instruction overrides the URL on every screen the moment it
+        // connects — which is the fallback this feature depends on.
+        assignment?.assigned
+          ? { view: assignment.view, cycleSeconds: assignment.cycleSeconds }
+          : null,
+        urlIntent,
+        id,
+      ),
+    [assignment, urlIntent, id],
+  );
+
+  const isProjectorMode = behaviour.projector;
+  const shouldCycle = behaviour.cycle;
+  const cycleInterval = behaviour.cycleMs;
+
+  const [activeTab, setActiveTab] = useState<'standings' | 'timing'>(behaviour.tab);
 
   const [showResultsOverlay, setShowResultsOverlay] = useState(false);
   const [overlayData, setOverlayData] = useState<{
@@ -76,14 +107,22 @@ export default function Observation() {
     return () => clearInterval(interval);
   }, [shouldCycle, cycleInterval, isProjectorMode]);
 
-  const [prevViewParam, setPrevViewParam] = useState(searchParams.get('view'));
-  const currentViewParam = searchParams.get('view');
-  if (currentViewParam !== prevViewParam) {
-    setPrevViewParam(currentViewParam);
-    if (currentViewParam === 'standings' || currentViewParam === 'timing') {
-      setActiveTab(currentViewParam);
-    }
+  // Follow whatever decides the tab — the URL until an assignment arrives, and
+  // the assignment after that. Adjusted during render rather than in an
+  // effect, for the reason RaceControl pins its heat the same way: an effect
+  // shows the old tab for a frame and then corrects it, which on a projector
+  // is a visible flick.
+  const [prevTab, setPrevTab] = useState(behaviour.tab);
+  if (behaviour.tab !== prevTab) {
+    setPrevTab(behaviour.tab);
+    setActiveTab(behaviour.tab);
   }
+
+  // The ceremony is its own route rather than a tab here, so an assignment to
+  // it is a navigation.
+  useEffect(() => {
+    if (behaviour.redirectTo) navigate(behaviour.redirectTo, { replace: true });
+  }, [behaviour.redirectTo, navigate]);
 
   // Ensure body scroll is hidden in projector mode
   useEffect(() => {
@@ -417,6 +456,7 @@ export default function Observation() {
         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
           <button
             onClick={() => setActiveTab('standings')}
+            aria-pressed={activeTab === 'standings'}
             style={{
               padding: '10px 20px',
               borderRadius: '20px',
@@ -434,6 +474,7 @@ export default function Observation() {
           </button>
           <button
             onClick={() => setActiveTab('timing')}
+            aria-pressed={activeTab === 'timing'}
             style={{
               padding: '10px 20px',
               borderRadius: '20px',
