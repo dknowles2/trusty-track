@@ -84,9 +84,16 @@ describe('resolveView', () => {
             tab: 'timing',
             projector: false,
             cycle: true,
+            slideshow: false,
             cycleMs: 4000,
             redirectTo: null,
         });
+    });
+
+    it('reaches the slideshow by URL as well as by assignment', () => {
+        // The fallback stays complete: a view only the operator's list could
+        // select would be unreachable on a display nobody assigns.
+        expect(resolveView(null, url('view=slideshow'), 1)).toMatchObject({ slideshow: true });
     });
 
     it('ignores an assignment nobody made', () => {
@@ -105,7 +112,7 @@ describe('resolveView', () => {
 describe('VIEW_OPTIONS', () => {
     it('offers every view the display understands', () => {
         expect(VIEW_OPTIONS.map((o) => o.view).sort()).toEqual(
-            ['AWARDS', 'CYCLE', 'PROJECTOR', 'STANDINGS', 'TIMING'].sort(),
+            ['AWARDS', 'CYCLE', 'PROJECTOR', 'SLIDESHOW', 'STANDINGS', 'TIMING'].sort(),
         );
     });
 

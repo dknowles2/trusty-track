@@ -631,6 +631,10 @@ Vocabulary in `domain/displays.py`, presence in `services/displays.py`, the oper
 
 **A screen that goes quiet stays listed.** It is how the operator finds out the projector at the back has dropped off the wifi, and nothing but a person can tell a switched-off screen from a dead network — so `forgetDisplay` is the only way a row leaves.
 
+**The photo slideshow is a sixth view** (#175), not a subsystem: `SLIDESHOW` in the same enum, rules in `features/observation/slideshow.ts`. It goes in **car number order rather than shuffling** — the audience is families watching for their own child, and under a shuffle nobody can tell whether they have missed them; in order everybody comes round once per cycle. Racers with no photograph are skipped rather than shown blank, and *loading* is distinguished from *nothing to show*, because the empty state otherwise fires during the first fetch and a projector announces "No photos yet" to the room on its way to the photographs.
+
+**A full-screen view hides the app's chrome through `ChromeContext`, not the URL.** `Navigation` used to read `?projector=true`, which stopped being sufficient the moment a view could be *assigned*: an operator switching a screen to Projector from across the room got projector mode with the navigation bar across the top, because no URL had changed. Rewriting the display's URL on assignment is the tempting fix and is worse — the URL is the fallback the assignment overrides, so writing to it makes a reload flash the previous view.
+
 `Display` is **keyed on `displayId`** in graphcache, not embedded: `assignDisplay` returns one and the panel's list has to recognise it as the row it is already holding. `CUSTOM_KEYED_TYPES` in `api/graphqlClient.ts` exists for it, and `graphqlClient.test.ts` requires every id-less type to be in exactly one of the two lists.
 
 ### One row of race navigation

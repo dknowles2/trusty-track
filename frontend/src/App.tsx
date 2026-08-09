@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import Navigation from './features/core/components/Navigation';
+import { ChromeProvider } from './context/ChromeContext';
 import SystemSettings from './features/settings/pages/SystemSettings';
 import Home from './features/management/pages/Home';
 import { useQuery } from 'urql';
@@ -69,6 +70,9 @@ function App() {
   return (
     <AlertProvider>
       <SerialProxyProvider>
+        {/* Wraps both the navigation and the routes, because a full-screen
+            view inside the routes is what tells the navigation to go away. */}
+        <ChromeProvider>
         <Router>
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <Navigation />
@@ -99,6 +103,7 @@ function App() {
             </main>
           </div>
         </Router>
+        </ChromeProvider>
       </SerialProxyProvider>
     </AlertProvider>
   );
