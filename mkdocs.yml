@@ -21,27 +21,41 @@ theme:
 extra_css:
   - assets/extra.css         # custom color overrides
 
+# Every top-level entry is a tab across the top of the page, because of
+# `navigation.tabs` above. There were fifteen, which no longer fitted: the row
+# scrolled sideways, so several pages were only reachable by finding a
+# scrollbar most readers would never look for. Twelve of the fifteen were
+# single pages sitting at the same level as "Home", so nothing grouped and
+# there was no hierarchy for a reader to hold.
+#
+# Grouping moves nothing on disk, so every link and anchor into these pages is
+# unchanged. Keep it to about seven tabs: a new page belongs inside one of
+# these, not beside them.
 nav:
   - Home: index.md
-  - Installation:
+  - Install:
     - Which method?: user/install.md
     - macOS App: user/install-mac.md
     - Windows App: user/install-windows.md
     - Docker: user/install-docker.md
     - Raspberry Pi: user/install-raspberry-pi.md
     - From Source: user/install-from-source.md
-  - Getting Started: getting-started.md
-  - Race Setup: race-setup.md
-  - Race Day: race-day.md
-  - Awards: awards.md
-  - Printables: printables.md
-  - Free Race: free-race.md
-  - Hardware Timer: hardware-timer.md
-  - Fake Timer: fake-timer.md
-  - Observation Displays: observation-displays.md
-  - Access and Your Network: access-and-network.md
-  - Backup and Restore: backup-and-restore.md
-  - Race Stats: race-stats.md
+  - Running a Race:
+    - Getting Started: getting-started.md
+    - Race Setup: race-setup.md
+    - Race Day: race-day.md
+    - Free Race: free-race.md
+    - Awards: awards.md
+    - Race Stats: race-stats.md
+  - Displays and Printouts:
+    - Observation Displays: observation-displays.md
+    - Printables: printables.md
+  - Timers:
+    - Hardware Timer: hardware-timer.md
+    - Fake Timer: fake-timer.md
+  - Network and Backups:
+    - Access and Your Network: access-and-network.md
+    - Backup and Restore: backup-and-restore.md
   - Developers:
     - Development Guide: development.md
     - Design: design.md
