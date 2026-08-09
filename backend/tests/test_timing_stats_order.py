@@ -13,6 +13,7 @@ the two kinds can be ranked on together.
 import pytest
 
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.tests.helpers import as_lanes
 
 
@@ -101,9 +102,13 @@ def _record(db, heat, seconds):
         lane.time = seconds + index / 10
         lane.place = index + 1
     if heat.kind is models.HeatKind.FREE:
-        crud.update_free_race_heat_result(db, heat.id, heat_lanes)
+        crud.update_free_race_heat_result(
+            db, heat.id, heat_lanes, source=audit.ResultSource.OPERATOR
+        )
     else:
-        crud.record_heat_result(db, heat.id, heat_lanes)
+        crud.record_heat_result(
+            db, heat.id, heat_lanes, source=audit.ResultSource.OPERATOR
+        )
 
 
 async def _timing_stats(db, race_id):
@@ -206,7 +211,9 @@ def test_clearing_a_result_unstamps_it(db, race, racers, round_one):
         {"lane": lane.lane, "racer_id": lane.racer_id, "time": None, "place": None}
         for lane in crud.heat_lanes_of(db, heat)
     ]
-    crud.record_heat_result(db, heat.id, as_lanes(cleared))
+    crud.record_heat_result(
+        db, heat.id, as_lanes(cleared), source=audit.ResultSource.OPERATOR
+    )
 
     assert heat.recorded_at is None
 

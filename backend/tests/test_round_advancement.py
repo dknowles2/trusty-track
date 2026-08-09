@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.services import scoring
 from backend.tests.helpers import as_lanes, lane_dicts
 
@@ -91,7 +92,9 @@ def test_advancement_restricted_to_round(db: Session):
                 continue
             idx = next(i for i, r in enumerate(racers) if r.id == rid)
             res["time"] = 0.1 if idx < 2 else (1.0 if idx < 4 else 2.0)
-        crud.record_heat_result(db, heat.id, as_lanes(results))
+        crud.record_heat_result(
+            db, heat.id, as_lanes(results), source=audit.ResultSource.OPERATOR
+        )
 
     # Advance to R2
     winners_r2 = scoring.get_advancing_racers(
@@ -115,7 +118,9 @@ def test_advancement_restricted_to_round(db: Session):
                 res["time"] = 1.1
             else:
                 res["time"] = 0.8
-        crud.record_heat_result(db, heat.id, as_lanes(results))
+        crud.record_heat_result(
+            db, heat.id, as_lanes(results), source=audit.ResultSource.OPERATOR
+        )
 
     # 6. Check Advancement to Round 3
     # R2 only winners: 2,3 (0.8s)

@@ -1,6 +1,7 @@
 import uuid
 
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.tests.helpers import as_lanes, lane_dicts
 
 
@@ -50,7 +51,9 @@ def _setup_race_with_heats(db, num_racers=3):
     results_json = as_lanes(
         [{"lane": 1, "racer_id": racers[0].id, "time": 3.0, "place": 1}]
     )
-    crud.record_heat_result(db, heat_started.id, results_json)
+    crud.record_heat_result(
+        db, heat_started.id, results_json, source=audit.ResultSource.OPERATOR
+    )
 
     # Create free race heat
     free_heat = crud.create_free_race_heat(

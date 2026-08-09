@@ -120,3 +120,41 @@ Being straight about the limits:
 - **There are no user accounts**, and no record of who did what. One shared PIN
   per role, which is the right size of solution for a pack derby and would not
   be for anything larger.
+
+
+## The activity log
+
+**Settings → See what has happened**, or `/activity`.
+
+Every operation anyone performs is recorded: what it was, when, which role did
+it, and — kept out of the way until you ask for it — which device. It is the
+answer to "who deleted that round", which until now had none.
+
+Three things about it are worth knowing.
+
+![The activity log](assets/screenshots/settings/04-activity-log.png)
+_The timeline, newest first. Each line carries the time, what was done, and which role did it; the details beneath name what it was done to._
+
+**Heat results say how they arrived.** A result the timer recorded reads *Heat
+result recorded by the timer*; one somebody typed into **Edit** or **Override**
+reads *Heat result entered by hand*. That is the distinction a disputed time
+turns on, and it is the reason the log covers more than the operations you
+perform through the app's own screens.
+
+**Refusals are recorded too.** If a device holding the check-in PIN tries to
+delete a round, the attempt is in the log, in red. Nothing was deleted — the
+[roles](#the-three-kinds-of-screen) still hold — but you can see that it was tried, and from where.
+
+**No PIN is ever written down.** Setting or changing a PIN appears in the log
+as an action; the PIN itself does not, under any spelling.
+
+The log is operator-only. A wall display, or the check-in tablet, is refused
+it — it records which device did what, and that is not something a screen on a
+gym wall should be able to ask.
+
+> [!NOTE]
+> The log is trimmed to its most recent 50,000 entries when the app starts,
+> which is many events' worth. It travels inside a [backup](backup-and-restore.md), and it
+> is *not* deleted when a race is: the record of a race being deleted would be
+> worth very little if the deletion took the rest of that race's history with
+> it.

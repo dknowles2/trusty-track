@@ -19,6 +19,22 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/settings');
+const BACKEND_URL = 'http://127.0.0.1:8001';
+
+/** Seed through the API; the browser is for the picture, not the setup. */
+async function gql(
+    page: import('@playwright/test').Page,
+    query: string,
+    variables: Record<string, unknown> = {},
+) {
+    const response = await page.request.post(`${BACKEND_URL}/graphql`, {
+        data: JSON.stringify({ query, variables }),
+        headers: { 'Content-Type': 'application/json' },
+    });
+    const body = await response.json();
+    if (body.errors) throw new Error(JSON.stringify(body.errors));
+    return body.data;
+}
 
 test('screenshot the settings panels', async ({ page }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -90,4 +106,48 @@ test('screenshot the settings panels', async ({ page }) => {
     await expect(backup).toBeVisible();
     await page.waitForTimeout(300);
     await backup.screenshot({ path: path.join(SCREENSHOT_DIR, '02-backup-panel.png') });
+
+    // The activity log (#219). It needs something to show, so make a little
+    // history first — including one thing a person did by hand, so the
+    // picture carries the distinction the page exists to draw.
+    const race = await gql(
+        page,
+        `mutation ActivityShotRace($race: RaceInput!) {
+            createRace(race: $race) { id }
+        }`,
+        {
+            race: {
+                name: 'Activity Shot Derby',
+                groupId: 1,
+                trackId: 1,
+                carNumberingStrategy: 'GLOBAL',
+            },
+        },
+    );
+    await gql(
+        page,
+        `mutation ActivityShotDen($raceId: Int!, $den: DenInput!) {
+            createDen(raceId: $raceId, den: $den) { id }
+        }`,
+        { raceId: race.createRace.id, den: { name: 'Wolves', color: '#8B4513' } },
+    );
+    await gql(
+        page,
+        `mutation ActivityShotRacer($racer: RacerInput!) {
+            createRacer(racer: $racer) { id }
+        }`,
+        {
+            racer: {
+                raceId: race.createRace.id,
+                firstName: 'Alex',
+                lastName: 'Rivera',
+                carNumber: 3,
+            },
+        },
+    );
+
+    await page.goto('/activity');
+    await expect(page.getByText('Created a race').first()).toBeVisible();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04-activity-log.png') });
 });

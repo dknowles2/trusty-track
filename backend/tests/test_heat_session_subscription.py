@@ -22,6 +22,7 @@ import backend.api.schema as schema_mod
 from backend.api.pubsub import _PubSub
 from backend.api.schema import Subscription, _publish_race_state
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.services.timer.devices import FAKE
 from backend.services.timer.devices.base import LaneResult, RaceStarted
 from backend.services.timer.manager import TimerManager
@@ -181,6 +182,7 @@ async def test_a_saved_result_produces_a_new_session(db):
                     {"lane": 2, "racer_id": racers[1].id, "time": 3.5, "place": 2},
                 ]
             ),
+            source=audit.ResultSource.OPERATOR,
         )
         await _publish_race_state(race.id)
 
@@ -218,6 +220,7 @@ async def test_the_session_is_re_read_rather_than_replayed(db):
             writer,
             heat_id,
             as_lanes([{"lane": 1, "racer_id": racer_id, "time": 9.1, "place": 1}]),
+            source=audit.ResultSource.OPERATOR,
         )
         await _publish_race_state(race.id)
 

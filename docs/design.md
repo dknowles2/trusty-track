@@ -141,6 +141,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `races(skip, limit)` — List all races.
 -   `race(raceId)` — Get a single race with nested `racers`, `dens`, `rounds`, `heats`, `leaderboard`, `awards`.
 -   `racers(raceId, skip, limit)` — List racers.
+-   `auditLog(raceId, limit, beforeId)` — The activity timeline, newest first. Operator-only, and it enforces that itself: the role policy guards mutations, and this is the query a wall display must never be able to run (#219).
 -   `racer(racerId)` — Get a single racer.
 -   `tracks()` — List configured tracks.
 -   `groups()` — List organization groups.
@@ -219,6 +220,14 @@ The frontend will be built using React, providing a dynamic and responsive user 
 
 ### 4.1. Technology Stack
 
+-   **`AuditEntry`**: One thing somebody did, and when (#219).
+    -   `id` (PK), `at` (ISO 8601 UTC), `action`, `role`, `outcome`, `source_ip`, `race_id`, `details`
+    -   `action` is a mutation's field name, or one of `heatResultRecorded` / `backupDownloaded` / `backupRestored` for the seams that are not mutations.
+    -   `role` is `VIEWER` / `CHECKIN` / `OPERATOR` / `SYSTEM`, not a person: this app has no user accounts, and a shared PIN cannot tell two volunteers apart. `SYSTEM` is the app acting with no request behind it — the timer recording a heat it just ran.
+    -   `outcome` is `OK` / `REFUSED` / `FAILED`. A refusal is recorded with the same weight as a success; "the check-in tablet tried to delete a round" is the most interesting line the log holds.
+    -   `details` is a small JSON object of scalars, filtered by `domain.audit.redact` — PINs and image data are never written, under any spelling of the argument name.
+    -   `race_id` is a **plain integer, not a foreign key**, and is the one place the schema deliberately declines a cascade (#125): deleting a race must not take the record of what was done to it.
+    -   Append-only. Trimmed to the newest `crud.AUDIT_LOG_MAX_ENTRIES` at startup.
 -   **Framework:** React 19
 -   **Language:** TypeScript
 -   **Build Tool:** Vite

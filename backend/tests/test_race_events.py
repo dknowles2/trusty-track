@@ -19,6 +19,7 @@ from backend.api import schema as schema_module
 from backend.api.pubsub import pubsub
 from backend.api.schema import RaceChangeKind, schema
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.tests.helpers import as_lanes, record_heat_result
 
 
@@ -79,7 +80,9 @@ async def test_a_heat_result_carries_the_heat(db):
     results = as_lanes([{"lane": 1, "racer_id": racer.id, "time": 3.25, "place": 1}])
 
     async def act():
-        crud.record_heat_result(db, heat.id, results)
+        crud.record_heat_result(
+            db, heat.id, results, source=audit.ResultSource.OPERATOR
+        )
         await schema_module._publish_race_state(
             race.id,
             kind=RaceChangeKind.HEAT_RESULT,
@@ -192,7 +195,9 @@ async def test_a_heat_payload_carries_its_lanes(db):
     )
 
     async def act():
-        crud.record_heat_result(db, heat.id, results)
+        crud.record_heat_result(
+            db, heat.id, results, source=audit.ResultSource.OPERATOR
+        )
         await schema_module._publish_race_state(
             race.id,
             kind=RaceChangeKind.HEAT_RESULT,

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.services import scoring
 from backend.tests.helpers import as_lanes, lane_dicts
 
@@ -112,7 +113,9 @@ def test_championship_rounds_populate_sequentially(db: Session):
                 r["time"] = 2.0
             r["place"] = 1 if rid in fast_racers else 2  # Simplification
 
-        crud.record_heat_result(db, heat.id, as_lanes(results))
+        crud.record_heat_result(
+            db, heat.id, as_lanes(results), source=audit.ResultSource.OPERATOR
+        )
 
     # 5. Check Advancement to Round 2
     # In the new logic, we manually trigger advancement or check if they CAN advance.
@@ -152,7 +155,9 @@ def test_championship_rounds_populate_sequentially(db: Session):
                 r["time"] = 0.5
             else:
                 r["time"] = 1.5
-        crud.record_heat_result(db, heat.id, as_lanes(results))
+        crud.record_heat_result(
+            db, heat.id, as_lanes(results), source=audit.ResultSource.OPERATOR
+        )
 
     # 7. Check Advancement to Round 3
     winners_r3 = scoring.get_advancing_racers(

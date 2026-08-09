@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models, schemas
+from backend.domain import audit
 from backend.tests.helpers import as_lanes, lane_dicts
 
 
@@ -82,7 +83,9 @@ def test_update_free_race_heat_result(db: Session):
         {"lane": 1, "racer_id": racer_ids[0], "time": 3.141, "place": 1},
         {"lane": 2, "racer_id": racer_ids[1], "time": 3.500, "place": 2},
     ]
-    updated = crud.update_free_race_heat_result(db, heat.id, as_lanes(results))
+    updated = crud.update_free_race_heat_result(
+        db, heat.id, as_lanes(results), source=audit.ResultSource.OPERATOR
+    )
     assert updated is not None
     assert updated.id == heat.id
     parsed = lane_dicts(db, updated)
@@ -92,7 +95,9 @@ def test_update_free_race_heat_result(db: Session):
 
 def test_update_free_race_heat_result_invalid_id(db: Session):
     _create_race(db)
-    result = crud.update_free_race_heat_result(db, 9999, as_lanes([]))
+    result = crud.update_free_race_heat_result(
+        db, 9999, as_lanes([]), source=audit.ResultSource.OPERATOR
+    )
     assert result is None
 
 

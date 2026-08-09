@@ -538,3 +538,44 @@ class HeatLaneBlobArchive(Base):
 
     heat_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     lane_results: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class AuditEntry(Base):
+    """One thing somebody did, and when (#219).
+
+    The database holds the current state of a race and no record of how it got
+    there, so "who deleted that round" had no answer but whoever happened to be
+    watching. This is that record.
+
+    **`race_id` is a plain integer, not a foreign key**, and that is the one
+    place this table departs from the rule that deletion is the schema's job
+    (#125). Every other child of a race cascades away with it; these must not.
+    Deleting a race is itself the most consequential line the log can hold, and
+    a cascade would erase the context of the deletion at the moment it happened
+    — the log would be able to say a race was deleted and nothing about what
+    was done to it beforehand. An entry outlives what it describes on purpose.
+
+    Nothing here is ever updated. Rows are appended and, once the table reaches
+    its cap, the oldest are dropped; see `crud.prune_audit_log`.
+    """
+
+    __tablename__ = "audit_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    #: ISO 8601 UTC, stored as text like every other timestamp in this schema.
+    at: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    #: The mutation's field name, or one of the names in `domain.audit` for the
+    #: seams that are not mutations.
+    action: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    #: `domain.audit.ActorRole`. A role rather than a person: this app has no
+    #: user accounts, and a log that implied otherwise would be lying.
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    #: `domain.audit.Outcome` — whether it happened, was refused, or raised.
+    outcome: Mapped[str] = mapped_column(String, nullable=False)
+    #: Where the request came from. Null for the timer and for anything else
+    #: the app does without a request behind it.
+    source_ip: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: Which race it concerned, when that is knowable. See the class note.
+    race_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    #: A small JSON object of scalars, already filtered by `domain.audit.redact`.
+    details: Mapped[str | None] = mapped_column(String, nullable=True)

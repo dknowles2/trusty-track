@@ -18,6 +18,19 @@ type AdvancementStatus {
   numRacers: Int
 }
 
+type AuditLogEntry {
+  id: Int!
+  at: String!
+  action: String!
+  role: String!
+  outcome: String!
+  raceId: Int
+  details: String
+  sourceIp: String
+  summary: String!
+  noteworthy: Boolean!
+}
+
 type Award {
   id: Int!
   raceId: Int!
@@ -319,6 +332,7 @@ input PopulateTestDataInput {
 
 type Query {
   displays(raceId: Int!): [Display!]!
+  auditLog(raceId: Int = null, limit: Int! = 200, beforeId: Int = null): [AuditLogEntry!]!
   races(skip: Int! = 0, limit: Int! = 100): [Race!]!
   timerModels: [TimerModel!]!
   version: String!

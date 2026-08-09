@@ -24,6 +24,7 @@ from backend.db.models import (
     SchedulingStrategy,
     Track,
 )
+from backend.domain import audit
 from backend.tests.helpers import as_lanes
 
 
@@ -128,6 +129,7 @@ async def test_leaderboard_subscription(db_session) -> None:
             db_session,
             h1_id,
             as_lanes([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]),
+            source=audit.ResultSource.OPERATOR,
         )
         from backend.api.schema import _publish_race_state
 
@@ -174,6 +176,7 @@ async def test_on_deck_subscription(db_session) -> None:
             db_session,
             h1_id,
             as_lanes([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]),
+            source=audit.ResultSource.OPERATOR,
         )
         from backend.api.schema import _publish_race_state
 
@@ -222,6 +225,7 @@ async def test_currently_racing_subscription(db_session) -> None:
             db_session,
             h1_id,
             as_lanes([{"lane": 1, "racer_id": 1, "time": 3.5, "place": 1}]),
+            source=audit.ResultSource.OPERATOR,
         )
         from backend.api.schema import _publish_race_state
 
@@ -265,6 +269,7 @@ async def test_timing_stats_subscription(db_session) -> None:
             db_session,
             h1_id,
             as_lanes([{"lane": 1, "racer_id": 1, "time": 3.555, "place": 1}]),
+            source=audit.ResultSource.OPERATOR,
         )
         from backend.api.schema import _publish_race_state
 
