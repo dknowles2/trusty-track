@@ -321,9 +321,27 @@ _The standings show rank, car number, name, den, heats completed, and average ti
 
 ## Common Race Day Scenarios
 
-### A racer arrived late and wasn't checked in
+### A racer arrived late
 
-You can add them to the roster and check them in at any time. The **next round** you create will include all currently checked-in racers — so if you add a late arrival before creating a new round, they'll be included automatically.
+Add them to the roster and check them in as normal. **Checking them in is what puts them in the racing** — Trusty Track then works out what to do with the round already on screen, and there is nothing else for you to press.
+
+What happens depends on how far that round has got:
+
+| The round | What happens |
+| --- | --- |
+| Not started | Rebuilt with them in it — everybody gets an equal schedule |
+| Part-way through | Every recorded time is kept, and heats are added at the end for the newcomer |
+| Finished | Left alone. They start from the next round you create |
+
+The middle case is the interesting one. The newcomer gets one heat in each lane, the same spread everybody else got, because lanes are not equal and that is what the schedule exists to even out. The other lanes of those extra heats have to hold somebody, so a few racers run once more than their peers.
+
+- **If your race is scored on times** (the default), that is fine — standings use each racer's average, so an extra run does not flatter anybody.
+- **If your race is scored on points**, it is not, because points add up and lower is better. Trusty Track leaves that round out of the standings and says so on the standings page. The round still runs and its results are still there to look at; it just does not decide the trophies.
+
+This is the same rule as [a lane going out of service](hardware-timer.md#if-a-lane-stops-working), for the same reason.
+
+> [!TIP]
+> If somebody is checked in and shows **No heats** on the roster, they arrived after the round they would have been in had already finished. Create the next round and they will be in it.
 
 ### A racer had to withdraw
 
