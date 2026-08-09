@@ -139,3 +139,34 @@ Two things it shows that a screen does not have to:
 - A lane nobody is in reads **—**. That happens with an odd number of racers,
   or where a lane is [out of service](hardware-timer.md#if-a-lane-stops-working),
   and the difference from the line above matters: nobody is coming.
+
+## The results sheet
+
+The other half of the pair: the heat sheet goes on the table before the racing,
+this one goes on the noticeboard afterwards. Awards and their winners at the
+top, then the standings — overall, and one table per den.
+
+**Standings → Print results.** It lives there rather than in the roster's print
+menu, because that menu prints the *cards* — one per racer, before the event —
+and this is one document about the whole race once it is over.
+
+![The printed results sheet](assets/screenshots/printables/results-sheet.png)
+_Awards first, then the overall standings, then a table per den. The den tables
+are the overall standings narrowed, so they cannot disagree with a "fastest
+Wolf" trophy about who won._
+
+Three things worth knowing:
+
+- **The standings are the preliminary rounds only**, and the sheet says so. A
+  championship's placings are a consequence of these rather than part of them
+  (see [scoring](race-day.md#part-5-final-standings)), and the trophies
+  for it are in the awards table at the top.
+- **Each table is numbered from 1.** A den's table headed 4, 9, 17 would be a
+  list of pack ranks; what a reader wants there is who won the den.
+- **An award nobody has decided prints as "Not awarded"** rather than being
+  left out. A missing line reads as an award that does not exist; this one
+  reads as one somebody still has to fill in.
+
+A race with only one den gets no per-den tables, since they would repeat the
+overall one. Racers in no den appear in the overall table and in none of the
+den tables.

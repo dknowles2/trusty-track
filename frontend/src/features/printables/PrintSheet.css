@@ -394,3 +394,13 @@
 .heat-sheet-car {
     font-weight: bold;
 }
+
+/* The results sheet (#206) shares the heat sheet's table styling; this is the
+   one thing it adds — a line saying which standings these are, since the
+   preliminary-only rule (#17) is invisible once the page is paper. */
+.results-note {
+    margin: 0 0 0.35rem;
+    font-size: 9pt;
+    color: #555;
+    font-style: italic;
+}

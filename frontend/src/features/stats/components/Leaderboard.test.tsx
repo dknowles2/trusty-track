@@ -3,6 +3,7 @@ import '../../../setupTests';
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import Leaderboard from './Leaderboard';
 import { useQuery, useSubscription } from 'urql';
 
@@ -71,7 +72,7 @@ describe('Leaderboard', () => {
       error: null
     }, vi.fn()]);
 
-    render(<Leaderboard raceId={1} />);
+    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
 
     expect(screen.getByText('Current Standings')).toBeInTheDocument();
     expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -114,7 +115,7 @@ describe('Leaderboard', () => {
       error: null
     }, vi.fn()]);
 
-    render(<Leaderboard raceId={1} />);
+    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
 
     expect(screen.getByText('Points')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
@@ -149,7 +150,7 @@ describe('Leaderboard round scope (issue #17)', () => {
     }, vi.fn()]);
     (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
 
-    render(<Leaderboard raceId={1} />);
+    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
     expect(screen.queryByLabelText('Standings scope')).toBeNull();
   });
 
@@ -163,7 +164,7 @@ describe('Leaderboard round scope (issue #17)', () => {
     }, vi.fn()]);
     (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
 
-    render(<Leaderboard raceId={1} />);
+    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
     expect(screen.getByLabelText('Standings scope')).toBeTruthy();
     expect(screen.getByText(/cover the preliminary rounds/i)).toBeTruthy();
     // Only championship rounds are offered — the prelim view is "Overall".
@@ -186,7 +187,7 @@ describe('Leaderboard round scope (issue #17)', () => {
     );
     (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
 
-    render(<Leaderboard raceId={1} />);
+    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
     expect(screen.getByText('Pre Lim')).toBeTruthy();
 
     await user.selectOptions(screen.getByLabelText('Standings scope'), '2');

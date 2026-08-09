@@ -331,6 +331,10 @@ After all heats are complete, the **Standings** page shows the final ranked resu
 
 The Standings page can be put on a large screen or projector so everyone can see the final results.
 
+**Print results**, at the top of the Standings page, puts the standings and the
+trophy winners on one page for the noticeboard or the newsletter — see
+[printables](printables.md#the-results-sheet).
+
 For the ceremony itself, use the [Awards](awards.md) page instead. It holds the trophies you are handing out — the speed ones worked out from these standings, and the judged ones like Best Paint — and **Present** puts them on a projector one at a time, paced by whoever is holding the microphone.
 
 If the race has a championship round, a selector appears above the table. Use it

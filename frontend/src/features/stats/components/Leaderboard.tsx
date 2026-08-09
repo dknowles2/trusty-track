@@ -4,6 +4,7 @@ import { LeaderboardSubscription } from '../../observation/graphql/queries';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { RoundSummary, exclusionNotice, roundLabel } from '../disruptedRounds';
 import { standingsRows, standingsSuffix } from '../standingsExport';
+import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 
 export interface LeaderboardEntry {
@@ -218,6 +219,19 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         >
           Export CSV
         </button>
+
+        {/* The paper version (#206). Beside the CSV rather than in the roster's
+            print menu, because that menu prints the *cards* — one per racer,
+            before the event — and this is one document about the whole race
+            once it is over. */}
+        <Link
+          to={`/race/${raceId}/print/results`}
+          className="secondary-btn"
+          data-testid="print-results"
+          style={{ padding: '8px 14px', fontSize: '0.9rem', textDecoration: 'none' }}
+        >
+          Print results
+        </Link>
         </div>
       </div>
 

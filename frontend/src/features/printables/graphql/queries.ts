@@ -74,3 +74,44 @@ export const GET_HEAT_SHEET = gql`
     }
   }
 `;
+
+/**
+ * The results, once the racing is over (#206).
+ *
+ * The standings are the preliminary ones by default, which is what #17
+ * settled — a championship's placings are a consequence of these, not part of
+ * them, and the trophies for it come through `awards` instead.
+ */
+export const GET_RESULTS_SHEET = gql`
+  query GetResultsSheet($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      name
+      dateTime
+      location
+      scoringStrategy
+      leaderboard {
+        racerId
+        rank
+        firstName
+        lastName
+        carNumber
+        denName
+        score
+        heatsCompleted
+      }
+      awards {
+        id
+        name
+        kind
+        sortOrder
+        recipient {
+          id
+          firstName
+          lastName
+          carNumber
+        }
+      }
+    }
+  }
+`;
