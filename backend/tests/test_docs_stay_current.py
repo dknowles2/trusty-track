@@ -1,0 +1,224 @@
+"""The parts of the documentation a machine can check.
+
+`mkdocs build --strict` catches a broken link and a missing image, and it
+cannot catch a sentence that is simply wrong — which is the failure that keeps
+happening. Most of that is prose and stays a human problem. But three kinds of
+staleness are mechanical, and every one of them has shipped at least once with
+CI fully green:
+
+* an operation added to the GraphQL schema and never written into the API
+  reference (`setLaneOutages`, `timerModels`, and the four award mutations);
+* a model added and never written into the data model section (`LaneOutage`);
+* a screenshot whose subject was removed, left behind under a filename that
+  still promises it (`09-bulk-actions-menu.png` outlived the Bulk Actions menu
+  by a release).
+
+A guideline in `CLAUDE.md` said to update all three, and was followed, and they
+drifted anyway. So the rule lives here instead: this file is the reason the
+lists cannot rot, in the same way `test_auth_policy` is the reason a new
+mutation cannot go unclassified.
+
+Both directions matter. Forward catches the addition nobody documented;
+backward catches an entry outliving the thing it named, which is the failure
+that leaves a reader hunting for a mutation that no longer exists.
+"""
+
+import inspect
+import re
+from pathlib import Path
+
+import pytest
+
+from backend.api.schema import schema
+from backend.db import models
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DESIGN = REPO_ROOT / "docs" / "design.md"
+AGENT_GUIDE = REPO_ROOT / "CLAUDE.md"
+DOCS_DIR = REPO_ROOT / "docs"
+SCREENSHOT_DIR = DOCS_DIR / "assets" / "screenshots"
+
+#: Models that exist to hold data no reader of the design document needs. Keep
+#: this list short and say why — it is an exemption from being documented.
+UNDOCUMENTED_MODELS = {
+    # Migration 0013's evidence locker: rows only exist on an install whose
+    # `lane_results` blob held something `heat_lanes` could not express, and it
+    # is expected to be empty. Documented in the migration, not the design.
+    "HeatLaneBlobArchive",
+}
+
+
+def _sdl() -> str:
+    return schema.as_str()
+
+
+def _operations(kind: str) -> set[str]:
+    """Every field name on `Query`, `Mutation` or `Subscription`."""
+    body = re.search(rf"type {kind} \{{(.*?)\n\}}", _sdl(), re.S)
+    assert body, f"no `type {kind}` in the SDL"
+    return set(re.findall(r"^ {2}(\w+)", body.group(1), re.M))
+
+
+ALL_OPERATIONS = sorted(
+    _operations("Query") | _operations("Mutation") | _operations("Subscription")
+)
+
+
+def _names(operation: str) -> re.Pattern:
+    """Matches how each document actually writes an operation.
+
+    `race`, `race(raceId)` and `subscription onDeck(raceId)` are all the same
+    claim; only the first form is a bare name.
+    """
+    return re.compile(rf"`(?:subscription )?{re.escape(operation)}[(`]")
+
+
+@pytest.mark.parametrize("operation", ALL_OPERATIONS)
+def test_the_design_document_names_every_operation(operation):
+    """§3.3 is the API reference; an operation absent from it is undocumented."""
+    assert _names(operation).search(DESIGN.read_text()), (
+        f"`{operation}` is in the schema and not in docs/design.md. "
+        "Add it to the query, mutation or subscription list in §3.3."
+    )
+
+
+@pytest.mark.parametrize("operation", ALL_OPERATIONS)
+def test_the_agent_guide_names_every_operation(operation):
+    """`CLAUDE.md`'s lists are what an agent reads instead of the SDL."""
+    assert _names(operation).search(AGENT_GUIDE.read_text()), (
+        f"`{operation}` is in the schema and not in CLAUDE.md. "
+        "Add it to the GraphQL API section."
+    )
+
+
+def _listed_names(text: str, start: int) -> set[str]:
+    """The operations a list under ``start`` actually lists.
+
+    Only the leading run of backticked names on each line, because these lists
+    annotate themselves: "`createAward`, ..., `reorderAwards` (all take/return
+    `Award`, whose `recipient` is ...)". `Award` and `recipient` are prose about
+    the entry, not further entries, and a whole-line scan reports them as
+    mutations the schema has lost.
+
+    The anchor's own line counts, because `CLAUDE.md` writes its queries and
+    subscriptions inline rather than as a list. Everything stops at the next
+    heading — without that bound the last list in a document runs on into the
+    rest of it.
+    """
+    lines = text[start:].split("\n")
+    names = _names_in(lines[0])
+    in_list = False
+    for line in lines[1:]:
+        if line.startswith(("#", "**")):
+            break
+        if not line.strip():
+            if in_list:
+                break
+            continue
+        if line.startswith("-"):
+            in_list = True
+        elif not in_list:
+            continue  # prose between the heading and its list
+        names |= _names_in(line)
+    return names
+
+
+def _names_in(line: str) -> set[str]:
+    head = re.split(r" — | \(", line)[0]
+    return set(re.findall(r"`(?:subscription )?(\w+)[(`]", head))
+
+
+def _documented_operations(text: str, anchors: list[str]) -> set[str]:
+    """Backticked names inside the blocks that list operations.
+
+    Scoped to those blocks rather than the whole file: both documents discuss
+    plenty of names that are not operations — Python functions, columns, and
+    `laneResults`, which is named precisely because it was *removed*.
+    """
+    found: set[str] = set()
+    for anchor in anchors:
+        start = text.find(anchor)
+        assert start != -1, (
+            f"the list beginning {anchor!r} has moved or been reworded. "
+            "This test reads that block; point it at the new anchor rather "
+            "than deleting the check."
+        )
+        found |= _listed_names(text, start)
+    return found
+
+
+def test_no_operation_named_in_the_design_document_has_been_removed():
+    text = DESIGN.read_text()
+    documented = _documented_operations(
+        text,
+        [
+            "**GraphQL Queries:**",
+            "**GraphQL Mutations:**",
+            "**GraphQL Subscriptions (real-time observation):**",
+        ],
+    )
+    stale = sorted(documented - set(ALL_OPERATIONS))
+    assert not stale, (
+        f"docs/design.md lists operations the schema no longer has: {stale}. "
+        "An entry that outlives its operation sends a reader hunting for it."
+    )
+
+
+def test_no_operation_named_in_the_agent_guide_has_been_removed():
+    text = AGENT_GUIDE.read_text()
+    documented = _documented_operations(
+        text, ["**Queries:**", "**Mutations:**", "**Subscriptions:**"]
+    )
+    stale = sorted(documented - set(ALL_OPERATIONS))
+    assert not stale, f"CLAUDE.md lists operations the schema no longer has: {stale}."
+
+
+def _model_names() -> list[str]:
+    return sorted(
+        name
+        for name, obj in vars(models).items()
+        if inspect.isclass(obj)
+        and hasattr(obj, "__tablename__")
+        and name not in UNDOCUMENTED_MODELS
+    )
+
+
+@pytest.mark.parametrize("model", _model_names())
+def test_the_design_document_names_every_model(model):
+    """§3.2 is the data model. `LaneOutage` shipped without an entry (#171)."""
+    assert f"`{model}`" in DESIGN.read_text(), (
+        f"`{model}` is a table and is not in docs/design.md §3.2. "
+        "Document it, or exempt it in UNDOCUMENTED_MODELS with a reason."
+    )
+
+
+def _referenced_images() -> set[Path]:
+    referenced: set[Path] = set()
+    for page in DOCS_DIR.rglob("*.md"):
+        for match in re.findall(r"\]\(([^)]+\.png)\)", page.read_text()):
+            referenced.add((DOCS_DIR / match).resolve())
+    return referenced
+
+
+def test_every_screenshot_is_used_by_a_page():
+    """An orphaned image is a screen that was documented and then removed.
+
+    `09-bulk-actions-menu.png` outlived the menu it was named after by a whole
+    release: the file kept being regenerated, so it quietly became a picture of
+    the selection bar under a filename promising a menu. Nothing noticed,
+    because a file nobody links to breaks no link.
+    """
+    if not SCREENSHOT_DIR.exists():
+        pytest.skip("no screenshots checked in")
+
+    referenced = _referenced_images()
+    orphans = sorted(
+        str(path.relative_to(DOCS_DIR))
+        for path in SCREENSHOT_DIR.rglob("*.png")
+        if path.resolve() not in referenced
+    )
+    assert not orphans, (
+        f"screenshots no page links to: {orphans}. Either the page that used "
+        "them was rewritten and they should go, or a link is broken in a way "
+        "mkdocs cannot see because it only checks the links that exist."
+    )

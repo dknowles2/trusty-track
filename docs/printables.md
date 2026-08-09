@@ -60,6 +60,8 @@ underneath.
 
 ![A sheet of check-in codes](assets/screenshots/printables/check-in-code-sheet.png)
 
+![A single check-in code](assets/screenshots/printables/check-in-code-card.png){ width=260 }
+
 Cut them up and hand them out, or leave the sheet whole and scan off it as
 scouts arrive — the name under each code is there for both.
 
