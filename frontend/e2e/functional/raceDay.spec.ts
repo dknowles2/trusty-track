@@ -357,9 +357,11 @@ test('with auto-advance on the countdown runs and then advances', async ({ page 
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
 
     // The checkbox is visually hidden behind the slider, so click what the
-    // operator clicks.
-    await page.locator('label').filter({ has: page.getByRole('checkbox') }).last().click();
-    await expect(page.getByRole('checkbox')).toBeChecked();
+    // operator clicks. Named rather than "the only checkbox on the page" —
+    // the finish-sound toggle (#208) is beside it now.
+    const autoAdvance = page.getByTestId('auto-advance-toggle');
+    await page.locator('label').filter({ has: autoAdvance }).click();
+    await expect(autoAdvance).toBeChecked();
 
     await page.getByRole('button', { name: 'Start Timer' }).click();
     await page.getByRole('button', { name: 'Finish Heat' }).click();

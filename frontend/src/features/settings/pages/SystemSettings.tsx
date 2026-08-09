@@ -349,6 +349,17 @@ export default function SystemConfig() {
             onChange={setCheckinPin}
           />
         </div>
+
+        {/* The hint the check-in PIN was missing (#210). The role has existed
+            since #15 and is documented, but nothing on the screen said what it
+            is *for* — so an operator setting PINs had no cue that running the
+            desk on a second device is a supported way to work. One sentence,
+            not a wizard. */}
+        <p data-testid="checkin-pin-hint" style={{ color: '#666', fontSize: '0.85rem', marginTop: '-1.25rem', marginBottom: '2rem' }}>
+          Running check-in on a separate tablet? Set a check-in PIN and enter it
+          on that device. It can add racers and check them in, and nothing else —
+          so a tablet left on the registration table cannot delete a round.
+        </p>
         </div>
 
         <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>
