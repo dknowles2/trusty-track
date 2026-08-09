@@ -13,7 +13,7 @@ On race day, two operators typically work side by side:
 
 | Role | Primary Page | What They Do |
 |------|-------------|--------------|
-| **Check-In Operator** | Race Details | Verifies cars passed inspection, records car weight, adds photos |
+| **Check-In Operator** | Roster | Verifies cars passed inspection, records car weight, adds photos |
 | **Race Control Operator** | Race Control | Schedules heats, starts heats, records results |
 | **Audience / Spectators** | Observation | View live standings and currently-racing heats |
 
@@ -25,10 +25,10 @@ The check-in and race control functions can be handled by the same person for sm
 
 ### Opening the Check-In View
 
-Check-in happens on the **Race Details** page — the same page used to manage the roster before the event. On race day, you work through the racer list and mark each car as inspected before it races.
+Check-in happens on the **Roster** page — the same page used to manage the roster before the event. On race day, you work through the racer list and mark each car as inspected before it races.
 
 ![Race Details with Check-In Status](assets/screenshots/race-day/01-check-in-status.png)
-_The Race Details page at the start of race day. Every racer has a gold **Check In** button in the Status column; it turns green and reads **Checked In / Edit** once they are through._
+_The Roster page at the start of race day. Every racer has a gold **Check In** button in the Status column; it turns green and reads **Checked In / Edit** once they are through._
 
 ---
 
@@ -87,10 +87,10 @@ If a photographer takes portraits or car photos before the race, you can upload 
 
 **When to use this:** After a pre-race photo session where you have a folder of racer or car images to associate with the correct racers.
 
-![Upload Photos button in the toolbar](assets/screenshots/race-day/19-upload-photos-button.png)
-_The **Upload Photos** button sits in the toolbar above the racer list, between **Scan** and **Print**._
+![Upload Photos in the roster's overflow menu](assets/screenshots/race-day/19-upload-photos-button.png)
+_**Upload Photos** is in the **⋯** menu at the top right of the roster, between **Manage Dens** and **Print**._
 
-1. Click **Upload Photos** in the toolbar above the racer list.
+1. Click **⋯** at the top right of the roster and choose **Upload Photos**.
 2. The **Upload & Assign Photos** modal opens. Click **Choose Photos** and select one or more image files from your device.
 
 ![Empty upload modal](assets/screenshots/race-day/20-bulk-upload-modal-empty.png)
@@ -274,7 +274,7 @@ To completely re-run a heat, click **Re-Run** — this clears the results and re
 
 ### Viewing the Live Leaderboard
 
-The leaderboard updates automatically after every heat. During the race you can check the current standings at any time from the **Standings** page in the top navigation bar, and the **Stats** page beside it keeps count of the heats completed so far. The audience can follow standings live on the Observation page (see the [Observation Displays Guide](observation-displays.md)).
+The leaderboard updates automatically after every heat. During the race you can check the current standings at any time from the **Standings** page in the top navigation bar, and the **Stats** page keeps count of the heats completed so far. The audience can follow standings live on the Observation page (see the [Observation Displays Guide](observation-displays.md)).
 
 ![Stats Mid-Race](assets/screenshots/race-day/15-live-leaderboard.png)
 _The Stats page part-way through the race, with heats completed and lane fairness updating as results come in._
@@ -301,7 +301,9 @@ _The Schedule tab once the qualifying round is complete — every heat has its t
 
 After all heats are complete, the **Standings** page shows the final ranked results. Navigate there from the top nav bar.
 
-The Standings page is designed for the award ceremony — it can be displayed on a large screen or projector so everyone can see the final results.
+The Standings page can be put on a large screen or projector so everyone can see the final results.
+
+For the ceremony itself, use the [Awards](awards.md) page instead. It holds the trophies you are handing out — the speed ones worked out from these standings, and the judged ones like Best Paint — and **Present** puts them on a projector one at a time, paced by whoever is holding the microphone.
 
 If the race has a championship round, a selector appears above the table. Use it
 to switch between **Overall (preliminary rounds)** and any one championship

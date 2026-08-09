@@ -2,12 +2,12 @@
 
 This guide covers the essential steps to prepare your Pinewood Derby race roster, including managing dens, adding racers, and assigning car numbers.
 
-## Race Details Overview
+## The Roster page
 
-Once you have created or selected a race from the Home page, you will be taken to the Race Details page. This is your central hub for roster management.
+Once you have created or selected a race from the Home page, you will be taken to the **Roster** page — the first tab in the race navigation. This is your central hub for roster management.
 
 ![Race Details Overview](assets/screenshots/race-setup/01-race-details-overview.png)
-_The Race Details dashboard provides a summary of race settings and the current racer roster._
+_The Roster page provides a summary of race settings and the current racer roster._
 
 ---
 
@@ -17,7 +17,9 @@ Dens are the sub-groups within your race (e.g., Lions, Tigers, Wolves). Trusty T
 
 ### Opening Den Manager
 
-Click the **Manage Dens** button above the racer roster to open the Den Manager.
+Click the **⋯** button at the top right of the roster and choose **Manage Dens**.
+
+The overflow menu holds the things you do once before an event — managing dens, uploading photos and printing. **Add Racer** and **Scan**, which you reach for repeatedly, stay on the toolbar itself.
 
 ![Den Manager UI](assets/screenshots/race-setup/02-den-manager-ui.png)
 
@@ -75,9 +77,7 @@ Any dens named in the file are created automatically and the racers assigned to 
 
 ---
 
-## Car Numbering & Bulk Actions
-
-### Acting on several racers at once
+## Acting on several racers at once
 
 Tick the checkboxes on the left of any rows you want to change. A bar appears
 above the table showing how many you have selected and what you can do with

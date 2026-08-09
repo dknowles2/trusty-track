@@ -9,7 +9,7 @@ laid out to be printed and then cut up.
 
 ## Getting there
 
-Open a race and click **Print** above the roster.
+Open a race, click **⋯** at the top right of the roster, and choose **Print**.
 
 ![The Print button on the racer roster](assets/screenshots/printables/roster-print-button.png)
 

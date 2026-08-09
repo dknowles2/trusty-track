@@ -346,9 +346,10 @@ Defined entirely in `backend/api/schema.py`.
 - Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
 - Bulk: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 - Den: `createDen`, `updateDen`, `deleteDen`
-- Track: `createTrack`, `updateTrack`, `deleteTrack`
+- Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
 - Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
+- Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`
 
@@ -728,7 +729,7 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 | #26 | The PPC scheduler fills every lane; `test_domain_scheduling.py` holds the properties |
 | #45 | `ruff check` and `ruff format --check` gate CI over `backend scripts packaging`. Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
 | #125 | Foreign keys are enforced on every connection, and `heat_lanes` carries `ON DELETE` actions. Deletion ordering is the schema's rule, not Python's |
-| #14 | **Keep GraphQL.** 42 mutations against 13 queries — the cost sits where GraphQL adds nothing, and does not shrink in REST |
+| #14 | **Keep GraphQL.** 48 mutations against 17 queries — the cost sits where GraphQL adds nothing, and does not shrink in REST |
 | #72 | `heats.lane_results` is dropped. `heat_lanes` is the only copy; migration `0013` proved that per database rather than waiting on a release |
 | #164 | `Lane` mirrors the table — `placeholder_slot` and `skipped` are fields. The negative-id convention survives only in `domain/scheduling.py`, crossed at `lanes.from_participant` |
 | #172 | A late racer is admitted on check-in. Same three cases as #171, and `disrupted` is the same flag |
