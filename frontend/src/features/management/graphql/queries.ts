@@ -46,6 +46,13 @@ export const GET_RACE_DETAILS = gql`
         rank
       }
       scheduledRacerIds
+      # Only to know whether a schedule exists at all, for the setup checklist
+      # (#199). scheduledRacerIds cannot answer it: a championship round holds
+      # placeholders until it is advanced, so a race can have a round and
+      # nobody in a heat.
+      rounds {
+        id
+      }
     }
     tracks {
       id

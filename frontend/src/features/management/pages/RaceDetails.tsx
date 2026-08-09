@@ -13,6 +13,7 @@ import DenManager from '../components/DenManager';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
+import SetupChecklist from '../components/SetupChecklist';
 import BulkPhotoUploadModal from '../components/BulkPhotoUploadModal';
 import RacerAvatar from '../components/RacerAvatar';
 import { Icon } from '@mdi/react';
@@ -142,6 +143,19 @@ export default function RaceDetails() {
     [data],
   );
   const anyHeatsScheduled = scheduledRacerIds.length > 0;
+
+  // What the setup checklist reads (#199). Every number is one the page
+  // already had, except the round count — see the query for why
+  // `scheduledRacerIds` cannot stand in for it.
+  const setupProgress = useMemo(
+    () => ({
+      denCount: data?.race?.dens?.length ?? 0,
+      racerCount: data?.race?.registeredCount ?? 0,
+      checkedInCount: data?.race?.checkedInCount ?? 0,
+      roundCount: data?.race?.rounds?.length ?? 0,
+    }),
+    [data],
+  );
 
   const loading = fetching && !data;
 
@@ -507,13 +521,22 @@ export default function RaceDetails() {
 
   return (
     <div className="container" style={{ padding: '2rem' }}>
-      {/* Header Section */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #eee', paddingBottom: '1rem' }}>
-          <div style={{ minWidth: '160px' }} />
+      {/* What to do next, while anything is still outstanding (#199). It goes
+          first because it is what a first-time operator needs before they need
+          any of the settings below it, and it removes itself once the race is
+          set up.
 
-
-          <div style={{ minWidth: '160px' }} />
-      </div>
+          This replaces a header row that had been left holding two spacer divs
+          and nothing else when the per-page mode toggle was merged into the
+          navigation — an empty bordered strip at the top of the page. */}
+      <SetupChecklist
+          progress={setupProgress}
+          onAction={{
+              dens: () => setShowDenManager(true),
+              racers: handleAddRacerClick,
+              schedule: () => navigate(`/race/${parsedRaceId}/control`),
+          }}
+      />
 
       {/* Race Settings Summary (Read-Only for now, can be expanded) */}
       <div style={{ marginBottom: '2rem', background: '#f9f9f9', padding: '1rem', borderRadius: '8px' }}>
