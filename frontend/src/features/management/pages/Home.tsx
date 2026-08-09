@@ -55,6 +55,7 @@ export default function Home() {
                 carNumberingStrategy: formData.car_numbering_strategy,
                 globalStartNumber: formData.global_start_number,
                 championshipTrophies: formData.championship_trophies,
+                weightLimitOz: formData.weight_limit_oz,
             };
             const result = await createRace({ race: raceInput });
             if (result.error) {

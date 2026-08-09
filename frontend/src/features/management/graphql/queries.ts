@@ -12,6 +12,7 @@ export const GET_RACE_DETAILS = gql`
       carNumberingStrategy
       globalStartNumber
       championshipTrophies
+      weightLimitOz
       registeredCount
       checkedInCount
       dens {
@@ -90,6 +91,7 @@ export const UPDATE_RACE = gql`
       carNumberingStrategy
       globalStartNumber
       championshipTrophies
+      weightLimitOz
     }
   }
 `;

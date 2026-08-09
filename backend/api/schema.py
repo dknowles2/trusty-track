@@ -502,6 +502,8 @@ class RaceInput:
     car_numbering_strategy: str = "MANUAL"
     global_start_number: int = 1
     championship_trophies: int = 3
+    # The pack's weight limit in ounces, or null for no check (#205).
+    weight_limit_oz: float | None = None
 
 
 @strawberry.input
@@ -519,6 +521,16 @@ class RaceUpdateInput:
     global_start_number: int | None = None
     championship_trophies: int | None = None
     auto_advance_heat: bool | None = None
+    weight_limit_oz: float | None = None
+    # Turning the weight check off, explicitly (#205).
+    #
+    # `update_race` drops every null from its payload — absent means "leave
+    # alone", which is what lets the settings page re-submit the whole race
+    # without wiping the fields it does not offer. So there is no way to *set*
+    # a field back to null, and without this the weight check could be switched
+    # on and never off again. Same shape as the PIN's removal control (#192),
+    # and for the same reason.
+    clear_weight_limit: bool = False
 
 
 @strawberry.input
@@ -854,6 +866,8 @@ class Race:
     championship_trophies: int
     scoring_strategy: str
     auto_advance_heat: bool
+    # Null means the race does not check weights (#205).
+    weight_limit_oz: float | None
 
     @strawberry.field
     def leaderboard(
@@ -1786,7 +1800,12 @@ class Mutation:
         """Update an existing race."""
         db = info.context["db"]
         data = strawberry.asdict(race)
+        clear_weight_limit = data.pop("clear_weight_limit", False)
         filtered_data = {k: v for k, v in data.items() if v is not None}
+        # Explicit removal beats an absent field, which means "leave alone"
+        # here for every other column (#205, following #192).
+        if clear_weight_limit:
+            filtered_data["weight_limit_oz"] = None
         race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
         return typing.cast(
             Any, crud.update_race(db, race_id=id, race_update=race_update)

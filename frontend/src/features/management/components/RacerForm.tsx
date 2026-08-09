@@ -3,6 +3,7 @@ import CameraCapture from '../../../components/ui/CameraCapture';
 import { useQuery, useMutation } from 'urql';
 import { GET_RACE_DENS, UPLOAD_IMAGE } from '../graphql/queries';
 import { carryOver } from '../racerEntry';
+import { weightNotice, weightVerdict } from '../weightCheck';
 
 export interface RacerData {
   first_name: string;
@@ -28,6 +29,8 @@ export interface Den {
 interface RacerFormProps {
   initialData?: RacerData;
   raceId?: number;
+  /** The race's weight limit in ounces, or null when it does not check (#205). */
+  weightLimitOz?: number | null;
   onSubmit: (data: RacerData) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
@@ -40,7 +43,7 @@ interface RacerFormProps {
   onSubmitAndContinue?: (data: RacerData) => Promise<void>;
 }
 
-export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel, onSubmitAndContinue }: RacerFormProps) {
+export default function RacerForm({ initialData, raceId, onSubmit, onCancel, submitLabel, onSubmitAndContinue, weightLimitOz }: RacerFormProps) {
   // Seeded from the racer being edited, rather than emptied and then patched
   // by an effect. The form lives in a modal that unmounts when it closes, so a
   // fresh mount is a fresh form; the caller also keys it, so switching racers
@@ -71,6 +74,14 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   // which is most of what the button was meant to save.
   const firstNameRef = useRef<HTMLInputElement>(null);
   const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
+
+  // Advisory, and recomputed as the operator types. Nothing here blocks the
+  // save — the inspector decides, and a car that is over gets checked in with
+  // a note on screen rather than a refusal from a laptop.
+  const overweightNotice = weightNotice(
+    weightVerdict(formData.car_weight, weightLimitOz),
+    weightLimitOz,
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -135,7 +146,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             <input
               type="text"
               name="first_name"
-               id="racer-first-name"
+                   id="racer-first-name"
               ref={firstNameRef}
               value={formData.first_name}
               onChange={handleChange}
@@ -148,7 +159,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
              <input
                type="text"
                name="last_name"
-               id="racer-last-name"
+                   id="racer-last-name"
                value={formData.last_name}
                onChange={handleChange}
                required
@@ -163,7 +174,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                  <input
                    type="number"
                    name="car_number"
-               id="racer-car-number"
+                   id="racer-car-number"
                    value={formData.car_number || ''}
                    onChange={handleChange}
                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
@@ -175,12 +186,30 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                    type="number"
                    step="0.01"
                    name="car_weight"
-               id="racer-car-weight"
+                   id="racer-car-weight"
                    value={formData.car_weight || ''}
                    onChange={handleChange}
                    placeholder="e.g. 5.0"
-                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                   aria-describedby={overweightNotice ? 'racer-car-weight-notice' : undefined}
+                   style={{
+                     width: '100%',
+                     padding: '8px',
+                     borderRadius: '4px',
+                     // The border carries the warning as well as the text. The
+                     // person reading this is holding a car with a queue behind
+                     // them, and the field is what they are looking at.
+                     border: overweightNotice ? '2px solid #c62828' : '1px solid #ddd',
+                   }}
                  />
+                 {overweightNotice && (
+                   <p
+                     id="racer-car-weight-notice"
+                     data-testid="weight-warning"
+                     style={{ margin: '4px 0 0', color: '#c62828', fontSize: '0.8rem' }}
+                   >
+                     {overweightNotice}
+                   </p>
+                 )}
             </div>
         </div>
 
@@ -189,7 +218,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
              <input
                type="text"
                name="car_name"
-               id="racer-car-name"
+                   id="racer-car-name"
                value={formData.car_name || ''}
                onChange={handleChange}
                placeholder="e.g. Blue Streak"
@@ -201,7 +230,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
              <label htmlFor="racer-den" style={{ display: 'block', marginBottom: '5px' }}>Den</label>
              <select
                name="den_id"
-               id="racer-den"
+                   id="racer-den"
                value={formData.den_id || ''}
                onChange={handleChange}
                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}

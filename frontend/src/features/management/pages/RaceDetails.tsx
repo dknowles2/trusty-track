@@ -104,6 +104,7 @@ export default function RaceDetails() {
       car_numbering_strategy: data.race.carNumberingStrategy,
       global_start_number: data.race.globalStartNumber,
       championship_trophies: data.race.championshipTrophies,
+      weight_limit_oz: data.race.weightLimitOz,
     } satisfies Race;
   }, [data]);
 
@@ -232,6 +233,10 @@ export default function RaceDetails() {
               carNumberingStrategy: updateInput.car_numbering_strategy,
               globalStartNumber: updateInput.global_start_number,
               championshipTrophies: updateInput.championship_trophies,
+              weightLimitOz: updateInput.weight_limit_oz ?? undefined,
+              // Absent means "leave alone" for every field here, so turning
+              // the weight check off has to be said explicitly (#205).
+              clearWeightLimit: updateInput.weight_limit_oz == null,
           };
           const result = await updateRaceMutation({ id: parsedRaceId, race: raceInput });
           if (result.error) throw result.error;
@@ -1168,6 +1173,7 @@ export default function RaceDetails() {
             onSubmit={handleRacerFormSubmit}
             onCancel={() => setShowRacerForm(false)}
             submitLabel={racerFormSubmitLabel}
+            weightLimitOz={data?.race?.weightLimitOz}
             // Only when adding: editing one racer has no "another" to go on
             // to, and check-in is a different act again.
             onSubmitAndContinue={editingRacer ? undefined : handleRacerFormSubmitAndContinue}

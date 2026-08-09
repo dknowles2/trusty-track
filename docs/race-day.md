@@ -38,7 +38,9 @@ _The Roster page at the start of race day. Every racer has a gold **Check In** b
 2. Click the **Check In** button at the end of their row to open the check-in form.
 3. Toggle **Passed Inspection / Checked In** to mark the car as cleared to race.
 4. Optionally enter or update the **Car Name** if not already provided.
-5. Optionally enter the **Car Weight (oz)** for documentation purposes.
+5. Optionally enter the **Car Weight (oz)**. If the race has a weight limit set, the box turns red and says so when the car is over it.
+
+    This is a warning, not a refusal — you can still check the car in. The inspector at the table decides what happens next; the app is only making the rule visible at the moment it matters. Weights within a hundredth of an ounce of the limit pass, because desk scales disagree in the last decimal place and that is a fact about the equipment rather than about the car.
 6. Optionally upload or capture a **Racer Photo** and/or **Car Photo** — each has an **Upload File** button and a **Camera** button.
 7. Click **Save Check-in**.
 

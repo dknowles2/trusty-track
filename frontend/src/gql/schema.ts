@@ -724,6 +724,7 @@ export type Race = {
   scoringStrategy: Scalars['String']['output'];
   track?: Maybe<Track>;
   trackId?: Maybe<Scalars['Int']['output']>;
+  weightLimitOz?: Maybe<Scalars['Float']['output']>;
 };
 
 
@@ -750,6 +751,7 @@ export type RaceInput = {
   name: Scalars['String']['input'];
   scoringStrategy?: Scalars['String']['input'];
   trackId: Scalars['Int']['input'];
+  weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type RaceStateChangedEvent = {
@@ -779,12 +781,14 @@ export type RaceUpdateInput = {
   autoAdvanceHeat?: InputMaybe<Scalars['Boolean']['input']>;
   carNumberingStrategy?: InputMaybe<Scalars['String']['input']>;
   championshipTrophies?: InputMaybe<Scalars['Int']['input']>;
+  clearWeightLimit?: Scalars['Boolean']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
   trackId?: InputMaybe<Scalars['Int']['input']>;
+  weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type Racer = {

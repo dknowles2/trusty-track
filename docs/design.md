@@ -65,7 +65,8 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `global_start_number` (if GLOBAL, default 1)
     -   `championship_trophies` (int, number of top finishers for championship, default 3)
     -   `scoring_strategy` (Enum: `TIMED`, `POINTS` - default `TIMED`)
-    -   `rules_configuration` (JSON string, optional)
+    -   `rules_configuration` (JSON string, optional — vestigial; nothing reads or writes it)
+    -   `weight_limit_oz` (Float, optional — the pack's weight limit; null means the race does not check weights)
     -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)
     -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
 -   **`Den`**: Sub-divisions within a race. Called `RacingGroup` in the early design; the implementation uses `Den` throughout, and the vestigial `racing_groups` table was dropped once it turned out to be written on every racer save and read by nothing.

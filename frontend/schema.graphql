@@ -349,6 +349,7 @@ type Race {
   championshipTrophies: Int!
   scoringStrategy: String!
   autoAdvanceHeat: Boolean!
+  weightLimitOz: Float
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
   registeredCount: Int!
@@ -381,6 +382,7 @@ input RaceInput {
   carNumberingStrategy: String! = "MANUAL"
   globalStartNumber: Int! = 1
   championshipTrophies: Int! = 3
+  weightLimitOz: Float = null
 }
 
 type RaceStateChangedEvent {
@@ -416,6 +418,8 @@ input RaceUpdateInput {
   globalStartNumber: Int = null
   championshipTrophies: Int = null
   autoAdvanceHeat: Boolean = null
+  weightLimitOz: Float = null
+  clearWeightLimit: Boolean! = false
 }
 
 type Racer {
