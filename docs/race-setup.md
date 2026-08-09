@@ -7,7 +7,7 @@ This guide covers the essential steps to prepare your Pinewood Derby race roster
 Once you have created or selected a race from the Home page, you will be taken to the **Roster** page — the first tab in the race navigation. This is your central hub for roster management.
 
 ![Race Details Overview](assets/screenshots/race-setup/01-race-details-overview.png)
-_The Roster page provides a summary of race settings and the current racer roster._
+_The Roster page provides a summary of race settings and the current racer roster. On a race that is not yet set up, the checklist described in the [getting started guide](getting-started.md) sits above them._
 
 ---
 

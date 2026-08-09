@@ -55,7 +55,20 @@ Once your system settings are configured, you're ready to create a race event.
 
 After clicking **Create Race**, you will be taken to the **Roster** page.
 
-## 5. Setting Up Dens
+## 5. Following the Setup Checklist
+
+A new race opens with a **Setting up this race** panel at the top of the Roster page, listing the four things that have to happen before you can run a heat:
+
+1. **Set up dens**
+2. **Add racers**
+3. **Check in cars**
+4. **Generate a schedule**
+
+Each item ticks itself off as you do it — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. Once all four are behind you it disappears, so it is only ever on screen while something is genuinely outstanding.
+
+If your pack does not use dens, skip the first step: it counts as done as soon as you have racers.
+
+## 6. Setting Up Dens
 
 Before adding racers, you should define your racing groups, typically called "Dens" in Cub Scouting.
 
@@ -68,6 +81,7 @@ Before adding racers, you should define your racing groups, typically called "De
 With your dens configured, your race is ready for racer registration and check-in!
 
 ![Empty Race Details](assets/screenshots/getting-started/05-race-details-empty.png)
+_A race with no racers yet. The setup checklist at the top is pointing at the next thing to do; it will remove itself once all four steps are done._
 
 ## What's Next?
 
