@@ -2866,6 +2866,18 @@ class Mutation:
         return f"Populated race {race_id} with {config.count} racers"
 
     @strawberry.mutation
+    def create_practice_race(self, info: Info) -> Race:
+        """A whole event on a fake timer, ready to run (#201).
+
+        One mutation rather than the five round trips a client would need —
+        race, dens, roster, check-in, rounds — because a rehearsal that fails
+        half way leaves the operator with a broken race to tidy up, which is
+        the opposite of the confidence this exists to give.
+        """
+        db = info.context["db"]
+        return typing.cast(Any, crud.create_practice_race(db))
+
+    @strawberry.mutation
     async def import_racers(self, info: Info, race_id: int, csv_data: str) -> int:
         """Import racers from a CSV data string."""
         db = info.context["db"]

@@ -13,6 +13,7 @@ Trusty Track runs directly in your web browser. Once the software is started, yo
 Multiple volunteers can open the app on different devices simultaneously to handle different tasks, such as check-in or race monitoring.
 
 ![Trusty Track Home Screen](assets/screenshots/getting-started/01-home-page.png)
+_The Home page before any races exist. **Try a practice race** builds a whole rehearsal on a fake timer; see [below](#4-trying-a-practice-race-first)._
 
 ## 3. First-Time Setup: System Settings
 
@@ -37,7 +38,26 @@ If you run more than one track, **+ Add Another Track** adds another to the same
 
 Click **Save Settings** to apply your changes.
 
-## 4. Creating Your First Race
+## 4. Trying a Practice Race First
+
+Before your first real event, **Try a practice race** on the Home page builds a
+whole rehearsal in one click: a dozen racers with photographs, sorted into
+dens, all checked in, a preliminary round and a final — on a fake timer, so no
+hardware is involved. It drops you straight onto Race Control with the first
+heat ready to start.
+
+Run a few heats, watch the standings move, let the final fill from the
+placings, and put a screen on the [audience display](observation-displays.md).
+Nothing here touches your real event.
+
+When you are done, open the practice race and delete it like any other race.
+
+> [!TIP]
+> The night before is the time for this. It takes a couple of minutes and it is
+> the difference between meeting the race control screen at a kitchen table and
+> meeting it with sixty children waiting.
+
+## 5. Creating Your First Race
 
 Once your system settings are configured, you're ready to create a race event.
 
@@ -56,7 +76,7 @@ Once your system settings are configured, you're ready to create a race event.
 
 After clicking **Create Race**, you will be taken to the **Roster** page.
 
-## 5. Following the Setup Checklist
+## 6. Following the Setup Checklist
 
 A new race opens with a **Setting up this race** panel at the top of the Roster page, listing the four things that have to happen before you can run a heat:
 
@@ -69,7 +89,7 @@ Each item ticks itself off as you do it — there is nothing to mark complete by
 
 If your pack does not use dens, skip the first step: it counts as done as soon as you have racers.
 
-## 6. Setting Up Dens
+## 7. Setting Up Dens
 
 Before adding racers, you should define your racing groups, typically called "Dens" in Cub Scouting.
 

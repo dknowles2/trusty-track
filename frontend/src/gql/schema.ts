@@ -271,6 +271,7 @@ export type Mutation = {
   createAward: Award;
   createDen: Den;
   createInitialConfig: InitialConfigStatus;
+  createPracticeRace: Race;
   createRace: Race;
   createRacer: Racer;
   createRound: Array<Round>;

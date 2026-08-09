@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
-import { CREATE_RACE } from '../graphql/queries';
+import { CREATE_PRACTICE_RACE, CREATE_RACE } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { useAlert } from '../../../context/AlertContext';
 import { Icon } from '@mdi/react';
-import { mdiPlus, mdiFlagCheckered, mdiEye } from '@mdi/js';
+import { mdiPlus, mdiFlagCheckered, mdiEye, mdiSchool } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 
 const GET_RACES = gql`
@@ -42,6 +42,7 @@ export default function Home() {
     });
 
     const [, createRace] = useMutation(CREATE_RACE);
+    const [practiceResult, createPracticeRace] = useMutation(CREATE_PRACTICE_RACE);
 
     const handleCreate = async (formData: RaceFormData) => {
         try {
@@ -74,6 +75,20 @@ export default function Home() {
         }
     };
 
+    // The rehearsal (#201). It lands on Race Control rather than the roster,
+    // because what somebody wants to practise is race day — the roster is the
+    // part they have already done at a kitchen table.
+    const handlePractice = async () => {
+        try {
+            const result = await createPracticeRace({});
+            if (result.error) throw result.error;
+            navigate(`/race/${result.data.createPracticeRace.id}/control/race`);
+        } catch (e) {
+            console.error("Failed to create practice race", e);
+            showAlert("Could not create a practice race", "Error");
+        }
+    };
+
     const races: Race[] = data?.races || [];
 
     return (
@@ -86,9 +101,24 @@ export default function Home() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h2>Your Races</h2>
-                 <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Icon path={mdiPlus} size={0.8} /> Create New Race
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {/* Rehearsal, beside the real thing rather than hidden
+                        away. The night before an event is when a volunteer
+                        wants it, and they will not go looking for it. */}
+                    <button
+                        onClick={handlePractice}
+                        className="secondary-btn"
+                        data-testid="practice-race"
+                        disabled={practiceResult.fetching}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Icon path={mdiSchool} size={0.8} />
+                        {practiceResult.fetching ? 'Setting up…' : 'Try a practice race'}
+                    </button>
+                    <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Icon path={mdiPlus} size={0.8} /> Create New Race
+                    </button>
+                </div>
             </div>
 
             {/* Create Race Modal */}
@@ -121,7 +151,26 @@ export default function Home() {
                         </thead>
                         <tbody>
                             {races.length === 0 ? (
-                                <tr><td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>No races found. Create one to get started!</td></tr>
+                                <tr><td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>
+                                    No races found. Create one to get started — or{' '}
+                                    <button
+                                        onClick={handlePractice}
+                                        data-testid="practice-race-empty"
+                                        disabled={practiceResult.fetching}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            padding: 0,
+                                            font: 'inherit',
+                                            color: 'var(--scouting-blue)',
+                                            textDecoration: 'underline',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        try a practice race
+                                    </button>{' '}
+                                    on a fake timer first.
+                                </td></tr>
                             ) : races.map(race => (
                                 <tr key={race.id} style={{ borderBottom: '1px solid #eee' }}>
                                     <td style={{ padding: '15px' }}>
