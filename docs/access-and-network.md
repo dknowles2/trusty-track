@@ -58,11 +58,24 @@ padlock to make a device forget its PIN again.
 > The page reloads when you enter a PIN. That is expected: the live connection
 > has to be re-established with the new credential.
 
+### Changing or removing a PIN
+
+![The Access panel with an operator PIN set](assets/screenshots/settings/03-access-pins.png)
+
+**Settings → Access.** Type a new PIN over the old one to change it — you do
+not need the old one, and leaving the box blank keeps whatever is set rather
+than clearing it.
+
+To turn a PIN off, click **Remove** beside it and then **Save Settings**. The
+box greys out and says what will happen; **Keep** puts it back if you change
+your mind before saving.
+
 ### If you forget the operator PIN
 
-Anyone with access to the machine running Trusty Track can clear it: open
-**Settings → Access**, clear the Operator PIN field to empty, and save. Access
-control switches off and you can set a new one.
+Anyone who can reach the machine running Trusty Track can remove it, using
+**Remove** as above. There is no recovery from another device, which is the
+point of a PIN — but it also means the person at the machine is never locked
+out of their own event.
 
 ## Which network to use
 

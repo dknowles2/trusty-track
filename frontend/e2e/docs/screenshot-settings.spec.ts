@@ -61,6 +61,29 @@ test('screenshot the settings panels', async ({ page }) => {
     await trackCard.getByLabel('Lane 3 works').click();
     await expect(trackCard.getByText(/All \d+ lanes in use/i)).toBeVisible();
 
+    // The Access panel, with a PIN set so the Remove control is on screen —
+    // it is only offered for a PIN that exists, and it is the whole subject of
+    // the "changing or removing a PIN" section (#192).
+    // Saving leaves this page — and, when the PIN changed, reloads so the
+    // subscription socket picks the new credential up. Come back to it.
+    await page.getByLabel('Operator PIN').fill('1234');
+    await page.getByRole('button', { name: 'Save Settings' }).click();
+    await page.waitForURL('**/', { waitUntil: 'networkidle' });
+    await page.goto('/system-settings');
+    await expect(page.getByTestId('operator_pin-remove')).toBeVisible();
+    await page.waitForTimeout(300);
+    await page
+        .getByTestId('access-panel')
+        .screenshot({ path: path.join(SCREENSHOT_DIR, '03-access-pins.png') });
+
+    // Put it back: a PIN set here would follow every other spec on this shared
+    // backend into every mutation they make.
+    await page.getByTestId('operator_pin-remove').click();
+    await page.getByRole('button', { name: 'Save Settings' }).click();
+    await page.waitForURL('**/', { waitUntil: 'networkidle' });
+    await page.goto('/system-settings');
+    await expect(page.getByTestId('operator_pin-remove')).toHaveCount(0);
+
     // The backup panel, at the foot of the page.
     const backup = page.getByTestId('backup-panel');
     await backup.scrollIntoViewIfNeeded();

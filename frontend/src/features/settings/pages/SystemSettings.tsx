@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import BackupPanel from '../components/BackupPanel';
+import PinFieldRow from '../components/PinFieldRow';
+import { blankPin, pinInput, pinToSend, type PinField } from '../pinFields';
+import { clearPin, writePin } from '../../../api/pin';
 import TrackLanes from '../components/TrackLanes';
 
 const GET_INITIAL_CONFIG = `
@@ -12,6 +15,7 @@ const GET_INITIAL_CONFIG = `
       groupName
       debugMode
       pinRequired
+      checkinPinSet
       isOperator
       tracks {
         id
@@ -53,6 +57,7 @@ const CREATE_INITIAL_CONFIG = `
       groupName
       debugMode
       pinRequired
+      checkinPinSet
       tracks {
         id
         name
@@ -68,6 +73,7 @@ const UPDATE_INITIAL_CONFIG = `
       groupName
       debugMode
       pinRequired
+      checkinPinSet
     }
   }
 `;
@@ -80,9 +86,13 @@ export default function SystemConfig() {
   // hashed and cannot be read back. Empty therefore means "leave whatever is
   // set alone", which is exactly what the server does with an absent value;
   // `pinRequired` is what tells the operator whether one exists.
-  const [operatorPin, setOperatorPin] = useState('');
-  const [checkinPin, setCheckinPin] = useState('');
+  // A field is a value *and* whether removal was asked for, because blank
+  // already means "keep the current one" — see `pinFields.ts` for why that
+  // left no way at all to clear a PIN (#192).
+  const [operatorPin, setOperatorPin] = useState<PinField>(blankPin);
+  const [checkinPin, setCheckinPin] = useState<PinField>(blankPin);
   const [pinRequired, setPinRequired] = useState(false);
+  const [checkinPinSet, setCheckinPinSet] = useState(false);
   // The length a track gets when nothing says otherwise. `lengthFeet` is
   // nullable on the server and the submit handler already falls back to this,
   // so the form has to show it rather than an empty required field — see where
@@ -137,6 +147,7 @@ export default function SystemConfig() {
     if (data.initialConfig) {
       const { initialized, groupName: savedGroupName, debugMode: savedDebugMode, tracks: savedTracks } = data.initialConfig;
       setPinRequired(!!data.initialConfig.pinRequired);
+      setCheckinPinSet(!!data.initialConfig.checkinPinSet);
       if (initialized) {
         setIsEditing(true);
         setGroupName(savedGroupName || '');
@@ -206,12 +217,12 @@ export default function SystemConfig() {
         config: {
           groupName: groupName,
           debugMode: debugMode,
-          // Only sent when the operator typed something. Sending `''` would
-          // *clear* the PIN, and this form re-submits everything on every save
-          // — so an unconditional send would unlock the install the next time
-          // anyone renamed a track.
-          ...(operatorPin ? { operatorPin } : {}),
-          ...(checkinPin ? { checkinPin } : {}),
+          // Absent, a value, or an explicit empty string to clear — the rule
+          // is in `pinFields.ts`, because getting it wrong in either direction
+          // is serious: an unconditional send unlocks the install whenever
+          // anyone renames a track, and no way to send `''` locks an operator
+          // out of their own event with no recovery.
+          ...pinInput(operatorPin, checkinPin),
           tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
             name,
             laneCount,
@@ -242,9 +253,27 @@ export default function SystemConfig() {
 
       // We can't easily use useClient() here unless we change the component to use it,
       // but we can trust that the mutation result being successful means the backend is ready.
-      // but we can trust that the mutation result being successful means the backend is ready.
       // To be absolutely safe against race conditions, we'll wait a brief moment.
       await new Promise(resolve => setTimeout(resolve, 100));
+
+      // The device that set the operator PIN keeps it. Otherwise setting one
+      // demotes the operator on their own laptop the instant they save, which
+      // is the same lockout #192 was about approached from the other side.
+      // Removing it drops the stored copy for the same reason.
+      const operatorPinSent = pinToSend(operatorPin);
+      if (operatorPinSent) {
+        writePin(operatorPinSent);
+      } else if (operatorPinSent === '') {
+        clearPin();
+      }
+
+      if (operatorPinSent !== undefined) {
+        // A full load rather than a client-side navigation: the subscription
+        // socket carries the PIN in its URL, so a changed PIN needs a new
+        // socket. Same reasoning as entering one through the padlock.
+        window.location.href = '/';
+        return;
+      }
 
       navigate('/');
     } catch (err: unknown) {
@@ -291,6 +320,7 @@ export default function SystemConfig() {
           <small style={{ color: '#666', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
         </div>
 
+        <div data-testid="access-panel">
         <h2 style={{ marginBottom: '0.5rem' }}>Access</h2>
         <p style={{ color: '#666', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
           {pinRequired
@@ -299,36 +329,26 @@ export default function SystemConfig() {
         </p>
 
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-          <div style={{ flex: 1 }}>
-            <label htmlFor="operator_pin" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
-              Operator PIN
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              id="operator_pin"
-              value={operatorPin}
-              onChange={(e) => setOperatorPin(e.target.value)}
-              placeholder={pinRequired ? 'Set — type to change' : 'e.g. 1234'}
-              style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
-            />
-            <small style={{ color: '#666' }}>Runs the race. Leave blank to keep the current PIN.</small>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label htmlFor="checkin_pin" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
-              Check-in PIN <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span>
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              id="checkin_pin"
-              value={checkinPin}
-              onChange={(e) => setCheckinPin(e.target.value)}
-              placeholder="e.g. 5678"
-              style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
-            />
-            <small style={{ color: '#666' }}>Registration desk: racers and check-in only.</small>
-          </div>
+          <PinFieldRow
+            id="operator_pin"
+            label="Operator PIN"
+            isSet={pinRequired}
+            placeholder={pinRequired ? 'Set — type to change' : 'e.g. 1234'}
+            what="Runs the race."
+            field={operatorPin}
+            onChange={setOperatorPin}
+          />
+          <PinFieldRow
+            id="checkin_pin"
+            label="Check-in PIN"
+            optional
+            isSet={checkinPinSet}
+            placeholder={checkinPinSet ? 'Set — type to change' : 'e.g. 5678'}
+            what="Registration desk: racers and check-in only."
+            field={checkinPin}
+            onChange={setCheckinPin}
+          />
+        </div>
         </div>
 
         <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>

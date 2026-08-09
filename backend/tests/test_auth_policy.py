@@ -305,7 +305,7 @@ mutation Configure($config: InitialConfigInput!) {
 }
 """
 
-CONFIG_STATUS = "query { initialConfig { pinRequired isOperator } }"
+CONFIG_STATUS = "query { initialConfig { pinRequired checkinPinSet isOperator } }"
 
 
 def _config(name="Pack", **extra):
@@ -323,14 +323,22 @@ def test_setting_an_operator_pin_turns_enforcement_on(client, db):
     crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
 
     before = _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]
-    assert before == {"pinRequired": False, "isOperator": True}
+    assert before == {
+        "pinRequired": False,
+        "checkinPinSet": False,
+        "isOperator": True,
+    }
 
     body = _post(client, SET_CONFIG, {"config": _config(operatorPin="1234")}).json()
     assert "errors" not in body, body
     assert body["data"]["updateInitialConfig"]["pinRequired"] is True
 
     after = _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]
-    assert after == {"pinRequired": True, "isOperator": False}
+    assert after == {
+        "pinRequired": True,
+        "checkinPinSet": False,
+        "isOperator": False,
+    }
 
 
 def test_the_pin_is_not_stored_in_the_clear(client, db):
@@ -381,6 +389,43 @@ def test_an_explicit_empty_pin_clears_it(client, db):
 
     assert (
         _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]["pinRequired"]
+        is False
+    )
+
+
+def test_the_status_says_whether_a_checkin_pin_is_set(client, db):
+    """The settings page can only offer to *remove* a PIN it knows exists.
+
+    `pinRequired` answers that for the operator PIN. Without the same fact
+    about the optional check-in PIN there was no way to tell "no PIN" from
+    "a PIN you cannot see", and a blank field means "leave it alone" (#192).
+    """
+    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
+
+    before = _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]
+    assert before["checkinPinSet"] is False
+
+    _post(client, SET_CONFIG, {"config": _config(checkinPin="5678")})
+
+    after = _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]
+    assert after["checkinPinSet"] is True
+    # Setting only the check-in PIN must not claim an operator PIN exists —
+    # that is the flag the whole role system keys off.
+    assert after["pinRequired"] is False
+
+
+def test_an_explicit_empty_checkin_pin_clears_it(client, db):
+    """The check-in PIN is optional, so a pack that sets one for a busy year
+    and not the next needs the same way out as the operator PIN."""
+    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
+    _post(client, SET_CONFIG, {"config": _config(checkinPin="5678")})
+
+    _post(client, SET_CONFIG, {"config": _config(checkinPin="")})
+
+    assert (
+        _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]["checkinPinSet"]
         is False
     )
 

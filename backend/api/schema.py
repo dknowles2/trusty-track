@@ -428,6 +428,10 @@ class InitialConfigStatus:
     #: (#15). Never the PIN or its hash: this says only that a lock exists, so
     #: the settings page can tell the operator which state they are in.
     pin_required: bool = False
+    #: The same fact about the optional check-in PIN. Both are needed because
+    #: the settings page can only offer to *remove* a PIN that exists, and a
+    #: blank field means "leave it alone" rather than "there isn't one" (#192).
+    checkin_pin_set: bool = False
     #: Whether the *caller* currently holds the operator role. Lets the UI ask
     #: for the PIN before an action fails rather than after.
     is_operator: bool = True
@@ -1413,6 +1417,7 @@ class Query:
                 tracks=typing.cast(Any, tracks),
                 current_race_id=race.id if race else None,
                 pin_required=pin_required,
+                checkin_pin_set=bool(group and group.checkin_pin_hash),
                 # Resolved here rather than left to the extension: this is a
                 # *query*, so nothing has asked for a role yet, and the point is
                 # to let the UI prompt before an action fails.
@@ -2589,6 +2594,7 @@ class Mutation:
             debug_mode=group.debug_mode,
             tracks=typing.cast(Any, tracks),
             pin_required=bool(group.operator_pin_hash),
+            checkin_pin_set=bool(group.checkin_pin_hash),
             # The caller who just set the PIN keeps the role they had for this
             # response; the next request resolves it from what they send.
             is_operator=True,
@@ -2707,6 +2713,7 @@ class Mutation:
             debug_mode=group.debug_mode if group else False,
             tracks=typing.cast(Any, tracks),
             pin_required=bool(group and group.operator_pin_hash),
+            checkin_pin_set=bool(group and group.checkin_pin_hash),
             is_operator=True,
         )
 
