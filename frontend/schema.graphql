@@ -186,6 +186,7 @@ type InitialConfigStatus {
   tracks: [Track!]!
   currentRaceId: Int
   pinRequired: Boolean!
+  checkinPinSet: Boolean!
   isOperator: Boolean!
 }
 

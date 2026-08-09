@@ -189,6 +189,7 @@ export type InitialConfigInput = {
 };
 
 export type InitialConfigStatus = {
+  checkinPinSet: Scalars['Boolean']['output'];
   currentRaceId?: Maybe<Scalars['Int']['output']>;
   debugMode: Scalars['Boolean']['output'];
   groupName?: Maybe<Scalars['String']['output']>;
