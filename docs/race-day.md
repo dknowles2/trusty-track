@@ -210,6 +210,9 @@ If you need to adjust the heat order before racing begins (for example, to separ
 _Drag the handle at the left-hand end of a heat's row to reorder it within the round._
 
 > [!TIP]
+> **Print the running order** once the schedule is settled. **Heat sheet**, beside Add Round, gives you a table per round with an empty column to write results into — the one thing that still works when the wifi drops. See the [Printables guide](printables.md#the-heat-sheet).
+
+> [!TIP]
 > **Jumping Ahead:** If you want to run a later heat immediately, click the **Run** button on that heat in the Schedule view. Trusty Track will automatically move it to be the next heat in the order and take you directly to the **Race** tab. This only works within the round you are on — **Run** is greyed out on a round that is still waiting for an earlier one to finish.
 
 ---

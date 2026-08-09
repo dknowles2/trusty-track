@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { RoundConfigModal } from './RoundConfigModal';
 import { RoundWizard } from './RoundWizard';
 import { Icon } from '@mdi/react';
-import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix, mdiDelete } from '@mdi/js';
+import { mdiCached, mdiPlus, mdiDragVertical, mdiAutoFix, mdiDelete, mdiPrinter } from '@mdi/js';
+import { Link } from 'react-router-dom';
 import {
   DndContext,
   closestCenter,
@@ -375,6 +376,19 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             </div>
           )}
           <div style={{ display: 'flex', gap: '10px' }}>
+            {/* The running order on paper, for the announcer's table (#173).
+                Here rather than on the roster's print page: that page prints
+                the roster, and this prints the schedule. */}
+            {sortedRoundIds.length > 0 && (
+              <Link
+                to={`/race/${raceId}/print/heat-sheet`}
+                className="secondary-btn"
+                data-testid="print-heat-sheet"
+                style={{ whiteSpace: 'nowrap', gap: '5px' }}
+              >
+                <Icon path={mdiPrinter} size={0.8} /> Heat sheet
+              </Link>
+            )}
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}

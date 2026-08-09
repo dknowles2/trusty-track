@@ -27,6 +27,7 @@ import RaceStats from './features/stats/pages/RaceStats';
 import Awards from './features/awards/pages/Awards';
 import AwardCeremony from './features/awards/pages/AwardCeremony';
 import Printables from './features/printables/pages/Printables';
+import HeatSheet from './features/printables/pages/HeatSheet';
 import TimerDiagnostics from './features/settings/pages/TimerDiagnostics';
 
 import { INITIAL_CONFIG_QUERY } from './features/core/graphql/queries';
@@ -83,6 +84,7 @@ function App() {
                 <Route path="/race/:raceId/awards/present" element={<ProtectedRoute><AwardCeremony /></ProtectedRoute>} />
                 <Route path="/race/:raceId/stats" element={<ProtectedRoute><RaceStats /></ProtectedRoute>} />
                 <Route path="/race/:raceId/print" element={<ProtectedRoute><Printables /></ProtectedRoute>} />
+                <Route path="/race/:raceId/print/heat-sheet" element={<ProtectedRoute><HeatSheet /></ProtectedRoute>} />
                 <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
                 {/* Keyed on the race: switching races is a fresh screen, so no
                     state from the last one can survive into the next. */}

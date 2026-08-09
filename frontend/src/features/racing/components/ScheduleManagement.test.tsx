@@ -4,6 +4,7 @@ import '@testing-library/jest-dom';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
 import { lane } from '../testFixtures';
 import { AlertProvider } from '../../../context/AlertContext';
+import { MemoryRouter } from 'react-router-dom';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -73,6 +74,7 @@ describe('ScheduleManagement', () => {
 
     it('renders the add round button', () => {
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -93,12 +95,14 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
         expect(screen.getByText('Add Round')).toBeInTheDocument();
     });
 
     it('displays heats grouped by round', () => {
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -119,6 +123,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
         expect(screen.getByText(/1 Round/i)).toBeInTheDocument();
         expect(screen.getByText('Heat 1')).toBeInTheDocument();
@@ -127,6 +132,7 @@ describe('ScheduleManagement', () => {
 
     it('opens modal when add round button is clicked', () => {
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -147,6 +153,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
         fireEvent.click(screen.getByText('Add Round'));
         // Modal should open - check for modal content (Round Name input is a good proxy)
@@ -155,6 +162,7 @@ describe('ScheduleManagement', () => {
 
     it('calls onRunHeat when run button is clicked', () => {
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -175,6 +183,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
         const runButtons = screen.getAllByText('Run');
         fireEvent.click(runButtons[0]);
@@ -184,6 +193,7 @@ describe('ScheduleManagement', () => {
     // Heat reordering tests
     it('renders heats in a table', () => {
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -204,6 +214,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
 
         // Verify table and rows are rendered
@@ -219,6 +230,7 @@ describe('ScheduleManagement', () => {
         ];
 
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -239,6 +251,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
 
         const heatElements = screen.getAllByText(/Heat \d/);
@@ -254,6 +267,7 @@ describe('ScheduleManagement', () => {
         ];
 
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -274,6 +288,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
 
         expect(screen.getByText('Round 1')).toBeInTheDocument();
@@ -283,6 +298,7 @@ describe('ScheduleManagement', () => {
     it('calls onAddRound with name when provided', async () => {
         const user = (await import('@testing-library/user-event')).default.setup();
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -303,6 +319,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
 
         // Open modal
@@ -331,6 +348,7 @@ describe('ScheduleManagement', () => {
         ];
 
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -351,6 +369,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
 
         expect(screen.getByText('Semi-Finals')).toBeInTheDocument();
@@ -363,6 +382,7 @@ describe('ScheduleManagement', () => {
             { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Final Round' },
         ];
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -383,6 +403,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
         const addBtn = screen.getByRole('button', { name: /Add Round/i });
         expect(addBtn).toBeDisabled();
@@ -395,6 +416,7 @@ describe('ScheduleManagement', () => {
         ];
 
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -415,6 +437,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
 
         const deleteBtn = screen.getByLabelText(/delete round 1/i);
@@ -429,6 +452,7 @@ describe('ScheduleManagement', () => {
         ];
 
         render(
+            <MemoryRouter>
             <AlertProvider>
                 <ScheduleManagement
                     raceId={1}
@@ -449,6 +473,7 @@ describe('ScheduleManagement', () => {
                     championshipTrophies={3}
                 />
             </AlertProvider>
+            </MemoryRouter>
         );
 
         const deleteBtn = screen.getByLabelText(/delete round 1/i);
@@ -463,6 +488,7 @@ describe('ScheduleManagement', () => {
     ];
 
     render(
+      <MemoryRouter>
       <AlertProvider>
         <ScheduleManagement
           raceId={1}
@@ -483,6 +509,7 @@ describe('ScheduleManagement', () => {
           championshipTrophies={3}
         />
       </AlertProvider>
+      </MemoryRouter>
     );
 
     const deleteBtn = screen.getByLabelText(/delete general/i);
@@ -496,6 +523,7 @@ describe('ScheduleManagement', () => {
     ];
 
     render(
+      <MemoryRouter>
       <AlertProvider>
         <ScheduleManagement
           raceId={1}
@@ -516,6 +544,7 @@ describe('ScheduleManagement', () => {
           championshipTrophies={3}
         />
       </AlertProvider>
+      </MemoryRouter>
     );
 
     const runButton = screen.getByText('Run');
@@ -530,6 +559,7 @@ describe('ScheduleManagement', () => {
     ];
 
     render(
+      <MemoryRouter>
       <AlertProvider>
         <ScheduleManagement
           raceId={1}
@@ -550,6 +580,7 @@ describe('ScheduleManagement', () => {
           championshipTrophies={3}
         />
       </AlertProvider>
+      </MemoryRouter>
     );
 
     // Round 1 Run button should be enabled

@@ -127,6 +127,9 @@ test('screenshot the print sheets', async ({ page }) => {
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'roster-print-button.png') });
 
+    // The heat sheet: the running order on paper (#173). It needs a schedule,
+    // which the cards above do not, so the round is generated here rather than
+    // in the seeding at the top.
     // The scanner. Chromium is given a fake camera below, so this shows the
     // viewfinder rather than the permission error a headless run would hit.
     await page.keyboard.press('Escape');
@@ -134,4 +137,37 @@ test('screenshot the print sheets', async ({ page }) => {
     await expect(page.getByText('Scan to Check In')).toBeVisible();
     await page.waitForTimeout(1000);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'check-in-scanner.png') });
+
+    // The schedule fields checked-in racers only, and these were created for
+    // their cards rather than for racing. Checked in here rather than at
+    // creation so the card screenshots above are untouched.
+    const roster = await gql(
+        page,
+        `query SheetRoster($raceId: Int!) { race(raceId: $raceId) { racers { id } } }`,
+        { raceId },
+    );
+    await gql(
+        page,
+        `mutation SheetCheckIn($ids: [Int!]!) {
+            bulkCheckIn(racerIds: $ids, passedInspection: true)
+        }`,
+        { ids: roster.race.racers.map((r: { id: number }) => r.id) },
+    );
+    await gql(
+        page,
+        `mutation SheetRound($raceId: Int!, $config: WizardConfigurationInput!) {
+            createRoundWizard(raceId: $raceId, config: $config) { id }
+        }`,
+        {
+            raceId,
+            config: {
+                generalRound: { type: 'PACK', runsPerLane: 1 },
+                championshipRounds: [],
+            },
+        },
+    );
+    await page.goto(`/race/${raceId}/print/heat-sheet`);
+    await expect(page.locator('.heat-sheet table').first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, 'heat-sheet.png') });
 });
