@@ -286,14 +286,17 @@ Heat IDs used to be ambiguous: `heats` and `free_race_heats` had independent aut
 
 **"Has this heat been run" is one question for both kinds**: whether any lane holds a time (`lanes.has_results`). A free heat's lanes are written when it is created, exactly as a generated official heat's are. `FreeRaceHeat.recorded` in GraphQL exposes this; it replaces testing `laneResults` for null.
 
-#### Two predicates, and which one you want
+#### Three predicates, and which one you want
 
-`lanes.has_results` and `lanes.is_finished` are deliberately different, and #55 was picking the wrong one:
+`lanes.has_results`, `lanes.is_finished` and `lanes.is_complete` are deliberately different, and #55 and [#224](https://github.com/dknowles2/trusty-track/issues/224) were each picking (or restating) the wrong one:
 
 | Question | Predicate | Skipped heat |
 | --- | --- | --- |
 | Would rebuilding this lose a result? | `has_results` — any lane has a time | not finished; a skipped round may be regenerated |
 | Should the running order move on? | `is_finished` — any lane has a time **or** is skipped | finished; the operator is not coming back to it |
+| Is this heat *settled* — may advancement fire? | `is_complete` — every assigned lane has a time, a place, **or** is skipped; a placeholder never settles | settled; the round is as decided as it will ever be |
+
+**`is_complete` accepts a place without a time and a skipped lane**, and both loosenings were bug fixes ([#224](https://github.com/dknowles2/trusty-track/issues/224)). It used to demand a time, so one skipped heat left its round incomplete forever and every later championship round silently never filled — and `advancementStatus` had a private copy of the rule that *did* accept place-without-time (how a POINTS race is hand-entered), so the operator screen said ready while `trigger_auto_advancements`, reading the domain rule, never fired. The copy is gone; `advancementStatus` reads `advancement.is_round_complete`. Don't reintroduce a second copy.
 
 Anything deciding **what is on the track or what is next** wants `is_finished` (`schema._unfinished` wraps it for the `onDeck` / `currentlyRacing` subscriptions). Anything guarding **the stored record** wants `has_results`. `timingStats` is the third case and wants `has_results` for its own reason: it displays results, and a skipped heat has none. `hasRun` in `features/racing/lanes.ts` is `is_finished`'s counterpart on the frontend.
 
@@ -460,6 +463,10 @@ Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` 
 **Standings cover preliminary rounds only** — rounds with no `advancement_source`. Settled in #17. A championship field is chosen *from* the standings, so folding championship results back in is circular: `record_heat_result` re-runs advancement on every result, so a final-round time could change who was supposed to be in the final. It also mixes populations, since a championship average is taken against the fastest cars rather than the whole field.
 
 `get_leaderboard(db, race_id)` is prelim-scoped by default. Pass `round_id` for one round (this is how the UI shows championship results) or `scope=ALL` for the pre-#17 whole-race average. The `Race.leaderboard` GraphQL field takes `roundId` and `includeAllRounds` to match.
+
+**A missing placement must never be a reward under `POINTS`** ([#225](https://github.com/dknowles2/trusty-track/issues/225)). `POINTS` sums, so a racer with fewer placements scores *better* — the failure #26 keeps arriving by new routes. Four routes are now closed, two ways: a lane outage mid-round (#171) and a latecomer (#172) set `Round.disrupted` and the round is dropped from `POINTS` standings; a **skipped lane** and a **DNF** (a recorded time ≤ 0, which the timer assigns no place) are scored as **last place in their heat** — the racers assigned, not the track's lane count. The penalty routes and the drop routes are different because they are different facts: a penalised lane *exists* and can classify last; a disrupted round has racers who were *scheduled fewer heats*, and there is no lane to penalise. `TIMED` needs neither for a skip — an average is scale-free — and keeps its 9.999 s penalty for a DNF. A lane with a real time but no place stays uncounted: that is a half-finished hand entry, not a scratch.
+
+**A tie shares a rank** ([#226](https://github.com/dknowles2/trusty-track/issues/226)). `rank_key` still breaks ties by racer id so the *order* is deterministic, but `standings_ranks` stamps competition ranks (1, 1, 3) over it — otherwise a tie for a trophy or the last championship slot was resolved by registration order and no screen ever said so. Racers who have not raced keep strictly increasing positions; tying them would make a pre-race leaderboard a wall of rank 1. Advancement and awards still cut by position (`standings[:n]`, `standings[place-1]`), which is unchanged and now *visible*: the operator sees the shared rank and settles it with a race-off or a corrected time.
 
 ### Championship advancement
 

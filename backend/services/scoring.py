@@ -163,8 +163,13 @@ def get_leaderboard(
         )
     )
 
-    for idx, entry in enumerate(leaderboard):
-        entry["rank"] = idx + 1
+    # Competition ranks: a tie shares a rank rather than being silently
+    # resolved by registration order (#226).
+    ranks = domain_scoring.standings_ranks(
+        [(entry["score"], entry["heats_completed"]) for entry in leaderboard]
+    )
+    for entry, rank in zip(leaderboard, ranks, strict=True):
+        entry["rank"] = rank
 
     return leaderboard
 

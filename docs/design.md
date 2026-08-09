@@ -99,7 +99,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `scheduling_strategy` (Enum: `PPC`)
     -   `advancement_source` (optional: `PACK`, `DEN`, or `ROUND:<id>`)
     -   `advancement_num_racers` (optional — **per den** when the source is `DEN`, absolute otherwise)
-    -   `disrupted` — set when the round was raced on an uneven field: a lane went out of service part-way through (#171), or a latecomer was admitted and heats were appended (#172). Either way some racers ran more often than others, which `TIMED` tolerates (an average is scale-free) and `POINTS` does not (a sum where lower is better). Disrupted rounds are dropped from `POINTS` standings only.
+    -   `disrupted` — set when the round was raced on an uneven field: a lane went out of service part-way through (#171), or a latecomer was admitted and heats were appended (#172). Either way some racers ran more often than others, which `TIMED` tolerates (an average is scale-free) and `POINTS` does not (a sum where lower is better). Disrupted rounds are dropped from `POINTS` standings only. The same asymmetry has two more routes — a skipped heat and a DNF — which `POINTS` handles by scoring the lane as last place in its heat rather than by dropping the round (#225); equal scores share a rank rather than being split by registration order (#226).
 
 -   **`Heat`**: Individual race instances. Official heats belong to a round; free race heats do not.
     -   `id` (PK)

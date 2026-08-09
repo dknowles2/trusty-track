@@ -69,15 +69,29 @@ def score_heats(
     ``heats_completed == 0`` until they actually race — the leaderboard shows
     them as unranked rather than omitting them.
 
-    Lanes with a falsy racer id are ignored. That covers empty lanes, and is
-    also why a placeholder is *not* excluded here: negative ids are truthy, and
-    a placeholder never carries a time anyway, so it lands with zero heats
-    completed. Preserved as-is; the placeholder encoding is on its way out with
-    issue #5.
+    Lanes with no racer are ignored: empty lanes, and unadvanced championship
+    slots, whose ``racer_id`` is ``None`` since #164.
+
+    Under ``POINTS``, a **skipped** lane and a **DNF** (a recorded time of
+    zero, which the timer assigns no place) score **last place** — the number
+    of racers in the heat (#225). ``POINTS`` sums placements, so before this a
+    missing placement was a *reward*: a car that never finished, or sat out a
+    skipped heat, summed fewer places than a car that raced everything and
+    won. This is the same failure ``counts_a_disrupted_round`` guards a third
+    and fourth way in — and the same shape as ``TIMED``'s DNF penalty: bad but
+    finite, so the ranking stays a total order. A scratch classifying last is
+    what every racing series does.
+
+    ``TIMED`` needs no penalty for a skip: an average is scale-free, so a heat
+    that never ran simply is not in it.
     """
     scores: dict[int, RacerScore] = {}
 
     for lanes in heats:
+        # Last place in this heat, for the lanes penalised below. The racers
+        # actually in the heat, not the track's lane count — a three-car heat
+        # on a six-lane track has a last place of 3.
+        field = sum(1 for entrant in lanes if entrant.racer_id is not None)
         for lane in lanes:
             racer_id = lane.racer_id
             if not racer_id:
@@ -92,9 +106,14 @@ def score_heats(
                 entry.total_time += DNF_PENALTY_SECONDS if seconds <= 0.0 else seconds
                 entry.heats_completed += 1
             elif strategy == POINTS:
-                if lane.place is None:
-                    continue
-                entry.total_points += lane.place
+                place = lane.place
+                if place is None:
+                    seconds = lane.seconds
+                    dnf = seconds is not None and seconds <= 0.0
+                    if not (lane.skipped or dnf):
+                        continue
+                    place = field
+                entry.total_points += place
                 entry.heats_completed += 1
 
     for entry in scores.values():
@@ -131,7 +150,38 @@ def counts_a_disrupted_round(strategy: str) -> bool:
 def rank_key(score: float, heats_completed: int, racer_id: int) -> tuple:
     """Sort key for standings: score ascending, unraced racers last.
 
-    Racer id breaks ties so the order is stable and reproducible rather than
-    dependent on dict iteration.
+    Racer id breaks ties so the *order* is stable and reproducible rather than
+    dependent on dict iteration. It does not break the *rank* — see
+    :func:`standings_ranks`, which is what keeps a tie visible.
     """
     return (float(score) if heats_completed > 0 else float("inf"), racer_id)
+
+
+def standings_ranks(scored: Sequence[tuple[float, int]]) -> list[int]:
+    """Competition ranks (1, 1, 3) for already-sorted ``(score, heats)`` pairs.
+
+    Equal scores share a rank and the next rank skips, so a tie is *visible* —
+    two golds on the wall display — rather than silently resolved (#226). The
+    underlying sort still breaks ties by racer id, which made the order look
+    decided when it was actually registration order: a tie for the last
+    championship slot, or for a trophy, went to whoever signed up first and no
+    screen ever said so. ``POINTS`` collides constantly, being sums of small
+    integers. Deciding a tie is the operator's call — a race-off, a corrected
+    time — and they can only make it if they can see it.
+
+    Racers who have not raced keep strictly increasing positions rather than
+    tying with each other: their scores are all equally meaningless, and a
+    pre-race leaderboard where the whole roster shares rank 1 would be a wall
+    of gold medals.
+    """
+    ranks: list[int] = []
+    for index, (score, heats_completed) in enumerate(scored):
+        previous = scored[index - 1] if index else None
+        tied = (
+            previous is not None
+            and heats_completed > 0
+            and previous[1] > 0
+            and float(score) == float(previous[0])
+        )
+        ranks.append(ranks[-1] if tied else index + 1)
+    return ranks

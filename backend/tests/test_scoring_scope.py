@@ -205,3 +205,36 @@ def test_the_loader_cache_keys_on_scope(db):
     blended = loaders.leaderboard(race.id, scope=domain_scoring.ALL)
     assert [s["racer_id"] for s in prelim_only] == [fast.id, slow.id]
     assert [s["racer_id"] for s in blended] == [slow.id, fast.id]
+
+
+def test_a_tie_shares_a_rank_on_the_leaderboard(db):
+    """#226. Equal scores used to be stamped 1 and 2 — gold and silver decided
+    by registration order, with nothing on any screen saying a tie happened."""
+    race = _seed(db)
+    a = crud.create_racer(
+        db, schemas.RacerCreate(first_name="A", last_name="A", race_id=race.id)
+    )
+    b = crud.create_racer(
+        db, schemas.RacerCreate(first_name="B", last_name="B", race_id=race.id)
+    )
+    c = crud.create_racer(
+        db, schemas.RacerCreate(first_name="C", last_name="C", race_id=race.id)
+    )
+    r1 = crud.create_round(db, race_id=race.id, round_number=1)
+    _heat(
+        db,
+        race,
+        r1,
+        [_lane(1, a.id, 3.0, 1), _lane(2, b.id, 3.0, 1)],
+    )
+    _heat(
+        db,
+        race,
+        r1,
+        [_lane(1, c.id, 4.0, 1)],
+        heat_number=2,
+    )
+
+    standings = scoring.get_leaderboard(db, race.id)
+
+    assert [s["rank"] for s in standings] == [1, 1, 3]

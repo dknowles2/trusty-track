@@ -161,7 +161,21 @@ def is_finished(lanes: Sequence[Lane]) -> bool:
 
 
 def is_complete(lanes: Sequence[Lane]) -> bool:
-    """True if every assigned lane holds a real racer with a recorded time.
+    """True if every assigned lane is *settled* — a time, a place, or skipped.
+
+    This is the predicate behind ``is_round_complete``, which is what decides
+    when championship advancement fires, so what counts as settled matters
+    (#224). It used to demand a time on every lane, which was wrong twice over:
+
+    * A **skipped** heat has no times, so one skip left its round incomplete
+      forever — the automatic advancement never fired and ``advancementStatus``
+      reported not-ready with no way to learn why. An operator who skipped a
+      heat is not coming back to it; the round is as decided as it will ever be.
+    * A **place without a time** is how a ``POINTS`` race is entered by hand.
+      ``advancementStatus`` grew a private copy of this rule to accept that,
+      which meant the operator screen said ready while the trigger reading
+      *this* function never fired. One rule, two copies, two answers — the #48
+      shape. The copy is gone; this is the rule.
 
     A placeholder counts as incomplete even if it somehow has a time: the heat
     cannot be finished by a racer who has not been decided yet.
@@ -171,9 +185,9 @@ def is_complete(lanes: Sequence[Lane]) -> bool:
     for lane in lanes:
         if lane.is_empty:
             continue
-        if lane.time is None:
-            return False
         if lane.is_placeholder:
+            return False
+        if lane.time is None and lane.place is None and not lane.skipped:
             return False
     return True
 
