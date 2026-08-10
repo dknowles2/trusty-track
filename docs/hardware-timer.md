@@ -72,9 +72,9 @@ machine running Trusty Track — typically the Raspberry Pi at the venue. This
 is the setup to prefer when you have the choice: nothing depends on which
 laptop is open or which browser it runs.
 
-Leave **Serial Port** blank. When the server starts it looks at each USB port
-in turn, asks whatever is there to identify itself, and connects to the one
-that answers. You do not need to know what a device path is.
+Leave **Serial Port** blank. When the server starts it checks each USB socket
+in turn, asks whatever is plugged in to identify itself, and connects to the
+one that answers. You do not need to know anything about ports or paths.
 
 Fill the port in only if you have a reason to: a timer on a built-in serial
 port rather than USB, or a machine where you want to be certain which device
@@ -118,8 +118,12 @@ server and the timer. You do not need a race set up to use it.
 
 ### Reading the serial traffic
 
-The log on that page shows every byte in both directions, annotated. You only
-need it when something is wrong — the two rules of thumb:
+You never need this section to run a race. It exists for the moment a timer
+misbehaves and you — or whoever you hand the problem to — want to see exactly
+what the timer said.
+
+The log on that page shows the whole conversation between the server and the
+timer, annotated line by line. Two rules of thumb:
 
 - Commands going out (`→`) and nothing coming back (`←`): the cable or the
   port is wrong.
@@ -183,11 +187,12 @@ Most people never touch this. Leave **Timer Model** on *Detect automatically*
 and the server asks each timer it knows about who it is, which works for seven
 of the eight models. Pick one yourself when:
 
-- **Yours is the NewBold family.** It answers no identifying question, so it
-  can only be reached this way — the picker marks it *must be chosen*. It also
-  runs at 1200 baud with 7 data bits and 2 stop bits, and naming it is what
-  gets the port opened that way; detection's fallback assumes the usual
-  9600 8-N-1 and would read noise.
+- **Yours is the NewBold family.** It never announces itself, so it can only
+  be reached this way — the picker marks it *must be chosen*. It also talks at
+  a different speed from every other supported timer, and naming it is what
+  gets the connection opened at that speed; automatic detection assumes the
+  usual one and would hear only noise. (For the technically minded: 1200 baud,
+  7 data bits, 2 stop bits, against everything else's 9600 8-N-1.)
 - **You would rather it did not ask.** Detection writes a probe command to
   every port it tries. That is harmless as far as anyone knows, but an
   operator who already knows what they have has no reason to allow it.

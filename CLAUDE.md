@@ -903,6 +903,8 @@ Three conventions, each learned from a failure:
 
 **`docs/` is part of the change, not a follow-up.** The docs are published from `main` on every merge, so a stale page ships the moment the code does. Everything below has already gone wrong at least once.
 
+**The reader is a parent volunteer, not an engineer.** Every user-facing page leads with what a non-technical person does; technical detail is worth keeping but goes last — in a troubleshooting section, a parenthetical, or a callout that says when it can be ignored — never front-and-center. Baud rates, port framing and device paths are things a reader should only meet when something is broken. When a detail matters mostly to developers, it belongs in `design.md`, `spec.md` or `development.md`, linked rather than inlined. The site's own promise is "you don't need to be a software developer", and a page that opens with jargon breaks it in the first paragraph.
+
 ### What to update, by what you touched
 
 | Changed | Update |
