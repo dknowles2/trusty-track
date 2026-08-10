@@ -17,15 +17,15 @@ Then, in the order an event happens:
 - **[Awards](awards.md)**: Speed trophies and the judged ones — Best Paint, Most Original.
 - **[Race Stats](race-stats.md)**: Lane fairness, per-racer numbers, and CSV exports.
 
-### Displays and printouts
-
-- **[Observation & Audience Displays](observation-displays.md)**: Setting up leaderboards and results for the audience.
-- **[Printables](printables.md)**: Pit passes, driver's licences, and check-in codes you can scan.
-
 ### Timers
 
 - **[Hardware Timer](hardware-timer.md)**: Plugging in an electronic finish line, and checking it works.
 - **[Fake Timer](fake-timer.md)**: Running the whole thing without a track, for practice.
+
+### Displays and printouts
+
+- **[Observation & Audience Displays](observation-displays.md)**: Setting up leaderboards and results for the audience.
+- **[Printables](printables.md)**: Pit passes, driver's licences, and check-in codes you can scan.
 
 ### Network and backups
 
