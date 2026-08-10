@@ -244,7 +244,11 @@ def test_the_adapted_profiles_are_registered():
 
 #: The two honest claims a profile may make. Replaying a recording is real
 #: evidence and stronger than transcription, but it is still not a heat.
-_DISCLAIMERS = ("Never run against this hardware", "Never driven live")
+# The volunteer-voiced spellings of "nobody has run a real heat through this".
+_DISCLAIMERS = (
+    "never been tried with the real device",
+    "No real heat has ever been run through it",
+)
 
 
 def test_no_profile_claims_to_have_been_driven_live():
@@ -268,10 +272,10 @@ def test_the_replayed_ones_say_which_evidence_they_have():
     """A profile checked against real device output should say so — otherwise
     there is no way to tell it from one nobody has looked at."""
     for profile in (DERBY_TIMER, PDT):
-        assert "recorded session" in profile.provenance
+        assert "recording of a real" in profile.provenance
 
     for profile in (NEWBOLD, JIT_RACEMASTER, BERT_DRAKE, THE_JUDGE, CHAMP):
-        assert "Never run against this hardware" in profile.provenance
+        assert "never been tried with the real device" in profile.provenance
 
 
 def test_no_two_profiles_answer_the_same_probe_the_same_way():

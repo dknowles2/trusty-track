@@ -37,16 +37,22 @@ from .base import (
     seconds,
 )
 
+# Shown to the operator on the timer check page and in the model picker, so
+# these are written for a volunteer, not for us: what the support is based on,
+# how far it has been checked, and what would move it forward. The MIT-licensed
+# origin is credited in plain words here and in full at the top of this file.
 _UNTESTED = (
-    "Adapted from DerbyNet's {} profile (MIT, © Jeff Piazza). "
-    "Never run against this hardware by Trusty Track — treat as a starting "
-    "point and report what actually happens."
+    "Support for the {} comes from DerbyNet's notes, with thanks to Jeff "
+    "Piazza. It has never been tried with the real device — treat it as a "
+    "starting point, and a two-minute timer test would tell us how it really "
+    "behaves."
 )
 
 _REPLAYED = (
-    "Adapted from DerbyNet's {} profile (MIT, © Jeff Piazza), and checked "
-    "against a recorded session from the device — {}. Never driven live: no "
-    "heat has been run through it."
+    "Support for the {} comes from DerbyNet's notes, with thanks to Jeff "
+    "Piazza, and has been checked against a recording of a real one — {}. "
+    "No real heat has ever been run through it, though; a two-minute timer "
+    "test would confirm it."
 )
 
 
@@ -122,8 +128,8 @@ DERBY_TIMER = TimerProfile(
     key="derbytimer",
     provenance=_REPLAYED.format(
         "Derby Timer",
-        "its banner, lane count, both gate states, the start signal and "
-        "three results all read correctly",
+        "its start-up message, gate answers, start signal and results all "
+        "read correctly",
     ),
     probe=(b"R",),
     identification=(re.compile(rb"^RESET$"), re.compile(rb"^READY\s*\d+\s+LANES")),

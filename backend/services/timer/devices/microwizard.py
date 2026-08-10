@@ -60,10 +60,11 @@ MICROWIZARD = TimerProfile(
     name="MicroWizard K1/K2/K3",
     key="microwizard",
     provenance=(
-        "Written against the Micro Wizard protocol documentation and DerbyNet's "
-        "FastTrack profile, and checked against a recorded K3 session — its "
-        "banner, its lane masking and a six-lane result with two DNFs all read "
-        "correctly. Never driven live: no heat has been run through it."
+        "Support was written from Micro Wizard's own documentation and "
+        "DerbyNet's notes, and checked against a recording of a real K3 — its "
+        "start-up message and a full set of results, including two cars that "
+        "never finished, all read correctly. No real heat has ever been run "
+        "through it, though; a two-minute timer test would tell us it works."
     ),
     baud_rate=9600,
     delimiter=b"\r",
