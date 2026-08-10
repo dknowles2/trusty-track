@@ -153,6 +153,7 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "releaseStartGate",
         "resetTimer",
         "reconnectTimer",
+        "startTimerTest",
         "fakeTimerStart",
         "fakeTimerFinish",
         # Free race

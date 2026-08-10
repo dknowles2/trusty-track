@@ -46,10 +46,9 @@ seven descriptions are adapted from
 > [!WARNING]
 > **None of these has run a real heat on real hardware yet** — including the
 > Micro Wizard. Recordings are the stronger evidence, but they are not a live
-> run. If you own one of these timers, the
-> [timer check page](#checking-it-works) will tell you in about a minute
-> whether it works, and reporting what it says is the most useful thing you
-> could contribute.
+> run. If you own one of these timers,
+> [testing it and sending us the result](#testing-your-timer-and-telling-us)
+> takes about two minutes and is the most useful thing you could contribute.
 
 Other models are not supported yet. Adding one is a matter of describing its
 serial protocol rather than writing code, so opening an issue with the model
@@ -155,6 +154,29 @@ Then, during a heat:
 ← @                                         gate opened - race started
 ← A=3.452! B=3.501"                         results received
 ```
+
+## Testing your timer and telling us
+
+The timer check page can run your timer through a pretend heat — no race set
+up, nothing recorded anywhere — and then package everything that happened
+into a file you can send us. This is how a timer goes from "described from
+documentation" to "known to work", and it takes about two minutes:
+
+1. On the timer check page, press **Start a test run** under your track.
+2. Do what the page asks: close the start gate, open it, then trip each
+   finish-line sensor by hand — a wave over each lane works.
+3. The times appear as the timer reports them. If a lane never fires, press
+   **Finish with what it has** — a missing lane is worth reporting too.
+4. Press **Download the report**, then **Report a problem**, and attach the
+   downloaded file to the issue that opens.
+
+The report holds the full conversation between Trusty Track and your timer,
+which is exactly what a fix is built from — often it can be turned into a
+permanent test, so the fix stays fixed. It contains nothing about your pack
+or your racers.
+
+If the test looks right, that is worth a word too: "it works" moves a timer
+out of the untested column.
 
 ## When something goes wrong
 

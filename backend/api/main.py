@@ -10,6 +10,7 @@ import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pillow_heif
@@ -26,7 +27,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
@@ -424,6 +425,55 @@ async def restore_backup(
         "app_version": manifest.app_version,
         "upload_count": manifest.upload_count,
     }
+
+
+# Both paths, as with the backup endpoints above: the built frontend asks for
+# `/api/...` and the Vite dev proxy strips the prefix before forwarding.
+@app.get("/timer-test/{track_id}/report")
+@app.get("/api/timer-test/{track_id}/report")
+def timer_test_report(
+    track_id: int, request: Request, db: Session = Depends(get_db)
+) -> JSONResponse:
+    """The timer test report, as a file the operator can attach to an issue (#235).
+
+    One JSON document carrying everything a profile fix needs: the app
+    version, which profile matched and its provenance, the port framing, and
+    the whole timestamped serial conversation — the same kind of evidence as
+    the recordings in ``backend/tests/timer_recordings/``, which is what lets
+    a good report become a regression fixture.
+
+    REST rather than GraphQL because the answer is a download. Operator-only
+    and self-guarding, like the backup endpoints: the role policy covers
+    mutations, and this is neither.
+    """
+    _require_operator(request, db)
+
+    mgr = TIMER_MANAGERS.get(track_id)
+    if mgr is None:
+        raise HTTPException(status_code=404, detail="No timer for that track")
+    track = crud.get_track(db, track_id)
+
+    try:
+        from ..version import __version__ as app_version
+    except ImportError:  # pragma: no cover - version is generated at build time
+        app_version = "unknown"
+
+    report = {
+        "app_version": app_version,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "track": {
+            "id": track_id,
+            "name": track.name if track else None,
+            "lane_count": track.lane_count if track else None,
+            "timer_type": track.timer_type.value if track else None,
+        },
+        **mgr.test_report(),
+    }
+    filename = f"trusty-track-timer-report-track-{track_id}.json"
+    return JSONResponse(
+        report,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # Mount static assets if the built frontend exists

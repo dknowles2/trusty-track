@@ -10,13 +10,14 @@
  * This is that question on its own page. It adds no capability the backend did
  * not already have; it makes the capability reachable.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useSubscription, useMutation } from 'urql';
 import { gql } from 'urql';
 import { buildDisplayLines } from '../../racing/serialLog';
 import type { SerialLogEntry } from '../../racing/serialLog';
 import { useAlert } from '../../../context/AlertContext';
+import { fetchTimerReport, issueUrl, testInstruction } from '../timerTest';
 
 const DIAGNOSTIC_TRACKS = gql`
   query DiagnosticTracks {
@@ -41,6 +42,12 @@ const DIAGNOSTIC_TIMER_STATUS = gql`
         port
         laneCount
         lastError
+        testRun
+        pendingResults {
+          lane
+          time
+          place
+        }
         serialLog {
           direction
           data
@@ -60,6 +67,18 @@ const DIAGNOSTIC_RECONNECT = gql`
 const DIAGNOSTIC_RESET = gql`
   mutation DiagnosticResetTimer($trackId: Int!) {
     resetTimer(trackId: $trackId)
+  }
+`;
+
+const DIAGNOSTIC_START_TEST = gql`
+  mutation DiagnosticStartTimerTest($trackId: Int!) {
+    startTimerTest(trackId: $trackId)
+  }
+`;
+
+const DIAGNOSTIC_FORCE_RESULTS = gql`
+  mutation DiagnosticForceResults($trackId: Int!) {
+    forceResults(trackId: $trackId)
   }
 `;
 
@@ -144,6 +163,176 @@ function renderData(data: string): React.ReactNode {
         return <span key={i}>{part}</span>;
     });
 }
+
+interface PendingResult {
+    lane: number;
+    time: number | null;
+    place: number | null;
+}
+
+/**
+ * The bench test (#235): arm every lane with no heat behind it, let the owner
+ * work the gate and sensors by hand, and turn what happened into a report we
+ * can fix a profile from. Results shown here are recorded nowhere.
+ */
+const TimerTestPanel: React.FC<{
+    trackId: number;
+    state: string;
+    testRun: boolean;
+    deviceName: string | null;
+    lastError: string | null;
+    pendingResults: PendingResult[];
+}> = ({ trackId, state, testRun, deviceName, lastError, pendingResults }) => {
+    const { showAlert } = useAlert();
+    const [, startTest] = useMutation(DIAGNOSTIC_START_TEST);
+    const [, forceResults] = useMutation(DIAGNOSTIC_FORCE_RESULTS);
+    const [downloading, setDownloading] = useState(false);
+
+    const testActive = testRun && state !== 'IDLE';
+    const testFinished = testRun && state === 'IDLE';
+    const instruction = testRun ? testInstruction(state) : null;
+    const busyWithARealHeat =
+        !testRun && ['ARMED', 'READY', 'RUNNING'].includes(state);
+
+    const handleStart = async () => {
+        const outcome = await startTest({ trackId });
+        if (outcome.error || outcome.data?.startTimerTest === false) {
+            showAlert(
+                outcome.error?.message ??
+                    'The test could not start — is a real heat armed?',
+                'Error',
+            );
+        }
+    };
+
+    const handleDownload = async () => {
+        setDownloading(true);
+        try {
+            const { url, filename } = await fetchTimerReport(trackId);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = filename;
+            anchor.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            showAlert(
+                error instanceof Error ? error.message : 'The download failed.',
+                'Error',
+            );
+        } finally {
+            setDownloading(false);
+        }
+    };
+
+    return (
+        <div
+            data-testid={`timer-test-panel-${trackId}`}
+            style={{
+                border: '1px solid #e0e0e0',
+                borderRadius: '8px',
+                padding: '0.75rem 1rem',
+                margin: '0 0 0.75rem',
+            }}
+        >
+            <h3 style={{ fontSize: '0.95rem', margin: '0 0 0.4rem' }}>Test this timer</h3>
+            <p style={{ color: '#555', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
+                Runs the timer through a pretend heat — no race needed, and nothing is
+                recorded. You work the gate and trip the finish sensors by hand; the
+                report you can download afterwards is what a fix gets built from.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button
+                    type="button"
+                    data-testid={`start-timer-test-${trackId}`}
+                    onClick={handleStart}
+                    disabled={testActive || busyWithARealHeat}
+                    title={busyWithARealHeat ? 'A real heat is armed — finish it first.' : undefined}
+                >
+                    {testFinished ? 'Run it again' : 'Start a test run'}
+                </button>
+                {testActive && state === 'RUNNING' && (
+                    <button type="button" onClick={() => forceResults({ trackId })}>
+                        Finish with what it has
+                    </button>
+                )}
+                {(testFinished || testActive) && (
+                    <button
+                        type="button"
+                        data-testid={`download-timer-report-${trackId}`}
+                        onClick={handleDownload}
+                        disabled={downloading}
+                    >
+                        {downloading ? 'Preparing…' : 'Download the report'}
+                    </button>
+                )}
+                {testFinished && (
+                    <a
+                        href={issueUrl({
+                            deviceName,
+                            state,
+                            lastError,
+                            resultsSeen: pendingResults.length > 0,
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ alignSelf: 'center', fontSize: '0.9rem' }}
+                    >
+                        Report a problem
+                    </a>
+                )}
+            </div>
+
+            {instruction && (
+                <p
+                    data-testid={`timer-test-instruction-${trackId}`}
+                    style={{
+                        background: '#e3f2fd',
+                        border: '1px solid #90caf9',
+                        borderRadius: '8px',
+                        padding: '0.5rem 0.75rem',
+                        margin: '0.6rem 0 0',
+                        fontSize: '0.9rem',
+                    }}
+                >
+                    {instruction}
+                </p>
+            )}
+
+            {testRun && pendingResults.length > 0 && (
+                <table style={{ marginTop: '0.6rem', fontSize: '0.9rem', borderCollapse: 'collapse' }}>
+                    <thead>
+                        <tr>
+                            <th style={{ textAlign: 'left', paddingRight: '1rem' }}>Lane</th>
+                            <th style={{ textAlign: 'left', paddingRight: '1rem' }}>Time</th>
+                            <th style={{ textAlign: 'left' }}>Place</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {[...pendingResults]
+                            .sort((a, b) => a.lane - b.lane)
+                            .map((r) => (
+                                <tr key={r.lane}>
+                                    <td style={{ paddingRight: '1rem' }}>{r.lane}</td>
+                                    <td style={{ paddingRight: '1rem', fontFamily: MONO }}>
+                                        {r.time != null ? `${r.time.toFixed(3)}s` : '—'}
+                                    </td>
+                                    <td>{r.place ?? '—'}</td>
+                                </tr>
+                            ))}
+                    </tbody>
+                </table>
+            )}
+            {testFinished && (
+                <p style={{ color: '#2e7d32', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+                    Test finished. If anything above looks wrong — times missing, lanes
+                    swapped, nothing at all — download the report and use{' '}
+                    <strong>Report a problem</strong> to send it to us.
+                </p>
+            )}
+        </div>
+    );
+};
 
 const TrackTimer: React.FC<{ track: Track }> = ({ track }) => {
     const { showAlert } = useAlert();
@@ -282,6 +471,17 @@ const TrackTimer: React.FC<{ track: Track }> = ({ track }) => {
                         Reset
                     </button>
                 </div>
+            )}
+
+            {!isFake && (
+                <TimerTestPanel
+                    trackId={track.id}
+                    state={state}
+                    testRun={status?.testRun ?? false}
+                    deviceName={status?.deviceName ?? null}
+                    lastError={status?.lastError ?? null}
+                    pendingResults={status?.pendingResults ?? []}
+                />
             )}
 
             {isFake ? (

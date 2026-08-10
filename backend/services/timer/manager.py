@@ -117,6 +117,8 @@ class TimerStatus:
     pending_results: list[dict[str, Any]] = field(default_factory=list)
     serial_log: list[SerialLogEntry] = field(default_factory=list)
     racer_by_lane: dict[int, int | None] = field(default_factory=dict)
+    #: The armed (or just-finished) run is a bench exercise, not a heat (#235).
+    test_run: bool = False
 
 
 SessionFactory = Callable[[], Session]
@@ -144,6 +146,9 @@ class TimerManager:
         self._buf: bytes = b""
         self._active_heat_id: int | None = None
         self._active_heat_kind: models.HeatKind | None = None
+        #: A bench exercise rather than a heat (#235): armed with no heat id,
+        #: and its results are shown but never written anywhere.
+        self._test_run = False
         self._lane_mask: int = 0
         self._pending_results: dict[int, LaneResult] = {}
         self._racer_by_lane: dict[int, int | None] = {}
@@ -288,7 +293,44 @@ class TimerManager:
             pending_results=pending,
             serial_log=list(self._serial_log),
             racer_by_lane=self._racer_by_lane,
+            test_run=self._test_run,
         )
+
+    def test_report(self) -> dict[str, Any]:
+        """Everything a profile fix needs, as one plain dict (#235).
+
+        The serial log is the payload — it is the same kind of evidence as
+        the recordings in ``backend/tests/timer_recordings/``, so a good
+        report can become a regression fixture almost verbatim. The rest is
+        the context that stops a report being a guessing game: which profile
+        matched, what the port was opened at, and what the device claimed
+        about itself.
+        """
+        status = self.status()
+        return {
+            "timer": {
+                "profile_key": self._device.key,
+                "profile_name": self._device.name,
+                "provenance": self._device.provenance or None,
+                "port": self._direct_port,
+                "baud_rate": self._device.baud_rate,
+                "data_bits": self._device.data_bits,
+                "stop_bits": self._device.stop_bits,
+                "parity": self._device.parity,
+                "reported_lane_count": self._reported_lane_count,
+            },
+            "state": status.state,
+            "last_error": status.last_error,
+            "pending_results": status.pending_results,
+            "serial_log": [
+                {
+                    "direction": entry.direction,
+                    "data": entry.data,
+                    "timestamp": entry.timestamp,
+                }
+                for entry in status.serial_log
+            ],
+        }
 
     # ------------------------------------------------------------------ #
     # Race control                                                         #
@@ -299,6 +341,7 @@ class TimerManager:
         async with self._event_lock:
             self._active_heat_id = None
             self._active_heat_kind = None
+            self._test_run = False
             self._buf = b""
             self._schedule_idle_flush()
             self._pending_results = {}
@@ -322,6 +365,7 @@ class TimerManager:
         async with self._event_lock:
             self._active_heat_id = heat_id
             self._active_heat_kind = kind
+            self._test_run = False
             self._lane_mask = lane_mask
             self._pending_results = {}
             self._racer_by_lane = racer_by_lane or {}
@@ -332,11 +376,51 @@ class TimerManager:
             await self._transition(TimerState.ARMED)
             self._start_gate_polling()
 
+    async def prepare_test_heat(self, lane_count: int) -> None:
+        """Arm the timer for a bench exercise: every lane, no heat (#235).
+
+        Exactly the arming a real heat gets — the same commands go to the
+        device, so what the report captures is what a race would see — but
+        with no heat behind it, because on a bench there is no race, no
+        roster and no round to hang one on. The results stay in the status
+        for the operator (and the report) and are written nowhere.
+        """
+        async with self._event_lock:
+            self._active_heat_id = None
+            self._active_heat_kind = None
+            self._test_run = True
+            self._lane_mask = (1 << lane_count) - 1
+            self._pending_results = {}
+            self._racer_by_lane = {}
+            self._gate.reset(closed=False)
+            await self._send_commands(
+                self._device.prepare_heat_commands(self._lane_mask)
+            )
+            await self._transition(TimerState.ARMED)
+            self._start_gate_polling()
+
+    async def _finish_test_run(self) -> None:
+        """A test run's finish: keep the times on screen, write nothing.
+
+        ``_test_run`` stays set — it is what tells the diagnostics page (and
+        the report) that the results now sitting in the status are a bench
+        exercise. Arming a real heat, aborting or resetting clears it.
+        """
+        logger.info(
+            "Timer %d: test run finished with %d results — not recorded",
+            self._track_id,
+            len(self._pending_results),
+        )
+        self._running_since = None
+        self._stop_gate_polling()
+        await self._transition(TimerState.IDLE)
+
     async def abort_heat(self) -> None:
         """Abort the current heat. Sends device reset commands and returns to IDLE."""
         async with self._event_lock:
             self._active_heat_id = None
             self._active_heat_kind = None
+            self._test_run = False
             self._pending_results = {}
             self._racer_by_lane = {}
             await self._send_commands(self._device.abort_commands())
@@ -376,7 +460,13 @@ class TimerManager:
     async def force_record(self) -> None:
         """Force recording of whatever results have been collected so far."""
         async with self._event_lock:
-            if self._active_heat_id is not None:
+            if self._test_run and self._state is not TimerState.IDLE:
+                # A partial answer is still an answer for a bench test — a
+                # lane whose sensor never fires is exactly what the report
+                # exists to show.
+                logger.info("Timer %d: force_record on a test run", self._track_id)
+                await self._finish_test_run()
+            elif self._active_heat_id is not None:
                 logger.info("Timer %d: force_record called", self._track_id)
                 await self._record_results()
 
@@ -753,7 +843,10 @@ class TimerManager:
                 i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
             }
             if expected_lanes and expected_lanes.issubset(self._pending_results.keys()):
-                await self._record_results()
+                if self._test_run:
+                    await self._finish_test_run()
+                else:
+                    await self._record_results()
 
         elif isinstance(event, LaneCount):
             if event.lanes != self._reported_lane_count:

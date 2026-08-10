@@ -293,6 +293,7 @@ type Mutation {
   reconnectTimer(trackId: Int!): Boolean!
   abortHeat(trackId: Int!): Boolean!
   forceResults(trackId: Int!): Boolean!
+  startTimerTest(trackId: Int!): Boolean!
   releaseStartGate(trackId: Int!): String
   fakeTimerStart(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
   prepareHeat(heatId: Int!, isFreeRace: Boolean! = false): Boolean!
@@ -553,6 +554,7 @@ type TimerStatus {
   pendingResults: [LaneResult!]!
   serialLog: [SerialLogEntry!]!
   racerByLane: String
+  testRun: Boolean!
 }
 
 type TimesPerLane {

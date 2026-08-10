@@ -1175,6 +1175,9 @@ class TimerStatus:
     pending_results: list[LaneResult] = strawberry.field(default_factory=list)
     serial_log: list[SerialLogEntry] = strawberry.field(default_factory=list)
     racer_by_lane: str | None = None  # JSON mapping of lane -> racer_id
+    #: The armed (or just-finished) run is a bench exercise, not a heat
+    #: (#235) — the diagnostics page shows its results as a test's.
+    test_run: bool = False
 
 
 #: The domain's phase enum, published as-is. Wrapped from here rather than
@@ -1477,6 +1480,7 @@ def _timer_status(s) -> TimerStatus:
             for e in s.serial_log
         ],
         racer_by_lane=json.dumps(s.racer_by_lane) if s.racer_by_lane else None,
+        test_run=s.test_run,
     )
 
 
@@ -2519,6 +2523,35 @@ class Mutation:
         # 2. Force manager to record what it has
         await mgr.force_record()
 
+        return True
+
+    @strawberry.mutation
+    async def start_timer_test(self, info: Info, track_id: int) -> bool:
+        """Arm the timer for a bench exercise: every lane, no heat (#235).
+
+        The device gets exactly the commands a real heat would send, so what
+        the test exercises is what race day exercises — but there is no heat
+        behind it, nothing is recorded anywhere, and no race needs to exist.
+        The operator opens the gate by hand and trips the finish sensors; the
+        results land in ``timerStatus.pendingResults`` with ``testRun`` set,
+        and the report endpoint packages the whole conversation.
+
+        Refused while a real heat is armed or running: a bench test must not
+        disarm race day.
+        """
+        db = info.context["db"]
+        timer_managers = info.context.get("timer_managers", {})
+        mgr = timer_managers.get(track_id)
+        if mgr is None:
+            return False
+        busy = mgr._state in (TimerState.ARMED, TimerState.READY, TimerState.RUNNING)
+        if busy and not mgr.status().test_run:
+            return False
+
+        track = crud.get_track(db, track_id)
+        if track is None:
+            return False
+        await mgr.prepare_test_heat(track.lane_count)
         return True
 
     @strawberry.mutation

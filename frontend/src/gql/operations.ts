@@ -643,7 +643,7 @@ export type DiagnosticTimerStatusSubscriptionVariables = Exact<{
 }>;
 
 
-export type DiagnosticTimerStatusSubscription = { timerStatus: { trackId: number, status: { state: string, deviceName: string | null, deviceProvenance: string | null, port: string | null, laneCount: number | null, lastError: string | null, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
+export type DiagnosticTimerStatusSubscription = { timerStatus: { trackId: number, status: { state: string, deviceName: string | null, deviceProvenance: string | null, port: string | null, laneCount: number | null, lastError: string | null, testRun: boolean, pendingResults: Array<{ lane: number, time: number | null, place: number | null }>, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
 
 export type DiagnosticReconnectTimerMutationVariables = Exact<{
   trackId: number;
@@ -658,6 +658,20 @@ export type DiagnosticResetTimerMutationVariables = Exact<{
 
 
 export type DiagnosticResetTimerMutation = { resetTimer: boolean };
+
+export type DiagnosticStartTimerTestMutationVariables = Exact<{
+  trackId: number;
+}>;
+
+
+export type DiagnosticStartTimerTestMutation = { startTimerTest: boolean };
+
+export type DiagnosticForceResultsMutationVariables = Exact<{
+  trackId: number;
+}>;
+
+
+export type DiagnosticForceResultsMutation = { forceResults: boolean };
 
 export type GetRaceStatsQueryVariables = Exact<{
   raceId: number;

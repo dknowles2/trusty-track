@@ -167,7 +167,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Audience displays: `assignDisplay`, `renameDisplay`, `forgetDisplay` (operator-only — a display is a `VIEWER` and is *told*, never asks) (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)
 -   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
--   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `fakeTimerStart`, `fakeTimerFinish`
+-   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 -   Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 -   Config: `createInitialConfig`, `updateInitialConfig`
 -   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data), `createPracticeRace` (a whole rehearsal event on a fake timer)
@@ -178,6 +178,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `GET /printables/barcode/{racer_id}.png` and `GET /api/printables/barcode/{racer_id}.png` — the check-in QR code. Registered at both paths because the Vite dev proxy strips the `/api` prefix; the payload is `TT1:<race_id>:<racer_id>`.
 -   `GET /backup` and `GET /api/backup` — the whole install as one zip: a SQLite snapshot, the uploads directory, and a manifest recording the schema revision. Operator-only.
 -   `POST /backup/restore` and `POST /api/backup/restore` — replaces the database and uploads with an archive's copies. Operator-only. Refuses an archive whose schema revision this install has no migrations for, and validates everything before it moves anything.
+-   `GET /timer-test/{track_id}/report` and `GET /api/timer-test/{track_id}/report` — the timer test report as a JSON download: app version, matched profile and provenance, port framing, and the full timestamped serial conversation. Operator-only, self-guarding like the backup endpoints. The serial capture is the same kind of evidence as `backend/tests/timer_recordings/`, which is what lets a user's report become a regression fixture (#235).
 
 Both backup routes are registered at the two prefixes for the same reason the
 barcode is. They are REST rather than GraphQL because one direction is a binary
