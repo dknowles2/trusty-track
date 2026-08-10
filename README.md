@@ -49,6 +49,8 @@ For the full documentation and user guides, visit: **[https://dknowles2.github.i
 | [Awards](https://dknowles2.github.io/trusty-track/awards/)                             | Speed trophies, and the judged ones the timer cannot decide       |
 | [Printables](https://dknowles2.github.io/trusty-track/printables/)                     | Pit passes, driver's licences, and scannable check-in codes       |
 | [Free Race](https://dknowles2.github.io/trusty-track/free-race/)                       | Practice and exhibition heats that count for nothing              |
+| [Hardware Timer](https://dknowles2.github.io/trusty-track/hardware-timer/)             | Connecting an electronic finish line, checking it works, and sending us a test report |
+| [Fake Timer](https://dknowles2.github.io/trusty-track/fake-timer/)                      | Running the whole thing without a track, for practice             |
 | [Observation Displays](https://dknowles2.github.io/trusty-track/observation-displays/) | Setting up audience screens and projectors                        |
 | [Race Stats](https://dknowles2.github.io/trusty-track/race-stats/)                     | Lane fairness, per-racer numbers, and CSV exports                 |
 | [Access and Your Network](https://dknowles2.github.io/trusty-track/access-and-network/) | PINs, which network to use, what a display may do, and the activity log |
