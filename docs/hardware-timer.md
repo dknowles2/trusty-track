@@ -58,6 +58,9 @@ name and its protocol documentation is genuinely useful.
 
 Both are chosen per track in **System Settings**, under **Timer Type**.
 
+![A track's timer settings: the connection under Timer Type, the model picker beneath it, and the remote start gate setting at the bottom](assets/screenshots/timers/01-timer-settings.png)
+_Everything about a track's timer lives on the track's own card in System Settings: how it connects, which model it is, and whether a remote start gate is fitted._
+
 ### Plugged into the server
 
 **Auto-Detect (Backend Connected).** The timer's USB cable goes into the
@@ -97,6 +100,9 @@ falling back to assuming a Micro Wizard.
 This page shows every track's timer live: what state it is in, which device
 answered, which port it was found on, and the raw conversation between the
 server and the timer. You do not need a race set up to use it.
+
+![The timer check page with a healthy timer: Ready in green, the identified device, its provenance note, the test panel, and the serial traffic beneath](assets/screenshots/timers/02-timer-check-ready.png)
+_A healthy timer: **Ready**, the device it identified itself as, and — in the yellow note — how well that device's support has actually been tested._
 
 | What you see | What it means |
 | --- | --- |
@@ -162,6 +168,9 @@ up, nothing recorded anywhere — and then package everything that happened
 into a file you can send us. This is how a timer goes from "described from
 documentation" to "known to work", and it takes about two minutes:
 
+![The test panel mid-run, showing the instruction to close the start gate](assets/screenshots/timers/03-test-run-armed.png)
+_The test walks you through it one step at a time — here it is waiting for a hand on the gate._
+
 1. On the timer check page, press **Start a test run** under your track.
 2. Do what the page asks: close the start gate, open it, then trip each
    finish-line sensor by hand — a wave over each lane works.
@@ -169,6 +178,9 @@ documentation" to "known to work", and it takes about two minutes:
    **Finish with what it has** — a missing lane is worth reporting too.
 4. Press **Download the report**, then **Report a problem**, and attach the
    downloaded file to the issue that opens.
+
+![A finished test: a time and place for each lane, with Download the report and Report a problem alongside](assets/screenshots/timers/04-test-run-results.png)
+_A finished test. If the times match what the timer's own display showed, it works; either way, the report is the thing to send._
 
 The report holds the full conversation between Trusty Track and your timer,
 which is exactly what a fix is built from — often it can be turned into a
