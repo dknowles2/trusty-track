@@ -1,66 +1,64 @@
 # Connecting a Hardware Timer
 
 Trusty Track can read finish times directly from an electronic finish line, so
-nobody has to watch the lanes and write times down. This page covers plugging
-one in and checking it works — ideally the week before the derby, not ten
-minutes before the first heat.
+nobody has to watch the lanes and write times down.
 
 If you have no timer, or you want to try the software first, use the
 [Fake Timer](fake-timer.md) instead.
 
-## What is supported
+> [!TIP]
+> Do this the week before the derby, not ten minutes before the first heat.
+> The whole page below exists so that a problem surfaces on your bench, with
+> time to fix it, rather than at the track with a queue behind the gate.
 
-**Micro Wizard K1, K2 and K3** — sold as the FastTrack K-series. This is the
-timer Trusty Track has been built against.
+## The short version
 
-Seven more are described, adapted from
-[DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions: the Derby
-Timer, Bert Drake, PDT, The Judge, "The Champ" (SmartLine/BestTrack), the JIT
-Racemaster, and the NewBold DT/TURBO/DerbyStick family. Six of the seven answer
-an identifying question, so the server can find them on its own. The NewBold
-family does not answer one, so it has to be picked by hand — see **Choosing the
-model yourself** below.
+For most people, connecting a timer is four steps:
 
-## Choosing the model yourself
+1. Plug the timer's USB cable into the machine running Trusty Track.
+2. In **System Settings**, set the track's **Timer Type** to
+   **Auto-Detect (Backend Connected)**. Leave **Serial Port** blank.
+3. Open **System Settings → Check the timer connection**.
+4. When it says **Ready**, you are done.
 
-Leave **Timer Model** on *Detect automatically* and the server asks each timer
-it knows about who it is, which is the right answer for six of the seven. Pick
-a model when:
+Everything else on this page is for when that did not work, or your setup is
+different: the timer plugs into your laptop instead of the server, your model
+has to be picked by hand, your track has a remote-controlled start gate, or a
+lane dies on the morning of the event.
 
-- **Yours is not found.** The NewBold DT/TURBO/DerbyStick family answers no
-  identifying question, so it can only be reached this way — the picker marks
-  it *must be chosen*. It also runs at 1200 baud with 7 data bits and 2 stop
-  bits, and naming it is what gets the port opened that way; detection's
-  fallback assumes the usual 9600 8-N-1 and would read noise.
-- **You would rather it did not ask.** Detection writes a probe command to
-  every port it tries. That is harmless as far as anyone knows, but an operator
-  who already knows what they have has no reason to allow it.
+## Which timers work
 
-Naming a model does not pin the port. With the serial port left blank the
-server still looks for the timer — it just looks for *that* timer, rather than
-trying seven models' probe commands on your hardware.
+| Timer | Found automatically? | How well tested |
+| --- | --- | --- |
+| **Micro Wizard K1 / K2 / K3** (FastTrack) | Yes | Checked against recordings of a real device |
+| Derby Timer | Yes | Checked against recordings of a real device |
+| PDT | Yes | Checked against recordings of a real device |
+| Bert Drake | Yes | Protocol documentation only |
+| The Judge | Yes | Protocol documentation only |
+| "The Champ" (SmartLine / BestTrack) | Yes | Protocol documentation only |
+| JIT Racemaster | Yes | Protocol documentation only |
+| NewBold DT / TURBO / DerbyStick | **No — pick it by hand** | Protocol documentation only |
 
-The setting sits under **Timer Type**, and only appears once you have chosen
-something other than the fake timer, because a fake timer has no model.
+The Micro Wizard is the timer Trusty Track has been built against. The other
+seven descriptions are adapted from
+[DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions.
 
-**No heat has ever been run through any of them**, including the Micro Wizard.
-Three — the Micro Wizard, the Derby Timer and the PDT — have been checked
-against recordings of what those devices genuinely said, which is real evidence
-and caught a real bug: our Micro Wizard description could not identify a K3,
-because that firmware writes `Serial Number 15985` with a space. Auto-detection
-would simply have failed on the hardware.
+> [!WARNING]
+> **No heat has ever been run through any of these on real hardware**,
+> including the Micro Wizard. "Checked against recordings" is real evidence —
+> it caught that our Micro Wizard description could not identify a K3, because
+> that firmware writes `Serial Number 15985` with a space — but it is not the
+> same as a live run. "Protocol documentation only" means exactly that, and a
+> description that is one character wrong fails by silently never matching.
+> The [timer check page](#checking-it-works) shows which kind of evidence
+> backs whichever device answers.
+>
+> If you have one of these on a bench, that page will tell you in about a
+> minute whether it works — and that report is worth more than anything else
+> you could contribute right now.
 
-The rest have only been read against protocol documentation. The timer check
-page says which is which for whichever device answers. This is the honest state
-of things rather than false modesty: a description that is one character wrong
-fails by silently never matching.
-
-If you have one of these on a bench, the timer check page below will tell you
-in about a minute whether it works, and that report is worth more than anything
-else you could contribute right now.
-
-Other models are not supported. Adding one is a matter of describing its serial
-protocol rather than writing code for it, so opening an issue with the model
+Other models are not supported yet. Adding one is a matter of describing its
+serial protocol rather than writing code, so opening an issue with the model
 name and its protocol documentation is genuinely useful.
 
 ## Two ways to connect
@@ -70,7 +68,9 @@ Both are chosen per track in **System Settings**, under **Timer Type**.
 ### Plugged into the server
 
 **Auto-Detect (Backend Connected).** The timer's USB cable goes into the
-machine running Trusty Track — typically the Raspberry Pi at the venue.
+machine running Trusty Track — typically the Raspberry Pi at the venue. This
+is the setup to prefer when you have the choice: nothing depends on which
+laptop is open or which browser it runs.
 
 Leave **Serial Port** blank. When the server starts it looks at each USB port
 in turn, asks whatever is there to identify itself, and connects to the one
@@ -87,40 +87,15 @@ probed.
 operating from, and the browser passes the data through to the server. Nothing
 extra to install.
 
-This uses the browser's Web Serial support, so it needs **Chrome or Edge** —
-Safari and Firefox do not have it. The browser will ask you to pick the serial
-port the first time.
+> [!NOTE]
+> This uses the browser's Web Serial support, so it needs **Chrome or Edge** —
+> Safari and Firefox do not have it.
 
-This mode identifies the timer for itself as well. Once you have picked the
-port, the server asks whatever is on it to identify itself, exactly as it does
-for a timer plugged into the server — so you do not have to tell it which model
-you have. If nothing recognisable answers, it takes about ten seconds to work
-through the models it knows before falling back to assuming a MicroWizard.
-
-## Launching a heat from the screen
-
-Some tracks have a solenoid fitted to the start gate, wired to the timer. Where
-that is the case, an armed heat can be launched from the race screen instead of
-by somebody standing at the track.
-
-Nothing in a timer's protocol says whether the solenoid is there, so it is a
-setting: **System Settings → the track → This track has a remote start gate**.
-Tick it only if the hardware is actually fitted. On a Micro Wizard the gate
-release is a separately-sold accessory, and the timer accepts the command and
-does nothing without it.
-
-Two things have to be true before the button appears, and the setting is only
-one of them: the timer model also has to have a command for opening the gate.
-The Micro Wizard and the PDT do; the other six have no such command described,
-so ticking the box will not give you the button.
-
-Where both hold, a **Release Start Gate** button appears on the timer panel
-once a heat is armed — and only then. Releasing the gate with no heat armed
-sends cars down a track nothing is timing, and those runs cannot be recovered.
-
-**This has not been tested against hardware.** No profile here has, but this is
-the only part that moves something physical, so it is worth saying twice. Try
-it with an empty track before you try it with a queue.
+The browser asks you to pick the serial port the first time. After that, the
+server identifies the timer exactly as it does when plugged in directly, so
+you do not have to tell it which model you have. If nothing recognisable
+answers, it takes about ten seconds to work through the models it knows before
+falling back to assuming a Micro Wizard.
 
 ## Checking it works
 
@@ -130,8 +105,6 @@ This page shows every track's timer live: what state it is in, which device
 answered, which port it was found on, and the raw conversation between the
 server and the timer. You do not need a race set up to use it.
 
-What the states mean:
-
 | What you see | What it means |
 | --- | --- |
 | **Ready** | The timer answered and is waiting for a heat. This is what you want. |
@@ -140,13 +113,20 @@ What the states mean:
 | **Armed** | Lanes are set and the timer is waiting for the start gate. |
 | **Staged** | The start gate is closed with cars behind it. |
 | **Racing** | The gate opened and the timer is counting. |
-| **Results overdue** | The race started but no finish was reported. See below. |
+| **Results overdue** | The race started but no finish was reported. See [below](#when-something-goes-wrong). |
 | **Fault** | The connection failed. The reason is shown on the page. |
 
 ### Reading the serial traffic
 
-The log on that page shows every byte in both directions, annotated. A healthy
-start-up looks roughly like this:
+The log on that page shows every byte in both directions, annotated. You only
+need it when something is wrong — the two rules of thumb:
+
+- Commands going out (`→`) and nothing coming back (`←`): the cable or the
+  port is wrong.
+- Traffic that never becomes results: the log is the thing to attach to a bug
+  report.
+
+A healthy start-up looks roughly like this:
 
 ```
 → N1                                        enable new-format results
@@ -155,11 +135,11 @@ start-up looks roughly like this:
 ← *                                         command acknowledged
 ```
 
-Those two commands go out the moment the connection opens, which is why the log
-usually starts there. If the server found the timer by searching the USB ports,
-the timer announced itself during that search, before this log began — so the
-question and the answer are not in it. If instead you entered a serial port by
-hand, there was no search, and the server asks every few seconds until
+Those two commands go out the moment the connection opens, which is why the
+log usually starts there. If the server found the timer by searching the USB
+ports, the timer announced itself during that search, before this log began —
+so the question and the answer are not in it. If instead you entered a serial
+port by hand, there was no search, and the server asks every few seconds until
 something answers:
 
 ```
@@ -178,15 +158,11 @@ Then, during a heat:
 ← A=3.452! B=3.501"                         results received
 ```
 
-If you see commands going out (`→`) and nothing coming back, the cable or the
-port is wrong. If you see traffic that never becomes results, the log is the
-thing to attach to a bug report.
-
 ## When something goes wrong
 
-**Nothing is found.** The page will say which ports it tried. Only USB ports
-are searched — a timer on a built-in serial port has to have its path entered
-by hand.
+**Nothing is found.** The timer check page says which ports it tried. Only USB
+ports are searched — a timer on a built-in serial port has to have its path
+entered by hand.
 
 **"Results overdue".** The gate opened and the timer never reported a finish.
 The Micro Wizard gives up roughly ten seconds after the gate opens, so this
@@ -198,9 +174,57 @@ it has, then enter anything missing by hand.
 numbering: lane 1 in Trusty Track must be the lane the timer calls `A`.
 
 **A heat was armed and then the schedule changed.** The timer disarms itself
-and says so rather than recording times against a field that has moved. Re-arm
-the heat and run it again.
+and says so, rather than recording times against a field that has moved.
+Re-arm the heat and run it again.
 
+## Choosing the model yourself
+
+Most people never touch this. Leave **Timer Model** on *Detect automatically*
+and the server asks each timer it knows about who it is, which works for seven
+of the eight models. Pick one yourself when:
+
+- **Yours is the NewBold family.** It answers no identifying question, so it
+  can only be reached this way — the picker marks it *must be chosen*. It also
+  runs at 1200 baud with 7 data bits and 2 stop bits, and naming it is what
+  gets the port opened that way; detection's fallback assumes the usual
+  9600 8-N-1 and would read noise.
+- **You would rather it did not ask.** Detection writes a probe command to
+  every port it tries. That is harmless as far as anyone knows, but an
+  operator who already knows what they have has no reason to allow it.
+
+Naming a model does not pin the port. With the serial port left blank the
+server still looks for the timer — it just looks for *that* timer, rather
+than trying every model's probe commands on your hardware.
+
+The setting sits under **Timer Type**, and only appears once you have chosen
+something other than the fake timer, because a fake timer has no model.
+
+## Launching a heat from the screen
+
+Some tracks have a solenoid fitted to the start gate, wired to the timer.
+Where that is the case, an armed heat can be launched from the race screen
+instead of by somebody standing at the track.
+
+Two things have to be true before the button appears:
+
+1. **The track has the hardware.** Nothing in a timer's protocol says whether
+   the solenoid is there, so it is a setting: **System Settings → the track →
+   This track has a remote start gate**. Tick it only if the hardware is
+   actually fitted — on a Micro Wizard the gate release is a separately-sold
+   accessory, and the timer accepts the command and does nothing without it.
+2. **The timer model has a command for opening the gate.** The Micro Wizard
+   and the PDT do; the other six have no such command described, so ticking
+   the box will not give you the button.
+
+Where both hold, a **Release Start Gate** button appears on the timer panel
+once a heat is armed — and only then. Releasing the gate with no heat armed
+sends cars down a track nothing is timing, and those runs cannot be recovered.
+
+> [!WARNING]
+> **This has not been tested against hardware.** No timer description here
+> has, but this is the only part that moves something physical, so it is
+> worth saying twice. Try it with an empty track before you try it with a
+> queue.
 
 ## If a lane stops working
 
@@ -208,11 +232,18 @@ A sensor fails, a connector comes loose, and one lane of the track stops
 reporting. It happens, usually on the morning of the event.
 
 **Settings → Tracks → Lanes in service.** Untick the lane on the track it
-belongs to, and every round you generate from then on is scheduled around it — the remaining lanes are used,
-everybody still races the same number of times, and the heats name the lanes
-that actually exist rather than renumbering them.
+belongs to, and every round you generate from then on is scheduled around it:
+the remaining lanes are used, everybody still races the same number of times,
+and the heats name the lanes that actually exist rather than renumbering them.
 
 ![Lane 3 out of service, inside the track's own card](assets/screenshots/settings/01-lanes-in-service.png)
+
+Unlike the rest of the track's settings, this applies as soon as you click it
+rather than when you press **Save Settings** — a lane going out of service is
+something that happens to you mid-event, not something you plan.
+
+Tick the lane again when it is fixed, and the next round uses it. A track with
+no working lanes generates no schedule at all, and the settings page says so.
 
 ### What happens to the round you are in the middle of
 
@@ -236,12 +267,3 @@ fewer time than everybody else.
   Trusty Track leaves that round out of the standings and says so on the
   standings page. The round still runs and you can still look at its results;
   it just does not decide the trophies.
-
-Unlike the rest of the track's settings, this applies as soon as you click it
-rather than when you press **Save Settings** — a lane going out of service is
-something that happens to you mid-event, not something you plan.
-
-Tick the lane again when it is fixed, and the next round uses it.
-
-A track with no working lanes generates no schedule at all, and the settings
-page says so.
