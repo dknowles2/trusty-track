@@ -44,18 +44,12 @@ seven descriptions are adapted from
 [DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions.
 
 > [!WARNING]
-> **No heat has ever been run through any of these on real hardware**,
-> including the Micro Wizard. "Checked against recordings" is real evidence —
-> it caught that our Micro Wizard description could not identify a K3, because
-> that firmware writes `Serial Number 15985` with a space — but it is not the
-> same as a live run. "Protocol documentation only" means exactly that, and a
-> description that is one character wrong fails by silently never matching.
-> The [timer check page](#checking-it-works) shows which kind of evidence
-> backs whichever device answers.
->
-> If you have one of these on a bench, that page will tell you in about a
-> minute whether it works — and that report is worth more than anything else
-> you could contribute right now.
+> **None of these has run a real heat on real hardware yet** — including the
+> Micro Wizard. Recordings are the stronger evidence, but they are not a live
+> run. If you own one of these timers, the
+> [timer check page](#checking-it-works) will tell you in about a minute
+> whether it works, and reporting what it says is the most useful thing you
+> could contribute.
 
 Other models are not supported yet. Adding one is a matter of describing its
 serial protocol rather than writing code, so opening an issue with the model
