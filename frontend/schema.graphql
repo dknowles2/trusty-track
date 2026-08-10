@@ -16,6 +16,7 @@ type AdvancementStatus {
   advancingRacers: [AdvancementRacer!]!
   source: String
   numRacers: Int
+  fieldIsStale: Boolean!
 }
 
 type AuditLogEntry {

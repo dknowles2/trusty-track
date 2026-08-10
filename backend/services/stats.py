@@ -368,7 +368,11 @@ def _compute_highlights(heats_with_rounds: list, racer_map: dict) -> list:
             }
 
         if len(valid_pairs) >= 2:
-            margin = valid_pairs[-1][0] - valid_pairs[0][0]
+            # First against second, not first against last (#231). The old
+            # spread measured the whole field, so a genuine photo finish with
+            # one straggler two seconds back lost the highlight to a routine
+            # heat whose field happened to bunch.
+            margin = valid_pairs[1][0] - valid_pairs[0][0]
             if closest_margin is None or margin < closest_margin:
                 closest_margin = margin
                 closest_heat_data = {

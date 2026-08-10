@@ -54,6 +54,13 @@ interface ScheduleManagementProps {
   racerCount: number;
   denCount: number;
   championshipTrophies: number;
+  /**
+   * Rounds whose raced field no longer matches who would advance from the
+   * standings as they now are (#229). A correction to an earlier time after a
+   * final has been raced deliberately does not rewrite the final — this is
+   * how the operator finds out it happened.
+   */
+  staleRoundIds?: ReadonlySet<number>;
 }
 
 
@@ -216,6 +223,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   racerCount,
   denCount,
   championshipTrophies,
+  staleRoundIds,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -502,6 +510,24 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           </>
                         )}
                       </span>
+                      {staleRoundIds?.has(Number(roundId)) && (
+                        <span
+                          data-testid={`stale-field-badge-${roundId}`}
+                          title="An earlier result was corrected after this round was raced, and its field no longer matches the standings. The results below stand — deciding whether to re-run it is your call."
+                          style={{
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            color: '#8a5a00',
+                            background: '#fff4d6',
+                            border: '1px solid #e6c66e',
+                            borderRadius: '10px',
+                            padding: '2px 10px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Field out of date
+                        </span>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '10px' }}>

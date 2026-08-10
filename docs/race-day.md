@@ -326,6 +326,13 @@ If a timer result is wrong (for example, a photo-finish dispute or a false start
 
 To completely re-run a heat, click **Re-Run** — this clears the results and returns the heat to "pending" so it can race again.
 
+Correcting a qualifying time re-decides who advances. A championship round
+that has **not** been raced yet is re-filled automatically. One that **has**
+been raced is left alone — its results are real and nothing will silently wipe
+them — and instead shows **Field out of date** on the schedule: the field was
+drawn from standings that have since changed. Whether to re-run it or let the
+result stand is your call.
+
 ---
 
 ### Skipping a Heat
@@ -431,7 +438,14 @@ This is the same rule as [a lane going out of service](hardware-timer.md#if-a-la
 
 ### A racer had to withdraw
 
-Open their check-in entry and turn **Passed Inspection / Checked In** off. Heats they already appeared in keep their recorded times, and heats that have already been scheduled still list them — delete or skip those if they come up. Any round you create or regenerate from that point on leaves them out.
+Open their check-in entry and turn **Passed Inspection / Checked In** off. The schedule sorts itself out from there, the same way it does for a late arrival:
+
+- A round that has not started is rebuilt without them.
+- A round part-way through keeps every heat already run; their lanes in the remaining heats are simply emptied. Nobody else's schedule changes.
+- A round already finished keeps their results — leaving does not rewrite history.
+- If they had qualified for a championship round that has not been raced yet, the next qualifier steps up and takes their place.
+
+If it was a mistake, check them back in — they get their place back the same way a latecomer does.
 
 ### A timer result came in wrong
 

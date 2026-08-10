@@ -528,19 +528,27 @@ def delete_free_race_heat(db: Session, heat_id: int) -> bool:
     return False
 
 
-def _schedule_rng(db: Session, race_id: int, round_id: int) -> random.Random | None:
+def _schedule_rng(
+    db: Session, race_id: int, round_id: int, run: int = 0
+) -> random.Random | None:
     """Where the shuffle comes from — ordinarily nowhere, so PPC makes its own.
 
     `domain.scheduling` takes an injectable generator and stays pure; reading
     the environment is I/O and belongs here. The key is the race's *name* and
     the round's number rather than their ids, which depend on how much was
     created before them. See `backend.demo_seed`.
+
+    ``run`` distinguishes the runs of a multi-run round; without it a seeded
+    two-run final would schedule the identical heats twice. Zero adds nothing
+    to the key, so single-run rounds — every documentation screenshot — keep
+    the schedules they already have.
     """
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
     name = race.name if race else race_id
     number = round_obj.round_number if round_obj else round_id
-    return demo_seed.rng(f"schedule:{name}:{number}")
+    suffix = f":{run}" if run else ""
+    return demo_seed.rng(f"schedule:{name}:{number}{suffix}")
 
 
 def _generate_ppc(
@@ -550,19 +558,21 @@ def _generate_ppc(
     p_ids: list[int],
     usable_lanes: Sequence[int],
     start_heat_num: int = 1,
+    run: int = 0,
 ) -> list[models.Heat]:
     """Persist a PPC schedule for the given racers.
 
     The algorithm itself is :func:`backend.domain.scheduling.generate_ppc`; this
     is only the part that turns heat plans into rows.
 
-    ``usable_lanes`` is which lanes, not how many (#171).
+    ``usable_lanes`` is which lanes, not how many (#171). ``run`` is which run
+    of a multi-run round this is — it only varies the seeded shuffle.
     """
     plans = scheduling.generate_ppc(
         p_ids,
         usable_lanes,
         start_heat_number=start_heat_num,
-        rng=_schedule_rng(db, race_id, round_id),
+        rng=_schedule_rng(db, race_id, round_id, run=run),
     )
 
     generated_heats: list[models.Heat] = []
@@ -591,6 +601,7 @@ def generate_heats_for_round(
     num_placeholders: int = 0,
     racer_ids: list[int] | None = None,
     clear_existing: bool = True,
+    runs: int | None = None,
 ) -> list[models.Heat]:
     """
     Generate heats for a specific round based on its scheduling strategy.
@@ -603,6 +614,16 @@ def generate_heats_for_round(
     racers in the race.
 
     If clear_existing is True, it will delete existing heats in the round.
+
+    ``runs`` is how many runs per lane to schedule. ``None`` — the default and
+    what every rebuild path passes — means **preserve what the round had**,
+    derived from the heats about to be cleared: PPC makes one heat per
+    participant per run, so the run count is the heat count over the field
+    size (#230). The derivation lives here rather than in callers because it
+    used to live in exactly one of them (``regenerateRound``, from #143) while
+    ``invalidate_future_rounds`` and ``populate_round_field`` had nothing —
+    so a two-run final quietly became a one-run final the moment any prelim
+    result was recorded. A fresh round derives 1.
     """
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
     if not round_obj:
@@ -615,6 +636,17 @@ def generate_heats_for_round(
     existing_heats = (
         db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
     )
+    if runs is None:
+        # Derived before anything is deleted: a general round's
+        # `total_participants` reads the racers out of the heats themselves.
+        # Floor division, so a round that was never a clean multiple (a lane
+        # outage mid-round, say) errs toward fewer runs rather than inventing
+        # heats nobody scheduled.
+        participants = round_obj.total_participants
+        if clear_existing and existing_heats and participants > 0:
+            runs = max(1, len(existing_heats) // participants)
+        else:
+            runs = 1
     cleared = False
     if existing_heats and clear_existing:
         if not advancement.may_rebuild(lanes_for_heats(db, existing_heats)):
@@ -661,10 +693,19 @@ def generate_heats_for_round(
     # round to 5..8 instead of 1..4 — and left a gap in the race's numbering.
     start_heat_num = len(existing_heats) + 1 if existing_heats and not cleared else 1
 
-    # Generate heats using PPC strategy
-    new_heats = _generate_ppc(
-        db, race_id, round_id, p_ids, usable_lanes, start_heat_num=start_heat_num
-    )
+    # Generate heats using PPC strategy, once per run. Each run gets its own
+    # schedule — `run` varies the shuffle — and the numbering continues.
+    new_heats: list[models.Heat] = []
+    for run in range(runs):
+        new_heats += _generate_ppc(
+            db,
+            race_id,
+            round_id,
+            p_ids,
+            usable_lanes,
+            start_heat_num=start_heat_num + len(new_heats),
+            run=run,
+        )
 
     db.commit()
     return new_heats
@@ -1026,6 +1067,128 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
     return disrupted_round_ids
 
 
+def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
+    """Take racers who are no longer checked in out of the racing to come (#228).
+
+    The mirror of :func:`admit_late_racers`, with the same three cases and the
+    same reason for them — a round already under way has to change, and the
+    heats people ran must survive it:
+
+    **A round nobody has raced** is regenerated without them, which is the
+    outcome to prefer whenever it is available. The generator fields from
+    checked-in racers, so the regeneration needs telling nothing.
+
+    **A round part-way through** keeps every finished heat; the withdrawn
+    racer's lanes in the *pending* ones are vacated, exactly as a dead lane's
+    are (#171). Nobody else's schedule changes — an absent car empties a lane,
+    it does not add runs — so unlike admission this sets no ``disrupted`` flag.
+
+    **A round already finished** is untouched. Their recorded results stand;
+    a withdrawal does not rewrite history.
+
+    Championship rounds get one more case: an *unraced* one whose field names
+    a withdrawn racer is reset to placeholders and re-advanced, so the next
+    qualifier steps up rather than a lane racing empty in the final. A raced
+    one is left alone, following the invalidation rule.
+
+    Idempotent, like admission — it asks who is scheduled and should not be,
+    so a mistaken un-check heals itself: re-checking the racer hands them
+    straight back to ``admit_late_racers``.
+
+    Returns the ids of rounds that were changed.
+    """
+    checked_in = {
+        r.id
+        for r in db.query(models.Racer)
+        .filter(models.Racer.race_id == race_id, models.Racer.car_passed_inspection)
+        .all()
+    }
+    usable = usable_lanes_for_race(db, race_id)
+    changed_round_ids: list[int] = []
+
+    rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
+    for round_obj in rounds:
+        heats = [
+            h
+            for h in db.query(models.Heat)
+            .filter(models.Heat.round_id == round_obj.id)
+            .all()
+            if h.kind is models.HeatKind.OFFICIAL
+        ]
+        if not heats:
+            continue
+        heat_lanes = lanes_for_heats(db, heats)
+        scheduled = {
+            racer_id
+            for lanes_ in heat_lanes
+            for racer_id in lanes.real_racer_ids(lanes_)
+        }
+        withdrawn = scheduled - checked_in
+        if not withdrawn:
+            continue
+
+        if round_obj.advancement_source is not None:
+            # A championship field with a withdrawn racer in it: re-advance if
+            # nothing has been raced, so the next qualifier steps up. The
+            # local import matches `trigger_auto_advancements`; `services`
+            # imports this module.
+            if not advancement.may_rebuild(heat_lanes):
+                continue
+            from backend.services import scoring
+
+            size = round_field_size(db, round_obj)
+            if size <= 0:
+                continue
+            if not _reset_heats_in_place(
+                db, round_obj.id, scheduling.placeholder_ids(size), usable
+            ):
+                generate_heats_for_round(
+                    db, round_obj.id, num_placeholders=size, clear_existing=True
+                )
+            winner_ids = scoring.get_advancing_racers(
+                db,
+                race_id,
+                round_obj.advancement_source,
+                round_obj.advancement_num_racers,
+            )
+            if winner_ids:
+                populate_round_field(db, round_obj.id, winner_ids)
+            changed_round_ids.append(round_obj.id)
+            continue
+
+        if advancement.may_rebuild(heat_lanes):
+            eligible = _eligible_racer_ids(db, race_id, round_obj.den_id)
+            if len(eligible) >= 2:
+                generate_heats_for_round(db, round_obj.id, clear_existing=True)
+                changed_round_ids.append(round_obj.id)
+                continue
+            # Too few checked-in racers left for a schedule; fall through and
+            # vacate instead — an empty lane beats a ValueError at the desk.
+
+        if advancement.is_round_complete(heat_lanes):
+            continue
+
+        vacated = False
+        for heat, lanes_ in zip(heats, heat_lanes, strict=True):
+            if lanes.is_finished(lanes_):
+                continue  # they raced it, or it was skipped: history stands
+            modified = False
+            for lane in lanes_:
+                if lane.racer_id in withdrawn:
+                    lane.racer_id = None
+                    lane.time = None
+                    lane.place = None
+                    modified = True
+            if modified:
+                set_heat_lanes(heat, lanes_)
+                vacated = True
+        if vacated:
+            changed_round_ids.append(round_obj.id)
+
+    db.commit()
+    return changed_round_ids
+
+
 def _eligible_racer_ids(db: Session, race_id: int, den_id: int | None) -> list[int]:
     """Who a general round's field is drawn from — the same query the generator uses."""
     query = db.query(models.Racer).filter(
@@ -1096,6 +1259,12 @@ def _reset_heats_in_place(
     The schedule for a given field size is deterministic, so when the shape has
     not changed the same rows can simply be rewritten. Returns False when the
     heat count differs and the caller has to regenerate properly.
+
+    A multi-run round holds a whole number of runs' worth of heats, so the
+    check is divisibility rather than equality (#230): a two-run final of two
+    slots has four heats, and rewriting only when the count equalled *one*
+    run's worth meant every invalidation fell through to full regeneration —
+    which rebuilt a single run, collapsing the final the operator configured.
     """
     existing = sorted(
         db.query(models.Heat).filter(models.Heat.round_id == round_id).all(),
@@ -1110,8 +1279,15 @@ def _reset_heats_in_place(
         start_heat_number=1,
         rng=_schedule_rng(db, existing[0].race_id, round_id),
     )
-    if len(plans) != len(existing):
+    if not plans or len(existing) % len(plans) != 0:
         return False
+    for run in range(1, len(existing) // len(plans)):
+        plans += scheduling.generate_ppc(
+            p_ids,
+            usable_lanes,
+            start_heat_number=len(plans) + 1,
+            rng=_schedule_rng(db, existing[0].race_id, round_id, run=run),
+        )
 
     for heat, plan in zip(existing, plans, strict=True):
         # Belt and braces: every path that creates a round numbers its heats

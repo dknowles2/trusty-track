@@ -325,7 +325,8 @@ describe('RaceExecution', () => {
                 { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
             ],
             source: 'PACK',
-            numRacers: 1
+            numRacers: 1,
+            fieldIsStale: false
         };
 
         render(
