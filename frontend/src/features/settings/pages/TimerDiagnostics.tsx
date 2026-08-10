@@ -102,14 +102,14 @@ const STATE_HELP: Record<string, { label: string; tone: string; detail: string }
     DISCONNECTED: {
         label: 'Not connected',
         tone: '#9e9e9e',
-        detail: 'No serial port is open. Check the cable, then press Connect.',
+        detail: 'Trusty Track cannot see a timer. Check the cable, then press Connect.',
     },
     CONNECTED: {
         label: 'Port open, waiting for the timer to answer',
         tone: '#ff9800',
         detail:
-            'The port opened but nothing has identified itself yet. The server keeps asking every ' +
-            'few seconds. If this does not clear, the port is probably not the timer.',
+            'Something is plugged in, but it has not said what it is. Trusty Track keeps asking ' +
+            'every few seconds. If this never clears, whatever is plugged in is probably not the timer.',
     },
     IDLE: {
         label: 'Ready',
@@ -141,7 +141,7 @@ const STATE_HELP: Record<string, { label: string; tone: string; detail: string }
     FAULT: {
         label: 'Fault',
         tone: '#f44336',
-        detail: 'The serial connection failed. The error is shown below.',
+        detail: 'The connection failed. The reason is shown below.',
     },
 };
 
@@ -406,8 +406,8 @@ const TrackTimer: React.FC<{ track: Track }> = ({ track }) => {
                     {isFake
                         ? 'Fake timer (no hardware)'
                         : track.timerType === 'AUTO_DETECT_BACKEND'
-                          ? 'Plugged into this server'
-                          : 'Plugged into the browser'}
+                          ? 'Plugged into this machine'
+                          : 'Plugged into the laptop running the browser'}
                 </dd>
 
                 <dt style={{ color: '#666' }}>Device</dt>

@@ -1,6 +1,6 @@
 # Backup and restore
 
-The whole event lives on one machine: a database file and a folder of
+The whole event lives on one machine: the results and a folder of
 photographs. If that machine's SD card fails, or somebody deletes the wrong
 thing, everything goes with it — the roster, the check-ins, the photos and the
 results.

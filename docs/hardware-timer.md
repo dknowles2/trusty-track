@@ -17,7 +17,7 @@ For most people, connecting a timer is four steps:
 
 1. Plug the timer's USB cable into the machine running Trusty Track.
 2. In **System Settings**, set the track's **Timer Type** to
-   **Auto-Detect (Backend Connected)**. Leave **Serial Port** blank.
+   **Plugged into this machine**. Leave **Serial Port** blank.
 3. Open **System Settings → Check the timer connection**.
 4. When it says **Ready**, you are done.
 
@@ -61,12 +61,12 @@ Both are chosen per track in **System Settings**, under **Timer Type**.
 ![A track's timer settings: the connection under Timer Type, the model picker beneath it, and the remote start gate setting at the bottom](assets/screenshots/timers/01-timer-settings.png)
 _Everything about a track's timer lives on the track's own card in System Settings: how it connects, which model it is, and whether a remote start gate is fitted._
 
-### Plugged into the server
+### Plugged into the machine running Trusty Track
 
-**Auto-Detect (Backend Connected).** The timer's USB cable goes into the
-machine running Trusty Track — typically the Raspberry Pi at the venue. This
-is the setup to prefer when you have the choice: nothing depends on which
-laptop is open or which browser it runs.
+**Plugged into this machine.** The timer's USB cable goes into the machine
+running Trusty Track — typically the Raspberry Pi at the venue. This is the
+setup to prefer when you have the choice: nothing depends on which laptop is
+open or which browser it runs.
 
 Leave **Serial Port** blank. When the server starts it checks each USB socket
 in turn, asks whatever is plugged in to identify itself, and connects to the
@@ -79,9 +79,9 @@ does not go looking elsewhere.
 
 ### Plugged into the laptop running the browser
 
-**Use Remote Proxy.** The timer's USB cable goes into the computer you are
-operating from, and the browser passes the data through to the server. Nothing
-extra to install.
+**Plugged into the laptop running the browser.** The timer's USB cable goes
+into the computer you are operating from, and the browser passes what it says
+along. Nothing extra to install.
 
 > [!NOTE]
 > This uses the browser's Web Serial support, so it needs **Chrome or Edge** —

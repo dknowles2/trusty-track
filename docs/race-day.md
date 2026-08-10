@@ -150,7 +150,7 @@ Until the first heat has been recorded, a readiness panel sits at the top of the
 
 | Item | What it tells you |
 |------|-------------------|
-| **Timer** | Whether the timer is connected and which model it reported. **Check it** opens the [timer diagnostics page](hardware-timer.md#checking-it-works), where the profile's provenance and the serial log live. |
+| **Timer** | Whether the timer is connected and which model it reported. **Check it** opens the [timer check page](hardware-timer.md#checking-it-works), which shows what answered and how well its support has been tested. |
 | **Check-in** | How many cars are through inspection. Only checked-in cars are put into heats. |
 | **Schedule** | How many heats exist. |
 | **Displays** | How many audience screens are currently connected. |

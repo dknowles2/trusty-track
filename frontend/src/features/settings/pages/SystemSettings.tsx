@@ -445,8 +445,8 @@ export default function SystemConfig() {
                 style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc', marginBottom: track.timerType === 'AUTO_DETECT_BACKEND' ? '1rem' : '0' }}
               >
                 <option value="FAKE">Fake Timer (Manual Control)</option>
-                <option value="AUTO_DETECT_BACKEND">Auto-Detect (Backend Connected)</option>
-                <option value="AUTO_DETECT_PROXY">Use Remote Proxy</option>
+                <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
+                <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
               </select>
             </div>
 
@@ -517,9 +517,9 @@ export default function SystemConfig() {
                   style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
                 <small style={{ color: '#666' }}>
-                  Leave this blank and the server will look for the timer on each USB port when it
-                  starts. Fill it in only if your timer is on a built-in serial port, or you need to
-                  point at one particular device — for example <code>/dev/ttyUSB0</code> or <code>COM3</code>.
+                  Leave this blank and Trusty Track finds the timer by itself. Fill it in only if
+                  your timer is on a built-in serial port, or you need to point at one particular
+                  device — for example <code>/dev/ttyUSB0</code> or <code>COM3</code>.
                 </small>
               </div>
             )}
