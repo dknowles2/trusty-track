@@ -591,4 +591,67 @@ describe('ScheduleManagement', () => {
     expect(runButtons[1]).toBeDisabled();
     expect(runButtons[1]).toHaveAttribute('title', 'Complete previous rounds first');
   });
+
+  it('marks a round whose raced field has gone stale (#229)', () => {
+    render(
+      <MemoryRouter>
+        <AlertProvider>
+          <ScheduleManagement
+            raceId={1}
+            heats={[
+              { id: 1, roundNumber: 2, roundId: 7, heatNumber: 1, roundName: 'Finals', lanes: [
+                { lane: 1, racerId: 1, placeholderSlot: null, time: 3.1, place: 1, skipped: false },
+              ] },
+            ]}
+            generating={false}
+            activeHeatId={null}
+            onAddRound={vi.fn()}
+            onRegenerateRound={vi.fn()}
+            onDeleteRound={vi.fn()}
+            onDeleteHeat={vi.fn()}
+            onRunHeat={vi.fn()}
+            onReorderHeats={vi.fn()}
+            getRacerName={(id) => `Racer ${id}`}
+            onRefetchHeats={vi.fn()}
+            laneCount={4}
+            racerCount={10}
+            denCount={3}
+            championshipTrophies={3}
+            staleRoundIds={new Set([7])}
+          />
+        </AlertProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('stale-field-badge-7')).toHaveTextContent('Field out of date');
+  });
+
+  it('shows no staleness badge without the flag', () => {
+    render(
+      <MemoryRouter>
+        <AlertProvider>
+          <ScheduleManagement
+            raceId={1}
+            heats={[
+              { id: 1, roundNumber: 2, roundId: 7, heatNumber: 1, roundName: 'Finals', lanes: [] },
+            ]}
+            generating={false}
+            activeHeatId={null}
+            onAddRound={vi.fn()}
+            onRegenerateRound={vi.fn()}
+            onDeleteRound={vi.fn()}
+            onDeleteHeat={vi.fn()}
+            onRunHeat={vi.fn()}
+            onReorderHeats={vi.fn()}
+            getRacerName={(id) => `Racer ${id}`}
+            onRefetchHeats={vi.fn()}
+            laneCount={4}
+            racerCount={10}
+            denCount={3}
+            championshipTrophies={3}
+          />
+        </AlertProvider>
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('stale-field-badge-7')).not.toBeInTheDocument();
+  });
 });

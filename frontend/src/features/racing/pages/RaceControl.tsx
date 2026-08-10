@@ -70,6 +70,7 @@ const GET_RACE_CONTROL_DATA = gql`
           isReady
           requiresAdvancement
           alreadyAdvanced
+          fieldIsStale
           source
           numRacers
           advancingRacers {
@@ -826,6 +827,13 @@ export default function RaceControl() {
           racerCount={race?.racers?.length || 0}
           denCount={race?.dens?.length || 0}
           championshipTrophies={race?.championshipTrophies || 3}
+          staleRoundIds={
+            new Set(
+              (race?.rounds ?? [])
+                .filter((round: Round) => round.advancementStatus.fieldIsStale)
+                .map((round: Round) => round.id),
+            )
+          }
         />
       )}
     </div>

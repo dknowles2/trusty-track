@@ -256,3 +256,32 @@ def test_race_stats_returns_none_for_missing_race(client):
     )
     assert resp.status_code == 200
     assert resp.json()["data"]["raceStats"] is None
+
+
+def test_the_closest_race_is_first_against_second_not_first_against_last():
+    """#231. The margin used to be the whole field's spread, so a genuine
+    photo finish with one straggler lost the highlight to a routine heat
+    whose field happened to bunch."""
+    from types import SimpleNamespace
+
+    from backend.services.stats import _compute_highlights
+
+    def heat(number, times):
+        return {
+            "heat": SimpleNamespace(heat_number=number),
+            "round_name": "Round 1",
+            "global_heat_number": number,
+            "results": [
+                {"lane": i + 1, "racer_id": i + 1, "time": t, "place": None}
+                for i, t in enumerate(times)
+            ],
+        }
+
+    photo_finish = heat(1, [3.000, 3.001, 5.0])  # 1st and 2nd split by 0.001
+    bunched = heat(2, [3.5, 3.6, 3.7])  # spread 0.2, winning margin 0.1
+
+    highlights = _compute_highlights([photo_finish, bunched], racer_map={})
+    closest = next(h for h in highlights if h["type"] == "CLOSEST_RACE")
+
+    assert closest["heat_number"] == 1
+    assert closest["margin"] == pytest.approx(0.001)

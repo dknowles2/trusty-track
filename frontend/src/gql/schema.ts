@@ -23,6 +23,7 @@ export type AdvancementRacer = {
 export type AdvancementStatus = {
   advancingRacers: Array<AdvancementRacer>;
   alreadyAdvanced: Scalars['Boolean']['output'];
+  fieldIsStale: Scalars['Boolean']['output'];
   isReady: Scalars['Boolean']['output'];
   numRacers?: Maybe<Scalars['Int']['output']>;
   requiresAdvancement: Scalars['Boolean']['output'];

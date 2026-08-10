@@ -264,6 +264,12 @@ class AdvancementStatus:
     advancing_racers: list[AdvancementRacer]
     source: str | None
     num_racers: int | None
+    #: The round was raced, and its field no longer matches who would advance
+    #: from the standings as they now are (#229). Invalidation deliberately
+    #: leaves a raced round alone when an earlier result is corrected — "a
+    #: stale field the operator can see and fix beats silently wiping heats
+    #: people ran" — and this is the seeing half, which did not exist.
+    field_is_stale: bool = False
 
 
 def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementStatus:
@@ -353,6 +359,26 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
         for entry in loaders.leaderboard(race_id)
     ]
 
+    # A raced championship round whose field has drifted from the standings.
+    # Only a *raced* round can be stale: an unraced one is re-fielded by
+    # invalidation (or withdrawal) the moment the standings move, so a
+    # mismatch there is a bug, not a state. Sets, not lists — lane order is
+    # the scheduler's business.
+    field_is_stale = False
+    if round_obj.advancement_source is not None and already_advanced and winner_ids:
+        round_lanes = [
+            loaders.lane_values_for_heat(race_id, heat.id)
+            for heat in loaders.heats_for_round(race_id, round_id)
+        ]
+        actual_field = {
+            lane.racer_id
+            for heat_lanes in round_lanes
+            for lane in heat_lanes
+            if lane.racer_id is not None
+        }
+        raced = any(lanes.has_results(heat_lanes) for heat_lanes in round_lanes)
+        field_is_stale = raced and bool(actual_field) and actual_field != winner_ids
+
     return AdvancementStatus(
         is_ready=is_ready,
         requires_advancement=requires_advancement,
@@ -360,6 +386,7 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
         advancing_racers=advancing_racers,
         source=adv_source,
         num_racers=adv_num,
+        field_is_stale=field_is_stale,
     )
 
 
@@ -1809,17 +1836,22 @@ async def _revalidate_timers(info: Info) -> None:
 
 
 async def _admit_late_racers(info: Info, race_id: int) -> None:
-    """Give a newly checked-in racer a place in the rounds already built (#172).
+    """Bring the schedule into line with who is checked in (#172, #228).
 
-    Call after anything that adds somebody to a round's field — check-in is the
-    gate, since ``car_passed_inspection`` is what the generator draws from, so
-    creating a racer is not enough on its own.
+    Call after anything that changes a round's field — check-in is the gate,
+    since ``car_passed_inspection`` is what the generator draws from, so
+    creating a racer is not enough on its own. Both directions run from the
+    one hook: withdrawal first, so a regeneration fields from the roster as
+    it now stands, then admission. Each is idempotent, which is what lets an
+    un-check-and-recheck heal itself.
 
     Timers are revalidated afterwards for the same reason ``regenerateRound``
-    does it: admitting into an unraced round rebuilds its heats, and an armed
-    heat must not be swapped underneath the operator (#50).
+    does it: either direction can rebuild an unraced round's heats, and an
+    armed heat must not be swapped underneath the operator (#50).
     """
-    crud.admit_late_racers(info.context["db"], race_id)
+    db = info.context["db"]
+    crud.withdraw_absent_racers(db, race_id)
+    crud.admit_late_racers(db, race_id)
     await _revalidate_timers(info)
 
 
@@ -2013,8 +2045,9 @@ class Mutation:
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
         if updated:
-            if updated.car_passed_inspection:
-                await _admit_late_racers(info, updated.race_id)
+            # Both directions: a check-in admits (#172), an un-check
+            # withdraws (#228). The helper is idempotent either way.
+            await _admit_late_racers(info, updated.race_id)
             await _publish_race_state(
                 updated.race_id, kind=RaceChangeKind.RACER, racer=updated
             )
@@ -2053,8 +2086,9 @@ class Mutation:
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )
         if updated:
-            if passed_inspection:
-                await _admit_late_racers(info, updated.race_id)
+            # Both directions — un-checking is how a withdrawal is recorded
+            # (#228), and it has to reach the schedule like a check-in does.
+            await _admit_late_racers(info, updated.race_id)
             await _publish_race_state(
                 updated.race_id, kind=RaceChangeKind.RACER, racer=updated
             )
@@ -2271,10 +2305,12 @@ class Mutation:
                     models.SchedulingStrategy.PPC,
                     "All Pack",
                 )
-                for i in range(config.general_round.runs_per_lane):
-                    crud.generate_heats_for_round(
-                        db, round_obj.id, clear_existing=(i == 0)
-                    )
+                crud.generate_heats_for_round(
+                    db,
+                    round_obj.id,
+                    clear_existing=True,
+                    runs=config.general_round.runs_per_lane,
+                )
                 created_rounds.append(round_obj)
                 current_round_number += 1
             elif config.general_round.type == "DEN":
@@ -2296,10 +2332,13 @@ class Mutation:
                         den_id=den.id,
                     )
                     p_ids = [r.id for r in racers]
-                    for i in range(config.general_round.runs_per_lane):
-                        crud.generate_heats_for_round(
-                            db, round_obj.id, racer_ids=p_ids, clear_existing=(i == 0)
-                        )
+                    crud.generate_heats_for_round(
+                        db,
+                        round_obj.id,
+                        racer_ids=p_ids,
+                        clear_existing=True,
+                        runs=config.general_round.runs_per_lane,
+                    )
                     created_rounds.append(round_obj)
                     current_round_number += 1
 
@@ -2326,18 +2365,16 @@ class Mutation:
                 db.flush()  # Ensure the round ID is generated
                 previous_champ_round_id = round_obj.id
 
-                num_placeholders = crud.round_field_size(db, round_obj)
-                # As many runs as asked for, exactly as the general round above
-                # does. This was hardcoded to one while the wizard collected
-                # the field and the docs called it configurable, so an operator
-                # setting a two-run final quietly got a one-run final (#143).
-                for i in range(champ_cfg.runs_per_lane):
-                    crud.generate_heats_for_round(
-                        db,
-                        round_obj.id,
-                        num_placeholders=num_placeholders,
-                        clear_existing=(i == 0),
-                    )
+                # As many runs as asked for, exactly as the general round
+                # above does (#143). One call: `runs` is a parameter now, and
+                # the rebuild paths preserve it from the heats (#230).
+                crud.generate_heats_for_round(
+                    db,
+                    round_obj.id,
+                    num_placeholders=crud.round_field_size(db, round_obj),
+                    clear_existing=True,
+                    runs=champ_cfg.runs_per_lane,
+                )
                 created_rounds.append(round_obj)
                 current_round_number += 1
         except ValueError as e:
@@ -2357,27 +2394,10 @@ class Mutation:
         if not round_obj:
             raise ValueError("Round not found")
 
-        # Determine how many runs per lane we have from existing heats
-        # How many runs this round was built with, recovered from what is
-        # there: PPC makes one heat per participant per run. `total_participants`
-        # answers for either kind — a championship round's field is its
-        # `field_size` — so this no longer excludes them, which would have
-        # collapsed a regenerated multi-run final back to a single run (#143).
-        participants = round_obj.total_participants
-        runs_per_lane = 1
-        if participants > 0 and round_obj.heats:
-            runs_per_lane = len(round_obj.heats) // participants
-            if runs_per_lane == 0:
-                runs_per_lane = 1
-
-        heats = []
-        for i in range(runs_per_lane):
-            new_heats = crud.generate_heats_for_round(
-                db,
-                round_id,
-                clear_existing=(i == 0),
-            )
-            heats.extend(new_heats)
+        # The run count is preserved by `generate_heats_for_round` itself,
+        # derived from the heats it clears. The derivation lived here alone
+        # from #143 until #230 found the other rebuild paths never had it.
+        heats = crud.generate_heats_for_round(db, round_id, clear_existing=True)
 
         await _revalidate_timers(info)
         await _publish_race_state(
@@ -2748,11 +2768,12 @@ class Mutation:
         if not racer:
             return False
         crud.bulk_check_in_racers(db, racer_ids, passed_inspection)
-        if passed_inspection:
-            # Once for the batch, not once per racer: admission is idempotent
-            # and looks at everybody who is missing, so a per-racer call would
-            # regenerate an unraced round sixty times over a desk queue.
-            await _admit_late_racers(info, racer.race_id)
+        # Once for the batch, not once per racer: both directions are
+        # idempotent and look at everybody, so a per-racer call would
+        # regenerate an unraced round sixty times over a desk queue. Runs for
+        # un-checks too — that is how a bulk withdrawal reaches the schedule
+        # (#228).
+        await _admit_late_racers(info, racer.race_id)
         await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
         return True
 
@@ -3102,11 +3123,12 @@ class Mutation:
                     models.SchedulingStrategy(round_data.scheduling_strategy),
                     round_data.name or "All Pack",
                 )
-                # Generate Heats
-                for i in range(round_data.runs_per_lane):
-                    crud.generate_heats_for_round(
-                        db, round_obj.id, clear_existing=(i == 0)
-                    )
+                crud.generate_heats_for_round(
+                    db,
+                    round_obj.id,
+                    clear_existing=True,
+                    runs=round_data.runs_per_lane,
+                )
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
                 return [typing.cast(Any, round_obj)]
             else:
@@ -3122,13 +3144,13 @@ class Mutation:
                 )
 
                 # Placeholder heats, one set per run — same as above (#143).
-                for i in range(round_data.runs_per_lane):
-                    crud.generate_heats_for_round(
-                        db,
-                        round_obj.id,
-                        num_placeholders=crud.round_field_size(db, round_obj),
-                        clear_existing=(i == 0),
-                    )
+                crud.generate_heats_for_round(
+                    db,
+                    round_obj.id,
+                    num_placeholders=crud.round_field_size(db, round_obj),
+                    clear_existing=True,
+                    runs=round_data.runs_per_lane,
+                )
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
                 return [typing.cast(Any, round_obj)]
         except ValueError as e:

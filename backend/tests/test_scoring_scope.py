@@ -55,11 +55,25 @@ def _lane(lane, racer_id, time=None, place=None):
 def _build_race_with_championship(db):
     """Two racers, a prelim round, and a championship round they both reach."""
     race = _seed(db)
+    # Checked in, because advancement only considers checked-in racers (#228)
+    # and these two are meant to qualify.
     fast = crud.create_racer(
-        db, schemas.RacerCreate(first_name="Fast", last_name="F", race_id=race.id)
+        db,
+        schemas.RacerCreate(
+            first_name="Fast",
+            last_name="F",
+            race_id=race.id,
+            car_passed_inspection=True,
+        ),
     )
     slow = crud.create_racer(
-        db, schemas.RacerCreate(first_name="Slow", last_name="S", race_id=race.id)
+        db,
+        schemas.RacerCreate(
+            first_name="Slow",
+            last_name="S",
+            race_id=race.id,
+            car_passed_inspection=True,
+        ),
     )
 
     prelim = crud.create_round(db, race_id=race.id, round_number=1)

@@ -193,7 +193,7 @@ def _standings_for(db: Session, race_id: int, rule) -> list[LeaderboardEntry]:
 
 
 def get_advancing_racers(
-    db: Session, race_id: int, source: str, num_top: int
+    db: Session, race_id: int, source: str, num_top: int | None
 ) -> list[int]:
     """Racer ids that should advance into a championship round, in rank order.
 
@@ -203,9 +203,22 @@ def get_advancing_racers(
     rule = domain_advancement.AdvancementRule(source=source, num_racers=num_top)
 
     entries = _standings_for(db, race_id, rule)
+
+    # A racer who is no longer checked in does not advance (#228). Their
+    # recorded results stand — they stay on the leaderboard — but a
+    # championship slot is a place in a race yet to run, and handing one to a
+    # car that has left the building wastes it. The next qualifier steps up,
+    # which is what "top N" means once somebody scratches.
+    checked_in = {
+        r.id
+        for r in db.query(models.Racer)
+        .filter(models.Racer.race_id == race_id, models.Racer.car_passed_inspection)
+        .all()
+    }
     standings = [
         domain_advancement.Standing(racer_id=e["racer_id"], den_id=e["den_id"])
         for e in entries
+        if e["racer_id"] in checked_in
     ]
 
     den_ids: list[int] = []
