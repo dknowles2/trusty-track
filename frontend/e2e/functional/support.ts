@@ -12,7 +12,7 @@
  * anywhere in the app look like a failure of the thing under test.
  */
 
-import { expect, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 export const BACKEND_URL = 'http://127.0.0.1:8002';
 
@@ -94,6 +94,13 @@ export const RACERS = [
  * rather than an error, which is a confusing way for a spec to fail.
  */
 export async function seedRace(page: Page, name: string): Promise<SeededRace> {
+    // A retry re-seeds, and `races.name` is unique on a backend shared by the
+    // whole run — so without a per-attempt suffix a retry hit the constraint
+    // and failed for certain, defeating the very mechanism that exists for
+    // shared-runner flakes (#237). First attempts keep their given names.
+    const retry = test.info().retry;
+    if (retry > 0) name = `${name} (retry ${retry})`;
+
     await ensureConfigured(page);
 
     const config = await gql<{
