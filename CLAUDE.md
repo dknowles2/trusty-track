@@ -906,6 +906,8 @@ Three conventions, each learned from a failure:
 
 **The reader is a parent volunteer, not an engineer.** Every user-facing page leads with what a non-technical person does; technical detail is worth keeping but goes last — in a troubleshooting section, a parenthetical, or a callout that says when it can be ignored — never front-and-center. Baud rates, port framing and device paths are things a reader should only meet when something is broken. When a detail matters mostly to developers, it belongs in `design.md`, `spec.md` or `development.md`, linked rather than inlined. The site's own promise is "you don't need to be a software developer", and a page that opens with jargon breaks it in the first paragraph.
 
+**The rule covers the app's own text, not just the docs.** Labels, helper text, state descriptions and alerts are the user-facing surface most people read first — "Auto-Detect (Backend Connected)" and "No serial port is open" shipped there and meant nothing to a volunteer. Say what the person sees or does: "Plugged into this machine", "Trusty Track cannot see a timer". Enum *values* stay technical (`AUTO_DETECT_BACKEND` is API); only their display text changes. When a doc table mirrors UI strings (the timer states table does), change both together — that is the "grep for the control's label" rule from the other direction.
+
 ### What to update, by what you touched
 
 | Changed | Update |

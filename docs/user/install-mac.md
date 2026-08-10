@@ -78,7 +78,7 @@ Trusty Track runs as a background process while open. To quit it:
 
 ## Where your data is stored
 
-Trusty Track stores its database and photos in:
+Trusty Track stores its data and photos in:
 
 ```
 ~/Library/Application Support/TrustyTrack/

@@ -100,7 +100,7 @@ single largest source of trouble on race day.
 
 ### About wifi and the displays
 
-The audience displays hold a live connection to the server. If wifi drops, they
+The audience displays hold a live connection to the machine running Trusty Track. If wifi drops, they
 reconnect on their own and catch up — that is handled, and they will keep
 retrying for as long as it takes rather than giving up.
 

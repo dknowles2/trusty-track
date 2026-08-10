@@ -24,7 +24,7 @@ _The Observation page in standard view, showing the "Now Racing", "On Deck" and 
 
 ## Opening the Observation View
 
-Any device on the same network as the Trusty Track server can open the Observation page. You do not need to use the same device running race control.
+Any device on the same network as the machine running Trusty Track can open the Observation page. You do not need to use the same device running race control.
 
 1. Open a browser on the display device (laptop, tablet, TV with a browser, etc.).
 2. Navigate to the race's Observation page. You can find the link in the top navigation bar when viewing any race page — look for the **Live** tab.
