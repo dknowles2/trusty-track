@@ -316,6 +316,7 @@ export type Mutation = {
   resetTimer: Scalars['Boolean']['output'];
   setLaneOutages: Array<Scalars['Int']['output']>;
   startFreeRaceHeat: FreeRaceHeat;
+  startTimerTest: Scalars['Boolean']['output'];
   updateAward?: Maybe<Award>;
   updateDen?: Maybe<Den>;
   updateHeatResult?: Maybe<Heat>;
@@ -562,6 +563,11 @@ export type MutationSetLaneOutagesArgs = {
 export type MutationStartFreeRaceHeatArgs = {
   laneAssignments: Array<FreeRaceLaneAssignmentInput>;
   raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationStartTimerTestArgs = {
+  trackId: Scalars['Int']['input'];
 };
 
 
@@ -992,6 +998,7 @@ export type TimerStatus = {
   racerByLane?: Maybe<Scalars['String']['output']>;
   serialLog: Array<SerialLogEntry>;
   state: Scalars['String']['output'];
+  testRun: Scalars['Boolean']['output'];
 };
 
 export type TimesPerLane = {
