@@ -943,7 +943,9 @@ That guard exists because the guideline was not enough on its own: `setLaneOutag
 
 ### The screenshots
 
-They come from Playwright specs in `frontend/e2e/docs/` — `screenshots.spec.ts` (getting started, setup, race day), `screenshot-bulk-upload.spec.ts`, `screenshot-printables.spec.ts`, `screenshot-free-race.spec.ts`, `screenshot-awards.spec.ts`, `screenshot-settings.spec.ts`. Each builds its own data against a real backend:
+They come from Playwright specs in `frontend/e2e/docs/` — `screenshots.spec.ts` (getting started, setup, race day), `screenshot-bulk-upload.spec.ts`, `screenshot-printables.spec.ts`, `screenshot-free-race.spec.ts`, `screenshot-awards.spec.ts`, `screenshot-settings.spec.ts`, `screenshot-timers.spec.ts`. Each builds its own data against a real backend:
+
+**`screenshot-timers.spec.ts` photographs a timer that does not exist.** No CI runner has serial hardware, so it plays a Micro Wizard over the proxy WebSocket — the same wire protocol `test_timer_ws.py` speaks: answer `configure` with `ready`, answer the `RV` probe with a genuine K2 banner, reply results in the K2's format. The prober, profile and page are all real; only the far end of the wire is pretend. It adds its own proxy track and **deletes it on the way out** — the main `screenshots.spec.ts` runs later and seeds races against `tracks[0]`.
 
 ```bash
 cd frontend && npx playwright test --config=playwright.screenshots.config.ts e2e/docs/screenshot-printables.spec.ts
