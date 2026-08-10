@@ -47,12 +47,12 @@ nav:
     - Free Race: free-race.md
     - Awards: awards.md
     - Race Stats: race-stats.md
-  - Displays and Printouts:
-    - Observation Displays: observation-displays.md
-    - Printables: printables.md
   - Timers:
     - Hardware Timer: hardware-timer.md
     - Fake Timer: fake-timer.md
+  - Displays and Printouts:
+    - Observation Displays: observation-displays.md
+    - Printables: printables.md
   - Network and Backups:
     - Access and Your Network: access-and-network.md
     - Backup and Restore: backup-and-restore.md

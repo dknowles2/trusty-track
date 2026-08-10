@@ -542,7 +542,15 @@ const TimerDiagnostics: React.FC = () => {
             <h1 style={{ marginTop: 0 }}>Timer check</h1>
             <p style={{ color: '#555' }}>
                 Live view of every track's timer. Use this before the event to confirm the timer is
-                plugged in and talking, without setting up a race first.
+                plugged in and talking, without setting up a race first. The{' '}
+                <a
+                    href="https://dknowles2.github.io/trusty-track/hardware-timer/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Hardware Timer guide
+                </a>{' '}
+                covers connecting one, what each state means, and how to send us a test report.
             </p>
 
             {fetching && <p>Loading…</p>}

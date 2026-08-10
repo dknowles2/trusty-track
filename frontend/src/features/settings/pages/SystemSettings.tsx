@@ -475,7 +475,14 @@ export default function SystemConfig() {
                   <small style={{ color: '#666', display: 'block', marginTop: '0.25rem' }}>
                     {chosen
                       ? chosen.provenance
-                      : 'Leave this alone and the app asks each timer it knows about who it is. Pick a model if yours is not found, or to stop it asking.'}
+                      : 'Leave this alone and the app asks each timer it knows about who it is. Pick a model if yours is not found, or to stop it asking.'}{' '}
+                    <a
+                      href="https://dknowles2.github.io/trusty-track/hardware-timer/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Hardware Timer guide
+                    </a>
                   </small>
                   {chosen && !chosen.detectable && (
                     <small style={{ color: '#8a6d00', display: 'block', marginTop: '0.25rem' }}>
