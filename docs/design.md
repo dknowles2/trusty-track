@@ -351,6 +351,52 @@ Both auto-detect modes probe. They differ only in who opens the port:
 `backend/services/timer/probe.py` opens it directly, and
 `backend/services/timer/proxy.py` asks the browser to.
 
+One profile departs from the usual framing: the NewBold DT/TURBO/DerbyStick
+family runs at 1200 baud with 7 data bits and 2 stop bits, against everything
+else's 9600 8-N-1 — and answers no identifying question, so it can only be
+chosen, never detected.
+
+### 5.4. Reading the serial log
+
+The timer check page (and the timer test report) show the raw conversation
+between the manager and the device, annotated. What a healthy MicroWizard
+session looks like, for anyone reading a report or the live panel:
+
+A start-up — the setup commands go out the moment the connection opens, which
+is why a log usually begins here:
+
+```
+→ N1                                        enable new-format results
+→ N2                                        enable gate feedback
+← *                                         command acknowledged
+← *                                         command acknowledged
+```
+
+If the server found the timer by probing the USB ports, the identification
+happened during the probe, before this log began — so the question and the
+banner are not in it. A hand-entered port is never probed, so there the
+server asks every few seconds until something answers:
+
+```
+→ RV                                        request version
+← Copyright (c) Micro Wizard 2002-2009      timer identified itself
+```
+
+During a heat:
+
+```
+→ MG                                        clear lane masks
+→ ME                                        mask lane 5
+→ LR                                        arm / reset timer
+← >                                         gate closed
+← @                                         gate opened - race started
+← A=3.452! B=3.501"                         results received
+```
+
+The command annotations come from the MicroWizard's vocabulary; other devices
+speak their own, described by their profiles in
+`backend/services/timer/devices/`.
+
 ## 6. Data Models (Detailed)
 
 (Already covered in Backend Design - 3.2. Data Storage, which includes key entities and their attributes).

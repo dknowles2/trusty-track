@@ -50,9 +50,9 @@ seven descriptions are adapted from
 > [testing it and sending us the result](#testing-your-timer-and-telling-us)
 > takes about two minutes and is the most useful thing you could contribute.
 
-Other models are not supported yet. Adding one is a matter of describing its
-serial protocol rather than writing code, so opening an issue with the model
-name and its protocol documentation is genuinely useful.
+Other models are not supported yet. Adding one is a matter of describing how
+the timer talks rather than writing code — so opening an issue naming the
+model, with its manual if you have it, genuinely helps.
 
 ## Two ways to connect
 
@@ -74,8 +74,8 @@ one that answers. You do not need to know anything about ports or paths.
 
 Fill the port in only if you have a reason to: a timer on a built-in serial
 port rather than USB, or a machine where you want to be certain which device
-gets used. A port you enter by hand is used exactly as given and is never
-probed.
+gets used. A port you enter by hand is used exactly as you typed it — the app
+does not go looking elsewhere.
 
 ### Plugged into the laptop running the browser
 
@@ -98,8 +98,7 @@ falling back to assuming a Micro Wizard.
 **System Settings → Check the timer connection**, or go to `/timer-check`.
 
 This page shows every track's timer live: what state it is in, which device
-answered, which port it was found on, and the raw conversation between the
-server and the timer. You do not need a race set up to use it.
+answered, and where it was found. You do not need a race set up to use it.
 
 ![The timer check page with a healthy timer: Ready in green, the identified device, its provenance note, the test panel, and the serial traffic beneath](assets/screenshots/timers/02-timer-check-ready.png)
 _A healthy timer: **Ready**, the device it identified itself as, and — in the yellow note — how well that device's support has actually been tested._
@@ -107,59 +106,47 @@ _A healthy timer: **Ready**, the device it identified itself as, and — in the 
 | What you see | What it means |
 | --- | --- |
 | **Ready** | The timer answered and is waiting for a heat. This is what you want. |
-| **Not connected** | No port is open. Check the cable, then press the button to search again. |
-| **Port open, waiting for the timer to answer** | Something is on the port but it has not identified itself. The server keeps asking every few seconds. If it does not clear, the port is probably something other than the timer. |
+| **Not connected** | Trusty Track cannot see a timer. Check the cable, then press the button to search again. |
+| **Port open, waiting for the timer to answer** | Something is plugged in, but it has not said what it is. Trusty Track keeps asking every few seconds. If this never clears, whatever is plugged in is probably not the timer. |
 | **Armed** | Lanes are set and the timer is waiting for the start gate. |
 | **Staged** | The start gate is closed with cars behind it. |
 | **Racing** | The gate opened and the timer is counting. |
 | **Results overdue** | The race started but no finish was reported. See [below](#when-something-goes-wrong). |
 | **Fault** | The connection failed. The reason is shown on the page. |
 
-### Reading the serial traffic
+### The scrolling text at the bottom
 
-You never need this section to run a race. It exists for the moment a timer
-misbehaves and you — or whoever you hand the problem to — want to see exactly
-what the timer said.
+Beneath each timer, the page shows the conversation between Trusty Track and
+the device. **You never need to read it.** It exists so a problem can be
+*sent* rather than described — if the timer misbehaves,
+[run the test below](#testing-your-timer-and-telling-us) and download the
+report, and the conversation goes with it.
 
-The log on that page shows the whole conversation between the server and the
-timer, annotated line by line. Two rules of thumb:
+The one thing it tells you with no decoding: lines marked `→` are Trusty
+Track talking, lines marked `←` are the timer answering. Arrows going out
+with nothing ever coming back means the cable or the port is wrong.
 
-- Commands going out (`→`) and nothing coming back (`←`): the cable or the
-  port is wrong.
-- Traffic that never becomes results: the log is the thing to attach to a bug
-  report.
+For the technically curious, annotated examples of a healthy conversation are
+in the [design notes](design.md#54-reading-the-serial-log).
 
-A healthy start-up looks roughly like this:
+## When something goes wrong
 
-```
-→ N1                                        enable new-format results
-→ N2                                        enable gate feedback
-← *                                         command acknowledged
-← *                                         command acknowledged
-```
+**Nothing is found.** The timer check page says which ports it tried. Only USB
+ports are searched — a timer on a built-in serial port has to have its path
+entered by hand.
 
-Those two commands go out the moment the connection opens, which is why the
-log usually starts there. If the server found the timer by searching the USB
-ports, the timer announced itself during that search, before this log began —
-so the question and the answer are not in it. If instead you entered a serial
-port by hand, there was no search, and the server asks every few seconds until
-something answers:
+**"Results overdue".** The gate opened and the timer never reported a finish.
+The Micro Wizard gives up roughly ten seconds after the gate opens, so this
+usually means a car did not reach the finish line, or a lane sensor did not
+see it. Use **Force Results** on the race screen to make the timer report what
+it has, then enter anything missing by hand.
 
-```
-→ RV                                        request version
-← Copyright (c) Micro Wizard 2002-2009      timer identified itself
-```
+**The times are recorded against the wrong racers.** Stop and check the lane
+numbering: lane 1 in Trusty Track must be the lane the timer calls `A`.
 
-Then, during a heat:
-
-```
-→ MG                                        clear lane masks
-→ ME                                        mask lane 5
-→ LR                                        arm / reset timer
-← >                                         gate closed
-← @                                         gate opened - race started
-← A=3.452! B=3.501"                         results received
-```
+**A heat was armed and then the schedule changed.** The timer disarms itself
+and says so, rather than recording times against a field that has moved.
+Re-arm the heat and run it again.
 
 ## Testing your timer and telling us
 
@@ -190,25 +177,6 @@ or your racers.
 If the test looks right, that is worth a word too: "it works" moves a timer
 out of the untested column.
 
-## When something goes wrong
-
-**Nothing is found.** The timer check page says which ports it tried. Only USB
-ports are searched — a timer on a built-in serial port has to have its path
-entered by hand.
-
-**"Results overdue".** The gate opened and the timer never reported a finish.
-The Micro Wizard gives up roughly ten seconds after the gate opens, so this
-usually means a car did not reach the finish line, or a lane sensor did not
-see it. Use **Force Results** on the race screen to make the timer report what
-it has, then enter anything missing by hand.
-
-**The times are recorded against the wrong racers.** Stop and check the lane
-numbering: lane 1 in Trusty Track must be the lane the timer calls `A`.
-
-**A heat was armed and then the schedule changed.** The timer disarms itself
-and says so, rather than recording times against a field that has moved.
-Re-arm the heat and run it again.
-
 ## Choosing the model yourself
 
 Most people never touch this. Leave **Timer Model** on *Detect automatically*
@@ -217,17 +185,17 @@ of the eight models. Pick one yourself when:
 
 - **Yours is the NewBold family.** It never announces itself, so it can only
   be reached this way — the picker marks it *must be chosen*. It also talks at
-  a different speed from every other supported timer, and naming it is what
-  gets the connection opened at that speed; automatic detection assumes the
-  usual one and would hear only noise. (For the technically minded: 1200 baud,
-  7 data bits, 2 stop bits, against everything else's 9600 8-N-1.)
-- **You would rather it did not ask.** Detection writes a probe command to
-  every port it tries. That is harmless as far as anyone knows, but an
-  operator who already knows what they have has no reason to allow it.
+  a different speed from every other supported timer, and picking it is what
+  makes the connection use that speed; automatic detection assumes the usual
+  one and would hear only noise.
+- **You would rather it did not ask.** Detection works by asking: it sends a
+  short question to everything plugged in and waits for an answer. That is
+  harmless as far as anyone knows, but if you already know what you have,
+  picking it skips the asking.
 
-Naming a model does not pin the port. With the serial port left blank the
-server still looks for the timer — it just looks for *that* timer, rather
-than trying every model's probe commands on your hardware.
+Picking a model does not tell the app where the timer is plugged in. With the
+serial port left blank it still goes looking — it just looks for *that* timer,
+instead of asking about every model it knows.
 
 The setting sits under **Timer Type**, and only appears once you have chosen
 something other than the fake timer, because a fake timer has no model.
@@ -240,11 +208,12 @@ instead of by somebody standing at the track.
 
 Two things have to be true before the button appears:
 
-1. **The track has the hardware.** Nothing in a timer's protocol says whether
-   the solenoid is there, so it is a setting: **System Settings → the track →
+1. **The track has the hardware.** The timer cannot tell us whether the
+   release is fitted, so it is a setting: **System Settings → the track →
    This track has a remote start gate**. Tick it only if the hardware is
-   actually fitted — on a Micro Wizard the gate release is a separately-sold
-   accessory, and the timer accepts the command and does nothing without it.
+   actually there — on a Micro Wizard the gate release is a separately-sold
+   accessory, and without it the timer accepts the command and quietly does
+   nothing.
 2. **The timer model has a command for opening the gate.** The Micro Wizard
    and the PDT do; the other six have no such command described, so ticking
    the box will not give you the button.
