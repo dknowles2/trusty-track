@@ -51,9 +51,12 @@ def create_group(db: Session, group: schemas.GroupCreate) -> models.Group:
 def get_dens(
     db: Session, race_id: int, skip: int = 0, limit: int = 100
 ) -> list[models.Den]:
+    # Ordered: an unordered query with offset/limit pages arbitrarily, and
+    # `populate` deals seeded den assignments from this list (`demo_seed`).
     return (
         db.query(models.Den)
         .filter(models.Den.race_id == race_id)
+        .order_by(models.Den.id)
         .offset(skip)
         .limit(limit)
         .all()
@@ -275,10 +278,11 @@ def delete_track(db: Session, track_id: int) -> bool:
 def get_racers(
     db: Session, skip: int = 0, limit: int = 100, race_id: int | None = None
 ) -> list[models.Racer]:
+    # Ordered: an unordered query with offset/limit pages arbitrarily.
     query = db.query(models.Racer)
     if race_id:
         query = query.filter(models.Racer.race_id == race_id)
-    return query.offset(skip).limit(limit).all()
+    return query.order_by(models.Racer.id).offset(skip).limit(limit).all()
 
 
 def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None:
@@ -671,7 +675,9 @@ def generate_heats_for_round(
         for h_lanes in lanes_for_heats(db, round_obj.heats):
             current_racers.update(lanes.real_racer_ids(h_lanes))
         if current_racers:
-            p_ids = list(current_racers)
+            # Sorted because set iteration order is not a promise, and the
+            # PPC shuffle downstream may be seeded (`demo_seed`).
+            p_ids = sorted(current_racers)
         else:
             p_ids = scheduling.placeholder_ids(round_obj.total_participants)
     else:
@@ -680,7 +686,9 @@ def generate_heats_for_round(
         )
         if round_obj.den_id:
             query = query.filter(models.Racer.den_id == round_obj.den_id)
-        racers = query.all()
+        # Ordered because the PPC shuffle downstream may be seeded
+        # (`demo_seed`), and it is only as repeatable as its input order.
+        racers = query.order_by(models.Racer.id).all()
         if not racers or len(racers) < 2:
             raise ValueError(
                 "Not enough racers to generate a schedule (minimum 2 required)"
@@ -1793,9 +1801,13 @@ def get_random_lane_assignments(
     If fewer than `lane_count` racers are checked in, fill remaining lanes with
     empty slots (racer_id=None).
     """
+    # Ordered because the shuffle below may be seeded (`demo_seed`): a shuffle
+    # is only as repeatable as the order of what it shuffles, and a query
+    # without ORDER BY promises none.
     pool = (
         db.query(models.Racer)
         .filter(models.Racer.race_id == race_id, models.Racer.car_passed_inspection)
+        .order_by(models.Racer.id)
         .all()
     )
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
