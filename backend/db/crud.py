@@ -1351,6 +1351,51 @@ def is_round_complete(db: Session, round_id: int) -> bool:
     return advancement.is_round_complete(_round_heat_lanes(db, round_id))
 
 
+def populate_round_if_decided(db: Session, round_obj: models.Round) -> bool:
+    """Fill a championship round's field, if its source is decided *now*.
+
+    The one place the population question is asked (#48's shape): the
+    recorded-result cascade asks it for every later round, and round creation
+    asks it for the round just made — a final added after the prelims finished
+    has no completion event left to wait for (#248).
+    """
+    if not round_obj.advancement_source:
+        return False
+
+    rule = advancement.AdvancementRule(
+        source=round_obj.advancement_source,
+        num_racers=round_obj.advancement_num_racers,
+    )
+
+    def prior_rounds_complete() -> bool:
+        earlier = (
+            db.query(models.Round)
+            .filter(
+                models.Round.race_id == round_obj.race_id,
+                models.Round.round_number < round_obj.round_number,
+            )
+            .all()
+        )
+        return all(is_round_complete(db, pr.id) for pr in earlier)
+
+    if not advancement.should_populate(
+        rule,
+        lambda source_id: is_round_complete(db, source_id),
+        prior_rounds_complete,
+    ):
+        return False
+
+    from backend.services import scoring
+
+    winner_ids = scoring.get_advancing_racers(
+        db, round_obj.race_id, round_obj.advancement_source, rule.num_racers
+    )
+    # Putting racers in adds no times, so the round is not complete
+    # afterwards and there is nothing to cascade into.
+    populate_round_field(db, round_obj.id, winner_ids)
+    return True
+
+
 def trigger_auto_advancements(db: Session, race_id: int, completed_round_id: int):
     """Fill in any championship round whose field is now decided."""
     if not is_round_complete(db, completed_round_id):
@@ -1372,31 +1417,8 @@ def trigger_auto_advancements(db: Session, race_id: int, completed_round_id: int
         all_rounds, completed_round.round_number
     )
 
-    from backend.services import scoring
-
     for r in future_rounds:
-        rule = advancement.AdvancementRule(
-            source=r.advancement_source, num_racers=r.advancement_num_racers
-        )
-
-        def prior_rounds_complete(before=r.round_number) -> bool:
-            return all(
-                is_round_complete(db, pr.id)
-                for pr in all_rounds
-                if pr.round_number < before
-            )
-
-        if not advancement.should_populate(
-            rule, completed_round_id, prior_rounds_complete
-        ):
-            continue
-
-        winner_ids = scoring.get_advancing_racers(
-            db, race_id, r.advancement_source, r.advancement_num_racers
-        )
-        # Putting racers in adds no times, so the round is not complete
-        # afterwards and there is nothing to cascade into.
-        populate_round_field(db, r.id, winner_ids)
+        populate_round_if_decided(db, r)
 
 
 def set_heat_lanes(heat: models.Heat, heat_lanes: Sequence[lanes.Lane]) -> None:

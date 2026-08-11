@@ -18,6 +18,9 @@ interface RoundConfigModalProps {
   denCount: number;
   championshipTrophies: number;
   hasGeneralRound: boolean;
+  /** The latest championship round, when one exists — what a new round can
+   * chain from ("top ten, then top three"). Null before any exist. */
+  lastChampionshipRound?: { id: number; name: string | null } | null;
 }
 
 export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
@@ -27,12 +30,13 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   racerCount,
   denCount,
   championshipTrophies,
-  hasGeneralRound
+  hasGeneralRound,
+  lastChampionshipRound
 }) => {
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
   const [generalType, setGeneralType] = useState<'PACK' | 'DEN'>('PACK');
   const [name, setName] = useState('');
-  const [source, setSource] = useState<'PACK' | 'DEN'>('PACK');
+  const [source, setSource] = useState<'PACK' | 'DEN' | 'PREVIOUS'>('PACK');
   const [numTopRacers, setNumTopRacers] = useState(championshipTrophies);
   const [runsPerLane, setRunsPerLane] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -62,7 +66,12 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
       await onSubmit({
         name,
         schedulingStrategy: 'PPC',
-        advancementSource: effectiveType === 'CHAMPIONSHIP' ? source : undefined,
+        advancementSource:
+          effectiveType === 'CHAMPIONSHIP'
+            ? source === 'PREVIOUS' && lastChampionshipRound
+              ? `ROUND:${lastChampionshipRound.id}`
+              : source
+            : undefined,
         advancementNumRacers: effectiveType === 'CHAMPIONSHIP' ? numTopRacers : undefined,
         runsPerLane,
         generalType: effectiveType === 'GENERAL' ? generalType : undefined
@@ -196,12 +205,17 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   <label style={labelStyle}>Top performers from</label>
                   <select
                     value={source}
-                    onChange={(e) => setSource(e.target.value as 'PACK' | 'DEN')}
+                    onChange={(e) => setSource(e.target.value as 'PACK' | 'DEN' | 'PREVIOUS')}
                     style={inputStyle}
                     disabled={loading}
                   >
                     <option value="PACK">PACK (Overall)</option>
                     <option value="DEN">DEN (Each Den)</option>
+                    {lastChampionshipRound && (
+                      <option value="PREVIOUS">
+                        {lastChampionshipRound.name || 'Previous championship round'}
+                      </option>
+                    )}
                   </select>
                 </div>
                 <div>

@@ -824,6 +824,11 @@ export default function RaceControl() {
           racerCount={race?.racers?.length || 0}
           denCount={race?.dens?.length || 0}
           championshipTrophies={race?.championshipTrophies || 3}
+          lastChampionshipRound={
+            (race?.rounds ?? [])
+              .filter((round: Round) => round.advancementSource)
+              .sort((a: Round, b: Round) => b.roundNumber - a.roundNumber)[0] ?? null
+          }
           staleRoundIds={
             new Set(
               (race?.rounds ?? [])
