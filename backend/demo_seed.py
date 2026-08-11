@@ -29,6 +29,17 @@ get different values from the same spec regenerated alongside the others — and
 the screenshots would churn again, for a reason invisible in the diff. Keying
 each draw on the thing it is for makes an answer independent of what came
 before it.
+
+Ordered inputs
+--------------
+
+A seeded shuffle is only as repeatable as the order of what it shuffles. A
+query without ``ORDER BY`` promises no order at all — SQLite usually returns
+rowid order, until a plan change or a page reorganisation quietly does not —
+so every query whose rows feed a draw from this module carries an explicit
+``order_by``, and a set is ``sorted`` before it becomes a participant list.
+The failure this prevents is the worst kind: same seed, same key, different
+answer, on somebody else's machine.
 """
 
 import os
