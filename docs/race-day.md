@@ -222,6 +222,19 @@ across a row tells you who is in which lane.
 ![Schedule Management View](assets/screenshots/race-day/10-schedule-management.png)
 _The full schedule after generation. Each round has its own table; a heat's row shows the racer in every lane, and picks up their finish times once it has been run._
 
+### Adding a Round Later
+
+You do not have to decide everything in the wizard. **Add Round**, at the top
+of the Schedule tab, adds one more round at the end of the schedule — a
+general round everyone races, or another championship round.
+
+A championship round added here can draw its field from the overall standings,
+from each den, or — once another championship round exists — from that round's
+results, which is how you get "top ten race a semifinal, top three of *them*
+race the final". If the round it draws from has already finished, the new
+round fills in with the qualifiers straight away; otherwise it fills in on its
+own the moment they are decided.
+
 ---
 
 ### Reordering Heats (Optional)

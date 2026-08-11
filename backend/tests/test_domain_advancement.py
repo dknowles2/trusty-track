@@ -111,17 +111,39 @@ def test_an_unrecognised_source_advances_nobody():
 # --------------------------------------------------------------------------- #
 
 
-def test_a_round_scoped_rule_fires_when_its_source_round_finishes():
+def test_a_round_scoped_rule_fires_while_its_source_round_is_complete():
+    """The question is about the state of the race now, not about which round
+    just finished — a rule that only fired on its source's completion event
+    stranded a final whose field was reset after that event had passed (#248).
+    """
     rule = AdvancementRule("ROUND:7", 4)
-    assert should_populate(rule, completed_round_id=7, prior_rounds_complete=_never)
-    assert not should_populate(rule, completed_round_id=8, prior_rounds_complete=_never)
+    assert should_populate(
+        rule, source_round_complete=lambda rid: rid == 7, prior_rounds_complete=_never
+    )
+    assert not should_populate(
+        rule, source_round_complete=lambda _rid: False, prior_rounds_complete=_never
+    )
+
+
+def test_a_malformed_round_source_fires_nothing():
+    calls = []
+    assert not should_populate(
+        AdvancementRule("ROUND:", 4),
+        source_round_complete=lambda rid: calls.append(rid) or True,
+        prior_rounds_complete=_never,
+    )
+    assert calls == []
 
 
 def test_pack_waits_for_every_earlier_round():
     """Otherwise the field is picked from a partial leaderboard and then moves."""
     rule = AdvancementRule("PACK", 4)
-    assert not should_populate(rule, 1, prior_rounds_complete=lambda: False)
-    assert should_populate(rule, 1, prior_rounds_complete=lambda: True)
+    assert not should_populate(
+        rule, source_round_complete=_never_id, prior_rounds_complete=lambda: False
+    )
+    assert should_populate(
+        rule, source_round_complete=_never_id, prior_rounds_complete=lambda: True
+    )
 
 
 def test_a_round_scoped_rule_never_asks_about_earlier_rounds():
@@ -132,11 +154,19 @@ def test_a_round_scoped_rule_never_asks_about_earlier_rounds():
         calls.append(1)
         return True
 
-    should_populate(AdvancementRule("ROUND:3", 2), 3, prior_rounds_complete=counted)
+    should_populate(
+        AdvancementRule("ROUND:3", 2),
+        source_round_complete=lambda _rid: True,
+        prior_rounds_complete=counted,
+    )
     assert calls == []
 
 
 def _never() -> bool:
+    return False
+
+
+def _never_id(_round_id: int) -> bool:
     return False
 
 

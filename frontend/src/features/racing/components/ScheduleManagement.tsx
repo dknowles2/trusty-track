@@ -55,6 +55,7 @@ interface ScheduleManagementProps {
   racerCount: number;
   denCount: number;
   championshipTrophies: number;
+  lastChampionshipRound?: { id: number; name: string | null } | null;
   /**
    * Rounds whose raced field no longer matches who would advance from the
    * standings as they now are (#229). A correction to an earlier time after a
@@ -224,6 +225,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   racerCount,
   denCount,
   championshipTrophies,
+  lastChampionshipRound,
   staleRoundIds,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -436,6 +438,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           denCount={denCount}
           championshipTrophies={championshipTrophies}
           hasGeneralRound={hasGeneralRound}
+          lastChampionshipRound={lastChampionshipRound}
         />
 
         {sortedRoundIds.length === 0 ? (

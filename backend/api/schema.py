@@ -2309,13 +2309,16 @@ class Mutation:
                     models.SchedulingStrategy.PPC,
                     "All Pack",
                 )
+                # On the rollback list from the moment the row exists —
+                # `create_round` commits, so a failure in heat generation
+                # leaves a round the rollback must know about (#249).
+                created_rounds.append(round_obj)
                 crud.generate_heats_for_round(
                     db,
                     round_obj.id,
                     clear_existing=True,
                     runs=config.general_round.runs_per_lane,
                 )
-                created_rounds.append(round_obj)
                 current_round_number += 1
             elif config.general_round.type == "DEN":
                 dens = crud.get_dens(db, race_id)
@@ -2335,6 +2338,7 @@ class Mutation:
                         den.name,
                         den_id=den.id,
                     )
+                    created_rounds.append(round_obj)
                     p_ids = [r.id for r in racers]
                     crud.generate_heats_for_round(
                         db,
@@ -2343,7 +2347,6 @@ class Mutation:
                         clear_existing=True,
                         runs=config.general_round.runs_per_lane,
                     )
-                    created_rounds.append(round_obj)
                     current_round_number += 1
 
             # Championship Rounds
@@ -2368,6 +2371,7 @@ class Mutation:
                 )
                 db.flush()  # Ensure the round ID is generated
                 previous_champ_round_id = round_obj.id
+                created_rounds.append(round_obj)
 
                 # As many runs as asked for, exactly as the general round
                 # above does (#143). One call: `runs` is a parameter now, and
@@ -2379,10 +2383,13 @@ class Mutation:
                     clear_existing=True,
                     runs=champ_cfg.runs_per_lane,
                 )
-                created_rounds.append(round_obj)
                 current_round_number += 1
         except ValueError as e:
-            for r in created_rounds:
+            # Reverse creation order: the general round cannot be deleted
+            # while championship rounds still exist, so a forward rollback
+            # raised out of the rollback and left the half-made rounds
+            # committed — and every later wizard run refused (#249).
+            for r in reversed(created_rounds):
                 crud.delete_round(db, r.id)
             raise e
 
@@ -3145,7 +3152,12 @@ class Mutation:
 
         try:
             existing_rounds = crud.get_rounds(db, race_id)
-            next_round_number = len(existing_rounds) + 1
+            # From the highest number, not the count: deleting a middle round
+            # leaves fewer rounds than the numbering reaches, and a reused
+            # number is invisible to advancement's strict ordering (#250).
+            next_round_number = (
+                max((r.round_number for r in existing_rounds), default=0) + 1
+            )
 
             if not round_data.advancement_source:
                 # General Round
@@ -3184,6 +3196,9 @@ class Mutation:
                     clear_existing=True,
                     runs=round_data.runs_per_lane,
                 )
+                # A final added after its source finished has no completion
+                # event left to fill it (#248) — ask now rather than wait.
+                crud.populate_round_if_decided(db, round_obj)
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
                 return [typing.cast(Any, round_obj)]
         except ValueError as e:

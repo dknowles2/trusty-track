@@ -120,22 +120,32 @@ def advancing_racer_ids(
 
 def should_populate(
     rule: AdvancementRule,
-    completed_round_id: int,
+    source_round_complete: Callable[[int], bool],
     prior_rounds_complete: Callable[[], bool],
 ) -> bool:
     """Whether a championship round can be filled in now.
 
-    A round-scoped rule fires the moment its own source round finishes.
-    ``PACK`` and ``DEN`` rules read the standings across everything before them,
-    so they wait until *every* earlier round is complete — otherwise the field
-    would be picked from a partial leaderboard and then quietly change.
+    A round-scoped rule fires when its source round is complete. ``PACK`` and
+    ``DEN`` rules read the standings across everything before them, so they
+    wait until *every* earlier round is complete — otherwise the field would
+    be picked from a partial leaderboard and then quietly change.
 
-    ``prior_rounds_complete`` is a callable because answering it costs a query
-    per earlier round, and a round-scoped rule never needs the answer. This runs
-    on every recorded heat result, during a live race.
+    The question is about the state of the race *now*, never about which round
+    just finished. It used to be the latter — a round-scoped rule fired only on
+    its own source's completion event — and that stranded a final twice over
+    (#248): an earlier-round correction reset its field to placeholders after
+    the source round had already finished (which never finishes again), and a
+    round created after its source was done had no event left to fire on.
+    Stated over the present, the answer is the same wherever it is asked from,
+    and a stranded round heals on the next opportunity.
+
+    Both answers arrive as callables because each costs queries — one per
+    earlier round for ``prior_rounds_complete`` — and each kind of rule needs
+    only its own. This runs on every recorded heat result, during a live race.
     """
     if rule.is_round_scoped:
-        return rule.source == f"{ROUND_PREFIX}{completed_round_id}"
+        source_id = rule.source_round_id
+        return source_id is not None and source_round_complete(source_id)
     if rule.source in (PACK, DEN):
         return prior_rounds_complete()
     return False
