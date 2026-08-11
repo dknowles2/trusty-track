@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { withPin } from '../api/pin';
+import { errorText } from '../utils/errors';
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -198,8 +199,9 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                         setStatus('connected');
                         readLoopRef.current = startReading(port, ws);
                     } catch (err: unknown) {
-                        const e = err as { message?: string };
-                        setErrorMsg(`Port error: ${e.message}`);
+                        setErrorMsg(
+                            errorText(err, 'The serial port could not be opened. Unplug the timer, plug it back in, and try again.'),
+                        );
                         setStatus('error');
                         ws.close();
                     }
@@ -228,12 +230,12 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
             };
 
         } catch (err: unknown) {
-            const e = err as { name?: string, message?: string };
+            const e = err as { name?: string };
             if (e.name === 'NotFoundError') {
                 setStatus('disconnected');
                 setActiveTrackId(null);
             } else {
-                setErrorMsg(e.message || 'Connection failed');
+                setErrorMsg(errorText(err, 'The timer connection failed.'));
                 setStatus('error');
             }
         }

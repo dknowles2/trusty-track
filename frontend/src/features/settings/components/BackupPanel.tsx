@@ -9,6 +9,7 @@
 
 import { useRef, useState } from 'react';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { downloadBackup, restoreBackup } from '../backupClient';
 
 export default function BackupPanel() {
@@ -21,10 +22,7 @@ export default function BackupPanel() {
     try {
       await downloadBackup();
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'The backup failed.',
-        'error',
-      );
+      showToast(errorText(error, 'The backup failed.'), 'error');
     } finally {
       setBusy(null);
     }
@@ -61,10 +59,7 @@ export default function BackupPanel() {
       // more machinery for something that happens once.
       window.setTimeout(() => window.location.reload(), 1200);
     } catch (error) {
-      showToast(
-        error instanceof Error ? error.message : 'The restore failed.',
-        'error',
-      );
+      showToast(errorText(error, 'The restore failed.'), 'error');
       setBusy(null);
     }
   };

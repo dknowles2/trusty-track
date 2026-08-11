@@ -15,6 +15,7 @@
 import { useState } from 'react';
 import { gql, useMutation } from 'urql';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { lanesOf, outageSummary, toggleLane } from '../laneOutages';
 
 const SET_LANE_OUTAGES_MUTATION = gql`
@@ -41,7 +42,10 @@ export default function TrackLanes({ trackId, laneCount, outages, onChange }: Pr
     const response = await setLaneOutages({ trackId, lanes: next });
     setBusy(false);
     if (response.error) {
-      showToast(response.error.message, 'error');
+      showToast(
+        errorText(response.error, 'The lane change could not be saved.'),
+        'error',
+      );
       return;
     }
     // The server drops lanes the track does not have, so take its answer

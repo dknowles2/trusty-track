@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { useMutation } from 'urql';
 import { IMPORT_RACERS } from '../graphql/queries';
+import { errorText } from '../../../utils/errors';
 import {
     applyMapping,
     canImport,
@@ -65,7 +66,10 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                 setParsed(file);
                 setMapping(guessMapping(file.headers));
             } catch (error) {
-                setStatus({ type: 'error', message: (error as Error).message });
+                setStatus({
+                    type: 'error',
+                    message: errorText(error, 'That file could not be read.'),
+                });
             }
         };
         reader.onerror = () => setStatus({ type: 'error', message: 'Failed to read that file.' });
@@ -104,13 +108,9 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
             });
             onImportSuccess();
         } catch (error: unknown) {
-            const err = error as { graphQLErrors?: { message: string }[]; message?: string };
             setStatus({
                 type: 'error',
-                message:
-                    err.graphQLErrors?.[0]?.message ??
-                    err.message ??
-                    'Failed to import racers. Please try again.',
+                message: errorText(error, 'The racers could not be imported.'),
             });
         } finally {
             setUploading(false);

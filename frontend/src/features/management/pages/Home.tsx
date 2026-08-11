@@ -5,6 +5,7 @@ import { CREATE_PRACTICE_RACE, CREATE_RACE } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
 import { mdiPlus, mdiFlagCheckered, mdiEye, mdiSchool } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
@@ -135,7 +136,7 @@ export default function Home() {
             </Modal>
 
             {fetching && <p>Loading races...</p>}
-            {error && <p>Error loading races: {error.message}</p>}
+            {error && <p>{errorText(error, 'The list of races could not be loaded.')}</p>}
             {!fetching && !error && (
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>

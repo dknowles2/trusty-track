@@ -22,6 +22,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
 import type { Heat, Lane } from '../types';
 import { hasRun, hasTimes } from '../lanes';
@@ -363,8 +364,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
       });
     } catch (error: unknown) {
       console.error('Failed to reorder heats:', error);
-      const e = error as { message?: string };
-      showToast(e.message || 'Failed to reorder heats', 'error');
+      showToast(errorText(error, 'The heats could not be reordered.'), 'error');
       // Revert local state on error
       setLocalHeats(heats);
     } finally {

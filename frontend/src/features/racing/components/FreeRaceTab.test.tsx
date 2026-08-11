@@ -95,13 +95,15 @@ describe('FreeRaceTab', () => {
   });
 
   it('shows an error message when startFreeRaceHeat mutation fails', async () => {
+    // Shaped like urql's CombinedError: the backend's own sentence passes
+    // through to the operator, without the "[GraphQL]" prefix.
     mockStartMutation.mockResolvedValue({
-      error: { message: 'Server error' },
+      error: { graphQLErrors: [{ message: 'Race not found' }] },
     });
     render(<FreeRaceTab {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Start Heat/i }));
     await waitFor(() => {
-      expect(screen.getByText('Server error')).toBeInTheDocument();
+      expect(screen.getByText('Race not found')).toBeInTheDocument();
     });
     // Should stay on setup phase
     expect(screen.getByTestId('free-race-lane-setup')).toBeInTheDocument();

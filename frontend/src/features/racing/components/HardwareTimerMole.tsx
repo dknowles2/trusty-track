@@ -4,6 +4,7 @@ import { mdiUsb, mdiChevronUp, mdiChevronDown, mdiFlagCheckered } from '@mdi/js'
 import { useSubscription, useMutation } from 'urql';
 import { TIMER_STATUS_SUBSCRIPTION, RECONNECT_TIMER, RELEASE_START_GATE } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { buildDisplayLines } from '../serialLog';
 import type { SerialLogEntry } from '../serialLog';
 
@@ -66,14 +67,14 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
     const handleConnect = async () => {
         const result = await reconnectTimer({ trackId });
         if (result.error) {
-            showAlert(result.error.message || 'Failed to connect.', 'Error');
+            showAlert(errorText(result.error, 'The timer could not be reached.'), 'Error');
         }
     };
 
     const handleRelease = async () => {
         const result = await releaseStartGate({ trackId });
         if (result.error) {
-            showAlert(result.error.message || 'Failed to release the gate.', 'Error');
+            showAlert(errorText(result.error, 'The gate could not be released.'), 'Error');
             return;
         }
         // Not an error — a refusal, with the reason the operator needs.
