@@ -15,6 +15,7 @@ import { Icon } from '@mdi/react';
 import { mdiArrowDown, mdiArrowUp, mdiPencil, mdiTrashCan, mdiTrophyOutline } from '@mdi/js';
 import Modal from '../../../components/ui/Modal';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { describeSpeedAward, racerLabel } from '../awardText';
 import AwardForm, { AwardDraft } from '../components/AwardForm';
 import {
@@ -79,7 +80,7 @@ export default function Awards() {
   const handleCreate = async (draft: AwardDraft) => {
     const response = await createAward({ raceId: id, award: asInput(draft) });
     if (response.error) {
-      showToast(response.error.message, 'error');
+      showToast(errorText(response.error, 'The award could not be added.'), 'error');
       return;
     }
     setAdding(false);
@@ -90,7 +91,7 @@ export default function Awards() {
     if (!editing) return;
     const response = await updateAward({ id: editing.id, award: asInput(draft) });
     if (response.error) {
-      showToast(response.error.message, 'error');
+      showToast(errorText(response.error, 'The award could not be saved.'), 'error');
       return;
     }
     setEditing(null);
@@ -107,7 +108,7 @@ export default function Awards() {
     if (!confirmed) return;
     const response = await deleteAward({ id: award.id });
     if (response.error) {
-      showToast(response.error.message, 'error');
+      showToast(errorText(response.error, 'The award could not be removed.'), 'error');
       return;
     }
     refetch({ requestPolicy: 'network-only' });
@@ -120,7 +121,7 @@ export default function Awards() {
     [order[index], order[target]] = [order[target], order[index]];
     const response = await reorderAwards({ raceId: id, awardIds: order });
     if (response.error) {
-      showToast(response.error.message, 'error');
+      showToast(errorText(response.error, 'The awards could not be reordered.'), 'error');
       return;
     }
     refetch({ requestPolicy: 'network-only' });
@@ -156,7 +157,11 @@ export default function Awards() {
       </div>
 
       {result.fetching && awards.length === 0 && <p>Loading…</p>}
-      {result.error && <p style={{ color: '#b60205' }}>{result.error.message}</p>}
+      {result.error && (
+        <p style={{ color: '#b60205' }}>
+          {errorText(result.error, 'The awards could not be loaded.')}
+        </p>
+      )}
 
       {!result.fetching && awards.length === 0 && (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#666' }}>

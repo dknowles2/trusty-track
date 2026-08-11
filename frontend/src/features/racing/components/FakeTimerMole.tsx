@@ -4,6 +4,7 @@ import { mdiTimerOutline, mdiPlay, mdiFlagCheckered, mdiChevronUp, mdiChevronDow
 import { useMutation, useSubscription } from 'urql';
 import { FAKE_TIMER_START, FAKE_TIMER_FINISH, TIMER_STATUS_SUBSCRIPTION } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 
 
 /**
@@ -77,7 +78,7 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
             timeout = setTimeout(async () => {
                 const result = await fakeTimerFinish({ heatId, isFreeRace });
                 if (result.error) {
-                    showAlert(result.error.message || 'Failed to finish heat.', 'Error');
+                    showAlert(errorText(result.error, 'The heat could not be finished.'), 'Error');
                 }
             }, delay);
         }
@@ -91,14 +92,14 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
     const handleStartTimer = async () => {
         const result = await fakeTimerStart({ heatId, isFreeRace });
         if (result.error) {
-            showAlert(result.error.message || 'Failed to start timer.', 'Error');
+            showAlert(errorText(result.error, 'The timer could not be started.'), 'Error');
         }
     };
 
     const handleFinishHeat = async () => {
         const result = await fakeTimerFinish({ heatId, isFreeRace });
         if (result.error) {
-            showAlert(result.error.message || 'Failed to finish heat.', 'Error');
+            showAlert(errorText(result.error, 'The heat could not be finished.'), 'Error');
         }
     };
 

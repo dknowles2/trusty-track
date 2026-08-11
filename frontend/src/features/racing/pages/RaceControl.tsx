@@ -4,6 +4,7 @@ import { useQuery, useMutation, gql } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { ScheduleManagement } from '../components/ScheduleManagement';
 import DisplaysPanel from '../../observation/components/DisplaysPanel';
 import { RaceExecution } from '../components/RaceExecution';
@@ -241,8 +242,7 @@ export default function RaceControl() {
       setSelectedHeatId(null);
     } catch (e: unknown) {
       console.error("Failed to add round", e);
-      const err = e as { message?: string };
-      showAlert(err.message || "Failed to add round.", "Error");
+      showAlert(errorText(e, "The round could not be added."), "Error");
     } finally {
       setGenerating(false);
     }
@@ -261,8 +261,7 @@ export default function RaceControl() {
       }
     } catch (e: unknown) {
       console.error("Failed to regenerate round", e);
-      const err = e as { message?: string };
-      showAlert(err.message || "Failed to regenerate the schedule.", "Error");
+      showAlert(errorText(e, "The schedule could not be regenerated."), "Error");
     } finally {
       setGenerating(false);
     }
@@ -279,8 +278,7 @@ export default function RaceControl() {
       showToast("Round deleted successfully.", "success");
     } catch (e: unknown) {
       console.error("Failed to delete round", e);
-      const err = e as { message?: string };
-      showAlert(err.message || "Failed to delete the round.", "Error");
+      showAlert(errorText(e, "The round could not be deleted."), "Error");
     } finally {
       setGenerating(false);
     }
@@ -307,8 +305,7 @@ export default function RaceControl() {
       showToast("Heat deleted successfully.", "success");
     } catch (e: unknown) {
       console.error("Failed to delete heat", e);
-      const err = e as { message?: string };
-      showAlert(err.message || "Failed to delete the heat.", "Error");
+      showAlert(errorText(e, "The heat could not be deleted."), "Error");
     } finally {
       setGenerating(false);
     }

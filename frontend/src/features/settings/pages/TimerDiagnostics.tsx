@@ -17,6 +17,7 @@ import { gql } from 'urql';
 import { buildDisplayLines } from '../../racing/serialLog';
 import type { SerialLogEntry } from '../../racing/serialLog';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { fetchTimerReport, issueUrl, testInstruction } from '../timerTest';
 
 const DIAGNOSTIC_TRACKS = gql`
@@ -198,8 +199,9 @@ const TimerTestPanel: React.FC<{
         const outcome = await startTest({ trackId });
         if (outcome.error || outcome.data?.startTimerTest === false) {
             showAlert(
-                outcome.error?.message ??
-                    'The test could not start — is a real heat armed?',
+                outcome.error
+                    ? errorText(outcome.error, 'The test could not start.')
+                    : 'The test could not start — is a real heat armed?',
                 'Error',
             );
         }
@@ -215,10 +217,7 @@ const TimerTestPanel: React.FC<{
             anchor.click();
             URL.revokeObjectURL(url);
         } catch (error) {
-            showAlert(
-                error instanceof Error ? error.message : 'The download failed.',
-                'Error',
-            );
+            showAlert(errorText(error, 'The download failed.'), 'Error');
         } finally {
             setDownloading(false);
         }
@@ -361,7 +360,7 @@ const TrackTimer: React.FC<{ track: Track }> = ({ track }) => {
     const run = async (fn: typeof reconnect, what: string) => {
         const outcome = await fn({ trackId: track.id });
         if (outcome.error) {
-            showAlert(outcome.error.message || `Could not ${what}.`, 'Error');
+            showAlert(errorText(outcome.error, `Could not ${what}.`), 'Error');
         }
     };
 
@@ -554,7 +553,11 @@ const TimerDiagnostics: React.FC = () => {
             </p>
 
             {fetching && <p>Loading…</p>}
-            {error && <p style={{ color: '#c00' }}>{error.message}</p>}
+            {error && (
+                <p style={{ color: '#c00' }}>
+                    {errorText(error, 'The timers could not be loaded.')}
+                </p>
+            )}
             {!fetching && tracks.length === 0 && (
                 <p>
                     No tracks are configured yet. Add one on the{' '}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { errorText } from '../../../utils/errors';
 import { useMutation } from 'urql';
 import { FreeRaceLaneSetup, LaneAssignment } from './FreeRaceLaneSetup';
 import { FreeRaceExecution } from './FreeRaceExecution';
@@ -56,13 +57,13 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
     const result = await startMutation({ raceId, laneAssignments: gqlAssignments });
 
     if (result.error) {
-      setError(result.error.message || 'Failed to start free race heat.');
+      setError(errorText(result.error, 'The heat could not be started.'));
       return;
     }
 
     const heatId = result.data?.startFreeRaceHeat?.id;
     if (!heatId) {
-      setError('No heat ID returned from server.');
+      setError('The heat could not be started.');
       return;
     }
 

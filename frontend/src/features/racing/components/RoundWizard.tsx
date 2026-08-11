@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { useMutation } from 'urql';
 import { CREATE_ROUND_WIZARD } from '../graphql/queries';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
@@ -166,9 +167,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       onClose();
     } catch (error: unknown) {
       console.error('Failed to create rounds via wizard:', error);
-      const e = error as { message?: string };
-      const message = e.message || 'Unknown error';
-      showAlert(`Failed to create rounds: ${message}`, "Error");
+      showAlert(errorText(error, 'The rounds could not be created.'), "Error");
     } finally {
       setLoading(false);
     }

@@ -196,7 +196,13 @@ describe('RoundWizard Component', () => {
 
     it('shows error alert on API failure', async () => {
         const user = userEvent.setup();
-        mockExecuteMutation.mockResolvedValue({ error: new Error('Simulated Error') });
+        mockExecuteMutation.mockResolvedValue({
+            error: {
+                graphQLErrors: [
+                    { message: 'Cannot use wizard: rounds already exist for this race.' },
+                ],
+            },
+        });
 
         render(<AlertProvider><RoundWizard {...defaultProps} /></AlertProvider>);
 
@@ -208,7 +214,9 @@ describe('RoundWizard Component', () => {
 
         // Wait for the custom modal to show error
         await waitFor(() => {
-            expect(screen.getByText('Failed to create rounds: Simulated Error')).toBeInTheDocument();
+            expect(
+                screen.getByText('Cannot use wizard: rounds already exist for this race.'),
+            ).toBeInTheDocument();
         });
     });
 });

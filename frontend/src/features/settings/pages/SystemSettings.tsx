@@ -5,6 +5,7 @@ import BackupPanel from '../components/BackupPanel';
 import PinFieldRow from '../components/PinFieldRow';
 import { blankPin, pinInput, pinToSend, type PinField } from '../pinFields';
 import { clearPin, writePin } from '../../../api/pin';
+import { errorText } from '../../../utils/errors';
 import TrackLanes from '../components/TrackLanes';
 
 const GET_INITIAL_CONFIG = `
@@ -277,15 +278,16 @@ export default function SystemConfig() {
 
       navigate('/');
     } catch (err: unknown) {
-      const e = err as { message?: string };
-      setError(e.message || 'Failed to apply settings');
+      setError(errorText(err, 'The settings could not be saved.'));
     } finally {
       setSubmitting(false);
     }
   };
 
   if (fetching && !data) return <div>Loading Settings...</div>;
-  if (queryError) return <div>Error loading settings: {queryError.message}</div>;
+  if (queryError) {
+    return <div>{errorText(queryError, 'The settings could not be loaded.')}</div>;
+  }
 
   return (
     <div className="container">
