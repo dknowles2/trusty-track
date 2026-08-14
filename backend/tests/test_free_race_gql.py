@@ -315,3 +315,57 @@ def test_prepare_heat_is_free_race_flag(db: Session):
         },
     )
     assert resp.json()["data"]["fakeTimerFinish"] is True
+
+
+DELETE_FREE_RACE_HEAT = """
+mutation($heatId: Int!) {
+    deleteFreeRaceHeat(heatId: $heatId)
+}
+"""
+
+
+def test_delete_free_race_heat_that_has_not_run(db: Session):
+    """Found in a coverage audit: the mutation was classified in the role
+    policy and never exercised anywhere."""
+    race_id, _ = _create_race_with_track(db)
+    r1 = _add_checked_in_racer(db, race_id, "Alice", "Smith")
+    heat = crud.create_free_race_heat(
+        db, race_id, as_lanes([{"lane": 1, "racer_id": r1}])
+    )
+
+    resp = client.post(
+        "/graphql",
+        json={"query": DELETE_FREE_RACE_HEAT, "variables": {"heatId": heat.id}},
+    )
+    assert resp.json()["data"]["deleteFreeRaceHeat"] is True
+    db.expire_all()
+    assert db.query(models.Heat).filter(models.Heat.id == heat.id).first() is None
+
+
+def test_delete_free_race_heat_refuses_a_recorded_one(db: Session):
+    """An exhibition run is still a result somebody produced; deleting it is
+    refused the same way an official heat's would be."""
+    race_id, _ = _create_race_with_track(db)
+    r1 = _add_checked_in_racer(db, race_id, "Alice", "Smith")
+    heat = crud.create_free_race_heat(
+        db, race_id, as_lanes([{"lane": 1, "racer_id": r1, "time": 3.2, "place": 1}])
+    )
+
+    resp = client.post(
+        "/graphql",
+        json={"query": DELETE_FREE_RACE_HEAT, "variables": {"heatId": heat.id}},
+    )
+    # The refusal is a False, not an error: the schema treats "could not" as
+    # an answer, and the heat must still be there afterwards.
+    assert resp.json()["data"]["deleteFreeRaceHeat"] is False
+    db.expire_all()
+    assert db.query(models.Heat).filter(models.Heat.id == heat.id).first() is not None
+
+
+def test_delete_free_race_heat_that_does_not_exist(db: Session):
+    _create_race_with_track(db)
+    resp = client.post(
+        "/graphql",
+        json={"query": DELETE_FREE_RACE_HEAT, "variables": {"heatId": 99999}},
+    )
+    assert resp.json()["data"]["deleteFreeRaceHeat"] is False

@@ -147,10 +147,6 @@ class GroupCreate(GroupBase):
     pass
 
 
-class RoundUpdate(BaseModel):
-    name: str | None = None
-
-
 class HeatBase(BaseModel):
     heat_number: int
     lane_results: str | None = (
