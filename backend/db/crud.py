@@ -452,21 +452,6 @@ def create_round(
     return round_obj
 
 
-def update_round(
-    db: Session, round_id: int, round_update: schemas.RoundUpdate
-) -> models.Round | None:
-    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
-    if not round_obj:
-        return None
-
-    if round_update.name is not None:
-        round_obj.name = round_update.name
-
-    db.commit()
-    db.refresh(round_obj)
-    return round_obj
-
-
 def delete_round(db: Session, round_id: int) -> bool:
     """Delete a round and all its heats. Only if no heats have results."""
     round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
