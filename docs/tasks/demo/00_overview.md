@@ -1,8 +1,8 @@
 # Cloud Demo Instance — Overview
 
-> **Partly built.** Stage 1 — the demo mode gate — ships. Stages 2 to 4 do
-> not, and the absence of a `[COMPLETED]` marker on those files is
-> meaningful; see the plan-file convention in `CLAUDE.md`.
+> **Partly built.** Stage 1 ships, and stage 2's seeding half does; stage
+> 2's always-on reset timer, and stages 3 and 4, do not. The markers on
+> each file say which; see the plan-file convention in `CLAUDE.md`.
 
 ## Goal
 
@@ -127,7 +127,7 @@ same image with no code difference.
 | # | File | What it covers |
 | --- | --- | --- |
 | 1 [COMPLETED] | `01_demo_mode_gate.md` | The flag, the policy seam, what is refused, and the test that keeps it honest |
-| 2 | `02_seed_and_reset.md` | The baked seed archive, seeding on boot, and reset on each host |
+| 2 [PARTLY BUILT] | `02_seed_and_reset.md` | Seeding on boot (built, from code rather than an archive), and reset on each host (deferred) |
 | 3 | `03_idle_and_cold_start.md` | Idle disconnect, session cap, and cutting cold-start latency |
 | 4 | `04_deploy_and_portability.md` | Cloud Run configuration, cost ceiling, and what makes a move cheap |
 

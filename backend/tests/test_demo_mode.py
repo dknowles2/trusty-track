@@ -13,6 +13,7 @@ leaves it unset.
 """
 
 import pytest
+from fastapi.testclient import TestClient
 
 from backend import demo_mode
 from backend.api import demo_policy
@@ -251,3 +252,73 @@ class TestTheFakeTimerIsForced:
         await initialize_timer_managers(registry, session_factory=lambda: db)
 
         assert registry[track.id]._device.name == "Fake Timer"
+
+
+# --------------------------------------------------------------------------- #
+# Startup                                                                      #
+# --------------------------------------------------------------------------- #
+
+
+class TestStartup:
+    """What the lifespan does differently when the flag is set."""
+
+    def test_a_migration_failure_stops_the_process(self, monkeypatch, demo):  # noqa: ARG002
+        """An operator can read the log and the app is still there, which is why
+        this has always carried on. The demo has nobody to read it: its storage
+        is ephemeral, so carrying on means serving an empty or half-migrated
+        database to every visitor with nothing to say so."""
+        from backend.api import main
+
+        def _explode() -> None:
+            raise RuntimeError("alembic said no")
+
+        monkeypatch.setattr(main, "init_db", _explode)
+
+        with (
+            pytest.raises(RuntimeError, match="alembic said no"),
+            TestClient(main.app),
+        ):
+            pass
+
+    def test_an_ordinary_install_carries_on(self, monkeypatch):
+        """The other half, and the reason the branch exists rather than a
+        blanket change: a Pi that cannot migrate is still the operator's app,
+        and taking it down at 9am helps nobody."""
+        from backend.api import main
+
+        def _explode() -> None:
+            raise RuntimeError("alembic said no")
+
+        monkeypatch.setattr(main, "init_db", _explode)
+        monkeypatch.setattr(main, "demo_content", _NeverSeeds())
+
+        with TestClient(main.app):
+            pass
+
+    def test_seeding_does_not_run_twice(self, db, monkeypatch, demo):  # noqa: ARG002
+        """The flag says nothing about whether this container has run before —
+        an always-on host restarts with its data still there, and a second demo
+        stacked on the first is not a reset."""
+        from backend import demo_content
+        from backend.api import main
+
+        crud.create_group(db, schemas.GroupCreate(name="Already Here"))
+
+        calls = []
+        monkeypatch.setattr(main, "init_db", lambda: None)
+        monkeypatch.setattr(
+            demo_content, "seed", lambda session: calls.append(session) or None
+        )
+
+        with TestClient(main.app):
+            pass
+
+        assert calls == []
+
+
+class _NeverSeeds:
+    """Stands in for `demo_content` so the non-demo startup test cannot seed."""
+
+    @staticmethod
+    def is_seeded(_session: object) -> bool:  # pragma: no cover - not reached
+        return True
