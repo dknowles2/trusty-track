@@ -1,6 +1,43 @@
-# Demo Stage 3: Idle Disconnect and Cold Start
+# Demo Stage 3: Idle Disconnect and Cold Start [PARTLY BUILT]
 
-> **Not built.**
+> **The idle disconnect is built. The cold-start work was measured and is not
+> needed.**
+>
+> `frontend/src/api/demoSession.ts` holds the rules,
+> `features/core/components/DemoSessionGate.tsx` the wiring, and
+> `initialConfig.demoMode` is how the page finds out what it is.
+>
+> **The cold-start section below rests on a number that turned out to be
+> wrong.** It guessed "likely several seconds"; measured, a cold start is:
+>
+> | | |
+> | --- | --- |
+> | `import backend.api.main` (whole process, warm cache) | **0.41 s** |
+> | `init_db()` on a fresh database — all 24 migrations | **0.15 s** |
+> | `init_db()` when already at head | **~0 s** |
+> | `demo_content.seed` — roster, photographs, schedule, a raced round | **0.13 s** |
+>
+> About **0.7 s** in total. Each of the four proposed cuts is therefore either
+> worthless or invisible:
+>
+> * *skip the migration when already at head* — an at-head `alembic upgrade`
+>   costs nothing measurable, and on the deploy target storage is ephemeral so
+>   every boot runs the full chain anyway, for 0.15 s;
+> * *bake the seeded database into the image* — seeding is 0.13 s, and stage 2
+>   already replaced the archive with code;
+> * *lazy-import `pillow_heif`* — 7 ms of a 410 ms import, and it would move
+>   when the HEIF opener is registered for no visible gain;
+> * *startup CPU boost* — free, and stage 4's to configure.
+>
+> Nothing was implemented for it. Measured on an M-series Mac with warm caches,
+> so a cloud runner will be some multiple of this — but a multiple of 0.7 s is
+> not the problem the section describes. **Re-measure before reviving any of
+> it**, rather than reviving it because it is written down here.
+>
+> Also checked while measuring, because it would have broken the demo outright:
+> `populate` copies its photographs from `backend/assets/defaults/`, which
+> `COPY backend/ ./backend/` puts in the image and `.dockerignore` does not
+> exclude. The demo's photographs are local files, not external URLs.
 
 Two latency-and-cost problems that only exist because the demo scales to zero.
 Neither affects an operator's install.
@@ -65,6 +102,10 @@ whether something belongs there: it does not survive a refresh.
 
 ## Cold start
 
+> **Not built — measured instead, and not needed. See the header.** Kept
+> because the reasoning is sound and only the premise was wrong; if the boot
+> path ever grows, this is the list to work through.
+
 The first visitor after an idle period waits for a boot. Today that is Python,
 FastAPI, Strawberry, SQLAlchemy and `pillow_heif`, then `alembic upgrade head`
 inside `init_db()`, then `initialize_timer_managers`. Likely several seconds,
@@ -93,9 +134,14 @@ demo mode refuses outright.
 ## Done when
 
 - An idle demo session closes its socket and the client stays closed until
-  clicked.
-- A real network drop still retries as it does today.
-- An instance with no visitors reaches zero.
+  clicked. ✅
+- A real network drop still retries as it does today. ✅ — `liveConnection.ts`
+  is untouched. What changed is that the demo *disposes* the client, which is
+  the one thing its retry policy cannot come back from.
+- An instance with no visitors reaches zero. ✅ by construction: the socket is
+  disposed and a parked page issues no queries.
 - Cold start is low enough that the first page paint does not read as broken;
-  measure it rather than assuming.
-- None of the above changes behaviour with the demo flag unset.
+  measure it rather than assuming. ✅ measured at ~0.7 s, and the measurement
+  is why nothing was built.
+- None of the above changes behaviour with the demo flag unset. ✅ — the gate
+  renders `null` and registers no listeners.

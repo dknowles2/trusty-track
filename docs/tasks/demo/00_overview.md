@@ -1,8 +1,9 @@
 # Cloud Demo Instance — Overview
 
-> **Partly built.** Stage 1 ships, and stage 2's seeding half does; stage
-> 2's always-on reset timer, and stages 3 and 4, do not. The markers on
-> each file say which; see the plan-file convention in `CLAUDE.md`.
+> **Partly built.** Stages 1 to 3 ship, less two pieces that measurement or
+> the deploy target made unnecessary: stage 2's always-on reset timer, and
+> stage 3's cold-start work. Stage 4 — deploy — is not built. The markers
+> on each file say which; see the plan-file convention in `CLAUDE.md`.
 
 ## Goal
 
@@ -128,7 +129,7 @@ same image with no code difference.
 | --- | --- | --- |
 | 1 [COMPLETED] | `01_demo_mode_gate.md` | The flag, the policy seam, what is refused, and the test that keeps it honest |
 | 2 [PARTLY BUILT] | `02_seed_and_reset.md` | Seeding on boot (built, from code rather than an archive), and reset on each host (deferred) |
-| 3 | `03_idle_and_cold_start.md` | Idle disconnect, session cap, and cutting cold-start latency |
+| 3 [PARTLY BUILT] | `03_idle_and_cold_start.md` | Idle disconnect and session cap (built); cold-start latency (measured at ~0.7 s, so not built) |
 | 4 | `04_deploy_and_portability.md` | Cloud Run configuration, cost ceiling, and what makes a move cheap |
 
 Stage 1 is the only one that gates a public URL. Stages 2 and 3 make it

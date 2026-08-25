@@ -23,6 +23,21 @@ const wsClient = createWsClient(
 );
 
 /**
+ * Close the subscription socket and stop retrying it.
+ *
+ * Exported for the demo's idle disconnect (`demoSession.ts`), which is the only
+ * caller and should stay the only one: `graphql-ws` cannot be un-disposed, so
+ * every live screen in the tab is finished afterwards and the way back is a
+ * page load. That is the trade the demo wants — an instance holding a socket
+ * open never scales to zero — and is exactly wrong anywhere else, where a
+ * screen that has given up is a screen showing a heat that finished twenty
+ * minutes ago.
+ */
+export function closeLiveConnection(): void {
+  void wsClient.dispose();
+}
+
+/**
  * Types with no `id`, which graphcache has to be told about explicitly.
  *
  * Returning `null` marks a type as *embedded*: it has no identity of its own

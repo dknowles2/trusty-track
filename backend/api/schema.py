@@ -19,6 +19,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session, object_session
 from strawberry.types import Info
 
+from backend import demo_mode
 from backend.api import auth
 from backend.api.auth import AuditExtension, RolePolicyExtension
 from backend.api.demo_policy import DemoPolicyExtension
@@ -482,6 +483,14 @@ class InitialConfigStatus:
     debug_mode: bool = False
     tracks: list["Track"] = strawberry.field(default_factory=list)
     current_race_id: int | None = None
+    #: Whether this process is serving the public demo
+    #: (:mod:`backend.demo_mode`). The client needs it for the same reason the
+    #: PIN flags below are here: it is a fact about the *install* that changes
+    #: what the UI should do, and there is no other way for a page served by
+    #: this server to find out. It drives the idle disconnect — a parked demo
+    #: tab holds a subscription socket open, and an instance with a socket open
+    #: never scales to zero.
+    demo_mode: bool = False
     #: Whether an operator PIN is set — i.e. whether roles are enforced at all
     #: (#15). Never the PIN or its hash: this says only that a lock exists, so
     #: the settings page can tell the operator which state they are in.
@@ -1776,6 +1785,7 @@ class Query:
             return InitialConfigStatus(
                 initialized=True,
                 version=_version,
+                demo_mode=demo_mode.enabled(),
                 group_name=group.name if group else None,
                 debug_mode=group.debug_mode if group else False,
                 tracks=typing.cast(Any, tracks),
@@ -1787,7 +1797,13 @@ class Query:
                 # to let the UI prompt before an action fails.
                 is_operator=auth.resolve_role(info.context) is auth.Role.OPERATOR,
             )
-        return InitialConfigStatus(initialized=False, version=_version)
+        # Reported on the unconfigured branch too. A demo seeds itself before
+        # it serves, so this is only reachable if seeding failed — and a first
+        # -run wizard is the one screen that must not be idled out from under
+        # somebody halfway through it.
+        return InitialConfigStatus(
+            initialized=False, version=_version, demo_mode=demo_mode.enabled()
+        )
 
     @strawberry.field
     def rounds(self, info: Info, race_id: int) -> list[Round]:
