@@ -441,6 +441,13 @@ export type GetDisplaysQueryVariables = Exact<{
 
 export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number }> };
 
+export type RaceAwardCountQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type RaceAwardCountQuery = { race: { id: number, awards: Array<{ id: number }> } | null };
+
 export type AssignDisplayMutationVariables = Exact<{
   displayId: string;
   view: Types.DisplayView;

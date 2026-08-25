@@ -143,8 +143,9 @@ The six views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).
 
 > [!NOTE]
-> Assigning the **Awards ceremony** to a screen puts the ceremony on it, and
-> that one waits for you — it does not advance on its own. The row grows
+> **Awards ceremony** is in the dropdown once the race has awards — set them
+> up on the [Awards page](awards.md) first. It puts the ceremony on that
+> screen, and that one waits for you — it does not advance on its own. The row grows
 > **‹** and **›** buttons so you can move it on from here, and the arrow keys
 > or a presenter remote at the screen keep working alongside them. When the
 > ceremony is over, pick any other view from the same dropdown and the screen

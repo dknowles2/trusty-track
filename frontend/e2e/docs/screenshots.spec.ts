@@ -656,6 +656,19 @@ test('take screenshots', async ({ page, browser }) => {
     );
   }
 
+  // The ceremony is offered as a view only once a race has an award to
+  // announce, so this race needs one before picture 11 can be taken. Seeded
+  // before the reload below, which is what the panel re-reads it on — and it
+  // is the operator's own order anyway: set the awards up, then put the
+  // ceremony on a screen.
+  await gqlRequest(
+    page,
+    `mutation SeedAward($id: Int!, $award: AwardInput!) {
+       createAward(raceId: $id, award: $award) { id }
+     }`,
+    { id: raceId, award: { name: 'Fastest Car', kind: 'SPEED', source: 'PACK', place: 1 } },
+  );
+
   await page.reload();
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);

@@ -85,6 +85,10 @@ it. Put it there from **Race Control → Displays** — choose **Awards
 ceremony** for that screen — and the row grows **‹** and **›** buttons that
 move it on.
 
+> [!NOTE]
+> **Awards ceremony** is only in that list once the race has at least one
+> award. Set them up here first.
+
 ![A display row set to the awards ceremony, with buttons to move it on](assets/screenshots/observation/11-ceremony-controls.png)
 _The screen's row on the Displays panel. **‹** and **›** move the ceremony
 on that screen from wherever you are._
