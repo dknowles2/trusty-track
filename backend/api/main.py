@@ -33,7 +33,7 @@ from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 from strawberry.fastapi import GraphQLRouter
 
-from backend import demo_mode
+from backend import demo_content, demo_mode
 from backend.api import auth
 from backend.api.loaders import RequestLoaders
 from backend.api.schema import schema
@@ -79,8 +79,32 @@ async def lifespan(_app: FastAPI):
         init_db()
         logger.info("Database initialization complete.")
     except Exception as e:
+        # An operator can read the log and the app is still there, which is why
+        # this has always carried on. The demo has nobody to read it: its
+        # storage is ephemeral, so a failure here means serving an empty or
+        # half-migrated database to every visitor with nothing to say so.
+        if demo_mode.enabled():
+            raise
         logger.error(f"Failed to initialize database: {e}")
         # In a real production app, you might want to exit here
+
+    # The demo builds its own event on first boot (see `backend/demo_content`).
+    # Idempotent, because the flag says nothing about whether this container has
+    # run before — an always-on host restarts with its data still there.
+    if demo_mode.enabled():
+        # `try`/`finally` rather than `with`: the suite substitutes a session
+        # factory that delegates by `__getattr__` (conftest's
+        # `timer_session_factory`), and `with` looks dunders up on the type, so
+        # a context manager here is unusable from every test that reaches it.
+        session = SessionLocal()
+        try:
+            if demo_content.is_seeded(session):
+                logger.info("The demo is already seeded; leaving it alone.")
+            else:
+                race = demo_content.seed(session)
+                logger.info("Seeded the demo with race %d (%s).", race.id, race.name)
+        finally:
+            session.close()
 
     # Trim the audit log (#219). At startup rather than per write: counting and
     # deleting on every mutation would put two statements in the path of every
