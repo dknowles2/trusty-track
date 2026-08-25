@@ -174,6 +174,66 @@ runs on a laptop.*
 
 ---
 
+## What a private demo is called
+
+The generated Cloud Run hostname, with the tag chosen to make it read like
+something rather than nothing:
+
+```
+https://<tag>---<service>-<hash>-<region>.a.run.app
+  e.g.  https://brave-wolf-7f3k---trusty-track-sessions-svsqmrsaba-uc.a.run.app
+```
+
+**Custom subdomains are not worth it.** `brave-wolf.demo.trusty-track.com`
+would be nicer, but a Cloud Run domain mapping is one per hostname and each
+provisions its own certificate — minutes at best — which cannot be reconciled
+with seventeen-second provisioning. A wildcard needs a load balancer and a
+wildcard certificate, roughly $18 a month, which would cost more than
+everything else in this area put together. Nobody types these URLs anyway: they
+click through from the landing page, which can show *your demo: brave-wolf* as
+the label whatever the address bar says.
+
+**The budget is about 25 characters.** The whole thing is one DNS label capped
+at 63; measured against the live service, `trusty-track-sessions` plus the hash
+and region leaves roughly that much for the tag. Two words and a suffix fit
+comfortably.
+
+### The scheme, and why the suffix is not decoration
+
+Two words from small fixed lists — the Scout Law, and the Cub ranks — plus
+random characters:
+
+```
+brave-wolf-7f3k
+```
+
+**The random part is doing security work.** Twelve Scout Law words against five
+usable ranks is sixty combinations; with a handful of live instances, guessing
+somebody else's demo URL is trivial, and *private* is the whole premise of this
+stage. Four base32 characters is about a million, which makes it hopeless while
+leaving the readable half readable.
+
+**It must come from `secrets`, never from `demo_seed`.** That module exists to
+make invented data *repeatable*, which is exactly wrong here: a repeatable
+suffix is a predictable URL. Reaching for the helper that is already there is
+the obvious mistake and would quietly undo the paragraph above.
+
+### Three things that are easy to get wrong
+
+- **Do not reuse `models.Rank` for the word list.** The vocabulary is already
+  there and it is tempting, but `ARROW_OF_LIGHT` does not slug well and `OTHER`
+  means nothing. A small dedicated list is clearer and does not shift if the
+  enum ever changes.
+- **Tags need freeing, not just revisions.** A tag holds its name until it is
+  removed, so the reaper has to drop the tag *and* the revision or names burn
+  one per session. The provisioner should retry on collision rather than assume
+  uniqueness.
+- **The tag is public, in a hostname.** Nothing meaningful goes in it — no
+  visitor identifier, no hashed address, nothing that would matter if logged by
+  whatever sits between the visitor and Google.
+
+---
+
 ## Decisions
 
 **Twenty minutes, hard, and no way to extend it.** An earlier draft of this
@@ -255,7 +315,9 @@ Stage 1 is the whole risk. Stages 2 to 4 are small.
 ## Done when
 
 - A visitor clicks through a captcha and lands on a working, private instance
-  in under twenty seconds.
+  in under twenty seconds, at a URL that reads like something.
+- Two visitors provisioning at once get different names, and neither could have
+  guessed the other's.
 - Both modes work: seeded, and genuinely empty at the first-run wizard.
 - A private demo can do everything the shared one refuses **except export and
   bulk import**, and the shared demo still refuses all of it.

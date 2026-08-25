@@ -52,6 +52,43 @@ test('take screenshots', async ({ page, browser }) => {
   }
 
   await expect(page.getByRole('heading', { name: 'Welcome to Trusty Track' })).toBeVisible();
+
+  // Start from a clean slate whichever way this spec is run. Run alone it
+  // gets a virgin backend; run with the others (what CI does) the earlier
+  // specs' races are still here — on the Home page, where 01's caption says
+  // "before any races exist", and on this race's track, where their times
+  // would become the record baseline and change what the record banner says
+  // between a single-spec run and a full one.
+  const leftovers = await gqlRequest(page, `query { races { id } }`);
+  for (const race of leftovers.races ?? []) {
+    await gqlRequest(page, `mutation Del($id: Int!) { deleteRace(id: $id) }`, { id: race.id });
+  }
+
+  // The record this race will break, owned by this spec so the banner in
+  // observation/07 and /10 says the same thing on every run: slower than any
+  // winner the seeded fake timer produces, and set at an event that reads as
+  // real history.
+  const trackForRecord = await gqlRequest(page, `query { tracks { id } }`);
+  await gqlRequest(
+    page,
+    `mutation Rec($trackId: Int!, $record: HistoricalTrackRecordInput!) {
+      createTrackRecord(trackId: $trackId, record: $record) { id }
+    }`,
+    {
+      trackId: trackForRecord.tracks[0].id,
+      record: {
+        timeSeconds: 3.899,
+        racerName: 'Marcus Reyes',
+        carNumber: 27,
+        raceName: 'Pinewood Derby 2019',
+        raceDate: '2019-03-16',
+      },
+    },
+  );
+
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByRole('heading', { name: 'Welcome to Trusty Track' })).toBeVisible();
   await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/01-home-page.png') });
 
   await page.getByRole('button', { name: /Create New Race/i }).click();
@@ -648,6 +685,23 @@ test('take screenshots', async ({ page, browser }) => {
   // No 09. It was a sixth copy of the full page, captioned "without photos" —
   // which is honest only because this fixture has none, and is therefore
   // exactly what 01 already shows. That section points at 01 now (#144).
+
+  // 10: the record banner on the Timing Stats view. The banner state is
+  // already here: earlier specs raced on this same track, so their times are
+  // the record as it stood before this race, and this race's fastest heat
+  // beat it — deterministically, since every time above is seeded. The same
+  // break is what puts the banner over the projector overlay in 07.
+  await page.goto(`/race/${raceId}/observation?view=timing`);
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByTestId('timing-record-banner')).toBeVisible();
+  await page.waitForTimeout(500);
+  const recordBanner = await page.getByTestId('timing-record-banner').boundingBox();
+  await page.screenshot({
+    path: path.join(screenshotsDir, 'observation/10-record-banner.png'),
+    ...(recordBanner
+      ? { clip: { x: 0, y: Math.max(0, recordBanner.y - 70), width: 1200, height: recordBanner.height + 100 } }
+      : {}),
+  });
 
   // ============================================================
   // PART 3: RACE STATS SCREENSHOTS

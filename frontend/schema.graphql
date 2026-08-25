@@ -598,6 +598,7 @@ type TimingStats {
   heatNumber: Int!
   globalHeatNumber: Int!
   lanes: [TimingStatsLane!]!
+  recordBreak: TrackRecordBreak
 }
 
 type TimingStatsLane {
@@ -640,6 +641,14 @@ type TrackRecord {
   raceId: Int
   raceName: String
   raceDate: String
+}
+
+type TrackRecordBreak {
+  newSeconds: Float!
+  newHolder: String!
+  previousSeconds: Float!
+  previousHolder: String!
+  previousRaceName: String
 }
 
 input WizardChampionshipRoundInput {

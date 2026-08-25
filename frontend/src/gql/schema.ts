@@ -1058,6 +1058,7 @@ export type TimingStats = {
   heatId: Scalars['Int']['output'];
   heatNumber: Scalars['Int']['output'];
   lanes: Array<TimingStatsLane>;
+  recordBreak?: Maybe<TrackRecordBreak>;
   roundName: Scalars['String']['output'];
 };
 
@@ -1101,6 +1102,14 @@ export type TrackRecord = {
   raceName?: Maybe<Scalars['String']['output']>;
   racerName: Scalars['String']['output'];
   timeSeconds: Scalars['Float']['output'];
+};
+
+export type TrackRecordBreak = {
+  newHolder: Scalars['String']['output'];
+  newSeconds: Scalars['Float']['output'];
+  previousHolder: Scalars['String']['output'];
+  previousRaceName?: Maybe<Scalars['String']['output']>;
+  previousSeconds: Scalars['Float']['output'];
 };
 
 export type WizardChampionshipRoundInput = {

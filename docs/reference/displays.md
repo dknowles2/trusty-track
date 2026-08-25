@@ -18,6 +18,11 @@ Every screen with the Live page open can be switched between these, from
 | **Racer photos** | A slideshow of the check-in photos: headshot, car, name, number, den |
 | **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when the presenter does |
 
+When a heat [breaks the track record](stats-and-exports.md#the-track-record),
+the Projector view's results overlay and the Last heat's times view both
+carry a gold banner naming the new time and the record it beat. It fires
+only for a record that stood before today's race.
+
 Notes on two of them:
 
 - **Racer photos** goes in car number order rather than shuffling. Families

@@ -9,6 +9,7 @@ import PhotoSlideshow from '../components/PhotoSlideshow';
 import { displayId } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { readUrl, resolveView } from '../displayView';
+import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import {
   LeaderboardSubscription,
@@ -102,6 +103,7 @@ export default function Observation() {
       carName?: string;
       time: number | null;
     }[];
+    recordBreak?: RecordBreak | null;
   } | null>(null);
   const [lastProcessedHeatId, setLastProcessedHeatId] = useState<string | null>(null);
 
@@ -394,6 +396,16 @@ export default function Observation() {
 
     return (
       <div className="results-overlay">
+        {overlayData.recordBreak && (
+          <div className="overlay-record-banner" data-testid="record-banner">
+            <div className="overlay-record-headline">
+              <Icon path={mdiTrophy} size={2} color="#003F87" /> New track record!
+            </div>
+            <div className="overlay-record-detail">
+              {recordBreakDetail(overlayData.recordBreak)}
+            </div>
+          </div>
+        )}
         <h1 className="overlay-title">Heat Results</h1>
         <div className="overlay-results-list">
           {sortedLanes.map((lane, idx) => (
@@ -614,6 +626,31 @@ export default function Observation() {
                 <h2 className="timing-header" style={{ textAlign: 'center', marginBottom: '30px' }}>
                   Last Completed: {lastHeatResults.roundName} / Heat {lastHeatResults.globalHeatNumber ?? lastHeatResults.heatNumber}
                 </h2>
+                {lastHeatResults.recordBreak && (
+                  <div
+                    className="timing-record-banner"
+                    data-testid="timing-record-banner"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      marginBottom: '25px',
+                      padding: '15px 20px',
+                      borderRadius: '12px',
+                      background: 'var(--cub-scouting-gold, #FCD116)',
+                      color: 'var(--scouting-blue, #003F87)',
+                      fontWeight: 'bold',
+                      fontSize: '1.3rem',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <Icon path={mdiTrophy} size={1.4} color="#003F87" />
+                    <span>
+                      New track record! {recordBreakDetail(lastHeatResults.recordBreak)}
+                    </span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   {[...lastHeatResults.lanes]
                     .sort((a, b) => (a.place || 99) - (b.place || 99))
