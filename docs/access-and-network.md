@@ -38,7 +38,7 @@ which is the behaviour you want on a screen taped to a wall.
 - **Check-in PIN** — optional. Worth setting if the registration desk runs on a
   device of its own: that device can add racers and check them in, and nothing
   else, so a tablet left on the table cannot delete a round. The Access panel
-  says as much beside the field.
+  says as much beside the box.
 
 > [!TIP]
 > Pick something you will not have to think about at 8am. It is protecting the

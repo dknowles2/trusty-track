@@ -138,12 +138,12 @@ export default function ResultsSheet() {
                         <section key={section.title} className="heat-sheet-round">
                             <h2>{section.title}</h2>
                             {/* Said once, on the table it applies to. The
-                                standings are the preliminary rounds only (#17),
+                                standings are the qualifying rounds only (#17),
                                 and a reader who does not know that will assume
                                 the final is folded in. */}
                             {isOverall && (
                                 <p className="results-note">
-                                    Preliminary rounds only. Championship placings are in the
+                                    Qualifying rounds only. Championship placings are in the
                                     awards above.
                                 </p>
                             )}

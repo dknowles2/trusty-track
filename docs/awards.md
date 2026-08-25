@@ -65,7 +65,7 @@ not gone that far — an award for third place has no winner until three cars ha
 run. This is expected during an event.
 
 If an award says **"Not set up — this award cannot be won"**, its rule is
-missing. Edit it and choose a standings source and a position.
+missing. Edit it and choose which standings it reads and which place wins it.
 
 ## Announcing them
 

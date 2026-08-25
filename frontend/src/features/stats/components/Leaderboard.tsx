@@ -223,7 +223,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
             onChange={(e) => setSelectedRoundId(e.target.value === '' ? null : parseInt(e.target.value))}
             style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid #ccc' }}
           >
-            <option value="">Overall (preliminary rounds)</option>
+            <option value="">Overall (qualifying rounds)</option>
             {selectableRounds.map((r) => (
               <option key={r.id} value={r.id}>{roundLabel(r)}</option>
             ))}
@@ -280,7 +280,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
           fontSize: '0.9rem',
           color: '#444'
         }}>
-          Overall standings cover the preliminary rounds. Championship results are
+          Overall standings cover the qualifying rounds. Championship results are
           listed separately — pick a round above.
         </div>
       )}

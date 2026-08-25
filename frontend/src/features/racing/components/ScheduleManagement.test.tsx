@@ -622,7 +622,7 @@ describe('ScheduleManagement', () => {
         </AlertProvider>
       </MemoryRouter>
     );
-    expect(screen.getByTestId('stale-field-badge-7')).toHaveTextContent('Field out of date');
+    expect(screen.getByTestId('stale-field-badge-7')).toHaveTextContent('Line-up out of date');
   });
 
   it('shows no staleness badge without the flag', () => {

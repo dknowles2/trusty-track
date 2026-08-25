@@ -791,7 +791,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     </p>
                     {roundSummary?.source && (
                         <div style={{ fontSize: '0.9rem', color: '#888', fontStyle: 'italic' }}>
-                            Advancement Source: {roundSummary.source}
+                            {/* Human words, not the raw source value — "PACK"
+                                on a projector means nothing to the room. */}
+                            Advancing from {roundSummary.source === 'PACK'
+                                ? 'the whole pack'
+                                : roundSummary.source === 'DEN'
+                                ? 'each den'
+                                : 'an earlier round'}
                         </div>
                     )}
                 </div>

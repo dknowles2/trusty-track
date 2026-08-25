@@ -323,7 +323,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                       />
                     </div>
                     <div>
-                      <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Advancement Source</label>
+                      <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Who advances</label>
                       {idx === 0 ? (
                         <select
                           style={{ ...inputStyle, fontSize: '0.875rem' }}

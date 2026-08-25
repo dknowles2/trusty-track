@@ -166,7 +166,7 @@ describe('Leaderboard round scope (issue #17)', () => {
 
     render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
     expect(screen.getByLabelText('Standings scope')).toBeTruthy();
-    expect(screen.getByText(/cover the preliminary rounds/i)).toBeTruthy();
+    expect(screen.getByText(/cover the qualifying rounds/i)).toBeTruthy();
     // Only championship rounds are offered — the prelim view is "Overall".
     expect(screen.getByRole('option', { name: 'Finals' })).toBeTruthy();
     expect(screen.queryByRole('option', { name: 'Prelim' })).toBeNull();
@@ -195,6 +195,6 @@ describe('Leaderboard round scope (issue #17)', () => {
     expect(screen.getByText('Champ Winner')).toBeTruthy();
     expect(screen.queryByText('Pre Lim')).toBeNull();
     // The explanatory note belongs to the overall view only.
-    expect(screen.queryByText(/cover the preliminary rounds/i)).toBeNull();
+    expect(screen.queryByText(/cover the qualifying rounds/i)).toBeNull();
   });
 });
