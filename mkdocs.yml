@@ -81,6 +81,7 @@ nav:
     - Glossary: reference/glossary.md
   - Developers:
     - Development Guide: development.md
+    - The Public Demo: demo.md
     - Design: design.md
     - Specification: spec.md
     - Scheduling Algorithms: scheduling-algorithms.md

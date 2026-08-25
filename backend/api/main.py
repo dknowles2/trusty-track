@@ -130,17 +130,34 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-#: Origins the browser may call this server from.
-#:
-#: The wildcard default is the LAN install and is explained below. A public
-#: deployment sets this to its own hostname: there the reasoning does not hold,
-#: because `VIEWER` is the no-credential default and a viewer can read a roster
-#: — every racer's name, and their photograph.
-ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("TRUSTYTRACK_ALLOWED_ORIGINS", "*").split(",")
-    if origin.strip()
-] or ["*"]
+
+def allowed_origins() -> list[str]:
+    """Origins the browser may call this server from.
+
+    The wildcard default is the LAN install and is explained below. A public
+    deployment sets ``TRUSTYTRACK_ALLOWED_ORIGINS`` to its own hostname: there
+    the reasoning does not hold, because ``VIEWER`` is the no-credential
+    default and a viewer can read a roster — every racer's name, and their
+    photograph.
+
+    A function so it can be tested. The value is read once at import because
+    that is when the middleware is built; a caller changing the environment
+    afterwards changes nothing, and pretending otherwise would be worse than
+    not offering it.
+
+    An empty or all-whitespace setting falls back to the wildcard rather than
+    to an empty list. An empty list refuses *every* cross-origin request, which
+    on a LAN install is indistinguishable from the app being broken — and the
+    likeliest way to arrive at one is a deployment setting the variable to an
+    empty string, which means "I did not configure this", not "refuse
+    everybody".
+    """
+    configured = os.getenv("TRUSTYTRACK_ALLOWED_ORIGINS", "*")
+    origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
+    return origins or ["*"]
+
+
+ALLOWED_ORIGINS = allowed_origins()
 
 app.add_middleware(
     CORSMiddleware,

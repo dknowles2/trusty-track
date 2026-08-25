@@ -51,10 +51,20 @@ ENV PYTHONPATH=/app
 RUN mkdir -p /data && chown trustytrack:trustytrack /data
 VOLUME ["/data"]
 
-# Expose the application port
+# Expose the application port. Documentary only — `EXPOSE` publishes nothing on
+# its own, and the port actually listened on is `$PORT` below.
 EXPOSE 8000
 
 # Switch to non-root user
 USER trustytrack
 
-CMD ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form, so `$PORT` is expanded at run time.
+#
+# Cloud Run and Railway tell a container which port to listen on by setting
+# `PORT`, and a container that ignores it is marked unhealthy and killed. The
+# default keeps every documented `docker run -p 8000:8000` working unchanged.
+#
+# `exec` matters: without it `sh` stays PID 1, uvicorn is its child, and the
+# SIGTERM a platform sends to stop the container never reaches the server — so
+# every shutdown is a ten-second wait and then a kill.
+CMD ["sh", "-c", "exec uvicorn backend.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

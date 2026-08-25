@@ -1,6 +1,36 @@
-# Demo Stage 4: Deploy and Portability
+# Demo Stage 4: Deploy and Portability [COMPLETED]
 
-> **Not built.**
+> **Built**, as far as this repository can be: `deploy/cloudrun/deploy.sh`
+> carries the flags, the Dockerfile honours `$PORT`, and `docs/demo.md` is the
+> page. Actually creating the Cloud Run service needs a Google account and is
+> not something a commit can do.
+>
+> **Three departures, recorded rather than silently taken:**
+>
+> * **`VOLUME ["/data"]` is left alone.** This file suggested reconsidering it.
+>   It is ignored by Cloud Run, and `TRUSTYTRACK_DATA_DIR=/tmp/trustytrack` in
+>   the deploy script sidesteps it entirely — so removing it would be a
+>   behaviour change for real Docker operators (an anonymous volume they
+>   currently get by forgetting `-v`) in exchange for nothing on the target.
+> * **No "try the demo" line in `README.md` or `docs/index.md` yet.** There is
+>   no URL. A pointer to a demo that does not exist is worse than no pointer,
+>   so that line lands with the deployment.
+> * **A shell script, not a `service.yaml`.** There is one deployment and the
+>   flags are the documentation. A Knative manifest would carry a
+>   project-specific image reference and rot between deployments.
+>
+> **Verified by running it, not by reading it.** The Docker daemon was not
+> available locally, so the image itself was not run here — CI's Docker Build
+> job does that — but the exact command line the Dockerfile now uses was run
+> with `PORT` set, demo mode on and a narrowed origin. It listened on `$PORT`,
+> seeded itself, reported `demoMode: true`, refused `createPracticeRace`,
+> `POST /upload/` and `GET /api/backup` with 403, echoed the permitted origin
+> and sent no `Access-Control-Allow-Origin` at all for another.
+>
+> One number worth having: **a seeded demo writes about 10 MB** — 24
+> photographs copied out of `backend/assets/defaults/`, which the image carries
+> anyway. On Cloud Run that lands in tmpfs and counts against the memory limit,
+> so 512 MiB is comfortable rather than tight.
 
 Configuration, plus two small changes to the image that decide whether moving
 host later costs an hour or a week.
@@ -47,6 +77,10 @@ anonymous volumes under plain `docker run`. Harmless, but pointless for a
 stateless demo. `TRUSTYTRACK_DATA_DIR` already overrides the path, so the demo
 can point elsewhere; consider whether the `VOLUME` line earns its place at all.
 
+> **Left alone.** See the header: the demo points its data directory at `/tmp`
+> instead, so the line costs the demo nothing, and removing it changes what a
+> real Docker operator gets today.
+
 Everything else is already portable: config through environment variables, a
 `/health` probe that CI exercises, logging to stdout, and no managed-service
 dependency.
@@ -89,8 +123,13 @@ seven and adding beside them is how it reached fifteen and started scrolling.
 
 ## Done when
 
-- The demo URL serves a populated race from a cold start.
-- An idle instance reaches zero and the next visit boots clean.
-- A budget alert exists.
+- The demo URL serves a populated race from a cold start. ⏳ needs the
+  deployment; the same stack was verified locally on `$PORT`.
+- An idle instance reaches zero and the next visit boots clean. ⏳ same.
+- A budget alert exists. ⏳ needs the Google account. The deploy script prints
+  a reminder rather than pretending it can set one.
 - The same image runs unchanged on a second host, verified once rather than
-  assumed.
+  assumed. ⏳ needs a second host.
+
+Everything a commit can do is done. What is left needs an account and a card,
+and none of it is code.
