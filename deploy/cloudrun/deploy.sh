@@ -2,24 +2,39 @@
 #
 # Deploy the public demo to Cloud Run.
 #
-# Two ways in, and the default is the second:
+#   ./deploy/cloudrun/deploy.sh
+#       Build the current working tree and deploy it. What you want whenever
+#       the demo is ahead of the last release, which it is unless a tag has
+#       been cut since the demo work landed.
 #
 #   IMAGE=ghcr.io/dknowles2/trusty-track:1.2.0 ./deploy/cloudrun/deploy.sh
-#       Deploy a published image. Cloud Run pulls public GitHub Container
-#       Registry images directly. Use a *version* tag: `latest` follows
-#       releases, so the demo would change under you on somebody else's merge.
+#       Skip the build and deploy a published image. Cloud Run pulls public
+#       GitHub Container Registry images directly. Use a *version* tag —
+#       `latest` follows releases, so the demo would change under you on
+#       somebody else's merge.
 #
-#   ./deploy/cloudrun/deploy.sh
-#       Build the current working tree with Cloud Build and deploy that. What
-#       you want when the demo is ahead of the last release, which it is
-#       whenever demo work has landed and no tag has been cut since.
+# Why the build is a separate step and not `gcloud run deploy --source`
+# ---------------------------------------------------------------------
+# `--source` uses Cloud Build's default docker step, which is the *legacy*
+# builder. The Dockerfile's first line is
+#
+#     FROM --platform=$BUILDPLATFORM node:24-slim AS frontend-build
+#
+# and `BUILDPLATFORM` is a BuildKit built-in, so under the legacy builder it
+# expands to nothing and the build fails with "'' is an invalid component of
+# ''". That line is load-bearing for the release workflow's multi-arch build —
+# it keeps `npm ci` and the Vite build off QEMU — so `cloudbuild.yaml` beside
+# this script turns BuildKit on rather than the Dockerfile giving it up.
 #
 # The upload respects `.gitignore` (gcloud falls back to it when there is no
 # `.gcloudignore`), which is what keeps a developer's local `backend/uploads`
 # out of it — that directory reaches hundreds of megabytes on a machine that
-# has actually run the app.
+# has actually run the app. Adding a `.gcloudignore` later would take over that
+# fallback, so it would have to exclude that directory itself.
 #
-# Every flag below is load-bearing; the reasoning is in
+# The Cloud Run flags
+# -------------------
+# Every one is load-bearing; the reasoning is in
 # `docs/tasks/demo/04_deploy_and_portability.md`. The short version:
 #
 #   --max-instances=1   A hard cost ceiling, and free correctness: the app's
@@ -46,6 +61,12 @@ set -euo pipefail
 SERVICE="${SERVICE:-trusty-track-demo}"
 REGION="${REGION:-us-central1}"
 
+PROJECT="${PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
+if [[ -z "$PROJECT" || "$PROJECT" == "(unset)" ]]; then
+  echo "No project. Pass PROJECT=… or run: gcloud config set project <id>" >&2
+  exit 1
+fi
+
 # The origin the browser will call. Left as the wildcard the LAN install uses
 # unless given, but a real deployment should set it: `VIEWER` is the
 # no-credential default and a viewer can read a roster. Cloud Run only tells
@@ -62,18 +83,43 @@ DEMO_SEED="${DEMO_SEED:-trusty-track-demo}"
 # about 10 MB there — 24 photographs — which is why 512Mi is comfortable.
 DATA_DIR="${DATA_DIR:-/tmp/trustytrack}"
 
-SOURCE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Where a built image goes. One repository, one tag: a demo has no rollback
+# story worth keeping images for, and an accumulating tag per deploy is storage
+# nobody prunes. Cloud Run resolves a tag to a digest at deploy time, so
+# redeploying the same tag does pick up the new build.
+REPOSITORY="${REPOSITORY:-cloud-run-source-deploy}"
 
-if [[ -n "${IMAGE:-}" ]]; then
-  SOURCE_ARGS=(--image="$IMAGE")
-  echo "Deploying published image: $IMAGE"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_ROOT="$(cd "$HERE/../.." && pwd)"
+
+if [[ -z "${IMAGE:-}" ]]; then
+  IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPOSITORY}/${SERVICE}:demo"
+
+  # Created on demand rather than assumed. `gcloud run deploy --source` makes
+  # this repository as a side effect, so a project that has only ever used this
+  # script would not otherwise have one.
+  if ! gcloud artifacts repositories describe "$REPOSITORY" \
+      --project="$PROJECT" --location="$REGION" >/dev/null 2>&1; then
+    echo "Creating Artifact Registry repository [$REPOSITORY] in [$REGION]."
+    gcloud artifacts repositories create "$REPOSITORY" \
+      --project="$PROJECT" --location="$REGION" \
+      --repository-format=docker \
+      --description="Images built by deploy/cloudrun/deploy.sh"
+  fi
+
+  echo "Building $SOURCE_ROOT with Cloud Build (BuildKit)."
+  gcloud builds submit "$SOURCE_ROOT" \
+    --project="$PROJECT" \
+    --region="$REGION" \
+    --config="$HERE/cloudbuild.yaml" \
+    --substitutions="_IMAGE=$IMAGE"
 else
-  SOURCE_ARGS=(--source="$SOURCE_ROOT")
-  echo "Building $SOURCE_ROOT with Cloud Build."
+  echo "Skipping the build; deploying $IMAGE"
 fi
 
 gcloud run deploy "$SERVICE" \
-  "${SOURCE_ARGS[@]}" \
+  --image="$IMAGE" \
+  --project="$PROJECT" \
   --region="$REGION" \
   --platform=managed \
   --allow-unauthenticated \
