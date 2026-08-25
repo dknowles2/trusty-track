@@ -126,3 +126,36 @@ test('an unassigned display still follows its own URL', async ({ browser, page }
  * is pinned in `test_auth_policy.py::test_a_viewer_cannot_assign_a_display`,
  * which is where the rest of the role policy is tested anyway.
  */
+
+test('a screen sent to the awards ceremony can still be called back', async ({ browser, page }) => {
+    // The reported bug: assigning the ceremony navigated the screen to its
+    // own route, which held no assignment subscription — so the row dropped
+    // to "Not connected" and the screen could never be told anything again.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Ceremony Leash Race');
+
+    const displayContext = await browser.newContext();
+    const display = await displayContext.newPage();
+    await openDisplay(display, raceId, 'spec-display-3');
+
+    await page.goto(`/race/${raceId}/control/displays`);
+    const row = page.getByTestId('display-spec-display-3');
+    await expect(row).toBeVisible();
+
+    await row.getByRole('combobox').selectOption('AWARDS');
+    await display.waitForURL('**/awards/present', { timeout: 10000 });
+
+    // The row must not go quiet while the ceremony is up — the subscription
+    // is presence, and presence is what lets the operator take it back.
+    await expect(row.getByText('Not connected')).not.toBeVisible();
+
+    await row.getByRole('combobox').selectOption('STANDINGS');
+    await display.waitForURL('**/observation', { timeout: 10000 });
+    await expect(display.getByRole('button', { name: /^Standings$/i })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+        { timeout: 10000 },
+    );
+
+    await displayContext.close();
+});

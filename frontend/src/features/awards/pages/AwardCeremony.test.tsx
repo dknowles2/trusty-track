@@ -2,12 +2,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useQuery } from 'urql';
+import { useQuery, useSubscription } from 'urql';
 import AwardCeremony from './AwardCeremony';
 
 vi.mock('urql', async () => {
   const actual = await vi.importActual<typeof import('urql')>('urql');
-  return { ...actual, useQuery: vi.fn() };
+  return { ...actual, useQuery: vi.fn(), useSubscription: vi.fn(() => [{ data: undefined }, vi.fn()]) };
 });
 
 const RACE = {
@@ -57,9 +57,17 @@ function renderCeremony(race: unknown = RACE, fetching = false) {
     <MemoryRouter initialEntries={['/race/1/awards/present']}>
       <Routes>
         <Route path="/race/:raceId/awards/present" element={<AwardCeremony />} />
+        <Route path="/race/:raceId/observation" element={<div>observation page</div>} />
       </Routes>
     </MemoryRouter>,
   );
+}
+
+function mockAssignment(assignment: { assigned: boolean; view: string } | null) {
+  (useSubscription as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
+    { data: assignment ? { displayAssignment: { cycleSeconds: 10, ...assignment } } : undefined },
+    vi.fn(),
+  ]);
 }
 
 describe('the award ceremony', () => {
@@ -117,5 +125,31 @@ describe('the award ceremony', () => {
     renderCeremony(null, true);
     expect(screen.getByText('Loading…')).toBeInTheDocument();
     expect(screen.queryByText(/no awards have been set up/i)).toBeNull();
+  });
+});
+
+describe('a screen assigned here stays on the operator leash — the reported bug', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('goes back to the observation page when told to show something else', () => {
+    mockAssignment({ assigned: true, view: 'STANDINGS' });
+    renderCeremony();
+    expect(screen.getByText('observation page')).toBeInTheDocument();
+  });
+
+  it('stays while the assignment is still the ceremony', () => {
+    mockAssignment({ assigned: true, view: 'AWARDS' });
+    renderCeremony();
+    expect(screen.getByText('Fastest Wolf')).toBeInTheDocument();
+  });
+
+  it('ignores the default payload a hand-opened ceremony receives', () => {
+    // Every connected screen gets a payload carrying the default view with
+    // assigned=false. Acting on it would march a ceremony somebody opened
+    // directly on the projector machine off to the standings.
+    mockAssignment({ assigned: false, view: 'STANDINGS' });
+    renderCeremony();
+    expect(screen.getByText('Fastest Wolf')).toBeInTheDocument();
   });
 });
