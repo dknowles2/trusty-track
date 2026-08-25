@@ -18,6 +18,7 @@ from typing import Any
 import serial
 from sqlalchemy.orm import Session
 
+from backend import demo_mode
 from backend.api.pubsub import pubsub
 from backend.db import crud, models
 from backend.db.database import SessionLocal
@@ -1478,14 +1479,23 @@ async def initialize_timer_managers(
     try:
         tracks = db.query(models.Track).all()
         for track in tracks:
-            if track.timer_type == models.TimerType.FAKE:
-                device = FAKE
-            else:
-                # The starting assumption for both auto-detect modes, replaced
-                # by whatever answers a probe: below for backend-direct, and
-                # when the browser connects for proxy mode. It survives only
-                # when nothing identifies itself (issue #89).
-                device = DEFAULT_PROFILE
+            # Belt and braces on the demo (see `backend/demo_mode.py`). The
+            # mutations that could change a track's timer type are refused, so
+            # nothing should reach here asking for a real one — but a seed
+            # archive carries whatever timer type it was built with, and an
+            # `AUTO_DETECT_BACKEND` track sends `autodetect()` walking the USB
+            # serial ports. A container has none, so this is noise rather than
+            # danger; it is coerced because a track that cannot be reconfigured
+            # should not be probed either.
+            timer_type = (
+                models.TimerType.FAKE if demo_mode.enabled() else track.timer_type
+            )
+
+            # `DEFAULT_PROFILE` is the starting assumption for both auto-detect
+            # modes, replaced by whatever answers a probe: below for
+            # backend-direct, and when the browser connects for proxy mode. It
+            # survives only when nothing identifies itself (issue #89).
+            device = FAKE if timer_type == models.TimerType.FAKE else DEFAULT_PROFILE
 
             manager = TimerManager(
                 track.id,
@@ -1503,7 +1513,7 @@ async def initialize_timer_managers(
 
             # Start connecting if in direct-backend mode. A port configured by
             # hand is honoured as given; without one, go and find the timer.
-            if track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+            if timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                 if track.serial_port:
                     asyncio.create_task(manager.connect_direct(track.serial_port))
                 else:

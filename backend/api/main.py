@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 from strawberry.fastapi import GraphQLRouter
 
+from backend import demo_mode
 from backend.api import auth
 from backend.api.loaders import RequestLoaders
 from backend.api.schema import schema
@@ -105,6 +106,18 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+#: Origins the browser may call this server from.
+#:
+#: The wildcard default is the LAN install and is explained below. A public
+#: deployment sets this to its own hostname: there the reasoning does not hold,
+#: because `VIEWER` is the no-credential default and a viewer can read a roster
+#: — every racer's name, and their photograph.
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("TRUSTYTRACK_ALLOWED_ORIGINS", "*").split(",")
+    if origin.strip()
+] or ["*"]
+
 app.add_middleware(
     CORSMiddleware,
     # `allow_origins=["*"]` with `allow_credentials=True` is rejected outright
@@ -114,7 +127,7 @@ app.add_middleware(
     # credentials are off and the wildcard is honest. A display or a phone on
     # the venue wifi loads the served page from this origin; a wildcard here
     # does not widen what they can do, because the PIN is what the server checks.
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -251,6 +264,18 @@ def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
     )
 
 
+def _refuse_on_demo(what: str) -> None:
+    """Refuse a REST route the public demo does not offer.
+
+    ``RolePolicyExtension`` and ``DemoPolicyExtension`` guard GraphQL mutations
+    and these routes are not GraphQL, so each makes its own check — the same
+    reason the backup endpoints and the timer socket call
+    :func:`_require_operator` for themselves (#15).
+    """
+    if demo_mode.enabled():
+        raise HTTPException(status_code=403, detail=f"{what} is disabled on the demo")
+
+
 def _require_checkin(request: Request, db: Session) -> None:
     """Refuse a caller who is not at least the registration desk.
 
@@ -299,6 +324,9 @@ def download_backup(request: Request, db: Session = Depends(get_db)) -> FileResp
     temporary file rather than built in memory — an archive is a database plus
     sixty photographs, and the machine this runs on has a gigabyte of RAM.
     """
+    # Zip-the-world on demand, behind no credential on a demo where nobody sets
+    # a PIN: CPU and disk amplification, for an archive of invented data.
+    _refuse_on_demo("Downloading a backup")
     _require_operator(request, db)
 
     path = database_path()
@@ -365,6 +393,9 @@ async def restore_backup(
     The database that was replaced is kept beside the new one with a
     `.pre-restore` suffix, and the uploads directory likewise.
     """
+    # Replaces every racer and result from an anonymous upload. The demo resets
+    # itself; it does not take a new instance from a visitor.
+    _refuse_on_demo("Restoring a backup")
     _require_operator(request, db)
 
     path = database_path()
@@ -514,6 +545,15 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
     The PIN arrives as a query parameter for the same reason it does on the
     subscription socket: a browser cannot set headers on a WebSocket handshake.
     """
+    # The demo runs a fake timer and has no port for anything to proxy, so this
+    # socket has nothing to do there — and with no PIN set it is open to
+    # everyone. Closed with the role code: which of the two reasons applies is
+    # not a caller's business.
+    if demo_mode.enabled():
+        await websocket.accept()
+        await websocket.close(code=4403, reason="Operator PIN required")
+        return
+
     # Credentials before anything else, so an unauthenticated caller learns
     # nothing — not whether the track exists, nor whether proxy mode is on.
     db = SessionLocal()
@@ -631,6 +671,7 @@ async def upload_file(
     existed. The suite's data directory reached 8,000 files and 3.5 GB before
     anybody looked at what nothing was deleting; see `tests/conftest.py`.
     """
+    _refuse_on_demo("Uploading images")
     _require_checkin(request, db)
 
     if not file.filename:
