@@ -893,9 +893,11 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 
 ## Implementation plans (`docs/tasks/`)
 
-Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `free-race`, `graphql`, `improvements`, `install`, `observation`, `printables`, `stats`, `timers`.
+Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `demo`, `free-race`, `graphql`, `improvements`, `install`, `observation`, `printables`, `stats`, `timers`.
 
-**All of them are built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, printables, and all five install channels — and those files are design notes, not a backlog. Every plan says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**: it means something is left, and right now nothing is.
+**All but one area is built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, printables, and all five install channels — and those files are design notes, not a backlog. Every plan says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**: it means something is left.
+
+`demo/` is the exception and is entirely unbuilt: a single public, disposable instance for people evaluating the app. Its five files carry no marker for that reason. Read `demo/00_overview.md` first — it records why a demo sidesteps the tenancy problems a hosted product would have, and what it deliberately leaves out.
 
 Two headers say something else, and both are deliberate. `printables/01_backend_generation.md` is `[PARTLY BUILT]` because steps 3 and 4 were **not** built as specified — the licence and the pit pass are HTML the browser prints rather than server-rendered PDFs — and the header records the departure. `printables/00_overview.md` and `timers/derbynet-protocol-spec.md` carry no marker at all because neither is a plan: one is background, the other is a protocol reference.
 
