@@ -15,6 +15,7 @@ from typing import Annotated, Any, Optional
 
 import pillow_heif
 import strawberry
+from pydantic import ValidationError
 from sqlalchemy.orm import Session, object_session
 from strawberry.types import Info
 
@@ -716,15 +717,81 @@ class TrackRecord:
     """One racer's best time on this race's track, across every race on it.
 
     Computed on every read, never stored — a corrected time moves the
-    record, and deleting a race deletes the records it set.
+    record, and deleting a race deletes the records it set. A null
+    ``race_id`` marks a historical record, entered by hand for an event
+    from before Trusty Track; its labels are whatever the operator typed.
     """
 
     time_seconds: float
     racer_name: str
     car_number: int | None
-    race_id: int
-    race_name: str
+    race_id: int | None
+    race_name: str | None
     race_date: str | None
+
+
+@strawberry.type
+class HistoricalTrackRecord:
+    """A hand-entered record from before Trusty Track was keeping them.
+
+    The management view — what the operator sees on the track's card in
+    System Settings. The record board itself merges these into
+    `RaceStats.track_records`.
+    """
+
+    id: int
+    track_id: int
+    time_seconds: float
+    racer_name: str
+    car_number: int | None
+    race_name: str | None
+    race_date: str | None
+
+
+@strawberry.input
+class HistoricalTrackRecordInput:
+    """A historical record as typed in: a time, a name, and labels."""
+
+    time_seconds: float
+    racer_name: str
+    car_number: int | None = None
+    race_name: str | None = None
+    race_date: str | None = None
+
+
+def _historical_record_input(
+    record: HistoricalTrackRecordInput,
+) -> schemas.HistoricalTrackRecordCreate:
+    """Validate a typed-in record, refusing with a sentence rather than a trace.
+
+    The rules live on the Pydantic schema — one copy — and Pydantic's own
+    refusal is a wall of locations and error codes. The operator typing at
+    the settings page gets the message the validator wrote.
+    """
+    try:
+        return schemas.HistoricalTrackRecordCreate(
+            time_seconds=record.time_seconds,
+            racer_name=record.racer_name,
+            car_number=record.car_number,
+            race_name=record.race_name,
+            race_date=record.race_date,
+        )
+    except ValidationError as exc:
+        first = exc.errors()[0]["msg"].removeprefix("Value error, ")
+        raise ValueError(first.capitalize().rstrip(".") + ".") from exc
+
+
+def _historical_record(row: models.HistoricalTrackRecord) -> HistoricalTrackRecord:
+    """The one converter from the stored row to the management type."""
+    return HistoricalTrackRecord(
+        id=row.id,
+        track_id=row.track_id,
+        time_seconds=row.time_seconds,
+        racer_name=row.racer_name,
+        car_number=row.car_number,
+        race_name=row.race_name,
+        race_date=row.race_date,
+    )
 
 
 @strawberry.type
@@ -1068,6 +1135,28 @@ class Track:
         otherwise.
         """
         return crud.lane_outages_for_track(info.context["db"], self.id)
+
+    @strawberry.field
+    def historical_records(self, info: Info) -> list[HistoricalTrackRecord]:
+        """This track's hand-entered records, best first.
+
+        The management list for the track's card in System Settings — only
+        the rows an operator typed, never the computed ones, because these
+        are the only ones there is anything to edit.
+        """
+        rows = crud.historical_track_records(info.context["db"], self.id)
+        return [
+            HistoricalTrackRecord(
+                id=row.id,
+                track_id=row.track_id,
+                time_seconds=row.time_seconds,
+                racer_name=row.racer_name,
+                car_number=row.car_number,
+                race_name=row.race_name,
+                race_date=row.race_date,
+            )
+            for row in rows
+        ]
 
     @strawberry.field
     def races(self, info: Info) -> list[Race]:
@@ -2222,6 +2311,47 @@ class Mutation:
         for race in db.query(models.Race).filter(models.Race.track_id == track_id):
             await _publish_race_state(race.id)
         return outages
+
+    @strawberry.mutation
+    def create_track_record(
+        self, info: Info, track_id: int, record: HistoricalTrackRecordInput
+    ) -> HistoricalTrackRecord:
+        """Enter a track record from before Trusty Track was keeping them.
+
+        It joins the record board as typed: a 2019 record at 2.89 seconds
+        stands until a computed 2.88 beats it. The validation is
+        `schemas.HistoricalTrackRecordBase`'s — a time of zero or less and a
+        blank name are refused where they arrive.
+        """
+        db = info.context["db"]
+        row = crud.create_historical_track_record(
+            db, track_id, _historical_record_input(record)
+        )
+        if row is None:
+            raise ValueError("That track no longer exists.")
+        return _historical_record(row)
+
+    @strawberry.mutation
+    def update_track_record(
+        self, info: Info, record_id: int, record: HistoricalTrackRecordInput
+    ) -> HistoricalTrackRecord:
+        """Correct a hand-entered track record — a typo in a time or a name."""
+        db = info.context["db"]
+        row = crud.update_historical_track_record(
+            db, record_id, _historical_record_input(record)
+        )
+        if row is None:
+            raise ValueError("That record no longer exists.")
+        return _historical_record(row)
+
+    @strawberry.mutation
+    def delete_track_record(self, info: Info, record_id: int) -> bool:
+        """Remove a hand-entered track record.
+
+        Only the hand-entered ones can be removed — a computed record is the
+        heats it came from, and goes when they do.
+        """
+        return crud.delete_historical_track_record(info.context["db"], record_id)
 
     # Award Mutations (#170)
     @strawberry.mutation

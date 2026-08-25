@@ -77,6 +77,27 @@ test('screenshot the settings panels', async ({ page }) => {
     await trackCard.getByLabel('Lane 3 works').click();
     await expect(trackCard.getByText(/All \d+ lanes in use/i)).toBeVisible();
 
+    // A historical track record, entered the way an operator would: type it
+    // into the card's own form and add it. Saves on click, like the lanes.
+    const recordsSection = trackCard.getByTestId('track-records');
+    await recordsSection.getByLabel('Record time in seconds').fill('2.891');
+    await recordsSection.getByLabel('Who set the record').fill('Jimmy Alvarez');
+    await recordsSection.getByLabel('Car number (optional)').fill('42');
+    await recordsSection.getByLabel(/which event it was set at/i).fill('Pinewood Derby 2019');
+    await recordsSection.getByLabel(/when it was set/i).fill('2019-03-16');
+    await recordsSection.getByRole('button', { name: 'Add record' }).click();
+    await expect(recordsSection.getByText(/Jimmy Alvarez/)).toBeVisible();
+    await page.waitForTimeout(300);
+
+    await recordsSection.screenshot({ path: path.join(SCREENSHOT_DIR, '05-track-records.png') });
+
+    // Remove it again: the main screenshots spec photographs the Stats page
+    // of a race on this track, and a record left here would put Jimmy at the
+    // top of that page's record board — or not, depending on which spec ran
+    // first, which is exactly the churn the seeding work exists to prevent.
+    await recordsSection.getByRole('button', { name: /remove the record held by jimmy alvarez/i }).click();
+    await expect(recordsSection.getByText(/Jimmy Alvarez/)).not.toBeVisible();
+
     // The Access panel, with a PIN set so the Remove control is on screen —
     // it is only offered for a PIN that exists, and it is the whole subject of
     // the "changing or removing a PIN" section (#192).

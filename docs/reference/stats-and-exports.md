@@ -61,6 +61,12 @@ not just today's. The rules:
   race removes the records it set, along with the results themselves.
 - Each entry names the race that set it. Entries from today's event are
   marked, which is how the page can say a record was just broken.
+- **Records from before Trusty Track can be entered by hand** — on the
+  track's card in Settings, under **Track records from past years**. They
+  compete exactly as typed: a 2019 record at 2.89 seconds heads the board
+  until a recorded 2.88 beats it. Hand-entered records are the one kind
+  that is stored rather than worked out, because there is nothing in the
+  app to work them out from — and the only kind you can edit or remove.
 - The record belongs to the track, so a race with no track has none — and
   times from the [fake timer](../fake-timer.md) are made up, so a track
   that ran on it holds made-up records. The practice race uses a track of

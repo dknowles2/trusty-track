@@ -160,6 +160,44 @@ class Track(Base):
     lane_outages: Mapped[list["LaneOutage"]] = relationship(
         "LaneOutage", back_populates="track", cascade="all, delete-orphan"
     )
+    historical_records: Mapped[list["HistoricalTrackRecord"]] = relationship(
+        "HistoricalTrackRecord", back_populates="track", cascade="all, delete-orphan"
+    )
+
+
+class HistoricalTrackRecord(Base):
+    """A track record from before Trusty Track was keeping them.
+
+    The computed records (`services/records.py`) never store anything — a
+    corrected time must move them. A record set at the 2019 derby has no
+    heats in this database to compute from, so it is the opposite case:
+    primary data, entered by the operator, standing exactly as written. The
+    same distinction the audit log draws — a claim about a moment that has
+    passed.
+
+    ``racer_name`` is free text, not a ``Racer`` foreign key: the child who
+    set it is not on any roster this install has. ``race_name`` and
+    ``race_date`` are labels for the sentence on the record board ("Derby
+    2019, Mar 14 2019"), not references.
+
+    Scoped to the **track** for the same reason a lane outage is — the
+    record belongs to the hardware in the room — and deleted with it: a
+    record of a track that no longer exists has nowhere to be shown.
+    """
+
+    __tablename__ = "track_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    track_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tracks.id", ondelete="CASCADE"), index=True
+    )
+    time_seconds: Mapped[float] = mapped_column(Float, nullable=False)
+    racer_name: Mapped[str] = mapped_column(String, nullable=False)
+    car_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    race_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    race_date: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    track: Mapped["Track"] = relationship("Track", back_populates="historical_records")
 
 
 class LaneOutage(Base):

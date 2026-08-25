@@ -206,6 +206,24 @@ type HeatSession {
   lanes: [LiveLane!]!
 }
 
+type HistoricalTrackRecord {
+  id: Int!
+  trackId: Int!
+  timeSeconds: Float!
+  racerName: String!
+  carNumber: Int
+  raceName: String
+  raceDate: String
+}
+
+input HistoricalTrackRecordInput {
+  timeSeconds: Float!
+  racerName: String!
+  carNumber: Int = null
+  raceName: String = null
+  raceDate: String = null
+}
+
 input InitialConfigInput {
   groupName: String!
   debugMode: Boolean! = false
@@ -278,6 +296,9 @@ type Mutation {
   updateDen(id: Int!, den: DenInput!): Den
   deleteDen(id: Int!): Boolean!
   setLaneOutages(trackId: Int!, lanes: [Int!]!): [Int!]!
+  createTrackRecord(trackId: Int!, record: HistoricalTrackRecordInput!): HistoricalTrackRecord!
+  updateTrackRecord(recordId: Int!, record: HistoricalTrackRecordInput!): HistoricalTrackRecord!
+  deleteTrackRecord(recordId: Int!): Boolean!
   createAward(raceId: Int!, award: AwardInput!): Award!
   updateAward(id: Int!, award: AwardInput!): Award
   deleteAward(id: Int!): Boolean!
@@ -597,6 +618,7 @@ type Track {
   timerProfile: String
   remoteStartInstalled: Boolean!
   laneOutages: [Int!]!
+  historicalRecords: [HistoricalTrackRecord!]!
   races: [Race!]!
 }
 
@@ -614,8 +636,8 @@ type TrackRecord {
   timeSeconds: Float!
   racerName: String!
   carNumber: Int
-  raceId: Int!
-  raceName: String!
+  raceId: Int
+  raceName: String
   raceDate: String
 }
 

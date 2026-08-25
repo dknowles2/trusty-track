@@ -81,8 +81,9 @@ interface TrackRecord {
   timeSeconds: number;
   racerName: string;
   carNumber: number | null;
-  raceId: number;
-  raceName: string;
+  /** Null for a historical record entered by hand — no race backs it. */
+  raceId: number | null;
+  raceName: string | null;
   raceDate: string | null;
 }
 
@@ -104,7 +105,10 @@ interface RaceStatsData {
 /** "Mar 14, 2026" from the race's stored date, or nothing if it has none. */
 function recordDate(raceDate: string | null): string | null {
   if (!raceDate) return null;
-  const d = new Date(raceDate);
+  // A bare date (how a historical record stores one) parses as UTC midnight,
+  // which toLocaleDateString renders as the previous day anywhere west of
+  // Greenwich. Pin it to local midnight instead.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raceDate) ? `${raceDate}T00:00:00` : raceDate);
   if (isNaN(d.getTime())) return null;
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
@@ -402,8 +406,9 @@ export default function RaceStats() {
                     {stats.trackRecords[0].carNumber != null && (
                       <span> (Car #{stats.trackRecords[0].carNumber})</span>
                     )}
-                    {' — '}
-                    {stats.trackRecords[0].raceName}
+                    {stats.trackRecords[0].raceName && (
+                      <span> — {stats.trackRecords[0].raceName}</span>
+                    )}
                     {recordDate(stats.trackRecords[0].raceDate) && (
                       <span>, {recordDate(stats.trackRecords[0].raceDate)}</span>
                     )}
@@ -436,7 +441,7 @@ export default function RaceStats() {
                           </td>
                           <td>{tr.carNumber ?? '—'}</td>
                           <td style={{ color: '#666' }}>
-                            {tr.raceName}
+                            {tr.raceName ?? '—'}
                             {recordDate(tr.raceDate) && <span>, {recordDate(tr.raceDate)}</span>}
                           </td>
                         </tr>

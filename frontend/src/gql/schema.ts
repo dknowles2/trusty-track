@@ -215,6 +215,24 @@ export type HeatSession = {
   trackId: Scalars['Int']['output'];
 };
 
+export type HistoricalTrackRecord = {
+  carNumber?: Maybe<Scalars['Int']['output']>;
+  id: Scalars['Int']['output'];
+  raceDate?: Maybe<Scalars['String']['output']>;
+  raceName?: Maybe<Scalars['String']['output']>;
+  racerName: Scalars['String']['output'];
+  timeSeconds: Scalars['Float']['output'];
+  trackId: Scalars['Int']['output'];
+};
+
+export type HistoricalTrackRecordInput = {
+  carNumber?: InputMaybe<Scalars['Int']['input']>;
+  raceDate?: InputMaybe<Scalars['String']['input']>;
+  raceName?: InputMaybe<Scalars['String']['input']>;
+  racerName: Scalars['String']['input'];
+  timeSeconds: Scalars['Float']['input'];
+};
+
 export type InitialConfigInput = {
   checkinPin?: InputMaybe<Scalars['String']['input']>;
   debugMode?: Scalars['Boolean']['input'];
@@ -292,6 +310,7 @@ export type Mutation = {
   createRound: Array<Round>;
   createRoundWizard: Array<Round>;
   createTrack: Track;
+  createTrackRecord: HistoricalTrackRecord;
   deleteAward: Scalars['Boolean']['output'];
   deleteDen: Scalars['Boolean']['output'];
   deleteFreeRaceHeat: Scalars['Boolean']['output'];
@@ -300,6 +319,7 @@ export type Mutation = {
   deleteRacer: Scalars['Boolean']['output'];
   deleteRound: Scalars['Boolean']['output'];
   deleteTrack: Scalars['Boolean']['output'];
+  deleteTrackRecord: Scalars['Boolean']['output'];
   fakeTimerFinish: Scalars['Boolean']['output'];
   fakeTimerStart: Scalars['Boolean']['output'];
   forceResults: Scalars['Boolean']['output'];
@@ -325,6 +345,7 @@ export type Mutation = {
   updateRace?: Maybe<Race>;
   updateRacer?: Maybe<Racer>;
   updateTrack?: Maybe<Track>;
+  updateTrackRecord: HistoricalTrackRecord;
   uploadImage: Scalars['String']['output'];
 };
 
@@ -432,6 +453,12 @@ export type MutationCreateTrackArgs = {
 };
 
 
+export type MutationCreateTrackRecordArgs = {
+  record: HistoricalTrackRecordInput;
+  trackId: Scalars['Int']['input'];
+};
+
+
 export type MutationDeleteAwardArgs = {
   id: Scalars['Int']['input'];
 };
@@ -469,6 +496,11 @@ export type MutationDeleteRoundArgs = {
 
 export type MutationDeleteTrackArgs = {
   id: Scalars['Int']['input'];
+};
+
+
+export type MutationDeleteTrackRecordArgs = {
+  recordId: Scalars['Int']['input'];
 };
 
 
@@ -610,6 +642,12 @@ export type MutationUpdateRacerArgs = {
 export type MutationUpdateTrackArgs = {
   id: Scalars['Int']['input'];
   track: TrackInput;
+};
+
+
+export type MutationUpdateTrackRecordArgs = {
+  record: HistoricalTrackRecordInput;
+  recordId: Scalars['Int']['input'];
 };
 
 
@@ -1032,6 +1070,7 @@ export type TimingStatsLane = {
 };
 
 export type Track = {
+  historicalRecords: Array<HistoricalTrackRecord>;
   id: Scalars['Int']['output'];
   laneCount: Scalars['Int']['output'];
   laneOutages: Array<Scalars['Int']['output']>;
@@ -1057,8 +1096,8 @@ export type TrackInput = {
 export type TrackRecord = {
   carNumber?: Maybe<Scalars['Int']['output']>;
   raceDate?: Maybe<Scalars['String']['output']>;
-  raceId: Scalars['Int']['output'];
-  raceName: Scalars['String']['output'];
+  raceId?: Maybe<Scalars['Int']['output']>;
+  raceName?: Maybe<Scalars['String']['output']>;
   racerName: Scalars['String']['output'];
   timeSeconds: Scalars['Float']['output'];
 };

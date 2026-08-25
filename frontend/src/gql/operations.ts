@@ -51,6 +51,14 @@ export type HeatReorderItemInput = {
   newHeatNumber: number;
 };
 
+export type HistoricalTrackRecordInput = {
+  carNumber?: number | null | undefined;
+  raceDate?: string | null | undefined;
+  raceName?: string | null | undefined;
+  racerName: string;
+  timeSeconds: number;
+};
+
 export type PhotoAssignmentInput = {
   photoType: string;
   racerId: number;
@@ -627,6 +635,29 @@ export type SetLaneOutagesMutationVariables = Exact<{
 
 export type SetLaneOutagesMutation = { setLaneOutages: Array<number> };
 
+export type CreateTrackRecordMutationVariables = Exact<{
+  trackId: number;
+  record: Types.HistoricalTrackRecordInput;
+}>;
+
+
+export type CreateTrackRecordMutation = { createTrackRecord: { id: number, trackId: number, timeSeconds: number, racerName: string, carNumber: number | null, raceName: string | null, raceDate: string | null } };
+
+export type UpdateTrackRecordMutationVariables = Exact<{
+  recordId: number;
+  record: Types.HistoricalTrackRecordInput;
+}>;
+
+
+export type UpdateTrackRecordMutation = { updateTrackRecord: { id: number, trackId: number, timeSeconds: number, racerName: string, carNumber: number | null, raceName: string | null, raceDate: string | null } };
+
+export type DeleteTrackRecordMutationVariables = Exact<{
+  recordId: number;
+}>;
+
+
+export type DeleteTrackRecordMutation = { deleteTrackRecord: boolean };
+
 export type ActivityLogQueryVariables = Exact<{
   raceId?: number | null | undefined;
   limit: number;
@@ -681,4 +712,4 @@ export type GetRaceStatsQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceStatsQuery = { raceStats: { raceId: number, raceName: string, scoringStrategy: string, totalHeatsScheduled: number, totalHeatsCompleted: number, totalRacers: number, laneStats: Array<{ lane: number, avgTime: number | null, heatCount: number, relativeAdvantagePct: number | null }>, racerStats: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, denName: string, heatsCompleted: number, heatsScheduled: number, minTime: number | null, maxTime: number | null, meanTime: number | null, stdDev: number | null, timesPerLane: Array<{ lane: number, avgTime: number | null }> }>, highlights: Array<{ type: string, roundName: string, heatNumber: number, globalHeatNumber: number, racerName: string | null, time: number | null, margin: number | null }>, denStats: Array<{ denId: number, denName: string, denColor: string, racerCount: number, avgScore: number | null, bestRacerName: string | null }>, heatResults: Array<{ roundName: string, heatNumber: number, globalHeatNumber: number, lane: number, carNumber: number | null, racerFirstName: string, racerLastName: string, time: number | null, place: number | null }>, trackRecords: Array<{ timeSeconds: number, racerName: string, carNumber: number | null, raceId: number, raceName: string, raceDate: string | null }> } | null };
+export type GetRaceStatsQuery = { raceStats: { raceId: number, raceName: string, scoringStrategy: string, totalHeatsScheduled: number, totalHeatsCompleted: number, totalRacers: number, laneStats: Array<{ lane: number, avgTime: number | null, heatCount: number, relativeAdvantagePct: number | null }>, racerStats: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, denName: string, heatsCompleted: number, heatsScheduled: number, minTime: number | null, maxTime: number | null, meanTime: number | null, stdDev: number | null, timesPerLane: Array<{ lane: number, avgTime: number | null }> }>, highlights: Array<{ type: string, roundName: string, heatNumber: number, globalHeatNumber: number, racerName: string | null, time: number | null, margin: number | null }>, denStats: Array<{ denId: number, denName: string, denColor: string, racerCount: number, avgScore: number | null, bestRacerName: string | null }>, heatResults: Array<{ roundName: string, heatNumber: number, globalHeatNumber: number, lane: number, carNumber: number | null, racerFirstName: string, racerLastName: string, time: number | null, place: number | null }>, trackRecords: Array<{ timeSeconds: number, racerName: string, carNumber: number | null, raceId: number | null, raceName: string | null, raceDate: string | null }> } | null };

@@ -1107,6 +1107,72 @@ def set_lane_outages(db: Session, track_id: int, lanes: Sequence[int]) -> list[i
     return sorted(wanted)
 
 
+def historical_track_records(
+    db: Session, track_id: int
+) -> list[models.HistoricalTrackRecord]:
+    """A track's hand-entered records, best first — the management view."""
+    return (
+        db.query(models.HistoricalTrackRecord)
+        .filter(models.HistoricalTrackRecord.track_id == track_id)
+        .order_by(
+            models.HistoricalTrackRecord.time_seconds,
+            models.HistoricalTrackRecord.id,
+        )
+        .all()
+    )
+
+
+def create_historical_track_record(
+    db: Session, track_id: int, record: schemas.HistoricalTrackRecordCreate
+) -> models.HistoricalTrackRecord | None:
+    """Store a record from before Trusty Track was keeping them.
+
+    Returns None for a track that does not exist — the enforced foreign key
+    would refuse the row anyway (#125), but a None the resolver can turn
+    into a sentence beats an IntegrityError.
+    """
+    track = db.query(models.Track).filter(models.Track.id == track_id).first()
+    if track is None:
+        return None
+    row = models.HistoricalTrackRecord(track_id=track_id, **record.model_dump())
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def update_historical_track_record(
+    db: Session, record_id: int, record: schemas.HistoricalTrackRecordCreate
+) -> models.HistoricalTrackRecord | None:
+    """Correct a hand-entered record — a typo in a time or a name."""
+    row = (
+        db.query(models.HistoricalTrackRecord)
+        .filter(models.HistoricalTrackRecord.id == record_id)
+        .first()
+    )
+    if row is None:
+        return None
+    for field, value in record.model_dump().items():
+        setattr(row, field, value)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_historical_track_record(db: Session, record_id: int) -> bool:
+    """Remove a hand-entered record."""
+    row = (
+        db.query(models.HistoricalTrackRecord)
+        .filter(models.HistoricalTrackRecord.id == record_id)
+        .first()
+    )
+    if row is None:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
+
+
 def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
     """Bring existing heats into line with a lane going out of service (#171).
 

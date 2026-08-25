@@ -20,13 +20,19 @@ from backend.db import models
 
 @dataclass(frozen=True)
 class TrackRecordEntry:
-    """One racer's best time on a track, across every race run on it."""
+    """One racer's best time on a track, across every race run on it.
+
+    ``race_id`` is None for a historical record — one entered by hand from
+    before Trusty Track was keeping them, with no race in this database
+    behind it. ``race_name`` and ``race_date`` are then the labels the
+    operator typed, and may be absent.
+    """
 
     time_seconds: float
     racer_name: str
     car_number: int | None
-    race_id: int
-    race_name: str
+    race_id: int | None
+    race_name: str | None
     race_date: str | None
 
 
@@ -38,6 +44,11 @@ def track_records(db: Session, track_id: int, limit: int = 5) -> list[TrackRecor
     heats count: a free race heat is an exhibition run (#6). A time of zero
     or less is a DNF marker rather than a result, and a lane whose racer has
     been deleted has no holder, so neither can set a record.
+
+    Historical records — entered by hand for events from before Trusty
+    Track (`models.HistoricalTrackRecord`) — compete in the same list, as
+    typed: a 2019 record standing at 2.89 seconds is beaten by a computed
+    2.88, and not before.
     """
     rows = (
         models.official_heats(
@@ -78,4 +89,26 @@ def track_records(db: Session, track_id: int, limit: int = 5) -> list[TrackRecor
         # is slower than everyone already in it.
         if len(best) == limit:
             break
-    return list(best.values())
+
+    historical = [
+        TrackRecordEntry(
+            time_seconds=row.time_seconds,
+            racer_name=row.racer_name,
+            car_number=row.car_number,
+            race_id=None,
+            race_name=row.race_name,
+            race_date=row.race_date,
+        )
+        for row in (
+            db.query(models.HistoricalTrackRecord)
+            .filter(models.HistoricalTrackRecord.track_id == track_id)
+            .order_by(
+                models.HistoricalTrackRecord.time_seconds,
+                models.HistoricalTrackRecord.id,
+            )
+            .all()
+        )
+    ]
+
+    merged = sorted([*best.values(), *historical], key=lambda entry: entry.time_seconds)
+    return merged[:limit]
