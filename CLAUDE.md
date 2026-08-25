@@ -948,7 +948,7 @@ Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `d
 
 **All but one area is built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, printables, and all five install channels — and those files are design notes, not a backlog. Every plan says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**: it means something is left.
 
-`demo/` is the exception: a single public, disposable instance for people evaluating the app. Stage 1 ships; stages 2 to 4 do not, and their files carry no marker for that reason. Read `demo/00_overview.md` first — it records why a demo sidesteps the tenancy problems a hosted product would have, and what it deliberately leaves out.
+`demo/` is the exception: a single public, disposable instance for people evaluating the app. Stages 1 to 4 ship and it is deployed; **stage 5 is not built** — a private instance per visitor, which is a second front door rather than a change to the one that exists, and the file records the Cloud Run provisioning timings so nobody re-measures them. Read `demo/00_overview.md` first — it records why a demo sidesteps the tenancy problems a hosted product would have, and what it deliberately leaves out.
 
 Two headers say something else, and both are deliberate. `printables/01_backend_generation.md` is `[PARTLY BUILT]` because steps 3 and 4 were **not** built as specified — the licence and the pit pass are HTML the browser prints rather than server-rendered PDFs — and the header records the departure. `printables/00_overview.md` and `timers/derbynet-protocol-spec.md` carry no marker at all because neither is a plan: one is background, the other is a protocol reference.
 

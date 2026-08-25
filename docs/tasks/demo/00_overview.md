@@ -1,11 +1,11 @@
 # Cloud Demo Instance — Overview
 
-> **Built, less the deployment itself.** All four stages ship, apart from
-> two pieces that measurement or the deploy target made unnecessary —
-> stage 2's always-on reset timer and stage 3's cold-start work — and the
-> act of creating the Cloud Run service, which needs an account rather
-> than a commit. The markers on each file say which; see the plan-file
-> convention in `CLAUDE.md`.
+> **Stages 1 to 4 are built and the demo is deployed.** Two pieces were
+> made unnecessary by measurement or by the deploy target — stage 2's
+> always-on reset timer and stage 3's cold-start work. **Stage 5 is not
+> built**: a private instance per visitor, which is a second front door
+> rather than a change to the one that exists. The markers on each file say
+> which; see the plan-file convention in `CLAUDE.md`.
 
 ## Goal
 
@@ -133,6 +133,13 @@ same image with no code difference.
 | 2 [PARTLY BUILT] | `02_seed_and_reset.md` | Seeding on boot (built, from code rather than an archive), and reset on each host (deferred) |
 | 3 [PARTLY BUILT] | `03_idle_and_cold_start.md` | Idle disconnect and session cap (built); cold-start latency (measured at ~0.7 s, so not built) |
 | 4 [COMPLETED] | `04_deploy_and_portability.md` | Cloud Run configuration, cost ceiling, and what makes a move cheap |
+| 5 | `05_per_user_instances.md` | A private, disposable instance per visitor, behind a captcha — which is what would let the demo show the first-run wizard and photo check-in at all |
 
 Stage 1 is the only one that gates a public URL. Stages 2 and 3 make it
 survivable unattended; stage 4 is configuration.
+
+Stage 5 stands apart from the other four. They build **one shared demo**; it
+adds **a private one per visitor**, and the shared demo stays exactly as it is.
+Read its "Why, beyond the obvious" first — the case for it is not the one that
+looks obvious, and building it for the obvious reason would be building it for
+the weaker half.
