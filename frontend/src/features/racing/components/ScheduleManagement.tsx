@@ -43,6 +43,7 @@ interface ScheduleManagementProps {
     advancementNumRacers?: number;
     advancementFromBottom?: boolean;
     eliminationLosses?: number;
+    balancedPhases?: number;
     runsPerLane?: number;
     generalType?: string;
   }) => Promise<void>;
@@ -288,6 +289,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     advancementNumRacers?: number;
     advancementFromBottom?: boolean;
     eliminationLosses?: number;
+    balancedPhases?: number;
     runsPerLane?: number;
     generalType?: string;
   }) => {
@@ -440,6 +442,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           onSubmit={handleAddRound}
           racerCount={racerCount}
           denCount={denCount}
+          laneCount={laneCount}
           championshipTrophies={championshipTrophies}
           hasGeneralRound={hasGeneralRound}
           lastChampionshipRound={lastChampionshipRound}

@@ -12,6 +12,7 @@ from backend import demo_seed
 from backend.domain import (
     advancement,
     audit,
+    balanced,
     elimination,
     lanes,
     latecomers,
@@ -444,6 +445,7 @@ def create_round(
     den_id: int | None = None,
     advancement_from_bottom: bool = False,
     elimination_losses: int | None = None,
+    balanced_phases: int | None = None,
 ) -> models.Round:
     """Create a new round for a race."""
     round_obj = models.Round(
@@ -456,6 +458,7 @@ def create_round(
         den_id=den_id,
         advancement_from_bottom=advancement_from_bottom,
         elimination_losses=elimination_losses,
+        balanced_phases=balanced_phases,
     )
     db.add(round_obj)
     db.commit()
@@ -684,6 +687,101 @@ def extend_elimination_round(db: Session, round_id: int) -> list[models.Heat]:
     return new_heats
 
 
+def _write_assignments(
+    db: Session,
+    round_obj: models.Round,
+    phase: list[list[tuple[int, int]]],
+    start_heat_num: int,
+) -> list[models.Heat]:
+    """Persist one phase of explicit ``(lane, racer)`` assignments."""
+    heats: list[models.Heat] = []
+    for offset, assignment in enumerate(phase):
+        heat = models.Heat(
+            race_id=round_obj.race_id,
+            round_id=round_obj.id,
+            heat_number=start_heat_num + offset,
+        )
+        set_heat_lanes(
+            heat,
+            [
+                lanes.Lane(lane=lane_number, racer_id=racer_id)
+                for lane_number, racer_id in assignment
+            ],
+        )
+        db.add(heat)
+        heats.append(heat)
+    return heats
+
+
+def extend_balanced_round(db: Session, round_id: int) -> list[models.Heat]:
+    """Grow a balanced round by one phase, if its schedule has run out.
+
+    The same cascade seam as `extend_elimination_round`, and the same
+    state-not-event reasoning (#248): the next phase's matchmaking is drawn
+    from the records as they stand, so a corrected result changes who races
+    whom next rather than stranding anything. Phases are append-only (#50).
+
+    A latecomer is fielded in the next phase — at the bottom of the order,
+    since an unknown record is not a leading one — and their arrival marks
+    the round ``disrupted`` (#172): they have raced fewer heats than
+    everyone else, which a POINTS sum mistakes for a better score. The round
+    stops growing once anyone has raced ``Round.balanced_phases`` phases.
+    """
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if (
+        not round_obj
+        or round_obj.scheduling_strategy != models.SchedulingStrategy.BALANCED
+    ):
+        return []
+
+    heats = (
+        db.query(models.Heat)
+        .filter(models.Heat.round_id == round_id)
+        .order_by(models.Heat.heat_number)
+        .all()
+    )
+    if not heats:
+        return []
+    heat_lanes = lanes_for_heats(db, heats)
+    if not all(lanes.is_finished(hl) for hl in heat_lanes):
+        return []
+
+    usable = usable_lanes_for_race(db, round_obj.race_id)
+    target = round_obj.balanced_phases or len(usable) or 1
+    apps = balanced.appearances(heat_lanes)
+    if apps and max(apps.values()) >= target:
+        return []
+
+    eligible = set(_eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
+    if len(eligible) < 2:
+        return []
+    recs = balanced.records(heat_lanes)
+    ordered = balanced.performance_order(
+        recs.get(racer_id, balanced.Record(racer_id=racer_id)) for racer_id in eligible
+    )
+
+    rng = (
+        _schedule_rng(db, round_obj.race_id, round_id, run=len(heats))
+        or random.Random()
+    )
+    phase = balanced.next_phase(
+        ordered, balanced.lane_uses_of(heat_lanes), usable, rng=rng
+    )
+    if not phase:
+        return []
+
+    # Somebody in this phase missed earlier ones — a latecomer. Their heat
+    # count will stay short of everyone else's, which is #172's unevenness.
+    most = max(apps.values()) if apps else 0
+    if most and any(apps.get(racer_id, 0) < most for racer_id in ordered):
+        round_obj.disrupted = True
+
+    start = max(heat.heat_number for heat in heats) + 1
+    new_heats = _write_assignments(db, round_obj, phase, start)
+    db.commit()
+    return new_heats
+
+
 def generate_heats_for_round(
     db: Session,
     round_id: int,
@@ -802,6 +900,18 @@ def generate_heats_for_round(
         )
         db.commit()
         return wave_heats
+
+    if round_obj.scheduling_strategy == models.SchedulingStrategy.BALANCED:
+        # Only the first phase, and the first phase is random — there are no
+        # records yet to match on. Later phases come from
+        # `extend_balanced_round` on the recorded-result cascade.
+        rng = _schedule_rng(db, race_id, round_id) or random.Random()
+        shuffled = list(p_ids)
+        rng.shuffle(shuffled)
+        phase = balanced.next_phase(shuffled, {}, usable_lanes, rng=rng)
+        phase_heats = _write_assignments(db, round_obj, phase, start_heat_num)
+        db.commit()
+        return phase_heats
 
     # Generate heats using PPC strategy, once per run. Each run gets its own
     # schedule — `run` varies the shuffle — and the numbering continues.
@@ -1147,11 +1257,14 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
         if advancement.is_round_complete(heat_lanes):
             continue
 
-        if round_obj.scheduling_strategy == models.SchedulingStrategy.ELIMINATION:
-            # No lane-balance appendix here: an elimination round's schedule
-            # grows on its own, and `extend_elimination_round` fields every
-            # checked-in racer it has not seen at zero losses — so the
-            # latecomer simply joins the next wave.
+        if round_obj.scheduling_strategy in (
+            models.SchedulingStrategy.ELIMINATION,
+            models.SchedulingStrategy.BALANCED,
+        ):
+            # No lane-balance appendix here: these schedules grow on their
+            # own, and the extenders field every checked-in racer they have
+            # not seen — so the latecomer simply joins the next wave or
+            # phase (which, for a balanced round, marks it disrupted).
             continue
 
         appended = latecomers.plan_late_entry(
@@ -1459,10 +1572,11 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
 def is_round_complete(db: Session, round_id: int) -> bool:
     """True when every heat in the round has a time for every real racer.
 
-    An elimination round asks one thing more: that a winner exists. Its
-    schedule grows a wave at a time, so "every scheduled heat is finished"
-    is true between waves — treating that as complete would advance a
-    championship field off a race that is still going.
+    The growing strategies ask one thing more, because between their waves
+    "every scheduled heat is finished" is true while the race is still going
+    — treating that as complete would advance a championship field off it.
+    An elimination round needs a winner to exist; a balanced round needs its
+    configured phases to have been raced.
     """
     heat_lanes = _round_heat_lanes(db, round_id)
     if not advancement.is_round_complete(heat_lanes):
@@ -1476,6 +1590,12 @@ def is_round_complete(db: Session, round_id: int) -> bool:
             elimination.losses_by_racer(heat_lanes),
             round_obj.elimination_losses or 1,
         )
+    if (
+        round_obj
+        and round_obj.scheduling_strategy == models.SchedulingStrategy.BALANCED
+    ):
+        apps = balanced.appearances(heat_lanes)
+        return bool(apps) and max(apps.values()) >= (round_obj.balanced_phases or 1)
     return True
 
 
@@ -1604,11 +1724,12 @@ def record_heat_result(
 
         if heat.round:
             invalidate_future_rounds(db, heat.race_id, heat.round.round_number)
-            # Before advancement asks whether the round is complete: an
-            # elimination round that just finished a wave is only complete
-            # when it is *decided*, and extending it first keeps the two
-            # questions from racing each other.
+            # Before advancement asks whether the round is complete: a round
+            # whose schedule grows on results is only complete when its story
+            # has ended, and extending it first keeps the two questions from
+            # racing each other.
             extend_elimination_round(db, heat.round.id)
+            extend_balanced_round(db, heat.round.id)
             trigger_auto_advancements(db, heat.race_id, heat.round.id)
 
         _record_result_audit(db, heat, heat_lanes, source)

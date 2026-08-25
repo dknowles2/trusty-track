@@ -86,6 +86,12 @@ class SchedulingStrategy(str, enum.Enum):
     #: are out; the schedule grows a wave at a time as results land, and the
     #: last car standing wins. See `domain/elimination.py`.
     ELIMINATION = "ELIMINATION"
+    #: Balanced racing (GPRM calls it "Dynamic"): the first phase is random,
+    #: and each later phase matches cars with similar records against each
+    #: other, so more children get to win a heat. Everyone races once per
+    #: phase, nobody is eliminated, and the round ends after
+    #: `Round.balanced_phases` phases. See `domain/balanced.py`.
+    BALANCED = "BALANCED"
 
 
 class ScoringStrategy(str, enum.Enum):
@@ -301,6 +307,10 @@ class Round(Base):
     #: is out. Null for every other scheduling strategy — the column has no
     #: meaning without one, and a value nothing reads would be free to rot.
     elimination_losses: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Balanced racing only: how many phases the round runs — everyone races
+    #: once per phase. Null for every other strategy, same reasoning as
+    #: `elimination_losses`. GPRM recommends at least one phase per lane.
+    balanced_phases: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[list["Heat"]] = relationship(

@@ -157,7 +157,8 @@ Racer           id, race_id, den_id?,
 
 Round           id, race_id, round_number, name, scheduling_strategy,
                 advancement_source, advancement_num_racers, den_id?,
-                advancement_from_bottom, elimination_losses?
+                advancement_from_bottom, elimination_losses?,
+                balanced_phases?
 
 Heat            id, race_id, round_id?, kind, heat_number,
                 created_at?, recorded_at?
@@ -173,7 +174,7 @@ Heat            id, race_id, round_id?, kind, heat_number,
 | `CarNumberingStrategy` | `PER_GROUP`, `GLOBAL`, `MANUAL`                                              |
 | `HeatKind`             | `OFFICIAL`, `FREE`                                                           |
 | `Rank`                 | `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER`        |
-| `SchedulingStrategy`   | `PPC`, `ELIMINATION`                                                         |
+| `SchedulingStrategy`   | `PPC`, `ELIMINATION`, `BALANCED`                                             |
 | `ScoringStrategy`      | `TIMED` (avg time), `POINTS` (sum of placements) — lower is better for both  |
 | `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`                           |
 
@@ -456,6 +457,18 @@ Rule in `domain/latecomers.py`, database wiring in `crud.admit_late_racers` (#17
 `_admit_late_racers` awaits `_revalidate_timers` for the same reason `setLaneOutages` does: the unraced case rebuilds heats, and an armed heat must not be swapped underneath the operator (#50).
 
 On the roster, `features/management/rosterStatus.ts` is what puts a **No heats** badge against a racer who is checked in and in none — the one case admission cannot fix, where they arrived after the round finished. It is quiet until a round exists: before the first one nobody is scheduled, and flagging the whole roster is how an operator learns to ignore a badge.
+
+### Balanced racing
+
+Rules in `domain/balanced.py`, wiring in `crud` (`generate_heats_for_round`'s `BALANCED` branch and `extend_balanced_round`, on the same cascade seam as elimination). GPRM calls the method "Dynamic": the first phase is random; each later phase ranks the field — most heat wins, then fewest **points per heat** — and races neighbours against neighbours, so winners race winners and the other heats are winnable. The stated goal is maximizing how many racers win at least one heat. The round ends after `Round.balanced_phases` phases (default: the track's lane count, GPRM's own advice). Lane assignment within a heat goes to whoever has used that lane least — best effort, since the matchups come first.
+
+Three ways it differs from elimination, each deliberate:
+
+- **Balanced heats feed the ordinary standings.** Everyone races once per phase, so a `POINTS` sum and a `TIMED` average are both fair over it — no exclusion. The one exception is #172's: a latecomer joins the next phase with fewer heats than everyone else, so `extend_balanced_round` sets `Round.disrupted`, and `POINTS` standings drop the round exactly as they do for a lane outage.
+- **Ranking is points per heat, not GPRM's raw total** — a raw total ranks a latecomer's empty record above cars that raced well all day. A racer with no heats sorts *last* (`Record.average_points` and `performance_order`): an unknown record is not a leading one.
+- **Completeness is a phase count, not a winner** — `crud.is_round_complete` requires `max(appearances) >= balanced_phases`. The same deleted-pending-phase trap as elimination applies and is tested.
+
+The championship refusal, the append-only growth, the latecomer-never-restarts logic and the `admit_late_racers` skip are all shared with elimination, and the modal's "How it's raced" choice carries all three styles.
 
 ### Ladderless elimination
 

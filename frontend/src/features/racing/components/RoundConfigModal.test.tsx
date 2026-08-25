@@ -20,6 +20,7 @@ describe('RoundConfigModal', () => {
     onSubmit: vi.fn().mockResolvedValue(undefined),
     racerCount: 12,
     denCount: 3,
+    laneCount: 4,
     championshipTrophies: 3,
     hasGeneralRound: true,
     lastChampionshipRound: null,
@@ -95,6 +96,34 @@ describe('RoundConfigModal', () => {
       eliminationLosses: 2,
     });
     expect(onSubmit.mock.calls[0][0].generalType).toBeUndefined();
+  });
+
+  it('a balanced round submits the strategy and its phase count', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
+
+    fireEvent.click(
+      screen.getByLabelText('Balanced — each round of heats matches cars doing about as well')
+    );
+    expect(screen.getByDisplayValue('Balanced Round')).toBeInTheDocument();
+    // Defaults to one phase per lane.
+    expect(
+      (screen.getByLabelText('Times each car races') as HTMLInputElement).value
+    ).toBe('4');
+
+    fireEvent.change(screen.getByLabelText('Times each car races'), {
+      target: { value: '5' },
+    });
+    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      name: 'Balanced Round',
+      schedulingStrategy: 'BALANCED',
+      balancedPhases: 5,
+    });
+    expect(onSubmit.mock.calls[0][0].generalType).toBeUndefined();
+    expect(onSubmit.mock.calls[0][0].eliminationLosses).toBeUndefined();
   });
 
   it('an ordinary general round still submits PPC', async () => {

@@ -25,6 +25,7 @@
 - **Advance to a championship round** — the top finishers race again for final placement.
 - **Race the slowest cars** — a just-for-fun Slowest Race bracket where the last one down the track wins.
 - **Elimination racing** — ladderless elimination: lose too many heats and you're out, no bracket to draw, last car standing wins.
+- **Balanced racing** — each round of heats matches cars doing about as well, so more children get a heat they can win.
 - **Run free races** — practice, exhibition and end-of-day fun heats that never touch the standings.
 
 ### After the Race

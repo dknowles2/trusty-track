@@ -223,6 +223,7 @@ export default function RaceControl() {
     advancementNumRacers?: number;
     advancementFromBottom?: boolean;
     eliminationLosses?: number;
+    balancedPhases?: number;
     runsPerLane?: number;
     generalType?: string;
   }) => {
@@ -238,6 +239,7 @@ export default function RaceControl() {
           advancementNumRacers: config.advancementNumRacers,
           advancementFromBottom: config.advancementFromBottom || false,
           eliminationLosses: config.eliminationLosses ?? null,
+          balancedPhases: config.balancedPhases ?? null,
           runsPerLane: config.runsPerLane || 1,
           generalType: config.generalType || 'PACK'
         }

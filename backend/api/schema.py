@@ -421,6 +421,9 @@ class Round:
     #: Ladderless elimination only: how many heats a car may lose before it
     #: is out. Null for every other scheduling strategy.
     elimination_losses: int | None
+    #: Balanced racing only: how many phases the round runs. Null for every
+    #: other scheduling strategy.
+    balanced_phases: int | None
     #: A lane went out of service part-way through this round (#171). The
     #: racers in the vacated lanes raced fewer times than everybody else, so it
     #: does not count toward `POINTS` standings — see `domain/scoring`.
@@ -802,6 +805,10 @@ class RoundCreateInput:
     #: Ladderless elimination only: losses before a car is out. Defaults to
     #: 3 when the strategy is ``ELIMINATION`` and this is not supplied.
     elimination_losses: int | None = None
+    #: Balanced racing only: how many phases to run. Defaults to the track's
+    #: lane count when the strategy is ``BALANCED`` and this is not supplied
+    #: — GPRM's own advice, one phase per lane.
+    balanced_phases: int | None = None
 
 
 @strawberry.input
@@ -3191,12 +3198,27 @@ class Mutation:
                 # General Round
                 strategy = models.SchedulingStrategy(round_data.scheduling_strategy)
                 is_elimination = strategy == models.SchedulingStrategy.ELIMINATION
+                is_balanced = strategy == models.SchedulingStrategy.BALANCED
                 losses = None
                 if is_elimination:
                     losses = round_data.elimination_losses or 3
                     if losses < 1:
                         raise ValueError("A car must be allowed at least one loss.")
-                default_name = "Elimination Round" if is_elimination else "All Pack"
+                phases = None
+                if is_balanced:
+                    # GPRM's own advice: at least one phase per lane.
+                    phases = round_data.balanced_phases or crud.lane_count_for_race(
+                        db, race_id
+                    )
+                    if phases < 1:
+                        raise ValueError("A round needs at least one phase.")
+                default_name = (
+                    "Elimination Round"
+                    if is_elimination
+                    else "Balanced Round"
+                    if is_balanced
+                    else "All Pack"
+                )
                 round_obj = crud.create_round(
                     db,
                     race_id,
@@ -3204,6 +3226,7 @@ class Mutation:
                     strategy,
                     round_data.name or default_name,
                     elimination_losses=losses,
+                    balanced_phases=phases,
                 )
                 crud.generate_heats_for_round(
                     db,
@@ -3215,15 +3238,16 @@ class Mutation:
                 return [typing.cast(Any, round_obj)]
             else:
                 # Championship Round (Placeholder)
-                if (
-                    models.SchedulingStrategy(round_data.scheduling_strategy)
-                    == models.SchedulingStrategy.ELIMINATION
+                if models.SchedulingStrategy(round_data.scheduling_strategy) in (
+                    models.SchedulingStrategy.ELIMINATION,
+                    models.SchedulingStrategy.BALANCED,
                 ):
                     # A championship field is placeholders until the source
                     # decides it, and an elimination wave of placeholders is
                     # nonsense — the format applies to general rounds.
                     raise ValueError(
-                        "An elimination round cannot also be a championship round."
+                        "An elimination or balanced round cannot also be a "
+                        "championship round."
                     )
                 default_name = (
                     "Slowest Race"
