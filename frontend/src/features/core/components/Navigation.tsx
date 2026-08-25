@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import { GET_RACES_NAV, INITIAL_CONFIG_QUERY } from '../graphql/queries';
+import { activeNavLink } from '../activeNavLink';
 import { CREATE_RACE } from '../../management/graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../../management/components/RaceForm';
@@ -362,7 +363,9 @@ export default function Navigation() {
                     {/* If this is the active race, show its sub-links */}
                     {raceId === r.id.toString() && (
                       <div style={{ marginLeft: '1rem', borderLeft: '2px solid #f0f7ff', paddingLeft: '0.5rem' }}>
-                        {links.map(link => (
+                        {links.map(link => {
+                          const isActive = link.to === activeNavLink(location.pathname, links);
+                          return (
                           <Link
                             key={link.to}
                             to={link.to}
@@ -373,15 +376,16 @@ export default function Navigation() {
                               gap: '10px',
                               padding: '10px 16px',
                               textDecoration: 'none',
-                              color: location.pathname === link.to ? 'var(--scouting-blue)' : '#666',
+                              color: isActive ? 'var(--scouting-blue)' : '#666',
                               fontSize: '0.9rem',
-                              fontWeight: location.pathname === link.to ? 'bold' : '500'
+                              fontWeight: isActive ? 'bold' : '500'
                             }}
                           >
                             <Icon path={link.icon} size={0.7} />
                             {link.label}
                           </Link>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -465,7 +469,7 @@ export default function Navigation() {
           zIndex: 999
         }}>
           {links.map(link => {
-            const isActive = location.pathname === link.to;
+            const isActive = link.to === activeNavLink(location.pathname, links);
             return (
               <Link
                 key={link.to}
