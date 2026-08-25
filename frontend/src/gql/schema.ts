@@ -805,6 +805,7 @@ export type RaceStats = {
   totalHeatsCompleted: Scalars['Int']['output'];
   totalHeatsScheduled: Scalars['Int']['output'];
   totalRacers: Scalars['Int']['output'];
+  trackRecords: Array<TrackRecord>;
 };
 
 export type RaceUpdateInput = {
@@ -1051,6 +1052,15 @@ export type TrackInput = {
   serialPort?: InputMaybe<Scalars['String']['input']>;
   timerProfile?: InputMaybe<Scalars['String']['input']>;
   timerType?: Scalars['String']['input'];
+};
+
+export type TrackRecord = {
+  carNumber?: Maybe<Scalars['Int']['output']>;
+  raceDate?: Maybe<Scalars['String']['output']>;
+  raceId: Scalars['Int']['output'];
+  raceName: Scalars['String']['output'];
+  racerName: Scalars['String']['output'];
+  timeSeconds: Scalars['Float']['output'];
 };
 
 export type WizardChampionshipRoundInput = {

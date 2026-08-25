@@ -125,6 +125,31 @@
   border-left-color: var(--gold, #FCD116);
 }
 
+.race-stats__highlight-card--record {
+  border-left-color: var(--gold, #FCD116);
+  background: #fffaf0;
+}
+
+.race-stats__record-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--gold, #FCD116);
+  color: var(--scouting-blue);
+  font-size: 0.7rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}
+
+.race-stats__record-note {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.75rem;
+}
+
 .race-stats__highlight-type {
   font-size: 0.7rem;
   text-transform: uppercase;

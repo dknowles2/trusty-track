@@ -712,6 +712,22 @@ class HeatResultRow:
 
 
 @strawberry.type
+class TrackRecord:
+    """One racer's best time on this race's track, across every race on it.
+
+    Computed on every read, never stored — a corrected time moves the
+    record, and deleting a race deletes the records it set.
+    """
+
+    time_seconds: float
+    racer_name: str
+    car_number: int | None
+    race_id: int
+    race_name: str
+    race_date: str | None
+
+
+@strawberry.type
 class RaceStats:
     """Full statistics payload for a race."""
 
@@ -726,6 +742,7 @@ class RaceStats:
     highlights: list[HeatHighlight]
     den_stats: list[DenStat]
     heat_results: list[HeatResultRow]
+    track_records: list[TrackRecord]
 
 
 @strawberry.type
@@ -1847,6 +1864,17 @@ class Query:
                     place=hr["place"],
                 )
                 for hr in data["heat_results"]
+            ],
+            track_records=[
+                TrackRecord(
+                    time_seconds=tr.time_seconds,
+                    racer_name=tr.racer_name,
+                    car_number=tr.car_number,
+                    race_id=tr.race_id,
+                    race_name=tr.race_name,
+                    race_date=tr.race_date,
+                )
+                for tr in data["track_records"]
             ],
         )
 
