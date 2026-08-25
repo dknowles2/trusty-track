@@ -80,6 +80,23 @@ IMAGE=ghcr.io/dknowles2/trusty-track:1.2.0 ./deploy/cloudrun/deploy.sh
 Use a version tag rather than `latest`, which follows releases and would change
 the demo under you on somebody else's merge.
 
+The build is a step of its own rather than `gcloud run deploy --source`, and
+`deploy/cloudrun/cloudbuild.yaml` is why: `--source` uses Cloud Build's legacy
+docker builder, where the Dockerfile's `--platform=$BUILDPLATFORM` expands to
+nothing and the build fails on its first line. That line keeps the frontend
+build off QEMU in the release workflow's multi-arch build, so the build config
+turns BuildKit on rather than the Dockerfile giving it up.
+
+You need `gcloud`, a project with billing, and three APIs — `run`,
+`cloudbuild`, `artifactregistry`. On a project that has never deployed from
+source, the script creates its Artifact Registry repository itself. Google no
+longer grants the default Compute Engine service account what Cloud Build
+needs, so a first deploy may also want:
+
+```bash
+gcloud projects add-iam-policy-binding PROJECT   --member=serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com   --role=roles/cloudbuild.builds.builder
+```
+
 Every flag in the script is load-bearing and commented; the two that matter most
 are `--max-instances=1`, which is both a hard cost ceiling and what keeps the
 app's in-process pub/sub correct, and `--min-instances=0`, which lets the
