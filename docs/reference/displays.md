@@ -45,9 +45,10 @@ Notes on two of them:
   is how you find out the projector at the back dropped off the wifi.
   Trusty Track cannot tell a switched-off screen from a dead network, so
   the row stays until you clear it with the ✕.
-- **Assignments do not survive a restart** of the machine running Trusty
-  Track. Screens fall back to their URLs — the same behaviour as before
-  they were assigned — and can be re-assigned from the list.
+- **Assignments and names do not survive a restart** of the machine running
+  Trusty Track. Screens fall back to their URLs — the same behaviour as
+  before they were assigned — and can be renamed and re-assigned from the
+  list.
 
 ## Connection behaviour
 
