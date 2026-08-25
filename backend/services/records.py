@@ -36,7 +36,12 @@ class TrackRecordEntry:
     race_date: str | None
 
 
-def track_records(db: Session, track_id: int, limit: int = 5) -> list[TrackRecordEntry]:
+def track_records(
+    db: Session,
+    track_id: int,
+    limit: int = 5,
+    exclude_race_id: int | None = None,
+) -> list[TrackRecordEntry]:
     """The fastest cars ever recorded on a track, best first.
 
     One entry per racer — a car's record is its single best run, not its
@@ -49,8 +54,13 @@ def track_records(db: Session, track_id: int, limit: int = 5) -> list[TrackRecor
     Track (`models.HistoricalTrackRecord`) — compete in the same list, as
     typed: a 2019 record standing at 2.89 seconds is beaten by a computed
     2.88, and not before.
+
+    ``exclude_race_id`` leaves one race's results out — the record *as it
+    stood before today*, which is what the audience celebration compares
+    against. Without the exclusion, a pack's first event would "set the
+    record" on heat one and re-break it all morning.
     """
-    rows = (
+    query = (
         models.official_heats(
             db.query(
                 models.HeatLane.time_seconds,
@@ -68,9 +78,10 @@ def track_records(db: Session, track_id: int, limit: int = 5) -> list[TrackRecor
         )
         .filter(models.Race.track_id == track_id)
         .filter(models.HeatLane.time_seconds > 0)
-        .order_by(models.HeatLane.time_seconds, models.Racer.id)
-        .all()
     )
+    if exclude_race_id is not None:
+        query = query.filter(models.Race.id != exclude_race_id)
+    rows = query.order_by(models.HeatLane.time_seconds, models.Racer.id).all()
 
     best: dict[int, TrackRecordEntry] = {}
     for time, racer_id, first, last, car, race_id, race_name, race_date in rows:
@@ -112,3 +123,21 @@ def track_records(db: Session, track_id: int, limit: int = 5) -> list[TrackRecor
 
     merged = sorted([*best.values(), *historical], key=lambda entry: entry.time_seconds)
     return merged[:limit]
+
+
+def broken_record(
+    times: list[float], baseline: TrackRecordEntry | None
+) -> float | None:
+    """The heat's winning time, if it strictly beats the standing record.
+
+    ``baseline`` is the record as it stood *before* the race being run —
+    ``track_records(..., limit=1, exclude_race_id=...)`` — so a first event
+    with no history celebrates nothing, which is honest. Zero-or-less times
+    are DNF markers and cannot break anything, and equalling the record is
+    not breaking it: a tie on the board is a story, not a headline.
+    """
+    positive = [t for t in times if t > 0]
+    if baseline is None or not positive:
+        return None
+    fastest = min(positive)
+    return fastest if fastest < baseline.time_seconds else None

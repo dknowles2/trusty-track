@@ -84,6 +84,7 @@ export const EMBEDDED_TYPES = [
   'TimingStats',
   'TimingStatsLane',
   'TrackRecord',
+  'TrackRecordBreak',
 ] as const;
 
 /**

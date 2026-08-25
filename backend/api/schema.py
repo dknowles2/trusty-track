@@ -32,6 +32,7 @@ from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import scoring as domain_scoring
 from backend.services import displays as displays_service
+from backend.services import records as records_service
 from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
@@ -3693,6 +3694,28 @@ class TimingStatsLane:
 
 
 @strawberry.type
+class TrackRecordBreak:
+    """The heat that just finished beat the track's standing record.
+
+    "Standing" means the record as it stood before this race began — earlier
+    races on the track plus any hand-entered historical records — so a first
+    event with no history never fires this, and one event can fire it more
+    than once only by genuinely going faster each time. Derived from state on
+    every payload rather than remembered as an event (#248's shape): a
+    corrected time changes the answer, and the room has already had its
+    moment either way.
+    """
+
+    new_seconds: float
+    new_holder: str
+    previous_seconds: float
+    previous_holder: str
+    #: The event the old record was set at, if known — a race's name, or the
+    #: label typed on a historical record.
+    previous_race_name: str | None
+
+
+@strawberry.type
 class TimingStats:
     """Completed heat results for Timing Stats observation."""
 
@@ -3701,6 +3724,9 @@ class TimingStats:
     heat_number: int
     global_heat_number: int
     lanes: list[TimingStatsLane]
+    #: Set when this heat broke the track record; a free race heat never
+    #: does, because exhibition runs cannot hold records (#6).
+    record_break: TrackRecordBreak | None
 
 
 async def _publish_race_state(
@@ -4060,12 +4086,48 @@ class Subscription:
                     )
                     global_num = before_count + 1
 
+                # Did this heat beat the record as it stood before this race?
+                # Never for an exhibition run — a free heat cannot hold a
+                # record, so it cannot break one either.
+                record_break = None
+                if not is_free:
+                    race = crud.get_race(db, race_id)
+                    if race and race.track_id:
+                        baseline = records_service.track_records(
+                            db, race.track_id, limit=1, exclude_race_id=race_id
+                        )
+                        winning = records_service.broken_record(
+                            [lane.seconds for lane in heat_lanes if lane.seconds],
+                            baseline[0] if baseline else None,
+                        )
+                        if winning is not None:
+                            fastest = min(
+                                (
+                                    lane
+                                    for lane in heat_lanes
+                                    if lane.seconds and lane.seconds > 0
+                                ),
+                                key=lambda lane: lane.seconds,
+                            )
+                            breaker = racer_map.get(fastest.racer_id)
+                            previous = baseline[0]
+                            record_break = TrackRecordBreak(
+                                new_seconds=winning,
+                                new_holder=f"{breaker.first_name} {breaker.last_name}"
+                                if breaker
+                                else "Unknown",
+                                previous_seconds=previous.time_seconds,
+                                previous_holder=previous.racer_name,
+                                previous_race_name=previous.race_name,
+                            )
+
                 return TimingStats(
                     heat_id=target_heat.id,
                     round_name="Exhibition" if is_free else target_heat.round.name,
                     heat_number=0 if is_free else target_heat.heat_number,
                     global_heat_number=global_num,
                     lanes=lane_stats,
+                    record_break=record_break,
                 )
 
             yield _get_timing_stats()

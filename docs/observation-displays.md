@@ -70,6 +70,21 @@ The **Standings** tab shows the current leaderboard for all racers, updated afte
 
 Switch to the **Timing Stats** tab to see the results of the most recently recorded heat: every car that ran it, in finishing order, with its place and its time.
 
+### When the track record falls
+
+If a heat beats the track record, both audience views say so on their own —
+a gold banner over the projector's results overlay, and one above the Timing
+Stats results — naming the new time, who set it, and the record it beat.
+
+![The record banner on the Timing Stats view](assets/screenshots/observation/10-record-banner.png)
+_The banner names the new time and the record it beat — including records
+[entered from past years](race-stats.md#records-from-before-trusty-track)._
+
+It only fires for a record that stood **before today's race** — earlier races
+on the track, or a record entered by hand — so a pack's first event does not
+"break the record" on every fast heat. The rules are in
+[Stats and exports](reference/stats-and-exports.md#the-track-record).
+
 > [!NOTE]
 > A [free race](free-race.md) heat shows on this display like any other — the
 > audience watching a demonstration run sees the cars and the times. The
@@ -164,11 +179,14 @@ Projector Mode fills the entire screen with a dark background and large, high-vi
 - **Right side (35% of screen)**: Top 5 standings with large rank numbers, racer avatars, and finish times
 
 ![Projector Mode — Full View](assets/screenshots/observation/07-projector-mode-full.png)
-_Projector Mode, caught with the heat-results overlay up over the standing layout. Large text and high contrast make it easy to read from across a room._
+_Projector Mode, caught with the heat-results overlay up — here celebrating a broken track record. Large text and high contrast make it easy to read from across a room._
 
 ### Heat Results Overlay
 
 After each heat finishes, a brief **results overlay** appears over the full screen for about 5 seconds, showing each racer's name, photo, placement, and finish time. It then fades away automatically, returning to the standing leaderboard view.
+
+If the heat [broke the track record](#when-the-track-record-falls), a gold
+banner tops the overlay with the new time and the record it beat.
 
 
 ---

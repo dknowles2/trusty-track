@@ -66,6 +66,13 @@ export const TimingStatsSubscription = gql`
         place
         racerImageUrl
       }
+      recordBreak {
+        newSeconds
+        newHolder
+        previousSeconds
+        previousHolder
+        previousRaceName
+      }
     }
   }
 `;

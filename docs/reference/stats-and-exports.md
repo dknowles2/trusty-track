@@ -67,6 +67,14 @@ not just today's. The rules:
   until a recorded 2.88 beats it. Hand-entered records are the one kind
   that is stored rather than worked out, because there is nothing in the
   app to work them out from — and the only kind you can edit or remove.
+- **Breaking the record is announced** on the
+  [audience displays](displays.md) — a gold banner on the projector's
+  results overlay and the timing view. It fires only for a run that beats
+  the record **as it stood before today's race**: earlier races on the
+  track, plus any hand-entered records. A first event with no history
+  celebrates nothing (there is nothing to beat), equalling the record is
+  not breaking it, and an exhibition run never fires it — a free race heat
+  cannot hold a record, so it cannot break one.
 - The record belongs to the track, so a race with no track has none — and
   times from the [fake timer](../fake-timer.md) are made up, so a track
   that ran on it holds made-up records. The practice race uses a track of

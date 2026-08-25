@@ -410,7 +410,7 @@ export type TimingStatsSubscriptionSubscriptionVariables = Exact<{
 }>;
 
 
-export type TimingStatsSubscriptionSubscription = { timingStats: { heatId: number, roundName: string, heatNumber: number, globalHeatNumber: number, lanes: Array<{ laneNumber: number, racerName: string, carName: string | null, time: number | null, place: number | null, racerImageUrl: string | null }> } | null };
+export type TimingStatsSubscriptionSubscription = { timingStats: { heatId: number, roundName: string, heatNumber: number, globalHeatNumber: number, lanes: Array<{ laneNumber: number, racerName: string, carName: string | null, time: number | null, place: number | null, racerImageUrl: string | null }>, recordBreak: { newSeconds: number, newHolder: string, previousSeconds: number, previousHolder: string, previousRaceName: string | null } | null } | null };
 
 export type ActiveFreeRaceHeatSubscriptionSubscriptionVariables = Exact<{
   raceId: number;
