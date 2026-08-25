@@ -358,7 +358,7 @@ Defined entirely in `backend/api/schema.py`.
 - Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
-- Audience displays: `assignDisplay`, `renameDisplay`, `forgetDisplay`
+- Audience displays: `assignDisplay`, `advanceDisplay`, `renameDisplay`, `forgetDisplay`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`, `createPracticeRace`
 
@@ -744,6 +744,8 @@ Vocabulary in `domain/displays.py`, presence in `services/displays.py`, the oper
 **A screen that goes quiet stays listed.** It is how the operator finds out the projector at the back has dropped off the wifi, and nothing but a person can tell a switched-off screen from a dead network — so `forgetDisplay` is the only way a row leaves.
 
 **The photo slideshow is a sixth view** (#175), not a subsystem: `SLIDESHOW` in the same enum, rules in `features/observation/slideshow.ts`. It goes in **car number order rather than shuffling** — the audience is families watching for their own child, and under a shuffle nobody can tell whether they have missed them; in order everybody comes round once per cycle. Racers with no photograph are skipped rather than shown blank, and *loading* is distinguished from *nothing to show*, because the empty state otherwise fires during the first fetch and a projector announces "No photos yet" to the room on its way to the photographs.
+
+**The ceremony can be driven from the operator's list, and the command is a *step*, never a slide number** (`advanceDisplay`). The display owns the index — it is the only thing that knows which trophy is up, and it holds no PIN to report one back (#15) — so an absolute index would need the server to be the sole driver, which kills the presenter remote at the projector. A step composes with both: `Display.slide_delta` is applied to wherever the ceremony has actually got to, and `Display.slide_seq` is what makes it an event rather than a state, since two Nexts carry the same delta. `AwardCeremony` ignores the seq it *arrives* holding — an opening payload is a reconnection, not an instruction, and obeying it would jump a trophy on every wifi hiccup; that is `roundCompletion.ts`'s `seen === null` rule again. Applied during render rather than in an effect, for the same reason `RaceControl` pins its heat that way.
 
 **A view that leaves the observation page must take the subscription with it.** The ceremony is its own route, so an `AWARDS` assignment *navigates* the screen there — and the first version let that navigation close the `displayAssignment` subscription, which is both the screen's presence and its leash: the row dropped to "Not connected" and the screen could never be told anything again, the one state the feature promises cannot happen. `AwardCeremony` therefore holds the same subscription and navigates back to the observation page when an assignment names any other view — gated on `assigned`, the same flag lesson as the opening payload, or a hand-opened ceremony would march off to the standings the moment it connected. `displays.spec.ts` round-trips it end-to-end, which unit tests cannot: the failure is a socket closing across a route change.
 

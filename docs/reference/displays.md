@@ -16,7 +16,15 @@ Every screen with the Live page open can be switched between these, from
 | **Cycle between both** | Standings and last heat's times, alternating on a timer you set |
 | **Projector** | The full-screen, high-contrast layout: the live heat large on the left, top five standings on the right, and a brief results overlay after each heat |
 | **Racer photos** | A slideshow of the check-in photos: headshot, car, name, number, den |
-| **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when the presenter does |
+| **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when a person does — either at the screen, or with the **‹** and **›** buttons on its row in the operator's list |
+
+**Driving the ceremony.** A screen showing the ceremony gets **‹** and **›**
+buttons on its row, so the operator can move it on without walking to it.
+They send a *step* rather than a slide number, which is why the arrow keys
+and a presenter remote at the screen keep working: both drivers move the
+same ceremony, and neither jumps it somewhere the other did not expect. The
+buttons are dead while the row says *Not connected* — a screen that is not
+listening cannot be told anything.
 
 When a heat [breaks the track record](stats-and-exports.md#the-track-record),
 the Projector view's results overlay and the Last heat's times view both

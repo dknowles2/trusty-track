@@ -598,16 +598,86 @@ test('take screenshots', async ({ page, browser }) => {
   // its subscription open, so the screen has to stay open in a second context
   // while this page is captured — navigating this one away closes the socket
   // and the row honestly, but unhelpfully, reads "Not connected".
+  //
+  // The list is composed deliberately rather than photographed as it has
+  // accumulated. Every context that has sat on an observation page is
+  // registered by now, so the row count followed how many this run happened
+  // to open — which differs between running this spec alone and running the
+  // whole set, and is exactly the churn the seeding work exists to prevent.
+  //
+  // This tab goes to Race Control *first*: it is a display too while it sits
+  // on the Live page, and clearing one whose socket is still open just brings
+  // it back.
+  await page.goto(`/race/${raceId}/control/displays`);
+  await page.waitForLoadState('networkidle');
+
+  const registered = await gqlRequest(
+    page,
+    `query KnownDisplays($id: Int!) { displays(raceId: $id) { displayId } }`,
+    { id: raceId },
+  );
+  for (const known of registered.displays ?? []) {
+    await gqlRequest(
+      page,
+      `mutation Forget($id: String!) { forgetDisplay(displayId: $id) }`,
+      { id: known.displayId },
+    );
+  }
+
+  // A screen that has since dropped off the wifi, which is the row the prose
+  // beside this picture is about — and the reason nothing removes one
+  // automatically.
+  const goneContext = await browser.newContext();
+  const goneScreen = await goneContext.newPage();
+  await goneScreen.goto(`/race/${raceId}/observation`);
+  await goneScreen.waitForLoadState('networkidle');
+  await goneScreen.waitForTimeout(300);
+  await goneContext.close();
+
   const displayContext = await browser.newContext();
   const audienceScreen = await displayContext.newPage();
   await audienceScreen.goto(`/race/${raceId}/observation`);
   await audienceScreen.waitForLoadState('networkidle');
   await audienceScreen.waitForTimeout(500);
 
-  await page.goto(`/race/${raceId}/control/displays`);
+  // Name them, which is what the page beside this picture tells operators to
+  // do — "a list of Display 1, Display 2, Display 3 is no help when you are
+  // trying to change the one at the back".
+  const toName = await gqlRequest(
+    page,
+    `query NameDisplays($id: Int!) { displays(raceId: $id) { displayId connected } }`,
+    { id: raceId },
+  );
+  for (const known of toName.displays ?? []) {
+    await gqlRequest(
+      page,
+      `mutation Rename($id: String!, $name: String!) { renameDisplay(displayId: $id, name: $name) { displayId } }`,
+      { id: known.displayId, name: known.connected ? 'Gym north' : 'By the doors' },
+    );
+  }
+
+  await page.reload();
   await page.waitForLoadState('networkidle');
   await page.waitForTimeout(1000);
   await page.screenshot({ path: path.join(screenshotsDir, 'observation/08-displays-panel.png') });
+
+  // 11: the ceremony controls on a display row. Taken after 08 rather than
+  // instead of it — 08 is the panel's ordinary look, and a row parked on the
+  // ceremony is not it. Assigning navigates the audience screen to the
+  // ceremony route, which is fine: it is closed a moment later.
+  const displayRow = page.locator('[data-testid^="display-"]').first();
+  await expect(displayRow.getByText('Gym north')).toBeVisible();
+  await displayRow.getByRole('combobox').selectOption('AWARDS');
+  await expect(displayRow.getByRole('button', { name: /Next award/ })).toBeVisible();
+  await page.waitForTimeout(500);
+  const rowBox = await displayRow.boundingBox();
+  await page.screenshot({
+    path: path.join(screenshotsDir, 'observation/11-ceremony-controls.png'),
+    ...(rowBox
+      ? { clip: { x: rowBox.x, y: rowBox.y, width: rowBox.width, height: rowBox.height } }
+      : {}),
+  });
+
   await displayContext.close();
 
   await page.goto(`/race/${raceId}/observation`);

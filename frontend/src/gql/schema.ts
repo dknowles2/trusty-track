@@ -104,6 +104,8 @@ export type Display = {
   name: Scalars['String']['output'];
   pacedByAPerson: Scalars['Boolean']['output'];
   raceId: Scalars['Int']['output'];
+  slideDelta: Scalars['Int']['output'];
+  slideSeq: Scalars['Int']['output'];
   view: DisplayView;
 };
 
@@ -293,6 +295,7 @@ export type LiveLane = {
 
 export type Mutation = {
   abortHeat: Scalars['Boolean']['output'];
+  advanceDisplay?: Maybe<Display>;
   advanceRound: Scalars['Int']['output'];
   assignDisplay?: Maybe<Display>;
   bulkAssignPhotos: Scalars['Int']['output'];
@@ -353,6 +356,12 @@ export type Mutation = {
 
 export type MutationAbortHeatArgs = {
   trackId: Scalars['Int']['input'];
+};
+
+
+export type MutationAdvanceDisplayArgs = {
+  delta: Scalars['Int']['input'];
+  displayId: Scalars['String']['input'];
 };
 
 

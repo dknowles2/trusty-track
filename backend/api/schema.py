@@ -1440,6 +1440,16 @@ class Display:
     #: Whether this view waits for a person. Only the ceremony does, and a
     #: screen assigned to it that nobody drives simply sits on one trophy.
     paced_by_a_person: bool
+    #: The operator's last ceremony step for this screen, as a **step** and a
+    #: counter saying it is a new one — never a slide number, which only the
+    #: screen knows. See `services/displays.Display.slide_seq`.
+    #:
+    #: The ceremony page applies `slide_delta` when `slide_seq` changes, and
+    #: ignores the value it arrives holding: an opening payload is a
+    #: reconnection, not an instruction, and obeying it would jump the screen
+    #: a trophy every time the wifi hiccuped.
+    slide_seq: int
+    slide_delta: int
 
 
 def _display(display: displays_service.Display) -> Display:
@@ -1453,6 +1463,8 @@ def _display(display: displays_service.Display) -> Display:
         assigned=display.assigned,
         description=domain_displays.describe(display.assignment),
         paced_by_a_person=domain_displays.is_paced_by_a_person(display.assignment.view),
+        slide_seq=display.slide_seq,
+        slide_delta=display.slide_delta,
     )
 
 
@@ -2160,6 +2172,29 @@ class Mutation:
             return None
         await pubsub.publish(f"display_assignment:{display_id}", None)
         await _publish_displays(display.race_id)
+        return _display(display)
+
+    @strawberry.mutation
+    async def advance_display(self, display_id: str, delta: int) -> Display | None:
+        """Step a screen's awards ceremony from the operator's list.
+
+        The ceremony is paced by a person, and until now that person had to be
+        standing at the screen — which is the one place the operator is not,
+        having just assigned it from across the room.
+
+        A **step**, not a slide number: the display owns the index, because it
+        is the only thing that knows which trophy is up, and it holds no PIN
+        so it can report nothing back (#15). Stepping composes with the keys
+        and the presenter remote at the screen, which go on working.
+        """
+        if delta == 0:
+            # A step of nowhere still bumps the counter, so every screen would
+            # obey a command that means nothing.
+            raise ValueError("A ceremony step must move forwards or backwards.")
+        display = displays_service.registry.advance(display_id, delta)
+        if display is None:
+            return None
+        await pubsub.publish(f"display_assignment:{display_id}", None)
         return _display(display)
 
     @strawberry.mutation

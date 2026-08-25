@@ -109,6 +109,8 @@ export const DisplayAssignmentSubscription = gql`
       connected
       assigned
       raceId
+      slideSeq
+      slideDelta
     }
   }
 `;
@@ -126,6 +128,8 @@ export const DisplaysSubscription = gql`
       connected
       assigned
       raceId
+      slideSeq
+      slideDelta
     }
   }
 `;
@@ -142,6 +146,8 @@ export const DISPLAYS_QUERY = gql`
       connected
       assigned
       raceId
+      slideSeq
+      slideDelta
     }
   }
 `;
@@ -161,6 +167,16 @@ export const ASSIGN_DISPLAY = gql`
   }
 `;
 
+export const ADVANCE_DISPLAY = gql`
+  mutation AdvanceDisplay($displayId: String!, $delta: Int!) {
+    advanceDisplay(displayId: $displayId, delta: $delta) {
+      displayId
+      slideSeq
+      slideDelta
+    }
+  }
+`;
+
 export const RENAME_DISPLAY = gql`
   mutation RenameDisplay($displayId: String!, $name: String!) {
     renameDisplay(displayId: $displayId, name: $name) {
@@ -173,6 +189,8 @@ export const RENAME_DISPLAY = gql`
       connected
       assigned
       raceId
+      slideSeq
+      slideDelta
     }
   }
 `;

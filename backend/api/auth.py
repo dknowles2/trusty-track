@@ -132,6 +132,7 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         # could assign could put the awards ceremony on the projector
         # mid-heat.
         "assignDisplay",
+        "advanceDisplay",
         "renameDisplay",
         "forgetDisplay",
         # Scheduling
