@@ -68,6 +68,7 @@ const GET_RACE_CONTROL_DATA = gql`
         name
         advancementSource
         advancementFromBottom
+        schedulingStrategy
         advancementStatus {
           isReady
           requiresAdvancement
@@ -842,8 +843,14 @@ export default function RaceControl() {
           denCount={race?.dens?.length || 0}
           championshipTrophies={race?.championshipTrophies || 3}
           lastChampionshipRound={
+            // A championship round can chain off the latest round that has
+            // standings of its own — another championship round, or an
+            // elimination round, whose ROUND:<id> leaderboard reads survival.
             (race?.rounds ?? [])
-              .filter((round: Round) => round.advancementSource)
+              .filter(
+                (round: Round) =>
+                  round.advancementSource || round.schedulingStrategy === 'ELIMINATION'
+              )
               .sort((a: Round, b: Round) => b.roundNumber - a.roundNumber)[0] ?? null
           }
           staleRoundIds={

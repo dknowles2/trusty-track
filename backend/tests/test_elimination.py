@@ -404,6 +404,42 @@ class TestTheRound:
 
         assert not crud.is_round_complete(db, round_obj.id)
 
+    def test_a_final_can_chain_off_the_elimination(self, db):
+        """`ROUND:<elimination>` reads the survival leaderboard, so "the last
+        two cars standing race a timed final" is expressible with the
+        existing advancement machinery."""
+        race, ids, round_obj = _elimination_round(
+            db, "Chained Elim Derby", racer_count=4, max_losses=1
+        )
+        final = crud.create_round(
+            db,
+            race_id=race.id,
+            round_number=2,
+            advancement_source=f"ROUND:{round_obj.id}",
+            advancement_num_racers=2,
+        )
+        crud.generate_heats_for_round(db, final.id, num_placeholders=2)
+
+        for _ in range(20):
+            pending = _pending_heats(db, round_obj.id)
+            if not pending:
+                break
+            for heat in pending:
+                _run_heat(db, heat, ids)
+
+        db.expire_all()
+        field = {
+            lane.racer_id
+            for heat in db.query(models.Heat)
+            .filter(models.Heat.round_id == final.id)
+            .all()
+            for lane in crud.heat_lanes_of(db, heat)
+            if lane.racer_id
+        }
+        # The winner, plus whoever survived longest of the eliminated.
+        assert ids[0] in field
+        assert len(field) == 2
+
     def test_the_resolver_creates_and_reports_an_elimination_round(self, db, client):
         race = _race(db, "Resolver Elim Derby")
         _racers(db, race.id, 5)
