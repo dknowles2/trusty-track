@@ -326,6 +326,7 @@ describe('RaceExecution', () => {
             ],
             source: 'PACK',
             numRacers: 1,
+            fromBottom: false,
             fieldIsStale: false
         };
 
@@ -338,6 +339,49 @@ describe('RaceExecution', () => {
 
         const modal = screen.getByTestId('mock-modal');
         expect(within(modal).getByText('Round Complete!')).toBeInTheDocument();
+        expect(within(modal).getByText('Top 1 racers advance to the next round.')).toBeInTheDocument();
+    });
+
+    it('says the slowest cars race next when the round feeds a Slowest Race bracket', () => {
+        const mockSummary = {
+            isReady: true,
+            requiresAdvancement: true,
+            alreadyAdvanced: false,
+            advancingRacers: [
+                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
+            ],
+            source: 'PACK',
+            numRacers: 3,
+            fromBottom: true,
+            fieldIsStale: false
+        };
+
+        render(
+            <RaceExecution
+                {...defaultProps}
+                roundSummary={mockSummary}
+            />
+        );
+
+        const modal = screen.getByTestId('mock-modal');
+        expect(within(modal).getByText('The 3 slowest cars race in the next round.')).toBeInTheDocument();
+    });
+
+    it('asks for the Slowest label for a slot inside a Slowest Race round', () => {
+        // The wording lives in RaceControl's getRacerName; what this screen
+        // owns is passing the direction along with the slot.
+        render(
+            <RaceExecution
+                {...defaultProps}
+                nextExecutionHeat={{
+                    ...mockHeat,
+                    id: 2,
+                    lanes: [lane({ lane: 1, placeholderSlot: 2 })],
+                }}
+                slowestRoundIds={new Set([mockHeat.roundId])}
+            />
+        );
+        expect(mockGetRacerName).toHaveBeenCalledWith(-2, true);
     });
 
     it('renders round progress and remaining heats correctly', () => {

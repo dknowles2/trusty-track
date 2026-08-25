@@ -21,10 +21,18 @@ class Standing:
     """The slice of a leaderboard entry that advancement actually needs.
 
     Also what an award is resolved against; see :mod:`backend.domain.awards`.
+
+    ``has_raced`` matters only when picking from the bottom: the leaderboard
+    sorts racers with no results *below* everyone who has raced, so the naive
+    bottom of the standings is full of cars that never ran. A car that never
+    ran is not the slowest car, it is an absent one. Defaults true so the
+    top-picking callers, for whom the distinction changes nothing, need not
+    say anything.
     """
 
     racer_id: int
     den_id: int | None = None
+    has_raced: bool = True
 
 
 def is_round_scoped(source: str) -> bool:
@@ -64,11 +72,18 @@ class AdvancementRule:
         with the number of dens.
     ``"ROUND:<id>"``
         The top ``num_racers`` of one specific round's standings.
+
+    ``from_bottom`` flips which end of those standings the field comes from —
+    a "Slowest Race" bracket. The source vocabulary is deliberately unchanged:
+    slowest-of-the-pack, slowest-per-den and slowest-of-a-round are all the
+    same standings read from the other end, so a second vocabulary would be a
+    second copy of this one.
     """
 
     source: str
     #: ``None`` means no limit — everyone in the source advances.
     num_racers: int | None
+    from_bottom: bool = False
 
     @property
     def is_round_scoped(self) -> bool:
@@ -78,6 +93,22 @@ class AdvancementRule:
     def source_round_id(self) -> int | None:
         """The referenced round id, or ``None`` if this rule is not round-scoped."""
         return round_id_in(self.source)
+
+
+def _picking_order(
+    rule: AdvancementRule, standings: Sequence[Standing]
+) -> list[Standing]:
+    """The standings, ordered so slicing from the front picks the field.
+
+    For a top rule that is the order given. For a bottom rule the list is
+    reversed — slowest first, so slot 1 goes to the slowest car, the mirror of
+    slot 1 going to the fastest — and racers who have not raced are dropped
+    first: the leaderboard sorts them below everyone with a result, so the raw
+    bottom of the standings is cars that never ran, not slow ones.
+    """
+    if not rule.from_bottom:
+        return list(standings)
+    return [s for s in reversed(standings) if s.has_raced]
 
 
 def advancing_racer_ids(
@@ -98,20 +129,22 @@ def advancing_racer_ids(
     without a racer count is a data problem to surface, not to silently
     reinterpret here.
     """
+    ordered = _picking_order(rule, standings)
+
     if rule.is_round_scoped:
         # The caller is responsible for having scoped `standings` to that round;
         # a source referencing a round that no longer exists advances nobody.
         if rule.source_round_id is None:
             return []
-        return [s.racer_id for s in standings[: rule.num_racers]]
+        return [s.racer_id for s in ordered[: rule.num_racers]]
 
     if rule.source == PACK:
-        return [s.racer_id for s in standings[: rule.num_racers]]
+        return [s.racer_id for s in ordered[: rule.num_racers]]
 
     if rule.source == DEN:
         advancing: list[int] = []
         for den_id in den_ids:
-            in_den = [s for s in standings if s.den_id == den_id]
+            in_den = [s for s in ordered if s.den_id == den_id]
             advancing.extend(s.racer_id for s in in_den[: rule.num_racers])
         return advancing
 

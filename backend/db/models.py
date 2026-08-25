@@ -284,6 +284,15 @@ class Round(Base):
     disrupted: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: The field is drawn from the *bottom* of the standings — a "Slowest
+    #: Race" bracket, the just-for-fun mirror of a championship round. The
+    #: source vocabulary is unchanged (`PACK`, `DEN`, `ROUND:<id>`); this flag
+    #: only flips which end of those standings the slots are filled from.
+    #: Cars that have not recorded a result are never picked — a car that
+    #: never ran is not the slowest car, it is an absent one.
+    advancement_from_bottom: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[list["Heat"]] = relationship(

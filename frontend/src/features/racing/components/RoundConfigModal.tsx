@@ -11,6 +11,7 @@ interface RoundConfigModalProps {
     schedulingStrategy: string;
     advancementSource?: string;
     advancementNumRacers?: number;
+    advancementFromBottom?: boolean;
     runsPerLane: number;
     generalType?: string;
   }) => Promise<void>;
@@ -38,6 +39,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   const [name, setName] = useState('');
   const [source, setSource] = useState<'PACK' | 'DEN' | 'PREVIOUS'>('PACK');
   const [numTopRacers, setNumTopRacers] = useState(championshipTrophies);
+  const [fromBottom, setFromBottom] = useState(false);
   const [runsPerLane, setRunsPerLane] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -50,7 +52,16 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
    */
   const chooseType = (next: 'GENERAL' | 'CHAMPIONSHIP') => {
     setType(next);
-    setName(next === 'CHAMPIONSHIP' ? 'Championship Round' : '');
+    setName(next === 'CHAMPIONSHIP' ? (fromBottom ? 'Slowest Race' : 'Championship Round') : '');
+  };
+
+  /** Flip the direction, and swap the default name along with it — but only
+   * if the operator has not typed their own. */
+  const chooseDirection = (nextFromBottom: boolean) => {
+    setFromBottom(nextFromBottom);
+    if (name === '' || name === 'Championship Round' || name === 'Slowest Race') {
+      setName(nextFromBottom ? 'Slowest Race' : 'Championship Round');
+    }
   };
 
   // A championship round needs a general round to draw its field from. If the
@@ -73,6 +84,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
               : source
             : undefined,
         advancementNumRacers: effectiveType === 'CHAMPIONSHIP' ? numTopRacers : undefined,
+        advancementFromBottom: effectiveType === 'CHAMPIONSHIP' ? fromBottom : undefined,
         runsPerLane,
         generalType: effectiveType === 'GENERAL' ? generalType : undefined
       });
@@ -199,10 +211,41 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             </>
           ) : (
             <>
+              {/* Which end of the standings the field comes from. */}
+              <div>
+                <label style={labelStyle}>Which cars race</label>
+                <div style={{ display: 'flex', gap: '20px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      checked={!fromBottom}
+                      onChange={() => chooseDirection(false)}
+                      disabled={loading}
+                    />
+                    <span>The fastest cars</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      checked={fromBottom}
+                      onChange={() => chooseDirection(true)}
+                      disabled={loading}
+                    />
+                    <span>The slowest cars</span>
+                  </label>
+                </div>
+                {fromBottom && (
+                  <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
+                    A just-for-fun race for the slowest cars. Cars without a
+                    recorded time are left out.
+                  </p>
+                )}
+              </div>
+
               {/* Championship Config */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div>
-                  <label style={labelStyle}>Top performers from</label>
+                  <label style={labelStyle}>{fromBottom ? 'Slowest cars from' : 'Top performers from'}</label>
                   <select
                     value={source}
                     onChange={(e) => setSource(e.target.value as 'PACK' | 'DEN' | 'PREVIOUS')}
@@ -219,22 +262,31 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>Number to pick</label>
+                  <label htmlFor="numToPick" style={labelStyle}>Number to pick</label>
                   <input
+                    id="numToPick"
                     type="number"
-                    min={championshipTrophies}
+                    min={fromBottom ? 1 : championshipTrophies}
                     max={racerCount}
                     value={numTopRacers}
-                    onChange={(e) => setNumTopRacers(Math.max(championshipTrophies, parseInt(e.target.value) || 1))}
+                    onChange={(e) =>
+                      setNumTopRacers(
+                        Math.max(fromBottom ? 1 : championshipTrophies, parseInt(e.target.value) || 1)
+                      )
+                    }
                     style={inputStyle}
                     disabled={loading}
                   />
                 </div>
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <Icon path={mdiInformation} size={0.6} color="#666" />
-                Minimum pick count ({championshipTrophies}) enforced by trophy config.
-              </div>
+              {/* The trophy minimum is about handing out championship trophies,
+                  which a slowest race does not do. */}
+              {!fromBottom && (
+                <div style={{ fontSize: '0.75rem', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Icon path={mdiInformation} size={0.6} color="#666" />
+                  Minimum pick count ({championshipTrophies}) enforced by trophy config.
+                </div>
+              )}
             </>
           )}
 

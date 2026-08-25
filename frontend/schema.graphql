@@ -16,6 +16,7 @@ type AdvancementStatus {
   advancingRacers: [AdvancementRacer!]!
   source: String
   numRacers: Int
+  fromBottom: Boolean!
   fieldIsStale: Boolean!
 }
 
@@ -490,6 +491,7 @@ type Round {
   schedulingStrategy: String!
   advancementSource: String
   advancementNumRacers: Int
+  advancementFromBottom: Boolean!
   disrupted: Boolean!
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
@@ -502,6 +504,7 @@ input RoundCreateInput {
   advancementNumRacers: Int = null
   runsPerLane: Int! = 1
   generalType: String! = "PACK"
+  advancementFromBottom: Boolean! = false
 }
 
 type SerialLogEntry {

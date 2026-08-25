@@ -24,6 +24,7 @@ export type AdvancementStatus = {
   advancingRacers: Array<AdvancementRacer>;
   alreadyAdvanced: Scalars['Boolean']['output'];
   fieldIsStale: Scalars['Boolean']['output'];
+  fromBottom: Scalars['Boolean']['output'];
   isReady: Scalars['Boolean']['output'];
   numRacers?: Maybe<Scalars['Int']['output']>;
   requiresAdvancement: Scalars['Boolean']['output'];
@@ -864,6 +865,7 @@ export type RacerStat = {
 };
 
 export type Round = {
+  advancementFromBottom: Scalars['Boolean']['output'];
   advancementNumRacers?: Maybe<Scalars['Int']['output']>;
   advancementSource?: Maybe<Scalars['String']['output']>;
   advancementStatus: AdvancementStatus;
@@ -877,6 +879,7 @@ export type Round = {
 };
 
 export type RoundCreateInput = {
+  advancementFromBottom?: Scalars['Boolean']['input'];
   advancementNumRacers?: InputMaybe<Scalars['Int']['input']>;
   advancementSource?: InputMaybe<Scalars['String']['input']>;
   generalType?: Scalars['String']['input'];

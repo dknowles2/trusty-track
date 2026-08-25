@@ -17,7 +17,9 @@ export default function PrintPhoto({ racer }: { racer: PrintableRacer }) {
         return <img className="print-photo" src={racer.racer_image_url} alt={name} />;
     }
 
-    const background = getDeterministicColor(racer.id);
+    // Keyed on the name for the same reason RacerAvatar is: ids shift when
+    // rows are rebuilt, and the card should match the avatar on screen.
+    const background = getDeterministicColor(name);
     return (
         <div
             className="print-photo-placeholder"

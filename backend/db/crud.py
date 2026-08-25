@@ -435,6 +435,7 @@ def create_round(
     advancement_source: str | None = None,
     advancement_num_racers: int | None = None,
     den_id: int | None = None,
+    advancement_from_bottom: bool = False,
 ) -> models.Round:
     """Create a new round for a race."""
     round_obj = models.Round(
@@ -445,6 +446,7 @@ def create_round(
         advancement_source=advancement_source,
         advancement_num_racers=advancement_num_racers,
         den_id=den_id,
+        advancement_from_bottom=advancement_from_bottom,
     )
     db.add(round_obj)
     db.commit()
@@ -1143,6 +1145,7 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
                 race_id,
                 round_obj.advancement_source,
                 round_obj.advancement_num_racers,
+                from_bottom=round_obj.advancement_from_bottom,
             )
             if winner_ids:
                 populate_round_field(db, round_obj.id, winner_ids)
@@ -1350,6 +1353,7 @@ def populate_round_if_decided(db: Session, round_obj: models.Round) -> bool:
     rule = advancement.AdvancementRule(
         source=round_obj.advancement_source,
         num_racers=round_obj.advancement_num_racers,
+        from_bottom=round_obj.advancement_from_bottom,
     )
 
     def prior_rounds_complete() -> bool:
@@ -1373,7 +1377,11 @@ def populate_round_if_decided(db: Session, round_obj: models.Round) -> bool:
     from backend.services import scoring
 
     winner_ids = scoring.get_advancing_racers(
-        db, round_obj.race_id, round_obj.advancement_source, rule.num_racers
+        db,
+        round_obj.race_id,
+        round_obj.advancement_source,
+        rule.num_racers,
+        from_bottom=rule.from_bottom,
     )
     # Putting racers in adds no times, so the round is not complete
     # afterwards and there is nothing to cascade into.

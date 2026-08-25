@@ -12,6 +12,7 @@ export interface RoundSummary {
   name?: string | null;
   roundNumber: number;
   advancementSource?: string | null;
+  advancementFromBottom?: boolean | null;
   disrupted?: boolean | null;
 }
 
