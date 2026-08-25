@@ -13,6 +13,7 @@ Then, in the order an event happens:
 - **[Getting Started](getting-started.md)**: A guide for first-time organizers.
 - **[Race Setup](race-setup.md)**: Dens, racers, car numbers, and importing a roster from a spreadsheet.
 - **[Race Day Operations](race-day.md)**: Managing check-in, heat generation, and race execution.
+- **[Scoring & Championships](scoring-and-championships.md)**: How scores are worked out, what makes the standings, and how championship rounds pick their field.
 - **[Free Race](free-race.md)**: Practice and exhibition heats that count for nothing.
 - **[Awards](awards.md)**: Speed trophies and the judged ones — Best Paint, Most Original.
 - **[Race Stats](race-stats.md)**: Lane fairness, per-racer numbers, and CSV exports.
