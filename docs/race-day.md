@@ -235,6 +235,34 @@ race the final". If the round it draws from has already finished, the new
 round fills in with the qualifiers straight away; otherwise it fills in on its
 own the moment they are decided.
 
+### Balanced Racing
+
+A third style for a general round, borrowed from GPRM (which calls it
+"Dynamic"). Choose **Balanced** when you add a round and pick how many times
+each car races — once per lane is the usual advice, and that is the default.
+
+The first heats are drawn at random. After that, each new set of heats
+matches cars that are doing about as well: the winners race the winners,
+which means the other heats are winnable — the whole point of the method is
+that more children get to win a heat. Nobody is eliminated, everyone races
+the same number of times, and times and points count toward the standings
+exactly as usual. The scheduler also does its best to give every car a turn
+in every lane, though the matchups come first.
+
+Like elimination, the schedule looks after itself: run what is on the
+screen, and the next set of heats appears when they are done. A racer who
+checks in late joins the next set — and because they will have raced fewer
+heats than everyone else, a points-scored race sets the round aside from the
+overall standings, the same rule as a lane going out of service.
+
+![Add Round dialog set to balanced](assets/screenshots/race-day/29-balanced-dialog.png)
+_The Add Round dialog with **Balanced** chosen: pick how many times each car
+races and go._
+
+![Balanced schedule mid-race](assets/screenshots/race-day/30-balanced-schedule.png)
+_The schedule after the first round of heats: the next set has appeared, with
+the heat winners matched against each other._
+
 ### Elimination Racing
 
 The other style a general round can use. When you add a round, choose

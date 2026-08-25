@@ -13,11 +13,13 @@ interface RoundConfigModalProps {
     advancementNumRacers?: number;
     advancementFromBottom?: boolean;
     eliminationLosses?: number;
+    balancedPhases?: number;
     runsPerLane: number;
     generalType?: string;
   }) => Promise<void>;
   racerCount: number;
   denCount: number;
+  laneCount: number;
   championshipTrophies: number;
   hasGeneralRound: boolean;
   /** The latest championship round, when one exists — what a new round can
@@ -31,14 +33,16 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   onSubmit,
   racerCount,
   denCount,
+  laneCount,
   championshipTrophies,
   hasGeneralRound,
   lastChampionshipRound
 }) => {
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
   const [generalType, setGeneralType] = useState<'PACK' | 'DEN'>('PACK');
-  const [raceStyle, setRaceStyle] = useState<'PPC' | 'ELIMINATION'>('PPC');
+  const [raceStyle, setRaceStyle] = useState<'PPC' | 'ELIMINATION' | 'BALANCED'>('PPC');
   const [eliminationLosses, setEliminationLosses] = useState(3);
+  const [balancedPhases, setBalancedPhases] = useState(Math.max(1, laneCount));
   const [name, setName] = useState('');
   const [source, setSource] = useState<'PACK' | 'DEN' | 'PREVIOUS'>('PACK');
   const [numTopRacers, setNumTopRacers] = useState(championshipTrophies);
@@ -68,10 +72,14 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   };
 
   /** Same rule for the general round's race style. */
-  const chooseStyle = (next: 'PPC' | 'ELIMINATION') => {
+  const chooseStyle = (next: 'PPC' | 'ELIMINATION' | 'BALANCED') => {
     setRaceStyle(next);
-    if (name === '' || name === 'Elimination Round') {
-      setName(next === 'ELIMINATION' ? 'Elimination Round' : '');
+    if (name === '' || name === 'Elimination Round' || name === 'Balanced Round') {
+      setName(
+        next === 'ELIMINATION' ? 'Elimination Round'
+        : next === 'BALANCED' ? 'Balanced Round'
+        : ''
+      );
     }
   };
 
@@ -86,9 +94,10 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     setLoading(true);
     try {
       const isElimination = effectiveType === 'GENERAL' && raceStyle === 'ELIMINATION';
+      const isBalanced = effectiveType === 'GENERAL' && raceStyle === 'BALANCED';
       await onSubmit({
         name,
-        schedulingStrategy: isElimination ? 'ELIMINATION' : 'PPC',
+        schedulingStrategy: isElimination ? 'ELIMINATION' : isBalanced ? 'BALANCED' : 'PPC',
         advancementSource:
           effectiveType === 'CHAMPIONSHIP'
             ? source === 'PREVIOUS' && lastChampionshipRound
@@ -98,8 +107,9 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
         advancementNumRacers: effectiveType === 'CHAMPIONSHIP' ? numTopRacers : undefined,
         advancementFromBottom: effectiveType === 'CHAMPIONSHIP' ? fromBottom : undefined,
         eliminationLosses: isElimination ? eliminationLosses : undefined,
+        balancedPhases: isBalanced ? balancedPhases : undefined,
         runsPerLane,
-        generalType: effectiveType === 'GENERAL' && !isElimination ? generalType : undefined
+        generalType: effectiveType === 'GENERAL' && !isElimination && !isBalanced ? generalType : undefined
       });
       onClose();
     } catch (error) {
@@ -208,7 +218,36 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                     />
                     <span>Elimination — lose too many heats and you&apos;re out</span>
                   </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      checked={raceStyle === 'BALANCED'}
+                      onChange={() => chooseStyle('BALANCED')}
+                      disabled={loading}
+                    />
+                    <span>Balanced — each round of heats matches cars doing about as well</span>
+                  </label>
                 </div>
+                {raceStyle === 'BALANCED' && (
+                  <div style={{ marginTop: '12px' }}>
+                    <label htmlFor="balancedPhases" style={labelStyle}>Times each car races</label>
+                    <input
+                      id="balancedPhases"
+                      type="number"
+                      min={1}
+                      max={8}
+                      value={balancedPhases}
+                      onChange={(e) => setBalancedPhases(Math.max(1, parseInt(e.target.value) || 1))}
+                      style={{ ...inputStyle, width: '50%' }}
+                      disabled={loading}
+                    />
+                    <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
+                      The first heats are drawn at random; after that, winners
+                      race winners — so more children get a heat they can win.
+                      Times and points still count toward the standings.
+                    </p>
+                  </div>
+                )}
                 {raceStyle === 'ELIMINATION' && (
                   <div style={{ marginTop: '12px' }}>
                     <label htmlFor="eliminationLosses" style={labelStyle}>Losses before a car is out</label>
@@ -230,7 +269,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                 )}
               </div>
 
-              {raceStyle === 'ELIMINATION' ? null : (
+              {raceStyle !== 'PPC' ? null : (
               <div>
                 <label style={labelStyle}>Format</label>
                 <div style={{ display: 'flex', gap: '20px' }}>
@@ -348,9 +387,9 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             </>
           )}
 
-          {/* Runs Per Lane — not for elimination, whose schedule grows on
-              its own until the race is decided. */}
-          {!(type === 'GENERAL' && raceStyle === 'ELIMINATION') && (
+          {/* Runs Per Lane — only for PPC. The growing styles have their own
+              count: losses for elimination, phases for balanced. */}
+          {!(type === 'GENERAL' && raceStyle !== 'PPC') && (
           <div style={{ width: '50%' }}>
             <label style={labelStyle}>Runs per lane</label>
             <input

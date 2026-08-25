@@ -237,6 +237,20 @@ class TestTheRound:
         assert not crud.is_round_complete(db, round_obj.id)
         assert _pending_heats(db, round_obj.id)
 
+    def test_a_deleted_pending_phase_does_not_complete_the_round(self, db):
+        """The reachable "all finished, nothing pending, target unmet" state
+        is the operator deleting the pending phase — completeness must still
+        say no, or a championship downstream fills off a half-run round."""
+        race, ids, round_obj = _balanced_round(db, "Deleted Phase Derby", phases=2)
+        for heat in _pending_heats(db, round_obj.id):
+            _run_heat(db, heat, ids)
+        pending = _pending_heats(db, round_obj.id)
+        assert pending
+        for heat in pending:
+            crud.delete_heat(db, heat.id)
+
+        assert not crud.is_round_complete(db, round_obj.id)
+
     def test_balanced_heats_do_feed_the_standings(self, db):
         from backend.services import scoring
 
