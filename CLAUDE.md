@@ -810,6 +810,32 @@ Two traps, both recorded on #15 and both still true:
 
 **Absent and empty PINs mean different things** in `InitialConfigInput`. Absent is *leave alone*; empty is *clear*. The settings page re-submits the whole config on every save and cannot send back a PIN it is never given, so treating absent as "clear" would switch enforcement off whenever the operator renamed a track.
 
+### The public demo
+
+`backend/demo_mode.py` for the flag, `backend/api/demo_policy.py` for what a demo refuses. `TRUSTYTRACK_DEMO_MODE` is **off by default and read at call time**, like `TRUSTYTRACK_DEMO_SEED` — absent means an ordinary install, which is every install that exists. The staged plan is `docs/tasks/demo/`.
+
+The whole feature exists because two things are one click from ending a public instance. **`createInitialConfig` sets the operator PIN, and an install with no PIN treats every caller as `OPERATOR`** — so the first visitor to open System Settings owns the demo until somebody resets it. And `POST /upload/` wrote a permanent file from an unauthenticated request, which on a public URL is an anonymous image host and the route by which a real photograph of a real child arrives on a machine that exists to avoid holding one.
+
+**A denylist, not an allowlist, and the asymmetry with `auth.py` is deliberate.** The role policy classifies every mutation and denies anything absent from the table, because an unclassified mutation should fail closed — `test_auth_policy.py` compares against the schema in **both** directions for that reason. Here the opposite is right: a new mutation is ordinary demo behaviour, and failing closed would mean every feature added after this file silently stops working on the demo with nothing to say so. So `test_demo_mode.py::test_every_refused_mutation_exists` checks **one** direction — a stale entry — and says so, because beside its neighbour it reads as an oversight.
+
+**Extension order is load-bearing in two directions at once**, and it reads backwards — a later extension wraps an earlier one, so execution runs from the end of the list towards the front:
+
+```python
+extensions=[RolePolicyExtension, DemoPolicyExtension, AuditExtension]
+```
+
+Before `AuditExtension`, so a demo refusal is recorded like any other (#219's rule, from the other side). After `RolePolicyExtension`, so it runs *first*: on a demo nobody sets a PIN, so every caller is `OPERATOR` and the role policy would have allowed the mutation and reported the wrong reason. `test_demo_mode.py::test_the_refusal_is_recorded` fails to a one-line swap.
+
+**Deleting things stays allowed.** Destroying a race is part of what a visitor is there to try, and the reset undoes it. What is refused is the set that ends the demo for everybody else, or that puts something on the disk which should not be there.
+
+**The four REST routes check for themselves** — upload, backup, restore and `/ws/timer/{track_id}` — because the schema extensions cover GraphQL mutations and none of these is one. Same reason the backup routes already make their own `_require_operator` call (#15).
+
+**`POST /upload/` is guarded and capped in every mode, not only the demo.** At `CHECKIN` rather than `OPERATOR`, matching its GraphQL twin `uploadImage`: requiring the operator would make the REST route stricter than the mutation that does the same thing, and photographing a car is the desk's job. The body is read in chunks against `MAX_UPLOAD_BYTES` rather than read whole and measured afterwards — measuring afterwards happens once the thing being guarded against is already in memory. Note the route has **no callers**: the frontend sends data URLs through `uploadImage`. Whether it should exist is a separate question from whether it should be open, and only the second is settled.
+
+**Tracks are coerced to `TimerType.FAKE` when the managers are built.** Belt and braces — the mutations that could change a timer type are refused — but a seed archive carries whatever type it was built with, and an `AUTO_DETECT_BACKEND` track sends `autodetect()` walking the USB serial ports. A track that cannot be reconfigured should not be probed either.
+
+**`TRUSTYTRACK_ALLOWED_ORIGINS` narrows CORS**, defaulting to today's `*`. The wildcard's justification is a LAN — a display or a phone on venue wifi loads the page from this origin, and the PIN is what the server checks. On a public origin it does not hold: `VIEWER` is the no-credential default and a viewer can read a roster.
+
 ### The activity log
 
 `backend/domain/audit.py` for the vocabulary, `models.AuditEntry` for the row, and two seams that write it ([#219](https://github.com/dknowles2/trusty-track/issues/219)). The database held the current state and no record of how it got there, so "who deleted that round" had no answer but whoever happened to be watching.
@@ -897,7 +923,7 @@ Staged plans live in `docs/tasks/<area>/`, numbered in intended order. Areas: `d
 
 **All but one area is built** — free racing, observation subscriptions, hardware timers, the GraphQL migration, race stats, printables, and all five install channels — and those files are design notes, not a backlog. Every plan says so in its header, so **the absence of a `[COMPLETED]` marker is meaningful**: it means something is left.
 
-`demo/` is the exception and is entirely unbuilt: a single public, disposable instance for people evaluating the app. Its five files carry no marker for that reason. Read `demo/00_overview.md` first — it records why a demo sidesteps the tenancy problems a hosted product would have, and what it deliberately leaves out.
+`demo/` is the exception: a single public, disposable instance for people evaluating the app. Stage 1 ships; stages 2 to 4 do not, and their files carry no marker for that reason. Read `demo/00_overview.md` first — it records why a demo sidesteps the tenancy problems a hosted product would have, and what it deliberately leaves out.
 
 Two headers say something else, and both are deliberate. `printables/01_backend_generation.md` is `[PARTLY BUILT]` because steps 3 and 4 were **not** built as specified — the licence and the pit pass are HTML the browser prints rather than server-rendered PDFs — and the header records the departure. `printables/00_overview.md` and `timers/derbynet-protocol-spec.md` carry no marker at all because neither is a plan: one is background, the other is a protocol reference.
 

@@ -21,6 +21,7 @@ from strawberry.types import Info
 
 from backend.api import auth
 from backend.api.auth import AuditExtension, RolePolicyExtension
+from backend.api.demo_policy import DemoPolicyExtension
 from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
 from backend.db import crud, models, schemas
@@ -4145,5 +4146,11 @@ schema = strawberry.Schema(
     # wants (#219). Measured rather than assumed; the first draft had these the
     # other way round and recorded no refusals at all.
     # `test_audit_log.py::TestRefusals` fails if they are swapped back.
-    extensions=[RolePolicyExtension, AuditExtension],
+    # `DemoPolicyExtension` sits between them, and both neighbours matter:
+    # before `AuditExtension` so a demo refusal is recorded like any other, and
+    # after `RolePolicyExtension` so it runs *first* — on a demo no PIN is set,
+    # so every caller is `OPERATOR` and the role policy would have allowed the
+    # mutation and reported the wrong reason. Inert unless `TRUSTYTRACK_DEMO_MODE`
+    # is set; see `api/demo_policy.py`.
+    extensions=[RolePolicyExtension, DemoPolicyExtension, AuditExtension],
 )

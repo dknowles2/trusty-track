@@ -1,6 +1,27 @@
-# Demo Stage 1: The Demo Mode Gate
+# Demo Stage 1: The Demo Mode Gate [COMPLETED]
 
-> **Not built.**
+> **Built.** `backend/demo_mode.py` holds the flag, `backend/api/demo_policy.py`
+> the mutation denylist, and the four REST routes check for themselves.
+> `backend/tests/test_demo_mode.py` covers it.
+>
+> **Two departures from what is written below**, both recorded rather than
+> quietly taken:
+>
+> * `POST /upload/` is guarded at **check-in**, not operator, and that half
+>   shipped separately in #263 because it is a live security gap rather than a
+>   demo feature. This section said operator, matching the neighbouring backup
+>   routes — but its GraphQL twin `uploadImage` is classified as a `CHECKIN`
+>   mutation, and requiring the operator would make the REST route stricter
+>   than the mutation that does the same thing. Photographing a car is the
+>   desk's job.
+> * `importRacers` was added to the denylist. It is bulk row creation from
+>   caller-supplied text on an instance other people are looking at, which is
+>   the same objection as `populateRace`.
+>
+> Also worth knowing: the route turns out to have **no callers at all** — not
+> the frontend, not the e2e specs, not the suite. Images travel as data URLs
+> through `uploadImage`. Whether it should exist is a separate question from
+> whether it should be open, and only the second was settled here.
 
 The only stage that gates a public URL. Everything here is about a stranger
 with a browser, not about hosting.
