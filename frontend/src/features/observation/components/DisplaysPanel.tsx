@@ -24,7 +24,7 @@ import {
     FORGET_DISPLAY,
     RENAME_DISPLAY,
 } from '../graphql/queries';
-import { VIEW_OPTIONS, type DisplayView } from '../displayView';
+import { VIEW_OPTIONS, viewCycles, type DisplayView } from '../displayView';
 
 interface DisplayRow {
     displayId: string;
@@ -147,7 +147,12 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                         ))}
                     </select>
 
-                    {display.view === 'CYCLE' && (
+                    {/* Every view that advances on a timer gets the same
+                        seconds control — the tab cycle and the photo
+                        slideshow alike. Naming views here was the bug: the
+                        slideshow cycled at an interval nothing offered to
+                        change. */}
+                    {viewCycles(display.view) && (
                         <label style={{ fontSize: '0.85rem', color: '#666' }}>
                             every{' '}
                             <input
@@ -163,7 +168,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                                     if (seconds >= 1) {
                                         assignDisplay({
                                             displayId: display.displayId,
-                                            view: 'CYCLE',
+                                            view: display.view,
                                             cycleSeconds: seconds,
                                         });
                                     }
