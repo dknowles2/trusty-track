@@ -63,11 +63,27 @@ disposes its connection rather than retrying, and starting again is a reload.
 
 ## Deploying it
 
-`deploy/cloudrun/deploy.sh` deploys to Cloud Run. Every flag in it is
-load-bearing and commented; the two that matter most are `--max-instances=1`,
-which is both a hard cost ceiling and what keeps the app's in-process pub/sub
-correct, and `--min-instances=0`, which lets the instance die when nobody is
-there — which is the reset.
+`deploy/cloudrun/deploy.sh` deploys to Cloud Run, two ways:
+
+```bash
+./deploy/cloudrun/deploy.sh
+```
+
+builds the current working tree with Cloud Build, which is what you want
+whenever the demo is ahead of the last release — and it is, unless a tag has
+been cut since the demo work landed. To deploy a published image instead:
+
+```bash
+IMAGE=ghcr.io/dknowles2/trusty-track:1.2.0 ./deploy/cloudrun/deploy.sh
+```
+
+Use a version tag rather than `latest`, which follows releases and would change
+the demo under you on somebody else's merge.
+
+Every flag in the script is load-bearing and commented; the two that matter most
+are `--max-instances=1`, which is both a hard cost ceiling and what keeps the
+app's in-process pub/sub correct, and `--min-instances=0`, which lets the
+instance die when nobody is there — which is the reset.
 
 Set a billing budget alert as well. The instance cap bounds the worst case; the
 alert is what tells you if you reach it.
