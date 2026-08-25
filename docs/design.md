@@ -172,7 +172,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored)
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
 -   Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord` — the hand-entered historical records (`HistoricalTrackRecord`), merged into `raceStats.trackRecords` beside the computed ones
--   Audience displays: `assignDisplay`, `renameDisplay`, `forgetDisplay` (operator-only — a display is a `VIEWER` and is *told*, never asks) (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)
+-   Audience displays: `assignDisplay`, `advanceDisplay`, `renameDisplay`, `forgetDisplay` (operator-only — a display is a `VIEWER` and is *told*, never asks) (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)
 -   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
 -   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`

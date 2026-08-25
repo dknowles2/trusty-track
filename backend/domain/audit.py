@@ -261,6 +261,7 @@ ACTION_PHRASES: dict[str, str] = {
     "createTrack": "Added a track",
     "updateTrack": "Changed a track",
     "deleteTrack": "Deleted a track",
+    "advanceDisplay": "Moved a display's ceremony on",
     "createTrackRecord": "Entered a historical track record",
     "updateTrackRecord": "Changed a historical track record",
     "deleteTrackRecord": "Deleted a historical track record",

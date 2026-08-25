@@ -450,6 +450,14 @@ export type AssignDisplayMutationVariables = Exact<{
 
 export type AssignDisplayMutation = { assignDisplay: { displayId: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, name: string, raceId: number } | null };
 
+export type AdvanceDisplayMutationVariables = Exact<{
+  displayId: string;
+  delta: number;
+}>;
+
+
+export type AdvanceDisplayMutation = { advanceDisplay: { displayId: string, slideSeq: number, slideDelta: number } | null };
+
 export type RenameDisplayMutationVariables = Exact<{
   displayId: string;
   name: string;

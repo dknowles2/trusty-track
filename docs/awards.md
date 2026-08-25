@@ -78,6 +78,22 @@ presenter remote works too, since it sends the same keys.
 It is an ordinary address (`/race/1/awards/present`), so you can also open it
 directly on the machine driving the projector.
 
+### Driving it from where you are
+
+If the ceremony is on a screen across the room, you do not have to walk to
+it. Put it there from **Race Control → Displays** — choose **Awards
+ceremony** for that screen — and the row grows **‹** and **›** buttons that
+move it on.
+
+![A display row set to the awards ceremony, with buttons to move it on](assets/screenshots/observation/11-ceremony-controls.png)
+_The screen's row on the Displays panel. **‹** and **›** move the ceremony
+on that screen from wherever you are._
+
+Both work at once: somebody at the screen can still use the arrow keys or a
+presenter remote, and the buttons move whichever award is actually up. Hand
+the remote to whoever is speaking and keep the buttons as a backup, or run
+the whole ceremony from your laptop.
+
 It does not move on by itself. The other audience screens rotate on a timer
 because nobody is driving them; this one waits for you, so it will not announce
 the next trophy over the applause for the last one. It also stops on the last

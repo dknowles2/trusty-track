@@ -220,3 +220,59 @@ class TestForgetting:
 
     def test_forgetting_something_unknown_says_so(self, registry):
         assert registry.forget("never-seen") is False
+
+
+class TestSteppingTheCeremony:
+    """The operator driving a ceremony on a screen across the room.
+
+    A *step* rather than a slide number: only the display knows which trophy
+    is up, and it holds no PIN to report it back (#15). See
+    `services/displays.Display.slide_seq`.
+    """
+
+    def test_a_step_is_recorded_with_a_new_counter(self, registry):
+        registry.connect("abc", race_id=1)
+
+        registry.advance("abc", 1)
+
+        assert registry.get("abc").slide_delta == 1
+        assert registry.get("abc").slide_seq == 1
+
+    def test_the_counter_rises_on_every_step(self, registry):
+        # It is what tells a display a command is new; two Nexts in a row
+        # carry the same delta and must both be obeyed.
+        registry.connect("abc", race_id=1)
+
+        registry.advance("abc", 1)
+        registry.advance("abc", 1)
+
+        assert registry.get("abc").slide_seq == 2
+
+    def test_stepping_back_is_a_negative_step(self, registry):
+        registry.connect("abc", race_id=1)
+
+        registry.advance("abc", -1)
+
+        assert registry.get("abc").slide_delta == -1
+
+    def test_a_display_starts_with_nothing_to_obey(self, registry):
+        # Zero is the value a screen arrives holding, and the ceremony page
+        # ignores the first payload anyway — a reconnection is not an
+        # instruction.
+        registry.connect("abc", race_id=1)
+
+        assert registry.get("abc").slide_seq == 0
+
+    def test_stepping_something_unknown_says_so(self, registry):
+        assert registry.advance("never-seen", 1) is None
+
+    def test_a_step_leaves_the_assignment_alone(self, registry):
+        # Driving a ceremony must not re-assign the screen; that was the shape
+        # of the bug in the interval control (#275).
+        registry.connect("abc", race_id=1)
+        registry.assign("abc", domain.DisplayView.AWARDS)
+
+        registry.advance("abc", 1)
+
+        assert registry.get("abc").assignment.view is domain.DisplayView.AWARDS
+        assert registry.get("abc").assigned is True

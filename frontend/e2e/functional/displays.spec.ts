@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
-import { ensureConfigured, seedRace } from './support';
+import { ensureConfigured, gql, seedRace } from './support';
 
 /** The display's own storage key, which is how a screen keeps its identity. */
 const STORAGE_KEY = 'trustytrack.displayId';
@@ -156,6 +156,46 @@ test('a screen sent to the awards ceremony can still be called back', async ({ b
         'true',
         { timeout: 10000 },
     );
+
+    await displayContext.close();
+});
+
+test('an operator can drive the ceremony on a screen across the room', async ({ browser, page }) => {
+    // The ceremony is paced by a person, and that person was required to be
+    // standing at the screen — the one place the operator is not, having just
+    // assigned it from the Displays panel.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Ceremony Remote Race');
+
+    // Two awards, so there is somewhere to advance to.
+    for (const name of ['Fastest Car', 'Best Paint']) {
+        await gql(
+            page,
+            `mutation Award($raceId: Int!, $award: AwardInput!) {
+                createAward(raceId: $raceId, award: $award) { id }
+            }`,
+            { raceId, award: { name, kind: 'SPECIAL' } },
+        );
+    }
+
+    const displayContext = await browser.newContext();
+    const display = await displayContext.newPage();
+    await openDisplay(display, raceId, 'spec-display-4');
+
+    await page.goto(`/race/${raceId}/control/displays`);
+    const row = page.getByTestId('display-spec-display-4');
+    await expect(row).toBeVisible();
+
+    await row.getByRole('combobox').selectOption('AWARDS');
+    await display.waitForURL('**/awards/present', { timeout: 10000 });
+    await expect(display.getByText('1 of 2')).toBeVisible({ timeout: 10000 });
+
+    // The step travels to a screen nobody is standing at.
+    await row.getByRole('button', { name: /Next award/ }).click();
+    await expect(display.getByText('2 of 2')).toBeVisible({ timeout: 10000 });
+
+    await row.getByRole('button', { name: /Previous award/ }).click();
+    await expect(display.getByText('1 of 2')).toBeVisible({ timeout: 10000 });
 
     await displayContext.close();
 });

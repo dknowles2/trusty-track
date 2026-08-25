@@ -57,6 +57,23 @@ class Display:
     #: LAN is often minutes into the event.
     last_seen: float = 0.0
     connections: int = 0
+    #: The operator's last "next"/"previous" for a screen showing the awards
+    #: ceremony, as a **step** rather than a slide number, plus a counter that
+    #: says it is a new one.
+    #:
+    #: A slide number would have to come from somewhere, and the only thing
+    #: that knows which trophy is on screen is the screen — which holds no PIN
+    #: and can call no mutation to report it (#15). Making the server the sole
+    #: driver instead would break the presenter remote at the projector, which
+    #: is how most ceremonies are actually run. A step composes with both: the
+    #: display applies it to wherever it has got to, so the operator's Next is
+    #: correct whether or not somebody at the screen has been pressing keys.
+    #:
+    #: The counter is what makes a step an event rather than a state. Without
+    #: it a reconnecting screen could not tell a command it had already obeyed
+    #: from a new one — and every payload carries these fields.
+    slide_seq: int = 0
+    slide_delta: int = 0
 
     @property
     def connected(self) -> bool:
@@ -161,6 +178,26 @@ class DisplayRegistry:
             ),
         )
         display.assigned = True
+        return display
+
+    def advance(self, display_id: str, delta: int) -> Display | None:
+        """Step a screen's ceremony forward or back from the operator's list.
+
+        Records the step and bumps the counter; the display does the moving,
+        because it is the only thing that knows which trophy is up. See
+        ``Display.slide_seq`` for why this is a step rather than a slide
+        number.
+
+        The counter is bumped even for a screen showing something else —
+        the operator's list only offers the control on a ceremony row, and a
+        rule about *which* view may be stepped would be a second copy of that
+        one. Nothing but the ceremony page acts on it.
+        """
+        display = self._displays.get(display_id)
+        if display is None:
+            return None
+        display.slide_seq += 1
+        display.slide_delta = delta
         return display
 
     def rename(self, display_id: str, name: str) -> Display | None:

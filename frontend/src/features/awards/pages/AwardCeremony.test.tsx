@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,9 +63,45 @@ function renderCeremony(race: unknown = RACE, fetching = false) {
   );
 }
 
-function mockAssignment(assignment: { assigned: boolean; view: string } | null) {
+/** Render, and hand back a rerender that re-reads the mocked subscription. */
+function renderCeremonyForRerender(race: unknown = RACE) {
+  (useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
+    { data: { race }, fetching: false, error: undefined },
+    vi.fn(),
+  ]);
+  // A fresh element each time: React bails out of re-rendering an element it
+  // is handed by the same reference, and this helper exists precisely to make
+  // the component re-read the mocked subscription.
+  const tree = () => (
+    <MemoryRouter initialEntries={['/race/1/awards/present']}>
+      <Routes>
+        <Route path="/race/:raceId/awards/present" element={<AwardCeremony />} />
+        <Route path="/race/:raceId/observation" element={<div>observation page</div>} />
+      </Routes>
+    </MemoryRouter>
+  );
+  const result = render(tree());
+  return { rerender: () => result.rerender(tree()) };
+}
+
+function mockAssignment(
+  assignment:
+    | { assigned: boolean; view: string; slideSeq?: number; slideDelta?: number }
+    | null,
+) {
   (useSubscription as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
-    { data: assignment ? { displayAssignment: { cycleSeconds: 10, ...assignment } } : undefined },
+    {
+      data: assignment
+        ? {
+            displayAssignment: {
+              cycleSeconds: 10,
+              slideSeq: 0,
+              slideDelta: 0,
+              ...assignment,
+            },
+          }
+        : undefined,
+    },
     vi.fn(),
   ]);
 }
@@ -151,5 +187,75 @@ describe('a screen assigned here stays on the operator leash — the reported bu
     mockAssignment({ assigned: false, view: 'STANDINGS' });
     renderCeremony();
     expect(screen.getByText('Fastest Wolf')).toBeInTheDocument();
+  });
+});
+
+describe('steps sent from the operator’s Displays panel', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('does not move on the payload it arrives holding', () => {
+    // An opening payload is a reconnection, not an instruction. Obeying it
+    // would jump the ceremony a trophy every time the wifi hiccupped.
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 7, slideDelta: 1 });
+    renderCeremony();
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
+  });
+
+  it('advances when the step counter moves', () => {
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 7, slideDelta: 1 });
+    const { rerender } = renderCeremonyForRerender();
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
+
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 8, slideDelta: 1 });
+    rerender();
+
+    expect(screen.getByText('2 of 2')).toBeInTheDocument();
+    expect(screen.getByText('Best Paint')).toBeInTheDocument();
+  });
+
+  it('goes back on a negative step', () => {
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 1, slideDelta: 1 });
+    const { rerender } = renderCeremonyForRerender();
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 2, slideDelta: 1 });
+    rerender();
+    expect(screen.getByText('2 of 2')).toBeInTheDocument();
+
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 3, slideDelta: -1 });
+    rerender();
+
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
+  });
+
+  it('composes with the keys at the screen, rather than fighting them', () => {
+    // The presenter has a remote; the operator has the panel. A step applies
+    // to wherever the ceremony actually is, so both drive the same one.
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 1, slideDelta: 1 });
+    const { rerender } = renderCeremonyForRerender();
+
+    // Somebody at the screen goes forward, then the operator goes back.
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(screen.getByText('2 of 2')).toBeInTheDocument();
+
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 2, slideDelta: -1 });
+    rerender();
+
+    expect(screen.getByText('1 of 2')).toBeInTheDocument();
+  });
+
+  it('repeats a step when the counter moves again with the same delta', () => {
+    // Two Nexts in a row carry the same delta; the counter is what makes the
+    // second one a new command.
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 1, slideDelta: 1 });
+    const { rerender } = renderCeremonyForRerender();
+
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 2, slideDelta: 1 });
+    rerender();
+    mockAssignment({ assigned: true, view: 'AWARDS', slideSeq: 3, slideDelta: 1 });
+    rerender();
+
+    // Two steps from the first award, clamped at the last — which the
+    // ceremony deliberately does not wrap past.
+    expect(screen.getByText('2 of 2')).toBeInTheDocument();
   });
 });

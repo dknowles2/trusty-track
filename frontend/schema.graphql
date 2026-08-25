@@ -94,6 +94,8 @@ type Display {
   assigned: Boolean!
   description: String!
   pacedByAPerson: Boolean!
+  slideSeq: Int!
+  slideDelta: Int!
 }
 
 enum DisplayView {
@@ -287,6 +289,7 @@ type Mutation {
   updateRace(id: Int!, race: RaceUpdateInput!): Race
   deleteRace(id: Int!): Boolean!
   assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null): Display
+  advanceDisplay(displayId: String!, delta: Int!): Display
   renameDisplay(displayId: String!, name: String!): Display
   forgetDisplay(displayId: String!): Boolean!
   createRacer(racer: RacerInput!): Racer!

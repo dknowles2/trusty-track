@@ -18,6 +18,7 @@ import { Icon } from '@mdi/react';
 import { mdiCheckCircle, mdiCircleOutline, mdiClose, mdiPencil } from '@mdi/js';
 
 import {
+    ADVANCE_DISPLAY,
     ASSIGN_DISPLAY,
     DISPLAYS_QUERY,
     DisplaysSubscription,
@@ -44,6 +45,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
     const [liveResult] = useSubscription({ query: DisplaysSubscription, variables: { raceId }, pause: !raceId });
 
     const [, assignDisplay] = useMutation(ASSIGN_DISPLAY);
+    const [, advanceDisplay] = useMutation(ADVANCE_DISPLAY);
     const [, renameDisplay] = useMutation(RENAME_DISPLAY);
     const [, forgetDisplay] = useMutation(FORGET_DISPLAY);
 
@@ -179,9 +181,37 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                         </label>
                     )}
 
+                    {/* The ceremony waits for a person, and until now that
+                        person had to be standing at the screen — which is the
+                        one place the operator is not, having just assigned it
+                        from across the room. The keys and a presenter remote
+                        at the screen go on working: these send a *step*, so
+                        both drivers move the same ceremony. */}
                     {display.pacedByAPerson && (
-                        <span style={{ fontSize: '0.8rem', color: '#7a5b00', background: '#fff3cd', border: '1px solid #ffe08a', borderRadius: '20px', padding: '2px 8px' }}>
-                            You advance this one
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <button
+                                type="button"
+                                aria-label={`Previous award on ${display.name}`}
+                                disabled={!display.connected}
+                                onClick={() => advanceDisplay({ displayId: display.displayId, delta: -1 })}
+                                className="secondary-btn"
+                                style={{ padding: '0.25rem 0.6rem' }}
+                            >
+                                ‹
+                            </button>
+                            <span style={{ fontSize: '0.8rem', color: '#7a5b00', background: '#fff3cd', border: '1px solid #ffe08a', borderRadius: '20px', padding: '2px 8px' }}>
+                                You advance this one
+                            </span>
+                            <button
+                                type="button"
+                                aria-label={`Next award on ${display.name}`}
+                                disabled={!display.connected}
+                                onClick={() => advanceDisplay({ displayId: display.displayId, delta: 1 })}
+                                className="secondary-btn"
+                                style={{ padding: '0.25rem 0.6rem' }}
+                            >
+                                ›
+                            </button>
                         </span>
                     )}
 

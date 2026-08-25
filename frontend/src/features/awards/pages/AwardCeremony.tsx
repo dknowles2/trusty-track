@@ -64,6 +64,28 @@ export default function AwardCeremony() {
     [awards.length],
   );
 
+  // Steps sent from the operator's Displays panel, for a ceremony on a screen
+  // the presenter is not standing at.
+  //
+  // A *step* rather than a slide number, because the operator's laptop cannot
+  // know which trophy is up — this page owns the index and holds no PIN to
+  // report it back (#15). Applying the step here is what lets the keys and a
+  // presenter remote at the screen keep working: both drivers move the same
+  // index, and neither overwrites the other.
+  //
+  // Adjusted during render rather than in an effect, the same reason
+  // `RaceControl` pins its heat that way: an effect paints the old slide for
+  // a frame first, and this is a projector in front of a room.
+  const [obeyedSeq, setObeyedSeq] = useState<number | null>(null);
+  const slideSeq: number | null = assignment?.slideSeq ?? null;
+  if (slideSeq !== null && slideSeq !== obeyedSeq) {
+    setObeyedSeq(slideSeq);
+    // The value it arrives holding is a reconnection, not an instruction.
+    // Obeying it would jump the ceremony a trophy every time the wifi
+    // hiccupped — the `seen === null` rule from `roundCompletion.ts`.
+    if (obeyedSeq !== null) step(assignment.slideDelta);
+  }
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const delta = deltaForKey(event.key);

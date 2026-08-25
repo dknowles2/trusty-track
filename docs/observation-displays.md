@@ -126,9 +126,9 @@ told instead.
 
 ![The operator's list of audience displays](assets/screenshots/observation/08-displays-panel.png)
 
-**Race Control → Displays.** Every screen that has the Live page open appears
-in the list on its own; there is nothing to add, and nothing to set up before
-an event. Pick what each one shows from the dropdown beside it and the screen
+**Race Control → Displays.** Every screen showing this race appears in the
+list on its own — the Live page, or the awards ceremony — and there is
+nothing to add, or to set up before an event. Pick what each one shows from the dropdown beside it and the screen
 changes within a second or two.
 
 Two things worth knowing:
@@ -144,9 +144,11 @@ The six views a screen can show, and how assignment behaves, are in
 
 > [!NOTE]
 > Assigning the **Awards ceremony** to a screen puts the ceremony on it, and
-> that one waits for you — it does not advance on its own. When the ceremony
-> is over, pick any other view from the same dropdown and the screen comes
-> back. See the [Awards guide](awards.md#announcing-them).
+> that one waits for you — it does not advance on its own. The row grows
+> **‹** and **›** buttons so you can move it on from here, and the arrow keys
+> or a presenter remote at the screen keep working alongside them. When the
+> ceremony is over, pick any other view from the same dropdown and the screen
+> comes back. See the [Awards guide](awards.md#announcing-them).
 
 ### If you never open that list
 
