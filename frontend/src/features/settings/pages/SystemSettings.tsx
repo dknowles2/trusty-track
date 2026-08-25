@@ -7,6 +7,7 @@ import { blankPin, pinInput, pinToSend, type PinField } from '../pinFields';
 import { clearPin, writePin } from '../../../api/pin';
 import { errorText } from '../../../utils/errors';
 import TrackLanes from '../components/TrackLanes';
+import TrackRecords, { type HistoricalRecord } from '../components/TrackRecords';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -28,6 +29,7 @@ const GET_INITIAL_CONFIG = `
         timerProfile
         remoteStartInstalled
         laneOutages
+        historicalRecords { id timeSeconds racerName carNumber raceName raceDate }
       }
     }
   }
@@ -112,6 +114,7 @@ export default function SystemConfig() {
     timerProfile: string;
     remoteStartInstalled: boolean;
     laneOutages?: number[];
+    historicalRecords?: HistoricalRecord[];
   }
 
   const [tracks, setTracks] = useState<TrackFields[]>([{ name: 'Main Track', laneCount: 3, lengthFeet: DEFAULT_LENGTH_FEET, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
@@ -164,6 +167,7 @@ export default function SystemConfig() {
             timerProfile?: string | null;
             remoteStartInstalled?: boolean;
             laneOutages?: number[];
+            historicalRecords?: HistoricalRecord[];
           }) => ({
             id: t.id,
             name: t.name,
@@ -177,7 +181,8 @@ export default function SystemConfig() {
             serialPort: t.serialPort || '',
             timerProfile: t.timerProfile || '',
             remoteStartInstalled: !!t.remoteStartInstalled,
-            laneOutages: t.laneOutages ?? []
+            laneOutages: t.laneOutages ?? [],
+            historicalRecords: t.historicalRecords ?? []
           })));
         }
       }
@@ -547,6 +552,22 @@ export default function SystemConfig() {
                   With it on, an armed heat can be launched from the race screen instead of by hand.
                 </small>
               </div>
+            )}
+
+            {/* Like the lanes control: only once the track exists, because a
+                track added but not yet saved has no id to hang a record on. */}
+            {track.id !== undefined && (
+              <TrackRecords
+                trackId={track.id}
+                records={track.historicalRecords ?? []}
+                onChange={(historicalRecords) =>
+                  setTracks((current) =>
+                    current.map((t, i) =>
+                      i === index ? { ...t, historicalRecords } : t,
+                    ),
+                  )
+                }
+              />
             )}
           </div>
         ))}

@@ -354,6 +354,7 @@ Defined entirely in `backend/api/schema.py`.
 - Bulk: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 - Den: `createDen`, `updateDen`, `deleteDen`
 - Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
+- Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord`
 - Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`

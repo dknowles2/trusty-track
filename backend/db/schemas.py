@@ -34,6 +34,41 @@ class TrackBase(BaseModel):
     remote_start_installed: bool = False
 
 
+class HistoricalTrackRecordBase(BaseModel):
+    """A record from before Trusty Track was keeping them, as typed in."""
+
+    time_seconds: float
+    racer_name: str
+    car_number: int | None = None
+    race_name: str | None = None
+    race_date: str | None = None
+
+    @field_validator("time_seconds")
+    @classmethod
+    def time_is_a_result(cls, value: float) -> float:
+        """Refuse a time of zero or less where the number arrives.
+
+        The computed records treat a stored 0.0 as a DNF marker, and a
+        hand-entered zero would be the fastest time the track has ever
+        seen.
+        """
+        if value <= 0:
+            raise ValueError("a record time must be more than zero seconds")
+        return value
+
+    @field_validator("racer_name")
+    @classmethod
+    def racer_has_a_name(cls, value: str) -> str:
+        """A record with no holder is not a record; refuse the blank."""
+        if not value.strip():
+            raise ValueError("a record names the racer who set it")
+        return value.strip()
+
+
+class HistoricalTrackRecordCreate(HistoricalTrackRecordBase):
+    pass
+
+
 class DenBase(BaseModel):
     name: str
     color: str = "#000000"

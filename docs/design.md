@@ -54,6 +54,10 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `id` (PK), `track_id` (FK to Track, `ON DELETE CASCADE`), `lane`, unique on (`track_id`, `lane`)
     -   A row means the lane is out of service and its absence means it works. There is deliberately no `is_out_of_service` flag, which could disagree with the row's own absence, and no list-of-lanes column — a schedule asks for a *set* of lanes, and a set of small integers in a string column is the shape #5 spent a release removing.
     -   Scoped to the track, not the race: the sensor is hardware in the room, so a venue running two races has the same dead lane in both.
+-   **`HistoricalTrackRecord`**: A track record from before Trusty Track was keeping them (table `track_records`).
+    -   `id` (PK), `track_id` (FK to Track, `ON DELETE CASCADE`), `time_seconds`, `racer_name`, `car_number?`, `race_name?`, `race_date?`
+    -   Primary data, not a cache: the computed records (`services/records.py`) are never stored, but a record from the 2019 derby has no heats in this database to compute from, so it stands exactly as the operator typed it — the same distinction the audit log draws. `racer_name` is free text rather than a `Racer` foreign key, because the child who set it is on no roster this install holds.
+    -   Merged into `raceStats.trackRecords` beside the computed entries, sorted by time; a null `race_id` in that payload marks the historical ones.
 -   **`Race`**: Specific race event instance.
     -   `id` (PK)
     -   `group_id` (FK to Group)
@@ -167,6 +171,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Den: `createDen`, `updateDen`, `deleteDen`
 -   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored)
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
+-   Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord` — the hand-entered historical records (`HistoricalTrackRecord`), merged into `raceStats.trackRecords` beside the computed ones
 -   Audience displays: `assignDisplay`, `renameDisplay`, `forgetDisplay` (operator-only — a display is a `VIEWER` and is *told*, never asks) (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)
 -   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)

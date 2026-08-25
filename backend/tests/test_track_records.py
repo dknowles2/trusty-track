@@ -244,3 +244,194 @@ class TestTheResolver:
         # set at this event or stands from an earlier one.
         assert entries[0]["raceName"] == "Resolver Derby 2025"
         assert entries[0]["raceId"] != race.id
+
+
+def _historical(db, track_id, time, name, **extra):
+    return crud.create_historical_track_record(
+        db,
+        track_id,
+        schemas.HistoricalTrackRecordCreate(
+            time_seconds=time, racer_name=name, **extra
+        ),
+    )
+
+
+class TestHistoricalRecords:
+    def test_a_hand_entered_record_competes_as_typed(self, db):
+        # The 2019 record stands at 2.89; today's best is 3.1. The board
+        # shows the old record on top until somebody actually beats it.
+        group, track = _group_and_track(db, "History")
+        _raced_race(db, group, track, "History Derby", {"Ada": 3.1, "Bea": 3.4})
+        _historical(
+            db,
+            track.id,
+            2.89,
+            "Jimmy Legend",
+            car_number=42,
+            race_name="Derby 2019",
+            race_date="2019-03-16",
+        )
+
+        entries = records.track_records(db, track.id)
+        assert (entries[0].racer_name, entries[0].time_seconds) == (
+            "Jimmy Legend",
+            2.89,
+        )
+        # No race in this database backs it, and the payload says so — the
+        # frontend's "set at this event" badge compares race ids.
+        assert entries[0].race_id is None
+        assert entries[0].race_name == "Derby 2019"
+        assert entries[1].racer_name == "Ada Speed"
+
+    def test_a_computed_time_can_beat_a_historical_record(self, db):
+        group, track = _group_and_track(db, "Beaten")
+        _historical(db, track.id, 2.89, "Jimmy Legend")
+        _raced_race(db, group, track, "Beaten Derby", {"Ada": 2.88, "Bea": 3.4})
+
+        entries = records.track_records(db, track.id)
+        assert entries[0].racer_name == "Ada Speed"
+        assert entries[1].racer_name == "Jimmy Legend"
+
+    def test_the_cap_covers_both_kinds_together(self, db):
+        group, track = _group_and_track(db, "BothCapped")
+        _raced_race(db, group, track, "BothCapped Derby", {"A": 3.1, "B": 3.2})
+        _historical(db, track.id, 3.05, "Old One")
+        _historical(db, track.id, 3.15, "Old Two")
+
+        entries = records.track_records(db, track.id, limit=3)
+        assert [e.racer_name for e in entries] == ["Old One", "A Speed", "Old Two"]
+
+    def test_a_zero_time_is_refused_where_it_arrives(self, db):
+        # A stored 0.0 is the DNF marker, and a hand-entered zero would be
+        # the fastest time the track has ever seen.
+        import pytest
+
+        _, track = _group_and_track(db, "ZeroRefused")
+        with pytest.raises(ValueError):
+            _historical(db, track.id, 0.0, "Nobody")
+
+    def test_a_blank_name_is_refused(self, db):
+        import pytest
+
+        _, track = _group_and_track(db, "BlankRefused")
+        with pytest.raises(ValueError):
+            _historical(db, track.id, 3.0, "   ")
+
+    def test_a_record_for_a_missing_track_is_refused_not_crashed(self, db):
+        assert (
+            crud.create_historical_track_record(
+                db,
+                99999,
+                schemas.HistoricalTrackRecordCreate(
+                    time_seconds=3.0, racer_name="Nobody"
+                ),
+            )
+            is None
+        )
+
+    def test_correcting_and_removing_a_record(self, db):
+        _, track = _group_and_track(db, "Managed")
+        row = _historical(db, track.id, 2.9, "Jimmy Legend")
+
+        updated = crud.update_historical_track_record(
+            db,
+            row.id,
+            schemas.HistoricalTrackRecordCreate(
+                time_seconds=2.95, racer_name="Jimmy Legend"
+            ),
+        )
+        assert updated.time_seconds == 2.95
+
+        assert crud.delete_historical_track_record(db, row.id) is True
+        assert records.track_records(db, track.id) == []
+
+    def test_deleting_the_track_deletes_its_records(self, db):
+        # ON DELETE CASCADE on track_id, enforced on every connection (#125).
+        _, track = _group_and_track(db, "GoneTrack")
+        _historical(db, track.id, 2.9, "Jimmy Legend")
+
+        crud.delete_track(db, track.id)
+        rows = db.query(models.HistoricalTrackRecord).all()
+        assert rows == []
+
+
+class TestTheManagementSurface:
+    def test_the_mutations_round_trip(self, client, db):
+        _, track = _group_and_track(db, "Mutations")
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    createTrackRecord(trackId: {track.id}, record: {{
+                        timeSeconds: 2.89,
+                        racerName: "Jimmy Legend",
+                        carNumber: 42,
+                        raceName: "Derby 2019",
+                        raceDate: "2019-03-16"
+                    }}) {{ id timeSeconds racerName }}
+                }}
+                """
+            },
+        )
+        created = resp.json()["data"]["createTrackRecord"]
+        assert created["racerName"] == "Jimmy Legend"
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateTrackRecord(recordId: {created["id"]}, record: {{
+                        timeSeconds: 2.91,
+                        racerName: "Jimmy Legend"
+                    }}) {{ timeSeconds }}
+                }}
+                """
+            },
+        )
+        assert resp.json()["data"]["updateTrackRecord"]["timeSeconds"] == 2.91
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                query { tracks { id historicalRecords { id timeSeconds } } }
+                """
+            },
+        )
+        rows = next(t for t in resp.json()["data"]["tracks"] if t["id"] == track.id)[
+            "historicalRecords"
+        ]
+        assert [r["timeSeconds"] for r in rows] == [2.91]
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{ deleteTrackRecord(recordId: {created["id"]}) }}
+                """
+            },
+        )
+        assert resp.json()["data"]["deleteTrackRecord"] is True
+
+    def test_a_refusal_reads_as_a_sentence(self, client, db):
+        # The alert on the settings page shows the error's message, and the
+        # message is the validator's sentence, not Pydantic's wall of
+        # locations (ui rule from #246).
+        _, track = _group_and_track(db, "Sentence")
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    createTrackRecord(trackId: {track.id}, record: {{
+                        timeSeconds: 0.0, racerName: "Nobody"
+                    }}) {{ id }}
+                }}
+                """
+            },
+        )
+        message = resp.json()["errors"][0]["message"]
+        assert message == "A record time must be more than zero seconds."

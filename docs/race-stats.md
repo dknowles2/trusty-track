@@ -92,6 +92,22 @@ has **ever** seen, across every race run on it.
 ![The track record section](assets/screenshots/race-stats/09-track-record.png)
 _The track record card, with the all-time list beneath it._
 
+### Records from before Trusty Track
+
+If your pack has records on paper — "2.89 seconds, Jimmy, 2019" — you can
+enter them so the board tells the whole story:
+
+1. Go to **Settings**, and find the track's card under **Tracks**.
+2. Under **Track records from past years**, type the time and the racer's
+   name — car number, event and date are optional.
+3. Click **Add record**. It saves straight away.
+
+![Entering a record from a past year on the track's card](assets/screenshots/settings/05-track-records.png)
+_A record from 2019, entered on the track's card in Settings._
+
+An entered record competes exactly as typed: it heads the board until a
+faster time actually beats it. The ✏️ corrects a typo and the ✕ removes one.
+
 Exactly what counts toward a record is in
 [Stats and exports](reference/stats-and-exports.md#the-track-record).
 
