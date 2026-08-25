@@ -48,6 +48,23 @@ def _scoring_heats(db: Session, race_id: int, round_id: int | None, scope: str) 
         if disrupted:
             heats = [h for h in heats if h.round_id not in disrupted]
 
+    # An elimination round never feeds the aggregate standings. Its heat
+    # counts are uneven *by design* — an eliminated car races fewer heats —
+    # which poisons a POINTS sum outright (#26's shape) and skews a TIMED
+    # average toward whoever was knocked out early. Its result is survival,
+    # and it is read by asking for the round itself.
+    elimination_ids = {
+        r.id
+        for r in rounds
+        if r.scheduling_strategy == models.SchedulingStrategy.ELIMINATION
+    }
+    if elimination_ids:
+        heats = [h for h in heats if h.round_id not in elimination_ids]
+
+    # An elimination round has no `advancement_source`, so it would qualify
+    # here — but its heats are already gone from `heats` above, which is the
+    # filter that matters. Repeating the exclusion in this set changes no
+    # answer, so it is not repeated.
     prelim_round_ids = {r.id for r in rounds if r.advancement_source is None}
     if not prelim_round_ids:
         return heats
@@ -126,6 +143,14 @@ def get_leaderboard(
     if not race:
         return []
 
+    if round_id is not None:
+        round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+        if (
+            round_obj
+            and round_obj.scheduling_strategy == models.SchedulingStrategy.ELIMINATION
+        ):
+            return _elimination_leaderboard(db, race_id, round_obj)
+
     racer_scores = calculate_racer_scores(db, race_id, round_id=round_id, scope=scope)
 
     racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
@@ -171,6 +196,69 @@ def get_leaderboard(
     for entry, rank in zip(leaderboard, ranks, strict=True):
         entry["rank"] = rank
 
+    return leaderboard
+
+
+def _elimination_leaderboard(
+    db: Session, race_id: int, round_obj: models.Round
+) -> list[LeaderboardEntry]:
+    """An elimination round's order of finish, shaped like a leaderboard.
+
+    ``score`` is the racer's loss count — lower is better, like everything
+    else — but the *order* is the round's own: survivors first, then the
+    eliminated by how long they lasted. Two cars knocked out in the same heat
+    share a rank, the same visibility rule as #226.
+    """
+    from backend.domain import elimination as domain_elimination
+
+    heats = crud.get_heats(db, race_id, round_id=round_obj.id)
+    parsed = crud.lanes_for_heats(db, heats)
+    threshold = round_obj.elimination_losses or 1
+    entries = domain_elimination.standings(parsed, threshold)
+
+    completed: dict[int, int] = {}
+    for heat_lanes in parsed:
+        for lane in heat_lanes:
+            racer_id = lane.racer_id
+            if racer_id is not None and (
+                lane.seconds is not None or lane.place is not None
+            ):
+                completed[racer_id] = completed.get(racer_id, 0) + 1
+
+    racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
+    den_map = {
+        d.id: d
+        for d in db.query(models.Den).filter(models.Den.race_id == race_id).all()
+    }
+
+    leaderboard: list[LeaderboardEntry] = []
+    previous_key: tuple | None = None
+    for entry in entries:
+        racer = racer_map.get(entry.racer_id)
+        if not racer:
+            continue
+        den = den_map.get(racer.den_id) if racer.den_id else None
+        key = (entry.alive, entry.losses, entry.out_after)
+        rank = (
+            leaderboard[-1]["rank"]
+            if leaderboard and key == previous_key
+            else len(leaderboard) + 1
+        )
+        previous_key = key
+        leaderboard.append(
+            LeaderboardEntry(
+                racer_id=entry.racer_id,
+                first_name=racer.first_name,
+                last_name=racer.last_name,
+                car_number=racer.car_number,
+                den_id=racer.den_id,
+                den_name=den.name if den else "Unknown",
+                score=float(entry.losses),
+                heats_completed=completed.get(entry.racer_id, 0),
+                racer_image_url=racer.racer_image_url,
+                rank=rank,
+            )
+        )
     return leaderboard
 
 

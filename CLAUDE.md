@@ -157,7 +157,7 @@ Racer           id, race_id, den_id?,
 
 Round           id, race_id, round_number, name, scheduling_strategy,
                 advancement_source, advancement_num_racers, den_id?,
-                advancement_from_bottom
+                advancement_from_bottom, elimination_losses?
 
 Heat            id, race_id, round_id?, kind, heat_number,
                 created_at?, recorded_at?
@@ -173,7 +173,7 @@ Heat            id, race_id, round_id?, kind, heat_number,
 | `CarNumberingStrategy` | `PER_GROUP`, `GLOBAL`, `MANUAL`                                              |
 | `HeatKind`             | `OFFICIAL`, `FREE`                                                           |
 | `Rank`                 | `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER`        |
-| `SchedulingStrategy`   | `PPC`                                                                        |
+| `SchedulingStrategy`   | `PPC`, `ELIMINATION`                                                         |
 | `ScoringStrategy`      | `TIMED` (avg time), `POINTS` (sum of placements) — lower is better for both  |
 | `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`                           |
 
@@ -456,6 +456,21 @@ Rule in `domain/latecomers.py`, database wiring in `crud.admit_late_racers` (#17
 `_admit_late_racers` awaits `_revalidate_timers` for the same reason `setLaneOutages` does: the unraced case rebuilds heats, and an armed heat must not be swapped underneath the operator (#50).
 
 On the roster, `features/management/rosterStatus.ts` is what puts a **No heats** badge against a racer who is checked in and in none — the one case admission cannot fix, where they arrived after the round finished. It is quiet until a round exists: before the first one nobody is scheduled, and flagging the whole roster is how an operator learns to ignore a badge.
+
+### Ladderless elimination
+
+Rules in `domain/elimination.py`, wiring in `crud` (`generate_heats_for_round`'s `ELIMINATION` branch and `extend_elimination_round`). A general round with `scheduling_strategy = ELIMINATION`: a **loss** is any heat a car does not win (second of four counts the same as fourth; a DNF is a loss; a *skipped* lane is neither), a car is out at `Round.elimination_losses`, and the last car standing wins. Sources: McGrew's Derby Race Methods and Stan Pope's No-Chart N-Elimination.
+
+**The schedule grows a wave at a time, from the recorded-result cascade.** `generate_heats_for_round` writes only the first wave; `extend_elimination_round` runs on every result (before `trigger_auto_advancements` in `record_heat_result`) and appends the next wave once every scheduled heat is finished — append-only, so an armed heat is never swapped underneath the operator (#50). Everything is recomputed from the finished heats — the same state-not-event shape as [#248](https://github.com/dknowles2/trusty-track/issues/248) — so a corrected earlier result just changes who the next wave holds. Waves group cars by loss count (undefeated race the undefeated), and nobody races alone: a leftover single car spills into the adjacent group's heat.
+
+Four rules that are each a way of getting it wrong:
+
+- **`crud.is_round_complete` asks whether a winner exists**, not just whether every scheduled heat is finished — between waves everything is finished and nothing is decided, and the reachable trap is an operator deleting the pending wave: without the branch a downstream championship round fills itself from a race still going.
+- **Elimination heats never feed the aggregate standings** (`services/scoring._scoring_heats`), including through the "no prelim rounds" fallback. Heat counts are uneven *by design* — an eliminated car races fewer heats — which is #26's failure shape under `POINTS` and skews a `TIMED` average toward early knockouts. The round's result is survival, read via its own round-scoped leaderboard (`_elimination_leaderboard`: score = losses, survivors first, then the eliminated by how long they lasted, ties shared per #226).
+- **A latecomer joins the next wave at zero losses** ([#172](https://github.com/dknowles2/trusty-track/issues/172)'s rule in this format's terms) — `extend_elimination_round` fields every eligible racer it has not seen — **but never a race already decided**: checking in after the final heat must not restart it. `admit_late_racers` deliberately skips part-raced elimination rounds; the PPC lane-balance appendix is wrong for a format where the schedule grows itself.
+- **An elimination round cannot be a championship round** — a wave of placeholders is nonsense; `createRound` refuses the combination.
+
+The UI is the add-round dialog's "How it's raced" choice (`RoundConfigModal`), and the Standings page's round selector includes elimination rounds beside championship ones, labelled in losses.
 
 ### Scoring
 

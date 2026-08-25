@@ -492,6 +492,7 @@ type Round {
   advancementSource: String
   advancementNumRacers: Int
   advancementFromBottom: Boolean!
+  eliminationLosses: Int
   disrupted: Boolean!
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
@@ -505,6 +506,7 @@ input RoundCreateInput {
   runsPerLane: Int! = 1
   generalType: String! = "PACK"
   advancementFromBottom: Boolean! = false
+  eliminationLosses: Int = null
 }
 
 type SerialLogEntry {

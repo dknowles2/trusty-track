@@ -32,6 +32,8 @@ const GET_LEADERBOARD_METADATA = `
         roundNumber
         advancementSource
         advancementFromBottom
+        schedulingStrategy
+        eliminationLosses
         disrupted
       }
     }
@@ -99,7 +101,11 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
 
   const race = queryData?.race;
   const rounds = (race?.rounds || []) as RoundSummary[];
-  const championshipRounds = rounds.filter((r) => r.advancementSource);
+  // Rounds with standings of their own: championship rounds, and elimination
+  // rounds, whose result is survival rather than a share of the aggregate.
+  const selectableRounds = rounds.filter(
+    (r) => r.advancementSource || r.schedulingStrategy === 'ELIMINATION'
+  );
 
   const fetched = (
     selectedRoundId === null
@@ -126,7 +132,12 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
   // complete some would be a lie.
   const notice = exclusionNotice(rounds, scoringStrategy);
 
-  if (!race || (leaderboard.length === 0 && !stillLoading) || (!hasResults && !stillLoading)) {
+  // Empty overall standings only take over the whole page when there is
+  // nothing else to offer. A race run entirely as an elimination round has
+  // an empty aggregate *by design* — its heats are excluded — and hiding the
+  // round selector here made the round's own standings unreachable.
+  const nothingHere = leaderboard.length === 0 || !hasResults;
+  if (!race || (nothingHere && !stillLoading && selectableRounds.length === 0)) {
     return (
       <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
         <p>{notice ?? 'No results yet. Complete some heats to see standings!'}</p>
@@ -135,8 +146,14 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
   }
 
 
-  const scoreLabel = scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
+  const isEliminationRound = selectedRound?.schedulingStrategy === 'ELIMINATION';
+  const scoreLabel = isEliminationRound
+    ? 'Losses'
+    : scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
   const formatScore = (score: number, strategy: string) => {
+    if (isEliminationRound) {
+      return `${Math.round(score)}`;
+    }
     if (strategy === 'TIMED') {
       return `${score.toFixed(3)}s`;
     }
@@ -190,10 +207,16 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
               Slowest car first — the last one down the track wins.
             </span>
           )}
+          {isEliminationRound && (
+            <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'normal', color: '#666' }}>
+              Lose {selectedRound?.eliminationLosses ?? 3} heats and you&apos;re
+              out — the last car left wins.
+            </span>
+          )}
         </h2>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        {championshipRounds.length > 0 && (
+        {selectableRounds.length > 0 && (
           <select
             aria-label="Standings scope"
             value={selectedRoundId ?? ''}
@@ -201,7 +224,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
             style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid #ccc' }}
           >
             <option value="">Overall (preliminary rounds)</option>
-            {championshipRounds.map((r) => (
+            {selectableRounds.map((r) => (
               <option key={r.id} value={r.id}>{roundLabel(r)}</option>
             ))}
           </select>
@@ -247,7 +270,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         </div>
       </div>
 
-      {selectedRoundId === null && championshipRounds.length > 0 && (
+      {selectedRoundId === null && selectableRounds.length > 0 && (
         <div style={{
           marginBottom: '12px',
           padding: '10px 14px',
@@ -262,6 +285,11 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         </div>
       )}
 
+      {nothingHere && !stillLoading ? (
+        <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
+          <p>{notice ?? 'No results yet for this view. Pick a round above, or complete some heats.'}</p>
+        </div>
+      ) : (
       <div style={{
         background: '#fff',
         borderRadius: '8px',
@@ -332,6 +360,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
           </tbody>
         </table>
       </div>
+      )}
 
       <div style={{
         marginTop: '10px',
@@ -339,7 +368,9 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         color: '#666',
         textAlign: 'center'
       }}>
-        {selectedRound?.advancementFromBottom
+        {isEliminationRound
+          ? 'A loss is any heat a car does not win. Cars still racing are listed first.'
+          : selectedRound?.advancementFromBottom
           ? scoringStrategy === 'TIMED'
             ? 'Higher average time wins this round'
             : 'Higher total points win this round (1st place = 1 point, 2nd = 2 points, etc.)'
