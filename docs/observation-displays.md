@@ -144,8 +144,9 @@ The six views a screen can show, and how assignment behaves, are in
 
 > [!NOTE]
 > Assigning the **Awards ceremony** to a screen puts the ceremony on it, and
-> that one waits for you — it does not advance on its own. See the
-> [Awards guide](awards.md#announcing-them).
+> that one waits for you — it does not advance on its own. When the ceremony
+> is over, pick any other view from the same dropdown and the screen comes
+> back. See the [Awards guide](awards.md#announcing-them).
 
 ### If you never open that list
 

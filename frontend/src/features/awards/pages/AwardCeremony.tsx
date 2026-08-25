@@ -10,16 +10,43 @@
  * `deltaForKey` too.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useQuery } from 'urql';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useSubscription } from 'urql';
 import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
 import { RACE_AWARDS_QUERY } from '../graphql/queries';
+import { displayId } from '../../observation/displayIdentity';
+import { DisplayAssignmentSubscription } from '../../observation/graphql/queries';
 
 export default function AwardCeremony() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
+  const navigate = useNavigate();
   const [index, setIndex] = useState(0);
+
+  // Stay on the operator's leash. A screen arrives here because it was
+  // *assigned* the ceremony, and the observation page's redirect closed the
+  // subscription that assignment travelled over — so without this, the row
+  // on the Displays panel went "Not connected" and the screen could never be
+  // told anything again: the one state the feature promises cannot happen.
+  // Holding the same subscription here keeps the screen present, and an
+  // assignment to any other view sends it back to the observation page to
+  // carry it out.
+  const thisDisplayId = useMemo(() => displayId(), []);
+  const [assignmentResult] = useSubscription({
+    query: DisplayAssignmentSubscription,
+    variables: { displayId: thisDisplayId, raceId: id },
+    pause: !id,
+  });
+  const assignment = assignmentResult.data?.displayAssignment ?? null;
+  useEffect(() => {
+    // `assigned`, not merely a payload: every connected screen receives one
+    // carrying the default view, and acting on it would march a ceremony
+    // somebody opened by hand off to the standings.
+    if (assignment?.assigned && assignment.view !== 'AWARDS') {
+      navigate(`/race/${id}/observation`, { replace: true });
+    }
+  }, [assignment, id, navigate]);
 
   const [result] = useQuery({
     query: RACE_AWARDS_QUERY,
