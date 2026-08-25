@@ -61,11 +61,11 @@ def _scoring_heats(db: Session, race_id: int, round_id: int | None, scope: str) 
     if elimination_ids:
         heats = [h for h in heats if h.round_id not in elimination_ids]
 
-    prelim_round_ids = {
-        r.id
-        for r in rounds
-        if r.advancement_source is None and r.id not in elimination_ids
-    }
+    # An elimination round has no `advancement_source`, so it would qualify
+    # here — but its heats are already gone from `heats` above, which is the
+    # filter that matters. Repeating the exclusion in this set changes no
+    # answer, so it is not repeated.
+    prelim_round_ids = {r.id for r in rounds if r.advancement_source is None}
     if not prelim_round_ids:
         return heats
     return [h for h in heats if h.round_id in prelim_round_ids]

@@ -367,6 +367,43 @@ class TestTheRound:
         board = scoring.get_leaderboard(db, race.id)
         assert all(entry["heats_completed"] == 0 for entry in board)
 
+    def test_an_all_elimination_race_has_no_aggregate_standings(self, db):
+        """The PRELIM fallback ("no prelim rounds — use every heat") must not
+        resurrect elimination heats: their heat counts are uneven by design,
+        and an average over them rewards being knocked out early."""
+        from backend.services import scoring
+
+        race, ids, round_obj = _elimination_round(
+            db, "Only Elim Derby", racer_count=4, max_losses=1
+        )
+        for _ in range(20):
+            pending = _pending_heats(db, round_obj.id)
+            if not pending:
+                break
+            for heat in pending:
+                _run_heat(db, heat, ids)
+
+        board = scoring.get_leaderboard(db, race.id)
+        assert all(entry["heats_completed"] == 0 for entry in board)
+
+    def test_a_deleted_pending_wave_does_not_complete_the_round(self, db):
+        """`is_round_complete` must ask whether a winner exists, not just
+        whether every scheduled heat is finished. The one way to reach "all
+        finished, nobody decided, nothing pending" is the operator deleting
+        the pending wave — and a championship round downstream must not
+        fill itself from a race in that state."""
+        race, ids, round_obj = _elimination_round(
+            db, "Deleted Wave Elim Derby", racer_count=4, max_losses=2
+        )
+        for heat in _pending_heats(db, round_obj.id):
+            _run_heat(db, heat, ids)
+        pending = _pending_heats(db, round_obj.id)
+        assert pending
+        for heat in pending:
+            crud.delete_heat(db, heat.id)
+
+        assert not crud.is_round_complete(db, round_obj.id)
+
     def test_the_rounds_own_standings_read_survival(self, db):
         from backend.services import scoring
 
