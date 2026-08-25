@@ -11,6 +11,7 @@ from typing import Any, TypedDict
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models
+from backend.services import records
 
 DNF_PENALTY = 9.999
 
@@ -173,6 +174,11 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
             dens,
         ),
         "heat_results": _compute_heat_results(heats_with_rounds, racer_map),
+        # The record belongs to the track, not the race: every race ever run
+        # on it competes. A race with no track has nothing to hold a record.
+        "track_records": (
+            records.track_records(db, race.track_id) if race.track_id else []
+        ),
     }
 
 

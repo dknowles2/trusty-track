@@ -77,6 +77,15 @@ interface HeatResultRow {
   place: number | null;
 }
 
+interface TrackRecord {
+  timeSeconds: number;
+  racerName: string;
+  carNumber: number | null;
+  raceId: number;
+  raceName: string;
+  raceDate: string | null;
+}
+
 interface RaceStatsData {
   raceId: number;
   raceName: string;
@@ -89,6 +98,15 @@ interface RaceStatsData {
   highlights: HeatHighlight[];
   denStats: DenStat[];
   heatResults: HeatResultRow[];
+  trackRecords: TrackRecord[];
+}
+
+/** "Mar 14, 2026" from the race's stored date, or nothing if it has none. */
+function recordDate(raceDate: string | null): string | null {
+  if (!raceDate) return null;
+  const d = new Date(raceDate);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 // ---- CSV helpers ----
@@ -359,6 +377,78 @@ export default function RaceStats() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Track Record — the fastest cars this track has ever seen,
+              across every race run on it. Absent when the race has no track
+              or nothing has been recorded on it yet. */}
+          {stats.trackRecords.length > 0 && (
+            <div className="race-stats__section" data-testid="track-record-section">
+              <h2 className="race-stats__section-title">Track Record</h2>
+              <div className="race-stats__highlights">
+                <div className="race-stats__highlight-card race-stats__highlight-card--record">
+                  <div className="race-stats__highlight-type">
+                    Track Record
+                    {stats.trackRecords[0].raceId === stats.raceId && (
+                      <span className="race-stats__record-badge">Set at this event!</span>
+                    )}
+                  </div>
+                  <div className="race-stats__highlight-value">
+                    {stats.trackRecords[0].timeSeconds.toFixed(3)}s
+                  </div>
+                  <div className="race-stats__highlight-sub">
+                    {stats.trackRecords[0].racerName}
+                    {stats.trackRecords[0].carNumber != null && (
+                      <span> (Car #{stats.trackRecords[0].carNumber})</span>
+                    )}
+                    {' — '}
+                    {stats.trackRecords[0].raceName}
+                    {recordDate(stats.trackRecords[0].raceDate) && (
+                      <span>, {recordDate(stats.trackRecords[0].raceDate)}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {stats.trackRecords.length > 1 && (
+                  <table className="race-stats__table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>Time</th>
+                        <th>Racer</th>
+                        <th>Car #</th>
+                        <th>Race</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.trackRecords.map((tr, i) => (
+                        <tr key={i}>
+                          <td>{i + 1}</td>
+                          <td className="mono" style={{ fontWeight: i === 0 ? 'bold' : undefined }}>
+                            {tr.timeSeconds.toFixed(3)}s
+                          </td>
+                          <td>
+                            {tr.racerName}
+                            {tr.raceId === stats.raceId && (
+                              <span className="race-stats__record-badge">This event</span>
+                            )}
+                          </td>
+                          <td>{tr.carNumber ?? '—'}</td>
+                          <td style={{ color: '#666' }}>
+                            {tr.raceName}
+                            {recordDate(tr.raceDate) && <span>, {recordDate(tr.raceDate)}</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+              )}
+              <p className="race-stats__record-note">
+                The fastest run each car has recorded on this track, across
+                every race run on it. Correcting a time moves the record;
+                deleting a race removes the records it set.
+              </p>
             </div>
           )}
 

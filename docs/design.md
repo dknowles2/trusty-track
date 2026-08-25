@@ -151,7 +151,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `initialConfig()` — Initial configuration status (group + track).
 -   `rounds(raceId)` — List rounds for a race.
 -   `advancementStatus(raceId, roundId)` — Check round advancement eligibility.
--   `raceStats(raceId)` — Lane fairness, per-racer aggregates, top moments, den comparison.
+-   `raceStats(raceId)` — Lane fairness, per-racer aggregates, top moments, den comparison, and the track's all-time records (`trackRecords`: the fastest cars across every race on this race's track, computed on read by `services/records.py`).
 -   `timerStatus(trackId)` — Device state for a track's timer.
 -   `displays(raceId)` — Audience displays known for this race, connected or not. Presence is in-memory (see below), so this is not a database read.
 -   `timerModels()` — The timer models an operator can pick from, with the provenance of each profile. The fake timer is deliberately absent: it is reachable by `timer_type`, and offering it as a *model* would let a track ask for a fake timer over a real serial port.

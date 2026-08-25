@@ -79,6 +79,24 @@ _The Top Moments section highlights the fastest heat of the day and the closest 
 
 ---
 
+## Track Record
+
+The Track Record section looks beyond today: the fastest cars this track
+has **ever** seen, across every race run on it.
+
+- The card shows the record — the time, who set it, and at which event.
+- The table below lists the five fastest cars of all time.
+- A record set at **today's** event gets a gold badge. Beating a record
+  that has stood since last year is worth announcing.
+
+![The track record section](assets/screenshots/race-stats/09-track-record.png)
+_The track record card, with the all-time list beneath it._
+
+Exactly what counts toward a record is in
+[Stats and exports](reference/stats-and-exports.md#the-track-record).
+
+---
+
 ## Den Comparison
 
 The Den Comparison section shows how each den performed as a group — useful for pack leadership who want to recognize standout dens at the awards ceremony.

@@ -82,6 +82,7 @@ backend/
     backup.py         # The install as one zip, and putting it back
     scoring.py        # Leaderboard and advancement, wired to the DB
     stats.py          # Race statistics
+    records.py        # Track records: fastest cars per track, across races
     image_processing.py
     timer/
       manager.py      # TimerManager: one per track; state machine + result recording
@@ -496,6 +497,12 @@ Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` 
 **A missing placement must never be a reward under `POINTS`** ([#225](https://github.com/dknowles2/trusty-track/issues/225)). `POINTS` sums, so a racer with fewer placements scores *better* — the failure #26 keeps arriving by new routes. Four routes are now closed, two ways: a lane outage mid-round (#171) and a latecomer (#172) set `Round.disrupted` and the round is dropped from `POINTS` standings; a **skipped lane** and a **DNF** (a recorded time ≤ 0, which the timer assigns no place) are scored as **last place in their heat** — the racers assigned, not the track's lane count. The penalty routes and the drop routes are different because they are different facts: a penalised lane *exists* and can classify last; a disrupted round has racers who were *scheduled fewer heats*, and there is no lane to penalise. `TIMED` needs neither for a skip — an average is scale-free — and keeps its 9.999 s penalty for a DNF. A lane with a real time but no place stays uncounted: that is a half-finished hand entry, not a scratch.
 
 **A tie shares a rank** ([#226](https://github.com/dknowles2/trusty-track/issues/226)). `rank_key` still breaks ties by racer id so the *order* is deterministic, but `standings_ranks` stamps competition ranks (1, 1, 3) over it — otherwise a tie for a trophy or the last championship slot was resolved by registration order and no screen ever said so. Racers who have not raced keep strictly increasing positions; tying them would make a pre-race leaderboard a wall of rank 1. Advancement and awards still cut by position (`standings[:n]`, `standings[place-1]`), which is unchanged and now *visible*: the operator sees the shared rank and settles it with a race-off or a corrected time.
+
+### Track records
+
+`services/records.py`, carried on `raceStats` as `trackRecords` and shown on the Stats page. The fastest cars a track has ever seen: races carry `track_id`, so a track accumulates results across events. One entry per racer at their single best time, capped at five, best first — official heats only, `time_seconds > 0` only (a recorded 0.0 is a DNF marker), and a lane whose racer was deleted has no holder (`_vacate_lanes` cleared its time anyway).
+
+**Computed on every read, never stored** — the same rule as the standings (#17): a corrected time must move the record, and a stored copy would be the first thing able to disagree with the heats it came from. The consequence is documented rather than fought: deleting a race deletes the records it set. The frontend marks entries whose `raceId` equals the current race ("set at this event"); the comparison is client-side, so the payload carries the race id, name and date of each entry. `test_track_records.py` pins all of it.
 
 ### Championship advancement
 

@@ -707,8 +707,13 @@ test('take screenshots', async ({ page, browser }) => {
     await page.screenshot({ path: path.join(screenshotsDir, 'race-stats/04-per-racer-stats.png') });
   }
 
-  // 05: top moments cards
-  const momentsSection = page.locator('.race-stats__highlights');
+  // 05: top moments cards. Scoped to the Top Moments section — the Track
+  // Record card below uses the same highlights grid, so the bare class
+  // matches twice.
+  const momentsSection = page
+    .locator('.race-stats__section')
+    .filter({ hasText: 'Top Moments' })
+    .locator('.race-stats__highlights');
   if (await momentsSection.isVisible()) {
     await momentsSection.scrollIntoViewIfNeeded();
     await page.waitForTimeout(400);
@@ -721,6 +726,24 @@ test('take screenshots', async ({ page, browser }) => {
     }
   } else {
     await page.screenshot({ path: path.join(screenshotsDir, 'race-stats/05-top-moments.png') });
+  }
+
+  // 09: the track record section — the fastest cars this track has ever
+  // seen. In this seeded world there is only this race on the track, so
+  // every entry is from it and the hero card carries its badge.
+  const recordSection = page.getByTestId('track-record-section');
+  if (await recordSection.isVisible()) {
+    await recordSection.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(400);
+    const recordBox = await recordSection.boundingBox();
+    if (recordBox) {
+      await page.screenshot({
+        path: path.join(screenshotsDir, 'race-stats/09-track-record.png'),
+        clip: { x: 0, y: recordBox.y - 10, width: 1200, height: recordBox.height + 20 }
+      });
+    }
+  } else {
+    await page.screenshot({ path: path.join(screenshotsDir, 'race-stats/09-track-record.png') });
   }
 
   // 06: den comparison section

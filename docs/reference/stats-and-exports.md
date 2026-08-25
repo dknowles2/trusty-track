@@ -46,6 +46,26 @@ everyone-in-every-lane round, where every car has run every lane.
 Each den's average score as a bar in the den's colour, with racer count and
 the den's best performer in the table.
 
+### The track record
+
+The fastest cars a track has ever seen — across **every race run on it**,
+not just today's. The rules:
+
+- One entry per car, at its single best run. The list is the five fastest
+  cars, not the five fastest runs, or one good car would fill it.
+- Only real results count: official heats with a recorded time. A
+  [free race](../free-race.md) heat is an exhibition run, and a car that
+  started but never finished has no time to enter.
+- **A record is worked out fresh on every look, never stored** — the same
+  rule as the standings. Correcting a time moves the record, and deleting a
+  race removes the records it set, along with the results themselves.
+- Each entry names the race that set it. Entries from today's event are
+  marked, which is how the page can say a record was just broken.
+- The record belongs to the track, so a race with no track has none — and
+  times from the [fake timer](../fake-timer.md) are made up, so a track
+  that ran on it holds made-up records. The practice race uses a track of
+  its own, which keeps rehearsal times off your real track's list.
+
 ## The CSV exports
 
 All three open in Excel, Google Sheets, or any spreadsheet.
