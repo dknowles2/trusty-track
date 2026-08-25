@@ -237,7 +237,7 @@ own the moment they are decided.
 
 The three ways a general round can be raced — every lane for everyone,
 balanced, elimination — are compared side by side in
-[Scoring & Championships](scoring-and-championships.md#three-ways-to-race-a-round);
+[Scoring & Championships](scoring-and-championships.md#choosing-how-a-round-is-raced);
 the sections below show how to set up each one.
 
 ### Balanced Racing
@@ -472,7 +472,7 @@ _The Stats page part-way through the race, with heats completed and lane fairnes
 
 When the last qualifying heat is recorded, Trusty Track works out who has made the championship round and shows a summary of them. Click **Start Next Round** to move on. The summary appears because a championship round was waiting to be filled — if you did not configure one, there is nothing to decide and no summary appears.
 
-The championship round schedule is generated automatically based on who qualified — only the top racers from the qualifying round are included. How the field is chosen, what happens when a time is corrected afterwards, and what happens when a qualifier withdraws are all in [Scoring & Championships](scoring-and-championships.md#championship-rounds).
+The championship round schedule is generated automatically based on who qualified — only the top racers from the qualifying round are included. How the racers are chosen, what happens when a time is corrected afterwards, and what happens if a qualifier leaves early are all in [Scoring & Championships](scoring-and-championships.md#championship-options).
 
 ![Round Completion — Advancement Summary](assets/screenshots/race-day/16-round-completion-modal.png)
 _When the field for a championship round is decided, the summary lists the racers who advance, with their finishing scores._
@@ -517,7 +517,7 @@ _The standings show rank, car number, name, den, heats completed, and average ti
 > **A tie shares a rank** — 1st, 1st, 3rd. The app deliberately does not
 > break a tie for you; settle it with a race-off or a corrected time from
 > the [result editor](#correcting-a-result). See
-> [ties](scoring-and-championships.md#ties-share-a-rank).
+> [ties](scoring-and-championships.md#when-two-cars-tie).
 
 ---
 
@@ -535,7 +535,7 @@ What happens depends on how far that round has got:
 | Part-way through | Every recorded time is kept, and heats are added at the end for the newcomer |
 | Finished | Left alone. They start from the next round you create |
 
-The middle case is the interesting one. The newcomer gets one heat in each lane, the same spread everybody else got, because lanes are not equal and that is what the schedule exists to even out. The other lanes of those extra heats have to hold somebody, so a few racers run once more than their peers — which a timed race shrugs off and a points-scored race cannot, so in a points race that round is [left out of the standings](scoring-and-championships.md#what-counts-toward-the-standings) and the standings page says so. Same rule as [a lane going out of service](hardware-timer.md#if-a-lane-stops-working), for the same reason.
+The middle case is the interesting one. The newcomer gets one heat in each lane, the same spread everybody else got, because lanes are not equal and that is what the schedule exists to even out. The other lanes of those extra heats have to hold somebody, so a few racers run once more than their peers — which a timed race shrugs off and a points-scored race cannot, so in a points race that round is [left out of the standings](scoring-and-championships.md#what-the-standings-page-shows) and the standings page says so. Same rule as [a lane going out of service](hardware-timer.md#if-a-lane-stops-working), for the same reason.
 
 > [!TIP]
 > If somebody is checked in and shows **No heats** on the roster, they arrived after the round they would have been in had already finished. Create the next round and they will be in it.
