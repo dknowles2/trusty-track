@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { behaviourFor, readUrl, resolveView, VIEW_OPTIONS } from './displayView';
+import { behaviourFor, readUrl, resolveView, VIEW_OPTIONS, viewCycles } from './displayView';
 
 const url = (query = '') => readUrl(new URLSearchParams(query));
 
@@ -118,5 +118,26 @@ describe('VIEW_OPTIONS', () => {
 
     it('labels each one', () => {
         for (const option of VIEW_OPTIONS) expect(option.label).toBeTruthy();
+    });
+
+    it('marks exactly the views that advance on a settable timer', () => {
+        // The seconds control on the Displays panel follows this flag. The
+        // slideshow missing from it was the bug: it cycled at an interval
+        // nothing offered to change.
+        expect(
+            VIEW_OPTIONS.filter((o) => o.cycles)
+                .map((o) => o.view)
+                .sort(),
+        ).toEqual(['CYCLE', 'SLIDESHOW']);
+    });
+
+    it('viewCycles reads the same flag', () => {
+        expect(viewCycles('SLIDESHOW')).toBe(true);
+        expect(viewCycles('CYCLE')).toBe(true);
+        expect(viewCycles('STANDINGS')).toBe(false);
+        // The ceremony is paced by a person; the projector's overlay timing
+        // is its own, not the operator's.
+        expect(viewCycles('AWARDS')).toBe(false);
+        expect(viewCycles('PROJECTOR')).toBe(false);
     });
 });

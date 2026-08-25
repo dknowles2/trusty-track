@@ -108,12 +108,28 @@ export function resolveView(
     };
 }
 
-/** The choices the operator is offered, in the order they are offered. */
-export const VIEW_OPTIONS: readonly { view: DisplayView; label: string }[] = [
-    { view: 'STANDINGS', label: 'Standings' },
-    { view: 'TIMING', label: "Last heat's times" },
-    { view: 'CYCLE', label: 'Cycle between both' },
-    { view: 'PROJECTOR', label: 'Projector' },
-    { view: 'SLIDESHOW', label: 'Racer photos' },
-    { view: 'AWARDS', label: 'Awards ceremony' },
+/**
+ * The choices the operator is offered, in the order they are offered.
+ *
+ * `cycles` marks the views that advance on a timer the operator can set —
+ * the tab cycle and the photo slideshow. The seconds control on the
+ * Displays panel reads this rather than naming views, so a future view
+ * that cycles gets its control by declaring it here.
+ */
+export const VIEW_OPTIONS: readonly {
+    view: DisplayView;
+    label: string;
+    cycles: boolean;
+}[] = [
+    { view: 'STANDINGS', label: 'Standings', cycles: false },
+    { view: 'TIMING', label: "Last heat's times", cycles: false },
+    { view: 'CYCLE', label: 'Cycle between both', cycles: true },
+    { view: 'PROJECTOR', label: 'Projector', cycles: false },
+    { view: 'SLIDESHOW', label: 'Racer photos', cycles: true },
+    { view: 'AWARDS', label: 'Awards ceremony', cycles: false },
 ];
+
+/** Whether a view advances on a timer whose interval the operator can set. */
+export function viewCycles(view: DisplayView): boolean {
+    return VIEW_OPTIONS.some((option) => option.view === view && option.cycles);
+}
