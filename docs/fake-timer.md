@@ -1,8 +1,8 @@
 # Using the Fake Timer
 
-Trusty Track includes a **Fake Timer** system that allows you to simulate race events (starting a race, finishing a race, and generating results) without needing physical hardware connected. This is ideal for testing the software, running simulations, or managing manual races where you simply want to record random results for verifying the system flow.
+Trusty Track includes a **Fake Timer** — a pretend timer that starts heats and makes up finishing times, no hardware needed. It is ideal for a practice run the night before, trying the software out, or a race where you plan to type the times in by hand anyway.
 
-## 1. Configuration
+## 1. Choosing the Fake Timer
 
 To enable the Fake Timer, navigate to the **System Settings** page (shown automatically on first run, or reachable from the **Settings** gear in the top-right corner).
 
@@ -10,11 +10,11 @@ To enable the Fake Timer, navigate to the **System Settings** page (shown automa
 2.  Select **Fake Timer (Manual Control)**.
 3.  Click **Save Settings**.
 
-![System Configuration with Fake Timer selected](assets/screenshots/getting-started/02-system-settings.png)
+![System Settings with Fake Timer selected](assets/screenshots/getting-started/02-system-settings.png)
 
 ## 2. Running a Race with Fake Timer
 
-Once configured, open the **Race Control** page for a race and switch to the **Race** view.
+With the Fake Timer chosen, open the **Race Control** page for a race and switch to the **Race** view.
 
 When you enter a heat, you will see the **Fake Timer Controls** panel docked in the bottom right corner of the screen.
 
@@ -23,9 +23,9 @@ When you enter a heat, you will see the **Fake Timer Controls** panel docked in 
 1.  **Prepare the Heat**: Ensure racers are assigned to lanes. The status will show "Waiting for Timer...".
 2.  **Start the Timer**: Click the **Start Timer** button (the one with the green arrow) on the control panel.
     *   The race status will change to **"Racing..."** and the elapsed time counter will start running.
-    *   This simulates the hardware gate opening.
+    *   This stands in for the real start gate opening.
 3.  **Finish the Heat**: The heat finishes on its own a few seconds after it starts. To end it sooner, click the red **Finish Heat** button.
-    *   The system will generate random race times for all racers, between 3 and 4 seconds each.
+    *   Every racer gets a made-up time between 3 and 4 seconds.
     *   The results will be saved and displayed immediately.
     *   The heat is marked as complete.
 

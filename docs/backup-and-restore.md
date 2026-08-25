@@ -79,12 +79,12 @@ one.
 
 A zip, if you want to look inside:
 
-- `trusty-track.db` — the database, snapshotted through SQLite's own backup
-  mechanism so it is consistent even if the timer recorded a heat mid-backup
+- `trusty-track.db` — everything about the race: racers, heats, results,
+  settings. It is captured safely even if the timer records a heat mid-backup.
 - `uploads/` — the racer and car photographs
-- `manifest.json` — when it was taken, which version took it, and which schema
-  it holds
+- `manifest.json` — when the backup was taken and which version of Trusty
+  Track took it
 
-The photos are stored separately from the database and referenced by name, which
-is why they travel together. A database on its own would restore an event whose
-pictures were all missing.
+The photos are stored separately from the results file and matched up by name,
+which is why they travel together. The results on their own would restore an
+event whose pictures were all missing.

@@ -2,7 +2,7 @@
 
 A **free race** is a heat that runs on the timer and shows on the audience
 display, but counts for nothing. It is invisible to standings, scheduling,
-advancement and statistics, so it cannot disturb the event.
+championships and statistics, so it cannot disturb the event.
 
 Use it for:
 
@@ -103,7 +103,7 @@ A free race heat is excluded from:
 - **Standings** and the live leaderboard
 - **Race statistics** — lane fairness, per-racer averages, top moments
 - **Heat scheduling** — it is not part of any round
-- **Championship advancement** — a fast free race does not qualify anybody
+- **Championship places** — a fast free race does not qualify anybody
 
 That exclusion is the whole point of the mode. If you want a run that *does*
 count, add a round from the **Schedule** tab instead.

@@ -535,7 +535,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          Field out of date
+                          Line-up out of date
                         </span>
                       )}
                     </div>

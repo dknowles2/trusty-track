@@ -22,7 +22,7 @@ For most people, connecting a timer is four steps:
 4. When it says **Ready**, you are done.
 
 Everything else on this page is for when that did not work, or your setup is
-different: the timer plugs into your laptop instead of the server, your model
+different: the timer plugs into your laptop instead of the machine running Trusty Track, your model
 has to be picked by hand, your track has a remote-controlled start gate, or a
 lane dies on the morning of the event.
 
@@ -68,7 +68,7 @@ running Trusty Track — typically the Raspberry Pi at the venue. This is the
 setup to prefer when you have the choice: nothing depends on which laptop is
 open or which browser it runs.
 
-Leave **Serial Port** blank. When the server starts it checks each USB socket
+Leave **Serial Port** blank. When Trusty Track starts it checks each USB socket
 in turn, asks whatever is plugged in to identify itself, and connects to the
 one that answers. You do not need to know anything about ports or paths.
 
@@ -88,7 +88,7 @@ along. Nothing extra to install.
 > Safari and Firefox do not have it.
 
 The browser asks you to pick the serial port the first time. After that, the
-server identifies the timer exactly as it does when plugged in directly, so
+software identifies the timer exactly as it does when plugged in directly, so
 you do not have to tell it which model you have. If nothing recognisable
 answers, it takes about ten seconds to work through the models it knows before
 falling back to assuming a Micro Wizard.
@@ -180,7 +180,7 @@ out of the untested column.
 ## Choosing the model yourself
 
 Most people never touch this. Leave **Timer Model** on *Detect automatically*
-and the server asks each timer it knows about who it is, which works for seven
+and Trusty Track asks each timer it knows about who it is, which works for seven
 of the eight models. Pick one yourself when:
 
 - **Yours is the NewBold family.** It never announces itself, so it can only

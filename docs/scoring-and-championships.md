@@ -132,7 +132,7 @@ immediately.
 - **Fixing a time fixes the final.** Correct a result from earlier in the
   day, and any championship round that has not yet been raced re-picks its
   cars from the corrected results. One that has *already* been raced is
-  never quietly rewritten — the schedule shows a **Field out of date** badge
+  never quietly rewritten — the schedule shows a **Line-up out of date** badge
   so you can decide what to do, which beats discovering it after the
   trophies.
 - **If a qualifier leaves early**, un-check them at the check-in screen and

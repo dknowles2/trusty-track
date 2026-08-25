@@ -157,7 +157,7 @@ Wolf" trophy about who won._
 
 Three things worth knowing:
 
-- **The standings are the preliminary rounds only**, and the sheet says so. A
+- **The standings are the qualifying rounds only**, and the sheet says so. A
   championship's placings are a consequence of these rather than part of them
   (see [scoring](race-day.md#part-5-final-standings)), and the trophies
   for it are in the awards table at the top.

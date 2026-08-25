@@ -8,7 +8,7 @@ Trusty Track is designed to make running a Pinewood Derby race smooth and enjoya
 
 ## 2. Opening the App
 
-Trusty Track runs directly in your web browser. Once the software is started, you can access it by navigating to the URL provided by your administrator. On the machine running the software that is usually `https://localhost:8000` — the [installation guide](user/install.md) for your platform gives the exact address, which differs by a port number between installs.
+Trusty Track runs in your web browser. Once it is started, open it by typing its address into the browser — ask whoever set it up, or, on the machine running Trusty Track itself, it is usually `https://localhost:8000`. The [installation guide](user/install.md) for your platform gives the exact address, which differs a little between install methods.
 
 Multiple volunteers can open the app on different devices simultaneously to handle different tasks, such as check-in or race monitoring.
 
@@ -23,7 +23,7 @@ The first time you launch Trusty Track, or when you need to adjust your organiza
 
 - **Organization Name**: The name of your Cub Scout Pack, school, or group (e.g., "Pack 123").
 
-### Track Configuration
+### Setting Up Your Track
 
 Trusty Track needs to know about your physical race track:
 
@@ -42,7 +42,7 @@ Click **Save Settings** to apply your changes.
 
 Before your first real event, **Try a practice race** on the Home page builds a
 whole rehearsal in one click: a dozen racers with photographs, sorted into
-dens, all checked in, a preliminary round and a final — on a fake timer, so no
+dens, all checked in, a qualifying round and a final — on a fake timer, so no
 hardware is involved. It drops you straight onto Race Control with the first
 heat ready to start.
 

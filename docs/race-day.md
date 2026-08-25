@@ -193,7 +193,7 @@ _Step 1: choose the qualifying round type. "All Pack" is the most common choice.
 Add one or more championship rounds. For each championship round, configure:
 
 - **Round Name** (e.g., "Grand Finals")
-- **Advancement Source**: **Top Overall (Pack)** or **Top per Den**
+- **Who advances**: **Top Overall (Pack)** or **Top per Den**
 - How many advance — the box is labelled **Number of Finalists** for Top Overall, and **Advancing per Den** for Top per Den
 - **Runs Per Lane** for this round — the finalists race the whole round again for each run, which is worth it when a final is close enough that one heat should not decide it
 
@@ -319,8 +319,8 @@ A few things it quietly gets right:
 -   The round's results page reads the way the room does: the slowest car is
     listed first, because the last one down the track is the winner. Standings
     for the rest of the race are not affected.
--   If a time in an earlier round is corrected, the field updates itself, the
-    same way a championship round's does.
+-   If a time in an earlier round is corrected, who is in it updates itself,
+    the same way a championship round's line-up does.
 
 ![Slowest Race standings, slowest car first](assets/screenshots/race-day/26-slowest-race-standings.png)
 _The Standings page showing a Slowest Race round: the slowest car is listed
@@ -436,8 +436,8 @@ To completely re-run a heat, click **Re-Run** — this clears the results and re
 Correcting a qualifying time re-decides who advances. A championship round
 that has **not** been raced yet is re-filled automatically. One that **has**
 been raced is left alone — its results are real and nothing will silently wipe
-them — and instead shows **Field out of date** on the schedule: the field was
-drawn from standings that have since changed. Whether to re-run it or let the
+them — and instead shows **Line-up out of date** on the schedule: its racers were
+picked from standings that have since changed. Whether to re-run it or let the
 result stand is your call.
 
 ---
@@ -474,8 +474,8 @@ When the last qualifying heat is recorded, Trusty Track works out who has made t
 
 The championship round schedule is generated automatically based on who qualified — only the top racers from the qualifying round are included. How the racers are chosen, what happens when a time is corrected afterwards, and what happens if a qualifier leaves early are all in [Scoring & Championships](scoring-and-championships.md#championship-options).
 
-![Round Completion — Advancement Summary](assets/screenshots/race-day/16-round-completion-modal.png)
-_When the field for a championship round is decided, the summary lists the racers who advance, with their finishing scores._
+![The summary shown when a championship round's racers are decided](assets/screenshots/race-day/16-round-completion-modal.png)
+_When a championship round's racers are decided, the summary lists who made it, with their scores._
 
 Run the championship heats the same way as the qualifying round. Championship results determine final placement.
 
@@ -497,14 +497,14 @@ trophy winners on one page for the noticeboard or the newsletter — see
 For the ceremony itself, use the [Awards](awards.md) page instead. It holds the trophies you are handing out — the speed ones worked out from these standings, and the judged ones like Best Paint — and **Present** puts them on a projector one at a time, paced by whoever is holding the microphone.
 
 If the race has a championship round, a selector appears above the table. Use it
-to switch between **Overall (preliminary rounds)** and any one championship
+to switch between **Overall (qualifying rounds)** and any one championship
 round. A race with no championship rounds has nothing to switch between, so no
 selector appears. A [Slowest Race](#the-slowest-race) round is shown slowest
 car first — the page says so above the table — because in that round the last
 one down the track wins.
 
 > [!NOTE]
-> Overall standings cover the **preliminary** rounds only — a championship
+> Overall standings cover the **qualifying** rounds only — a championship
 > field is picked *from* those standings, so a final's times never feed back
 > into them. Championship results are shown by selecting that round. The
 > full rules — what counts, what a tie means, why some rounds are left out —
@@ -557,7 +557,7 @@ Click **Edit** on the completed heat in the Race Execution view to manually corr
 
 ### We need to run a practice heat that doesn't count
 
-Use **Free Race**. A free race heat runs on the timer and appears on the audience display like any other, but it is invisible to standings, scheduling, advancement and statistics — so it cannot disturb the event.
+Use **Free Race**. A free race heat runs on the timer and appears on the audience display like any other, but it is invisible to standings, schedules, championships and statistics — so it cannot disturb the event.
 
 It is the right tool for a shake-down run before doors open, a parent's or sibling's car, a demonstration for a scout who wants to see the track work, and the fun heats at the end.
 

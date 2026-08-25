@@ -61,7 +61,7 @@ The Per-Racer Stats table shows detailed performance numbers for every racer. Ev
 | **Den** | The den they belong to |
 | **Heats** | Number of heats completed |
 | **Min** | Their single fastest heat time |
-| **Avg** | Their average time across the heats they have run. A car that started but never finished counts as 9.999s, so one bad run does not wipe out a racer's average. In a timed race this is the same measure the standings use — but note this table counts every heat, where the standings cover the preliminary rounds only |
+| **Avg** | Their average time across the heats they have run. A car that started but never finished counts as 9.999s, so one bad run does not wipe out a racer's average. In a timed race this is the same measure the standings use — but note this table counts every heat, where the standings cover the qualifying rounds only |
 | **Max** | Their single slowest heat time |
 | **Std Dev** | How consistent their times were — a low number means very consistent; a high number means variable results. Shown as "—" if fewer than 2 heats are recorded. |
 
