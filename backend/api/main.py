@@ -251,6 +251,18 @@ def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
     )
 
 
+def _require_checkin(request: Request, db: Session) -> None:
+    """Refuse a caller who is not at least the registration desk.
+
+    Weaker than :func:`_require_operator` on purpose: this guards the upload
+    route, whose GraphQL twin ``uploadImage`` is classified as a ``CHECKIN``
+    mutation. Requiring the operator here would be stricter than the mutation
+    that does the same thing, and the desk is exactly who photographs a car.
+    """
+    if _role_for_request(db, request.headers.get(auth.PIN_HEADER)) is auth.Role.VIEWER:
+        raise HTTPException(status_code=403, detail="Check-in PIN required")
+
+
 def _require_operator(request: Request, db: Session) -> None:
     """Refuse anyone but the operator, for a route the role policy cannot see.
 
@@ -568,13 +580,63 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
         await session.close()
 
 
+#: The largest upload this route accepts, in bytes.
+#:
+#: A phone photograph is a few megabytes and a HEIC burst can be more, so the
+#: limit is generous rather than tight — what it exists to stop is a caller
+#: naming their own size. Without it `file.read()` pulls an arbitrary body
+#: straight into memory on a machine with a gigabyte of RAM.
+MAX_UPLOAD_BYTES = 16 * 1024 * 1024
+
+#: How much is read at a time while checking that limit.
+_UPLOAD_CHUNK = 1024 * 1024
+
+
+async def _read_capped(file: UploadFile, limit: int) -> bytes:
+    """Read *file* up to *limit* bytes, refusing anything larger.
+
+    Chunked rather than `await file.read()` and a length check afterwards: the
+    check would happen once the whole body was already in memory, which is the
+    thing being guarded against.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(_UPLOAD_CHUNK):
+        total += len(chunk)
+        if total > limit:
+            raise HTTPException(
+                status_code=413,
+                detail=f"That file is larger than {limit // (1024 * 1024)} MB.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @app.post("/upload/")
-async def upload_file(file: UploadFile = File(...)) -> dict:
-    """Upload a file and return its static URL."""
+async def upload_file(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Upload a file and return its static URL.
+
+    Guarded for itself, like the backup routes and the timer socket: the role
+    policy covers GraphQL mutations and this is not one (#15). At ``CHECKIN``
+    rather than ``OPERATOR`` because its GraphQL twin ``uploadImage`` is a
+    check-in mutation, and photographing a car is the desk's job.
+
+    Nothing in the frontend calls this — images go through ``uploadImage`` as a
+    data URL — but it is a documented endpoint (`docs/design.md` §3.3) and it
+    wrote a permanent file from an unauthenticated request until this check
+    existed. The suite's data directory reached 8,000 files and 3.5 GB before
+    anybody looked at what nothing was deleting; see `tests/conftest.py`.
+    """
+    _require_checkin(request, db)
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is missing")
 
-    raw_bytes = await file.read()
+    raw_bytes = await _read_capped(file, MAX_UPLOAD_BYTES)
     image_bytes = convert_to_browser_safe_png(raw_bytes)
 
     # Use .png extension if conversion happened, otherwise keep original.

@@ -182,7 +182,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 
 **REST Endpoints (binary responses):**
 
--   `POST /upload/` — File upload, returns URL.
+-   `POST /upload/` — File upload, returns URL. Check-in role or above, and capped at 16 MB. It is guarded at the check-in level rather than the operator's because its GraphQL twin `uploadImage` is a check-in mutation and photographing a car is the registration desk's job. Nothing in the frontend calls it — images travel as data URLs through `uploadImage` — but it wrote a permanent file from an unauthenticated, unbounded request until the check existed.
 -   `GET /printables/barcode/{racer_id}.png` and `GET /api/printables/barcode/{racer_id}.png` — the check-in QR code. Registered at both paths because the Vite dev proxy strips the `/api` prefix; the payload is `TT1:<race_id>:<racer_id>`.
 -   `GET /backup` and `GET /api/backup` — the whole install as one zip: a SQLite snapshot, the uploads directory, and a manifest recording the schema revision. Operator-only.
 -   `POST /backup/restore` and `POST /api/backup/restore` — replaces the database and uploads with an archive's copies. Operator-only. Refuses an archive whose schema revision this install has no migrations for, and validates everything before it moves anything.
