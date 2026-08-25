@@ -3,6 +3,14 @@
 > **Not built.** Stages 1 to 4 built one shared, public demo. This proposes a
 > second front door beside it: a landing page that provisions a private,
 > disposable instance for one visitor.
+>
+> **Revised once already, before anything was built.** The first draft
+> reasoned from evaluation comfort and got three things wrong — thirty
+> minutes with a *keep going* button, and lifting the refusals on export
+> and bulk import. All three made it easier for a pack to run a real event
+> on a demo, which is a worse outcome than having no demo at all. See
+> "Never load-bearing". The shared demo already had this right and needed
+> no change.
 
 ## Why, beyond the obvious
 
@@ -15,12 +23,19 @@ The stronger argument is that **the shared demo cannot show most of the app.**
 Stage 1's denylist exists entirely because one visitor can spoil it for
 everyone. Give each visitor their own instance and almost all of it lifts:
 
+**Show the app; do not move data.** That is the rule, and it is sharper than
+"isolation lifts the denylist" — which was this file's first answer and was
+wrong in two places. A refusal that only existed to stop one visitor spoiling
+it for another can go. A refusal that stops the demo becoming a *tool* must
+stay, however private the instance is. See "Never load-bearing" below.
+
 | Refused today | Because | With isolation |
 | --- | --- | --- |
-| `createInitialConfig`, `updateInitialConfig` | a visitor could set a PIN and lock the demo | allow — it is their instance |
-| `populateRace`, `createPracticeRace`, `importRacers` | bulk rows on a shared instance | allow |
-| `uploadImage`, `POST /upload/` | anonymous writes to a shared disk | allow, with caps — see below |
-| `GET /api/backup`, restore | amplification, and replacing everyone's event | allow |
+| `createInitialConfig`, `updateInitialConfig` | a visitor could set a PIN and lock the demo | **allow** — it is their instance, and it is the only way to show the first-run wizard |
+| `populateRace`, `createPracticeRace` | bulk rows on a shared instance | **allow** — and they are what remove any reason to type in real children |
+| `uploadImage`, `POST /upload/` | anonymous writes to a shared disk | **allow**, with caps |
+| `importRacers` | bulk rows on a shared instance | **still refused** — importing a real roster is the first step of using this for real |
+| `GET /api/backup`, restore | amplification, and replacing everyone's event | **still refused** — an export is what would make work done here worth doing |
 
 Two of those are the demo's biggest gaps:
 
@@ -122,21 +137,73 @@ seconds to solve is mostly hidden.
 
 ---
 
+## Never load-bearing
+
+The risk this whole design has to be steered away from: **a pack decides the
+demo is good enough to run their actual event on.**
+
+That would be worse than having no demo. The instance is ephemeral by
+construction — it dies on a restart, on scale-to-zero, on a redeploy — so a
+pack that trusted it would lose their roster with a queue of children at the
+weigh-in table. And this project would be holding real names, real ages and
+real photographs, which is precisely what stages 1 to 4 were built to avoid.
+
+A time limit alone does not prevent it. What prevents it is that **nothing
+built on a demo can be carried out of it**:
+
+- **no export.** `GET /api/backup` stays refused. This is the load-bearing
+  refusal, and the one an earlier draft of this file got wrong: with a download,
+  a pack could reasonably build a roster here and restore it at home, and doing
+  real work on a demo would start making sense to them.
+- **no bulk import.** `importRacers` stays refused, for the mirror reason —
+  it is the first move of somebody setting up for real.
+- **a roster that is invented, not typed.** `populateRace` fills the race in a
+  click, so there is never a reason to enter a real child. Consider capping it
+  well below a real pack's size, so entering one by hand is visibly not the
+  intent.
+- **it says so, everywhere, including on the projector.** A persistent
+  watermark — *Demo. Everything here is deleted within 20 minutes* — on the
+  ordinary chrome **and on the full-screen observation and ceremony views**,
+  which is where it matters most: those are the audience-facing screens, so a
+  pack that tried this on race day would be announcing it to the room. Cheap,
+  and a stronger deterrent than any timeout.
+
+The honest summary for the landing page is short: *this is for looking at, not
+for running your derby on. When you are ready, install it — it is free and it
+runs on a laptop.*
+
+---
+
 ## Decisions
 
-**Thirty minutes, not ten.** A real evaluation means generating a schedule,
-running heats on the fake timer, watching standings fill and advancing a
-championship round. Ten minutes does not cover that, and a hard kill mid-run
-teaches an evaluator the app is flaky rather than that the demo expired. The
-existing idle disconnect (five minutes) is what actually reclaims capacity;
-the wall-clock cap is a backstop, and it should offer *keep going* rather than
-a guillotine.
+**Twenty minutes, hard, and no way to extend it.** An earlier draft of this
+file said thirty with a *keep going* button, argued from evaluation comfort.
+That is the wrong thing to optimise, because the two failure modes are not
+symmetric:
+
+- **too short** — an evaluator is mildly annoyed, reloads, and carries on;
+- **too long, or too comfortable** — a pack tries to run a real event on it and
+  loses their race day, and this project ends up holding real children's names
+  and photographs, which is the exact thing the demo exists to avoid.
+
+The second is catastrophic and the first is not, so bias short. Twenty also
+happens to be what the shared demo already enforces (`SESSION_LIMIT_MS`), and
+one number is worth more than a tuned one. With `createPracticeRace` available
+a genuine evaluation is ten to fifteen minutes of actual clicking anyway.
+
+**The reaper is the enforcement; the client cap is only manners.**
+`demoSession.ts` runs in the visitor's browser and anybody who wants to defeat
+it can. That is fine for the shared demo, whose storage is ephemeral regardless
+— but "never load-bearing" is a promise about the *server*. So the reaper
+deletes the revision on a schedule whatever the client believes, and it should
+run a few minutes *after* the client cap so the overlay appears before the
+connection dies. An explained pause is a better last impression than a 502.
 
 **Uploads are allowed, with caps.** The abuse case is somebody using it as an
-anonymous file host — but the file is served from an instance that dies in
-thirty minutes, which removes most of the value of doing so. Keep the 16 MB
-cap, add a per-instance count, and keep the captcha in front. If that turns out
-to be wrong, refusing uploads again is a one-line change to the denylist.
+anonymous file host — but the file is served from an instance that dies within
+the half hour, which removes most of the value of doing so. Keep the 16 MB cap,
+add a per-instance count, and keep the captcha in front. If that turns out to be
+wrong, refusing uploads again is a one-line change to the denylist.
 
 **Cloudflare Turnstile rather than reCAPTCHA.** Free, and it does not build an
 advertising profile of a parent who wanted to look at a pinewood derby app —
@@ -190,8 +257,10 @@ Stage 1 is the whole risk. Stages 2 to 4 are small.
 - A visitor clicks through a captcha and lands on a working, private instance
   in under twenty seconds.
 - Both modes work: seeded, and genuinely empty at the first-run wizard.
-- A private demo can do everything the shared one refuses, and the shared demo
-  still refuses all of it.
+- A private demo can do everything the shared one refuses **except export and
+  bulk import**, and the shared demo still refuses all of it.
+- There is no route by which work done in a demo can leave it, and the page
+  says so where a visitor cannot miss it.
 - The concurrency cap holds under a deliberate flood, and the reaper leaves no
   orphans across a week.
 - Nothing about the shared demo changed.
