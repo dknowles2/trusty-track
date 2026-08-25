@@ -235,6 +235,27 @@ race the final". If the round it draws from has already finished, the new
 round fills in with the qualifiers straight away; otherwise it fills in on its
 own the moment they are decided.
 
+### The Slowest Race
+
+A crowd favorite: after the serious racing, let the slowest cars have their
+moment. When you add a championship round, choose **The slowest cars** instead
+of the fastest — the round fills itself with the slowest cars from the
+standings, and everything else about running it works exactly like any other
+round.
+
+A few things it quietly gets right:
+
+-   A car that never recorded a time is left out. Not racing is not the same
+    as being slow.
+-   The round's results page reads the way the room does: the slowest car is
+    listed first, because the last one down the track is the winner. Standings
+    for the rest of the race are not affected.
+-   If a time in an earlier round is corrected, the field updates itself, the
+    same way a championship round's does.
+
+Pair it with a judged award (like "Turtle Trophy") on the Awards tab if you
+want to hand out hardware for it.
+
 ---
 
 ### Reordering Heats (Optional)

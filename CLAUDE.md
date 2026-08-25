@@ -156,7 +156,8 @@ Racer           id, race_id, den_id?,
                 car_passed_inspection, racer_image_url, car_image_url
 
 Round           id, race_id, round_number, name, scheduling_strategy,
-                advancement_source, advancement_num_racers, den_id?
+                advancement_source, advancement_num_racers, den_id?,
+                advancement_from_bottom
 
 Heat            id, race_id, round_id?, kind, heat_number,
                 created_at?, recorded_at?
@@ -475,6 +476,8 @@ Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.g
 - `advancement_source = "PACK"` — top N overall
 - `advancement_source = "DEN"` — top N from each den
 - `advancement_source = "ROUND:<id>"` — top N from that round
+
+**`Round.advancement_from_bottom` flips which end of those standings the field comes from — the Slowest Race bracket.** The source vocabulary is deliberately unchanged; `AdvancementRule.from_bottom` reverses the pick in `domain/advancement._picking_order`, slowest first (slot 1 is the slowest car, mirroring slot 1 being the fastest). Two rules ride on it: a racer with no recorded result is never picked (`Standing.has_raced` — the leaderboard sorts the unraced *below* everyone, so the naive bottom of the list is cars that never ran), and the round's standings view is reversed **on display only** (`features/stats/slowestFirst.ts` — the stored leaderboard stays lower-is-better, so anything chaining off the round reads it unchanged). Everything else — invalidation, `should_populate`, `field_is_short`, withdrawal — is direction-agnostic and needed no change. The operator reaches it from the add-round dialog's "Which cars race" control; placeholder slots and the round-summary sentence read "Slowest N" via `AdvancementStatus.fromBottom` and `Round.advancementFromBottom`.
 
 `crud.record_heat_result` cascades: it calls `invalidate_future_rounds` and `trigger_auto_advancements` on **every** heat result.
 

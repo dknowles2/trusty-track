@@ -264,6 +264,10 @@ class AdvancementStatus:
     advancing_racers: list[AdvancementRacer]
     source: str | None
     num_racers: int | None
+    #: The field is drawn from the bottom of the standings — a Slowest Race
+    #: bracket. The screens read this to say "slowest" where they would say
+    #: "top", and nothing else about advancement changes.
+    from_bottom: bool = False
     #: The round was raced, and its field no longer matches who would advance
     #: from the standings as they now are (#229). Invalidation deliberately
     #: leaves a raced round alone when an earlier result is corrected — "a
@@ -323,6 +327,7 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
 
     adv_source = round_obj.advancement_source
     adv_num = round_obj.advancement_num_racers
+    adv_from_bottom = round_obj.advancement_from_bottom
 
     if not requires_advancement:
         # A general round shows the field for whichever championship round comes
@@ -340,10 +345,15 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
             requires_advancement = True
             adv_source = next_round.advancement_source
             adv_num = next_round.advancement_num_racers
+            adv_from_bottom = next_round.advancement_from_bottom
 
     winner_ids: set[int] = set()
     if requires_advancement:
-        winner_ids = set(scoring.get_advancing_racers(db, race_id, adv_source, adv_num))
+        winner_ids = set(
+            scoring.get_advancing_racers(
+                db, race_id, adv_source, adv_num, from_bottom=adv_from_bottom
+            )
+        )
 
     advancing_racers = [
         AdvancementRacer(
@@ -386,6 +396,7 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
         advancing_racers=advancing_racers,
         source=adv_source,
         num_racers=adv_num,
+        from_bottom=adv_from_bottom,
         field_is_stale=field_is_stale,
     )
 
@@ -403,6 +414,10 @@ class Round:
     scheduling_strategy: str
     advancement_source: str | None
     advancement_num_racers: int | None
+    #: A Slowest Race bracket: the field is drawn from the bottom of the
+    #: standings instead of the top, and cars with no recorded result are
+    #: left out. Everything else about a championship round is unchanged.
+    advancement_from_bottom: bool
     #: A lane went out of service part-way through this round (#171). The
     #: racers in the vacated lanes raced fewer times than everybody else, so it
     #: does not count toward `POINTS` standings — see `domain/scoring`.
@@ -778,6 +793,9 @@ class RoundCreateInput:
     advancement_num_racers: int | None = None
     runs_per_lane: int = 1
     general_type: str = "PACK"
+    #: Draw the field from the bottom of the standings — a Slowest Race
+    #: bracket. Only meaningful with an ``advancement_source``.
+    advancement_from_bottom: bool = False
 
 
 @strawberry.input
@@ -2468,7 +2486,11 @@ class Mutation:
         if not round_obj or not round_obj.advancement_source:
             return 0
         winner_ids = scoring.get_advancing_racers(
-            db, race_id, round_obj.advancement_source, round_obj.advancement_num_racers
+            db,
+            race_id,
+            round_obj.advancement_source,
+            round_obj.advancement_num_racers,
+            from_bottom=round_obj.advancement_from_bottom,
         )
         if not winner_ids:
             return 0
@@ -3178,14 +3200,20 @@ class Mutation:
                 return [typing.cast(Any, round_obj)]
             else:
                 # Championship Round (Placeholder)
+                default_name = (
+                    "Slowest Race"
+                    if round_data.advancement_from_bottom
+                    else f"Finals ({round_data.advancement_source})"
+                )
                 round_obj = crud.create_round(
                     db,
                     race_id,
                     next_round_number,
                     models.SchedulingStrategy(round_data.scheduling_strategy),
-                    round_data.name or f"Finals ({round_data.advancement_source})",
+                    round_data.name or default_name,
                     advancement_source=round_data.advancement_source,
                     advancement_num_racers=round_data.advancement_num_racers,
+                    advancement_from_bottom=round_data.advancement_from_bottom,
                 )
 
                 # Placeholder heats, one set per run — same as above (#143).

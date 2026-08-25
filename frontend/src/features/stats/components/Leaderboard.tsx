@@ -4,6 +4,7 @@ import { LeaderboardSubscription } from '../../observation/graphql/queries';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { RoundSummary, exclusionNotice, roundLabel } from '../disruptedRounds';
 import { standingsRows, standingsSuffix } from '../standingsExport';
+import { slowestFirst } from '../slowestFirst';
 import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 
@@ -30,6 +31,7 @@ const GET_LEADERBOARD_METADATA = `
         name
         roundNumber
         advancementSource
+        advancementFromBottom
         disrupted
       }
     }
@@ -99,11 +101,18 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
   const rounds = (race?.rounds || []) as RoundSummary[];
   const championshipRounds = rounds.filter((r) => r.advancementSource);
 
-  const leaderboard = (
+  const fetched = (
     selectedRoundId === null
       ? subscriptionData?.leaderboard || []
       : roundResult.data?.race?.leaderboard || []
   ) as LeaderboardEntry[];
+
+  // A Slowest Race round is read the way the room reads it: the last car
+  // down the track wins, so the slowest recorded car is rank 1. Display
+  // only — the stored standings stay lower-is-better.
+  const selectedRound =
+    selectedRoundId === null ? null : rounds.find((r) => r.id === selectedRoundId) ?? null;
+  const leaderboard = selectedRound?.advancementFromBottom ? slowestFirst(fetched) : fetched;
 
   const scoringStrategy = race?.scoringStrategy || 'TIMED';
 
@@ -175,9 +184,12 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         marginBottom: '15px'
       }}>
         <h2 style={{ margin: 0 }}>
-          {selectedRoundId === null
-            ? 'Current Standings'
-            : roundLabel(rounds.find((r) => r.id === selectedRoundId)!)}
+          {selectedRound === null ? 'Current Standings' : roundLabel(selectedRound)}
+          {selectedRound?.advancementFromBottom && (
+            <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'normal', color: '#666' }}>
+              Slowest car first — the last one down the track wins.
+            </span>
+          )}
         </h2>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

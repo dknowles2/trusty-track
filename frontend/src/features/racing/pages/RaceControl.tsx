@@ -67,6 +67,7 @@ const GET_RACE_CONTROL_DATA = gql`
         roundNumber
         name
         advancementSource
+        advancementFromBottom
         advancementStatus {
           isReady
           requiresAdvancement
@@ -74,6 +75,7 @@ const GET_RACE_CONTROL_DATA = gql`
           fieldIsStale
           source
           numRacers
+          fromBottom
           advancingRacers {
             racerId
             firstName
@@ -218,6 +220,7 @@ export default function RaceControl() {
     name: string;
     advancementSource?: string;
     advancementNumRacers?: number;
+    advancementFromBottom?: boolean;
     runsPerLane?: number;
     generalType?: string;
   }) => {
@@ -231,6 +234,7 @@ export default function RaceControl() {
           name: config.name,
           advancementSource: config.advancementSource,
           advancementNumRacers: config.advancementNumRacers,
+          advancementFromBottom: config.advancementFromBottom || false,
           runsPerLane: config.runsPerLane || 1,
           generalType: config.generalType || 'PACK'
         }
@@ -426,9 +430,17 @@ export default function RaceControl() {
   }, [heats, updateHeatResultMutation, reExecute, handleReorderHeats, activeHeatId, navigate, id, showToast]);
 
 
-  const getRacerName = (id: number) => {
+  // Rounds whose field comes from the bottom of the standings — a Slowest
+  // Race bracket. An undecided slot there is "Slowest N", not "Top N".
+  const slowestRoundIds = new Set<number>(
+      (race?.rounds ?? [])
+          .filter((round: Round) => round.advancementFromBottom)
+          .map((round: Round) => round.id)
+  );
+
+  const getRacerName = (id: number, fromBottom?: boolean) => {
       if (id < 0) {
-          return `Top ${Math.abs(id)}`;
+          return `${fromBottom ? 'Slowest' : 'Top'} ${Math.abs(id)}`;
       }
       const r = racers[id];
       if (!r) return `Racer #${id}`;
@@ -437,8 +449,10 @@ export default function RaceControl() {
 
   // The same question asked of a structured lane, where an undecided
   // championship slot is a field rather than a negative id.
-  const laneRacerName = (lane: Lane) => {
-      if (lane.placeholderSlot !== null) return `Top ${lane.placeholderSlot}`;
+  const laneRacerName = (lane: Lane, fromBottom?: boolean) => {
+      if (lane.placeholderSlot !== null) {
+          return `${fromBottom ? 'Slowest' : 'Top'} ${lane.placeholderSlot}`;
+      }
       if (lane.racerId === null) return '—';
       return getRacerName(lane.racerId);
   };
@@ -717,6 +731,7 @@ export default function RaceControl() {
               onRunHeat={handleRunHeat}
               onNextHeat={handleNextHeat}
               getRacerName={getRacerName}
+              slowestRoundIds={slowestRoundIds}
               onUpdateResult={handleUpdateResult}
               timerType={race?.track?.timerType}
               trackId={race?.track?.id ?? null}
@@ -793,7 +808,7 @@ export default function RaceControl() {
                                 flexShrink: 0
                               }}>{r.place ?? '–'}</span>
                               <span style={{ color: '#888', minWidth: '52px', fontSize: '0.85rem' }}>Lane {r.lane}</span>
-                              <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r)}</span>
+                              <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
                               <span style={{ fontFamily: 'monospace', color: '#444', flexShrink: 0 }}>{r.time != null ? `${Number(r.time).toFixed(4)}s` : '–'}</span>
                             </div>
                           ))}

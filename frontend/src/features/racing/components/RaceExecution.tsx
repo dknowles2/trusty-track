@@ -53,7 +53,10 @@ interface RaceExecutionProps {
     activeHeatId: number | null;
     onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
     onNextHeat: () => void;
-    getRacerName: (id: number) => string;
+    getRacerName: (id: number, fromBottom?: boolean) => string;
+    /** Rounds whose field is the slowest cars — their undecided slots read
+     * "Slowest N" rather than "Top N". */
+    slowestRoundIds?: Set<number>;
     onUpdateResult: (heatId: number, lanes: LaneInput[]) => Promise<void>;
     timerType?: string | null;
     trackId?: number | null;
@@ -73,6 +76,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     onRunHeat,
     onNextHeat,
     getRacerName,
+    slowestRoundIds,
     onUpdateResult,
     timerType,
     trackId,
@@ -438,7 +442,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>
-                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0))}
+                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}
                                                 </div>
                                                 {racer && <div style={{ fontSize: '1rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
                                             </div>
@@ -719,7 +723,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                                                 <div style={{ fontWeight: '600', fontSize: '1.05rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0))}
+                                                                                                    {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(nextExecutionHeat?.roundId ?? -1))}
                                                                                                 </div>
                                                                                                 {racer?.carNumber && (
                                                                                                     <div style={{ fontSize: '0.85rem', color: '#888' }}>Car #{racer.carNumber}</div>
@@ -779,7 +783,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" />
                     <p style={{ fontSize: '1.2rem', color: '#666', marginTop: '10px' }}>
                         {roundSummary?.requiresAdvancement
-                            ? `Top ${roundSummary.numRacers} racers advance to the next round.`
+                            ? roundSummary.fromBottom
+                                ? `The ${roundSummary.numRacers} slowest cars race in the next round.`
+                                : `Top ${roundSummary.numRacers} racers advance to the next round.`
                             : "This round is complete."
                         }
                     </p>
@@ -865,7 +871,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {editingResults.map((r, idx) => (
                                 <tr key={r.lane} style={{ borderBottom: '1px solid #eee' }}>
                                     <td style={{ padding: '8px' }}>{r.lane}</td>
-                                    <td style={{ padding: '8px' }}>{getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0))}</td>
+                                    <td style={{ padding: '8px' }}>{getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}</td>
                                     <td style={{ padding: '8px' }}>
                                         <input
                                             type="number"

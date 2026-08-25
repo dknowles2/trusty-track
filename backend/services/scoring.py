@@ -193,14 +193,23 @@ def _standings_for(db: Session, race_id: int, rule) -> list[LeaderboardEntry]:
 
 
 def get_advancing_racers(
-    db: Session, race_id: int, source: str, num_top: int | None
+    db: Session,
+    race_id: int,
+    source: str,
+    num_top: int | None,
+    from_bottom: bool = False,
 ) -> list[int]:
     """Racer ids that should advance into a championship round, in rank order.
 
     ``source`` is ``"PACK"``, ``"DEN"``, or ``"ROUND:<id>"``; see
-    :class:`backend.domain.advancement.AdvancementRule`.
+    :class:`backend.domain.advancement.AdvancementRule`. With ``from_bottom``
+    the same standings are read from the other end — a Slowest Race bracket —
+    and racers with no recorded result are excluded, slowest first in the
+    returned order.
     """
-    rule = domain_advancement.AdvancementRule(source=source, num_racers=num_top)
+    rule = domain_advancement.AdvancementRule(
+        source=source, num_racers=num_top, from_bottom=from_bottom
+    )
 
     entries = _standings_for(db, race_id, rule)
 
@@ -216,7 +225,11 @@ def get_advancing_racers(
         .all()
     }
     standings = [
-        domain_advancement.Standing(racer_id=e["racer_id"], den_id=e["den_id"])
+        domain_advancement.Standing(
+            racer_id=e["racer_id"],
+            den_id=e["den_id"],
+            has_raced=e["heats_completed"] > 0,
+        )
         for e in entries
         if e["racer_id"] in checked_in
     ]
