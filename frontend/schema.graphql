@@ -239,6 +239,7 @@ type InitialConfigStatus {
   debugMode: Boolean!
   tracks: [Track!]!
   currentRaceId: Int
+  demoMode: Boolean!
   pinRequired: Boolean!
   checkinPinSet: Boolean!
   isOperator: Boolean!

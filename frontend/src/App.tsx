@@ -34,6 +34,7 @@ import TimerDiagnostics from './features/settings/pages/TimerDiagnostics';
 import ActivityLog from './features/settings/pages/ActivityLog';
 
 import { INITIAL_CONFIG_QUERY } from './features/core/graphql/queries';
+import { DemoSessionGate } from './features/core/components/DemoSessionGate';
 
 // No React hooks needed anymore in this file
 
@@ -68,6 +69,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return children;
 }
 
+/**
+ * The demo's idle disconnect, wired to the flag the server reports.
+ *
+ * Its own component so the gate stays testable without a GraphQL client, and
+ * inside `Router` so the overlay covers every route. The query is the same one
+ * `ProtectedRoute` runs, so urql answers it from the cache rather than asking
+ * twice.
+ */
+function DemoSession() {
+  const [{ data }] = useQuery({ query: INITIAL_CONFIG_QUERY });
+  return <DemoSessionGate enabled={data?.initialConfig?.demoMode ?? false} />;
+}
+
 function App() {
   return (
     <AlertProvider>
@@ -77,6 +91,7 @@ function App() {
         <ChromeProvider>
         <Router>
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <DemoSession />
             <Navigation />
             <main style={{ flex: 1 }}>
               <Routes>

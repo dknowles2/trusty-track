@@ -316,6 +316,33 @@ class TestStartup:
         assert calls == []
 
 
+class TestTheClientIsTold:
+    """`initialConfig.demoMode`, which is how a page served by this server finds
+    out what it is. Without it the idle disconnect cannot know to arm itself."""
+
+    QUERY = "{ initialConfig { initialized demoMode } }"
+
+    def test_a_demo_says_so(self, client, group, default_track, demo):  # noqa: ARG002
+        data = client.post("/graphql", json={"query": self.QUERY}).json()["data"]
+
+        assert data["initialConfig"]["demoMode"] is True
+
+    def test_an_ordinary_install_does_not(self, client, group, default_track):  # noqa: ARG002
+        data = client.post("/graphql", json={"query": self.QUERY}).json()["data"]
+
+        assert data["initialConfig"]["demoMode"] is False
+
+    def test_it_is_reported_before_the_system_is_configured(self, client, demo):  # noqa: ARG002
+        """The unconfigured branch answers too. A demo seeds itself before it
+        serves, so this is only reachable if seeding failed — and a first-run
+        wizard is the one screen that must not be idled out from under somebody
+        halfway through it."""
+        data = client.post("/graphql", json={"query": self.QUERY}).json()["data"]
+
+        assert data["initialConfig"]["initialized"] is False
+        assert data["initialConfig"]["demoMode"] is True
+
+
 class _NeverSeeds:
     """Stands in for `demo_content` so the non-demo startup test cannot seed."""
 

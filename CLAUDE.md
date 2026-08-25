@@ -845,6 +845,16 @@ Before `AuditExtension`, so a demo refusal is recorded like any other (#219's ru
 
 **A migration failure stops a demo and not an install.** `init_db()` raising has always been logged and stepped over, which is right for an operator — they can read the log and the app is still there. The demo has nobody to read it and ephemeral storage, so carrying on means serving an empty or half-migrated database to every visitor with nothing to say so.
 
+**The demo lets go of its socket when nobody is using it.** Rules in `frontend/src/api/demoSession.ts`, wiring in `features/core/components/DemoSessionGate.tsx` — `raceFlow.ts`'s split, for its reason. The host bills instance-time rather than request-time, so cost does not scale with viewers; the whole risk is **one visitor who leaves a tab open**, because a subscription socket in flight is an instance that never scales to zero.
+
+**It latches, and does not disable any of `liveConnection.ts`.** That module is built to *never* stay disconnected — retry forever, ping an idle socket, close a half-open one so the retry path notices — and all three are right for a gym on race day and exactly wrong for scaling to zero. So the demo *disposes* the `graphql-ws` client, which is the one thing that policy cannot come back from, and the phases are one-way: reviving on a mouse move would leave a subscription-driven page silently receiving nothing, which is the failure `pingWatchdog` exists to prevent, reintroduced by the thing meant to save money. **Resuming is a page reload**, following the PIN's precedent (#15).
+
+**The cap is checked before idleness**, or a visitor who keeps clicking holds a session open forever — which is the case the cap exists for. **The gate polls rather than arming a timer for the deadline**: a laptop that sleeps with the tab open does not fire a pending `setTimeout` on schedule, and waking to find the demo still connected is what this prevents.
+
+**`initialConfig.demoMode` is how the page finds out**, reported on the unconfigured branch too — a first-run wizard is the one screen that must not be idled out from under somebody halfway through it.
+
+**Cold start was measured, not optimised** ([`03_idle_and_cold_start.md`](docs/tasks/demo/03_idle_and_cold_start.md)). The plan assumed several seconds; it is about 0.7 — 0.41 s of Python import, 0.15 s for all 24 migrations on a fresh database, 0.13 s to seed. An at-head `alembic upgrade` costs nothing measurable and `pillow_heif` is 7 ms of the import, so every proposed cut was worthless or invisible. Re-measure before reviving any of it.
+
 **`TRUSTYTRACK_ALLOWED_ORIGINS` narrows CORS**, defaulting to today's `*`. The wildcard's justification is a LAN — a display or a phone on venue wifi loads the page from this origin, and the PIN is what the server checks. On a public origin it does not hold: `VIEWER` is the no-credential default and a viewer can read a roster.
 
 ### The activity log

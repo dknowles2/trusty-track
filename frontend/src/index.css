@@ -747,3 +747,48 @@ input:checked + .slider:before {
     overflow-y: auto !important;
   }
 }
+
+/* The demo's idle overlay (`DemoSessionGate`).
+   Above the award ceremony's 3000, because it has to cover a projector view
+   too — those hide the app's chrome, so there is nothing else left on screen
+   to explain why the page stopped updating. */
+.demo-paused {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  padding: 1.5rem;
+}
+
+.demo-paused-card {
+  background: white;
+  border-radius: 12px;
+  border-top: 6px solid var(--cub-scouting-gold);
+  padding: 2rem;
+  max-width: 26rem;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.demo-paused-card h2 {
+  margin: 0 0 0.75rem;
+  color: var(--scouting-blue);
+}
+
+.demo-paused-card p {
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.demo-paused-card button {
+  background: var(--scouting-blue);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1.75rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
