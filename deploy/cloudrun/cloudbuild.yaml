@@ -1,0 +1,21 @@
+# Build the image for Cloud Run, with BuildKit.
+#
+# `gcloud run deploy --source` uses Cloud Build's default docker step, which is
+# the *legacy* builder. The Dockerfile's first line is
+#
+#     FROM --platform=$BUILDPLATFORM node:24-slim AS frontend-build
+#
+# and `BUILDPLATFORM` is a BuildKit built-in, so under the legacy builder it
+# expands to nothing and the build fails with "'' is an invalid component of
+# ''". That line is load-bearing for the release workflow's multi-arch build —
+# it keeps `npm ci` and the Vite build off QEMU — so the fix belongs here
+# rather than in the Dockerfile.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args: ['build', '-t', '${_IMAGE}', '.']
+  - name: gcr.io/cloud-builders/docker
+    args: ['push', '${_IMAGE}']
+images: ['${_IMAGE}']
+options:
+  logging: CLOUD_LOGGING_ONLY
