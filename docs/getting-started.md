@@ -72,6 +72,9 @@ Once your system settings are configured, you're ready to create a race event.
    - **Track / Timer**: Select which track you'll be using for this event.
    - **Car Numbering**: Choose how car numbers should be assigned (Manual allows you to enter numbers during check-in).
 
+   Every field is explained in
+   [Race and track settings](reference/race-settings.md).
+
 ![New Race Form](assets/screenshots/getting-started/03-new-race-form.png)
 
 After clicking **Create Race**, you will be taken to the **Roster** page.

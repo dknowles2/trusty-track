@@ -33,6 +33,13 @@ Then, in the order an event happens:
 - **[Access and Your Network](access-and-network.md)**: PINs, which network to use, what a display can and cannot do, and the [activity log](access-and-network.md#the-activity-log) of everything anyone has done.
 - **[Backup and Restore](backup-and-restore.md)**: Saving the whole event to one file, and putting it back.
 
+### Looking something up
+
+The guides above walk you through the day. The **[Reference](reference/index.md)**
+holds the details: every rule, setting, and table, one topic per page — from
+[exactly what counts toward the standings](reference/scoring.md) to
+[what every word means](reference/glossary.md).
+
 ## No Technical Knowledge Required
 
 Trusty Track is designed for race volunteers. You don't need to be a software developer or database administrator to run a successful race.

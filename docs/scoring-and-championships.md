@@ -3,10 +3,12 @@
 Two decisions shape your race day: **how scores are counted**, which you pick
 when you create the race, and **what happens after everyone has raced** —
 finals, a per-den championship, a fun round for the slowest cars, or nothing
-at all. This page helps you choose, and shows how to set each one up. The
-[Race Day guide](race-day.md) is the start-to-finish walkthrough; come here
-when you are deciding, or when a parent asks why the standings look the way
-they do.
+at all. This page helps you choose, and shows how to set each one up.
+
+The [Race Day guide](race-day.md) is the start-to-finish walkthrough. The
+exact rules behind everything here are in the reference:
+[Scoring](reference/scoring.md), [Round styles](reference/round-styles.md),
+and [Championship rounds](reference/championship-rounds.md).
 
 ## Choosing how to score
 
@@ -38,11 +40,12 @@ Two things to know about points, both handled for you:
 - A car that breaks down mid-heat, or sits out a heat you skipped, is counted
   as **last in that heat**. Without this, missing a heat would actually
   *improve* a score, since fewer places means a lower total.
-- If some cars end up racing fewer heats than others — a lane stopped working
-  mid-round, or a racer arrived late — that round is **set aside from the
-  trophy standings**, and the Standings page tells you so. The round still
-  runs and everyone still sees its results; it just does not decide who wins.
-  (Timed races keep such rounds, because averages stay fair.)
+- If some cars end up racing fewer heats than others — a lane stopped
+  working mid-round, or a racer arrived late — that round is **set aside
+  from the trophy standings**, and the Standings page tells you so. Timed
+  races keep such rounds, because averages stay fair.
+
+The exact rules for both are in [Scoring](reference/scoring.md).
 
 ### When two cars tie
 
@@ -56,15 +59,10 @@ wrong. Ties happen a lot with points and only rarely with times.
 The overall standings cover the rounds that **everyone** races. A final does
 not feed back into them — the cars in the final were *chosen from* those
 standings, so its times are shown separately: use the dropdown above the
-table to look at any final on its own.
-
-Two kinds of round keep their results out of the overall standings on
-purpose:
-
-- A round that was **set aside** in a points race (see above).
-- An **elimination round** — cars knocked out early race fewer heats, so
-  there is no fair way to average them. Pick the round from the dropdown to
-  see its own result: who survived, and who lasted longest.
+table to look at any final on its own. Elimination rounds and rounds set
+aside in a points race also keep their results out — each has its own page
+in the dropdown. The full list of what counts and what does not is in
+[Scoring](reference/scoring.md#what-the-overall-standings-cover).
 
 ## Choosing how a round is raced
 
@@ -77,24 +75,11 @@ it's raced**. Three choices:
 | **Balanced** | First heats are random; after that, cars doing about as well race each other | Making sure more children get a heat they can win |
 | **Elimination** | Lose too many heats and you're out; last car left wins | Drama — or a fun second event after the main racing |
 
-A little more on the second two:
-
-- **Balanced** exists because when the fastest cars are spread across every
-  heat, they win every heat. Matching the winners against each other means
-  the other heats are winnable. Everyone still races the same number of
-  times, and times and points still count toward the standings as usual. You
-  pick how many times each car races; once per lane is a good rule of thumb
-  and is the suggestion offered.
-- **Elimination** is the classic "lose twice and you're out" — with no
-  bracket to draw and nothing to reprint when somebody doesn't show up. You
-  pick how many losses a car is allowed (three is a good default). A loss is
-  any heat a car does not win, second place included. New heats appear on
-  their own as results come in, and cars still racing are matched against
-  cars with the same record — the undefeated race the undefeated.
-
 For both Balanced and Elimination, just run whatever heats are on the
 screen; when they are done, the next set appears by itself. A racer who
-checks in late is simply included in the next set.
+checks in late is simply included in the next set. The
+[Race Day guide](race-day.md#balanced-racing) shows how to set each one up,
+and the full rules are in [Round styles](reference/round-styles.md).
 
 ## Championship options
 
@@ -127,17 +112,17 @@ immediately.
 ### Things the app takes care of
 
 - **The right cars appear on their own.** A championship round starts out
-  showing "To be decided" in each lane, and fills itself in the moment the
+  showing "To be decided" in each lane, and fills itself the moment the
   racing that decides it is finished — no button to press.
-- **Fixing a time fixes the final.** Correct a result from earlier in the
-  day, and any championship round that has not yet been raced re-picks its
-  cars from the corrected results. One that has *already* been raced is
-  never quietly rewritten — the schedule shows a **Line-up out of date** badge
-  so you can decide what to do, which beats discovering it after the
-  trophies.
+- **Fixing a time fixes the final.** A championship round not yet raced
+  re-picks its cars; one already raced shows a **Line-up out of date** badge
+  instead, so you decide.
 - **If a qualifier leaves early**, un-check them at the check-in screen and
   the next car in the standings takes their spot — as long as that round has
-  not been raced yet. Their earlier results stay on the board.
+  not been raced yet.
+
+The full rules are in
+[Championship rounds](reference/championship-rounds.md).
 
 ![The summary shown when a championship round's racers are decided](assets/screenshots/race-day/16-round-completion-modal.png)
 _When the racing that decides a championship round finishes, this summary

@@ -55,9 +55,9 @@ _The "Now Racing" panel, showing one card per lane with each racer's name, car n
 
 The "On Deck" panel shows which racers compete in the **next heat**, and "After That" shows the one following it.
 
-Two heats rather than one, because the child named on the screen is usually in the bleachers rather than watching it. By the time their heat reaches the "On Deck" panel, the announcer is already calling for them. Reading the "After That" names aloud gives each family a heat's notice, so the cars are at the track when they are wanted.
-
-"After That" appears only when there is a heat to show, so the last two heats of a race do not leave an empty panel on the wall. Other timing systems call this position "in the hole"; the panel says "After That" because a first-time announcer reading the screen aloud should not need the vocabulary.
+Two heats rather than one, because the child named on the screen is usually
+in the bleachers. Reading the "After That" names aloud gives each family a
+heat's notice, so the cars are at the track when they are wanted.
 
 ![The staging panels](assets/screenshots/observation/04-on-deck-panel.png)
 _Mid-round: the heat on the track, the one on deck, and the one after that. Each panel names the round and heat number it is for._
@@ -91,13 +91,10 @@ headshot, the car, the name, car number and den.
 
 ![The photo slideshow](assets/screenshots/observation/09-slideshow.png)
 
-It goes in **car number order rather than shuffling**, deliberately. The
-audience is mostly families watching for their own child, and with a shuffle
-nobody can tell whether they have missed them or are about to see them. In
-order, everybody comes round once per cycle.
-
-Racers with no photo are skipped rather than shown as a blank card, and a race
-where nobody has a photo yet says so instead of showing an empty screen.
+It goes in car number order, so every family knows their child is coming
+round once per cycle. Racers with no photo are skipped rather than shown
+blank. More in
+[Audience display views](reference/displays.md#the-six-views).
 
 > [!TIP]
 > This is the view to leave up during check-in and between rounds. Set the
@@ -121,15 +118,14 @@ changes within a second or two.
 
 Two things worth knowing:
 
-- **Name them.** A list of "Display 1, Display 2, Display 3" is no help when
-  you are trying to change the one at the back. Click the pencil and call it
-  what you call it — "gym north", "by the doors". The name sticks to that
-  screen, including through a reload.
-- **A screen that has gone quiet stays in the list**, marked *Not connected*.
-  That is deliberate: it is how you find out the projector at the back has
-  dropped off the wifi. Trusty Track cannot tell a screen that was switched
-  off from one whose network died, so it leaves the row for you to clear with
-  the ✕.
+- **Name them.** Click the pencil and call each screen what you call it —
+  "gym north", "by the doors". The name sticks, including through a reload.
+- **A screen that has gone quiet stays in the list**, marked *Not connected*
+  — that is how you find out the projector at the back has dropped off the
+  wifi. Clear the row with the ✕.
+
+The six views a screen can show, and how assignment behaves, are in
+[Audience display views](reference/displays.md).
 
 > [!NOTE]
 > Assigning the **Awards ceremony** to a screen puts the ceremony on it, and

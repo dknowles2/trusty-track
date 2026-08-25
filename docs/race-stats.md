@@ -52,18 +52,13 @@ _The Lane Fairness section. Blue bars rise above the line for faster-than-averag
 
 ## Per-Racer Stats
 
-The Per-Racer Stats table shows detailed performance numbers for every racer. Every column except **Den** sorts: click its header to sort by it, and click again to reverse the order.
+The Per-Racer Stats table shows every racer's numbers: heats completed,
+fastest and slowest time, average, and how consistent their times were.
+Every column except **Den** sorts — click its header, and click again to
+reverse.
 
-| Column | What It Means |
-|--------|---------------|
-| **#** | Car number |
-| **Name** | Racer's full name |
-| **Den** | The den they belong to |
-| **Heats** | Number of heats completed |
-| **Min** | Their single fastest heat time |
-| **Avg** | Their average time across the heats they have run. A car that started but never finished counts as 9.999s, so one bad run does not wipe out a racer's average. In a timed race this is the same measure the standings use — but note this table counts every heat, where the standings cover the qualifying rounds only |
-| **Max** | Their single slowest heat time |
-| **Std Dev** | How consistent their times were — a low number means very consistent; a high number means variable results. Shown as "—" if fewer than 2 heats are recorded. |
+What each column means exactly is in
+[Stats and exports](reference/stats-and-exports.md#per-racer-stats).
 
 ![Per-Racer Stats Table](assets/screenshots/race-stats/04-per-racer-stats.png)
 _The Per-Racer Stats table sorted by average time (the default). Click a sortable column header to re-sort._
@@ -98,37 +93,23 @@ _The Den Comparison section. Each bar is colored in the den's assigned color, ma
 
 ## Exporting Results
 
-Two **Export** buttons at the bottom of the page let you download race data as CSV files that can be opened in Excel, Google Sheets, or any spreadsheet application.
+Two **Export** buttons at the bottom of the page download race data as CSV
+files that open in Excel, Google Sheets, or any spreadsheet:
 
-### Export Heat Results
-
-Downloads one row for every lane in every completed heat. Columns:
-
-`Round, Heat #, Global Heat #, Lane, Car #, First Name, Last Name, Time (s), Place`
-
-Use this for a complete record of the event — every race, every car, every finishing time.
-
-### Export Racer Stats
-
-Downloads one row per racer with their aggregated statistics. Columns:
-
-`Car #, First Name, Last Name, Den, Heats, Min (s), Avg (s), Max (s), Std Dev`
-
-Use this for awards, records, or sharing results with the pack after the event.
+- **Export Heat Results** — one row for every lane in every completed heat.
+  The complete record of the event.
+- **Export Racer Stats** — one row per racer with their numbers. For
+  awards, records, or sharing with the pack afterwards.
 
 ![Export Buttons](assets/screenshots/race-stats/07-export-buttons.png)
 _The Export section at the bottom of the page. Both buttons download CSV files that open in any spreadsheet application._
 
-### Exporting the standings
+The final placings export from the **Standings** page instead — **Export
+CSV** beside the round selector, holding whatever standings the page is
+showing.
 
-The final placings come from the **Standings** page rather than this one —
-**Export CSV** beside the round selector. Columns:
-
-`Rank, Car #, First Name, Last Name, Den, Average Time (s) or Points, Heats`
-
-The score column is named for the race's scoring method, and the file is named
-for the standings it holds: exporting a championship round gives you that
-round's results, not the overall ones. They are [different on purpose](race-day.md#part-5-final-standings).
+The exact columns in all three files are in
+[Stats and exports](reference/stats-and-exports.md#the-csv-exports).
 
 ---
 

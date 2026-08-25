@@ -88,16 +88,10 @@ Use it when a code is creased, the camera will not focus, or there is a queue.
     Safari and Firefox the scanner opens without a viewfinder and the car
     number box is the way in — everything else about check-in is the same.
 
-A few things the scanner will refuse, and what they mean:
-
-| What it says | What happened |
-| --- | --- |
-| That is not a Trusty Track code | Some other QR code — a product label, a poster |
-| That code is for a different race | A pass from another event, most likely last year's |
-| That code is for a racer who is no longer on this roster | The racer was deleted after the code was printed |
-
-The last two are why codes carry the race: without it, a pass from last year's
-derby would check in whoever holds that racer number today.
+If the scanner refuses a code, it says why — a code that is not Trusty
+Track's, one from a different race, or one for a racer no longer on the
+roster. Each message is explained in
+[Printed documents](reference/printing.md#check-in-codes).
 
 ## Printing
 
@@ -132,13 +126,9 @@ the laptop runs flat, the timer stops talking — and the announcer still has to
 know which cars are next. Print it once the schedule is settled and put it on
 the table.
 
-Two things it shows that a screen does not have to:
-
-- A championship round whose field is not decided yet reads **To be decided**
-  in each lane, rather than being blank. Somebody will write a name in.
-- A lane nobody is in reads **—**. That happens with an odd number of racers,
-  or where a lane is [out of service](hardware-timer.md#if-a-lane-stops-working),
-  and the difference from the line above matters: nobody is coming.
+A lane with nobody coming reads **—**, and a championship place not yet
+decided reads **To be decided** — somebody will write a name in. More in
+[Printed documents](reference/printing.md#the-heat-sheet).
 
 ## The results sheet
 
@@ -155,18 +145,8 @@ _Awards first, then the overall standings, then a table per den. The den tables
 are the overall standings narrowed, so they cannot disagree with a "fastest
 Wolf" trophy about who won._
 
-Three things worth knowing:
-
-- **The standings are the qualifying rounds only**, and the sheet says so. A
-  championship's placings are a consequence of these rather than part of them
-  (see [scoring](race-day.md#part-5-final-standings)), and the trophies
-  for it are in the awards table at the top.
-- **Each table is numbered from 1.** A den's table headed 4, 9, 17 would be a
-  list of pack ranks; what a reader wants there is who won the den.
-- **An award nobody has decided prints as "Not awarded"** rather than being
-  left out. A missing line reads as an award that does not exist; this one
-  reads as one somebody still has to fill in.
-
-A race with only one den gets no per-den tables, since they would repeat the
-overall one. Racers in no den appear in the overall table and in none of the
-den tables.
+The standings on it are the **qualifying rounds only**, and the sheet says
+so — the championship trophies are in the awards table at the top. Each
+den's table is numbered from 1, and an undecided award prints as **Not
+awarded**. The rest of the rules are in
+[Printed documents](reference/printing.md#the-results-sheet).

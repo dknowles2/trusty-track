@@ -55,15 +55,9 @@ gone.
 ### When a restore is refused
 
 Nothing is touched unless the whole file checks out, so a refusal costs you
-nothing. The two you might see:
-
-**"Not a readable Trusty Track backup."** The file is damaged, or it is not a
-backup — a photo or the wrong zip.
-
-**"Taken from a newer version of Trusty Track."** The backup came from a later
-version whose data this one does not understand. Update Trusty Track and try
-again. A backup from an *older* version restores fine and is brought up to date
-automatically.
+nothing. The page says why — a damaged file, or a backup taken by a newer
+version of Trusty Track. Each message, and what to do about it, is in
+[the backup reference](reference/backups.md#when-a-restore-is-refused).
 
 ## Who can do it
 
@@ -77,14 +71,7 @@ one.
 
 ## What is in the file
 
-A zip, if you want to look inside:
-
-- `trusty-track.db` — everything about the race: racers, heats, results,
-  settings. It is captured safely even if the timer records a heat mid-backup.
-- `uploads/` — the racer and car photographs
-- `manifest.json` — when the backup was taken and which version of Trusty
-  Track took it
-
-The photos are stored separately from the results file and matched up by name,
-which is why they travel together. The results on their own would restore an
-event whose pictures were all missing.
+Everything: every race, racer, den, heat, result and photo, plus the
+[activity log](access-and-network.md#the-activity-log). What the zip holds,
+piece by piece, is in
+[the backup reference](reference/backups.md#what-is-in-the-file).
