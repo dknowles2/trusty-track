@@ -339,9 +339,13 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         color: '#666',
         textAlign: 'center'
       }}>
-        {scoringStrategy === 'TIMED'
-          ? 'Lower average time is better'
-          : 'Lower total points is better (1st place = 1 point, 2nd = 2 points, etc.)'
+        {selectedRound?.advancementFromBottom
+          ? scoringStrategy === 'TIMED'
+            ? 'Higher average time wins this round'
+            : 'Higher total points win this round (1st place = 1 point, 2nd = 2 points, etc.)'
+          : scoringStrategy === 'TIMED'
+            ? 'Lower average time is better'
+            : 'Lower total points is better (1st place = 1 point, 2nd = 2 points, etc.)'
         }
       </div>
     </div>

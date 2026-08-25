@@ -243,6 +243,11 @@ of the fastest — the round fills itself with the slowest cars from the
 standings, and everything else about running it works exactly like any other
 round.
 
+![Add Round dialog set to the slowest cars](assets/screenshots/race-day/25-slowest-race-dialog.png)
+_The Add Round dialog with **The slowest cars** chosen. The round names itself
+"Slowest Race", and the pick count is free of the trophy minimum — a two-car
+turtle race is a fine turtle race._
+
 A few things it quietly gets right:
 
 -   A car that never recorded a time is left out. Not racing is not the same
@@ -252,6 +257,10 @@ A few things it quietly gets right:
     for the rest of the race are not affected.
 -   If a time in an earlier round is corrected, the field updates itself, the
     same way a championship round's does.
+
+![Slowest Race standings, slowest car first](assets/screenshots/race-day/26-slowest-race-standings.png)
+_The Standings page showing a Slowest Race round: the slowest car is listed
+first, because the last one down the track wins._
 
 Pair it with a judged award (like "Turtle Trophy") on the Awards tab if you
 want to hand out hardware for it.
@@ -426,7 +435,9 @@ For the ceremony itself, use the [Awards](awards.md) page instead. It holds the 
 If the race has a championship round, a selector appears above the table. Use it
 to switch between **Overall (preliminary rounds)** and any one championship
 round. A race with no championship rounds has nothing to switch between, so no
-selector appears.
+selector appears. A [Slowest Race](#the-slowest-race) round is shown slowest
+car first — the page says so above the table — because in that round the last
+one down the track wins.
 
 > [!NOTE]
 > Overall standings cover the **preliminary** rounds only. A championship field

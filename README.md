@@ -23,6 +23,7 @@
 - **Schedule heats automatically** using a fair scheduling algorithm that ensures each car races in every lane.
 - **Run the race** with live timer integration — results appear automatically as each heat finishes.
 - **Advance to a championship round** — the top finishers race again for final placement.
+- **Race the slowest cars** — a just-for-fun Slowest Race bracket where the last one down the track wins.
 - **Run free races** — practice, exhibition and end-of-day fun heats that never touch the standings.
 
 ### After the Race

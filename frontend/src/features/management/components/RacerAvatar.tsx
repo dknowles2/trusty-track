@@ -15,7 +15,7 @@ interface RacerAvatarProps {
 }
 
 const RacerAvatar: React.FC<RacerAvatarProps> = ({ racer, size = '60px', className, style }) => {
-    const { id, first_name, last_name, racer_image_url } = racer;
+    const { first_name, last_name, racer_image_url } = racer;
 
     if (racer_image_url) {
         return (
@@ -34,7 +34,10 @@ const RacerAvatar: React.FC<RacerAvatarProps> = ({ racer, size = '60px', classNa
         );
     }
 
-    const backgroundColor = getDeterministicColor(id);
+    // Keyed on the name, not the id: an id depends on how many rows came
+    // before it, so a rebuilt roster (or a docs run with one extra spec ahead
+    // of it) recolored every avatar in the room. The name is the child.
+    const backgroundColor = getDeterministicColor(`${first_name} ${last_name}`);
     const color = getContrastColor(backgroundColor);
     const initials = getInitials(first_name, last_name);
 

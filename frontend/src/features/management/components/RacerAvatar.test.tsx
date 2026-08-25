@@ -25,15 +25,18 @@ describe('RacerAvatar', () => {
         render(<RacerAvatar racer={racer} />);
         const avatar = screen.getByTitle('John Doe');
         expect(avatar).toHaveTextContent('JD');
-        
-        // Dynamically check expected color
-        // ID 1 maps to COMMON_COLORS[1] (#FCD116: Gold), which is bright and gets black text.
-        // JSDOM/Vitest converts 'black' to 'rgb(0, 0, 0)'
-        expect(avatar).toHaveStyle({ color: 'rgb(0, 0, 0)' }); 
-        // Let's just check that background-color is set
+
+        // The color is keyed on the name, not the id — an id shifts when the
+        // roster is rebuilt, and every avatar in the room recolored with it.
+        // Same name, different id must therefore be the same color.
+        const { container } = render(
+            <RacerAvatar racer={{ ...racer, id: 999 }} />
+        );
+        const sameName = container.querySelector('[title="John Doe"]') as HTMLElement;
+        expect(sameName.style.backgroundColor).toBe(avatar.style.backgroundColor);
         expect(avatar.style.backgroundColor).not.toBe('');
     });
-    
+
     it('renders first initial if no last name', () => {
         const racer = {
             id: 2,
