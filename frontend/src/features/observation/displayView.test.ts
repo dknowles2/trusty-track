@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { behaviourFor, readUrl, resolveView, VIEW_OPTIONS, viewCycles } from './displayView';
+import {
+    behaviourFor,
+    readUrl,
+    resolveView,
+    VIEW_OPTIONS,
+    viewCycles,
+    viewOptionsFor,
+} from './displayView';
 
 const url = (query = '') => readUrl(new URLSearchParams(query));
 
@@ -139,5 +146,30 @@ describe('VIEW_OPTIONS', () => {
         // is its own, not the operator's.
         expect(viewCycles('AWARDS')).toBe(false);
         expect(viewCycles('PROJECTOR')).toBe(false);
+    });
+});
+
+describe('viewOptionsFor', () => {
+    const views = (hasAwards: boolean, current: Parameters<typeof viewOptionsFor>[1]) =>
+        viewOptionsFor(hasAwards, current).map((o) => o.view);
+
+    it('offers everything to a race with awards', () => {
+        expect(views(true, 'STANDINGS')).toEqual(VIEW_OPTIONS.map((o) => o.view));
+    });
+
+    it('leaves the ceremony out of a race with none', () => {
+        expect(views(false, 'STANDINGS')).not.toContain('AWARDS');
+    });
+
+    it('drops nothing else', () => {
+        expect(views(false, 'STANDINGS')).toEqual(
+            VIEW_OPTIONS.filter((o) => o.view !== 'AWARDS').map((o) => o.view),
+        );
+    });
+
+    it('keeps it for a screen already showing it', () => {
+        // Deleting the last award while a ceremony is up. A row whose current
+        // view is missing from its own list shows nothing as chosen.
+        expect(views(false, 'AWARDS')).toContain('AWARDS');
     });
 });

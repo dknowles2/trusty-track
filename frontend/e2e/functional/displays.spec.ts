@@ -134,6 +134,16 @@ test('a screen sent to the awards ceremony can still be called back', async ({ b
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Ceremony Leash Race');
 
+    // An award, because the ceremony is not offered as a view for a race with
+    // nothing to announce.
+    await gql(
+        page,
+        `mutation Award($raceId: Int!, $award: AwardInput!) {
+            createAward(raceId: $raceId, award: $award) { id }
+        }`,
+        { raceId, award: { name: 'Best Paint', kind: 'SPECIAL' } },
+    );
+
     const displayContext = await browser.newContext();
     const display = await displayContext.newPage();
     await openDisplay(display, raceId, 'spec-display-3');
@@ -196,6 +206,43 @@ test('an operator can drive the ceremony on a screen across the room', async ({ 
 
     await row.getByRole('button', { name: /Previous award/ }).click();
     await expect(display.getByText('1 of 2')).toBeVisible({ timeout: 10000 });
+
+    await displayContext.close();
+});
+
+test('the ceremony is offered only once the race has awards', async ({ browser, page }) => {
+    // The reported bug: every race offered "Awards ceremony", and choosing it
+    // for a race with no awards sent the screen to a page whose only content
+    // was a line saying there was nothing to announce.
+    //
+    // End to end because the interesting half is freshness: the panel has to
+    // notice an award added a moment ago on another page, which is a cache
+    // question no unit test can answer.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Ceremony Offer Race');
+
+    const displayContext = await browser.newContext();
+    const display = await displayContext.newPage();
+    await openDisplay(display, raceId, 'spec-display-5');
+
+    await page.goto(`/race/${raceId}/control/displays`);
+    const row = page.getByTestId('display-spec-display-5');
+    await expect(row).toBeVisible();
+    await expect(row.getByRole('combobox')).not.toContainText('Awards ceremony');
+
+    await gql(
+        page,
+        `mutation Award($raceId: Int!, $award: AwardInput!) {
+            createAward(raceId: $raceId, award: $award) { id }
+        }`,
+        { raceId, award: { name: 'Judges’ Choice', kind: 'SPECIAL' } },
+    );
+
+    // Coming back to the tab is what re-reads it, which is the operator's own
+    // order: set the awards up, then put the ceremony on a screen.
+    await page.goto(`/race/${raceId}/control/schedule`);
+    await page.goto(`/race/${raceId}/control/displays`);
+    await expect(row.getByRole('combobox')).toContainText('Awards ceremony');
 
     await displayContext.close();
 });

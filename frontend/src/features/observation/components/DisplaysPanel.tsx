@@ -23,9 +23,10 @@ import {
     DISPLAYS_QUERY,
     DisplaysSubscription,
     FORGET_DISPLAY,
+    RACE_AWARD_COUNT_QUERY,
     RENAME_DISPLAY,
 } from '../graphql/queries';
-import { VIEW_OPTIONS, viewCycles, type DisplayView } from '../displayView';
+import { viewCycles, viewOptionsFor, type DisplayView } from '../displayView';
 
 interface DisplayRow {
     displayId: string;
@@ -43,6 +44,18 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
     // until something changes, which on a quiet minute is most of the event.
     const [queryResult] = useQuery({ query: DISPLAYS_QUERY, variables: { raceId }, pause: !raceId });
     const [liveResult] = useSubscription({ query: DisplaysSubscription, variables: { raceId }, pause: !raceId });
+
+    // Whether the ceremony is worth offering at all. Read fresh on every
+    // visit to this tab, so an award set up a minute ago on the Awards page
+    // is reflected here — the cached answer would be the one from before it
+    // existed.
+    const [awardsResult] = useQuery({
+        query: RACE_AWARD_COUNT_QUERY,
+        variables: { raceId },
+        pause: !raceId,
+        requestPolicy: 'cache-and-network',
+    });
+    const hasAwards = (awardsResult.data?.race?.awards?.length ?? 0) > 0;
 
     const [, assignDisplay] = useMutation(ASSIGN_DISPLAY);
     const [, advanceDisplay] = useMutation(ADVANCE_DISPLAY);
@@ -142,7 +155,12 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                         }
                         style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid #ccc' }}
                     >
-                        {VIEW_OPTIONS.map((option) => (
+                        {/* The ceremony is missing from a race with no awards
+                            — it would send the screen to a page with nothing
+                            on it — but stays for a screen already showing
+                            one, or the row would say nothing about what it is
+                            doing. */}
+                        {viewOptionsFor(hasAwards, display.view).map((option) => (
                             <option key={option.view} value={option.view}>
                                 {option.label}
                             </option>

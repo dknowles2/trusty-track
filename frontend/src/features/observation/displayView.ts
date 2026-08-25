@@ -133,3 +133,30 @@ export const VIEW_OPTIONS: readonly {
 export function viewCycles(view: DisplayView): boolean {
     return VIEW_OPTIONS.some((option) => option.view === view && option.cycles);
 }
+
+/**
+ * The views to offer for one screen.
+ *
+ * The ceremony is left out of a race that has no awards. Choosing it there
+ * sends the screen to a page whose only content is a line saying there is
+ * nothing to announce — and most races never have any, since the awards are
+ * optional. An option that can only disappoint is worse than one that is not
+ * there.
+ *
+ * It is kept when the screen is already showing it, whatever the race holds.
+ * A row whose current view is missing from its own list renders a select with
+ * nothing chosen, so the operator cannot see what the screen is doing — which
+ * is reachable by deleting the last award while a ceremony is up.
+ *
+ * This is an *offer*, not a permission. The server still accepts the
+ * assignment, and the ceremony page still says for itself when a race has no
+ * awards; a second copy of the rule on the server would be one more thing to
+ * keep in step for no gain.
+ */
+export function viewOptionsFor(
+    hasAwards: boolean,
+    current: DisplayView,
+): readonly (typeof VIEW_OPTIONS)[number][] {
+    if (hasAwards || current === 'AWARDS') return VIEW_OPTIONS;
+    return VIEW_OPTIONS.filter((option) => option.view !== 'AWARDS');
+}

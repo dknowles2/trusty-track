@@ -17,27 +17,50 @@ vi.mock('urql', async (importOriginal) => {
 
 const assignDisplay = vi.fn().mockResolvedValue({ data: {} });
 
-function renderPanel(view: string, cycleSeconds = 10, connected = true) {
-    (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockReturnValue([
-        {
-            data: {
-                displays: [
-                    {
-                        displayId: 'd-1',
-                        name: 'Gym north',
-                        view,
-                        cycleSeconds,
-                        description: 'Standings',
-                        pacedByAPerson: view === 'AWARDS',
-                        connected,
+function renderPanel(view: string, cycleSeconds = 10, connected = true, awards = 2) {
+    // Two queries, and they answer different questions: the list of screens,
+    // and whether the race has any awards to announce.
+    type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
+    (vi.mocked(useQuery) as ReturnType<typeof vi.fn>).mockImplementation((args: QueryArgs) => {
+        const asksForAwards = args.query.definitions.some(
+            (definition) => definition.name?.value === 'RaceAwardCount',
+        );
+        if (asksForAwards) {
+            return [
+                {
+                    data: {
+                        race: {
+                            id: 1,
+                            awards: Array.from({ length: awards }, (_, i) => ({ id: i + 1 })),
+                        },
                     },
-                ],
+                    fetching: false,
+                    error: null,
+                },
+                vi.fn(),
+            ];
+        }
+        return [
+            {
+                data: {
+                    displays: [
+                        {
+                            displayId: 'd-1',
+                            name: 'Gym north',
+                            view,
+                            cycleSeconds,
+                            description: 'Standings',
+                            pacedByAPerson: view === 'AWARDS',
+                            connected,
+                        },
+                    ],
+                },
+                fetching: false,
+                error: null,
             },
-            fetching: false,
-            error: null,
-        },
-        vi.fn(),
-    ]);
+            vi.fn(),
+        ];
+    });
     // Every useMutation in the component gets the same spy; the assertions
     // below read the variables, which name the mutation unambiguously.
     (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -113,5 +136,44 @@ describe('driving a ceremony from the operator’s list', () => {
     it('is absent for a view that drives itself', () => {
         renderPanel('STANDINGS');
         expect(screen.queryByLabelText('Next award on Gym north')).toBeNull();
+    });
+});
+
+describe('offering the ceremony as a view', () => {
+    function viewsOffered() {
+        const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
+        return Array.from(select.options).map((option) => option.textContent);
+    }
+
+    it('is offered once the race has awards', () => {
+        renderPanel('STANDINGS');
+        expect(viewsOffered()).toContain('Awards ceremony');
+    });
+
+    it('is left out of a race with no awards — the reported bug', () => {
+        // Choosing it there sends the screen to a page whose only content is
+        // a line saying there is nothing to announce.
+        renderPanel('STANDINGS', 10, true, 0);
+        expect(viewsOffered()).not.toContain('Awards ceremony');
+    });
+
+    it('leaves every other view alone', () => {
+        renderPanel('STANDINGS', 10, true, 0);
+        expect(viewsOffered()).toEqual([
+            'Standings',
+            "Last heat's times",
+            'Cycle between both',
+            'Projector',
+            'Racer photos',
+        ]);
+    });
+
+    it('keeps it for a screen already showing it', () => {
+        // Reachable by deleting the last award mid-ceremony. Without this the
+        // row's select has nothing chosen, so it says nothing about what the
+        // screen is doing.
+        renderPanel('AWARDS', 10, true, 0);
+        const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
+        expect(select.value).toBe('AWARDS');
     });
 });

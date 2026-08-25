@@ -152,6 +152,26 @@ export const DISPLAYS_QUERY = gql`
   }
 `;
 
+/**
+ * Whether this race has any awards, for the operator's list of screens.
+ *
+ * Only the count matters — the ceremony is offered as a view for a screen
+ * once there is something to announce. Asked for separately rather than
+ * added to the Race Control query it sits inside: the panel is the only
+ * thing that wants it, and it is re-read every time that tab is opened,
+ * which is what makes an award added a minute ago show up here.
+ */
+export const RACE_AWARD_COUNT_QUERY = gql`
+  query RaceAwardCount($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      awards {
+        id
+      }
+    }
+  }
+`;
+
 export const ASSIGN_DISPLAY = gql`
   mutation AssignDisplay($displayId: String!, $view: DisplayView!, $cycleSeconds: Int) {
     assignDisplay(displayId: $displayId, view: $view, cycleSeconds: $cycleSeconds) {

@@ -18,6 +18,11 @@ Every screen with the Live page open can be switched between these, from
 | **Racer photos** | A slideshow of the check-in photos: headshot, car, name, number, den |
 | **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when a person does — either at the screen, or with the **‹** and **›** buttons on its row in the operator's list |
 
+**The ceremony only appears once you have awards.** A race with none is not
+offered it, because the screen would land on a page saying there is nothing
+to announce. Add the awards on the [Awards page](../awards.md) and the choice
+appears the next time you open the Displays list.
+
 **Driving the ceremony.** A screen showing the ceremony gets **‹** and **›**
 buttons on its row, so the operator can move it on without walking to it.
 They send a *step* rather than a slide number, which is why the arrow keys
