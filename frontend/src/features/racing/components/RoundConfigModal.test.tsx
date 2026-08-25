@@ -76,6 +76,41 @@ describe('RoundConfigModal', () => {
     expect(screen.getByDisplayValue('Turtle Trophy')).toBeInTheDocument();
   });
 
+  it('an elimination round submits the strategy, the losses, and its name', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
+
+    fireEvent.click(screen.getByLabelText("Elimination — lose too many heats and you're out"));
+    expect(screen.getByDisplayValue('Elimination Round')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Losses before a car is out'), {
+      target: { value: '2' },
+    });
+    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      name: 'Elimination Round',
+      schedulingStrategy: 'ELIMINATION',
+      eliminationLosses: 2,
+    });
+    expect(onSubmit.mock.calls[0][0].generalType).toBeUndefined();
+  });
+
+  it('an ordinary general round still submits PPC', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
+
+    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      schedulingStrategy: 'PPC',
+      generalType: 'PACK',
+    });
+    expect(onSubmit.mock.calls[0][0].eliminationLosses).toBeUndefined();
+  });
+
   it('the trophy minimum applies only to the fastest direction', () => {
     render(<RoundConfigModal {...defaultProps} />);
     openChampionshipTab();

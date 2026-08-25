@@ -12,6 +12,7 @@ interface RoundConfigModalProps {
     advancementSource?: string;
     advancementNumRacers?: number;
     advancementFromBottom?: boolean;
+    eliminationLosses?: number;
     runsPerLane: number;
     generalType?: string;
   }) => Promise<void>;
@@ -36,6 +37,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
 }) => {
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
   const [generalType, setGeneralType] = useState<'PACK' | 'DEN'>('PACK');
+  const [raceStyle, setRaceStyle] = useState<'PPC' | 'ELIMINATION'>('PPC');
+  const [eliminationLosses, setEliminationLosses] = useState(3);
   const [name, setName] = useState('');
   const [source, setSource] = useState<'PACK' | 'DEN' | 'PREVIOUS'>('PACK');
   const [numTopRacers, setNumTopRacers] = useState(championshipTrophies);
@@ -64,6 +67,14 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     }
   };
 
+  /** Same rule for the general round's race style. */
+  const chooseStyle = (next: 'PPC' | 'ELIMINATION') => {
+    setRaceStyle(next);
+    if (name === '' || name === 'Elimination Round') {
+      setName(next === 'ELIMINATION' ? 'Elimination Round' : '');
+    }
+  };
+
   // A championship round needs a general round to draw its field from. If the
   // last one is deleted while this is open, the choice is no longer available
   // — derived rather than corrected afterwards, so there is never a render in
@@ -74,9 +85,10 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     e.preventDefault();
     setLoading(true);
     try {
+      const isElimination = effectiveType === 'GENERAL' && raceStyle === 'ELIMINATION';
       await onSubmit({
         name,
-        schedulingStrategy: 'PPC',
+        schedulingStrategy: isElimination ? 'ELIMINATION' : 'PPC',
         advancementSource:
           effectiveType === 'CHAMPIONSHIP'
             ? source === 'PREVIOUS' && lastChampionshipRound
@@ -85,8 +97,9 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             : undefined,
         advancementNumRacers: effectiveType === 'CHAMPIONSHIP' ? numTopRacers : undefined,
         advancementFromBottom: effectiveType === 'CHAMPIONSHIP' ? fromBottom : undefined,
+        eliminationLosses: isElimination ? eliminationLosses : undefined,
         runsPerLane,
-        generalType: effectiveType === 'GENERAL' ? generalType : undefined
+        generalType: effectiveType === 'GENERAL' && !isElimination ? generalType : undefined
       });
       onClose();
     } catch (error) {
@@ -173,7 +186,51 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
 
           {type === 'GENERAL' ? (
             <>
-              {/* General Type (PACK/DEN) */}
+              {/* How the round is raced. */}
+              <div>
+                <label style={labelStyle}>How it&apos;s raced</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      checked={raceStyle === 'PPC'}
+                      onChange={() => chooseStyle('PPC')}
+                      disabled={loading}
+                    />
+                    <span>Everyone races in every lane</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      checked={raceStyle === 'ELIMINATION'}
+                      onChange={() => chooseStyle('ELIMINATION')}
+                      disabled={loading}
+                    />
+                    <span>Elimination — lose too many heats and you&apos;re out</span>
+                  </label>
+                </div>
+                {raceStyle === 'ELIMINATION' && (
+                  <div style={{ marginTop: '12px' }}>
+                    <label htmlFor="eliminationLosses" style={labelStyle}>Losses before a car is out</label>
+                    <input
+                      id="eliminationLosses"
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={eliminationLosses}
+                      onChange={(e) => setEliminationLosses(Math.max(1, parseInt(e.target.value) || 1))}
+                      style={{ ...inputStyle, width: '50%' }}
+                      disabled={loading}
+                    />
+                    <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
+                      New heats appear after each round of racing, matching cars
+                      with the same record. The last car left wins.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {raceStyle === 'ELIMINATION' ? null : (
               <div>
                 <label style={labelStyle}>Format</label>
                 <div style={{ display: 'flex', gap: '20px' }}>
@@ -208,6 +265,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   </p>
                 )}
               </div>
+              )}
             </>
           ) : (
             <>
@@ -290,7 +348,9 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             </>
           )}
 
-          {/* Runs Per Lane */}
+          {/* Runs Per Lane — not for elimination, whose schedule grows on
+              its own until the race is decided. */}
+          {!(type === 'GENERAL' && raceStyle === 'ELIMINATION') && (
           <div style={{ width: '50%' }}>
             <label style={labelStyle}>Runs per lane</label>
             <input
@@ -303,6 +363,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
               disabled={loading}
             />
           </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid #eee', paddingTop: '20px' }}>

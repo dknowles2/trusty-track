@@ -870,6 +870,7 @@ export type Round = {
   advancementSource?: Maybe<Scalars['String']['output']>;
   advancementStatus: AdvancementStatus;
   disrupted: Scalars['Boolean']['output'];
+  eliminationLosses?: Maybe<Scalars['Int']['output']>;
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
   name?: Maybe<Scalars['String']['output']>;
@@ -882,6 +883,7 @@ export type RoundCreateInput = {
   advancementFromBottom?: Scalars['Boolean']['input'];
   advancementNumRacers?: InputMaybe<Scalars['Int']['input']>;
   advancementSource?: InputMaybe<Scalars['String']['input']>;
+  eliminationLosses?: InputMaybe<Scalars['Int']['input']>;
   generalType?: Scalars['String']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   runsPerLane?: Scalars['Int']['input'];

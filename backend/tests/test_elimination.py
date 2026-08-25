@@ -404,6 +404,65 @@ class TestTheRound:
 
         assert not crud.is_round_complete(db, round_obj.id)
 
+    def test_the_resolver_creates_and_reports_an_elimination_round(self, db, client):
+        race = _race(db, "Resolver Elim Derby")
+        _racers(db, race.id, 5)
+
+        body = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Create($raceId: Int!, $roundData: RoundCreateInput!) {
+                    createRound(raceId: $raceId, roundData: $roundData) {
+                        id name schedulingStrategy eliminationLosses
+                    }
+                }
+                """,
+                "variables": {
+                    "raceId": race.id,
+                    "roundData": {"schedulingStrategy": "ELIMINATION"},
+                },
+            },
+        ).json()
+        assert "errors" not in body, body
+        (made,) = body["data"]["createRound"]
+        assert made["name"] == "Elimination Round"
+        assert made["schedulingStrategy"] == "ELIMINATION"
+        # Unspecified, so the default: three losses and you are out.
+        assert made["eliminationLosses"] == 3
+
+        db.expire_all()
+        heats = db.query(models.Heat).filter(models.Heat.round_id == made["id"]).all()
+        assert heats, "the first wave should be scheduled at creation"
+
+    def test_an_elimination_championship_round_is_refused(self, db, client):
+        race = _race(db, "Refused Elim Derby")
+        _racers(db, race.id, 5)
+
+        body = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Create($raceId: Int!, $roundData: RoundCreateInput!) {
+                    createRound(raceId: $raceId, roundData: $roundData) { id }
+                }
+                """,
+                "variables": {
+                    "raceId": race.id,
+                    "roundData": {
+                        "schedulingStrategy": "ELIMINATION",
+                        "advancementSource": "PACK",
+                        "advancementNumRacers": 3,
+                    },
+                },
+            },
+        ).json()
+        assert "errors" in body
+        db.expire_all()
+        assert (
+            db.query(models.Round).filter(models.Round.race_id == race.id).count() == 0
+        )
+
     def test_the_rounds_own_standings_read_survival(self, db):
         from backend.services import scoring
 

@@ -96,7 +96,8 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `den_id` (FK to Den, optional — a round scoped to one den)
     -   `round_number`
     -   `name` (optional display name)
-    -   `scheduling_strategy` (Enum: `PPC`)
+    -   `scheduling_strategy` (Enum: `PPC`, `ELIMINATION`) — `ELIMINATION` is ladderless elimination: losses are counted per car (a loss is any heat not won), a car is out at `elimination_losses`, and the schedule grows a wave at a time from the recorded-result cascade rather than being generated up front. Elimination heats are excluded from the aggregate standings — heat counts are uneven by design — and the round's own leaderboard reads survival: score is the loss count, survivors first, then the eliminated by how long they lasted.
+    -   `elimination_losses` (optional) — the loss limit; null for every other strategy
     -   `advancement_source` (optional: `PACK`, `DEN`, or `ROUND:<id>`)
     -   `advancement_num_racers` (optional — **per den** when the source is `DEN`, absolute otherwise)
     -   `advancement_from_bottom` (Boolean, default `false`) — a "Slowest Race" bracket: the field is drawn from the *bottom* of the source standings rather than the top, slowest first, and cars with no recorded result are never picked. The source vocabulary is unchanged; only the end of the standings changes.

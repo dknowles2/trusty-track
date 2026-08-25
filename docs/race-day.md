@@ -235,6 +235,37 @@ race the final". If the round it draws from has already finished, the new
 round fills in with the qualifiers straight away; otherwise it fills in on its
 own the moment they are decided.
 
+### Elimination Racing
+
+The other style a general round can use. When you add a round, choose
+**Elimination — lose too many heats and you're out** and pick how many losses
+a car is allowed (three is a good default). A loss is any heat a car does not
+win — second place counts the same as fourth — so there is no bracket to draw
+and nothing to reprint when a racer does not show up.
+
+The schedule looks after itself: run the heats on the screen, and when they
+are done a new set appears, matching cars with the same record against each
+other — the undefeated race the undefeated. Cars that reach the loss limit
+drop out, and the last car left wins. The Standings page shows the round as a
+loss count, cars still racing listed first.
+
+Two things to know:
+
+-   A racer who checks in late simply appears in the next set of heats, on a
+    clean record.
+-   Elimination heats stay out of the overall standings — an eliminated car
+    races fewer heats, so averaging them together would not be fair. The
+    round's own result is the one that matters, and it has its own view on
+    the Standings page.
+
+![Add Round dialog set to elimination](assets/screenshots/race-day/27-elimination-dialog.png)
+_The Add Round dialog with elimination chosen: pick the loss limit and go —
+there is no chart to manage._
+
+![Elimination standings](assets/screenshots/race-day/28-elimination-standings.png)
+_The Standings page during an elimination round: losses instead of times,
+cars still racing at the top._
+
 ### The Slowest Race
 
 A crowd favorite: after the serious racing, let the slowest cars have their

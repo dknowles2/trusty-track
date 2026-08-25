@@ -109,6 +109,7 @@ export type RoundCreateInput = {
   advancementFromBottom?: boolean;
   advancementNumRacers?: number | null | undefined;
   advancementSource?: string | null | undefined;
+  eliminationLosses?: number | null | undefined;
   generalType?: string;
   name?: string | null | undefined;
   runsPerLane?: number;

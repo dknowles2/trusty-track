@@ -13,6 +13,8 @@ export interface RoundSummary {
   roundNumber: number;
   advancementSource?: string | null;
   advancementFromBottom?: boolean | null;
+  schedulingStrategy?: string | null;
+  eliminationLosses?: number | null;
   disrupted?: boolean | null;
 }
 

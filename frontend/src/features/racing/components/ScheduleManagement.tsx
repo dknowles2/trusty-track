@@ -42,6 +42,7 @@ interface ScheduleManagementProps {
     advancementSource?: string;
     advancementNumRacers?: number;
     advancementFromBottom?: boolean;
+    eliminationLosses?: number;
     runsPerLane?: number;
     generalType?: string;
   }) => Promise<void>;
@@ -286,6 +287,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     advancementSource?: string;
     advancementNumRacers?: number;
     advancementFromBottom?: boolean;
+    eliminationLosses?: number;
     runsPerLane?: number;
     generalType?: string;
   }) => {
