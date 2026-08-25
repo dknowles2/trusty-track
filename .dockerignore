@@ -7,6 +7,13 @@ backend/**/*.pyc
 backend/**/*.pyo
 backend/*.db
 
+# Legacy uploads directory. Runtime uploads go to TRUSTYTRACK_DATA_DIR, but this
+# is where they landed before that, and it is gitignored — so CI builds from a
+# fresh clone never see it while a developer's machine can hold hundreds of
+# megabytes of photographs. `COPY backend/ ./backend/` would put all of it in
+# the image.
+backend/uploads/
+
 # Frontend artifacts
 frontend/node_modules/
 frontend/dist/
