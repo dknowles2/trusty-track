@@ -163,12 +163,14 @@ Once nothing needs attention the panel collapses to a single line, and it disapp
 
 ### Understanding Rounds and Heats
 
-Before building the schedule, it helps to know two terms:
+Two terms, before building the schedule:
 
-- **Heat** — A single race run with N cars (one per lane). Each heat takes about 10–30 seconds on the track.
-- **Round** — A complete set of heats where every racer competes. Trusty Track automatically generates the minimum number of heats needed so that every racer races in every lane exactly once.
+- **Heat** — one race down the track: a handful of cars, one per lane, 10–30 seconds.
+- **Round** — a set of heats where every racer competes. By default, every racer races in every lane exactly once.
 
-A typical Pinewood Derby has one **qualifying round** (all racers) followed by one optional **championship round** (top finishers only).
+A typical derby is one **qualifying round** (everyone) plus one optional
+**championship round** (top finishers). More terms are in the
+[glossary](reference/glossary.md).
 
 ---
 
@@ -228,7 +230,7 @@ You do not have to decide everything in the wizard. **Add Round**, at the top
 of the Schedule tab, adds one more round at the end of the schedule — a
 general round everyone races, or another championship round.
 
-A championship round added here can draw its field from the overall standings,
+A championship round added here can draw its racers from the overall standings,
 from each den, or — once another championship round exists — from that round's
 results, which is how you get "top ten race a semifinal, top three of *them*
 race the final". If the round it draws from has already finished, the new
@@ -236,29 +238,21 @@ round fills in with the qualifiers straight away; otherwise it fills in on its
 own the moment they are decided.
 
 The three ways a general round can be raced — every lane for everyone,
-balanced, elimination — are compared side by side in
-[Scoring & Championships](scoring-and-championships.md#choosing-how-a-round-is-raced);
-the sections below show how to set up each one.
+balanced, elimination — are compared in
+[Scoring & Championships](scoring-and-championships.md#choosing-how-a-round-is-raced),
+with the full rules in [Round styles](reference/round-styles.md). The
+sections below show how to set up each one.
 
 ### Balanced Racing
 
-A third style for a general round, borrowed from GPRM (which calls it
-"Dynamic"). Choose **Balanced** when you add a round and pick how many times
-each car races — once per lane is the usual advice, and that is the default.
+More children win a heat: after a random start, the winners race the
+winners, so the other heats are winnable.
 
-The first heats are drawn at random. After that, each new set of heats
-matches cars that are doing about as well: the winners race the winners,
-which means the other heats are winnable — the whole point of the method is
-that more children get to win a heat. Nobody is eliminated, everyone races
-the same number of times, and times and points count toward the standings
-exactly as usual. The scheduler also does its best to give every car a turn
-in every lane, though the matchups come first.
-
-Like elimination, the schedule looks after itself: run what is on the
-screen, and the next set of heats appears when they are done. A racer who
-checks in late joins the next set — and because they will have raced fewer
-heats than everyone else, a points-scored race sets the round aside from the
-overall standings, the same rule as a lane going out of service.
+1. Click **Add Round** and choose **Balanced**.
+2. Pick how many times each car races. Once per lane is the usual advice
+   and the default.
+3. Run the heats on the screen. The next set appears by itself when they
+   are done.
 
 ![Add Round dialog set to balanced](assets/screenshots/race-day/29-balanced-dialog.png)
 _The Add Round dialog with **Balanced** chosen: pick how many times each car
@@ -268,28 +262,24 @@ races and go._
 _The schedule after the first round of heats: the next set has appeared, with
 the heat winners matched against each other._
 
+Nobody is eliminated, everyone races the same number of times, and results
+count toward the standings as usual. A late arrival joins the next set. The
+full rules are in [Round styles](reference/round-styles.md#balanced).
+
 ### Elimination Racing
 
-The other style a general round can use. When you add a round, choose
-**Elimination — lose too many heats and you're out** and pick how many losses
-a car is allowed (three is a good default). A loss is any heat a car does not
-win — second place counts the same as fourth — so there is no bracket to draw
-and nothing to reprint when a racer does not show up.
+The classic "lose too many and you're out" — with no bracket to draw and
+nothing to reprint when somebody does not show up.
 
-The schedule looks after itself: run the heats on the screen, and when they
-are done a new set appears, matching cars with the same record against each
-other — the undefeated race the undefeated. Cars that reach the loss limit
-drop out, and the last car left wins. The Standings page shows the round as a
+1. Click **Add Round** and choose **Elimination — lose too many heats and
+   you're out**.
+2. Pick how many losses a car is allowed. Three is a good default.
+3. Run the heats on the screen. New sets appear by themselves, matching
+   cars with the same record — the undefeated race the undefeated.
+
+A loss is any heat a car does not win — second place counts the same as
+fourth. The last car left wins, and the Standings page shows the round as a
 loss count, cars still racing listed first.
-
-Two things to know:
-
--   A racer who checks in late simply appears in the next set of heats, on a
-    clean record.
--   Elimination heats stay out of the overall standings — an eliminated car
-    races fewer heats, so averaging them together would not be fair. The
-    round's own result is the one that matters, and it has its own view on
-    the Standings page.
 
 ![Add Round dialog set to elimination](assets/screenshots/race-day/27-elimination-dialog.png)
 _The Add Round dialog with elimination chosen: pick the loss limit and go —
@@ -299,33 +289,32 @@ there is no chart to manage._
 _The Standings page during an elimination round: losses instead of times,
 cars still racing at the top._
 
+Elimination heats stay out of the overall standings — an eliminated car
+races fewer heats, so no average over them is fair. The full rules,
+including late arrivals and what counts as a loss, are in
+[Round styles](reference/round-styles.md#elimination).
+
 ### The Slowest Race
 
 A crowd favorite: after the serious racing, let the slowest cars have their
-moment. When you add a championship round, choose **The slowest cars** instead
-of the fastest — the round fills itself with the slowest cars from the
-standings, and everything else about running it works exactly like any other
-round.
+moment.
+
+1. Click **Add Round** and pick the **Championship Round** tab.
+2. Choose **The slowest cars** instead of the fastest.
+3. The round fills itself with the slowest cars, and runs like any other.
 
 ![Add Round dialog set to the slowest cars](assets/screenshots/race-day/25-slowest-race-dialog.png)
 _The Add Round dialog with **The slowest cars** chosen. The round names itself
 "Slowest Race", and the pick count is free of the trophy minimum — a two-car
 turtle race is a fine turtle race._
 
-A few things it quietly gets right:
-
--   A car that never recorded a time is left out. Not racing is not the same
-    as being slow.
--   The round's results page reads the way the room does: the slowest car is
-    listed first, because the last one down the track is the winner. Standings
-    for the rest of the race are not affected.
--   If a time in an earlier round is corrected, who is in it updates itself,
-    the same way a championship round's line-up does.
-
 ![Slowest Race standings, slowest car first](assets/screenshots/race-day/26-slowest-race-standings.png)
 _The Standings page showing a Slowest Race round: the slowest car is listed
 first, because the last one down the track wins._
 
+Cars that never recorded a time are left out, and the round's standings list
+the slowest car first — the details are in
+[Championship rounds](reference/championship-rounds.md#the-slowest-cars).
 Pair it with a judged award (like "Turtle Trophy") on the Awards tab if you
 want to hand out hardware for it.
 
@@ -434,11 +423,9 @@ If a timer result is wrong (for example, a photo-finish dispute or a false start
 To completely re-run a heat, click **Re-Run** — this clears the results and returns the heat to "pending" so it can race again.
 
 Correcting a qualifying time re-decides who advances. A championship round
-that has **not** been raced yet is re-filled automatically. One that **has**
-been raced is left alone — its results are real and nothing will silently wipe
-them — and instead shows **Line-up out of date** on the schedule: its racers were
-picked from standings that have since changed. Whether to re-run it or let the
-result stand is your call.
+not yet raced re-fills itself; one already raced shows **Line-up out of
+date** instead, and the call is yours. Details in
+[Championship rounds](reference/championship-rounds.md#when-a-time-is-corrected).
 
 ---
 
@@ -452,10 +439,10 @@ Two things to know:
 
 - A skipped heat does not hold anything up. The round still finishes, and a
   championship round waiting on it still fills.
-- **If your race is scored on points**, the cars in a skipped heat are scored
-  as if they finished last in it — a scratch classifies last, the same as in
-  any racing series. On a timed race a skipped heat simply is not part of
-  anyone's average.
+- **If your race is scored on points**, the cars in a skipped heat are
+  scored as if they finished last in it. On a timed race the heat simply is
+  not part of anyone's average. See
+  [how skips are scored](reference/scoring.md#points).
 
 ---
 
@@ -505,10 +492,10 @@ one down the track wins.
 
 > [!NOTE]
 > Overall standings cover the **qualifying** rounds only — a championship
-> field is picked *from* those standings, so a final's times never feed back
-> into them. Championship results are shown by selecting that round. The
-> full rules — what counts, what a tie means, why some rounds are left out —
-> are in [Scoring & Championships](scoring-and-championships.md).
+> round's cars are picked *from* those standings, so a final's times never
+> feed back into them. Championship results are shown by selecting that
+> round. The full rules — what counts, what a tie means, why some rounds
+> are left out — are in [Scoring](reference/scoring.md).
 
 ![Final Standings Page](assets/screenshots/race-day/18-final-standings.png)
 _The standings show rank, car number, name, den, heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
@@ -525,31 +512,34 @@ _The standings show rank, car number, name, den, heats completed, and average ti
 
 ### A racer arrived late
 
-Add them to the roster and check them in as normal. **Checking them in is what puts them in the racing** — Trusty Track then works out what to do with the round already on screen, and there is nothing else for you to press.
+Add them to the roster and check them in as normal. **Checking them in is
+what puts them in the racing** — there is nothing else to press.
 
-What happens depends on how far that round has got:
+- A round not yet started is rebuilt with them in it.
+- A round part-way through keeps every recorded time; heats are added at
+  the end for the newcomer.
+- A finished round is left alone — they start from the next round.
 
-| The round | What happens |
-| --- | --- |
-| Not started | Rebuilt with them in it — everybody gets an equal schedule |
-| Part-way through | Every recorded time is kept, and heats are added at the end for the newcomer |
-| Finished | Left alone. They start from the next round you create |
-
-The middle case is the interesting one. The newcomer gets one heat in each lane, the same spread everybody else got, because lanes are not equal and that is what the schedule exists to even out. The other lanes of those extra heats have to hold somebody, so a few racers run once more than their peers — which a timed race shrugs off and a points-scored race cannot, so in a points race that round is [left out of the standings](scoring-and-championships.md#what-the-standings-page-shows) and the standings page says so. Same rule as [a lane going out of service](hardware-timer.md#if-a-lane-stops-working), for the same reason.
+The full rules, including what a points race does about the extra heats,
+are in [Changes in the middle of a race](reference/mid-race-changes.md#a-late-arrival).
 
 > [!TIP]
 > If somebody is checked in and shows **No heats** on the roster, they arrived after the round they would have been in had already finished. Create the next round and they will be in it.
 
 ### A racer had to withdraw
 
-Open their check-in entry and turn **Passed Inspection / Checked In** off. The schedule sorts itself out from there, the same way it does for a late arrival:
+Open their check-in entry and turn **Passed Inspection / Checked In** off.
+The schedule sorts itself out:
 
-- A round that has not started is rebuilt without them.
-- A round part-way through keeps every heat already run; their lanes in the remaining heats are simply emptied. Nobody else's schedule changes.
-- A round already finished keeps their results — leaving does not rewrite history.
-- If they had qualified for a championship round that has not been raced yet, the next qualifier steps up and takes their place.
+- A round not yet started is rebuilt without them.
+- A round part-way through keeps every heat already run; their remaining
+  lanes are emptied.
+- A finished round keeps their results.
+- A championship spot they held in an unraced round goes to the next
+  qualifier.
 
-If it was a mistake, check them back in — they get their place back the same way a latecomer does.
+If it was a mistake, check them back in — they get their place back. Details
+in [Changes in the middle of a race](reference/mid-race-changes.md#a-withdrawal).
 
 ### A timer result came in wrong
 

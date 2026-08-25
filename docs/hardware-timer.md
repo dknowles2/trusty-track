@@ -28,31 +28,19 @@ lane dies on the morning of the event.
 
 ## Which timers work
 
-| Timer | Found automatically? | How well tested |
-| --- | --- | --- |
-| **Micro Wizard K1 / K2 / K3** (FastTrack) | Yes | Checked against recordings of a real device |
-| Derby Timer | Yes | Checked against recordings of a real device |
-| PDT | Yes | Checked against recordings of a real device |
-| Bert Drake | Yes | Protocol documentation only |
-| The Judge | Yes | Protocol documentation only |
-| "The Champ" (SmartLine / BestTrack) | Yes | Protocol documentation only |
-| JIT Racemaster | Yes | Protocol documentation only |
-| NewBold DT / TURBO / DerbyStick | **No — pick it by hand** | Protocol documentation only |
-
-The Micro Wizard is the timer Trusty Track has been built against. The other
-seven descriptions are adapted from
-[DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions.
+Eight models, led by the **Micro Wizard K1 / K2 / K3** — the timer Trusty
+Track has been built against. Seven of the eight are found automatically;
+the NewBold family has to be picked by hand. The full list, and how well
+each has been tested, is in [the timer reference](reference/timers.md#which-timers-work).
 
 > [!WARNING]
 > **None of these has run a real heat on real hardware yet** — including the
-> Micro Wizard. Recordings are the stronger evidence, but they are not a live
-> run. If you own one of these timers,
+> Micro Wizard. If you own one,
 > [testing it and sending us the result](#testing-your-timer-and-telling-us)
 > takes about two minutes and is the most useful thing you could contribute.
 
-Other models are not supported yet. Adding one is a matter of describing how
-the timer talks rather than writing code — so opening an issue naming the
-model, with its manual if you have it, genuinely helps.
+Other models are not supported yet. Opening an issue naming the model, with
+its manual if you have it, genuinely helps.
 
 ## Two ways to connect
 
@@ -103,16 +91,10 @@ answered, and where it was found. You do not need a race set up to use it.
 ![The timer check page with a healthy timer: Ready in green, the identified device, its provenance note, the test panel, and the serial traffic beneath](assets/screenshots/timers/02-timer-check-ready.png)
 _A healthy timer: **Ready**, the device it identified itself as, and — in the yellow note — how well that device's support has actually been tested._
 
-| What you see | What it means |
-| --- | --- |
-| **Ready** | The timer answered and is waiting for a heat. This is what you want. |
-| **Not connected** | Trusty Track cannot see a timer. Check the cable, then press the button to search again. |
-| **Port open, waiting for the timer to answer** | Something is plugged in, but it has not said what it is. Trusty Track keeps asking every few seconds. If this never clears, whatever is plugged in is probably not the timer. |
-| **Armed** | Lanes are set and the timer is waiting for the start gate. |
-| **Staged** | The start gate is closed with cars behind it. |
-| **Racing** | The gate opened and the timer is counting. |
-| **Results overdue** | The race started but no finish was reported. See [below](#when-something-goes-wrong). |
-| **Fault** | The connection failed. The reason is shown on the page. |
+**Ready** is what you want: the timer answered and is waiting for a heat.
+**Not connected** means check the cable and search again. Every other state
+the page can show is explained in
+[the timer reference](reference/timers.md#what-each-state-means).
 
 ### The scrolling text at the bottom
 
@@ -124,10 +106,8 @@ report, and the conversation goes with it.
 
 The one thing it tells you with no decoding: lines marked `→` are Trusty
 Track talking, lines marked `←` are the timer answering. Arrows going out
-with nothing ever coming back means the cable or the port is wrong.
-
-For the technically curious, annotated examples of a healthy conversation are
-in the [design notes](design.md#54-reading-the-serial-log).
+with nothing ever coming back means the cable or the port is wrong. More in
+[the timer reference](reference/timers.md#the-serial-log).
 
 ## When something goes wrong
 
@@ -145,7 +125,7 @@ it has, then enter anything missing by hand.
 numbering: lane 1 in Trusty Track must be the lane the timer calls `A`.
 
 **A heat was armed and then the schedule changed.** The timer disarms itself
-and says so, rather than recording times against a field that has moved.
+and says so, rather than recording times against cars that have moved.
 Re-arm the heat and run it again.
 
 ## Testing your timer and telling us
@@ -179,54 +159,38 @@ out of the untested column.
 
 ## Choosing the model yourself
 
-Most people never touch this. Leave **Timer Model** on *Detect automatically*
-and Trusty Track asks each timer it knows about who it is, which works for seven
-of the eight models. Pick one yourself when:
+Most people never touch this. Leave **Timer Model** on *Detect automatically*.
+Pick one yourself only when:
 
-- **Yours is the NewBold family.** It never announces itself, so it can only
-  be reached this way — the picker marks it *must be chosen*. It also talks at
-  a different speed from every other supported timer, and picking it is what
-  makes the connection use that speed; automatic detection assumes the usual
-  one and would hear only noise.
-- **You would rather it did not ask.** Detection works by asking: it sends a
-  short question to everything plugged in and waits for an answer. That is
-  harmless as far as anyone knows, but if you already know what you have,
-  picking it skips the asking.
-
-Picking a model does not tell the app where the timer is plugged in. With the
-serial port left blank it still goes looking — it just looks for *that* timer,
-instead of asking about every model it knows.
+- **Yours is the NewBold family** — it never announces itself, so the picker
+  marks it *must be chosen*.
+- **You would rather the app did not send its short "who are you?" question**
+  to whatever is plugged in.
 
 The setting sits under **Timer Type**, and only appears once you have chosen
-something other than the fake timer, because a fake timer has no model.
+something other than the fake timer. The details are in
+[the timer reference](reference/timers.md#the-timer-model-picker).
 
 ## Launching a heat from the screen
 
 Some tracks have a solenoid fitted to the start gate, wired to the timer.
-Where that is the case, an armed heat can be launched from the race screen
-instead of by somebody standing at the track.
+Where that is the case, a **Release Start Gate** button appears on the race
+screen once a heat is armed.
 
-Two things have to be true before the button appears:
+Two things have to be true first:
 
-1. **The track has the hardware.** The timer cannot tell us whether the
-   release is fitted, so it is a setting: **System Settings → the track →
-   This track has a remote start gate**. Tick it only if the hardware is
-   actually there — on a Micro Wizard the gate release is a separately-sold
-   accessory, and without it the timer accepts the command and quietly does
-   nothing.
-2. **The timer model has a command for opening the gate.** The Micro Wizard
-   and the PDT do; the other six have no such command described, so ticking
-   the box will not give you the button.
+1. **The track has the hardware** — tick **This track has a remote start
+   gate** on the track's card in System Settings. Only tick it if the
+   release is actually fitted.
+2. **The timer model has a command for it.** The Micro Wizard and the PDT
+   do; the other six do not.
 
-Where both hold, a **Release Start Gate** button appears on the timer panel
-once a heat is armed — and only then. Releasing the gate with no heat armed
-sends cars down a track nothing is timing, and those runs cannot be recovered.
+More in [the timer reference](reference/timers.md#the-remote-start-gate).
 
 > [!WARNING]
-> **This has not been tested against hardware.** No timer description here
-> has, but this is the only part that moves something physical, so it is
-> worth saying twice. Try it with an empty track before you try it with a
-> queue.
+> **This has not been tested against hardware**, and it is the only part
+> that moves something physical. Try it with an empty track before you try
+> it with a queue.
 
 ## If a lane stops working
 
@@ -251,21 +215,11 @@ no working lanes generates no schedule at all, and the settings page says so.
 
 It depends on how far it has got:
 
-| The round | What happens |
-| --- | --- |
-| Not started | Rebuilt for the lanes that remain — everybody gets an equal schedule |
-| Part-way through | Completed heats keep their results; the dead lane is dropped from the heats still to come |
-| Finished | Left alone |
+- A round not yet started is rebuilt for the lanes that remain.
+- A round part-way through keeps every completed heat; the dead lane is
+  dropped from the heats still to come. In a points race that round is then
+  left out of the standings, and the standings page says so.
+- A finished round is left alone.
 
-The middle case has a consequence, and Trusty Track handles it rather than
-hiding it. Racers who were due to run in the lane that failed now race one
-fewer time than everybody else.
-
-- **If your race is scored on times** (the default), that is fine. Standings
-  use each racer's *average*, so somebody with four heats and somebody with
-  five are compared on the same footing.
-- **If your race is scored on points**, it is not fine — points add up, so a
-  racer with one fewer heat would have a lower total, and lower is better.
-  Trusty Track leaves that round out of the standings and says so on the
-  standings page. The round still runs and you can still look at its results;
-  it just does not decide the trophies.
+The full rules are in
+[Changes in the middle of a race](reference/mid-race-changes.md#a-lane-stops-working).

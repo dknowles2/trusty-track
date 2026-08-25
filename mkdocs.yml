@@ -29,8 +29,16 @@ extra_css:
 # there was no hierarchy for a reader to hold.
 #
 # Grouping moves nothing on disk, so every link and anchor into these pages is
-# unchanged. Keep it to about seven tabs: a new page belongs inside one of
+# unchanged. Keep it to about eight tabs: a new page belongs inside one of
 # these, not beside them.
+#
+# The docs are two sets, deliberately. The practical guides (Running a Race,
+# Timers, and so on) are the HOW, written for a volunteer with a queue behind
+# them: short sentences, bullets, one job per section. The Reference tab is
+# the lookup: every rule and table in full, one topic per page, slightly more
+# technical, linked from the practical pages rather than restated in them. A
+# rule lives in reference/ and is *linked* from the guide that needs it —
+# stating it in both is how the two drift.
 nav:
   - Home: index.md
   - Install:
@@ -57,6 +65,20 @@ nav:
   - Network and Backups:
     - Access and Your Network: access-and-network.md
     - Backup and Restore: backup-and-restore.md
+  - Reference:
+    - Look Something Up: reference/index.md
+    - Scoring: reference/scoring.md
+    - Round Styles: reference/round-styles.md
+    - Championship Rounds: reference/championship-rounds.md
+    - Mid-Race Changes: reference/mid-race-changes.md
+    - Race and Track Settings: reference/race-settings.md
+    - Timers: reference/timers.md
+    - Display Views: reference/displays.md
+    - Printed Documents: reference/printing.md
+    - Stats and Exports: reference/stats-and-exports.md
+    - Backups: reference/backups.md
+    - Roles and Permissions: reference/roles-and-permissions.md
+    - Glossary: reference/glossary.md
   - Developers:
     - Development Guide: development.md
     - Design: design.md

@@ -106,4 +106,6 @@ A free race heat is excluded from:
 - **Championship places** — a fast free race does not qualify anybody
 
 That exclusion is the whole point of the mode. If you want a run that *does*
-count, add a round from the **Schedule** tab instead.
+count, add a round from the **Schedule** tab instead. What the standings
+count is spelled out in
+[Scoring](reference/scoring.md#what-the-overall-standings-cover).

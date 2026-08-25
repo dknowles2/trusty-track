@@ -96,4 +96,4 @@ them are, right up until the moment you announce them.
   projector; a printed results sheet carrying the awards is still to come.
 - **Only the operator can change them.** If [a PIN is set](access-and-network.md),
   the check-in desk and the audience displays can see the awards but not edit
-  them.
+  them — see [Roles and permissions](reference/roles-and-permissions.md).
