@@ -957,6 +957,8 @@ Three conventions, each learned from a failure:
 | A feature worth a user's attention | `README.md`, `docs/index.md`, and `mkdocs.yml`'s nav |
 | A rule an agent needs | This file |
 
+**`scoring-and-championships.md` owns the scoring and advancement *rules*; `race-day.md` owns the *steps*.** The reference page (timed vs points, DNF and skip scoring, ties, prelims-only standings, which rounds are excluded, the round-style comparison, how championship fields are chosen and corrected) exists because those rules had scattered across five pages and past line 500 of the walkthrough. When a rule changes, change it there and check the walkthrough's short link-out sentences still summarize it truthfully; when a screen or flow changes, that is race-day's half. Restating a whole rule in both is how the two drift.
+
 **A new page goes *inside* a nav group, not beside one.** `navigation.tabs` turns every top-level entry into a tab across the top, and adding one page at a time got to fifteen — the row scrolled sideways, so several pages were reachable only by finding a scrollbar nobody looks for. It is seven now (Home, Install, Running a Race, Timers, Displays and Printouts, Network and Backups, Developers — Timers before Displays, because an operator sets the timer up before they worry about the audience), and `docs/index.md` follows the same grouping, because a flat list there re-teaches the shape the tabs just lost. Grouping moves nothing on disk, so links and anchors are unaffected either way.
 
 ### Finding the prose that just went stale

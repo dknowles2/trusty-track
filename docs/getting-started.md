@@ -66,7 +66,7 @@ Once your system settings are configured, you're ready to create a race event.
    - **Event Name**: A name for your race (e.g., "2024 Pinewood Derby").
    - **Date & Time**: When the race will take place.
    - **Location**: Where the race is being held.
-   - **Scoring**: **Timed** ranks racers on their average time; **Points** ranks them on their finishing places added up.
+   - **Scoring**: **Timed** ranks racers on their average time; **Points** ranks them on their finishing places added up. See [Scoring & Championships](scoring-and-championships.md) for what each means on race day.
    - **Championship Trophies**: How many trophies the championship awards (3 by default).
    - **Check car weights at inspection**: On by default at 5.0 oz, the usual pack rule. Change the limit, or turn the check off entirely if your pack does not weigh cars.
    - **Track / Timer**: Select which track you'll be using for this event.

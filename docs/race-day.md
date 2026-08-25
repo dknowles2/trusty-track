@@ -235,6 +235,11 @@ race the final". If the round it draws from has already finished, the new
 round fills in with the qualifiers straight away; otherwise it fills in on its
 own the moment they are decided.
 
+The three ways a general round can be raced — every lane for everyone,
+balanced, elimination — are compared side by side in
+[Scoring & Championships](scoring-and-championships.md#three-ways-to-race-a-round);
+the sections below show how to set up each one.
+
 ### Balanced Racing
 
 A third style for a general round, borrowed from GPRM (which calls it
@@ -467,7 +472,7 @@ _The Stats page part-way through the race, with heats completed and lane fairnes
 
 When the last qualifying heat is recorded, Trusty Track works out who has made the championship round and shows a summary of them. Click **Start Next Round** to move on. The summary appears because a championship round was waiting to be filled — if you did not configure one, there is nothing to decide and no summary appears.
 
-The championship round schedule is generated automatically based on who qualified — only the top racers from the qualifying round are included.
+The championship round schedule is generated automatically based on who qualified — only the top racers from the qualifying round are included. How the field is chosen, what happens when a time is corrected afterwards, and what happens when a qualifier withdraws are all in [Scoring & Championships](scoring-and-championships.md#championship-rounds).
 
 ![Round Completion — Advancement Summary](assets/screenshots/race-day/16-round-completion-modal.png)
 _When the field for a championship round is decided, the summary lists the racers who advance, with their finishing scores._
@@ -499,20 +504,20 @@ car first — the page says so above the table — because in that round the las
 one down the track wins.
 
 > [!NOTE]
-> Overall standings cover the **preliminary** rounds only. A championship field
-> is picked *from* those standings, so folding the final's times back into them
-> would change who was supposed to be in the final. Championship results are
-> shown by selecting that round.
+> Overall standings cover the **preliminary** rounds only — a championship
+> field is picked *from* those standings, so a final's times never feed back
+> into them. Championship results are shown by selecting that round. The
+> full rules — what counts, what a tie means, why some rounds are left out —
+> are in [Scoring & Championships](scoring-and-championships.md).
 
 ![Final Standings Page](assets/screenshots/race-day/18-final-standings.png)
 _The standings show rank, car number, name, den, heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
 
 > [!NOTE]
-> **A tie shares a rank.** Two racers with the same score both show the same
-> rank, and the next rank skips — 1st, 1st, 3rd. The app deliberately does not
-> break the tie for you: deciding one is a judgment call, and yours to make —
-> a race-off, or a corrected time from the [result editor](#correcting-a-result).
-> Ties are common in points-scored races and rare, but possible, in timed ones.
+> **A tie shares a rank** — 1st, 1st, 3rd. The app deliberately does not
+> break a tie for you; settle it with a race-off or a corrected time from
+> the [result editor](#correcting-a-result). See
+> [ties](scoring-and-championships.md#ties-share-a-rank).
 
 ---
 
@@ -530,12 +535,7 @@ What happens depends on how far that round has got:
 | Part-way through | Every recorded time is kept, and heats are added at the end for the newcomer |
 | Finished | Left alone. They start from the next round you create |
 
-The middle case is the interesting one. The newcomer gets one heat in each lane, the same spread everybody else got, because lanes are not equal and that is what the schedule exists to even out. The other lanes of those extra heats have to hold somebody, so a few racers run once more than their peers.
-
-- **If your race is scored on times** (the default), that is fine — standings use each racer's average, so an extra run does not flatter anybody.
-- **If your race is scored on points**, it is not, because points add up and lower is better. Trusty Track leaves that round out of the standings and says so on the standings page. The round still runs and its results are still there to look at; it just does not decide the trophies.
-
-This is the same rule as [a lane going out of service](hardware-timer.md#if-a-lane-stops-working), for the same reason.
+The middle case is the interesting one. The newcomer gets one heat in each lane, the same spread everybody else got, because lanes are not equal and that is what the schedule exists to even out. The other lanes of those extra heats have to hold somebody, so a few racers run once more than their peers — which a timed race shrugs off and a points-scored race cannot, so in a points race that round is [left out of the standings](scoring-and-championships.md#what-counts-toward-the-standings) and the standings page says so. Same rule as [a lane going out of service](hardware-timer.md#if-a-lane-stops-working), for the same reason.
 
 > [!TIP]
 > If somebody is checked in and shows **No heats** on the roster, they arrived after the round they would have been in had already finished. Create the next round and they will be in it.
