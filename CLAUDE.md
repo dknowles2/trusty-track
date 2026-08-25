@@ -821,7 +821,10 @@ The whole feature exists because two things are one click from ending a public i
 **Extension order is load-bearing in two directions at once**, and it reads backwards — a later extension wraps an earlier one, so execution runs from the end of the list towards the front:
 
 ```python
-extensions=[RolePolicyExtension, DemoPolicyExtension, AuditExtension]
+schema = strawberry.Schema(
+    ...,
+    extensions=[RolePolicyExtension, DemoPolicyExtension, AuditExtension],
+)
 ```
 
 Before `AuditExtension`, so a demo refusal is recorded like any other (#219's rule, from the other side). After `RolePolicyExtension`, so it runs *first*: on a demo nobody sets a PIN, so every caller is `OPERATOR` and the role policy would have allowed the mutation and reported the wrong reason. `test_demo_mode.py::test_the_refusal_is_recorded` fails to a one-line swap.
