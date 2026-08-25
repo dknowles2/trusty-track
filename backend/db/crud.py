@@ -9,7 +9,14 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend import demo_seed
-from backend.domain import advancement, audit, lanes, latecomers, scheduling
+from backend.domain import (
+    advancement,
+    audit,
+    elimination,
+    lanes,
+    latecomers,
+    scheduling,
+)
 
 from . import lane_sync, models, schemas
 
@@ -436,6 +443,7 @@ def create_round(
     advancement_num_racers: int | None = None,
     den_id: int | None = None,
     advancement_from_bottom: bool = False,
+    elimination_losses: int | None = None,
 ) -> models.Round:
     """Create a new round for a race."""
     round_obj = models.Round(
@@ -447,6 +455,7 @@ def create_round(
         advancement_num_racers=advancement_num_racers,
         den_id=den_id,
         advancement_from_bottom=advancement_from_bottom,
+        elimination_losses=elimination_losses,
     )
     db.add(round_obj)
     db.commit()
@@ -586,6 +595,95 @@ def _generate_ppc(
     return generated_heats
 
 
+def _write_elimination_wave(
+    db: Session,
+    round_obj: models.Round,
+    wave: list[list[int]],
+    usable_lanes: Sequence[int],
+    start_heat_num: int,
+) -> list[models.Heat]:
+    """Persist one wave of an elimination round as heat rows."""
+    heats: list[models.Heat] = []
+    for offset, group in enumerate(wave):
+        heat = models.Heat(
+            race_id=round_obj.race_id,
+            round_id=round_obj.id,
+            heat_number=start_heat_num + offset,
+        )
+        set_heat_lanes(
+            heat,
+            [
+                lanes.Lane(lane=usable_lanes[position], racer_id=racer_id)
+                for position, racer_id in enumerate(group)
+            ],
+        )
+        db.add(heat)
+        heats.append(heat)
+    return heats
+
+
+def extend_elimination_round(db: Session, round_id: int) -> list[models.Heat]:
+    """Grow an elimination round by one wave, if its schedule has run out.
+
+    Called from the recorded-result cascade, the same as advancement — and
+    like advancement since #248, it asks about the state of the round *now*:
+    losses are recomputed from every finished heat, so a corrected earlier
+    result simply changes who the next wave holds. Nothing happens while any
+    scheduled heat is still to be run, so an armed heat is never disturbed
+    (#50) — waves are append-only.
+
+    A racer who is no longer checked in is left out of the next wave, the
+    same rule as advancement (#228): their recorded losses stand, but a lane
+    in a heat yet to run never goes to a car that has left the building.
+    """
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if (
+        not round_obj
+        or round_obj.scheduling_strategy != models.SchedulingStrategy.ELIMINATION
+    ):
+        return []
+
+    heats = (
+        db.query(models.Heat)
+        .filter(models.Heat.round_id == round_id)
+        .order_by(models.Heat.heat_number)
+        .all()
+    )
+    if not heats:
+        return []
+    heat_lanes = lanes_for_heats(db, heats)
+    if not all(lanes.is_finished(hl) for hl in heat_lanes):
+        return []
+
+    losses = elimination.losses_by_racer(heat_lanes)
+    threshold = round_obj.elimination_losses or 1
+    eligible = set(_eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
+    losses = {r: c for r, c in losses.items() if r in eligible}
+    if not elimination.is_decided(losses, threshold):
+        # A latecomer joins the next wave at zero losses (#172's rule, in
+        # this format's own terms) — but never a race that is already won:
+        # checking in after the final heat must not restart it.
+        for racer_id in eligible:
+            losses.setdefault(racer_id, 0)
+
+    usable = usable_lanes_for_race(db, round_obj.race_id)
+    # `run` keys the seeded shuffle to the wave, so regenerating wave three
+    # alone draws the same heats wave three drew beside the others.
+    wave = elimination.next_wave(
+        losses,
+        threshold,
+        len(usable),
+        rng=_schedule_rng(db, round_obj.race_id, round_id, run=len(heats)),
+    )
+    if not wave:
+        return []
+
+    start = max(heat.heat_number for heat in heats) + 1
+    new_heats = _write_elimination_wave(db, round_obj, wave, usable, start)
+    db.commit()
+    return new_heats
+
+
 def generate_heats_for_round(
     db: Session,
     round_id: int,
@@ -687,6 +785,23 @@ def generate_heats_for_round(
     # from *before* the delete, so testing it alone renumbered a regenerated
     # round to 5..8 instead of 1..4 — and left a gap in the race's numbering.
     start_heat_num = len(existing_heats) + 1 if existing_heats and not cleared else 1
+
+    if round_obj.scheduling_strategy == models.SchedulingStrategy.ELIMINATION:
+        # Only the first wave is scheduled here — everyone on zero losses.
+        # The rest of the schedule does not exist yet by design: each later
+        # wave is drawn from the losses as they stand, by
+        # `extend_elimination_round` on the recorded-result cascade.
+        wave = elimination.next_wave(
+            dict.fromkeys(p_ids, 0),
+            round_obj.elimination_losses or 1,
+            len(usable_lanes),
+            rng=_schedule_rng(db, race_id, round_id),
+        )
+        wave_heats = _write_elimination_wave(
+            db, round_obj, wave, usable_lanes, start_heat_num
+        )
+        db.commit()
+        return wave_heats
 
     # Generate heats using PPC strategy, once per run. Each run gets its own
     # schedule — `run` varies the shuffle — and the numbering continues.
@@ -1032,6 +1147,13 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
         if advancement.is_round_complete(heat_lanes):
             continue
 
+        if round_obj.scheduling_strategy == models.SchedulingStrategy.ELIMINATION:
+            # No lane-balance appendix here: an elimination round's schedule
+            # grows on its own, and `extend_elimination_round` fields every
+            # checked-in racer it has not seen at zero losses — so the
+            # latecomer simply joins the next wave.
+            continue
+
         appended = latecomers.plan_late_entry(
             missing, sorted(already), usable, met=_met_counts(heat_lanes, missing)
         )
@@ -1335,8 +1457,26 @@ def invalidate_future_rounds(db: Session, race_id: int, current_round_number: in
 
 
 def is_round_complete(db: Session, round_id: int) -> bool:
-    """True when every heat in the round has a time for every real racer."""
-    return advancement.is_round_complete(_round_heat_lanes(db, round_id))
+    """True when every heat in the round has a time for every real racer.
+
+    An elimination round asks one thing more: that a winner exists. Its
+    schedule grows a wave at a time, so "every scheduled heat is finished"
+    is true between waves — treating that as complete would advance a
+    championship field off a race that is still going.
+    """
+    heat_lanes = _round_heat_lanes(db, round_id)
+    if not advancement.is_round_complete(heat_lanes):
+        return False
+    round_obj = db.query(models.Round).filter(models.Round.id == round_id).first()
+    if (
+        round_obj
+        and round_obj.scheduling_strategy == models.SchedulingStrategy.ELIMINATION
+    ):
+        return elimination.is_decided(
+            elimination.losses_by_racer(heat_lanes),
+            round_obj.elimination_losses or 1,
+        )
+    return True
 
 
 def populate_round_if_decided(db: Session, round_obj: models.Round) -> bool:
@@ -1464,6 +1604,11 @@ def record_heat_result(
 
         if heat.round:
             invalidate_future_rounds(db, heat.race_id, heat.round.round_number)
+            # Before advancement asks whether the round is complete: an
+            # elimination round that just finished a wave is only complete
+            # when it is *decided*, and extending it first keeps the two
+            # questions from racing each other.
+            extend_elimination_round(db, heat.round.id)
             trigger_auto_advancements(db, heat.race_id, heat.round.id)
 
         _record_result_audit(db, heat, heat_lanes, source)

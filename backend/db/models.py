@@ -82,6 +82,10 @@ class AwardKind(str, enum.Enum):
 
 class SchedulingStrategy(str, enum.Enum):
     PPC = "PPC"
+    #: Ladderless elimination: lose `Round.elimination_losses` heats and you
+    #: are out; the schedule grows a wave at a time as results land, and the
+    #: last car standing wins. See `domain/elimination.py`.
+    ELIMINATION = "ELIMINATION"
 
 
 class ScoringStrategy(str, enum.Enum):
@@ -293,6 +297,10 @@ class Round(Base):
     advancement_from_bottom: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: Ladderless elimination only: how many heats a car may lose before it
+    #: is out. Null for every other scheduling strategy — the column has no
+    #: meaning without one, and a value nothing reads would be free to rot.
+    elimination_losses: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[list["Heat"]] = relationship(

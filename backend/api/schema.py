@@ -418,6 +418,9 @@ class Round:
     #: standings instead of the top, and cars with no recorded result are
     #: left out. Everything else about a championship round is unchanged.
     advancement_from_bottom: bool
+    #: Ladderless elimination only: how many heats a car may lose before it
+    #: is out. Null for every other scheduling strategy.
+    elimination_losses: int | None
     #: A lane went out of service part-way through this round (#171). The
     #: racers in the vacated lanes raced fewer times than everybody else, so it
     #: does not count toward `POINTS` standings — see `domain/scoring`.
@@ -796,6 +799,9 @@ class RoundCreateInput:
     #: Draw the field from the bottom of the standings — a Slowest Race
     #: bracket. Only meaningful with an ``advancement_source``.
     advancement_from_bottom: bool = False
+    #: Ladderless elimination only: losses before a car is out. Defaults to
+    #: 3 when the strategy is ``ELIMINATION`` and this is not supplied.
+    elimination_losses: int | None = None
 
 
 @strawberry.input
@@ -3183,12 +3189,21 @@ class Mutation:
 
             if not round_data.advancement_source:
                 # General Round
+                strategy = models.SchedulingStrategy(round_data.scheduling_strategy)
+                is_elimination = strategy == models.SchedulingStrategy.ELIMINATION
+                losses = None
+                if is_elimination:
+                    losses = round_data.elimination_losses or 3
+                    if losses < 1:
+                        raise ValueError("A car must be allowed at least one loss.")
+                default_name = "Elimination Round" if is_elimination else "All Pack"
                 round_obj = crud.create_round(
                     db,
                     race_id,
                     next_round_number,
-                    models.SchedulingStrategy(round_data.scheduling_strategy),
-                    round_data.name or "All Pack",
+                    strategy,
+                    round_data.name or default_name,
+                    elimination_losses=losses,
                 )
                 crud.generate_heats_for_round(
                     db,
@@ -3200,6 +3215,16 @@ class Mutation:
                 return [typing.cast(Any, round_obj)]
             else:
                 # Championship Round (Placeholder)
+                if (
+                    models.SchedulingStrategy(round_data.scheduling_strategy)
+                    == models.SchedulingStrategy.ELIMINATION
+                ):
+                    # A championship field is placeholders until the source
+                    # decides it, and an elimination wave of placeholders is
+                    # nonsense — the format applies to general rounds.
+                    raise ValueError(
+                        "An elimination round cannot also be a championship round."
+                    )
                 default_name = (
                     "Slowest Race"
                     if round_data.advancement_from_bottom
