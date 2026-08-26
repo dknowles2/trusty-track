@@ -19,6 +19,7 @@ export const RACE_AWARDS_QUERY = gql`
         sortOrder
         source
         place
+        fromBottom
         denId
         den {
           id

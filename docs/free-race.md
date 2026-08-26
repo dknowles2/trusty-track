@@ -39,15 +39,21 @@ exhibition on a four-lane track is fine.
 ![Manual lane assignment](assets/screenshots/free-race/02-lane-setup-manual.png)
 _Manual mode gives every lane a racer picker. Leave a lane on "Select racer" to run it empty._
 
+### Anonymous
+
+**Anonymous** assigns nobody at all — every lane runs empty. Use it to test the
+track or the timer before anyone arrives, or to run cars that are not on the
+roster. The button reads **Start Anonymous Heat**, and the times are recorded
+against lanes rather than against people.
+
+![Anonymous lane setup](assets/screenshots/free-race/03-lane-setup-anonymous.png)
+_Anonymous mode. Nothing to pick and nothing to shuffle — one empty lane for every lane the track has._
+
 !!! note "Random draws from the checked-in racers only"
 
     A **Random** draw is made from the racers whose cars have passed
     inspection, so somebody who has not been checked in will never come up in
     one. The **Manual** pickers list the whole roster, checked in or not.
-
-When at least one lane holds a racer, the button reads **Start Free Race
-Heat**. With every lane empty it reads **Start Anonymous Heat**, which is the
-right choice for testing the track itself with no cars assigned to anybody.
 
 ---
 
@@ -56,7 +62,7 @@ right choice for testing the track itself with no cars assigned to anybody.
 Once started, the heat is staged and waiting for the timer, exactly like an
 official one.
 
-![A free race heat staged and waiting for the timer](assets/screenshots/free-race/03-heat-armed.png)
+![A free race heat staged and waiting for the timer](assets/screenshots/free-race/04-heat-armed.png)
 _A staged free race heat. With a fake timer configured, the Fake Timer Controls appear in the corner — see the [Fake Timer guide](fake-timer.md)._
 
 - **With a hardware timer**: release the cars as normal; times arrive on their own.
@@ -65,7 +71,7 @@ _A staged free race heat. With a fake timer configured, the Fake Timer Controls 
 Results appear as soon as the heat finishes, with places and the winner
 highlighted.
 
-![Free race heat results](assets/screenshots/free-race/04-heat-results.png)
+![Free race heat results](assets/screenshots/free-race/05-heat-results.png)
 _A completed free race heat. The same lane cards, times and places as an official heat — and the same reminder that none of it counts._
 
 Three buttons sit above the results:

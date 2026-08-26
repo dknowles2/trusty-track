@@ -107,18 +107,22 @@ test('screenshot free race', async ({ page }) => {
     await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02-lane-setup-manual.png') });
 
+    await page.getByRole('button', { name: /Anonymous/ }).click();
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03-lane-setup-anonymous.png') });
+
     // Back to Random so the heat has a full field of named racers.
     await page.getByRole('button', { name: /Random/ }).click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /Start Free Race Heat/ }).click();
     await expect(page.getByText('Free Race Heat')).toBeVisible();
     await page.waitForTimeout(700);
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '03-heat-armed.png') });
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04-heat-armed.png') });
 
     // The fake timer mole: arm, then finish, which records times.
     await page.getByRole('button', { name: /Start Timer/ }).click();
     await page.waitForTimeout(600);
     await page.getByRole('button', { name: /Finish Heat/ }).click();
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04-heat-results.png') });
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05-heat-results.png') });
 });

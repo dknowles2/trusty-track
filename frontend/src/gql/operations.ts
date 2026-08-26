@@ -6,6 +6,7 @@ import * as Types from './schema';
 
 export type AwardInput = {
   denId?: number | null | undefined;
+  fromBottom?: boolean;
   kind?: string;
   name: string;
   place?: number | null | undefined;
@@ -172,7 +173,7 @@ export type RaceAwardsQueryVariables = Exact<{
 }>;
 
 
-export type RaceAwardsQuery = { race: { id: number, name: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, denId: number | null, den: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null }>, rounds: Array<{ id: number, name: string | null, roundNumber: number }>, dens: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null }> } | null };
+export type RaceAwardsQuery = { race: { id: number, name: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, fromBottom: boolean, denId: number | null, den: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null }>, rounds: Array<{ id: number, name: string | null, roundNumber: number }>, dens: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null }> } | null };
 
 export type CreateAwardMutationVariables = Exact<{
   raceId: number;

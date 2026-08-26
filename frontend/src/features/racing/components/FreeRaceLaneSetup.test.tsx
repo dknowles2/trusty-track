@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useQuery } from 'urql';
-import { FreeRaceLaneSetup } from './FreeRaceLaneSetup';
+import { FreeRaceLaneSetup, Mode } from './FreeRaceLaneSetup';
 
 vi.mock('urql', async (importOriginal) => {
   const actual = await importOriginal<typeof import('urql')>();
@@ -27,7 +27,7 @@ const mockRacers = [
 ];
 
 const StatefulWrapper: React.FC<any> = (props) => {
-  const [mode, setMode] = React.useState<'random' | 'manual'>('random');
+  const [mode, setMode] = React.useState<Mode>('random');
   return <FreeRaceLaneSetup {...props} mode={mode} onModeChange={setMode} />;
 };
 
@@ -65,6 +65,7 @@ describe('FreeRaceLaneSetup', () => {
     // The Random tab button should be present and visually selected (bold)
     expect(screen.getByRole('button', { name: /Random/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Manual/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Anonymous/i })).toBeInTheDocument();
   });
 
   it('displays lane assignments returned by the randomFreeRaceLanes query', async () => {
@@ -182,7 +183,7 @@ describe('FreeRaceLaneSetup', () => {
     expect(screen.getByText(/Carol White/)).toBeInTheDocument();
   });
 
-  it('Start Anonymous Heat is enabled when all lanes are empty in random mode', async () => {
+  it('Start is enabled when the draw comes back with every lane empty', async () => {
     const emptyLanesData = {
       data: {
         randomFreeRaceLanes: [
@@ -196,6 +197,38 @@ describe('FreeRaceLaneSetup', () => {
     render(<StatefulWrapper {...defaultProps} />);
     const startBtn = screen.getByRole('button', { name: /Start (Free Race|Anonymous) Heat/i });
     expect(startBtn).not.toBeDisabled();
+  });
+
+  it('Anonymous mode gives every lane on the track an empty lane and no picker', async () => {
+    render(<StatefulWrapper {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Anonymous/i }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/No racer/i)).toHaveLength(4);
+    });
+    expect(screen.getByText('Lane 4')).toBeInTheDocument();
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
+    // The draw's racers belong to the other modes, not this one.
+    expect(screen.queryByText(/Alice Smith/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Start Anonymous Heat/i })
+    ).toBeInTheDocument();
+  });
+
+  it('Anonymous mode starts a heat with every lane empty', async () => {
+    render(<StatefulWrapper {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Anonymous/i }));
+    await waitFor(() => {
+      expect(screen.getAllByText(/No racer/i)).toHaveLength(4);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Start Anonymous Heat/i }));
+    expect(mockOnStart).toHaveBeenCalledWith([
+      { id: 'anonymous-1', lane: 1, racerId: null },
+      { id: 'anonymous-2', lane: 2, racerId: null },
+      { id: 'anonymous-3', lane: 3, racerId: null },
+      { id: 'anonymous-4', lane: 4, racerId: null },
+    ]);
   });
 
   it('Start Free Race Heat calls onStart with correct LaneAssignment array in random mode', async () => {

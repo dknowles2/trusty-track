@@ -16,22 +16,25 @@ from.
 
 | | Winner | Use it for |
 | --- | --- | --- |
-| **Whoever is fastest** | worked out from the standings | Fastest Car, Fastest Wolf, second and third place |
+| **Speed-based** | worked out from the standings | Fastest Car, Fastest Wolf, Slowest Car, second and third place |
 | **Somebody we choose** | you pick a racer | Best Paint, Most Original, Judges' Choice |
 
-### Whoever is fastest
+### Speed-based
 
 You describe the award rather than naming a winner: *which standings*, *which
-position*, and optionally *which den*.
+end*, *which position*, and optionally *which den*.
 
 - **Standings to use** — the overall standings, or one round's. Pick a round for
   the trophy that goes to the winner of the final; pick the overall standings
   for a trophy based on the whole event.
-- **Position** — Fastest, 2nd, 3rd, and so on.
+- **Counting from** — *The fastest car* or *The slowest car*. Most awards count
+  from the fastest; see [The slowest car](#the-slowest-car) below.
+- **Position** — Fastest, 2nd, 3rd, and so on. Counting from the slowest, these
+  read Slowest, 2nd slowest, 3rd slowest.
 - **Limited to a den** — for "Fastest Wolf". Leave it on *The whole pack*
   otherwise.
 
-![Setting up a speed award: the standings to use, the position, and the den](assets/screenshots/awards/02-speed-award-form.png)
+![Setting up a speed award: the standings to use, which end to count from, the position, and the den](assets/screenshots/awards/02-speed-award-form.png)
 
 > [!TIP]
 > "Fastest in each den" is one award per den, not one award. Add them
@@ -41,6 +44,20 @@ position*, and optionally *which den*.
 Because the award describes a position rather than a person, **correcting a time
 moves the trophy**. Set them up before the racing starts; if you find a mistyped
 time at the end of the day and fix it, the awards follow.
+
+#### The slowest car
+
+Plenty of packs give a trophy to the slowest car, and it is the same standings
+read from the other end. Set **Counting from** to *The slowest car* and leave
+**Position** on *Slowest*.
+
+It works with everything else on the form: limit it to a den for "Slowest Wolf",
+or point it at one round for the slowest car in the final.
+
+> [!NOTE]
+> A car that has not raced yet can never win it. Racers with no result sit at
+> the bottom of the standings, so without this the trophy would go to whoever
+> registered and stayed home. Only cars that actually ran are considered.
 
 ### Somebody we choose
 

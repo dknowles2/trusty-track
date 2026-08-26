@@ -971,6 +971,9 @@ class Award:
     #: `SPEED` only: `"PACK"` or `"ROUND:<id>"`, and a 1-based `place`.
     source: str | None
     place: int | None
+    #: `SPEED` only: which end `place` counts from. False is the fastest car,
+    #: true the slowest.
+    from_bottom: bool
     den_id: int | None
 
     @strawberry.field
@@ -1003,6 +1006,7 @@ class AwardInput:
     kind: str = "SPECIAL"
     source: str | None = None
     place: int | None = None
+    from_bottom: bool = False
     den_id: int | None = None
     racer_id: int | None = None
     sort_order: int | None = None

@@ -33,7 +33,10 @@ def _rule_for(award: models.Award) -> domain_awards.SpeedRule | None:
         return None
     try:
         return domain_awards.SpeedRule(
-            source=award.source, place=award.place, den_id=award.den_id
+            source=award.source,
+            place=award.place,
+            den_id=award.den_id,
+            from_bottom=award.from_bottom,
         )
     except ValueError:
         # `place` below 1. Same reasoning as above.
@@ -59,7 +62,13 @@ def _standings_cache(
         entries = scoring.get_leaderboard(db, race_id, round_id=round_id)
         cache[source] = [
             domain_advancement.Standing(
-                racer_id=entry["racer_id"], den_id=entry["den_id"]
+                racer_id=entry["racer_id"],
+                den_id=entry["den_id"],
+                # Only a `from_bottom` award reads this, and for it the
+                # distinction is the whole point: the leaderboard sorts cars
+                # with no result below every car that raced, so without it the
+                # slowest-car trophy goes to somebody who never ran.
+                has_raced=entry["heats_completed"] > 0,
             )
             for entry in entries
         ]

@@ -47,6 +47,7 @@ export type AuditLogEntry = {
 export type Award = {
   den?: Maybe<Den>;
   denId?: Maybe<Scalars['Int']['output']>;
+  fromBottom: Scalars['Boolean']['output'];
   id: Scalars['Int']['output'];
   kind: Scalars['String']['output'];
   name: Scalars['String']['output'];
@@ -59,6 +60,7 @@ export type Award = {
 
 export type AwardInput = {
   denId?: InputMaybe<Scalars['Int']['input']>;
+  fromBottom?: Scalars['Boolean']['input'];
   kind?: Scalars['String']['input'];
   name: Scalars['String']['input'];
   place?: InputMaybe<Scalars['Int']['input']>;

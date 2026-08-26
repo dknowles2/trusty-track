@@ -76,11 +76,19 @@ class SpeedRule:
     ``place`` is 1-based: 1 is the winner. Sub-1 places are refused rather than
     silently treated as 1, because `standings[place - 1]` with ``place = 0``
     would index from the end and hand the trophy to the slowest car.
+
+    ``from_bottom`` flips which end ``place`` counts from, so ``place = 1``
+    with it set is the *slowest* car — the same flip
+    :attr:`backend.domain.advancement.AdvancementRule.from_bottom` makes for a
+    Slowest Race bracket, and deliberately the same word for it. Plenty of
+    packs give a trophy to the slowest car, and it is the standings they
+    already have read from the other end rather than a third kind of source.
     """
 
     source: str
     place: int
     den_id: int | None = None
+    from_bottom: bool = False
 
     def __post_init__(self) -> None:
         if self.place < 1:
@@ -108,10 +116,22 @@ def recipient_of(rule: SpeedRule, standings: Sequence[Standing]) -> int | None:
     has none until somebody in that den has. The presentation screen shows the
     award with no name against it, which is what the announcer is looking at
     anyway.
+
+    A ``from_bottom`` award counts from the other end, and drops racers who
+    have not raced before it does — the leaderboard sorts them below everyone
+    with a result, so the raw bottom of the standings is cars that never ran.
+    Handing the slowest-car trophy to a child who was not there is the one way
+    this award goes wrong in a room. Same rule, same reason, as
+    :func:`backend.domain.advancement._picking_order`.
     """
     eligible = standings
     if rule.den_id is not None:
         eligible = [s for s in standings if s.den_id == rule.den_id]
+
+    if rule.from_bottom:
+        # Narrow first, then reverse: "slowest Wolf" is the Wolves read
+        # backwards, not the pack read backwards and then filtered.
+        eligible = [s for s in reversed(eligible) if s.has_raced]
 
     index = rule.place - 1
     if index >= len(eligible):

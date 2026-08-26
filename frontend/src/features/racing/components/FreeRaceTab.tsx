@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { errorText } from '../../../utils/errors';
 import { useMutation } from 'urql';
-import { FreeRaceLaneSetup, LaneAssignment } from './FreeRaceLaneSetup';
+import { FreeRaceLaneSetup, LaneAssignment, Mode } from './FreeRaceLaneSetup';
 import { FreeRaceExecution } from './FreeRaceExecution';
 
 interface RacerSummary {
@@ -42,7 +42,7 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
   debugMode,
 }) => {
   const [phase, setPhase] = useState<FreeRacePhase>({ kind: 'setup' });
-  const [mode, setMode] = useState<'random' | 'manual'>('random');
+  const [mode, setMode] = useState<Mode>('random');
   const [error, setError] = useState<string | null>(null);
 
   const [, startMutation] = useMutation(START_FREE_RACE_HEAT);

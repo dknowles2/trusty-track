@@ -572,6 +572,14 @@ class Award(Base):
     source: Mapped[str | None] = mapped_column(String, nullable=True)
     #: SPEED only, 1-based: 1 is the winner.
     place: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: SPEED only. Which end of the standings ``place`` counts from — false is
+    #: the fastest car, true the slowest. The same flip
+    #: `Round.advancement_from_bottom` makes for a Slowest Race bracket, and
+    #: for the same reason: a pack that gives a trophy to the slowest car is
+    #: reading the standings it already has from the other end.
+    from_bottom: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     #: SPEED only. Narrows the standings to one den, so "fastest Wolf" is the
     #: ordinary standings filtered rather than a third kind of source.
     den_id: Mapped[int | None] = mapped_column(

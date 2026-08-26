@@ -127,6 +127,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `kind` (Enum: `SPEED`, `SPECIAL`)
     -   `source` (`SPEED` only: `PACK` or `ROUND:<id>` — the same vocabulary `Round.advancement_source` uses, but never `DEN`)
     -   `place` (`SPEED` only, 1-based: the winner is 1)
+    -   `from_bottom` (`SPEED` only: which end `place` counts from — false is the fastest car, true the slowest. The same flip `Round.advancement_from_bottom` makes for a Slowest Race bracket, and a car that has not raced is never picked)
     -   `den_id` (`SPEED` only, FK to Den, `ON DELETE CASCADE` — narrows the standings to one den, which is how "fastest Wolf" is expressed rather than a third kind of source)
     -   `racer_id` (`SPECIAL` only, FK to Racer, `ON DELETE SET NULL` — deleting a racer un-assigns the award rather than deleting the trophy)
     -   A `SPEED` recipient is **computed on demand and never stored**, like the leaderboard: an award defined before the racing stays correct when a time is corrected after it. Storing one would make this the first thing in the app able to disagree with the standings (#17).

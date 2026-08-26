@@ -2277,6 +2277,7 @@ def _clear_fields_of_other_kind(award: models.Award) -> None:
     else:
         award.source = None
         award.place = None
+        award.from_bottom = False
         award.den_id = None
 
 

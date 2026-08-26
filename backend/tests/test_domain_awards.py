@@ -64,6 +64,44 @@ class TestDenScope:
         assert recipient_of(rule, standings((7, None), (8, 1))) == 8
 
 
+class TestFromBottom:
+    """The slowest-car trophy: the same standings, read from the other end."""
+
+    def test_first_place_from_the_bottom_is_the_slowest_car(self) -> None:
+        rule = SpeedRule(source=PACK, place=1, from_bottom=True)
+        assert recipient_of(rule, standings((7, None), (8, None), (9, None))) == 9
+
+    def test_place_counts_up_from_the_slowest(self) -> None:
+        rule = SpeedRule(source=PACK, place=2, from_bottom=True)
+        assert recipient_of(rule, standings((7, None), (8, None), (9, None))) == 8
+
+    def test_a_car_that_never_ran_is_not_the_slowest_car(self) -> None:
+        # The leaderboard sorts racers with no result below everyone who has
+        # raced, so the raw bottom of the standings is absent cars. Handing
+        # them the trophy in front of a room is the failure this prevents.
+        entries = [
+            Standing(racer_id=7),
+            Standing(racer_id=8),
+            Standing(racer_id=9, has_raced=False),
+        ]
+        rule = SpeedRule(source=PACK, place=1, from_bottom=True)
+        assert recipient_of(rule, entries) == 8
+
+    def test_nobody_has_raced_yet_means_nobody_wins_it(self) -> None:
+        entries = [Standing(racer_id=7, has_raced=False)]
+        rule = SpeedRule(source=PACK, place=1, from_bottom=True)
+        assert recipient_of(rule, entries) is None
+
+    def test_a_den_is_narrowed_before_it_is_reversed(self) -> None:
+        # "Slowest Wolf" is the Wolves read backwards, not the pack read
+        # backwards and then filtered.
+        rule = SpeedRule(source=PACK, place=1, den_id=2, from_bottom=True)
+        assert recipient_of(rule, standings((7, 2), (8, 1), (9, 2), (10, 1))) == 9
+
+    def test_the_default_reads_from_the_top(self) -> None:
+        assert SpeedRule(source=PACK, place=1).from_bottom is False
+
+
 class TestSource:
     def test_pack_is_not_round_scoped(self) -> None:
         rule = SpeedRule(source=PACK, place=1)
