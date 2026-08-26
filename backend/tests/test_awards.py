@@ -275,6 +275,38 @@ class TestTheTwoKindsDoNotBleed:
 
 
 class TestOrdering:
+    def test_saving_an_award_leaves_the_running_order_alone(self, db):
+        """The edit form sends every field, and never offers `sort_order`.
+
+        `AwardInput` has one, so `strawberry.asdict` makes it an explicit null
+        on every save — and the column is NOT NULL. Without the guard this is
+        an IntegrityError the moment anybody picks a winner for a judged award.
+        """
+        race_id, _dens, racers = build_race(db)
+        crud.create_award(db, race_id, schemas.AwardCreate(name="Best Paint"))
+        second = crud.create_award(
+            db, race_id, schemas.AwardCreate(name="Most Original")
+        )
+        order_before = second.sort_order
+
+        crud.update_award(
+            db,
+            second.id,
+            schemas.AwardUpdate(
+                name="Most Original",
+                kind=models.AwardKind.SPECIAL,
+                source=None,
+                place=None,
+                den_id=None,
+                racer_id=racers[0],
+                sort_order=None,
+            ),
+        )
+
+        db.refresh(second)
+        assert second.racer_id == racers[0]
+        assert second.sort_order == order_before
+
     def test_new_awards_go_to_the_end(self, db):
         race_id, _dens, _racers = build_race(db)
         first = crud.create_award(db, race_id, schemas.AwardCreate(name="Best Paint"))
