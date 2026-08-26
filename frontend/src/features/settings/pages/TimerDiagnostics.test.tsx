@@ -31,7 +31,11 @@ const track = (over: Partial<Record<string, unknown>> = {}) => ({
     ...over,
 });
 
-function setup(tracks: unknown[], status: Record<string, unknown> | null) {
+function setup(
+    tracks: unknown[],
+    status: Record<string, unknown> | null,
+    route = '/timer-check',
+) {
     (useQuery as any).mockReturnValue([{ data: { tracks }, fetching: false, error: null }]);
     (useSubscription as any).mockReturnValue([
         { data: status ? { timerStatus: { trackId: 1, status } } : undefined },
@@ -39,7 +43,7 @@ function setup(tracks: unknown[], status: Record<string, unknown> | null) {
     (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
 
     render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[route]}>
             <AlertProvider>
                 <TimerDiagnostics />
             </AlertProvider>
@@ -177,5 +181,27 @@ describe('TimerDiagnostics', () => {
         setup([], null);
 
         expect(await screen.findByText(/No tracks are configured/)).toBeInTheDocument();
+    });
+});
+
+describe('reaching one track from its settings card', () => {
+    it('gives every track a section the card can address', () => {
+        // The link on a track's card is `/timer-check#timer-<id>`. Without the
+        // id the link still lands on the page, and a venue with three tracks
+        // gets three live panels and no idea which is theirs — a failure that
+        // looks like nothing being wrong.
+        setup([track({ id: 7 })], null);
+
+        expect(document.getElementById('timer-7')?.tagName).toBe('SECTION');
+    });
+
+    it('marks the track that was asked for', () => {
+        // Scrolling to it is not enough on its own: a page whose panels all
+        // fit does not scroll, and then arriving from one track's card looks
+        // exactly like arriving from the nav.
+        setup([track({ id: 7 }), track({ id: 8, name: 'Back Gym' })], null, '/timer-check#timer-8');
+
+        expect(document.getElementById('timer-8')!.style.boxShadow).toContain('cub-scouting-gold');
+        expect(document.getElementById('timer-7')!.style.boxShadow).toBe('');
     });
 });

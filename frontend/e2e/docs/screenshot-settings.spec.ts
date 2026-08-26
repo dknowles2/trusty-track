@@ -7,9 +7,10 @@
  *   npx playwright test --config=playwright.screenshots.config.ts \
  *     e2e/docs/screenshot-settings.spec.ts
  *
- * Both panels live inside a track's own card rather than in a section of their
- * own, which is the thing the pictures are there to show — the prose can say
- * "Settings → Tracks" and still leave somebody scrolling.
+ * The lanes and records panels live inside a track's own card rather than in a
+ * section of their own, which is the thing those pictures are there to show —
+ * the prose can say "Settings → Tracks" and still leave somebody hunting for
+ * the card. Backup is a section in its own right, and is photographed as one.
  */
 
 import { test, expect } from './screenshots-setup';
@@ -53,6 +54,11 @@ test('screenshot the settings panels', async ({ page }) => {
 
     await page.goto('/system-settings');
     await page.waitForLoadState('networkidle');
+
+    // A configured install shows one section at a time, behind a nav down the
+    // left. Every lookup below has to say which section it is in — and the
+    // pictures are of the sections, so this is also the subject.
+    await page.getByTestId('settings-nav-tracks').click();
 
     // A track is global state and these specs share one backend, so every
     // lookup here is scoped to the first track's own card. Unscoped, a spec
@@ -104,10 +110,12 @@ test('screenshot the settings panels', async ({ page }) => {
     // the "changing or removing a PIN" section (#192).
     // Saving leaves this page — and, when the PIN changed, reloads so the
     // subscription socket picks the new credential up. Come back to it.
+    await page.getByTestId('settings-nav-access').click();
     await page.getByLabel('Operator PIN').fill('1234');
     await page.getByRole('button', { name: 'Save Settings' }).click();
     await page.waitForURL('**/', { waitUntil: 'networkidle' });
     await page.goto('/system-settings');
+    await page.getByTestId('settings-nav-access').click();
     await expect(page.getByTestId('operator_pin-remove')).toBeVisible();
     await page.waitForTimeout(300);
     await page
@@ -120,9 +128,12 @@ test('screenshot the settings panels', async ({ page }) => {
     await page.getByRole('button', { name: 'Save Settings' }).click();
     await page.waitForURL('**/', { waitUntil: 'networkidle' });
     await page.goto('/system-settings');
+    await page.getByTestId('settings-nav-access').click();
     await expect(page.getByTestId('operator_pin-remove')).toHaveCount(0);
 
-    // The backup panel, at the foot of the page.
+    // The backup panel, which is a section of its own now — it used to be at
+    // the foot of the page, below every track.
+    await page.getByTestId('settings-nav-backup').click();
     const backup = page.getByTestId('backup-panel');
     await backup.scrollIntoViewIfNeeded();
     await expect(backup).toBeVisible();

@@ -19,6 +19,11 @@ _The Home page before any races exist. **Try a practice race** builds a whole re
 
 The first time you launch Trusty Track, or when you need to adjust your organization's details, you'll use the **System Settings** page — headed **Initial Setup** until you have saved it once. You can access this at any time by clicking the **Settings** gear icon in the top right corner of the navigation bar.
 
+The first time, everything below is on one page, in order — fill it in from top
+to bottom. Afterwards the page splits into sections listed down the left —
+**General**, **Access**, **Tracks** and **Backup** — and shows one at a time.
+**Save Settings** saves the lot, whichever section you are looking at.
+
 ### Organization Details
 
 - **Organization Name**: The name of your Cub Scout Pack, school, or group (e.g., "Pack 123").

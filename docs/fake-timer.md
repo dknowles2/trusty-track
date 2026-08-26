@@ -6,9 +6,11 @@ Trusty Track includes a **Fake Timer** — a pretend timer that starts heats and
 
 To enable the Fake Timer, navigate to the **System Settings** page (shown automatically on first run, or reachable from the **Settings** gear in the top-right corner).
 
-1.  Locate the **Timer Type** dropdown.
-2.  Select **Fake Timer (Manual Control)**.
-3.  Click **Save Settings**.
+1.  Open **Tracks** and find the card for your track. (On the very first run
+    everything is on one page, so there is nothing to open.)
+2.  Locate the **Timer Type** dropdown, under **The timer**.
+3.  Select **Fake Timer (Manual Control)**.
+4.  Click **Save Settings**.
 
 ![System Settings with Fake Timer selected](assets/screenshots/getting-started/02-system-settings.png)
 

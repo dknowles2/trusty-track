@@ -3,11 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import BackupPanel from '../components/BackupPanel';
 import PinFieldRow from '../components/PinFieldRow';
+import SettingsNav from '../components/SettingsNav';
+import TrackCard, { type TimerModel, type TrackFields } from '../components/TrackCard';
 import { blankPin, pinInput, pinToSend, type PinField } from '../pinFields';
+import { firstProblem, isFormSection, sectionsFor, SECTIONS, type SectionId } from '../sections';
 import { clearPin, writePin } from '../../../api/pin';
 import { errorText } from '../../../utils/errors';
-import TrackLanes from '../components/TrackLanes';
-import TrackRecords, { type HistoricalRecord } from '../components/TrackRecords';
+import type { HistoricalRecord } from '../components/TrackRecords';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -81,6 +83,42 @@ const UPDATE_INITIAL_CONFIG = `
   }
 `;
 
+// The length a track gets when nothing says otherwise. `lengthFeet` is
+// nullable on the server and the submit handler already falls back to this,
+// so the form has to show it rather than an empty required field — see where
+// saved tracks are seeded below.
+const DEFAULT_LENGTH_FEET = 40;
+
+const blankTrack = (name: string): TrackFields => ({
+  name,
+  laneCount: 3,
+  lengthFeet: DEFAULT_LENGTH_FEET,
+  timerType: 'FAKE',
+  serialPort: '',
+  timerProfile: '',
+  remoteStartInstalled: false,
+});
+
+/**
+ * A section's own heading, shown only when the sections are separated.
+ *
+ * On the wizard the headings would be labelling a form somebody is reading top
+ * to bottom anyway, and the blurb under each would be three more sentences
+ * telling a first-time operator what they are already looking at.
+ */
+function SectionHeading({ id, sectioned }: { id: SectionId; sectioned: boolean }) {
+  const meta = SECTIONS.find((s) => s.id === id);
+  if (!sectioned || !meta) return null;
+  return (
+    <>
+      <h2 style={{ marginTop: 0, marginBottom: '0.25rem' }}>{meta.label}</h2>
+      <p style={{ color: '#666', fontSize: '0.9rem', marginTop: 0, marginBottom: '1.5rem' }}>
+        {meta.blurb}
+      </p>
+    </>
+  );
+}
+
 export default function SystemConfig() {
   const navigate = useNavigate();
   const [groupName, setGroupName] = useState('');
@@ -96,44 +134,19 @@ export default function SystemConfig() {
   const [checkinPin, setCheckinPin] = useState<PinField>(blankPin);
   const [pinRequired, setPinRequired] = useState(false);
   const [checkinPinSet, setCheckinPinSet] = useState(false);
-  // The length a track gets when nothing says otherwise. `lengthFeet` is
-  // nullable on the server and the submit handler already falls back to this,
-  // so the form has to show it rather than an empty required field — see where
-  // saved tracks are seeded below.
-  const DEFAULT_LENGTH_FEET = 40;
 
-  interface TrackFields {
-    // Absent until the track has been saved, which is also when it can first
-    // have a lane out of service.
-    id?: number;
-    name: string;
-    laneCount: number;
-    lengthFeet: number;
-    timerType: string;
-    serialPort: string;
-    timerProfile: string;
-    remoteStartInstalled: boolean;
-    laneOutages?: number[];
-    historicalRecords?: HistoricalRecord[];
-  }
-
-  const [tracks, setTracks] = useState<TrackFields[]>([{ name: 'Main Track', laneCount: 3, lengthFeet: DEFAULT_LENGTH_FEET, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
+  const [tracks, setTracks] = useState<TrackFields[]>([blankTrack('Main Track')]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  // Which section is on screen. Only consulted once the install is
+  // configured — the first run is a wizard and shows the lot. See
+  // `sections.ts`.
+  const [section, setSection] = useState<SectionId>('general');
 
   const [configResult] = useQuery({ query: GET_INITIAL_CONFIG, requestPolicy: 'network-only' });
   const [modelsResult] = useQuery({ query: GET_TIMER_MODELS });
-  const timerModels: {
-    key: string;
-    name: string;
-    provenance: string;
-    detectable: boolean;
-    baudRate: number;
-    dataBits: number;
-    stopBits: number;
-    parity: string;
-  }[] = modelsResult.data?.timerModels || [];
+  const timerModels: TimerModel[] = modelsResult.data?.timerModels || [];
   const { data, fetching, error: queryError } = configResult;
 
   const [, createInitialConfig] = useMutation(CREATE_INITIAL_CONFIG);
@@ -196,7 +209,7 @@ export default function SystemConfig() {
   };
 
   const addTrack = () => {
-    setTracks([...tracks, { name: `Track ${tracks.length + 1}`, laneCount: 3, lengthFeet: DEFAULT_LENGTH_FEET, timerType: 'FAKE', serialPort: '', timerProfile: '', remoteStartInstalled: false }]);
+    setTracks([...tracks, blankTrack(`Track ${tracks.length + 1}`)]);
   };
 
   const removeTrack = (index: number) => {
@@ -212,10 +225,16 @@ export default function SystemConfig() {
     setSubmitting(true);
     setError('');
 
-    if (tracks.length === 0) {
-        setError('At least one track is required.');
-        setSubmitting(false);
-        return;
+    // The browser's own validation only covers the fields that are on screen,
+    // and with one section showing at a time most of them are not. So the
+    // whole form is checked here, and a failure takes the operator to the
+    // section holding it rather than reporting a problem they cannot see.
+    const problem = firstProblem(groupName, tracks);
+    if (problem) {
+      setError(problem.message);
+      if (isEditing) setSection(problem.section);
+      setSubmitting(false);
+      return;
     }
 
     try {
@@ -294,6 +313,11 @@ export default function SystemConfig() {
     return <div>{errorText(queryError, 'The settings could not be loaded.')}</div>;
   }
 
+  const navSections = sectionsFor(isEditing);
+  const sectioned = navSections.length > 0;
+  /** On the wizard every section is on screen; otherwise only the chosen one. */
+  const shows = (id: SectionId) => !sectioned || section === id;
+
   return (
     <div className="container">
       <h1>{isEditing ? 'System Settings' : 'Initial Setup'}</h1>
@@ -301,314 +325,167 @@ export default function SystemConfig() {
 
       {error && <div style={{ color: 'var(--error)', marginBottom: '1rem', padding: '0.5rem', border: '1px solid var(--error)', borderRadius: '4px' }}>{error}</div>}
 
-      <form onSubmit={handleSubmit} style={{ maxWidth: '600px' }}>
-        <div style={{ marginBottom: '2rem' }}>
-          <label htmlFor="group_name" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Organization Name</label>
-          <input
-            type="text"
-            id="group_name"
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            required
-            placeholder="e.g. Pack 123"
-            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
-        </div>
+      <div className={sectioned ? 'settings-layout' : undefined}>
+        {sectioned && (
+          <SettingsNav sections={navSections} current={section} onSelect={setSection} />
+        )}
 
-        <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <input
-            type="checkbox"
-            id="debug_mode"
-            checked={debugMode}
-            onChange={(e) => setDebugMode(e.target.checked)}
-            style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
-          />
-          <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
-          <small style={{ color: '#666', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
-        </div>
+        <div className="settings-section">
+          {/* Only the form sections live inside the form. Backup does not: a
+              Restore button under a submit button that says "Save Settings"
+              invites exactly one kind of mistake. */}
+          {(!sectioned || isFormSection(section)) && (
+            <form onSubmit={handleSubmit}>
+              {shows('general') && (
+                <section aria-labelledby="settings-general" data-testid="general-panel">
+                  <SectionHeading id="general" sectioned={sectioned} />
+                  <div style={{ marginBottom: '2rem' }}>
+                    <label htmlFor="group_name" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Organization Name</label>
+                    <input
+                      type="text"
+                      id="group_name"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      required
+                      placeholder="e.g. Pack 123"
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                    />
+                  </div>
 
-        <div data-testid="access-panel">
-        <h2 style={{ marginBottom: '0.5rem' }}>Access</h2>
-        <p style={{ color: '#666', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
-          {pinRequired
-            ? 'A PIN is set. Screens without one can watch the race but cannot change anything.'
-            : 'No PIN is set, so anyone on this network can change anything — including deleting the race. Set one to stop that.'}
-        </p>
+                  <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input
+                      type="checkbox"
+                      id="debug_mode"
+                      checked={debugMode}
+                      onChange={(e) => setDebugMode(e.target.checked)}
+                      style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
+                    <small style={{ color: '#666', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
+                  </div>
+                </section>
+              )}
 
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-          <PinFieldRow
-            id="operator_pin"
-            label="Operator PIN"
-            isSet={pinRequired}
-            placeholder={pinRequired ? 'Set — type to change' : 'e.g. 1234'}
-            what="Runs the race."
-            field={operatorPin}
-            onChange={setOperatorPin}
-          />
-          <PinFieldRow
-            id="checkin_pin"
-            label="Check-in PIN"
-            optional
-            isSet={checkinPinSet}
-            placeholder={checkinPinSet ? 'Set — type to change' : 'e.g. 5678'}
-            what="Registration desk: racers and check-in only."
-            field={checkinPin}
-            onChange={setCheckinPin}
-          />
-        </div>
+              {shows('access') && (
+                <section data-testid="access-panel">
+                  {sectioned ? <SectionHeading id="access" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Access</h2>}
+                  <p style={{ color: '#666', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
+                    {pinRequired
+                      ? 'A PIN is set. Screens without one can watch the race but cannot change anything.'
+                      : 'No PIN is set, so anyone on this network can change anything — including deleting the race. Set one to stop that.'}
+                  </p>
 
-        {/* The hint the check-in PIN was missing (#210). The role has existed
-            since #15 and is documented, but nothing on the screen said what it
-            is *for* — so an operator setting PINs had no cue that running the
-            desk on a second device is a supported way to work. One sentence,
-            not a wizard. */}
-        <p data-testid="checkin-pin-hint" style={{ color: '#666', fontSize: '0.85rem', marginTop: '-1.25rem', marginBottom: '2rem' }}>
-          Running check-in on a separate tablet? Set a check-in PIN and enter it
-          on that device. It can add racers and check them in, and nothing else —
-          so a tablet left on the registration table cannot delete a round.
-        </p>
-        </div>
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+                    <PinFieldRow
+                      id="operator_pin"
+                      label="Operator PIN"
+                      isSet={pinRequired}
+                      placeholder={pinRequired ? 'Set — type to change' : 'e.g. 1234'}
+                      what="Runs the race."
+                      field={operatorPin}
+                      onChange={setOperatorPin}
+                    />
+                    <PinFieldRow
+                      id="checkin_pin"
+                      label="Check-in PIN"
+                      optional
+                      isSet={checkinPinSet}
+                      placeholder={checkinPinSet ? 'Set — type to change' : 'e.g. 5678'}
+                      what="Registration desk: racers and check-in only."
+                      field={checkinPin}
+                      onChange={setCheckinPin}
+                    />
+                  </div>
 
-        <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>
-        {tracks.map((track, index) => (
-          <div key={index} data-testid={`track-card-${index}`} style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #ddd', borderRadius: '8px', background: '#f9f9f9', position: 'relative' }}>
-            {tracks.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeTrack(index)}
-                style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', fontSize: '1.2rem' }}
-                title="Remove Track"
-              >
-                &times;
-              </button>
-            )}
+                  {/* The hint the check-in PIN was missing (#210). The role has existed
+                      since #15 and is documented, but nothing on the screen said what it
+                      is *for* — so an operator setting PINs had no cue that running the
+                      desk on a second device is a supported way to work. One sentence,
+                      not a wizard. */}
+                  <p data-testid="checkin-pin-hint" style={{ color: '#666', fontSize: '0.85rem', marginTop: '-1.25rem', marginBottom: '2rem' }}>
+                    Running check-in on a separate tablet? Set a check-in PIN and enter it
+                    on that device. It can add racers and check them in, and nothing else —
+                    so a tablet left on the registration table cannot delete a round.
+                  </p>
+                </section>
+              )}
 
-            <div style={{ marginBottom: '1rem' }}>
-              <label htmlFor={`track-name-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Track Name</label>
-              <input
-                type="text"
-                id={`track-name-${index}`}
-                  value={track.name}
-                onChange={(e) => handleTrackChange(index, 'name', e.target.value)}
-                required
-                placeholder="e.g. Main Track"
-                style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
-              />
-            </div>
+              {shows('tracks') && (
+                <section data-testid="tracks-panel">
+                  {sectioned ? <SectionHeading id="tracks" sectioned={sectioned} /> : <h2 style={{ marginBottom: '1rem' }}>Tracks</h2>}
+                  {tracks.map((track, index) => (
+                    <TrackCard
+                      key={index}
+                      index={index}
+                      track={track}
+                      timerModels={timerModels}
+                      canRemove={tracks.length > 1}
+                      onChange={(field, value) => handleTrackChange(index, field, value)}
+                      onRemove={() => removeTrack(index)}
+                      onLaneOutages={(laneOutages) =>
+                        setTracks((current) =>
+                          current.map((t, i) => (i === index ? { ...t, laneOutages } : t)),
+                        )
+                      }
+                      onRecords={(historicalRecords) =>
+                        setTracks((current) =>
+                          current.map((t, i) => (i === index ? { ...t, historicalRecords } : t)),
+                        )
+                      }
+                    />
+                  ))}
 
-            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ flex: 1 }}>
-                <label htmlFor={`track-lanes-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Lanes</label>
-                <input
-                  type="number"
-                  id={`track-lanes-${index}`}
-                  value={track.laneCount}
-                  onChange={(e) => handleTrackChange(index, 'laneCount', parseInt(e.target.value) || 0)}
-                  min="1"
-                  max="8"
-                  required
-                  style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label htmlFor={`track-length-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Length (Feet)</label>
-                <input
-                  type="number"
-                  id={`track-length-${index}`}
-                  value={track.lengthFeet}
-                  onChange={(e) => handleTrackChange(index, 'lengthFeet', parseInt(e.target.value) || 0)}
-                  min="10"
-                  required
-                  style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-              </div>
-            </div>
-
-            {/* Under the lane count, because "how many lanes" and "which of
-                them work" are the same question asked twice. Only once the
-                track exists: a track added but not yet saved cannot have a
-                broken lane. */}
-            {track.id !== undefined && (
-              <TrackLanes
-                trackId={track.id}
-                laneCount={track.laneCount}
-                outages={track.laneOutages ?? []}
-                onChange={(outages) =>
-                  setTracks((current) =>
-                    current.map((t, i) =>
-                      i === index ? { ...t, laneOutages: outages } : t,
-                    ),
-                  )
-                }
-              />
-            )}
-
-            <div>
-              <label htmlFor={`track-timer-type-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Timer Type</label>
-              <select
-                id={`track-timer-type-${index}`}
-                  value={track.timerType}
-                onChange={(e) => handleTrackChange(index, 'timerType', e.target.value)}
-                style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc', marginBottom: track.timerType === 'AUTO_DETECT_BACKEND' ? '1rem' : '0' }}
-              >
-                <option value="FAKE">Fake Timer (Manual Control)</option>
-                <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
-                <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
-              </select>
-            </div>
-
-            {track.timerType !== 'FAKE' && (() => {
-              const chosen = timerModels.find((m) => m.key === track.timerProfile);
-              const unusualFraming =
-                chosen && (chosen.baudRate !== 9600 || chosen.dataBits !== 8 || chosen.stopBits !== 1 || chosen.parity !== 'N');
-              return (
-                <div>
-                  <label htmlFor={`track-model-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
-                    Timer Model <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span>
-                  </label>
-                  <select
-                    id={`track-model-${index}`}
-                    value={track.timerProfile}
-                    onChange={(e) => handleTrackChange(index, 'timerProfile', e.target.value)}
-                    style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                  <button
+                    type="button"
+                    onClick={addTrack}
+                    className="secondary-btn"
+                    style={{ marginBottom: '2rem', display: 'block', width: '100%' }}
                   >
-                    <option value="">Detect automatically</option>
-                    {timerModels.map((model) => (
-                      <option key={model.key} value={model.key}>
-                        {model.name}{model.detectable ? '' : ' — must be chosen'}
-                      </option>
-                    ))}
-                  </select>
-                  <small style={{ color: '#666', display: 'block', marginTop: '0.25rem' }}>
-                    {chosen
-                      ? chosen.provenance
-                      : 'Leave this alone and the app asks each timer it knows about who it is. Pick a model if yours is not found, or to stop it asking.'}{' '}
-                    <a
-                      href="https://dknowles2.github.io/trusty-track/hardware-timer/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Hardware Timer guide
-                    </a>
-                  </small>
-                  {chosen && !chosen.detectable && (
-                    <small style={{ color: '#8a6d00', display: 'block', marginTop: '0.25rem' }}>
-                      This model cannot answer an identifying question, so choosing it here is the only way to use it.
-                    </small>
-                  )}
-                  {unusualFraming && (
-                    <small style={{ color: '#8a6d00', display: 'block', marginTop: '0.25rem' }}>
-                      Uses {chosen.baudRate} baud, {chosen.dataBits} data bits, {chosen.stopBits} stop bit
-                      {chosen.stopBits === 1 ? '' : 's'}, parity {chosen.parity} — not the usual 9600 8-N-1.
-                    </small>
-                  )}
-                </div>
-              );
-            })()}
+                    + Add Another Track
+                  </button>
+                </section>
+              )}
 
-            {track.timerType === 'AUTO_DETECT_BACKEND' && (
-              <div>
-                <label htmlFor={`track-serial-${index}`} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Serial Port <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span></label>
-                {/*
-                  Deliberately not `required`. Leaving it blank is now the
-                  normal case: the server finds the timer by probing the USB
-                  serial ports. A device path is the escape hatch for a timer
-                  on a built-in serial port, which is never probed.
-                */}
-                <input
-                  type="text"
-                  id={`track-serial-${index}`}
-                  value={track.serialPort || ''}
-                  onChange={(e) => handleTrackChange(index, 'serialPort', e.target.value)}
-                  placeholder="Leave blank to detect automatically"
-                  style={{ width: '100%', padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
-                />
-                <small style={{ color: '#666' }}>
-                  Leave this blank and Trusty Track finds the timer by itself. Fill it in only if
-                  your timer is on a built-in serial port, or you need to point at one particular
-                  device — for example <code>/dev/ttyUSB0</code> or <code>COM3</code>.
-                </small>
-              </div>
-            )}
+              <button type="submit" className="primary-btn" disabled={submitting} style={{ width: '100%' }}>
+                {submitting ? 'Saving...' : 'Save Settings'}
+              </button>
+            </form>
+          )}
 
-            {/*
-              Not shown for the fake timer, which has no gate. Otherwise always
-              shown, because whether the accessory is fitted is something only
-              the operator knows — no timer protocol reports it, and the
-              MicroWizard silently ignores the command without it.
-            */}
-            {track.timerType !== 'FAKE' && (
-              <div style={{ marginTop: '1rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!track.remoteStartInstalled}
-                    onChange={(e) => handleTrackChange(index, 'remoteStartInstalled', e.target.checked)}
-                  />
-                  This track has a remote start gate
-                </label>
-                <small style={{ color: '#666' }}>
-                  Tick this only if a solenoid is fitted to the start gate and wired to the timer.
-                  With it on, an armed heat can be launched from the race screen instead of by hand.
-                </small>
-              </div>
-            )}
+          {/*
+            Only once there is something to back up. On the first run this screen is
+            the setup wizard, and offering to restore before the install exists
+            would be offering to replace nothing.
+          */}
+          {isEditing && shows('backup') && (
+            <section>
+              <SectionHeading id="backup" sectioned={sectioned} />
+              <BackupPanel />
+            </section>
+          )}
 
-            {/* Like the lanes control: only once the track exists, because a
-                track added but not yet saved has no id to hang a record on. */}
-            {track.id !== undefined && (
-              <TrackRecords
-                trackId={track.id}
-                records={track.historicalRecords ?? []}
-                onChange={(historicalRecords) =>
-                  setTracks((current) =>
-                    current.map((t, i) =>
-                      i === index ? { ...t, historicalRecords } : t,
-                    ),
-                  )
-                }
-              />
-            )}
-          </div>
-        ))}
-
-        <button
-          type="button"
-          onClick={addTrack}
-          className="secondary-btn"
-          style={{ marginBottom: '2rem', display: 'block', width: '100%' }}
-        >
-          + Add Another Track
-        </button>
-
-        <button type="submit" className="primary-btn" disabled={submitting} style={{ width: '100%' }}>
-          {submitting ? 'Saving...' : 'Save Settings'}
-        </button>
-      </form>
-
-      {/*
-        Outside the form on purpose: checking the timer is something you do
-        before an event, and it must not look like a step of saving settings.
-      */}
-      <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem' }}>
-        <Link to="/timer-check">Check the timer connection &rarr;</Link>
-        {/* The activity log (#219), beside the other diagnostic link rather
-            than in the race navigation: it spans every race and answers a
-            question nobody asks until something has already gone wrong. */}
-        {' · '}
-        <Link to="/activity">See what has happened &rarr;</Link>
-      </p>
-
-      {/*
-        Only once there is something to back up. On the first run this screen is
-        the setup wizard, and offering to restore before the install exists
-        would be offering to replace nothing.
-      */}
-      {isEditing && <BackupPanel />}
+          {/*
+            The wizard has no nav to hang these off, so they stay where they
+            were — outside the form, because checking the timer is something
+            you do before an event and must not look like a step of saving
+            settings. Once the install is configured they are in the nav.
+          */}
+          {!sectioned && (
+            <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.9rem' }}>
+              <Link to="/timer-check">Check the timer connection &rarr;</Link>
+              {' · '}
+              <Link to="/activity">See what has happened &rarr;</Link>
+            </p>
+          )}
+        </div>
+      </div>
 
       <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
         <p>
-          Trusty Track v{data?.initialConfig?.version || '0.0.0'} &bull;
+          {/* Built from the git hash, so it changes on every commit. The
+              documentation screenshots hide it by this test id, the same one
+              the navigation bar's stamp carries. */}
+          <span data-testid="app-version">Trusty Track v{data?.initialConfig?.version || '0.0.0'}</span> &bull;
           <a
             href="https://github.com/dknowles2/trusty-track"
             target="_blank"

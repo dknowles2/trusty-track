@@ -132,6 +132,7 @@ test('screenshot the timer pages', async ({ page }) => {
     // model controls on System Settings.
     await page.goto('/system-settings');
     await page.waitForLoadState('networkidle');
+    await page.getByTestId('settings-nav-tracks').click();
     // The name lives in an <input>, which `hasText` cannot see — but this
     // track was created last, so it is the last card.
     const demoCard = page.getByTestId(/track-card-\d+/).last();

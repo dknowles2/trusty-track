@@ -11,7 +11,7 @@
  * not already have; it makes the capability reachable.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useQuery, useSubscription, useMutation } from 'urql';
 import { gql } from 'urql';
 import { buildDisplayLines } from '../../racing/serialLog';
@@ -333,7 +333,7 @@ const TimerTestPanel: React.FC<{
     );
 };
 
-const TrackTimer: React.FC<{ track: Track }> = ({ track }) => {
+const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, highlighted }) => {
     const { showAlert } = useAlert();
     const logEndRef = useRef<HTMLDivElement>(null);
     const [, reconnect] = useMutation(DIAGNOSTIC_RECONNECT);
@@ -369,12 +369,22 @@ const TrackTimer: React.FC<{ track: Track }> = ({ track }) => {
 
     return (
         <section
+            // The track card in Settings links straight here, so the section
+            // has to be addressable. `timer-` rather than `track-`, because a
+            // track already means something on the settings page.
+            id={`timer-${track.id}`}
             style={{
                 border: `2px solid ${help.tone}`,
                 borderRadius: '12px',
                 padding: '1rem 1.25rem',
                 marginBottom: '1.5rem',
                 background: 'white',
+                // Arrived here from this track's settings card. Scrolling to
+                // the section is not enough on its own — a page whose panels
+                // all fit does not scroll at all, and then nothing on screen
+                // says which of them was asked for. A ring rather than the
+                // border, which is already carrying the timer's state.
+                boxShadow: highlighted ? '0 0 0 4px var(--cub-scouting-gold)' : undefined,
             }}
         >
             <header style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -535,6 +545,17 @@ const TrackTimer: React.FC<{ track: Track }> = ({ track }) => {
 const TimerDiagnostics: React.FC = () => {
     const [{ data, fetching, error }] = useQuery({ query: DIAGNOSTIC_TRACKS });
     const tracks: Track[] = data?.tracks ?? [];
+    const { hash } = useLocation();
+
+    // A router navigation does not scroll to a fragment the way a page load
+    // does, and the sections do not exist until the tracks have arrived — so
+    // this waits for both rather than firing on mount. `getElementById` rather
+    // than `querySelector`, so a hand-typed hash cannot throw a selector error
+    // on a page somebody opened because something was already wrong.
+    useEffect(() => {
+        if (!hash || tracks.length === 0) return;
+        document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' });
+    }, [hash, tracks.length]);
 
     return (
         <div style={{ padding: '1.5rem', maxWidth: '820px', margin: '0 auto' }}>
@@ -566,7 +587,11 @@ const TimerDiagnostics: React.FC = () => {
             )}
 
             {tracks.map(track => (
-                <TrackTimer key={track.id} track={track} />
+                <TrackTimer
+                    key={track.id}
+                    track={track}
+                    highlighted={hash === `#timer-${track.id}`}
+                />
             ))}
 
             <p style={{ fontSize: '0.9rem' }}>
