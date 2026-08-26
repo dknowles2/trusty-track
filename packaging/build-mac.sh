@@ -33,11 +33,28 @@ command -v node    >/dev/null 2>&1 || { echo "ERROR: node not found."; exit 1; }
 # 1. Set up an isolated build venv with all deps + PyInstaller
 #    This guarantees every package in pyproject.toml is present when
 #    PyInstaller analyses and bundles the app.
+#    uv when the machine has it, pip when it does not: uv resolves and installs
+#    the same set in a few seconds where pip takes most of a minute, and it is
+#    what the rest of this project already builds with. The pip path stays for
+#    a contributor who has only Python.
 echo "Setting up build venv..."
-python3 -m venv "$VENV"
-"$VENV/bin/pip" install --quiet --upgrade pip
-"$VENV/bin/pip" install --quiet "$ROOT"
-"$VENV/bin/pip" install --quiet pyinstaller pyinstaller-hooks-contrib rumps
+if command -v uv >/dev/null 2>&1; then
+    # `--python python3` because uv otherwise picks the newest interpreter it
+    # can find on the machine, which is not the one the pip path below would
+    # have used and need not be one this project supports -- it chose 3.14
+    # here. `--clear` because uv refuses an existing directory where
+    # `python3 -m venv` reuses it, so a second build on a developer's machine
+    # would fail where the first succeeded. CI never sees that: it is always a
+    # fresh runner.
+    uv venv --clear --python python3 "$VENV"
+    uv pip install --python "$VENV/bin/python" \
+        "$ROOT" pyinstaller pyinstaller-hooks-contrib rumps
+else
+    python3 -m venv "$VENV"
+    "$VENV/bin/pip" install --quiet --upgrade pip
+    "$VENV/bin/pip" install --quiet "$ROOT"
+    "$VENV/bin/pip" install --quiet pyinstaller pyinstaller-hooks-contrib rumps
+fi
 
 # Read version using the venv's Python so the path is consistent
 VERSION=$("$VENV/bin/python" -c \

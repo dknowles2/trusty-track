@@ -44,11 +44,33 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 # -- 1. Isolated build venv ----------------------------------------------------
 # Guarantees all deps from pyproject.toml are present for PyInstaller analysis.
 
+# uv when the machine has it, pip when it does not. This is the slowest part
+# of the build after PyInstaller itself -- 37 seconds of the two minutes CI
+# spends here, nearly all of it resolving and downloading wheels -- and uv does
+# the same work in a few seconds. It is also what the rest of this project
+# already builds with; the pip path stays for a contributor who has only
+# Python.
 Write-Host "Setting up build venv..."
-python -m venv $Venv
-& "$Venv\Scripts\pip.exe" install --quiet --upgrade pip
-& "$Venv\Scripts\pip.exe" install --quiet "$Root"
-& "$Venv\Scripts\pip.exe" install --quiet pyinstaller pyinstaller-hooks-contrib pystray
+if (Get-Command uv -ErrorAction SilentlyContinue) {
+    # `--python python` because uv otherwise picks the newest interpreter on
+    # the machine rather than the one the pip path below would have used, and
+    # `--clear` because uv refuses an existing directory where `python -m venv`
+    # reuses it -- so a second build on a developer's machine would fail where
+    # the first succeeded.
+    uv venv --clear --python python $Venv
+    if ($LASTEXITCODE -ne 0) { Write-Error "uv venv failed."; exit 1 }
+    uv pip install --python "$Venv\Scripts\python.exe" `
+        "$Root" pyinstaller pyinstaller-hooks-contrib pystray
+    # Checked, unlike the pip path below, because the next step reads the
+    # version out of this venv and falls back to "0.0.0" when it cannot --
+    # so a half-built venv would produce an installer named after nothing.
+    if ($LASTEXITCODE -ne 0) { Write-Error "uv pip install failed."; exit 1 }
+} else {
+    python -m venv $Venv
+    & "$Venv\Scripts\pip.exe" install --quiet --upgrade pip
+    & "$Venv\Scripts\pip.exe" install --quiet "$Root"
+    & "$Venv\Scripts\pip.exe" install --quiet pyinstaller pyinstaller-hooks-contrib pystray
+}
 
 # Deliberately not a here-string. A here-string terminator has to be the first
 # thing on its line and the last; this one used to have a redirection after it,
