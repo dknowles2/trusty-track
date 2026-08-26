@@ -974,7 +974,7 @@ Keep the markers honest — this is the index, and the point is that nobody has 
 
 ## What CI checks
 
-Eight jobs on every pull request (`.github/workflows/ci.yml`):
+Eight kinds of job on every pull request (`.github/workflows/ci.yml`), ten runners — three of them are matrices:
 
 | Job | What it would catch |
 | --- | --- |
@@ -983,9 +983,13 @@ Eight jobs on every pull request (`.github/workflows/ci.yml`):
 | **Frontend Tests** | `eslint`, `tsc --noEmit`, `vitest` |
 | **GraphQL Codegen** | A backend schema change that was not regenerated into `src/gql` |
 | **Docs Build** | `mkdocs build --strict` — a broken link or a missing image, before it deploys |
-| **End-to-End** | The served page, the GraphQL round trip and the normalized cache, together |
-| **Doc Screenshots** | The Playwright specs that generate the documentation's images still drive the app (#114) |
+| **End-to-End** ×2 | The served page, the GraphQL round trip and the normalized cache, together |
+| **Doc Screenshots** ×2 | The Playwright specs that generate the documentation's images still drive the app (#114) |
 | **Docker Build** | That the image builds *and starts*: it runs the container and waits on `/health` |
+
+**A job named in the ruleset may not be renamed — give it a gate job instead.** `main`'s ruleset requires status checks by exact name, and it names `End-to-End` and `Doc Screenshots`. Sharding renamed them to `End-to-End (1/2)` and so on, so those two contexts stopped reporting entirely and every pull request became unmergeable with nothing failing and nothing pending — `mergeStateStatus: BLOCKED`, an empty list of failures. `e2e-gate` and `doc-screenshots-gate` are one-line jobs that carry the required name and assert `needs.<job>.result == 'success'`, so the shard count can change without anybody editing repository settings. They need `if: always()`, or a failed shard *skips* the gate rather than failing it — and a skipped required check does not block.
+
+**The two Playwright jobs are sharded across two runners each, and the backend suite runs `-n auto`.** A pull request used to wait about three and three-quarter minutes; the three longest jobs were the two Playwright runs and the backend suite, and none of them had a single slow part to fix — they are 5,900 tests and 70 browser specs respectively. So they are split rather than optimised. Two things this depends on, both already true before it: **nothing in the backend suite shares state between tests** (in-memory database per test; the data directory is per xdist worker, which `conftest.py` had to be taught), and **every screenshot spec already has to run alone**, since images are regenerated one spec at a time against a wiped data directory. A spec that quietly depends on another having gone first would now fail in CI, which is the right place to find out. The functional e2e specs are sharded but still `workers: 1` *within* a shard: they share one backend and one settings page, and a shard is a separate machine with its own server rather than a second worker on this one. The Playwright browser is cached on its version — 150 MB that never changes between runs, and a third of each of those jobs.
 
 Two things worth knowing:
 

@@ -64,6 +64,14 @@ uv run pytest backend/tests/test_scoring_scope.py -v
 uv run pytest backend/tests/test_scoring_scope.py -k leaderboard
 ```
 
+The suite runs one worker per core, which takes it from about a minute and a
+half to under half a minute. Turn that off when you are debugging a failure —
+output arrives in order again, and `pdb` works:
+
+```bash
+uv run pytest -n0 backend/tests/test_scoring_scope.py
+```
+
 ### 4. Linting and Types
 
 Both gate CI over the whole tree, so run them before pushing:
