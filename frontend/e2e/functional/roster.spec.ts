@@ -226,3 +226,25 @@ test('renaming and deleting a den through the UI', async ({ page }) => {
         .click();
     await expect(modal.getByText('Tiger Cubs', { exact: true })).toBeHidden();
 });
+
+test('the browser tab is named after the page and the race', async ({ page }) => {
+    // The reported bug: every tab said "Trusty Track", which on race day is
+    // several identical tabs and no way to find the one you want.
+    const raceId = await seed(page, 'Page Title Race');
+
+    await page.goto('/');
+    await expect(page).toHaveTitle('Trusty Track');
+
+    await page.goto(`/race/${raceId}`);
+    await expect(page).toHaveTitle('Roster — Page Title Race');
+
+    // Race Control's sub-sections are the case that motivated it: four views
+    // behind one navigation entry.
+    await page.goto(`/race/${raceId}/control/schedule`);
+    await expect(page).toHaveTitle('Schedule — Page Title Race');
+    await page.getByTestId('displays-tab').click();
+    await expect(page).toHaveTitle('Displays — Page Title Race');
+
+    await page.goto('/system-settings');
+    await expect(page).toHaveTitle('Settings — Trusty Track');
+});

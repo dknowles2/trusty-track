@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import Navigation from './features/core/components/Navigation';
+import PageTitle from './features/core/components/PageTitle';
 import { ChromeProvider } from './context/ChromeContext';
 import SystemSettings from './features/settings/pages/SystemSettings';
 import Home from './features/management/pages/Home';
@@ -92,6 +93,10 @@ function App() {
         <Router>
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <DemoSession />
+            {/* Renders nothing; it names the browser tab. Here rather than in
+                each page, so a new route gets a title without anybody
+                remembering to add one. */}
+            <PageTitle />
             <Navigation />
             <main style={{ flex: 1 }}>
               <Routes>

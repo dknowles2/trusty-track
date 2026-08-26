@@ -169,6 +169,10 @@ For large events with a big screen or projector, use **Projector Mode** — a fu
 
 Click the **Launch Projector Mode** button in the top-right corner of the Observation page. A new browser tab opens with the projector layout, which fills whatever space the browser gives it.
 
+Each tab is named after the page it shows and the race it belongs to —
+"Live — 2026 Pinewood Derby" — so a row of them is still readable once you
+have several open.
+
 > [!TIP]
 > Press **F11** (or use your browser's full-screen option) on the projector display device to remove the browser chrome and make the display completely immersive.
 
