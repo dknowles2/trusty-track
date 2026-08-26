@@ -2,6 +2,7 @@ import { test, expect, jitter } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { SCREENSHOT_BACKEND_URL } from '../environment';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,7 +25,7 @@ async function gqlRequest(
   query: string,
   variables: Record<string, unknown> = {},
 ) {
-  const response = await page.request.post('http://127.0.0.1:8001/graphql', {
+  const response = await page.request.post(`${SCREENSHOT_BACKEND_URL}/graphql`, {
     data: JSON.stringify({ query, variables }),
     headers: { 'Content-Type': 'application/json' },
   });
@@ -213,7 +214,7 @@ test('take screenshots', async ({ page, browser }) => {
   fs.mkdirSync(path.join(screenshotsDir, 'observation'), { recursive: true });
   fs.mkdirSync(path.join(screenshotsDir, 'race-stats'), { recursive: true });
 
-  const BACKEND_URL = 'http://127.0.0.1:8001';
+  const BACKEND_URL = SCREENSHOT_BACKEND_URL;
 
   // Undo the selection and the grouping the roster shots left behind. By
   // reloading rather than by clicking the same checkboxes again: both are local

@@ -1,13 +1,20 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import {
+    SCREENSHOT_BACKEND_PORT,
+    SCREENSHOT_BACKEND_URL,
+    SCREENSHOT_DATA_DIR,
+    SCREENSHOT_FRONTEND_PORT,
+} from './e2e/environment';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
-const BACKEND_PORT = 8001;
-const FRONTEND_PORT = 5175;
-const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
-const TEST_DATA_DIR = '/tmp/trusty-track-screenshots';
+// Derived from this checkout rather than fixed: see `e2e/environment.ts`.
+const BACKEND_PORT = SCREENSHOT_BACKEND_PORT;
+const FRONTEND_PORT = SCREENSHOT_FRONTEND_PORT;
+const BACKEND_URL = SCREENSHOT_BACKEND_URL;
+const TEST_DATA_DIR = SCREENSHOT_DATA_DIR;
 
 export default defineConfig({
   testDir: './e2e/docs',

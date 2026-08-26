@@ -20,6 +20,7 @@
 
 import { test, expect } from '@playwright/test';
 import {
+    BACKEND_URL,
     createSchedule,
     dismissRoundSummary,
     readHeats,
@@ -452,7 +453,7 @@ test('a live screen recovers when the network drops under it', async ({ page, co
                 skipped: false,
             };
         });
-        const response = await request.post('http://127.0.0.1:8002/graphql', {
+        const response = await request.post(`${BACKEND_URL}/graphql`, {
             data: JSON.stringify({
                 query: `mutation Rec($heatId: Int!, $lanes: [HeatLaneInput!]!) {
                     updateHeatResult(heatId: $heatId, lanes: $lanes) { id }
