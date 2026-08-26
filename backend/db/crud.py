@@ -2241,7 +2241,17 @@ def update_award(
     if not db_award:
         return None
 
-    for key, value in award_update.model_dump(exclude_unset=True).items():
+    changes = award_update.model_dump(exclude_unset=True)
+
+    # `sort_order` is NOT NULL, and the running order is `reorder_awards`'
+    # business rather than the edit form's. The form sends the whole award on
+    # every save, so an order it never offers arrives as an explicit null —
+    # which would write null into the column. Absent means "leave it alone",
+    # the same rule as `update_race` and the PIN (#192).
+    if changes.get("sort_order") is None:
+        changes.pop("sort_order", None)
+
+    for key, value in changes.items():
         setattr(db_award, key, value)
 
     # After the update, not before: changing the kind is what makes the other
