@@ -763,6 +763,8 @@ The merged row keeps the toggle's word — **Roster**, which is what the page ca
 
 If you add a race view, it goes in `links` in `Navigation.tsx`. Don't reintroduce a per-page toggle.
 
+**The browser tab's name is `features/core/pageTitle.ts`**, applied by `PageTitle` — a component rendering nothing, mounted once inside the router. Every page was called "Trusty Track" until then, which on race day is several identical tabs. A component rather than a hook each page calls, for #48's reason: fourteen routes, and a rule depending on every page remembering reaches only some. Two things about the wording, both about how a tab strip is read: **what distinguishes this tab comes first**, since a tab truncates from the right and the app's name is the part every tab shares; and the second half names **what the page is about** — the race for a race page, the application otherwise ("Standings — 2026 Pinewood Derby", "Settings — Trusty Track"). The words are the navigation's labels and Race Control's own tab labels, so a title traces back to something the operator clicked. A race whose name has not arrived yet is the view alone rather than "Standings — undefined". The name costs no request: it comes off `GET_RACES_NAV`, which the navigation has already fetched.
+
 ### The roster toolbar
 
 `RaceDetails.tsx`. Six buttons competed for one row and four of them wrapped their labels at 1280px. The rule now: **the first row holds Add Racer, Scan and an overflow menu, and nothing else.** Manage dens, upload photos and print are things an operator does once before an event, so they live behind the `⋯`; add and scan are the two reached for repeatedly. Search and the group-by-den toggle sit on their own row beneath.
