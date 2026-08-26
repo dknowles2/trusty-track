@@ -2142,11 +2142,18 @@ def get_random_lane_assignments(
     db: Session,
     race_id: int,
     lane_count: int,
+    shuffle: int = 0,
 ) -> list[dict]:
     """
     Randomly select `lane_count` checked-in racers and return lane assignments.
     If fewer than `lane_count` racers are checked in, fill remaining lanes with
     empty slots (racer_id=None).
+
+    ``shuffle`` is which draw this is — 0 for the one a screen opens on, then
+    1, 2, ... for each Re-shuffle. It is part of the key because the draw may
+    be seeded, and a key naming only the race gives every draw the same answer:
+    on the public demo, which sets ``TRUSTYTRACK_DEMO_SEED``, that made
+    Re-shuffle a button that could not change anything.
     """
     # Ordered because the shuffle below may be seeded (`demo_seed`): a shuffle
     # is only as repeatable as the order of what it shuffles, and a query
@@ -2158,9 +2165,9 @@ def get_random_lane_assignments(
         .all()
     )
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
-    demo_seed.generator(f"free-race lanes:{race.name if race else race_id}").shuffle(
-        pool
-    )
+    demo_seed.generator(
+        f"free-race lanes:{race.name if race else race_id}:{shuffle}"
+    ).shuffle(pool)
     selected = pool[:lane_count]
 
     assignments = []
