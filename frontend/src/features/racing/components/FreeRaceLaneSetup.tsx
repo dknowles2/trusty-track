@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
-import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered, mdiDragVertical, mdiCloseOctagon } from '@mdi/js';
+import { mdiDice5, mdiPencil, mdiShuffle, mdiFlagCheckered, mdiDragVertical, mdiCloseOctagon, mdiIncognito } from '@mdi/js';
 import {
   DndContext,
   closestCenter,
@@ -30,6 +30,18 @@ export interface LaneAssignment {
   racerId: number | null;
 }
 
+// Three ways to fill the lanes, and anonymous is one of them rather than a
+// state the other two can fall into. It used to be reachable only by leaving
+// every lane empty, so the button relabelled itself and nothing on screen said
+// the mode existed — the operator testing the track had to discover it.
+export type Mode = 'random' | 'manual' | 'anonymous';
+
+const MODES: { key: Mode; label: string; icon: string }[] = [
+  { key: 'random', label: 'Random', icon: mdiDice5 },
+  { key: 'manual', label: 'Manual', icon: mdiPencil },
+  { key: 'anonymous', label: 'Anonymous', icon: mdiIncognito },
+];
+
 interface FreeRaceLaneSetupProps {
   raceId: number;
   laneCount: number;
@@ -48,7 +60,43 @@ interface Racer {
   racerImageUrl?: string | null;
 }
 
-type Mode = 'random' | 'manual';
+const laneCard = {
+  display: 'flex',
+  alignItems: 'center',
+  padding: '15px',
+  borderRadius: '8px',
+  borderLeft: '5px solid var(--scouting-blue)',
+} as const;
+
+const laneNumber = {
+  fontSize: '1.2rem',
+  fontWeight: 'bold',
+  width: '80px',
+  color: '#666',
+} as const;
+
+const emptyAvatar = {
+  width: '80px',
+  height: '80px',
+  borderRadius: '50%',
+  border: '2px dashed #ccc',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#ccc',
+  marginRight: '15px',
+} as const;
+
+/** A lane in an anonymous heat: no racer, and nothing to drag or pick. */
+const AnonymousLaneItem: React.FC<{ lane: number }> = ({ lane }) => (
+  <div style={{ ...laneCard, background: '#f9f9f9' }}>
+    <div style={laneNumber}>Lane {lane}</div>
+    <div style={emptyAvatar}>?</div>
+    <div style={{ flex: 1, color: '#999', fontSize: '1.2rem' }}>
+      <em>No racer</em>
+    </div>
+  </div>
+);
 
 interface SortableLaneItemProps {
   assignment: LaneAssignment;
@@ -299,8 +347,21 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
     // We can keep onDragEnd as a no-op or for any final persistence if needed.
   };
 
-  const currentAssignments = mode === 'random' ? randomAssignments : manualAssignments;
-  const hasAnyRacer = currentAssignments.some((a) => a.racerId != null);
+  // An anonymous heat is one empty lane per lane the track has. Derived, not
+  // state: there is nothing on it to edit, so nothing to remember.
+  const anonymousAssignments = React.useMemo(
+    () => Array.from({ length: laneCount }, (_, i) => ({
+      id: `anonymous-${i + 1}`,
+      lane: i + 1,
+      racerId: null,
+    })),
+    [laneCount],
+  );
+
+  const currentAssignments =
+    mode === 'random' ? randomAssignments
+      : mode === 'manual' ? manualAssignments
+        : anonymousAssignments;
 
   const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
 
@@ -329,74 +390,76 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
         {/* Mode tabs */}
         <div style={{ display: 'flex', background: '#e0e0e0', padding: '4px', borderRadius: '20px', marginBottom: '20px', width: 'fit-content', gap: '4px' }}>
-          <button
-            onClick={() => onModeChange('random')}
-            style={{
-              padding: '8px 20px',
-              borderRadius: '16px',
-              border: 'none',
-              background: mode === 'random' ? 'white' : 'transparent',
-              boxShadow: mode === 'random' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-              fontWeight: mode === 'random' ? 'bold' : 'normal',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <Icon path={mdiDice5} size={0.8} /> Random
-          </button>
-          <button
-            onClick={() => onModeChange('manual')}
-            style={{
-              padding: '8px 20px',
-              borderRadius: '16px',
-              border: 'none',
-              background: mode === 'manual' ? 'white' : 'transparent',
-              boxShadow: mode === 'manual' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
-              fontWeight: mode === 'manual' ? 'bold' : 'normal',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <Icon path={mdiPencil} size={0.8} /> Manual
-          </button>
+          {MODES.map(({ key, label, icon }) => (
+            <button
+              key={key}
+              onClick={() => onModeChange(key)}
+              aria-pressed={mode === key}
+              style={{
+                padding: '8px 20px',
+                borderRadius: '16px',
+                border: 'none',
+                background: mode === key ? 'white' : 'transparent',
+                boxShadow: mode === key ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                fontWeight: mode === key ? 'bold' : 'normal',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <Icon path={icon} size={0.8} /> {label}
+            </button>
+          ))}
         </div>
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          {mode === 'random' && randomResult.fetching && randomAssignments.length === 0 ? (
-            <p style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-              Loading random assignments...
-            </p>
-          ) : (
-            <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
-              <SortableContext
-                items={currentAssignments.map((a) => a.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                {currentAssignments.map((a) => (
-                  <SortableLaneItem
-                    key={a.id}
-                    assignment={a}
-                    racer={a.racerId ? racers[a.racerId] : null}
-                    mode={mode}
-                    racers={racers}
-                    allRacersList={allRacersList}
-                    onManualChange={handleManualChange}
-                    manualAssignments={manualAssignments}
-                  />
-                ))}
-              </SortableContext>
-            </div>
-          )}
-        </DndContext>
+        {mode === 'anonymous' && (
+          <p style={{ color: '#666', marginTop: 0, marginBottom: '20px' }}>
+            Nobody is assigned to a lane. Use this to test the track or the
+            timer, or to run cars that are not on the roster.
+          </p>
+        )}
+
+        {mode === 'anonymous' ? (
+          <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
+            {anonymousAssignments.map((a) => (
+              <AnonymousLaneItem key={a.id} lane={a.lane} />
+            ))}
+          </div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            {mode === 'random' && randomResult.fetching && randomAssignments.length === 0 ? (
+              <p style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                Loading random assignments...
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
+                <SortableContext
+                  items={currentAssignments.map((a) => a.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {currentAssignments.map((a) => (
+                    <SortableLaneItem
+                      key={a.id}
+                      assignment={a}
+                      racer={a.racerId ? racers[a.racerId] : null}
+                      mode={mode}
+                      racers={racers}
+                      allRacersList={allRacersList}
+                      onManualChange={handleManualChange}
+                      manualAssignments={manualAssignments}
+                    />
+                  ))}
+                </SortableContext>
+              </div>
+            )}
+          </DndContext>
+        )}
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -452,7 +515,8 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
               gap: '8px',
             }}
           >
-            <Icon path={mdiFlagCheckered} size={0.8} /> {hasAnyRacer ? 'Start Free Race Heat' : 'Start Anonymous Heat'}
+            <Icon path={mdiFlagCheckered} size={0.8} />{' '}
+            {mode === 'anonymous' ? 'Start Anonymous Heat' : 'Start Free Race Heat'}
           </button>
         </div>
       </div>

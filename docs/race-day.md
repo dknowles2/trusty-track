@@ -551,6 +551,6 @@ Use **Free Race**. A free race heat runs on the timer and appears on the audienc
 
 It is the right tool for a shake-down run before doors open, a parent's or sibling's car, a demonstration for a scout who wants to see the track work, and the fun heats at the end.
 
-From **Race Control**, switch to the Free Race view and choose who is in each lane. **Random** fills the lanes from the checked-in roster, which is usually what you want for an impromptu run; you can also pick racers by hand, and lanes may be left empty. Run it exactly as you would an official heat.
+From **Race Control**, switch to the Free Race view and choose who is in each lane. **Random** fills the lanes from the checked-in roster, which is usually what you want for an impromptu run; **Manual** lets you pick each lane by hand, and lanes may be left empty; **Anonymous** runs every lane empty, for testing the track or for cars that are not on the roster. Run it exactly as you would an official heat.
 
 See the [Free Race guide](free-race.md) for the full walkthrough.
