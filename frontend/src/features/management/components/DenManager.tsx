@@ -6,6 +6,7 @@ import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
 import { CREATE_DEN, UPDATE_DEN, DELETE_DEN, GET_RACE_DETAILS } from '../graphql/queries';
+import { RANKS, rankLabel } from '../rankText';
 
 const DEN_COLORS = COMMON_COLORS;
 
@@ -257,20 +258,18 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                         </div>
                     </div>
                     <div style={{ marginBottom: '10px' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Rank Mapping (Optional)</label>
+                            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Rank (optional)</label>
                             <select
                             value={newDenRank || ''}
                             onChange={e => setNewDenRank(e.target.value || undefined)}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
                         >
                             <option value="">None</option>
-                            <option value="LION">Lion</option>
-                            <option value="TIGER">Tiger</option>
-                            <option value="WOLF">Wolf</option>
-                            <option value="BEAR">Bear</option>
-                            <option value="WEBELOS">Webelos</option>
-                            <option value="ARROW_OF_LIGHT">Arrow of Light</option>
-                            <option value="OTHER">Other</option>
+                            {RANKS.map((rank) => (
+                                <option key={rank.value} value={rank.value}>
+                                    {rank.label}
+                                </option>
+                            ))}
                             </select>
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
@@ -334,13 +333,11 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Rank</label>
                                         <select value={editDenRank || ''} onChange={e => setEditDenRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
                                     <option value="">None</option>
-                                    <option value="LION">Lion</option>
-                                    <option value="TIGER">Tiger</option>
-                                    <option value="WOLF">Wolf</option>
-                                    <option value="BEAR">Bear</option>
-                                    <option value="WEBELOS">Webelos</option>
-                                    <option value="ARROW_OF_LIGHT">Arrow of Light</option>
-                                    <option value="OTHER">Other</option>
+                                    {RANKS.map((rank) => (
+                                        <option key={rank.value} value={rank.value}>
+                                            {rank.label}
+                                        </option>
+                                    ))}
                                 </select>
                                 </div>
 
@@ -358,7 +355,11 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: den.color, border: '1px solid #ddd' }}></div>
                                     <b>{den.name}</b>
-                                    {den.rank && <span style={{ fontSize: '0.8rem', color: '#666' }}>({den.rank})</span>}
+                                    {/* The rank as a pack says it. This showed
+                                        the stored value, so a den of Arrow of
+                                        Light scouts was labelled
+                                        "(ARROW_OF_LIGHT)". */}
+                                    {den.rank && <span style={{ fontSize: '0.8rem', color: '#666' }}>({rankLabel(den.rank)})</span>}
                                     {(den.car_number_range_start || den.car_number_range_end) && (
                                         <span style={{ fontSize: '0.75rem', backgroundColor: '#eee', padding: '2px 6px', borderRadius: '4px' }}>
                                             #{den.car_number_range_start || '?'}-{den.car_number_range_end || '?'}
