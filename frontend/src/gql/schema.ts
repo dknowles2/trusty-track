@@ -767,6 +767,7 @@ export type QueryRacesArgs = {
 
 export type QueryRandomFreeRaceLanesArgs = {
   raceId: Scalars['Int']['input'];
+  shuffle?: Scalars['Int']['input'];
 };
 
 

@@ -77,7 +77,7 @@ class TestFreeRaceLanes:
         picks = crud.get_random_lane_assignments(db, race.id, 4)
 
         expected = sorted(ids)
-        random.Random(f"{SEED}:free-race lanes:{race.name}").shuffle(expected)
+        random.Random(f"{SEED}:free-race lanes:{race.name}:0").shuffle(expected)
         assert [p["racer_id"] for p in picks] == expected[:4]
 
     def test_two_calls_agree(self, db):
@@ -88,6 +88,39 @@ class TestFreeRaceLanes:
         assert crud.get_random_lane_assignments(
             db, race.id, 4
         ) == crud.get_random_lane_assignments(db, race.id, 4)
+
+    def test_a_re_shuffle_draws_again(self, db):
+        """Re-shuffle has to change something, seed or no seed.
+
+        Every draw of a race used to share one key, so under a seed they all
+        came out identical — which is the public demo, where the button could
+        not do anything at all. Counting the draws keys them apart.
+        """
+        race = _race(db, name="Re-shuffle Derby")
+        _racers(db, race.id, 8)
+
+        draws = [
+            tuple(
+                p["racer_id"]
+                for p in crud.get_random_lane_assignments(db, race.id, 4, shuffle=n)
+            )
+            for n in range(4)
+        ]
+
+        assert len(set(draws)) == len(draws)
+
+    def test_a_given_draw_is_still_repeatable(self, db):
+        """The counter keys the draw; it does not make it random again.
+
+        A screen that reloads asks for draw 0 and must get the same lanes back,
+        which is what the seed is for.
+        """
+        race = _race(db, name="Repeatable Re-shuffle Derby")
+        _racers(db, race.id, 8)
+
+        assert crud.get_random_lane_assignments(
+            db, race.id, 4, shuffle=3
+        ) == crud.get_random_lane_assignments(db, race.id, 4, shuffle=3)
 
 
 @pytest.mark.usefixtures("seeded")

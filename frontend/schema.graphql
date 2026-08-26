@@ -374,7 +374,7 @@ type Query {
   advancementStatus(raceId: Int!, roundId: Int!): AdvancementStatus!
   freeRaceHeats(raceId: Int!, limit: Int! = 10): [FreeRaceHeat!]!
   activeFreeRaceHeat(raceId: Int!): FreeRaceHeat
-  randomFreeRaceLanes(raceId: Int!): [FreeRaceLaneAssignment!]!
+  randomFreeRaceLanes(raceId: Int!, shuffle: Int! = 0): [FreeRaceLaneAssignment!]!
   timerStatus(trackId: Int!): TimerStatus
   heatSession(trackId: Int!, heatId: Int = null): HeatSession!
   raceStats(raceId: Int!): RaceStats

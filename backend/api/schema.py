@@ -1857,17 +1857,27 @@ class Query:
 
     @strawberry.field
     def random_free_race_lanes(
-        self, info: Info, race_id: int
+        self, info: Info, race_id: int, shuffle: int = 0
     ) -> list[FreeRaceLaneAssignment]:
         """
         Return a random lane assignment for the race's track lane count,
         using only checked-in racers. Frontend can display this as a preview
         before the operator commits to starting the heat.
+
+        ``shuffle`` counts the re-shuffles the operator has asked for, and it
+        exists because the draw may be seeded (`demo_seed`): the public demo
+        sets ``TRUSTYTRACK_DEMO_SEED``, so without it every call keyed on the
+        race alone returned the identical draw and the Re-shuffle button did
+        nothing at all. Counting the draws keys each one separately, so a
+        re-shuffle really re-shuffles while the *first* draw a screen shows
+        stays the fixed one the screenshots and the demo want.
         """
         db = info.context["db"]
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
         lane_count = race.track.lane_count if race and race.track else 4
-        assignments = crud.get_random_lane_assignments(db, race_id, lane_count)
+        assignments = crud.get_random_lane_assignments(
+            db, race_id, lane_count, shuffle=shuffle
+        )
         return [
             FreeRaceLaneAssignment(lane=a["lane"], racer_id=a["racer_id"])
             for a in assignments

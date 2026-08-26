@@ -87,7 +87,7 @@ Filter client-side to `carPassedInspection === true`.
 ## Implementation Notes
 
 - Use `useQuery` from `urql` for both queries.
-- The "Re-shuffle" button in random mode re-executes the `randomFreeRaceLanes` query with `requestPolicy: 'network-only'` to bypass the cache.
+- The "Re-shuffle" button in random mode counts the draws and passes the count as `randomFreeRaceLanes(raceId, shuffle)`. **Departure from this plan**: it was built as a bare re-execute with `requestPolicy: 'network-only'`, which bypasses the cache but asks the server the same question — and the draw is keyed for repeatability (`demo_seed`), so on the public demo, which sets `TRUSTYTRACK_DEMO_SEED`, every re-shuffle returned the identical lanes and the button did nothing at all. Counting the draws keys each one separately; the first draw a screen opens on is still fixed, which is what the demo and the documentation screenshots want.
 - In manual mode, each lane has a `<select>` element. The options list excludes racers already assigned to another lane (to prevent duplicates). An "Empty" option is always available.
 - The "Start Free Race Heat" button is disabled if no lanes have a racer assigned.
 - Display a clear banner: **"Free Race — results do not affect standings"** in gold/warning style.

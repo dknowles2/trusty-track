@@ -210,16 +210,23 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
   );
   const [randomAssignments, setRandomAssignments] = useState<LaneAssignment[]>([]);
 
-  const [randomResult, reExecuteRandom] = useQuery({
+  // Which draw is on screen: 0 when the setup opens, then one per Re-shuffle.
+  // It is a query variable rather than a bare refetch because the server's
+  // draw may be seeded (`demo_seed`), and a draw keyed on the race alone comes
+  // out identical however many times it is asked for — which is exactly what
+  // the public demo does, so Re-shuffle there could not change anything.
+  const [shuffle, setShuffle] = useState(0);
+
+  const [randomResult] = useQuery({
     query: `
-      query GetRandomFreeRaceLanes($raceId: Int!) {
-        randomFreeRaceLanes(raceId: $raceId) {
+      query GetRandomFreeRaceLanes($raceId: Int!, $shuffle: Int!) {
+        randomFreeRaceLanes(raceId: $raceId, shuffle: $shuffle) {
           lane
           racerId
         }
       }
     `,
-    variables: { raceId },
+    variables: { raceId, shuffle },
     requestPolicy: 'network-only',
   });
 
@@ -245,8 +252,12 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
   const allRacersList = Object.values(racers);
 
+  // Not disabled while the draw is in flight: an operator clicking twice on a
+  // slow connection had the second click swallowed and read that as the button
+  // doing nothing. Counting the clicks is local, so each one asks a new
+  // question and the last answer to arrive is the one on screen.
   const handleReshuffle = () => {
-    reExecuteRandom({ requestPolicy: 'network-only' });
+    setShuffle((n) => n + 1);
   };
 
   const handleManualChange = (lane: number, racerId: number | null) => {
@@ -392,7 +403,6 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
             {mode === 'random' && (
               <button
                 onClick={handleReshuffle}
-                disabled={randomResult.fetching}
                 style={{
                   padding: '10px 20px',
                   border: '1px solid #ccc',

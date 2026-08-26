@@ -80,11 +80,57 @@ describe('FreeRaceLaneSetup', () => {
     expect(screen.getByText(/Bob Jones/)).toBeInTheDocument();
   });
 
-  it('Re-shuffle button triggers a new query with network-only policy', async () => {
+  it('Re-shuffle asks the server for the next draw, not the same one again', async () => {
+    // The draw may be seeded (`demo_seed`), and a key naming only the race
+    // gives every draw the same answer — which is the public demo, where
+    // re-fetching the identical query left the lanes untouched. The counter is
+    // a query variable so a re-shuffle asks a different question.
+    const seen: unknown[] = [];
+    (useQuery as any).mockImplementation(({ query, variables }: any) => {
+      if (query.includes('randomFreeRaceLanes')) {
+        seen.push(variables);
+        return [mockResult, mockReExecute];
+      }
+      return [emptyResult, vi.fn()];
+    });
+
     render(<StatefulWrapper {...defaultProps} />);
-    const reshuffleBtn = screen.getByRole('button', { name: /Re-shuffle/i });
-    fireEvent.click(reshuffleBtn);
-    expect(mockReExecute).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
+    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 0 });
+
+    fireEvent.click(screen.getByRole('button', { name: /Re-shuffle/i }));
+    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 1 });
+
+    fireEvent.click(screen.getByRole('button', { name: /Re-shuffle/i }));
+    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 2 });
+  });
+
+  it('a new draw replaces the lanes on screen', async () => {
+    const first = { data: { randomFreeRaceLanes: mockRandomLanes }, fetching: false };
+    const second = {
+      data: {
+        randomFreeRaceLanes: [
+          { lane: 1, racerId: 102 },
+          { lane: 2, racerId: 101 },
+        ],
+      },
+      fetching: false,
+    };
+    (useQuery as any).mockImplementation(({ query, variables }: any) => {
+      if (query.includes('randomFreeRaceLanes')) {
+        return [variables.shuffle === 0 ? first : second, mockReExecute];
+      }
+      return [emptyResult, vi.fn()];
+    });
+
+    render(<StatefulWrapper {...defaultProps} />);
+    await waitFor(() => expect(screen.getByText(/Alice Smith/)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Re-shuffle/i }));
+
+    await waitFor(() => {
+      const lanes = screen.getAllByText(/Alice Smith|Bob Jones/).map((e) => e.textContent);
+      expect(lanes).toEqual(['Bob Jones', 'Alice Smith']);
+    });
   });
 
   it('switching to Manual mode shows a dropdown for each lane', async () => {
@@ -107,7 +153,7 @@ describe('FreeRaceLaneSetup', () => {
 
     // Assign Alice (101) to lane 1
     const selects = screen.getAllByRole('combobox');
-    
+
     // Focus and select Alice
     await user.click(selects[0]);
     await user.type(selects[0], 'Alice');
@@ -128,10 +174,10 @@ describe('FreeRaceLaneSetup', () => {
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(4);
     });
-    
+
     const selects = screen.getAllByRole('combobox');
     await user.click(selects[0]);
-    
+
     // Carol is NOT checked in, but we now show all racers in Manual mode
     expect(screen.getByText(/Carol White/)).toBeInTheDocument();
   });
@@ -173,7 +219,7 @@ describe('FreeRaceLaneSetup', () => {
     await waitFor(() => {
       expect(screen.getAllByRole('combobox')).toHaveLength(4);
     });
-    
+
     // Assign Alice to lane 1
     const selects = screen.getAllByRole('combobox');
     await user.click(selects[0]);
