@@ -18,8 +18,15 @@ import pytest
 # This assignment has to be the *only* statement before the imports below: ruff
 # tolerates an `os.environ` write ahead of them (E402) and nothing else, which
 # is why the wipe happens afterwards rather than here.
+#
+# One directory per worker, because the suite runs under xdist (`-n auto` in
+# `pyproject.toml`) and the first thing this file does is delete the directory
+# — four workers importing it within a second of each other would each wipe
+# the others' data mid-run. `PYTEST_XDIST_WORKER` is set in the worker's
+# environment before any of this is imported; a run without xdist is "main".
 os.environ["TRUSTYTRACK_DATA_DIR"] = os.path.join(
-    tempfile.gettempdir(), "trustytrack_test"
+    tempfile.gettempdir(),
+    f"trustytrack_test_{os.environ.get('PYTEST_XDIST_WORKER', 'main')}",
 )
 
 from fastapi.testclient import TestClient
@@ -50,9 +57,10 @@ TEST_DATA_DIR = DATA_DIR
 # import, `main.py` mounted it as static files, and removing it without putting
 # it back would break every upload test.
 #
-# One consequence, already true of the fixed path this replaces: two pytest runs
-# on one machine at the same time will stand on each other. CI runs 3.10 and
-# 3.12 as separate jobs on separate runners, so this only bites locally.
+# Two pytest runs on one machine at the same time still stand on each other:
+# the per-worker suffix separates the workers of one run, not two runs. CI runs
+# 3.10 and 3.12 as separate jobs on separate runners, so this only bites
+# locally.
 shutil.rmtree(TEST_DATA_DIR, ignore_errors=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 

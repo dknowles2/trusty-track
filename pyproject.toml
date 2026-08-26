@@ -27,6 +27,10 @@ requires-python = ">=3.10"
 dev = [
     "pytest",
     "pytest-asyncio",
+    # The suite is 5,900 tests with no single slow one, so the only lever on
+    # its runtime is running them at once: about 85 seconds becomes about 27
+    # on a four-core machine. See `addopts` below.
+    "pytest-xdist",
     "httpx",
     "ruff",
     "mypy",
@@ -46,6 +50,12 @@ docs = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["backend/tests"]
+# One worker per core, everywhere — CI, the pre-commit hook and a run by hand.
+# Nothing in the suite shares state between tests: the database is in-memory
+# per test, and the one thing that was shared, the data directory, is now per
+# worker (see `conftest.py`). Pass `-n0` to turn it off, which is what you
+# want when a failure needs `pdb` or the output read in order.
+addopts = "-n auto"
 
 [tool.mypy]
 # No `python_version`. Pinning it to the 3.10 floor makes mypy parse every
