@@ -100,8 +100,12 @@ jobs:
         run: npm run lint
         working-directory: frontend
 
+      # Both trees: `tsconfig.json` covers `src` only, so the end-to-end
+      # specs were never type-checked. That is how a `BACKEND_URL` that no
+      # longer existed reached a run — eslint does not resolve names, and the
+      # only thing that noticed was fifty-six failing browser tests.
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
         working-directory: frontend
 
       - name: Run tests

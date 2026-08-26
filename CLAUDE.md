@@ -651,7 +651,11 @@ Three things about the proxy walk:
 
 **`TimerManager` writes to the DB via its own `SessionLocal()`**, outside the request lifecycle — which is why the test suite maintains a second, file-backed database. See issue #9.
 
-That database lives in `$TMPDIR/trustytrack_test`, which the suite **wipes at the start of a run** rather than at the end — a run that crashes or is killed still leaves a virgin directory for the next one, which teardown cannot promise, and the artefacts of a failed run stay put to be looked at. It is cleaned at all because nothing ever removed the images `POST /upload/` writes: the directory had reached 8,000 files and 3.5 GB before anybody looked, and the first test to zip it (the backup endpoint, #176) had to be killed. A run leaves about 40 files now.
+That database lives in `$TMPDIR/trustytrack_test_<checkout>_<worker>` (`backend/tests/data_dir.py`), which the suite **wipes at the start of a run** rather than at the end — a run that crashes or is killed still leaves a virgin directory for the next one, which teardown cannot promise, and the artefacts of a failed run stay put to be looked at. It is cleaned at all because nothing ever removed the images `POST /upload/` writes: the directory had reached 8,000 files and 3.5 GB before anybody looked, and the first test to zip it (the backup endpoint, #176) had to be killed. A run leaves about 40 files now.
+
+**The name is per checkout and per xdist worker, and both parts were bugs.** The worker part is obvious once the suite runs `-n auto`: the workers are processes that import `conftest.py` the same way, and the first thing it does is delete this directory. The checkout part is the one nobody sees — several worktrees of this repository are a normal way to work, each with its own pytest and its own pre-commit hook, and they share one `TMPDIR`. A commit in one worktree was deleting the database and uploads of a run under way in another. It was quiet: nearly every test holds its database in memory and never looks here, so what surfaced was an occasional inexplicable failure in the few that do — `test_init_db` opens the file database, and the backup service zips the whole directory. What is deliberately **not** in the name is anything unique per run: a fixed name is what lets the wipe happen at the start rather than the end.
+
+**The end-to-end runs have the same rule, in `frontend/e2e/environment.ts`** — data directory *and* ports derived from the checkout. Fixed ports meant the second worktree to start could not run the specs at all (`http://127.0.0.1:8002/health is already used`), and the backend URL was written out in eleven spec files, which is why the port could not be changed in one place to begin with. Ports are *derived*, never allocated: the same checkout gets the same port every run, so a server left by a killed run is on the port the next one wants — findable, where a moving port would hide it.
 
 Three things about that header, each of which has a wrong-looking alternative:
 
@@ -980,7 +984,7 @@ Eight kinds of job on every pull request (`.github/workflows/ci.yml`), ten runne
 | --- | --- |
 | **Lint & Types** | `ruff check`, `ruff format --check`, `mypy backend` over the whole tree |
 | **Backend Tests** ×2 | The suite on 3.10 *and* 3.12 — 3.10 is the floor a Pi's system interpreter gives you, and it has caught syntax that 3.12 accepts |
-| **Frontend Tests** | `eslint`, `tsc --noEmit`, `vitest` |
+| **Frontend Tests** | `eslint`, `npm run typecheck` (`src` *and* `e2e`), `vitest` |
 | **GraphQL Codegen** | A backend schema change that was not regenerated into `src/gql` |
 | **Docs Build** | `mkdocs build --strict` — a broken link or a missing image, before it deploys |
 | **End-to-End** ×2 | The served page, the GraphQL round trip and the normalized cache, together |
@@ -994,7 +998,7 @@ Eight kinds of job on every pull request (`.github/workflows/ci.yml`), ten runne
 Two things worth knowing:
 
 - **The release workflow has its own test gate.** CI runs on pull requests and on `main`; a tag is neither, so without it, tagging any commit publishes it to GHCR and the release page whatever state it was in.
-- **The e2e suite runs against a real backend, on its own ports and its own database.** It replaced a mocked one that had been failing silently — the mocks predated the normalized cache (#12) and answered without `__typename`, which graphcache cannot store, so the page rendered nothing. Nothing ran it, so nobody found out. If you add a browser test, add it there rather than mocking the API.
+- **The e2e suite runs against a real backend, on ports and a data directory derived from the checkout** (`frontend/e2e/environment.ts`), so two worktrees can run it at once. It replaced a mocked one that had been failing silently — the mocks predated the normalized cache (#12) and answered without `__typename`, which graphcache cannot store, so the page rendered nothing. Nothing ran it, so nobody found out. If you add a browser test, add it there rather than mocking the API.
 
 ### What the functional e2e specs are for
 

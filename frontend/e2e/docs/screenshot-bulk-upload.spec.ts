@@ -13,9 +13,10 @@ import { test } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { SCREENSHOT_BACKEND_URL } from '../environment';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_URL = 'http://127.0.0.1:8001';
+const BACKEND_URL = SCREENSHOT_BACKEND_URL;
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
 
 // Minimal valid 1×1 white JPEG (SOI + APP0 + DQT + SOF0 + DHT + SOS + EOI)

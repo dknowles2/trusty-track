@@ -15,7 +15,8 @@
         "preview": "vite preview",
         "test": "vitest",
         "test:e2e": "playwright test",
-        "test:docs": "playwright test --config=playwright.screenshots.config.ts"
+        "test:docs": "playwright test --config=playwright.screenshots.config.ts",
+        "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.e2e.json"
     },
     "dependencies": {
         "@dnd-kit/core": "^6.3.1",

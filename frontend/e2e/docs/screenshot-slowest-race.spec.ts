@@ -15,10 +15,11 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { SCREENSHOT_BACKEND_URL } from '../environment';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
-const BACKEND_URL = 'http://127.0.0.1:8001';
+const BACKEND_URL = SCREENSHOT_BACKEND_URL;
 
 async function gql(page: Page, query: string, variables: Record<string, unknown> = {}) {
     const response = await page.request.post(`${BACKEND_URL}/graphql`, {

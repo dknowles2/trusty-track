@@ -14,7 +14,14 @@
 
 import { expect, test, type Page } from '@playwright/test';
 
-export const BACKEND_URL = 'http://127.0.0.1:8002';
+import { FUNCTIONAL_BACKEND_URL } from '../environment';
+
+// One place, imported: it used to be written out here and in every
+// screenshot spec, which is why the port could not be changed at all.
+// Imported and re-exported rather than re-exported directly, because the
+// functions below use it themselves — a bare `export ... from` binds the
+// name for importers and not for this module.
+export const BACKEND_URL = FUNCTIONAL_BACKEND_URL;
 
 export interface Lane {
     lane: number;

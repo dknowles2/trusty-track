@@ -1,18 +1,26 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import {
+    FUNCTIONAL_BACKEND_PORT,
+    FUNCTIONAL_BACKEND_URL,
+    FUNCTIONAL_DATA_DIR,
+    FUNCTIONAL_FRONTEND_PORT,
+} from './e2e/environment';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 // Its own ports and its own database, so a functional run neither collides with
-// a dev server nor touches the operator's real data. Not 5173: the dev config
-// redirects that port to HTTPS, which is what made `npm run test:e2e` time out
-// waiting for a server that was answering a 301.
-const BACKEND_PORT = 8002;
-const FRONTEND_PORT = 5177;
-const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`;
-const TEST_DATA_DIR = '/tmp/trusty-track-e2e';
+// a dev server nor touches the operator's real data.
+// Ports and data directory are derived from this checkout rather than fixed,
+// so two worktrees can run these at the same time without one refusing to
+// start and the other silently deleting its database. See
+// `e2e/environment.ts`.
+const BACKEND_PORT = FUNCTIONAL_BACKEND_PORT;
+const FRONTEND_PORT = FUNCTIONAL_FRONTEND_PORT;
+const BACKEND_URL = FUNCTIONAL_BACKEND_URL;
+const TEST_DATA_DIR = FUNCTIONAL_DATA_DIR;
 
 export default defineConfig({
   testDir: './e2e/functional',

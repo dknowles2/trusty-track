@@ -1,32 +1,27 @@
 import os
 import shutil
-import tempfile
 
 import pytest
+
+from backend.tests.data_dir import data_dir_for
 
 # Set this before importing any backend modules so they use the test directory:
 # `database.py` reads it at import time and creates the uploads directory as a
 # side effect, so anything importing the app first would already have pointed at
 # the operator's own `~/.trustytrack`.
 #
-# `$TMPDIR/trustytrack_test` rather than a literal `/tmp/trustytrack_test`,
-# which is what this used to be: `gettempdir()` honours `TMPDIR`, and on macOS
-# that is a per-user directory rather than `/tmp`. Worth knowing when you go
-# looking for a failed run's database — `_data_dir()` below prints it if you
-# import it, and `test_init_db.py` asserts the app agrees with it.
+# The name separates the machine's temporary directory, this checkout and this
+# xdist worker; `data_dir.py` holds why each part is there, and it is a module
+# of its own so the rule can be tested without a suite that has already applied
+# it. Worth knowing when you go looking for a failed run's database:
+# `test_init_db.py` asserts the app agrees with what is set here.
 #
 # This assignment has to be the *only* statement before the imports below: ruff
 # tolerates an `os.environ` write ahead of them (E402) and nothing else, which
 # is why the wipe happens afterwards rather than here.
-#
-# One directory per worker, because the suite runs under xdist (`-n auto` in
-# `pyproject.toml`) and the first thing this file does is delete the directory
-# — four workers importing it within a second of each other would each wipe
-# the others' data mid-run. `PYTEST_XDIST_WORKER` is set in the worker's
-# environment before any of this is imported; a run without xdist is "main".
-os.environ["TRUSTYTRACK_DATA_DIR"] = os.path.join(
-    tempfile.gettempdir(),
-    f"trustytrack_test_{os.environ.get('PYTEST_XDIST_WORKER', 'main')}",
+os.environ["TRUSTYTRACK_DATA_DIR"] = data_dir_for(
+    os.path.dirname(os.path.abspath(__file__)),
+    os.environ.get("PYTEST_XDIST_WORKER"),
 )
 
 from fastapi.testclient import TestClient
@@ -57,10 +52,10 @@ TEST_DATA_DIR = DATA_DIR
 # import, `main.py` mounted it as static files, and removing it without putting
 # it back would break every upload test.
 #
-# Two pytest runs on one machine at the same time still stand on each other:
-# the per-worker suffix separates the workers of one run, not two runs. CI runs
-# 3.10 and 3.12 as separate jobs on separate runners, so this only bites
-# locally.
+# Two pytest runs *in the same checkout* at the same time still stand on each
+# other: the name separates worktrees and workers, not two runs of the same
+# one. That is the case a person can see — they started both — where the
+# worktree case was invisible.
 shutil.rmtree(TEST_DATA_DIR, ignore_errors=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
