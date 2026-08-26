@@ -312,6 +312,37 @@ jobs:
           path: frontend/test-results/
           retention-days: 7
 
+  # Two jobs that do nothing but carry a name.
+  #
+  # The repository's ruleset requires status checks by exact name, and it names
+  # "End-to-End" and "Doc Screenshots" — so sharding those jobs renamed them to
+  # "End-to-End (1/2)" and so on, the required contexts never reported again,
+  # and every pull request was blocked from merging with nothing failing and
+  # nothing pending. It cost one merge to find out.
+  #
+  # A gate job keeps the required name reporting whatever the shards are
+  # called, so the number of shards can change without anybody editing
+  # repository settings — and the ruleset goes on gating what it meant to. It
+  # must be `if: always()`, or a failed shard skips the gate rather than
+  # failing it, and a skipped required check is not a failure.
+  e2e-gate:
+    name: End-to-End
+    runs-on: ubuntu-latest
+    needs: e2e
+    if: always()
+    steps:
+      - name: Every shard passed
+        run: '[ "${{ needs.e2e.result }}" = "success" ]'
+
+  doc-screenshots-gate:
+    name: Doc Screenshots
+    runs-on: ubuntu-latest
+    needs: doc-screenshots
+    if: always()
+    steps:
+      - name: Every shard passed
+        run: '[ "${{ needs.doc-screenshots.result }}" = "success" ]'
+
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
