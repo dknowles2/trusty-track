@@ -41,6 +41,7 @@ type Award {
   sortOrder: Int!
   source: String
   place: Int
+  fromBottom: Boolean!
   denId: Int
   recipient: Racer
   den: Den
@@ -51,6 +52,7 @@ input AwardInput {
   kind: String! = "SPECIAL"
   source: String = null
   place: Int = null
+  fromBottom: Boolean! = false
   denId: Int = null
   racerId: Int = null
   sortOrder: Int = null

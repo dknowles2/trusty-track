@@ -105,6 +105,29 @@ describe('describing a speed award', () => {
     );
   });
 
+  it('calls the bottom of the standings slowest', () => {
+    expect(
+      describeSpeedAward({ source: PACK_SOURCE, place: 1, fromBottom: true }, ROUNDS, DENS),
+    ).toBe('Slowest overall');
+  });
+
+  it('numbers the rest from the bottom too', () => {
+    // "2nd slowest", never "1st slowest" — nobody announces it that way.
+    expect(
+      describeSpeedAward({ source: 'ROUND:1', place: 2, fromBottom: true }, ROUNDS, DENS),
+    ).toBe('2nd slowest in Prelims');
+  });
+
+  it('narrows a slowest award to a den like any other', () => {
+    expect(
+      describeSpeedAward(
+        { source: PACK_SOURCE, place: 1, denId: 10, fromBottom: true },
+        ROUNDS,
+        DENS,
+      ),
+    ).toBe('Slowest in Wolves');
+  });
+
   it('says when the den is gone', () => {
     expect(
       describeSpeedAward({ source: PACK_SOURCE, place: 1, denId: 99 }, ROUNDS, DENS),

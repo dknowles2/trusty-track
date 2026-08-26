@@ -37,7 +37,7 @@ describe('AwardForm', () => {
     // The two kinds share nothing but a name, so showing both sets of controls
     // would put four dead inputs in front of the operator.
     renderForm();
-    await userEvent.click(screen.getByLabelText(/whoever is fastest/i));
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
 
     expect(screen.getByLabelText('Standings to use')).toBeInTheDocument();
     expect(screen.getByLabelText('Position')).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe('AwardForm', () => {
 
   it('offers the overall standings and every round as a source', async () => {
     renderForm();
-    await userEvent.click(screen.getByLabelText(/whoever is fastest/i));
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
 
     const options = screen
       .getAllByRole('option')
@@ -72,7 +72,7 @@ describe('AwardForm', () => {
     const onSubmit = renderForm();
 
     await userEvent.type(screen.getByLabelText('Award name'), 'Fastest Wolf');
-    await userEvent.click(screen.getByLabelText(/whoever is fastest/i));
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
     await userEvent.selectOptions(screen.getByLabelText('Limited to a den'), '10');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
@@ -82,9 +82,37 @@ describe('AwardForm', () => {
         kind: 'SPEED',
         source: 'PACK',
         place: 1,
+        fromBottom: false,
         denId: 10,
       }),
     );
+  });
+
+  it('submits a slowest-car award', async () => {
+    // Plenty of packs give one, and it is the same standings read from the
+    // other end rather than a third kind of award.
+    const onSubmit = renderForm();
+
+    await userEvent.type(screen.getByLabelText('Award name'), 'Slowest Car');
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
+    await userEvent.selectOptions(screen.getByLabelText('Counting from'), 'BOTTOM');
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'SPEED', place: 1, fromBottom: true }),
+    );
+  });
+
+  it('names the positions from whichever end is chosen', async () => {
+    renderForm();
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
+
+    expect(screen.getByRole('option', { name: 'Fastest' })).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Counting from'), 'BOTTOM');
+
+    expect(screen.getByRole('option', { name: 'Slowest' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '2nd slowest' })).toBeInTheDocument();
   });
 
   it('lets a judged award be left undecided', async () => {
@@ -118,6 +146,7 @@ describe('AwardForm', () => {
         kind: 'SPEED',
         source: 'ROUND:4',
         place: 2,
+        fromBottom: true,
         denId: 10,
       },
       submitLabel: 'Save changes',
@@ -125,6 +154,7 @@ describe('AwardForm', () => {
 
     expect(screen.getByLabelText('Award name')).toHaveValue('Fastest Wolf');
     expect(screen.getByLabelText('Standings to use')).toHaveValue('ROUND:4');
+    expect(screen.getByLabelText('Counting from')).toHaveValue('BOTTOM');
     expect(screen.getByLabelText('Position')).toHaveValue('2');
     expect(screen.getByLabelText('Limited to a den')).toHaveValue('10');
   });

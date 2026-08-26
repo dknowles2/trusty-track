@@ -33,6 +33,7 @@ type AwardRow = {
   source?: string | null;
   place?: number | null;
   denId?: number | null;
+  fromBottom?: boolean | null;
   recipient?: {
     id: number;
     firstName: string;
@@ -73,6 +74,7 @@ export default function Awards() {
     kind: draft.kind,
     source: draft.kind === 'SPEED' ? draft.source : null,
     place: draft.kind === 'SPEED' ? draft.place : null,
+    fromBottom: draft.kind === 'SPEED' ? draft.fromBottom : false,
     denId: draft.kind === 'SPEED' ? draft.denId : null,
     racerId: draft.kind === 'SPECIAL' ? draft.racerId : null,
   });
@@ -282,6 +284,7 @@ export default function Awards() {
               kind: editing.kind === 'SPEED' ? 'SPEED' : 'SPECIAL',
               source: editing.source ?? null,
               place: editing.place ?? null,
+              fromBottom: editing.fromBottom ?? false,
               denId: editing.denId ?? null,
               // Only for a special award. A speed award's recipient is
               // computed, and seeding it here would turn "switch this to a

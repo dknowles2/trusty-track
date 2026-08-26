@@ -208,7 +208,7 @@ test('screenshot the awards screens', async ({ page }) => {
     await page.getByRole('button', { name: 'Add an award' }).click();
     await expect(page.getByLabel('Award name')).toBeVisible();
     await page.getByLabel('Award name').fill('Fastest Wolf');
-    await page.getByText('Whoever is fastest').click();
+    await page.getByText('Speed-based').click();
     await expect(page.getByLabel('Standings to use')).toBeVisible();
     await page.getByLabel('Limited to a den').selectOption(String(wolvesId));
     await page.waitForTimeout(300);

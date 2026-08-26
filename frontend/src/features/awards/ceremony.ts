@@ -24,6 +24,7 @@ export interface CeremonyAward {
   source?: string | null;
   place?: number | null;
   denId?: number | null;
+  fromBottom?: boolean | null;
   recipient?: {
     id: number;
     firstName: string;

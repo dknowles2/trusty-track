@@ -180,6 +180,160 @@ class TestSpeedAwardsReadTheStandings:
         assert awards_service.recipients_for(db, race_id)[award.id] is None
 
 
+class TestSlowestCarAwards:
+    """A speed award can read the standings from the other end.
+
+    Plenty of packs give a trophy for the slowest car. The rules are in
+    `test_domain_awards.py`; what matters here is that the real leaderboard
+    reaches the rule with `has_raced` on it, because that is the field the
+    domain needs and nothing else in awards reads.
+    """
+
+    def test_the_trophy_goes_to_the_slowest_car(self, client, db):
+        race_id, _dens, racers = build_race(db, racers_per_den=4)
+        times = {racer_id: 3.0 + i for i, racer_id in enumerate(racers)}
+        race_everyone(client, db, race_id, times)
+
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Slowest Car",
+                kind=models.AwardKind.SPEED,
+                source="PACK",
+                place=1,
+                from_bottom=True,
+            ),
+        )
+
+        assert awards_service.recipients_for(db, race_id)[award.id] == racers[-1]
+
+    def test_a_car_that_has_not_raced_yet_does_not_win_it(self, client, db):
+        # A scheduled racer is on the leaderboard from the moment the round is
+        # generated, sorted below everyone with a result. Without `has_raced`
+        # the slowest-car trophy goes to whoever has not run yet — which is
+        # every car, in the middle of the first round.
+        #
+        # Eight racers on a four-lane track, so the first heat is half the
+        # field and the other half is scheduled and unraced. Four would put
+        # everybody in heat one and prove nothing.
+        race_id, _dens, racers = build_race(db, racers_per_den=8)
+        times = {racer_id: 3.0 + i for i, racer_id in enumerate(racers)}
+
+        round_ = crud.create_round(db, race_id=race_id, round_number=1, name="Prelims")
+        crud.generate_heats_for_round(db, round_.id)
+        heats = crud.get_heats(db, race_id, round_id=round_.id)
+
+        # Only the first heat is run, so the rest of the field is scheduled and
+        # unraced.
+        raced = []
+        entries = []
+        for lane in crud.heat_lanes_of(db, heats[0]):
+            if lane.racer_id is None:
+                continue
+            raced.append(lane.racer_id)
+            entries.append(
+                {
+                    "lane": lane.lane,
+                    "racer_id": lane.racer_id,
+                    "time": times[lane.racer_id],
+                }
+            )
+        record_heat_result(client, heats[0].id, entries)
+
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Slowest Car",
+                kind=models.AwardKind.SPEED,
+                source="PACK",
+                place=1,
+                from_bottom=True,
+            ),
+        )
+
+        slowest_so_far = max(raced, key=lambda racer_id: times[racer_id])
+        assert awards_service.recipients_for(db, race_id)[award.id] == slowest_so_far
+
+    def test_a_den_slowest_award_reads_only_that_den(self, client, db):
+        race_id, dens, racers = build_race(
+            db, dens=("Wolves", "Bears"), racers_per_den=3
+        )
+        # Wolves are racers[0:3] and are all faster than the Bears, so the
+        # slowest car in the race is a Bear.
+        times = {racer_id: 3.0 + i for i, racer_id in enumerate(racers[:3])}
+        times.update({racer_id: 6.0 + i for i, racer_id in enumerate(racers[3:])})
+        race_everyone(client, db, race_id, times)
+
+        slowest_wolf = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Slowest Wolf",
+                kind=models.AwardKind.SPEED,
+                source="PACK",
+                place=1,
+                den_id=dens[0],
+                from_bottom=True,
+            ),
+        )
+
+        assert awards_service.recipients_for(db, race_id)[slowest_wolf.id] == racers[2]
+
+    def test_the_direction_round_trips_through_graphql(self, client, db):
+        race_id, _dens, _racers = build_race(db)
+        created = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation($raceId: Int!, $award: AwardInput!) {
+                  createAward(raceId: $raceId, award: $award) {
+                    id fromBottom place
+                  }
+                }
+                """,
+                "variables": {
+                    "raceId": race_id,
+                    "award": {
+                        "name": "Slowest Car",
+                        "kind": "SPEED",
+                        "source": "PACK",
+                        "place": 1,
+                        "fromBottom": True,
+                    },
+                },
+            },
+        ).json()["data"]["createAward"]
+
+        assert created["fromBottom"] is True
+
+        # And it can be switched back, which an absent-means-leave-alone
+        # update would quietly refuse.
+        updated = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation($id: Int!, $award: AwardInput!) {
+                  updateAward(id: $id, award: $award) { fromBottom }
+                }
+                """,
+                "variables": {
+                    "id": created["id"],
+                    "award": {
+                        "name": "Fastest Car",
+                        "kind": "SPEED",
+                        "source": "PACK",
+                        "place": 1,
+                        "fromBottom": False,
+                    },
+                },
+            },
+        ).json()["data"]["updateAward"]
+
+        assert updated["fromBottom"] is False
+
+
 class TestSpecialAwards:
     def test_the_recipient_is_whoever_was_chosen(self, db):
         race_id, _dens, racers = build_race(db)
@@ -271,6 +425,7 @@ class TestTheTwoKindsDoNotBleed:
         db.refresh(award)
         assert award.source is None
         assert award.place is None
+        assert award.from_bottom is False
         assert award.racer_id == racers[0]
 
 

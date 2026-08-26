@@ -13,7 +13,7 @@ import {
   NamedDen,
   NamedRound,
   PACK_SOURCE,
-  ordinal,
+  positionLabel,
   racerLabel,
   roundLabel,
 } from '../awardText';
@@ -23,6 +23,7 @@ export interface AwardDraft {
   kind: 'SPEED' | 'SPECIAL';
   source: string | null;
   place: number | null;
+  fromBottom: boolean;
   denId: number | null;
   racerId: number | null;
 }
@@ -49,6 +50,7 @@ const EMPTY: AwardDraft = {
   kind: 'SPECIAL',
   source: PACK_SOURCE,
   place: 1,
+  fromBottom: false,
   denId: null,
   racerId: null,
 };
@@ -114,11 +116,11 @@ export default function AwardForm({
             checked={draft.kind === 'SPEED'}
             onChange={() => set('kind', 'SPEED')}
           />{' '}
-          Whoever is fastest
+          Speed-based
         </label>
         <small style={{ color: '#666', display: 'block', marginTop: '0.4rem' }}>
           {draft.kind === 'SPEED'
-            ? 'Worked out from the standings, so it stays right if you correct a time later.'
+            ? 'Worked out from the standings — fastest or slowest — so it stays right if you correct a time later.'
             : 'For awards nothing can measure — paint, design, spirit. You can leave it undecided for now.'}
         </small>
       </fieldset>
@@ -144,8 +146,25 @@ export default function AwardForm({
             </select>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '9rem' }}>
+              <label
+                htmlFor="award-direction"
+                style={{ display: 'block', fontSize: '0.9rem' }}
+              >
+                Counting from
+              </label>
+              <select
+                id="award-direction"
+                value={draft.fromBottom ? 'BOTTOM' : 'TOP'}
+                onChange={(e) => set('fromBottom', e.target.value === 'BOTTOM')}
+                style={inputStyle}
+              >
+                <option value="TOP">The fastest car</option>
+                <option value="BOTTOM">The slowest car</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: '9rem' }}>
               <label htmlFor="award-place" style={{ display: 'block', fontSize: '0.9rem' }}>
                 Position
               </label>
@@ -157,12 +176,12 @@ export default function AwardForm({
               >
                 {[1, 2, 3, 4, 5].map((place) => (
                   <option key={place} value={place}>
-                    {place === 1 ? 'Fastest' : ordinal(place)}
+                    {positionLabel(place, draft.fromBottom)}
                   </option>
                 ))}
               </select>
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: '9rem' }}>
               <label htmlFor="award-den" style={{ display: 'block', fontSize: '0.9rem' }}>
                 Limited to a den
               </label>

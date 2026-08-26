@@ -57,14 +57,26 @@ export interface SpeedAwardParts {
   source?: string | null;
   place?: number | null;
   denId?: number | null;
+  fromBottom?: boolean | null;
+}
+
+/**
+ * "Fastest", "3rd", "Slowest", "3rd slowest".
+ *
+ * First place is named rather than numbered in both directions, because that
+ * is what an operator calls it — nobody announces "1st slowest".
+ */
+export function positionLabel(place: number, fromBottom = false): string {
+  if (fromBottom) return place === 1 ? 'Slowest' : `${ordinal(place)} slowest`;
+  return place === 1 ? 'Fastest' : ordinal(place);
 }
 
 /**
  * What a speed award is for, in a sentence.
  *
- * "Fastest overall", "2nd in Finals", "Fastest — Wolves". Deliberately says
- * *fastest* rather than *1st* for the winner: that is what an operator calls
- * it, and it reads better on the presentation screen.
+ * "Fastest overall", "2nd in Finals", "Slowest overall", "Fastest in Wolves".
+ * Deliberately says *fastest* rather than *1st* for the winner: that is what
+ * an operator calls it, and it reads better on the presentation screen.
  */
 export function describeSpeedAward(
   award: SpeedAwardParts,
@@ -77,7 +89,7 @@ export function describeSpeedAward(
     return 'Not set up — this award cannot be won';
   }
 
-  const position = award.place === 1 ? 'Fastest' : ordinal(award.place);
+  const position = positionLabel(award.place, award.fromBottom ?? false);
   const where =
     award.source === PACK_SOURCE ? 'overall' : `in ${sourceLabel(award.source, rounds)}`;
 

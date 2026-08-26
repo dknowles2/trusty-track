@@ -208,6 +208,9 @@ class AwardBase(BaseModel):
     #: a den-scoped award sets `den_id` instead; see `domain/awards.py`.
     source: str | None = None
     place: int | None = None
+    #: SPEED: which end `place` counts from. False is the fastest car, true the
+    #: slowest — the same flip `Round.advancement_from_bottom` makes.
+    from_bottom: bool = False
     den_id: int | None = None
     #: SPECIAL: whoever a person decided, or nobody yet.
     racer_id: int | None = None
@@ -236,6 +239,7 @@ class AwardUpdate(BaseModel):
     kind: AwardKind | None = None
     source: str | None = None
     place: int | None = None
+    from_bottom: bool | None = None
     den_id: int | None = None
     racer_id: int | None = None
     sort_order: int | None = None
