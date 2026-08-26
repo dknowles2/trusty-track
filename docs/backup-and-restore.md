@@ -9,8 +9,8 @@ Trusty Track can put all of it into a single file, and put it back.
 
 ## Taking a backup
 
-**Settings → Backup → Download a backup.** The panel is at the foot of System
-Settings, below the tracks.
+**Settings → Backup → Download a backup.** Backup is one of the sections
+listed down the left of the Settings page.
 
 ![The backup panel: download a backup, or restore from one](assets/screenshots/settings/02-backup-panel.png)
 

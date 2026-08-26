@@ -18,6 +18,18 @@ const documentText = (query: unknown): string =>
     typeof query === 'string' ? query : print(query as Parameters<typeof print>[0]);
 import { useQuery, useMutation } from 'urql';
 
+/**
+ * Open one of the settings sections.
+ *
+ * A configured install shows one section at a time behind a nav down the left
+ * (the first run does not — it is a wizard, and shows the lot). So a test
+ * about a track, a lane or the backup panel has to say where it is looking.
+ */
+const openSection = async (id: 'general' | 'access' | 'tracks' | 'backup') => {
+    const user = (await import('@testing-library/user-event')).default.setup();
+    await user.click(await screen.findByTestId(`settings-nav-${id}`));
+};
+
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
@@ -268,6 +280,8 @@ describe('a saved track with no length', () => {
             </MemoryRouter>,
         );
 
+        await openSection('tracks');
+
         const lengths = await screen.findAllByLabelText('Length (Feet)');
         expect((lengths[1] as HTMLInputElement).value).toBe('40');
         // The whole point: nothing on the form is blocking submission.
@@ -315,6 +329,8 @@ describe('lanes out of service', () => {
             { id: 1, name: 'Main Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, laneOutages: [2] },
         ]);
 
+        await openSection('tracks');
+
         expect(await screen.findByLabelText('Lane 1 works')).toBeChecked();
         expect(screen.getByLabelText('Lane 2 works')).not.toBeChecked();
         expect(screen.getByLabelText('Lane 3 works')).toBeChecked();
@@ -324,6 +340,8 @@ describe('lanes out of service', () => {
         configuredWith([
             { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, laneOutages: [3] },
         ]);
+
+        await openSection('tracks');
 
         expect(
             await screen.findByText(/3 of 4 lanes in use — Lane 3 out of service/),
@@ -338,10 +356,68 @@ describe('lanes out of service', () => {
         ]);
         const user = (await import('@testing-library/user-event')).default.setup();
 
+        await openSection('tracks');
         await user.click(await screen.findByText('+ Add Another Track'));
 
         // Still only the saved track's two lanes.
         expect(screen.getAllByLabelText(/^Lane \d+ works$/)).toHaveLength(2);
+    });
+});
+
+describe('checking one track\'s timer', () => {
+    afterEach(cleanup);
+
+    const configuredWith = (tracks: unknown[]) => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    groupName: 'Pack 42',
+                    debugMode: false,
+                    tracks,
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+    };
+
+    const saved = (over: Record<string, unknown> = {}) => ({
+        id: 4, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE',
+        serialPort: null, timerProfile: null, remoteStartInstalled: false, ...over,
+    });
+
+    it('links from the track to that track on the diagnostics page', async () => {
+        // "Is my timer working" is about one timer, so the way in is on that
+        // timer's card — and it carries the track, or a multi-track venue
+        // lands on a page of panels and has to guess which is theirs.
+        configuredWith([saved()]);
+        await openSection('tracks');
+
+        expect(screen.getByRole('link', { name: /check this timer/i })).toHaveAttribute(
+            'href',
+            '/timer-check#timer-4',
+        );
+    });
+
+    it('is absent from a track that has not been saved yet', async () => {
+        // No id, so nothing to point at — the same rule the lanes and records
+        // panels follow.
+        configuredWith([saved()]);
+        const user = (await import('@testing-library/user-event')).default.setup();
+        await openSection('tracks');
+
+        await user.click(screen.getByText('+ Add Another Track'));
+
+        expect(screen.getAllByRole('link', { name: /check this timer/i })).toHaveLength(1);
     });
 });
 
@@ -378,6 +454,8 @@ describe('the Backup panel', () => {
             </MemoryRouter>,
         );
 
+        await openSection('backup');
+
         expect(
             await screen.findByRole('button', { name: /download a backup/i }),
         ).toBeInTheDocument();
@@ -401,5 +479,108 @@ describe('the Backup panel', () => {
 
         await screen.findByPlaceholderText('e.g. Main Track');
         expect(screen.queryByRole('button', { name: /restore from a backup/i })).toBeNull();
+    });
+});
+
+describe('the settings sections', () => {
+    afterEach(cleanup);
+
+    const renderWith = (initialConfig: Record<string, unknown>) => {
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+    };
+
+    const configured = {
+        initialized: true,
+        groupName: 'Pack 42',
+        debugMode: false,
+        tracks: [
+            { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+        ],
+    };
+
+    it('shows the whole form at once on the first run', async () => {
+        // A wizard is not sectioned. Somebody who has never seen the app is
+        // not going to go looking for the two fields they have not filled in.
+        renderWith({ initialized: false, groupName: '', tracks: [] });
+
+        expect(await screen.findByLabelText('Organization Name')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('e.g. Main Track')).toBeInTheDocument();
+        expect(screen.getByLabelText('Operator PIN')).toBeInTheDocument();
+        expect(screen.queryByTestId('settings-nav')).toBeNull();
+    });
+
+    it('shows one section at a time once the install is configured', async () => {
+        renderWith(configured);
+
+        expect(await screen.findByTestId('settings-nav')).toBeInTheDocument();
+        // General is where it opens.
+        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Track Name')).toBeNull();
+        expect(screen.queryByRole('button', { name: /download a backup/i })).toBeNull();
+
+        await openSection('tracks');
+        expect(screen.getByLabelText('Track Name')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Organization Name')).toBeNull();
+    });
+
+    it('keeps an edit made in a section that is no longer on screen', async () => {
+        // The fields live on the page, not in the section, so switching is not
+        // a discard — and one Save covers all three form sections.
+        renderWith(configured);
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        const name = await screen.findByLabelText('Organization Name');
+        await user.clear(name);
+        await user.type(name, 'Pack 99');
+
+        await openSection('tracks');
+        await openSection('general');
+
+        expect(screen.getByLabelText('Organization Name')).toHaveValue('Pack 99');
+    });
+
+    it('sends the operator to the section holding the problem', async () => {
+        // The browser only validates what it is rendering, and with one
+        // section on screen the offending field usually is not. Reporting
+        // "Your organization needs a name" while showing the track form would
+        // be a dead end.
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { ...configured, groupName: '' } },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        await openSection('tracks');
+        await user.click(screen.getByText('Save Settings'));
+
+        expect(await screen.findByText(/organization needs a name/i)).toBeInTheDocument();
+        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument();
+        expect(mockUpdate).not.toHaveBeenCalled();
     });
 });

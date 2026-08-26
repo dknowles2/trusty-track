@@ -34,7 +34,8 @@ with its manual, if you have it — genuinely helps.
 
 ## The three timer types
 
-Chosen per track in **System Settings**, under **Timer Type**:
+Chosen per track in **Settings → Tracks**, on the track's card under **The
+timer**:
 
 | Setting | What it means |
 | --- | --- |

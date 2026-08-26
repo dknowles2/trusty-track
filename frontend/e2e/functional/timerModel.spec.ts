@@ -26,6 +26,9 @@ test('a timer model can be chosen, and the undetectable one is marked', async ({
     await ensureConfigured(page);
     await page.goto('/system-settings');
     await page.waitForLoadState('networkidle');
+    // A configured install shows one settings section at a time; the timer
+    // controls are on a track's card, under Tracks.
+    await page.getByTestId('settings-nav-tracks').click();
 
     // No model to pick on the fake timer: it is chosen by transport, and
     // offering it in both places would let a track ask for a fake timer over a

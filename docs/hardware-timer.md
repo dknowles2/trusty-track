@@ -16,7 +16,7 @@ If you have no timer, or you want to try the software first, use the
 For most people, connecting a timer is four steps:
 
 1. Plug the timer's USB cable into the machine running Trusty Track.
-2. In **System Settings**, set the track's **Timer Type** to
+2. In **Settings → Tracks**, set the track's **Timer Type** to
    **Plugged into this machine**. Leave **Serial Port** blank.
 3. Open **System Settings → Check the timer connection**.
 4. When it says **Ready**, you are done.
@@ -44,7 +44,8 @@ its manual if you have it, genuinely helps.
 
 ## Two ways to connect
 
-Both are chosen per track in **System Settings**, under **Timer Type**.
+Both are chosen per track in **Settings → Tracks**, on the track's card under
+**The timer**.
 
 ![A track's timer settings: the connection under Timer Type, the model picker beneath it, and the remote start gate setting at the bottom](assets/screenshots/timers/01-timer-settings.png)
 _Everything about a track's timer lives on the track's own card in System Settings: how it connects, which model it is, and whether a remote start gate is fitted._
@@ -87,6 +88,10 @@ falling back to assuming a Micro Wizard.
 
 This page shows every track's timer live: what state it is in, which device
 answered, and where it was found. You do not need a race set up to use it.
+
+If you have more than one track, **Settings → Tracks** has a **Check this
+timer** link at the foot of each track's card, which takes you straight to that
+track's panel.
 
 ![The timer check page with a healthy timer: Ready in green, the identified device, its provenance note, the test panel, and the serial traffic beneath](assets/screenshots/timers/02-timer-check-ready.png)
 _A healthy timer: **Ready**, the device it identified itself as, and — in the yellow note — how well that device's support has actually been tested._

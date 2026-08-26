@@ -777,6 +777,66 @@ If you add a race view, it goes in `links` in `Navigation.tsx`. Don't reintroduc
 
 Move-to-den is still a menu, because six dens will not fit on the bar — but it opens **downward** now rather than flying out sideways, which retired `denMenuSide`, `denMenuContainerRef`, `moveDenTimeoutRef` and the two hover handlers that measured which side had room.
 
+### The settings page is sectioned, except the first time
+
+`SystemSettings.tsx`, with the vocabulary in `features/settings/sections.ts`
+and the nav in `SettingsNav.tsx`. The page was one 600px column holding an
+organization name, two PINs, every track's name, geometry, lanes-in-service,
+timer, model, remote start and historical records, a backup panel and two links
+out. The documentation had already started writing it as though it were
+sectioned — "Settings → Access", "Settings → Tracks → Lanes in service",
+"Settings → Backup" — which is the tell that the page owed the reader those
+sections. They are named after what the docs already called them.
+
+**The first run gets no nav at all.** `sectionsFor(false)` returns an empty
+list and the caller reads that as "render the lot": the same screen is the
+setup wizard until it has been saved once, and somebody who has never seen the
+app should meet every field in order rather than go hunting for the two they
+have not filled in. It is also why Backup is absent there rather than merely
+empty — offering to replace an install that does not exist yet is offering
+nothing.
+
+**Down the left, not across the top.** There is already a navigation row across
+the top of every page, and a second row is what "One row of race navigation"
+above was written to end. Under 768px the column becomes a wrapping row, since
+the phone at the registration desk is a real device.
+
+**Validation moved into `firstProblem`, and this is not decoration.** The
+browser only validates the fields it is *rendering*, so with one section on
+screen an empty organization name is not in the document and nothing native
+fires — the save would go up missing a name. `handleSubmit` checks the whole
+form and **switches to the section holding the problem**, because reporting
+"your organization needs a name" over the track form is a dead end. The inputs
+keep `required`/`min` as well: those still catch the value that *is* on screen,
+and the browser points straight at it. The check also names the track at fault
+by number, which the form never did even when everything was on screen at once.
+
+**Backup is outside the `<form>`.** A Restore button under a submit button
+saying **Save Settings** is one misclick from replacing the event —
+`BackupPanel`'s own header has said so since #176, and `isFormSection` is now
+where that is stated once.
+
+**The two links out (`/timer-check`, `/activity`) are nav items, not a
+footnote**, and the docs send people to them by that route. On the wizard,
+where there is no nav, they stay as the strip under the form.
+
+**A saved track's card carries its own `Check this timer →`**, to
+`/timer-check#timer-<id>`. "Is my timer working" is a question about *one*
+timer, and the diagnostics page renders a live panel per track — a three-track
+venue arriving at the top of that page has to work out which panel is theirs,
+which looks like nothing being wrong. `TimerDiagnostics` gives each section
+`id="timer-<id>"` and scrolls to the fragment itself, because a router
+navigation does not scroll to one the way a page load does, and the sections do
+not exist until the tracks query has answered. The nav's general link stays:
+before the first save a track has no id to point at, and the docs name that
+route in two places.
+
+A track's card is `TrackCard.tsx`, split under **The track** and **The timer** —
+it was 200 lines of JSX inside a `.map()` with nothing saying which controls
+were about the track and which about the device at the end of it. Lanes in
+service and track records still save on click rather than on **Save Settings**,
+and still say so.
+
 ### Printables
 
 Pit passes, driver's licences and check-in codes. `/race/:raceId/print`, from the roster's **Print** button.
