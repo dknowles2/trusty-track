@@ -60,12 +60,27 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
     // after the query resolved cost a second render to say the same thing.
     const trackId = formData.track_id || tracks[0]?.id || 0;
 
+    // A race must name a track, and until this query answers there is nothing
+    // to name. The form used to be submittable in that window: `trackId` was 0,
+    // the insert failed the foreign key on `races.track_id`, and the operator
+    // was told only "Failed to create race". Rare by hand and reliable on a
+    // slow machine at a venue, which is what this app runs on.
+    //
+    // Nought is also what an install with no tracks at all gives — deleting the
+    // last track is allowed while no race uses it — so the same test covers
+    // both, and the field below says which of the two it is.
+    const hasTrack = trackId !== 0;
+
     const handleChange = (field: keyof RaceFormData, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // The submit button is disabled without a track, but a form can still
+        // be submitted by pressing Enter in a text field, and browsers differ
+        // on whether a disabled default button stops that.
+        if (!hasTrack) return;
         setLoading(true);
         try {
             await onSubmit({
@@ -205,6 +220,11 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 <label style={labelStyle} htmlFor="race-track">Track / Timer</label>
                 {fetchingTracks ? (
                     <p style={{ fontSize: '0.8rem', color: '#666' }}>Loading tracks...</p>
+                ) : !hasTrack ? (
+                    <p data-testid="no-tracks" style={{ fontSize: '0.9rem', color: '#c62828' }}>
+                        You have no tracks yet. Add one in System Settings, then come back
+                        and create your race.
+                    </p>
                 ) : (
                 <select
                     id="race-track"
@@ -249,7 +269,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '1rem', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
-                     <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1, padding: '12px' }}>
+                     <button type="submit" disabled={loading || !hasTrack} className="primary-btn" style={{ flex: 1, padding: '12px' }}>
                         {loading ? 'Saving...' : submitLabel}
                     </button>
                     <button
