@@ -243,16 +243,15 @@ jobs:
           retention-days: 7
 
   doc-screenshots:
-    name: Doc Screenshots (${{ matrix.shard }}/2)
+    name: Doc Screenshots Run
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # Safe to split because every one of these specs already has to run
-        # alone: images are regenerated one spec at a time against a wiped
-        # data directory, so each seeds everything it needs and none depends
-        # on another having gone first. A shard is that, twice over.
-        shard: [1, 2]
+    # Not sharded, unlike the functional e2e job beside it. These specs are
+    # parallel *within* one run now — one backend, four Playwright workers, a
+    # setup project ahead of them for the state that is global to the install
+    # (see `playwright.screenshots.config.ts`). Splitting them across two
+    # machines on top of that would give each shard its own copy of the setup
+    # phase for no gain, and project dependencies and `--shard` do not compose:
+    # a dependency project re-runs in full in every shard.
     steps:
       - uses: actions/checkout@v7
 
@@ -305,14 +304,14 @@ jobs:
       # (#114). Running it here does not compare pixels, which change with
       # every version stamp; it checks that the specs still drive the app.
       - name: Run the documentation screenshot specs
-        run: npx playwright test --config=playwright.screenshots.config.ts --shard=${{ matrix.shard }}/2
+        run: npx playwright test --config=playwright.screenshots.config.ts
         working-directory: frontend
 
       - name: Upload trace on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: screenshot-report-${{ matrix.shard }}
+          name: screenshot-report
           path: frontend/test-results/
           retention-days: 7
 
@@ -338,13 +337,16 @@ jobs:
       - name: Every shard passed
         run: '[ "${{ needs.e2e.result }}" = "success" ]'
 
+  # This one no longer fronts a matrix — see `doc-screenshots` above — but it
+  # still carries the required name, so the job behind it can be renamed,
+  # sharded or un-sharded without anybody editing repository settings.
   doc-screenshots-gate:
     name: Doc Screenshots
     runs-on: ubuntu-latest
     needs: doc-screenshots
     if: always()
     steps:
-      - name: Every shard passed
+      - name: The run passed
         run: '[ "${{ needs.doc-screenshots.result }}" = "success" ]'
 
   docker-build:

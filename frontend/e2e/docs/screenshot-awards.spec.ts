@@ -11,26 +11,14 @@
  * is a real state, but not the one the page is explaining.
  */
 
-import { type Page } from '@playwright/test';
 import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { SCREENSHOT_BACKEND_URL } from '../environment';
+import { docsTrackId, ensureConfigured, gql, groupId } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/awards');
-const BACKEND_URL = SCREENSHOT_BACKEND_URL;
-
-async function gql(page: Page, query: string, variables: Record<string, unknown> = {}) {
-    const response = await page.request.post(`${BACKEND_URL}/graphql`, {
-        data: JSON.stringify({ query, variables }),
-        headers: { 'Content-Type': 'application/json' },
-    });
-    const body = await response.json();
-    if (body.errors) throw new Error(JSON.stringify(body.errors));
-    return body.data;
-}
 
 // Two dens, and the fastest car overall is deliberately not a Wolf — with one
 // den, "Fastest Car" and "Fastest Wolf" name the same child and the screenshot
@@ -57,18 +45,11 @@ test('screenshot the awards screens', async ({ page }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    // First run of the day lands on the setup wizard; a later spec may already
-    // have cleared it.
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    if (page.url().includes('/system-settings')) {
-        await page.getByLabel('Organization Name').fill('Pack 42');
-        await page.getByRole('button', { name: 'Save Settings' }).click();
-        await page.waitForURL('**/', { waitUntil: 'networkidle' });
-    }
+    await ensureConfigured(page);
 
-    const config = await gql(page, `query { groups { id } tracks { id } }`);
-    const trackId = config.tracks[0].id;
+    const raceGroupId = await groupId(page);
+    const raceTrackId = await docsTrackId(page);
+    const trackId = raceTrackId;
 
     const race = await gql(
         page,
@@ -78,7 +59,7 @@ test('screenshot the awards screens', async ({ page }) => {
                 name: 'Pack 42 Awards Night',
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
-                groupId: config.groups[0].id,
+                groupId: raceGroupId,
                 trackId,
                 scoringStrategy: 'TIMED',
                 carNumberingStrategy: 'MANUAL',

@@ -18,30 +18,14 @@
  * spec bringing its own track.
  */
 
-import { type Page } from '@playwright/test';
 import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { SCREENSHOT_BACKEND_URL } from '../environment';
+import { BACKEND_URL, ensureConfigured, gql } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/timers');
-const BACKEND_URL = SCREENSHOT_BACKEND_URL;
-
-async function gql(
-    page: Page,
-    query: string,
-    variables: Record<string, unknown> = {},
-) {
-    const response = await page.request.post(`${BACKEND_URL}/graphql`, {
-        data: JSON.stringify({ query, variables }),
-        headers: { 'Content-Type': 'application/json' },
-    });
-    const body = await response.json();
-    if (body.errors) throw new Error(JSON.stringify(body.errors));
-    return body.data;
-}
 
 /**
  * A Micro Wizard that lives at the end of the proxy WebSocket.
@@ -104,14 +88,7 @@ test('screenshot the timer pages', async ({ page }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    // First-run gate, for whichever spec goes first.
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    if (page.url().includes('/system-settings')) {
-        await page.getByLabel('Organization Name').fill('Pack 42');
-        await page.getByRole('button', { name: 'Save Settings' }).click();
-        await page.waitForURL('**/', { waitUntil: 'networkidle' });
-    }
+    await ensureConfigured(page);
 
     // A two-lane proxy-mode track of our own. Two lanes, so the bench test
     // finishes with two hand-tripped results rather than needing six.
@@ -133,9 +110,13 @@ test('screenshot the timer pages', async ({ page }) => {
     await page.goto('/system-settings');
     await page.waitForLoadState('networkidle');
     await page.getByTestId('settings-nav-tracks').click();
-    // The name lives in an <input>, which `hasText` cannot see — but this
-    // track was created last, so it is the last card.
-    const demoCard = page.getByTestId(/track-card-\d+/).last();
+    // The name lives in an <input>, which `hasText` cannot see — so the card is
+    // found by that input. It used to be "the last card", which was true only
+    // while one spec ran at a time: another spec adding a track of its own is
+    // now something that happens while this page is open.
+    const demoCard = page
+        .getByTestId(/track-card-\d+/)
+        .filter({ has: page.locator('input[value="Timer Demo Track"]') });
     await expect(demoCard.locator('input[value="Timer Demo Track"]')).toBeVisible();
     await page.waitForTimeout(300);
     await demoCard.screenshot({
