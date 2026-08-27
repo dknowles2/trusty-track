@@ -174,6 +174,25 @@ def no_real_serial_ports(monkeypatch):
     monkeypatch.setattr(probe, "open_serial", refuse)
 
 
+@pytest.fixture(autouse=True)
+def no_pre_probe_settle(monkeypatch):
+    """The prober's settle is real time, and there is nothing here to settle.
+
+    ``probe.PRE_PROBE_SETTLE_SECONDS`` is two seconds of `asyncio.sleep` before
+    each candidate profile that asks for one, so a device that needs a moment
+    after its pre-probe command has had it. Against the fake ports this suite
+    uses there is nothing on the other end, and the wait is pure wall clock —
+    paid once per candidate, so a walk of several profiles paid it several
+    times over.
+
+    Two tests were carrying seventeen of the suite's twenty-two seconds between
+    them. It matters most where there are fewest workers to hide it: CI runs
+    four, not ten. It is the settle that is stubbed rather than the sleep, so a
+    test that wants to prove the wait happens can set it back.
+    """
+    monkeypatch.setattr(probe, "PRE_PROBE_SETTLE_SECONDS", 0.0)
+
+
 @pytest.fixture(scope="function")
 def db(db_session):
     """Alias for db_session to support existing tests using 'db' argument."""
