@@ -13,10 +13,9 @@ import { test } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { SCREENSHOT_BACKEND_URL } from '../environment';
+import { BACKEND_URL, ensureConfigured } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND_URL = SCREENSHOT_BACKEND_URL;
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
 
 // Minimal valid 1×1 white JPEG (SOI + APP0 + DQT + SOF0 + DHT + SOS + EOI)
@@ -58,10 +57,21 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
 
     // Intercept uploadImage GraphQL mutation — return a stable fake URL so
     // uploads complete instantly without writing to disk.
+    //
+    // Every branch has to end in `fulfill` or `continue`, including the one
+    // where something goes wrong: this handler sits in front of *every*
+    // GraphQL call the page makes, and `postDataJSON()` throws rather than
+    // returning null on a body it cannot parse, so one throw in here would
+    // leave that request dangling for ever.
     let uploadCallCount = 0;
     await page.route('**/graphql', async (route) => {
-        const body = route.request().postDataJSON() as { query?: string } | null;
-        if (body?.query?.includes('uploadImage') || body?.query?.includes('UploadImage')) {
+        let query: string | undefined;
+        try {
+            query = (route.request().postDataJSON() as { query?: string } | null)?.query;
+        } catch {
+            query = undefined;
+        }
+        if (query?.includes('uploadImage') || query?.includes('UploadImage')) {
             uploadCallCount++;
             await route.fulfill({
                 status: 200,
@@ -70,19 +80,13 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
                     data: { uploadImage: `/static/demo-racer-${uploadCallCount}.jpg` },
                 }),
             });
-        } else {
-            await route.continue();
+            return;
         }
+        await route.continue();
     });
 
         // ── Navigate to Home and create a race first ───────────────────────────
-        await page.goto('/', { waitUntil: 'networkidle' });
-
-        if (page.url().includes('/system-settings')) {
-            await page.getByLabel('Organization Name').fill('Bulk Test Pack');
-            await page.getByRole('button', { name: 'Save Settings' }).click();
-            await page.waitForURL('**/', { waitUntil: 'networkidle' });
-        }
+        await ensureConfigured(page);
 
         await page.getByRole('button', { name: /Create New Race/i }).click();
     await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('Bulk Upload Race');

@@ -43,6 +43,32 @@ export const test = base.extend({
             else document.addEventListener('DOMContentLoaded', inject);
         }, HIDE_UNSTABLE);
 
+        // Every screenshot waits for the pictures and freezes the animation.
+        //
+        // These two are what was left moving once the version stamp and the
+        // invented data were pinned, and both were being handled by sleeping:
+        // `waitForTimeout(500)` after opening a modal, `waitForTimeout(3000)`
+        // after populating a roster. A sleep is a guess about a machine — too
+        // short on a loaded CI runner, always too long on a fast laptop — and
+        // it is why a run still rewrote a dozen images with nothing behind it.
+        //
+        // `animations: 'disabled'` fast-forwards CSS transitions to their end
+        // state, so a modal is photographed where it is going to settle rather
+        // than wherever it had got to. The image wait is a soft one: a page
+        // with a genuinely broken image should produce the picture that shows
+        // it, not a timeout with no picture at all.
+        const takeScreenshot = page.screenshot.bind(page);
+        page.screenshot = (async (options = {}) => {
+            await page
+                .waitForFunction(
+                    () => Array.from(document.images).every((image) => image.complete),
+                    undefined,
+                    { timeout: 5000 },
+                )
+                .catch(() => {});
+            return takeScreenshot({ animations: 'disabled', ...options });
+        }) as typeof page.screenshot;
+
         // Playwright's fixture callback, not React's `use`. The lint rule
         // cannot tell them apart, and there is nothing to rename — the
         // parameter position is the API.

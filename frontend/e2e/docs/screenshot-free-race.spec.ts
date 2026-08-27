@@ -9,26 +9,14 @@
  * a heat can actually be run start to finish without hardware.
  */
 
-import { type Page } from '@playwright/test';
 import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { SCREENSHOT_BACKEND_URL } from '../environment';
+import { ensureConfigured, gql, groupId } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/free-race');
-const BACKEND_URL = SCREENSHOT_BACKEND_URL;
-
-async function gql(page: Page, query: string, variables: Record<string, unknown> = {}) {
-    const response = await page.request.post(`${BACKEND_URL}/graphql`, {
-        data: JSON.stringify({ query, variables }),
-        headers: { 'Content-Type': 'application/json' },
-    });
-    const body = await response.json();
-    if (body.errors) throw new Error(JSON.stringify(body.errors));
-    return body.data;
-}
 
 const RACERS = [
     { first: 'Alex', last: 'Rivera', car: 3, name: 'Blue Streak' },
@@ -43,15 +31,9 @@ test('screenshot free race', async ({ page }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await page.setViewportSize({ width: 1280, height: 900 });
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
-    if (page.url().includes('/system-settings')) {
-        await page.getByLabel('Organization Name').fill('Pack 42');
-        await page.getByRole('button', { name: 'Save Settings' }).click();
-        await page.waitForURL('**/', { waitUntil: 'networkidle' });
-    }
+    await ensureConfigured(page);
 
-    const config = await gql(page, `query { groups { id } }`);
+    const raceGroupId = await groupId(page);
     // Its own track, created through the API so the backend spins up a timer
     // manager for it — that is what puts the fake timer mole on screen.
     const track = await gql(
@@ -71,7 +53,7 @@ test('screenshot free race', async ({ page }) => {
                 name: 'Pack 42 Free Race Night',
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
-                groupId: config.groups[0].id,
+                groupId: raceGroupId,
                 trackId: track.createTrack.id,
                 scoringStrategy: 'TIMED',
                 carNumberingStrategy: 'MANUAL',

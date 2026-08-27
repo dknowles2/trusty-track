@@ -291,10 +291,19 @@ in `frontend/e2e/docs/`, each walking the real UI against a real backend:
 
 | Spec | Covers |
 | --- | --- |
-| `screenshots.spec.ts` | Getting started, race setup, race day |
+| `screenshot-first-run.spec.ts` | The setup wizard and an empty Home page |
+| `race-day.spec.ts` | Race setup and race day |
+| `screenshot-observation.spec.ts` | The audience displays |
+| `screenshot-race-stats.spec.ts` | The Stats page |
+| `screenshot-awards.spec.ts` | Awards and the ceremony |
+| `screenshot-balanced.spec.ts` | Balanced racing |
 | `screenshot-bulk-upload.spec.ts` | Bulk photo upload |
-| `screenshot-printables.spec.ts` | Print sheets and the check-in scanner |
+| `screenshot-elimination.spec.ts` | Ladderless elimination |
 | `screenshot-free-race.spec.ts` | Free race setup and results |
+| `screenshot-printables.spec.ts` | Print sheets and the check-in scanner |
+| `screenshot-settings.spec.ts` | System Settings and the activity log |
+| `screenshot-slowest-race.spec.ts` | The slowest race bracket |
+| `screenshot-timers.spec.ts` | Timer settings and the timer check page |
 
 **If a screen you changed appears in one of these, re-run it and commit the new
 PNGs** — a stale screenshot is a documentation bug that no build catches.
@@ -314,15 +323,27 @@ npx playwright install chromium
 cd frontend && npx playwright test --config playwright.screenshots.config.ts
 ```
 
+The specs run in parallel against one backend — as many at a time as your
+machine has cores to spare — and the whole set takes about twenty seconds. One
+of them runs on its own first, covering the things that belong to the whole
+install rather than to a race: the setup wizard, which only exists before the
+install is configured; the empty Home page; and the operator PIN, which while
+it is set would stop every other spec's mutations.
+
 Or one spec at a time:
 
 ```bash
 cd frontend && npx playwright test --config=playwright.screenshots.config.ts e2e/docs/screenshot-printables.spec.ts
 ```
 
+That first spec still runs, because the one you asked for needs a configured
+install to photograph. It adds a few seconds.
+
 This will:
-1. Start a fresh backend on port 8001 with an isolated, empty database (`/tmp/trusty-track-screenshots`)
-2. Start a fresh frontend dev server on port 5175 pointing at that backend
+1. Start a fresh backend with an isolated, empty database, on a port and a data
+   directory derived from this checkout (see `frontend/e2e/environment.ts`), so
+   two worktrees can run this at once
+2. Start a fresh frontend dev server pointing at that backend
 3. Walk through the UI (create a race, add dens, import test data, etc.) and capture screenshots
 4. Write the updated PNGs to `docs/assets/screenshots/`
 
