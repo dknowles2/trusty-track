@@ -34,8 +34,8 @@
 #
 # The Cloud Run flags
 # -------------------
-# Every one is load-bearing; the reasoning is in
-# `docs/tasks/demo/04_deploy_and_portability.md`. The short version:
+# Every one is load-bearing; the reasoning is in `CLAUDE.md` under "The public
+# demo". The short version:
 #
 #   --max-instances=1   A hard cost ceiling, and free correctness: the app's
 #                       pub/sub is an in-process singleton and its timer

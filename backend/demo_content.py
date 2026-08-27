@@ -1,6 +1,6 @@
 """What the public demo opens on.
 
-Stage 2 of ``docs/tasks/demo``. A visitor arriving at the demo should land on
+A visitor arriving at the demo should land on
 an event that has already happened to somebody: a roster with photographs, a
 preliminary round that was raced, standings that mean something, and a final
 whose field filled itself from those standings.
@@ -11,10 +11,9 @@ interesting on them.
 
 Built from code, not from an archive
 ------------------------------------
-``01_demo_mode_gate.md``'s successor planned to bake a backup archive into the
-image and restore it at boot, so that reset could reuse ``restore_archive``'s
-teardown. Seeding is written here instead, and the plan file records the
-departure:
+The plan was to bake a backup archive into the image and restore it at boot,
+so that reset could reuse ``restore_archive``'s teardown. Seeding is written
+here instead, for three reasons:
 
 * at boot there is nothing to tear down. The careful part of a restore — stop
   the timer managers whose track ids are about to change, dispose the pool
@@ -27,7 +26,8 @@ departure:
 
 The reset half of that stage is a separate question and is deliberately not
 here — on the deploy target the instance is ephemeral, so scale-to-zero *is*
-the reset. See ``docs/tasks/demo/02_seed_and_reset.md``.
+the reset. An always-on host would need a timer instead: see
+https://github.com/dknowles2/trusty-track/issues/297.
 
 Repeatable
 ----------

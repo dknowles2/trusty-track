@@ -37,7 +37,7 @@ Well-lit path: User installs the software and navigates to the main view of the 
       - Auto-detect, with two options:
         - Timer is connected to the backend
         - Timer is connected to the current device (the "proxy" option outlined above)
-    - Implementation detail: out-of-the-box, we should support the devices that "DerbyTimer" (the java program from https://github.com/jeffpiazza/derbynet) supports. The DerbyNet timer protocol is documented in `tasks/timers/derbynet-protocol-spec.md`.
+    - Implementation detail: out-of-the-box, we should support the devices that "DerbyTimer" (the java program from https://github.com/jeffpiazza/derbynet) supports. The DerbyNet timer protocol is documented in [The Timer Protocol for DerbyNet](derbynet-timer-protocol.md).
 
 
 This initial setup specifies paramaters that we expect to not change in most cases. But we also want to allow modifying them in the future. Imagine that you buy an updated track, swap out the timer, or move to a new location where you want to utilize your existing software. These settings should be accessible later via a global settings such as "Global Settings", "System Settings", or similar option.
