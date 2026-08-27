@@ -75,26 +75,18 @@ const laneNumber = {
   color: '#666',
 } as const;
 
-const emptyAvatar = {
-  width: '80px',
-  height: '80px',
-  borderRadius: '50%',
-  border: '2px dashed #ccc',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: '#ccc',
-  marginRight: '15px',
-} as const;
-
-/** A lane in an anonymous heat: no racer, and nothing to drag or pick. */
+/**
+ * A lane in an anonymous heat.
+ *
+ * Deliberately not the empty-lane treatment the other two modes use: a lane
+ * here is not empty, it is unnamed — a car runs in it and the time is kept
+ * against the lane. "No racer" beside a dashed avatar said the opposite, and
+ * read as a lane nobody would be racing in.
+ */
 const AnonymousLaneItem: React.FC<{ lane: number }> = ({ lane }) => (
-  <div style={{ ...laneCard, background: '#f9f9f9' }}>
+  <div style={{ ...laneCard, background: '#f9f9f9', padding: '14px 15px' }}>
     <div style={laneNumber}>Lane {lane}</div>
-    <div style={emptyAvatar}>?</div>
-    <div style={{ flex: 1, color: '#999', fontSize: '1.2rem' }}>
-      <em>No racer</em>
-    </div>
+    <div style={{ flex: 1, color: '#777' }}>Any car</div>
   </div>
 );
 
@@ -415,8 +407,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
         {mode === 'anonymous' && (
           <p style={{ color: '#666', marginTop: 0, marginBottom: '20px' }}>
-            Nobody is assigned to a lane. Use this to test the track or the
-            timer, or to run cars that are not on the roster.
+            Put any car in any lane — the time is kept against the lane, not
+            against a racer. Use it to test the track or the timer, or to run
+            cars that are not on the roster.
           </p>
         )}
 
