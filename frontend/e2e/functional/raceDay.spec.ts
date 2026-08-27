@@ -249,6 +249,26 @@ test('a skipped heat is passed over rather than left to run', async ({ page }) =
         timeout: 30000,
     });
 
+    // Wait for the *server* to hold the skip before navigating away.
+    //
+    // "Heat 2 is on screen" is a client-side consequence — `raceFlow` moves the
+    // running order on its own — so it can be true while `updateHeatResult` is
+    // still in flight, and `page.goto` is a full document load, which aborts
+    // whatever is in flight. Serially the mutation always won that race; with
+    // the suite running at once it did not, and the failure landed on the
+    // assertion below rather than anywhere near the navigation that caused it.
+    await expect
+        .poll(
+            async () => {
+                const [first] = (await readHeats(page, raceId)).sort(
+                    (a, b) => a.heatNumber - b.heatNumber,
+                );
+                return first.lanes.some((l) => l.skipped);
+            },
+            { timeout: 30000 },
+        )
+        .toBe(true);
+
     await page.goto(`/race/${raceId}/control`);
     await expect(page.getByText('Skipped')).toBeVisible({ timeout: 30000 });
 

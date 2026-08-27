@@ -167,18 +167,14 @@ jobs:
         run: uv run mkdocs build --strict
 
   e2e:
-    name: End-to-End (${{ matrix.shard }}/2)
+    name: End-to-End Run
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # Sixty specs against one backend, one worker, in series — the longest
-        # job in the workflow and the one setting how long a pull request
-        # waits. Splitting them across two runners halves that; they cannot be
-        # run in parallel *within* a job, because they share one backend and
-        # one settings page, and a shard is a whole separate machine with its
-        # own server rather than a second worker on this one.
-        shard: [1, 2]
+    # Not sharded. These used to be sixty specs against one backend in series,
+    # split across two runners because they could not run in parallel within a
+    # job. They can now — see `playwright.config.ts` — so one runner does the
+    # lot faster than the slower of the two shards did half, and `--shard` does
+    # not compose with project dependencies anyway: a dependency project re-runs
+    # in full in every shard.
     steps:
       - uses: actions/checkout@v7
 
@@ -231,14 +227,14 @@ jobs:
       # The only test that exercises the served page, the GraphQL round trip and
       # the normalized cache together. The unit suites all stub one of the three.
       - name: Run functional end-to-end tests
-        run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
+        run: npm run test:e2e
         working-directory: frontend
 
       - name: Upload trace on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report
           path: frontend/test-results/
           retention-days: 7
 
@@ -334,7 +330,7 @@ jobs:
     needs: e2e
     if: always()
     steps:
-      - name: Every shard passed
+      - name: The run passed
         run: '[ "${{ needs.e2e.result }}" = "success" ]'
 
   # This one no longer fronts a matrix — see `doc-screenshots` above — but it
