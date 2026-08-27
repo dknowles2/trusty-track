@@ -199,13 +199,16 @@ describe('FreeRaceLaneSetup', () => {
     expect(startBtn).not.toBeDisabled();
   });
 
-  it('Anonymous mode gives every lane on the track an empty lane and no picker', async () => {
+  it('Anonymous mode gives every lane on the track a row and no picker', async () => {
     render(<StatefulWrapper {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Anonymous/i }));
 
     await waitFor(() => {
-      expect(screen.getAllByText(/No racer/i)).toHaveLength(4);
+      expect(screen.getAllByText('Any car')).toHaveLength(4);
     });
+    // Not the empty-lane wording the other modes use: a lane here is unnamed,
+    // not empty.
+    expect(screen.queryByText(/\(empty\)/i)).not.toBeInTheDocument();
     expect(screen.getByText('Lane 4')).toBeInTheDocument();
     expect(screen.queryAllByRole('combobox')).toHaveLength(0);
     // The draw's racers belong to the other modes, not this one.
@@ -219,7 +222,7 @@ describe('FreeRaceLaneSetup', () => {
     render(<StatefulWrapper {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Anonymous/i }));
     await waitFor(() => {
-      expect(screen.getAllByText(/No racer/i)).toHaveLength(4);
+      expect(screen.getAllByText('Any car')).toHaveLength(4);
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Start Anonymous Heat/i }));

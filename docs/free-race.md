@@ -41,13 +41,13 @@ _Manual mode gives every lane a racer picker. Leave a lane on "Select racer" to 
 
 ### Anonymous
 
-**Anonymous** assigns nobody at all — every lane runs empty. Use it to test the
-track or the timer before anyone arrives, or to run cars that are not on the
-roster. The button reads **Start Anonymous Heat**, and the times are recorded
-against lanes rather than against people.
+**Anonymous** names nobody. Put any car in any lane and the time is kept
+against the lane rather than against a racer, so the button reads **Start
+Anonymous Heat**. Use it to test the track or the timer before anyone arrives,
+or to run cars that are not on the roster.
 
 ![Anonymous lane setup](assets/screenshots/free-race/03-lane-setup-anonymous.png)
-_Anonymous mode. Nothing to pick and nothing to shuffle — one empty lane for every lane the track has._
+_Anonymous mode. Nothing to pick and nothing to shuffle — one row per lane the track has._
 
 !!! note "Random draws from the checked-in racers only"
 
