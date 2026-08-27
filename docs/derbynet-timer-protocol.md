@@ -1,7 +1,8 @@
 # The Timer Protocol for DerbyNet
 
-> Reference material, not a task: the protocol this implementation was
-> written against.
+> Reference material: the protocol this implementation was written against.
+> Reproduced from DerbyNet (MIT), whose device definitions the profiles in
+> `backend/services/timer/devices/derbynet.py` are adapted from.
 
 Most currently-available electronic pinewood derby timers communicate over a serial or USB
 connection to a host computer of some kind. DerbyNet interfaces with these timers by using a small

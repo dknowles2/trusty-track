@@ -359,8 +359,7 @@ Every run is clean — the test data directory is wiped before the backend start
 - `backend/migrations/` — Alembic environment and versions.
 - `frontend/src/features/<area>/` — one slice per area, each with its own
   `pages/`, `components/`, and `graphql/queries.ts`.
-- `docs/` — the MkDocs site. `docs/tasks/` holds implementation plans, most of
-  them already built and kept as design notes.
+- `docs/` — the MkDocs site.
 - `scripts/` — install, serve, dev, and schema-export scripts.
 
 ## 📝 Keeping the Docs Current
@@ -371,7 +370,6 @@ Docs are part of the change, not a follow-up. When you land something:
 | --- | --- |
 | A screen the guides describe | The relevant `docs/*.md`, and re-run its screenshot spec |
 | The GraphQL schema or a REST endpoint | `docs/design.md` |
-| Behaviour a plan file describes | That `docs/tasks/**` file's header — mark it, or record the departure |
 | Anything an agent needs to know | `CLAUDE.md` |
 
 `mkdocs build --strict` catches broken links and missing images. It cannot
