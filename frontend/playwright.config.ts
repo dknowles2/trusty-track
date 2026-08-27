@@ -24,8 +24,16 @@ const TEST_DATA_DIR = FUNCTIONAL_DATA_DIR;
 
 export default defineConfig({
   testDir: './e2e/functional',
-  fullyParallel: false,
-  workers: 1,
+  // Every spec seeds its own race through the API and drives one screen, so
+  // tests are independent and run together — including the tests *within* a
+  // file, which is what `fullyParallel` adds. `raceDay.spec.ts` is a third of
+  // the suite on its own; without it that file alone would be the floor.
+  //
+  // The one thing that was not race-scoped was `timerModel.spec.ts`, which
+  // switched a track off the fake timer and never switched it back; it takes a
+  // track of its own now.
+  fullyParallel: true,
+  workers: process.env.CI ? 4 : '75%',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'line' : 'html',
@@ -39,10 +47,20 @@ export default defineConfig({
     baseURL: `http://localhost:${FRONTEND_PORT}`,
     trace: 'on-first-retry',
   },
+  // `setup` configures the install and every test waits for it — see
+  // `configure.setup.ts`. It is a project rather than a `globalSetup` so it
+  // reports as a test and fails visibly when the app cannot be configured at
+  // all, which is a thing worth knowing before fifty-nine specs say so at once.
   projects: [
+    {
+      name: 'setup',
+      testMatch: /configure\.setup\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
   ],
   // A real backend, not mocked GraphQL. The mocks this replaces were written

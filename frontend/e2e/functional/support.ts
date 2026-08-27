@@ -78,6 +78,11 @@ export async function ensureConfigured(page: Page): Promise<void> {
     }
 }
 
+/** The track belonging to worker `index`, built by `configure.setup.ts`. */
+export function trackPoolName(index: number): string {
+    return `E2E Track ${index}`;
+}
+
 /** Six racers whose ranking is decided by car number.
  *
  * `recordRound` gives car *n* a time of `3.0 + n/100` in every heat it runs, so
@@ -110,11 +115,24 @@ export async function seedRace(page: Page, name: string): Promise<SeededRace> {
 
     await ensureConfigured(page);
 
+    // This worker's own track from the pool `configure.setup.ts` built.
+    //
+    // `TimerManager` is one per *track* (#9), so a race that arms a heat holds
+    // a device exclusively; two races sharing a track arm over the top of each
+    // other and the run is abandoned (#50). Only one test runs in a worker at a
+    // time, so a per-worker track is never contended — and it is why this suite
+    // can use more than one worker at all.
     const config = await gql<{
         groups: { id: number }[];
-        tracks: { id: number; laneCount: number }[];
-    }>(page, `query { groups { id } tracks { id laneCount } }`);
-    const track = config.tracks[0];
+        tracks: { id: number; name: string; laneCount: number }[];
+    }>(page, `query { groups { id } tracks { id name laneCount } }`);
+    const wanted = trackPoolName(test.info().parallelIndex);
+    const track = config.tracks.find((t) => t.name === wanted);
+    if (!track) {
+        throw new Error(
+            `No track named "${wanted}". The setup project builds the pool — see configure.setup.ts.`,
+        );
+    }
 
     const created = await gql<{ createRace: { id: number } }>(
         page,
