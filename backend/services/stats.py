@@ -121,7 +121,7 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
         round_name = (
             round_obj.name
             if (round_obj and round_obj.name)
-            else f"Round {heat.heat_number}"
+            else f"Round {_round_number(heat)}"
         )
 
         # Count scheduled heats for each racer (regardless of completion)
