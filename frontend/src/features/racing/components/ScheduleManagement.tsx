@@ -272,9 +272,16 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     .map(Number)
     .sort((a, b) => (rounds[a][0]?.roundNumber || 0) - (rounds[b][0]?.roundNumber || 0));
 
+  // A skipped heat is finished (`hasRun`, the frontend counterpart of the
+  // backend's `is_finished` — "the operator is not coming back to it"), so
+  // gating on `hasTimes` here left a round with one scratched heat
+  // "uncompleted" forever and blocked every later round's Run button (#333).
+  // Tracked by round *number*, not round id — ids happen to order the same
+  // way today, but that is not guaranteed (#250).
   const firstUncompletedRoundId = sortedRoundIds.find(roundId =>
-    rounds[roundId].some(heat => !hasTimes(heat.lanes))
+    rounds[roundId].some(heat => !hasRun(heat.lanes))
   ) || (sortedRoundIds.length > 0 ? sortedRoundIds[sortedRoundIds.length - 1] : 0);
+  const firstUncompletedRoundNumber = rounds[firstUncompletedRoundId]?.[0]?.roundNumber || 0;
 
   const hasGeneralRound = Object.values(rounds).some(roundHeats => {
       // In GraphQL we might need a better way to identify general rounds
@@ -616,7 +623,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 heat={heat}
                                 isRunning={activeHeatId === heat.id}
                                 isReordering={reordering}
-                                isUpcoming={roundId > firstUncompletedRoundId}
+                                isUpcoming={roundNum > firstUncompletedRoundNumber}
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
                                 onDeleteHeat={onDeleteHeat}
