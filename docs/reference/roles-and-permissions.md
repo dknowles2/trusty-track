@@ -11,7 +11,7 @@ who is using it:
 
 | | Holds | Can | Cannot |
 | --- | --- | --- | --- |
-| **Display** | nothing | watch everything — standings, the live heat, timing, the roster | change anything at all |
+| **Display** | nothing | watch everything — standings, the live heat, timing, the roster; vote, while [voting is open](../awards.md#letting-people-vote) | change anything else at all |
 | **Check-in desk** | the check-in PIN | add and edit racers, check them in, take and assign photos | touch the schedule, results, settings, or awards |
 | **Operator** | the operator PIN | everything | — |
 
@@ -20,6 +20,10 @@ who is using it:
 - Reading is open to everyone on the network by design; that is what a
   display is.
 - Backups, restores, and the activity log are operator-only.
+- **Casting a vote is the one thing a display may do.** It is not a fourth
+  PIN or a credential of any kind — the operator turns voting on for the
+  whole race, and any phone on the network may vote for a judged award while
+  it is on. See [Letting people vote](../awards.md#letting-people-vote).
 
 ## How PINs behave
 

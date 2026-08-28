@@ -29,7 +29,7 @@ standings and calls :func:`recipient_of`.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from backend.domain.advancement import (
@@ -49,7 +49,9 @@ __all__ = [
     "TORTOISE",
     "TROPHY",
     "SpeedRule",
+    "can_be_voted_on",
     "default_artwork_key",
+    "rank_tally",
     "recipient_of",
     "sources_for",
 ]
@@ -166,6 +168,28 @@ def default_artwork_key(rule: SpeedRule) -> str:
     if rule.from_bottom:
         return TORTOISE
     return TROPHY if rule.place == 1 else MEDAL
+
+
+def can_be_voted_on(kind: str, votable: bool) -> bool:
+    """Whether an award may ever take a ballot (#305).
+
+    A `SPEED` award has a computed recipient and no ballot could mean
+    anything — this is the rule `crud._clear_fields_of_other_kind` and
+    `crud.cast_vote` both lean on, stated once so neither can drift from the
+    other.
+    """
+    return kind == SPECIAL and votable
+
+
+def rank_tally(counts: Mapping[int, int]) -> list[tuple[int, int]]:
+    """``(racer_id, vote_count)`` pairs, most votes first (#305).
+
+    Ties are broken by racer id so the order is deterministic rather than
+    whatever the database happens to return — the same reasoning as
+    `backend.domain.scoring.rank_key` for the leaderboard, applied to a much
+    shorter list.
+    """
+    return sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))
 
 
 def sources_for(round_ids: Sequence[int]) -> list[str]:

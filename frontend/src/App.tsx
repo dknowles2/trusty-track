@@ -28,6 +28,7 @@ import Standings from './features/stats/pages/Standings';
 import RaceStats from './features/stats/pages/RaceStats';
 import Awards from './features/awards/pages/Awards';
 import AwardCeremony from './features/awards/pages/AwardCeremony';
+import VotingBallot from './features/awards/pages/VotingBallot';
 import Printables from './features/printables/pages/Printables';
 import HeatSheet from './features/printables/pages/HeatSheet';
 import ResultsSheet from './features/printables/pages/ResultsSheet';
@@ -110,6 +111,10 @@ function App() {
                 <Route path="/race/:raceId/standings" element={<ProtectedRoute><Standings /></ProtectedRoute>} />
                 <Route path="/race/:raceId/awards" element={<ProtectedRoute><Awards /></ProtectedRoute>} />
                 <Route path="/race/:raceId/awards/present" element={<ProtectedRoute><AwardCeremony /></ProtectedRoute>} />
+                {/* No PIN needed to reach it — a phone in the room votes as a
+                    VIEWER (#305). `ProtectedRoute` still applies: it is only
+                    the first-run gate, not a role check. */}
+                <Route path="/race/:raceId/vote" element={<ProtectedRoute><VotingBallot /></ProtectedRoute>} />
                 <Route path="/race/:raceId/stats" element={<ProtectedRoute><RaceStats /></ProtectedRoute>} />
                 <Route path="/race/:raceId/print" element={<ProtectedRoute><Printables /></ProtectedRoute>} />
                 <Route path="/race/:raceId/print/heat-sheet" element={<ProtectedRoute><HeatSheet /></ProtectedRoute>} />

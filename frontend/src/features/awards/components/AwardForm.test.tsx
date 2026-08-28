@@ -88,6 +88,31 @@ describe('AwardForm', () => {
     );
   });
 
+  it('defaults a new judged award to votable (#305)', async () => {
+    // Most judged awards a pack adds are exactly the ones people vote for.
+    const onSubmit = renderForm();
+    await userEvent.type(screen.getByLabelText('Award name'), 'Best Paint');
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ votable: true }));
+  });
+
+  it('lets voting be turned off for a judged award', async () => {
+    const onSubmit = renderForm();
+    await userEvent.type(screen.getByLabelText('Award name'), 'Judges’ Pick');
+    await userEvent.click(screen.getByLabelText(/let people vote for this/i));
+    await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ votable: false }));
+  });
+
+  it('has no vote control on a speed award — one cannot be voted on', async () => {
+    renderForm();
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
+
+    expect(screen.queryByLabelText(/let people vote for this/i)).toBeNull();
+  });
+
   it('submits a speed award with its source, place and den', async () => {
     const onSubmit = renderForm();
 

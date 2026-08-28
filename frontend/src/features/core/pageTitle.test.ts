@@ -15,6 +15,7 @@ describe('pageTitle', () => {
         expect(pageTitle('/race/1/standings', DERBY)).toBe(`Standings — ${DERBY}`);
         expect(pageTitle('/race/1/awards', DERBY)).toBe(`Awards — ${DERBY}`);
         expect(pageTitle('/race/1/awards/present', DERBY)).toBe(`Awards Ceremony — ${DERBY}`);
+        expect(pageTitle('/race/1/vote', DERBY)).toBe(`Vote — ${DERBY}`);
         expect(pageTitle('/race/1/stats', DERBY)).toBe(`Stats — ${DERBY}`);
         expect(pageTitle('/race/1/observation', DERBY)).toBe(`Live — ${DERBY}`);
     });

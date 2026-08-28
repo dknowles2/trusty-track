@@ -587,6 +587,8 @@ class RaceUpdateInput:
     championship_trophies: int | None = None
     auto_advance_heat: bool | None = None
     weight_limit_oz: float | None = None
+    #: Whether a phone with no PIN may vote right now (#305).
+    voting_open: bool | None = None
     # Turning the weight check off, explicitly (#205).
     #
     # `update_race` drops every null from its payload — absent means "leave
@@ -985,6 +987,9 @@ class Award:
     #: rule; `SPECIAL` awards get it from the ready-made superlative picker or
     #: whatever the operator typed over it.
     artwork_key: str | None
+    #: SPECIAL only. Whether this award takes ballots while the race's voting
+    #: is open (#305). Always false for `SPEED`.
+    votable: bool
 
     @strawberry.field
     def recipient(self, info: Info) -> "Racer | None":
@@ -1000,6 +1005,37 @@ class Award:
         if not self.den_id:
             return None
         return typing.cast(Any, _loaders(info).den_by_id(self.race_id, self.den_id))
+
+    @strawberry.field
+    def vote_tally(self, info: Info) -> list["AwardVoteTally"]:
+        """Ballots for this award, most votes first (#305).
+
+        Empty for a `SPEED` award, or a `SPECIAL` one that has never taken a
+        ballot — not an error either way.
+        """
+        pairs = _loaders(info).award_vote_tallies(self.race_id).get(self.id, [])
+        return [
+            AwardVoteTally(race_id=self.race_id, racer_id=racer_id, vote_count=count)
+            for racer_id, count in pairs
+        ]
+
+
+@strawberry.type
+class AwardVoteTally:
+    """One line of an award's tally: how many ballots one car has (#305).
+
+    Not gated behind the operator role — queries carry no role check at all
+    (`api/auth.py`'s policy covers mutations only), the same as every other
+    read in the app.
+    """
+
+    race_id: int
+    racer_id: int
+    vote_count: int
+
+    @strawberry.field
+    def racer(self, info: Info) -> "Racer | None":
+        return typing.cast(Any, _loaders(info).racer_by_id(self.race_id, self.racer_id))
 
 
 @strawberry.input
@@ -1022,6 +1058,13 @@ class AwardInput:
     #: Ignored server-side for a `SPEED` award — see `crud._set_speed_artwork_key`.
     artwork_key: str | None = None
     sort_order: int | None = None
+    #: SPECIAL only; ignored (forced false) for SPEED — see
+    #: `crud._clear_fields_of_other_kind`. Defaults on: most judged awards a
+    #: pack adds are exactly the ones people vote for, and this is offered as
+    #: a sensible starting point rather than the column's own off-by-default
+    #: (#305), the same "form defaults on, storage defaults conservative"
+    #: shape the weight limit uses (#205).
+    votable: bool = True
 
 
 @strawberry.type
@@ -1043,6 +1086,9 @@ class Race:
     auto_advance_heat: bool
     # Null means the race does not check weights (#205).
     weight_limit_oz: float | None
+    #: Whether a phone with no PIN may vote for a `SPECIAL` award right now
+    #: (#305). An operator toggle, not tied to racing progress.
+    voting_open: bool
 
     @strawberry.field
     def leaderboard(
@@ -2551,6 +2597,29 @@ class Mutation:
         reordered = typing.cast(Any, crud.reorder_awards(db, race_id, award_ids))
         await _publish_race_state(race_id)
         return reordered
+
+    @strawberry.mutation
+    def cast_vote(
+        self, info: Info, award_id: int, racer_id: int, ballot_key: str
+    ) -> str | None:
+        """Vote for a car on a `SPECIAL` award (#305).
+
+        The one mutation a caller with no PIN — a phone in the room — may
+        run (`api.auth.VOTE_MUTATIONS`); `crud.cast_vote` is what actually
+        enforces `Race.voting_open` and `Award.votable`. Returns null on
+        success, or a sentence saying why the vote was refused — the same
+        shape as `releaseStartGate`, so the ballot screen has something to
+        show rather than a raw GraphQL error.
+
+        Not published to any subscription: the operator's tally screen reads
+        it as an ordinary query and refetches, the same choice `auditLog`
+        makes and for the same reason — a room full of phones voting is not
+        an event the rest of the app needs to react to live.
+        """
+        db = info.context["db"]
+        return crud.cast_vote(
+            db, award_id=award_id, racer_id=racer_id, ballot_key=ballot_key
+        )
 
     # Track Mutations
     @strawberry.mutation

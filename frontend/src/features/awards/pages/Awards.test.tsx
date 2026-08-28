@@ -16,6 +16,7 @@ vi.mock('urql', async () => {
 const RACE = {
   id: 1,
   name: 'Pack 42 Derby',
+  votingOpen: false,
   awards: [
     {
       id: 10,
@@ -26,6 +27,8 @@ const RACE = {
       place: 1,
       denId: 5,
       artworkKey: 'trophy',
+      votable: false,
+      voteTally: [],
       den: { id: 5, name: 'Wolves' },
       recipient: {
         id: 100,
@@ -44,6 +47,11 @@ const RACE = {
       place: null,
       denId: null,
       artworkKey: null,
+      votable: true,
+      voteTally: [
+        { racerId: 100, voteCount: 3, racer: { id: 100, carNumber: 42, carName: null } },
+        { racerId: 101, voteCount: 1, racer: { id: 101, carNumber: 7, carName: null } },
+      ],
       den: null,
       recipient: null,
     },
@@ -56,6 +64,8 @@ const RACE = {
       place: null,
       denId: null,
       artworkKey: null,
+      votable: false,
+      voteTally: [],
       den: null,
       recipient: {
         id: 101,
@@ -77,7 +87,7 @@ const RACE = {
 const mutations: Record<string, ReturnType<typeof vi.fn>> = {};
 
 function mockMutations() {
-  for (const key of ['create', 'update', 'delete', 'reorder']) {
+  for (const key of ['create', 'update', 'delete', 'reorder', 'voting']) {
     mutations[key] = vi.fn().mockResolvedValue({ error: undefined });
   }
   (useMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation(
@@ -86,6 +96,7 @@ function mockMutations() {
       if (text.includes('CreateAward')) return [{ fetching: false }, mutations.create];
       if (text.includes('UpdateAward')) return [{ fetching: false }, mutations.update];
       if (text.includes('DeleteAward')) return [{ fetching: false }, mutations.delete];
+      if (text.includes('UpdateRaceVoting')) return [{ fetching: false }, mutations.voting];
       return [{ fetching: false }, mutations.reorder];
     },
   );
@@ -125,6 +136,9 @@ describe('the awards page', () => {
       'artworkKey',
       'recipient',
       'racerImageUrl',
+      'votingOpen',
+      'votable',
+      'voteTally',
     ]) {
       expect(document).toContain(field);
     }
@@ -249,5 +263,64 @@ describe('the awards page', () => {
 
     expect(await screen.findByText(/remove/i)).toBeInTheDocument();
     expect(mutations.delete).not.toHaveBeenCalled();
+  });
+
+  describe('voting (#305)', () => {
+    it('offers to open voting when it is closed', () => {
+      renderPage();
+      expect(screen.getByText('Voting is closed')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Open voting' })).toBeInTheDocument();
+    });
+
+    it('opens voting through the ordinary race-update mutation', async () => {
+      renderPage();
+      await userEvent.click(screen.getByRole('button', { name: 'Open voting' }));
+
+      await waitFor(() =>
+        expect(mutations.voting).toHaveBeenCalledWith({
+          id: 1,
+          race: { votingOpen: true },
+        }),
+      );
+    });
+
+    it('offers to close voting, and shows the address to share, once it is open', () => {
+      renderPage({ ...RACE, votingOpen: true });
+      expect(screen.getByText('Voting is open')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Close voting' })).toBeInTheDocument();
+      expect(screen.getByText(/\/race\/1\/vote/)).toBeInTheDocument();
+    });
+
+    it('shows the tally for a votable award', () => {
+      renderPage();
+      const row = screen.getByText('Best Paint').closest('li')!;
+      expect(within(row).getByText(/#42/)).toBeInTheDocument();
+      expect(within(row).getByText(/— 3/)).toBeInTheDocument();
+      expect(within(row).getByText(/#7/)).toBeInTheDocument();
+      expect(within(row).getByText(/— 1/)).toBeInTheDocument();
+    });
+
+    it('shows no tally for an award nobody has voted on', () => {
+      renderPage();
+      const row = screen.getByText('Judges’ Choice').closest('li')!;
+      expect(within(row).queryByText(/Votes:/)).toBeNull();
+    });
+
+    it('applies a tally result as an ordinary award edit', async () => {
+      renderPage();
+      const row = screen.getByText('Best Paint').closest('li')!;
+      await userEvent.click(
+        within(row).getAllByRole('button', { name: 'Use this result' })[0],
+      );
+
+      await waitFor(() =>
+        expect(mutations.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 11,
+            award: expect.objectContaining({ racerId: 100, kind: 'SPECIAL' }),
+          }),
+        ),
+      );
+    });
   });
 });

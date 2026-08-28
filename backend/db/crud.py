@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend import demo_seed
@@ -2391,6 +2392,10 @@ def _clear_fields_of_other_kind(award: models.Award) -> None:
     """Null whichever half of the row this award's kind does not use."""
     if award.kind is models.AwardKind.SPEED:
         award.racer_id = None
+        # A SPEED award has a computed recipient; a ballot for it could not
+        # mean anything (#305), so switching an award to SPEED turns voting
+        # off rather than leaving a stale flag a client could still read.
+        award.votable = False
     else:
         award.source = None
         award.place = None
@@ -2449,6 +2454,80 @@ def reorder_awards(
             award.sort_order = position
     db.commit()
     return get_awards(db, race_id)
+
+
+def cast_vote(db: Session, award_id: int, racer_id: int, ballot_key: str) -> str | None:
+    """Record one ballot for a `SPECIAL` award (#305).
+
+    Returns ``None`` on success, or the reason it was refused — the same
+    shape `TimerManager.release_start_gate` uses, because both are a gate a
+    caller with no other feedback needs told in a sentence, not a stack trace
+    from a phone that has no console open.
+
+    A retried submission — the same ``ballot_key`` for the same award — is
+    silently accepted rather than refused a second time: the `IntegrityError`
+    from ``uq_award_ballot`` is caught and treated as success. The guard is
+    against a doubled click or a retried request, never against a second vote
+    from the same device (#305) — a fresh key is a new ballot.
+    """
+    award = db.query(models.Award).filter(models.Award.id == award_id).first()
+    if award is None:
+        return "That award no longer exists."
+    if not awards.can_be_voted_on(award.kind.value, award.votable):
+        return "This award is not open for voting."
+
+    race = db.query(models.Race).filter(models.Race.id == award.race_id).first()
+    if race is None or not race.voting_open:
+        return "Voting is closed."
+
+    racer = (
+        db.query(models.Racer)
+        .filter(models.Racer.id == racer_id, models.Racer.race_id == award.race_id)
+        .first()
+    )
+    if racer is None:
+        return "That car is not in this race."
+
+    db.add(
+        models.AwardVote(
+            award_id=award_id,
+            racer_id=racer_id,
+            ballot_key=ballot_key,
+            cast_at=datetime.now(timezone.utc).isoformat(),
+        )
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+    return None
+
+
+def vote_counts_for_awards(
+    db: Session, award_ids: Sequence[int]
+) -> dict[int, dict[int, int]]:
+    """Ballots for a set of awards, grouped by award and then by racer.
+
+    One query for a whole race's awards rather than one per award — the same
+    shape as `lanes_for_heats`, for the same reason: a tally screen asking
+    about every votable award at once must not pay per award.
+    """
+    by_award: dict[int, dict[int, int]] = {award_id: {} for award_id in award_ids}
+    if not award_ids:
+        return by_award
+    rows = (
+        db.query(
+            models.AwardVote.award_id,
+            models.AwardVote.racer_id,
+            func.count(models.AwardVote.id),
+        )
+        .filter(models.AwardVote.award_id.in_(award_ids))
+        .group_by(models.AwardVote.award_id, models.AwardVote.racer_id)
+        .all()
+    )
+    for award_id, racer_id, count in rows:
+        by_award[award_id][racer_id] = count
+    return by_award
 
 
 # --- Practice race (#201) -----------------------------------------------

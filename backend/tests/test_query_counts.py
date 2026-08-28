@@ -389,3 +389,56 @@ def test_awards_do_not_scale_with_the_number_of_awards(client, populated_race, d
         f"{one_award.count} for one; the per-race recipient resolution is not "
         f"being shared."
     )
+
+
+VOTE_TALLY_QUERY = """
+query($id: Int!) {
+  race(raceId: $id) {
+    id
+    awards {
+      id
+      voteTally { racerId voteCount }
+    }
+  }
+}
+"""
+
+
+def test_vote_tallies_do_not_scale_with_the_number_of_awards(
+    client, populated_race, db
+):
+    """One query for a whole race's ballots, the same shape as recipients (#305)."""
+    racers = (
+        db.query(models.Racer).filter(models.Racer.race_id == populated_race.id).all()
+    )
+    race = db.query(models.Race).filter(models.Race.id == populated_race.id).first()
+    race.voting_open = True
+    db.commit()
+
+    award = crud.create_award(
+        db,
+        populated_race.id,
+        schemas.AwardCreate(
+            name="Best Paint", kind=models.AwardKind.SPECIAL, votable=True
+        ),
+    )
+    crud.cast_vote(db, award.id, racers[0].id, "ballot-1")
+    with _QueryCounter() as one_award:
+        _run(client, VOTE_TALLY_QUERY, populated_race.id)
+
+    for name in ("Most Original", "Judges' Choice"):
+        other = crud.create_award(
+            db,
+            populated_race.id,
+            schemas.AwardCreate(name=name, kind=models.AwardKind.SPECIAL, votable=True),
+        )
+        crud.cast_vote(db, other.id, racers[0].id, f"ballot-{name}")
+
+    with _QueryCounter() as many_awards:
+        body = _run(client, VOTE_TALLY_QUERY, populated_race.id)
+
+    assert len(body["data"]["race"]["awards"]) == 3
+    assert many_awards.count <= one_award.count + 1, (
+        f"Three awards cost {many_awards.count} queries against "
+        f"{one_award.count} for one; the per-race tally is not being shared."
+    )

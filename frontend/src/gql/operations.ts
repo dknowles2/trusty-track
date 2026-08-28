@@ -14,6 +14,7 @@ export type AwardInput = {
   racerId?: number | null | undefined;
   sortOrder?: number | null | undefined;
   source?: string | null | undefined;
+  votable?: boolean;
 };
 
 export type DenInput = {
@@ -99,6 +100,7 @@ export type RaceUpdateInput = {
   name?: string | null | undefined;
   scoringStrategy?: string | null | undefined;
   trackId?: number | null | undefined;
+  votingOpen?: boolean | null | undefined;
   weightLimitOz?: number | null | undefined;
 };
 
@@ -179,7 +181,7 @@ export type RaceAwardsQueryVariables = Exact<{
 }>;
 
 
-export type RaceAwardsQuery = { race: { id: number, name: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, fromBottom: boolean, denId: number | null, artworkKey: string | null, den: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null }>, rounds: Array<{ id: number, name: string | null, roundNumber: number }>, dens: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null }> } | null };
+export type RaceAwardsQuery = { race: { id: number, name: string, votingOpen: boolean, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, fromBottom: boolean, denId: number | null, artworkKey: string | null, votable: boolean, den: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null, voteTally: Array<{ racerId: number, voteCount: number, racer: { id: number, carNumber: number | null, carName: string | null } | null }> }>, rounds: Array<{ id: number, name: string | null, roundNumber: number }>, dens: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null }> } | null };
 
 export type CreateAwardMutationVariables = Exact<{
   raceId: number;
@@ -211,6 +213,30 @@ export type ReorderAwardsMutationVariables = Exact<{
 
 
 export type ReorderAwardsMutation = { reorderAwards: Array<{ id: number, sortOrder: number }> };
+
+export type UpdateRaceVotingMutationVariables = Exact<{
+  id: number;
+  race: Types.RaceUpdateInput;
+}>;
+
+
+export type UpdateRaceVotingMutation = { updateRace: { id: number, votingOpen: boolean } | null };
+
+export type VotingBallotQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type VotingBallotQuery = { race: { id: number, name: string, votingOpen: boolean, awards: Array<{ id: number, name: string, kind: string, votable: boolean }>, racers: Array<{ id: number, carNumber: number | null, carName: string | null, carImageUrl: string | null }> } | null };
+
+export type CastVoteMutationVariables = Exact<{
+  awardId: number;
+  racerId: number;
+  ballotKey: string;
+}>;
+
+
+export type CastVoteMutation = { castVote: string | null };
 
 export type GetTracksQueryVariables = Exact<{ [key: string]: never; }>;
 

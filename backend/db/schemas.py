@@ -187,6 +187,11 @@ class RaceUpdate(BaseModel):
     championship_trophies: int | None = None
     auto_advance_heat: bool | None = None
     weight_limit_oz: float | None = None
+    #: Whether a phone with no PIN may vote right now (#305). An ordinary
+    #: field on this update, not a separate mutation: `update_race` already
+    #: drops absent fields, so a screen can send just this without touching
+    #: anything else about the race.
+    voting_open: bool | None = None
 
 
 class GroupBase(BaseModel):
@@ -236,6 +241,10 @@ class AwardBase(BaseModel):
     #: `crud._set_speed_artwork_key` — so a value sent here only ever sticks
     #: for `SPECIAL`.
     artwork_key: str | None = None
+    #: SPECIAL: whether this award takes ballots while the race's voting is
+    #: open (#305). `crud._clear_fields_of_other_kind` forces this false for
+    #: `SPEED`, the same way it forces `racer_id` null.
+    votable: bool = False
 
     @field_validator("place")
     @classmethod
@@ -266,6 +275,7 @@ class AwardUpdate(BaseModel):
     racer_id: int | None = None
     artwork_key: str | None = None
     sort_order: int | None = None
+    votable: bool | None = None
 
     @field_validator("place")
     @classmethod

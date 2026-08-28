@@ -8,9 +8,11 @@ Three roles, derived from who is physically in the room rather than from an
 abstract permission model:
 
 ``viewer``
-    The audience displays on the wall. Reads and subscribes, and runs no
-    mutation at all. The default, with no credential — a display should be
-    pointed at a URL without ceremony.
+    The audience displays on the wall, and a phone with nobody's PIN. Reads
+    and subscribes, and runs exactly one mutation — ``castVote`` (#305),
+    gated by its own `Race.voting_open` check rather than a credential.
+    Otherwise no mutation at all. The default, with no credential — a display
+    should be pointed at a URL without ceremony.
 ``checkin``
     The registration desk, where cars are handed in. Racers, photos and
     check-in; nothing about scheduling or results.
@@ -174,10 +176,20 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
     }
 )
 
+#: Casting a vote (#305) — the one mutation a caller with no PIN may run. A
+#: phone in the room holds no credential and is a `VIEWER`, and `castVote` is
+#: the deliberate, single exception to that role's empty set: it is not a
+#: fourth PIN or a voting token, it is one mutation gated by an explicit
+#: `Race.voting_open` state that `crud.cast_vote` checks — the role policy
+#: only says a caller with no PIN may *attempt* it. CHECKIN and OPERATOR carry
+#: it too, so an operator's own phone is not the one device in the room that
+#: cannot vote.
+VOTE_MUTATIONS = frozenset({"castVote"})
+
 POLICY: dict[Role, frozenset[str]] = {
-    Role.VIEWER: frozenset(),
-    Role.CHECKIN: CHECKIN_MUTATIONS,
-    Role.OPERATOR: CHECKIN_MUTATIONS | OPERATOR_ONLY_MUTATIONS,
+    Role.VIEWER: VOTE_MUTATIONS,
+    Role.CHECKIN: CHECKIN_MUTATIONS | VOTE_MUTATIONS,
+    Role.OPERATOR: CHECKIN_MUTATIONS | OPERATOR_ONLY_MUTATIONS | VOTE_MUTATIONS,
 }
 
 

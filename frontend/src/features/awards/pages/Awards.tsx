@@ -25,7 +25,14 @@ import {
   RACE_AWARDS_QUERY,
   REORDER_AWARDS_MUTATION,
   UPDATE_AWARD_MUTATION,
+  UPDATE_RACE_VOTING_MUTATION,
 } from '../graphql/queries';
+
+type VoteTallyRow = {
+  racerId: number;
+  voteCount: number;
+  racer?: { id: number; carNumber?: number | null; carName?: string | null } | null;
+};
 
 type AwardRow = {
   id: number;
@@ -36,6 +43,8 @@ type AwardRow = {
   denId?: number | null;
   fromBottom?: boolean | null;
   artworkKey?: string | null;
+  votable?: boolean | null;
+  voteTally?: VoteTallyRow[] | null;
   recipient?: {
     id: number;
     firstName: string;
@@ -44,6 +53,14 @@ type AwardRow = {
     racerImageUrl?: string | null;
   } | null;
 };
+
+/** What a car in a tally row is called, for the operator screen — never a
+ * child's name, the same anonymity the ballot page itself keeps. */
+function carLabel(racer?: VoteTallyRow['racer']): string {
+  if (!racer) return 'A car that has since been removed';
+  const number = racer.carNumber != null ? `#${racer.carNumber}` : 'Unnumbered car';
+  return racer.carName ? `${number} — ${racer.carName}` : number;
+}
 
 export default function Awards() {
   const { raceId } = useParams<{ raceId: string }>();
@@ -59,6 +76,7 @@ export default function Awards() {
   const [, updateAward] = useMutation(UPDATE_AWARD_MUTATION);
   const [, deleteAward] = useMutation(DELETE_AWARD_MUTATION);
   const [, reorderAwards] = useMutation(REORDER_AWARDS_MUTATION);
+  const [, updateRaceVoting] = useMutation(UPDATE_RACE_VOTING_MUTATION);
 
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<AwardRow | null>(null);
@@ -68,6 +86,9 @@ export default function Awards() {
   const rounds = race?.rounds ?? [];
   const dens = race?.dens ?? [];
   const racers = race?.racers ?? [];
+  const votingOpen = race?.votingOpen ?? false;
+  const ballotUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/race/${id}/vote` : '';
 
   if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
@@ -83,7 +104,37 @@ export default function Awards() {
     // ._set_speed_artwork_key) regardless of what is sent — this is only
     // meaningful for SPECIAL, same as racerId above.
     artworkKey: draft.kind === 'SPECIAL' ? draft.artworkKey : null,
+    // Forced false server-side for SPEED regardless of what is sent
+    // (crud._clear_fields_of_other_kind) — same shape as artworkKey above.
+    votable: draft.kind === 'SPECIAL' ? draft.votable : false,
   });
+
+  const toggleVoting = async () => {
+    const response = await updateRaceVoting({ id, race: { votingOpen: !votingOpen } });
+    if (response.error) {
+      showToast(errorText(response.error, 'Voting could not be changed.'), 'error');
+      return;
+    }
+    refetch({ requestPolicy: 'network-only' });
+  };
+
+  const applyTallyWinner = async (award: AwardRow, racerId: number) => {
+    const response = await updateAward({
+      id: award.id,
+      award: {
+        name: award.name,
+        kind: 'SPECIAL',
+        racerId,
+        artworkKey: award.artworkKey ?? null,
+        votable: award.votable ?? false,
+      },
+    });
+    if (response.error) {
+      showToast(errorText(response.error, 'The winner could not be set.'), 'error');
+      return;
+    }
+    refetch({ requestPolicy: 'network-only' });
+  };
 
   const handleCreate = async (draft: AwardDraft) => {
     const response = await createAward({ raceId: id, award: asInput(draft) });
@@ -169,6 +220,36 @@ export default function Awards() {
         </div>
       </div>
 
+      {awards.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.75rem 1rem',
+            border: '1px solid #ddd',
+            borderRadius: '12px',
+            marginBottom: '1.5rem',
+            background: votingOpen ? '#fffbea' : '#fafafa',
+          }}
+        >
+          <button
+            type="button"
+            className={votingOpen ? 'secondary-btn' : 'primary-btn'}
+            onClick={toggleVoting}
+          >
+            {votingOpen ? 'Close voting' : 'Open voting'}
+          </button>
+          <strong>Voting is {votingOpen ? 'open' : 'closed'}</strong>
+          {votingOpen && ballotUrl && (
+            <span style={{ color: '#666', wordBreak: 'break-all' }}>
+              Share this address for people to vote from their phones: {ballotUrl}
+            </span>
+          )}
+        </div>
+      )}
+
       {result.fetching && awards.length === 0 && <p>Loading…</p>}
       {result.error && (
         <p style={{ color: '#b60205' }}>
@@ -192,14 +273,15 @@ export default function Awards() {
             key={award.id}
             style={{
               display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
+              flexDirection: 'column',
+              gap: '0.6rem',
               padding: '0.85rem 1rem',
               border: '1px solid #ddd',
               borderRadius: '12px',
               background: '#fff',
             }}
           >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <button
                 type="button"
@@ -276,6 +358,37 @@ export default function Awards() {
             >
               <Icon path={mdiTrashCan} size={0.8} />
             </button>
+          </div>
+
+          {award.votable && award.voteTally && award.voteTally.length > 0 && (
+            <div
+              style={{
+                borderTop: '1px solid #eee',
+                paddingTop: '0.6rem',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: '0.6rem 1rem',
+              }}
+            >
+              <strong style={{ fontSize: '0.85rem', color: '#666' }}>Votes:</strong>
+              {award.voteTally.map((row) => (
+                <span key={row.racerId} style={{ fontSize: '0.9rem' }}>
+                  {carLabel(row.racer)} — {row.voteCount}
+                  {row.racer && (
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      style={{ marginLeft: '0.4rem', padding: '0.1rem 0.4rem' }}
+                      onClick={() => applyTallyWinner(award, row.racerId)}
+                    >
+                      Use this result
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
           </li>
         ))}
       </ol>
@@ -307,6 +420,7 @@ export default function Awards() {
               // be fastest right now".
               racerId: editing.kind === 'SPECIAL' ? (editing.recipient?.id ?? null) : null,
               artworkKey: editing.artworkKey ?? null,
+              votable: editing.votable ?? false,
             }}
             rounds={rounds}
             dens={dens}

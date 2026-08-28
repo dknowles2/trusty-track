@@ -27,6 +27,22 @@ query RaceAwards($raceId: Int!) {
 }
 """
 
+CAST_VOTE_MUTATION = """
+mutation Vote($awardId: Int!, $racerId: Int!, $ballotKey: String!) {
+  castVote(awardId: $awardId, racerId: $racerId, ballotKey: $ballotKey)
+}
+"""
+
+AWARD_VOTE_TALLY_QUERY = """
+query Tally($raceId: Int!) {
+  race(raceId: $raceId) {
+    awards {
+      voteTally { racerId voteCount racer { id } }
+    }
+  }
+}
+"""
+
 
 def build_race(db, *, dens=("Wolves",), racers_per_den=3):
     """A race with dens, racers and one general round, ready to be raced."""
@@ -402,6 +418,23 @@ class TestTheTwoKindsDoNotBleed:
         )
         assert award.racer_id is None
 
+    def test_a_speed_award_cannot_stay_votable(self, db):
+        # A SPEED award has a computed recipient — a ballot for one is
+        # nonsense (#305), so switching to SPEED turns voting off too.
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Car",
+                kind=models.AwardKind.SPEED,
+                source="PACK",
+                place=1,
+                votable=True,
+            ),
+        )
+        assert award.votable is False
+
     def test_switching_kind_clears_the_fields_that_no_longer_apply(self, db):
         # The update arrives as one payload, so the clearing has to happen
         # after the new kind is applied rather than before.
@@ -427,6 +460,202 @@ class TestTheTwoKindsDoNotBleed:
         assert award.place is None
         assert award.from_bottom is False
         assert award.racer_id == racers[0]
+
+
+class TestVoting:
+    """`crud.cast_vote` and the tally it feeds (#305)."""
+
+    def _votable_award(self, db, race_id):
+        return crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Best Paint", kind=models.AwardKind.SPECIAL, votable=True
+            ),
+        )
+
+    def test_a_vote_is_refused_while_voting_is_closed(self, db):
+        race_id, _dens, racers = build_race(db)
+        award = self._votable_award(db, race_id)
+        # `Race.voting_open` defaults False.
+
+        reason = crud.cast_vote(db, award.id, racers[0], "ballot-1")
+
+        assert reason == "Voting is closed."
+        assert crud.vote_counts_for_awards(db, [award.id]) == {award.id: {}}
+
+    def test_a_vote_is_refused_for_an_award_that_is_not_votable(self, db):
+        race_id, _dens, racers = build_race(db)
+        award = crud.create_award(
+            db, race_id, schemas.AwardCreate(name="Best Paint", votable=False)
+        )
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        reason = crud.cast_vote(db, award.id, racers[0], "ballot-1")
+
+        assert reason == "This award is not open for voting."
+
+    def test_a_speed_award_never_takes_a_vote_even_while_voting_is_open(self, db):
+        race_id, _dens, racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+            ),
+        )
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        reason = crud.cast_vote(db, award.id, racers[0], "ballot-1")
+
+        assert reason == "This award is not open for voting."
+
+    def test_a_vote_for_a_racer_outside_this_race_is_refused(self, db):
+        race_id, _dens, _racers = build_race(db)
+        award = self._votable_award(db, race_id)
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        # A second, unrelated race with a racer of its own — same shape as
+        # `build_race`, but with names that do not collide with it.
+        other_group = crud.create_group(db, schemas.GroupCreate(name="Pack 99"))
+        other_track = crud.create_track(
+            db, schemas.TrackCreate(name="Other Track", lane_count=4)
+        )
+        other_race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Other Race", group_id=other_group.id, track_id=other_track.id
+            ),
+        )
+        other_racer = crud.create_racer(
+            db,
+            schemas.RacerCreate(
+                first_name="Someone", last_name="Else", race_id=other_race.id
+            ),
+        )
+
+        reason = crud.cast_vote(db, award.id, other_racer.id, "ballot-1")
+
+        assert reason == "That car is not in this race."
+
+    def test_a_vote_for_an_award_that_no_longer_exists_is_refused(self, db):
+        race_id, _dens, racers = build_race(db)
+        reason = crud.cast_vote(db, 999999, racers[0], "ballot-1")
+        assert reason == "That award no longer exists."
+
+    def test_a_successful_vote_is_recorded(self, db):
+        race_id, _dens, racers = build_race(db)
+        award = self._votable_award(db, race_id)
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        reason = crud.cast_vote(db, award.id, racers[0], "ballot-1")
+
+        assert reason is None
+        assert crud.vote_counts_for_awards(db, [award.id]) == {award.id: {racers[0]: 1}}
+
+    def test_a_retried_submission_is_not_a_second_vote(self, db):
+        # The same ballot_key, submitted twice — a doubled click or a retried
+        # request, not a second voter (#305).
+        race_id, _dens, racers = build_race(db)
+        award = self._votable_award(db, race_id)
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        assert crud.cast_vote(db, award.id, racers[0], "same-key") is None
+        assert crud.cast_vote(db, award.id, racers[0], "same-key") is None
+
+        assert crud.vote_counts_for_awards(db, [award.id]) == {award.id: {racers[0]: 1}}
+
+    def test_a_shared_device_may_vote_more_than_once(self, db):
+        # No per-device lock, by decision: the primary use case is one iPad
+        # shared by many voters (#305).
+        race_id, _dens, racers = build_race(db)
+        award = self._votable_award(db, race_id)
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        assert crud.cast_vote(db, award.id, racers[0], "ballot-1") is None
+        assert crud.cast_vote(db, award.id, racers[1], "ballot-2") is None
+        assert crud.cast_vote(db, award.id, racers[0], "ballot-3") is None
+
+        assert crud.vote_counts_for_awards(db, [award.id]) == {
+            award.id: {racers[0]: 2, racers[1]: 1}
+        }
+
+    def test_deleting_the_award_deletes_its_ballots(self, db):
+        race_id, _dens, racers = build_race(db)
+        award = self._votable_award(db, race_id)
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+        crud.cast_vote(db, award.id, racers[0], "ballot-1")
+
+        crud.delete_award(db, award.id)
+
+        assert (
+            db.query(models.AwardVote)
+            .filter(models.AwardVote.award_id == award.id)
+            .count()
+            == 0
+        )
+
+    def test_deleting_the_racer_deletes_their_ballots(self, db):
+        # An anonymous vote for a car that no longer exists has nothing left
+        # for the tally to attribute it to.
+        race_id, _dens, racers = build_race(db)
+        award = self._votable_award(db, race_id)
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+        crud.cast_vote(db, award.id, racers[0], "ballot-1")
+
+        crud.delete_racer(db, racers[0])
+
+        assert (
+            db.query(models.AwardVote)
+            .filter(models.AwardVote.award_id == award.id)
+            .count()
+            == 0
+        )
+
+    def test_the_tally_is_ranked_highest_first(self, db):
+        race_id, _dens, racers = build_race(db, racers_per_den=3)
+        award = self._votable_award(db, race_id)
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        for key in ("a", "b"):
+            crud.cast_vote(db, award.id, racers[0], f"{key}-0")
+        crud.cast_vote(db, award.id, racers[1], "c-1")
+
+        tallies = awards_service.vote_tallies_for(db, crud.get_awards(db, race_id))
+
+        assert tallies[award.id] == [(racers[0], 2), (racers[1], 1)]
+
+    def test_a_speed_awards_tally_is_always_empty(self, db):
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+            ),
+        )
+
+        tallies = awards_service.vote_tallies_for(db, crud.get_awards(db, race_id))
+
+        assert tallies[award.id] == []
 
 
 class TestArtwork:
@@ -729,6 +958,86 @@ class TestOverGraphQL:
         ).json()
         assert "errors" in body
         assert crud.get_awards(db, race_id) == []
+
+    def test_voting_open_is_an_ordinary_field_on_update_race(self, client, db):
+        # Not a separate mutation — `updateRace` already drops absent fields
+        # (#305).
+        race_id, _dens, _racers = build_race(db)
+        body = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Open($id: Int!, $race: RaceUpdateInput!) {
+                  updateRace(id: $id, race: $race) { id votingOpen }
+                }
+                """,
+                "variables": {"id": race_id, "race": {"votingOpen": True}},
+            },
+        ).json()
+        assert "errors" not in body, body
+        assert body["data"]["updateRace"]["votingOpen"] is True
+
+    def test_casting_a_vote_and_reading_the_tally(self, client, db):
+        race_id, _dens, racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Best Paint", kind=models.AwardKind.SPECIAL, votable=True
+            ),
+        )
+        race = db.query(models.Race).filter(models.Race.id == race_id).first()
+        race.voting_open = True
+        db.commit()
+
+        voted = client.post(
+            "/graphql",
+            json={
+                "query": CAST_VOTE_MUTATION,
+                "variables": {
+                    "awardId": award.id,
+                    "racerId": racers[0],
+                    "ballotKey": "ballot-1",
+                },
+            },
+        ).json()
+        assert "errors" not in voted, voted
+        assert voted["data"]["castVote"] is None
+
+        tally = client.post(
+            "/graphql",
+            json={"query": AWARD_VOTE_TALLY_QUERY, "variables": {"raceId": race_id}},
+        ).json()
+        assert "errors" not in tally, tally
+        rows = tally["data"]["race"]["awards"][0]["voteTally"]
+        assert rows == [
+            {"racerId": racers[0], "voteCount": 1, "racer": {"id": racers[0]}}
+        ]
+
+    def test_a_refused_vote_reports_why_rather_than_erroring(self, client, db):
+        race_id, _dens, racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Best Paint", kind=models.AwardKind.SPECIAL, votable=True
+            ),
+        )
+        # voting_open defaults False.
+
+        body = client.post(
+            "/graphql",
+            json={
+                "query": CAST_VOTE_MUTATION,
+                "variables": {
+                    "awardId": award.id,
+                    "racerId": racers[0],
+                    "ballotKey": "ballot-1",
+                },
+            },
+        ).json()
+        assert "errors" not in body, body
+        assert body["data"]["castVote"] == "Voting is closed."
 
 
 class TestDeletingTheRace:

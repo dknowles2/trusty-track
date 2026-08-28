@@ -12,7 +12,7 @@ source rather than a winner.
 
 from sqlalchemy.orm import Session
 
-from backend.db import models
+from backend.db import crud, models
 from backend.domain import advancement as domain_advancement
 from backend.domain import awards as domain_awards
 from backend.services import scoring
@@ -111,3 +111,20 @@ def recipients_of(
             continue
         resolved[award.id] = domain_awards.recipient_of(rule, cache[rule.source])
     return resolved
+
+
+def vote_tallies_for(
+    db: Session, awards: list[models.Award]
+) -> dict[int, list[tuple[int, int]]]:
+    """``{award_id: [(racer_id, vote_count), ...]}``, ranked (#305).
+
+    One query for the whole set — `crud.vote_counts_for_awards` — the same
+    "ask once for everything a screen needs" shape as `recipients_for`. Every
+    award is a key, including a `SPEED` one or one that has never taken a
+    ballot; its list is simply empty.
+    """
+    counts = crud.vote_counts_for_awards(db, [award.id for award in awards])
+    return {
+        award_id: domain_awards.rank_tally(award_counts)
+        for award_id, award_counts in counts.items()
+    }
