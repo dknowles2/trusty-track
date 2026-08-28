@@ -140,6 +140,53 @@ describe('RoundConfigModal', () => {
     expect(onSubmit.mock.calls[0][0].eliminationLosses).toBeUndefined();
   });
 
+  it('reopening after the general round is deleted shows the General tab, not stale championship fields', async () => {
+    // The modal stays mounted across a close, so its `type` state survives
+    // — a general round deleted while it was closed must not leave the
+    // Championship form showing under a General-highlighted tab on reopen.
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(<RoundConfigModal {...defaultProps} onSubmit={onSubmit} />);
+    openChampionshipTab();
+    expect(screen.getByLabelText('Number to pick')).toBeInTheDocument();
+
+    // Close, delete the general round, and reopen.
+    rerender(
+      <RoundConfigModal {...defaultProps} onSubmit={onSubmit} isOpen={false} />
+    );
+    rerender(
+      <RoundConfigModal
+        {...defaultProps}
+        onSubmit={onSubmit}
+        isOpen={false}
+        hasGeneralRound={false}
+      />
+    );
+    rerender(
+      <RoundConfigModal
+        {...defaultProps}
+        onSubmit={onSubmit}
+        isOpen={true}
+        hasGeneralRound={false}
+      />
+    );
+
+    // The General tab is showing, and so is its form — not the
+    // championship-only "Number to pick" field.
+    expect(
+      screen.getByLabelText('Everyone races in every lane')
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Number to pick')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Create Round(s) & Generate Heats'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      schedulingStrategy: 'PPC',
+      generalType: 'PACK',
+      advancementSource: undefined,
+    });
+  });
+
   it('the trophy minimum applies only to the fastest direction', () => {
     render(<RoundConfigModal {...defaultProps} />);
     openChampionshipTab();
