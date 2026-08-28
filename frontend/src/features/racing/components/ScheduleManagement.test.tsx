@@ -1,24 +1,40 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import type { DragEndEvent } from '@dnd-kit/core';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
 import { lane } from '../testFixtures';
 import { AlertProvider } from '../../../context/AlertContext';
 import { MemoryRouter } from 'react-router-dom';
 
-// Mock urql
+// `useMutation` is mocked because `RoundWizard` — unconditionally mounted by
+// `ScheduleManagement`, gated only on visibility — calls it, and these tests
+// render with no urql `Provider`. `useQuery` is deliberately left un-mocked:
+// nothing ScheduleManagement renders calls it, so a component that started
+// querying here would hit the real hook with no provider and fail loudly,
+// rather than silently reading `undefined` from a stub nobody configured.
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
     return {
         ...actual,
-        useQuery: vi.fn(),
         useMutation: vi.fn(() => [{ fetching: false }, vi.fn()]),
     };
 });
 
-// Mock @dnd-kit modules
+// `@dnd-kit` still can't run a real pointer/keyboard drag under jsdom, so the
+// mechanics stay stubbed — but `DndContext`'s mock now captures the
+// `onDragEnd` callback ScheduleManagement passes it, so a test can invoke the
+// component's own reorder logic directly instead of only asserting static
+// render output. `arrayMove` is dnd-kit's real, published implementation
+// (splice out, splice in), not a fake — reproducing it here isn't mocking
+// away the behavior under test.
+const dragEndHandlers = vi.hoisted<Array<(event: DragEndEvent) => void>>(() => []);
+
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }: any) => <>{children}</>,
+  DndContext: ({ children, onDragEnd }: any) => {
+    dragEndHandlers.push(onDragEnd);
+    return <>{children}</>;
+  },
   closestCenter: vi.fn(),
   KeyboardSensor: vi.fn(),
   PointerSensor: vi.fn(),
@@ -69,6 +85,7 @@ describe('ScheduleManagement', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        dragEndHandlers.length = 0;
         window.confirm = vi.fn(() => true);
     });
 
@@ -190,7 +207,6 @@ describe('ScheduleManagement', () => {
         expect(mockOnRunHeat).toHaveBeenCalled();
     });
 
-    // Heat reordering tests
     it('renders heats in a table', () => {
         render(
             <MemoryRouter>
@@ -376,12 +392,19 @@ describe('ScheduleManagement', () => {
         expect(screen.queryByText('Round 1')).not.toBeInTheDocument();
     });
 
-    it('keeps add round enabled when a round is named "Final Round" (#327)', () => {
+    it('keeps add round enabled and working when a championship round is named "Grand Finals" (#327)', async () => {
         // A round's name must never disable Add Round — chaining another
         // championship round off a final, or adding a Slowest Race bracket
-        // after it, are both intended workflows. See issue #327.
+        // after it, are both intended workflows (#327). "Grand Finals" is the
+        // wizard's own default name for a championship round, so this is the
+        // fixture the regression is actually about — not an arbitrary string
+        // containing the word "Final". Asserting non-disabled alone would
+        // still pass for a heats=[] fixture with nothing named "Final"
+        // anywhere; clicking through to the dialog is the part that would
+        // fail if a name-keyed disable came back.
+        const user = (await import('@testing-library/user-event')).default.setup();
         const finalHeats: Heat[] = [
-            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Final Round' },
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Grand Finals' },
         ];
         render(
             <MemoryRouter>
@@ -409,6 +432,9 @@ describe('ScheduleManagement', () => {
         );
         const addBtn = screen.getByRole('button', { name: /Add Round/i });
         expect(addBtn).not.toBeDisabled();
+
+        await user.click(addBtn);
+        expect(screen.getByLabelText(/Round Name/i)).toBeInTheDocument();
     });
 
     it('calls onDeleteRound when delete button is clicked', async () => {
@@ -647,9 +673,14 @@ describe('ScheduleManagement', () => {
           <ScheduleManagement
             raceId={1}
             heats={[
-              { id: 1, roundNumber: 2, roundId: 7, heatNumber: 1, roundName: 'Finals', lanes: [
-                { lane: 1, racerId: 1, placeholderSlot: null, time: 3.1, place: 1, skipped: false },
-              ] },
+              {
+                id: 1,
+                roundNumber: 2,
+                roundId: 7,
+                heatNumber: 1,
+                roundName: 'Finals',
+                lanes: [lane({ lane: 1, racerId: 1, time: 3.1, place: 1 })],
+              },
             ]}
             generating={false}
             activeHeatId={null}
@@ -701,5 +732,90 @@ describe('ScheduleManagement', () => {
       </MemoryRouter>
     );
     expect(screen.queryByTestId('stale-field-badge-7')).not.toBeInTheDocument();
+  });
+
+  describe('reordering (drag end)', () => {
+    const threeHeats: Heat[] = [
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Round 1' },
+      { id: 2, roundNumber: 1, roundId: 1, heatNumber: 2, lanes: [], roundName: 'Round 1' },
+      { id: 3, roundNumber: 1, roundId: 1, heatNumber: 3, lanes: [], roundName: 'Round 1' },
+    ];
+
+    const renderThreeHeats = () =>
+      render(
+        <MemoryRouter>
+          <AlertProvider>
+            <ScheduleManagement
+              raceId={1}
+              heats={threeHeats}
+              generating={false}
+              activeHeatId={null}
+              onAddRound={mockOnAddRound}
+              onRegenerateRound={mockOnRegenerateRound}
+              onDeleteRound={mockOnDeleteRound}
+              onDeleteHeat={mockOnDeleteHeat}
+              onRunHeat={mockOnRunHeat}
+              onReorderHeats={mockOnReorderHeats}
+              getRacerName={mockGetRacerName}
+              onRefetchHeats={vi.fn()}
+              laneCount={4}
+              racerCount={10}
+              denCount={3}
+              championshipTrophies={3}
+            />
+          </AlertProvider>
+        </MemoryRouter>
+      );
+
+    it('reports the reordered heat numbers when a heat is dragged past its neighbors', async () => {
+      renderThreeHeats();
+      expect(dragEndHandlers).toHaveLength(1);
+
+      // Drag heat 1 (index 0) to where heat 3 (index 2) sits.
+      await act(async () => {
+        await dragEndHandlers[0]({
+          active: { id: 1 },
+          over: { id: 3 },
+        } as DragEndEvent);
+      });
+
+      expect(mockOnReorderHeats).toHaveBeenCalledWith([
+        { heat_id: 2, new_heat_number: 1 },
+        { heat_id: 3, new_heat_number: 2 },
+        { heat_id: 1, new_heat_number: 3 },
+      ]);
+    });
+
+    it('does nothing when a heat is dropped on itself', async () => {
+      renderThreeHeats();
+
+      await act(async () => {
+        await dragEndHandlers[0]({
+          active: { id: 2 },
+          over: { id: 2 },
+        } as DragEndEvent);
+      });
+
+      expect(mockOnReorderHeats).not.toHaveBeenCalled();
+    });
+
+    it('reverts the optimistic order and alerts when the reorder mutation fails', async () => {
+      mockOnReorderHeats.mockRejectedValueOnce(new Error('network down'));
+      renderThreeHeats();
+
+      await act(async () => {
+        await dragEndHandlers[0]({
+          active: { id: 1 },
+          over: { id: 3 },
+        } as DragEndEvent);
+      });
+
+      expect(mockOnReorderHeats).toHaveBeenCalledTimes(1);
+      // Reverted to the original order rather than left on the optimistic one.
+      const heatCells = screen.getAllByText(/Heat \d/);
+      expect(heatCells[0]).toHaveTextContent('Heat 1');
+      expect(heatCells[1]).toHaveTextContent('Heat 2');
+      expect(heatCells[2]).toHaveTextContent('Heat 3');
+    });
   });
 });
