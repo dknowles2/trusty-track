@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Leaderboard from './Leaderboard';
 import { useQuery, useSubscription } from 'urql';
+import { tiedLeaderboardEntries, twoRacerLeaderboardEntries } from '../testFixtures';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -33,33 +34,11 @@ describe('Leaderboard', () => {
     race: {
       id: 1,
       scoringStrategy: 'TIMED',
-      leaderboard: [
-        {
-          racerId: 1,
-          firstName: 'John',
-          lastName: 'Doe',
-          carNumber: 101,
-          denName: 'Tigers',
-          score: 3.5,
-          heatsCompleted: 1,
-          rank: 1,
-          racerImageUrl: 'http://example.com/racer.jpg'
-        },
-        {
-          racerId: 2,
-          firstName: 'Jane',
-          lastName: 'Smith',
-          carNumber: 102,
-          denName: 'Wolves',
-          score: 4.2,
-          heatsCompleted: 1,
-          rank: 2
-        }
-      ]
+      leaderboard: twoRacerLeaderboardEntries,
     }
   };
 
-  it('renders leaderboard data correctly', async () => {
+  it('renders leaderboard rows in the order the server sent them', async () => {
     (useQuery as any).mockReturnValue([{
       data: { race: mockData.race },
       fetching: false,
@@ -75,12 +54,51 @@ describe('Leaderboard', () => {
     render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
 
     expect(screen.getByText('Current Standings')).toBeInTheDocument();
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
-    expect(screen.getByText('Jane Smith')).toBeInTheDocument();
-    expect(screen.getByText('101')).toBeInTheDocument();
-    expect(screen.getByText('102')).toBeInTheDocument();
-    expect(screen.getByText('3.500s')).toBeInTheDocument();
-    expect(screen.getByText('4.200s')).toBeInTheDocument();
+
+    // A header row plus one row per entry — read as rows, not merely as
+    // present text, so a component rendering the entries in reverse (or any
+    // order but the server's) fails this rather than passing it.
+    const rows = screen.getAllByRole('row');
+    expect(rows).toHaveLength(3);
+    expect(rows[1]).toHaveTextContent('John Doe');
+    expect(rows[1]).toHaveTextContent('101');
+    expect(rows[1]).toHaveTextContent('3.500s');
+    expect(rows[2]).toHaveTextContent('Jane Smith');
+    expect(rows[2]).toHaveTextContent('102');
+    expect(rows[2]).toHaveTextContent('4.200s');
+  });
+
+  it('renders a shared rank the same way for both racers who hold it (#226)', () => {
+    const tiedData = {
+      race: {
+        id: 1,
+        scoringStrategy: 'TIMED',
+        leaderboard: tiedLeaderboardEntries,
+      },
+    };
+
+    (useQuery as any).mockReturnValue([{
+      data: { race: tiedData.race },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: tiedData.race.leaderboard },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+
+    const rows = screen.getAllByRole('row');
+    expect(rows).toHaveLength(3);
+    // Both rows carry rank 1 — and so both get the gold-medal styling — rather
+    // than one of them silently becoming rank 2.
+    expect(rows[1]).toHaveTextContent('🥇 1');
+    expect(rows[1]).toHaveTextContent('John Doe');
+    expect(rows[2]).toHaveTextContent('🥇 1');
+    expect(rows[2]).toHaveTextContent('Jane Smith');
   });
 
   it('shows non-timed scores correctly (POINTS strategy)', async () => {

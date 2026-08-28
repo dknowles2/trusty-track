@@ -14,12 +14,30 @@ test('it records what the operator did, newest first', async ({ page }) => {
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Activity Recorded Race');
 
-    await page.goto('/activity');
+    // Scoped to this race: seeding ran createRace followed by a string of
+    // createRacer/checkInRacer mutations, which is several entries whose
+    // chronological order is known — createRace happened first — and whose
+    // ids the backend assigns in that same order (`auditLog` reads back
+    // `order_by(AuditEntry.id.desc())`). "Newest first" means those ids read
+    // in descending order down the page; a component that rendered the
+    // server's rows in reverse would still pass a mere-presence check.
+    await page.goto(`/activity?race=${raceId}`);
 
-    // Seeding the race ran createRace and a string of createRacer mutations.
     await expect(page.getByText('Created a race').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/Activity Recorded Race/).first()).toBeVisible();
-    expect(raceId).toBeGreaterThan(0);
+
+    const entryIds = (
+        await page.locator('[data-testid^="activity-entry-"]').evaluateAll((els) =>
+            els.map((el) => el.getAttribute('data-testid')),
+        )
+    ).map((testId) => parseInt(testId!.replace('activity-entry-', ''), 10));
+
+    // Seeding six racers (each a create plus a check-in) leaves well more than
+    // one entry to order — enough that a page rendering them in reverse, or in
+    // whatever order the network happened to deliver them, would fail this.
+    expect(entryIds.length).toBeGreaterThan(1);
+    const sortedDescending = [...entryIds].sort((a, b) => b - a);
+    expect(entryIds).toEqual(sortedDescending);
 });
 
 test('a heat the timer records reaches the log', async ({ page }) => {

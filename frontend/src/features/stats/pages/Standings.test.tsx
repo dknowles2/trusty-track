@@ -5,6 +5,7 @@ import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import Standings from './Standings';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
+import { tiedLeaderboardEntries } from '../testFixtures';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -23,24 +24,16 @@ afterEach(() => {
 });
 
 describe('Standings', () => {
-    it('displays race name and standings', async () => {
+    it('displays race name and standings, in rank order, ties included (#226)', async () => {
         const mockData = {
             race: {
                 id: 1,
                 name: 'Test Race',
                 scoringStrategy: 'TIMED',
-                leaderboard: [
-                    {
-                        racerId: 1,
-                        firstName: 'John',
-                        lastName: 'Doe',
-                        carNumber: 101,
-                        denName: 'Tigers',
-                        score: 3.5,
-                        heatsCompleted: 1,
-                        rank: 1
-                    }
-                ]
+                // A shared rank, not just two rows — the page renders the
+                // Leaderboard component directly, so a tie has to survive
+                // that boundary too.
+                leaderboard: tiedLeaderboardEntries,
             }
         };
 
@@ -68,8 +61,17 @@ describe('Standings', () => {
             expect(screen.getByText('Current Standings')).toBeInTheDocument();
         });
 
-        expect(screen.getByText('John Doe')).toBeInTheDocument();
-        expect(screen.getByText('Tigers')).toBeInTheDocument();
+        // Read as rows, in order, not merely as present text — a page
+        // rendering the two tied racers in the wrong order, or dropping the
+        // tie down to a single rank 1, would still pass a bare presence
+        // check.
+        const rows = screen.getAllByRole('row');
+        expect(rows).toHaveLength(3);
+        expect(rows[1]).toHaveTextContent('John Doe');
+        expect(rows[1]).toHaveTextContent('Tigers');
+        expect(rows[1]).toHaveTextContent('🥇 1');
+        expect(rows[2]).toHaveTextContent('Jane Smith');
+        expect(rows[2]).toHaveTextContent('🥇 1');
     });
 
     it('shows no results message when leaderboard has no completed heats', async () => {
@@ -110,5 +112,22 @@ describe('Standings', () => {
         });
 
         expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    });
+
+    it('reports an invalid race id instead of rendering the leaderboard', () => {
+        // The page's one branch of its own — everything else is Leaderboard's.
+        (useQuery as any).mockReturnValue([{ data: undefined, fetching: false, error: null }, vi.fn()]);
+        (vi.mocked(useSubscription) as any).mockReturnValue([{ data: undefined, fetching: false, error: null }, vi.fn()]);
+
+        render(
+            <MemoryRouter initialEntries={['/race/not-a-number/standings']}>
+                <Routes>
+                    <Route path="/race/:raceId/standings" element={<Standings />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        expect(screen.getByText('Invalid Race ID')).toBeInTheDocument();
+        expect(screen.queryByText('Current Standings')).not.toBeInTheDocument();
     });
 });

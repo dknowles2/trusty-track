@@ -71,13 +71,20 @@ test('the roster sorts by a column the operator picks', async ({ page }) => {
 
 test('the sort survives the refetch a check-in triggers', async ({ page }) => {
     // Every check-in refetches the roster. A sort held anywhere the refetch
-    // touches would snap back to the default half way through a queue.
+    // touches would snap back to the default half way through a queue. The
+    // header's `aria-sort` is decorative state that can stay put while the
+    // row order itself resets, so this reads the actual car-number cells —
+    // the precise bug this test exists to catch.
     await ensureConfigured(page);
     const { raceId, racers } = await seedRace(page, 'Roster Desk Sort Persists Race');
 
     await page.goto(`/race/${raceId}`);
+    const cells = page.locator('.racer-row td[data-label="Car #"]');
+    const carNumbers = () => cells.allTextContents();
+
     await page.getByTestId('sort-car_number').getByRole('button').click();
     await expect(page.getByTestId('sort-car_number')).toHaveAttribute('aria-sort', 'descending');
+    expect(await carNumbers()).toEqual(['6', '5', '4', '3', '2', '1']);
 
     await gql(
         page,
@@ -89,6 +96,9 @@ test('the sort survives the refetch a check-in triggers', async ({ page }) => {
 
     await expect(page.getByTestId('check-in-progress')).toContainText('5 of 6 checked in');
     await expect(page.getByTestId('sort-car_number')).toHaveAttribute('aria-sort', 'descending');
+    // Every racer stays on the roster regardless of check-in state, so the
+    // full six rows must still read in the same descending order.
+    expect(await carNumbers()).toEqual(['6', '5', '4', '3', '2', '1']);
 });
 
 test('the roster says how far check-in has got', async ({ page }) => {
