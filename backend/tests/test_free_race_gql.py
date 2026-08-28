@@ -1,7 +1,11 @@
+import asyncio
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from backend.api.main import app
+from backend.api.pubsub import _PubSub
 from backend.db import crud, models, schemas
 from backend.tests.helpers import RECORD_FREE_RACE_RESULT, as_lanes, lane_input
 
@@ -210,6 +214,57 @@ def test_start_free_race_heat_mutation(db: Session):
     assert heat["recorded"] is False
     assert len(heat["lanes"]) == 4
     assert all(lane["time"] is None for lane in heat["lanes"])
+
+
+@pytest.mark.anyio
+async def test_start_free_race_heat_publishes_to_active_free_race_heat_subscription(
+    db: Session,
+):
+    """#317: `startFreeRaceHeat` published nothing, so `activeFreeRaceHeat` —
+    what the observation display watches — only ever learned about a run once
+    its *result* landed, missing the moment the crowd is actually watching."""
+    import backend.api.schema as schema_mod
+    from backend.api.schema import FreeRaceLaneAssignmentInput, Mutation, Subscription
+
+    race_id, _ = _create_race_with_track(db)
+    r1 = _add_checked_in_racer(db, race_id, "Alice", "Smith")
+
+    local_pubsub = _PubSub()
+    original_pubsub = schema_mod.pubsub
+    schema_mod.pubsub = local_pubsub
+
+    class MockInfo:
+        context = {"db": db}
+
+    collected = []
+
+    async def _sub():
+        async for result in Subscription().active_free_race_heat(MockInfo(), race_id):
+            collected.append(result)
+            if len(collected) == 2:
+                break
+
+    async def _trigger():
+        await asyncio.sleep(0.1)
+        await Mutation().start_free_race_heat(
+            MockInfo(),
+            race_id,
+            [FreeRaceLaneAssignmentInput(lane=1, racer_id=r1)],
+        )
+
+    try:
+        await asyncio.wait_for(asyncio.gather(_sub(), _trigger()), timeout=2.0)
+    finally:
+        schema_mod.pubsub = original_pubsub
+
+    assert len(collected) == 2
+    # Nothing running before the mutation...
+    assert collected[0] is None
+    # ...and the heat the mutation just created is what the subscription
+    # wakes up with, without waiting for a result to be recorded.
+    assert collected[1] is not None
+    assert collected[1].race_id == race_id
+    assert not any(lane.time for lane in crud.heat_lanes_of(db, collected[1]))
 
 
 def test_record_free_race_result_mutation(db: Session):

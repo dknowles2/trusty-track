@@ -3613,7 +3613,7 @@ class Mutation:
 
     # Free Race Mutations
     @strawberry.mutation
-    def start_free_race_heat(
+    async def start_free_race_heat(
         self,
         info: Info,
         race_id: int,
@@ -3622,12 +3622,18 @@ class Mutation:
         """
         Persist a free race heat with the given lane assignments.
         Returns the created FreeRaceHeat (results will be null until recorded).
+
+        Publishes on `race_state:{race_id}` — `activeFreeRaceHeat` and
+        `freeRaceHeat` watch only that channel, and without this the audience
+        display learned of a run only once its result landed (#317).
         """
         db = info.context["db"]
         assignments = [
             lanes.Lane(lane=a.lane, racer_id=a.racer_id) for a in lane_assignments
         ]
-        return typing.cast(Any, crud.create_free_race_heat(db, race_id, assignments))
+        heat = crud.create_free_race_heat(db, race_id, assignments)
+        await _publish_race_state(race_id)
+        return typing.cast(Any, heat)
 
     @strawberry.mutation
     async def record_free_race_result(
