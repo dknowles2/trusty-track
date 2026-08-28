@@ -147,3 +147,17 @@ export const CAST_VOTE_MUTATION = gql`
     castVote(awardId: $awardId, racerId: $racerId, ballotKey: $ballotKey)
   }
 `;
+
+/**
+ * This machine's own LAN address(es), for the ballot share step (#414).
+ *
+ * `window.location.origin` is `localhost` on the machine running Trusty
+ * Track, which no phone in the room can open — the backend is the thing
+ * bound to the network, so it is asked instead. See
+ * `features/awards/shareAddress.ts`.
+ */
+export const NETWORK_ADDRESSES_QUERY = gql`
+  query NetworkAddresses {
+    networkAddresses
+  }
+`;

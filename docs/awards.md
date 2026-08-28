@@ -94,7 +94,13 @@ walking the cars around with a clipboard.
    button's label flips to **Close voting**, and the text beside it says
    "Voting is open." Share the address that appears next to it — a phone on
    the venue wifi that opens it sees every car's number, name and photo, and
-   can vote for any award you have left on.
+   can vote for any award you have left on. Trusty Track works out an address
+   a phone can actually reach — not the one your own browser shows, if that
+   one would only work on this machine — and offers a **Copy** button and a
+   QR code beside it for handing to someone across the room. If it says it
+   could not find a working address, see
+   [finding this machine's address](access-and-network.md#finding-this-machines-address)
+   and check the phone can reach it before relying on it.
 3. Click **Close voting** before the ceremony. Nothing does this
    for you — it is your call, the same way starting the ceremony itself is.
 

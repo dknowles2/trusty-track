@@ -711,6 +711,7 @@ export type Query = {
   groups: Array<Group>;
   heatSession: HeatSession;
   initialConfig: InitialConfigStatus;
+  networkAddresses: Array<Scalars['String']['output']>;
   race?: Maybe<Race>;
   raceStats?: Maybe<RaceStats>;
   racer?: Maybe<Racer>;

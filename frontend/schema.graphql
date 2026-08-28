@@ -380,6 +380,7 @@ type Query {
   races(skip: Int! = 0, limit: Int! = 100): [Race!]!
   timerModels: [TimerModel!]!
   version: String!
+  networkAddresses: [String!]!
   race(raceId: Int!): Race
   racers(raceId: Int = null, skip: Int! = 0, limit: Int! = 100): [Racer!]!
   racer(racerId: Int!): Racer

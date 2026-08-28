@@ -238,6 +238,11 @@ export type CastVoteMutationVariables = Exact<{
 
 export type CastVoteMutation = { castVote: string | null };
 
+export type NetworkAddressesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type NetworkAddressesQuery = { networkAddresses: Array<string> };
+
 export type GetTracksQueryVariables = Exact<{ [key: string]: never; }>;
 
 
