@@ -121,6 +121,57 @@ describe('Leaderboard', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
     expect(screen.queryByText('5.000s')).not.toBeInTheDocument();
   });
+
+  it('shows a den rank beside the den name when the den has one (#298)', () => {
+    const withDenRank = {
+      race: {
+        id: 1,
+        scoringStrategy: 'TIMED',
+        leaderboard: [
+          {
+            racerId: 1,
+            firstName: 'John',
+            lastName: 'Doe',
+            carNumber: 101,
+            denName: 'Wolves',
+            denRank: 'WOLF',
+            score: 3.5,
+            heatsCompleted: 1,
+            rank: 1,
+          },
+          {
+            racerId: 2,
+            firstName: 'Jane',
+            lastName: 'Smith',
+            carNumber: 102,
+            denName: 'Unassigned',
+            denRank: null,
+            score: 4.2,
+            heatsCompleted: 1,
+            rank: 2,
+          },
+        ],
+      },
+    };
+
+    (useQuery as any).mockReturnValue([{
+      data: { race: withDenRank.race },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    (useSubscription as any).mockReturnValue([{
+      data: { leaderboard: withDenRank.race.leaderboard },
+      fetching: false,
+      error: null
+    }, vi.fn()]);
+
+    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+
+    expect(screen.getByText('(Wolf)')).toBeInTheDocument();
+    // A den with no rank stored gets no label — no stray parentheses.
+    expect(screen.queryByText('()')).not.toBeInTheDocument();
+  });
 });
 
 describe('Leaderboard round scope (issue #17)', () => {

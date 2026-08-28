@@ -276,6 +276,7 @@ export type LeaderboardEntry = {
   carNumber?: Maybe<Scalars['Int']['output']>;
   denId?: Maybe<Scalars['Int']['output']>;
   denName: Scalars['String']['output'];
+  denRank?: Maybe<Scalars['String']['output']>;
   firstName: Scalars['String']['output'];
   heatsCompleted: Scalars['Int']['output'];
   lastName: Scalars['String']['output'];

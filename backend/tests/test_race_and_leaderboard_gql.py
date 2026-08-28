@@ -136,6 +136,119 @@ def test_race_mutations_and_leaderboard(client, db):
     assert response.json()["data"]["race"] is None
 
 
+def test_leaderboard_den_rank(client, db):
+    """A den's rank rides along on the leaderboard as `denRank` (#298).
+
+    Named to avoid colliding with the standings' own `rank` field, which is a
+    racer's finishing position rather than their den's Cub Scout rank.
+    """
+    group_in = schemas.GroupCreate(name="Den Rank Group")
+    group = crud.create_group(db, group_in)
+
+    track_in = schemas.TrackCreate(name="Den Rank Track", lane_count=4)
+    track = crud.create_track(db, track_in)
+
+    mutation_create_race = f"""
+    mutation {{
+        createRace(race: {{
+            name: "Den Rank Race", groupId: {group.id}, trackId: {track.id}
+        }}) {{ id }}
+    }}
+    """
+    race_id = client.post("/graphql", json={"query": mutation_create_race}).json()[
+        "data"
+    ]["createRace"]["id"]
+
+    mutation_create_den = f"""
+    mutation {{
+        createDen(raceId: {race_id}, den: {{ name: "Wolves", rank: "WOLF" }}) {{
+            id
+        }}
+    }}
+    """
+    den_id = client.post("/graphql", json={"query": mutation_create_den}).json()[
+        "data"
+    ]["createDen"]["id"]
+
+    mutation_create_racer = f"""
+    mutation {{
+        createRacer(racer: {{
+            firstName: "Ranked",
+            lastName: "Racer",
+            denId: {den_id},
+            raceId: {race_id},
+            carPassedInspection: true
+        }}) {{ id }}
+    }}
+    """
+    racer_id = client.post("/graphql", json={"query": mutation_create_racer}).json()[
+        "data"
+    ]["createRacer"]["id"]
+
+    mutation_create_unranked_racer = f"""
+    mutation {{
+        createRacer(racer: {{
+            firstName: "Unranked",
+            lastName: "Racer",
+            raceId: {race_id},
+            carPassedInspection: true
+        }}) {{ id }}
+    }}
+    """
+    unranked_racer_id = client.post(
+        "/graphql", json={"query": mutation_create_unranked_racer}
+    ).json()["data"]["createRacer"]["id"]
+
+    mutation_wizard = f"""
+    mutation {{
+        createRoundWizard(raceId: {race_id}, config: {{
+            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            championshipRounds: []
+        }}) {{ id }}
+    }}
+    """
+    assert client.post("/graphql", json={"query": mutation_wizard}).status_code == 200
+
+    query_heats = f"""
+    query {{
+        race(raceId: {race_id}) {{ heats {{ id }} }}
+    }}
+    """
+    heat_id = client.post("/graphql", json={"query": query_heats}).json()["data"][
+        "race"
+    ]["heats"][0]["id"]
+
+    results_data = [
+        {"lane": 1, "racer_id": racer_id, "time": 3.45, "place": 1},
+        {"lane": 2, "racer_id": unranked_racer_id, "time": 3.50, "place": 2},
+    ]
+    record_heat_result(client, heat_id, results_data)
+
+    query_leaderboard = f"""
+    query {{
+        race(raceId: {race_id}) {{
+            leaderboard {{
+                racerId
+                denName
+                denRank
+            }}
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": query_leaderboard})
+    assert response.status_code == 200
+    lb = response.json()["data"]["race"]["leaderboard"]
+    assert len(lb) == 2
+
+    ranked = next(r for r in lb if r["racerId"] == racer_id)
+    assert ranked["denName"] == "Wolves"
+    assert ranked["denRank"] == "WOLF"
+
+    unranked = next(r for r in lb if r["racerId"] == unranked_racer_id)
+    assert unranked["denName"] == "Unknown"
+    assert unranked["denRank"] is None
+
+
 def test_bulk_move_to_den_null(client, db):
     # Setup
     group_in = schemas.GroupCreate(name="Bulk Den Group")

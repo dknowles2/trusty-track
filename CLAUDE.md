@@ -499,6 +499,8 @@ Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` 
 
 **A tie shares a rank** ([#226](https://github.com/dknowles2/trusty-track/issues/226)). `rank_key` still breaks ties by racer id so the *order* is deterministic, but `standings_ranks` stamps competition ranks (1, 1, 3) over it — otherwise a tie for a trophy or the last championship slot was resolved by registration order and no screen ever said so. Racers who have not raced keep strictly increasing positions; tying them would make a pre-race leaderboard a wall of rank 1. Advancement and awards still cut by position (`standings[:n]`, `standings[place-1]`), which is unchanged and now *visible*: the operator sees the shared rank and settles it with a race-off or a corrected time.
 
+**`LeaderboardEntry.denRank` is the den's Cub Scout rank, riding along for branding** ([#298](https://github.com/dknowles2/trusty-track/issues/298)) — `Den.rank` was assignable and stored since the app's first spec but shown nowhere. Named `denRank` rather than `rank`, because `rank` on a standings row already means the finishing position; the two would otherwise collide on the same type. `Leaderboard.tsx`'s Den column and `Observation.tsx`'s heat cards and live standings both read it through `rankLabel()` (`features/management/rankText.ts`), the same formatter Den Manager uses, so a den's rank reads the same word everywhere it appears.
+
 ### Track records
 
 `services/records.py`, carried on `raceStats` as `trackRecords` and shown on the Stats page. The fastest cars a track has ever seen: races carry `track_id`, so a track accumulates results across events. One entry per racer at their single best time, capped at five, best first — official heats only, `time_seconds > 0` only (a recorded 0.0 is a DNF marker), and a lane whose racer was deleted has no holder (`_vacate_lanes` cleared its time anyway).
@@ -1001,7 +1003,6 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 | [#112](https://github.com/dknowles2/trusty-track/issues/112) | SuperTimer II timer profile. **Needs hardware** — two-part results, a binary lane mask and a 10000 scale factor, none reusable, and a test written from the same notes as the profile would agree with its mistakes. Not engineering work |
 | [#301](https://github.com/dknowles2/trusty-track/issues/301) | A second proxy WebSocket silently takes over the timer — the manager's write function is repointed and neither screen says so |
 | [#299](https://github.com/dknowles2/trusty-track/issues/299), [#300](https://github.com/dknowles2/trusty-track/issues/300) | Two screens that never got a subscription: the roster across devices, and the navigation's race list |
-| [#298](https://github.com/dknowles2/trusty-track/issues/298) | Den rank is assignable and stored but shown nowhere — the branding SPEC.md wanted it for |
 | [#296](https://github.com/dknowles2/trusty-track/issues/296), [#297](https://github.com/dknowles2/trusty-track/issues/297) | The demo: a private instance per visitor, and a reset timer an always-on host would need |
 
 **Closed, and load-bearing — don't undo them:**

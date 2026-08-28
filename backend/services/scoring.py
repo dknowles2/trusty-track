@@ -109,6 +109,7 @@ class _LeaderboardRow(TypedDict):
     car_number: int | None
     den_id: int | None
     den_name: str
+    den_rank: str | None
     score: float
     heats_completed: int
     racer_image_url: str | None
@@ -176,6 +177,7 @@ def get_leaderboard(
                 car_number=racer.car_number,
                 den_id=racer.den_id,
                 den_name=den.name if den else "Unknown",
+                den_rank=den.rank.value if den and den.rank else None,
                 score=score_data["score"],
                 heats_completed=int(score_data["heats_completed"]),
                 racer_image_url=racer.racer_image_url,
@@ -253,6 +255,7 @@ def _elimination_leaderboard(
                 car_number=racer.car_number,
                 den_id=racer.den_id,
                 den_name=den.name if den else "Unknown",
+                den_rank=den.rank.value if den and den.rank else None,
                 score=float(entry.losses),
                 heats_completed=completed.get(entry.racer_id, 0),
                 racer_image_url=racer.racer_image_url,

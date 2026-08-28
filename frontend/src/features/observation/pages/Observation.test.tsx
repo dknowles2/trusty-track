@@ -42,8 +42,8 @@ describe('Observation Page', () => {
         }
     };
 
-    const setupMocks = (overrides: any = {}) => {
-        (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
+    const setupMocks = (overrides: any = {}, racersData: any = mockRacersData) => {
+        (useQuery as any).mockReturnValue([{ data: racersData, fetching: false, error: null }]);
 
         const defaultSubs = {
             leaderboard: [],
@@ -364,6 +364,53 @@ describe('Observation Page', () => {
         // The container should have the projector-mode class
         const container = screen.getByText(/Now Racing/).closest('.container');
         expect(container).toHaveClass('projector-mode');
+    });
+
+    it("shows a racer's den rank as a label when their den has one (#298)", async () => {
+        const racersWithDens = {
+            race: {
+                id: 1,
+                racers: [
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null, denId: 1 },
+                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null, denId: 2 },
+                    { id: 3, firstName: 'Mater', lastName: 'Tow', carNumber: 1, racerImageUrl: null, denId: null },
+                ],
+                dens: [
+                    { id: 1, name: 'Wolves', color: '#000', rank: 'WOLF' },
+                    { id: 2, name: 'Unassigned', color: '#111', rank: null },
+                ],
+            }
+        };
+
+        setupMocks({
+            currentlyRacing: {
+                id: 2, roundNumber: 1, heatNumber: 2,
+                lanes: [{ lane: 1, racerId: 1, placeholderSlot: null }],
+            },
+            leaderboard: [
+                { racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1, denRank: 'WOLF' },
+                { racerId: 2, score: 3.5, heatsCompleted: 2, rank: 2, denRank: null },
+            ],
+        }, racersWithDens);
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
+        });
+
+        // The racer in "Now Racing" is in the Wolves den, which has a rank —
+        // shown on the heat card, and again on the live standings below it.
+        expect(screen.getAllByText('Wolf').length).toBeGreaterThan(0);
+        // Doc's den has no rank, so his standings row names none.
+        const docRow = screen.getByText('Doc Hudson').closest('tr');
+        expect(docRow?.textContent).not.toMatch(/Wolf/);
     });
 
     it('shows and hides the heat result overlay in projector mode', async () => {

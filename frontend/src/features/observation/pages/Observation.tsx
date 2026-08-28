@@ -10,6 +10,7 @@ import { displayId } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
+import { rankLabel } from '../../management/rankText';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import {
   LeaderboardSubscription,
@@ -41,6 +42,7 @@ const GET_INITIAL_DATA = `
         id
         name
         color
+        rank
       }
     }
   }
@@ -48,9 +50,17 @@ const GET_INITIAL_DATA = `
 
 interface Standing {
   racerId: number;
+  denRank?: string | null;
   score: number;
   heatsCompleted: number;
   rank: number;
+}
+
+interface DenInfo {
+  id: number;
+  name: string;
+  color: string;
+  rank?: string | null;
 }
 
 export default function Observation() {
@@ -235,6 +245,7 @@ export default function Observation() {
     carNumber?: number;
     racerImageUrl?: string;
     carName?: string;
+    denId?: number | null;
   }
 
   const racersMap = useMemo(() => {
@@ -242,6 +253,19 @@ export default function Observation() {
     initialData?.race?.racers.forEach((r: Racer) => map[r.id] = r);
     return map;
   }, [initialData]);
+
+  // Den rank, for the branding SPEC.md asked for (#298) — a den's rank shown
+  // as a label wherever a racer's den is otherwise implicit on this screen.
+  const densMap = useMemo(() => {
+    const map: Record<number, DenInfo> = {};
+    initialData?.race?.dens?.forEach((d: DenInfo) => map[d.id] = d);
+    return map;
+  }, [initialData]);
+
+  const denRankFor = (racer: Racer | undefined): string | null => {
+    if (!racer || racer.denId == null) return null;
+    return densMap[racer.denId]?.rank ?? null;
+  };
 
   const officialCurrentHeat = currentlyRacingData?.currentlyRacing;
   // Two heats now, nearest first (#209). One was not enough to stage with: the
@@ -381,6 +405,11 @@ export default function Observation() {
                   {racer.firstName} {racer.lastName}
                 </div>
                 {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: '#666' }}>Car #{racer.carNumber}</div>}
+                {denRankFor(racer) && (
+                  <div className="heat-card-den-rank" style={{ fontSize: '0.75rem', color: '#888' }}>
+                    {rankLabel(denRankFor(racer))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -605,6 +634,9 @@ export default function Observation() {
                             {racer?.carNumber && (
                               <div className="standing-car-number" style={{ color: '#666', fontSize: '0.9rem' }}>Car #{racer.carNumber}</div>
                             )}
+                            {s.denRank && (
+                              <div className="standing-den-rank" style={{ color: '#888', fontSize: '0.85rem' }}>{rankLabel(s.denRank)}</div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -732,6 +764,11 @@ export default function Observation() {
               {racer.carNumber && (
                 <div style={{ color: '#777', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
                   Car #{racer.carNumber}
+                </div>
+              )}
+              {denRankFor(racer) && (
+                <div style={{ color: '#777', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
+                  {rankLabel(denRankFor(racer))}
                 </div>
               )}
             </div>

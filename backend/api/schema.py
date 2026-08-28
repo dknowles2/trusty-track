@@ -835,6 +835,7 @@ class LeaderboardEntry:
     car_number: int | None
     den_id: int | None
     den_name: str
+    den_rank: str | None
     score: float
     heats_completed: int
     racer_image_url: str | None
