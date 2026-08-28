@@ -104,6 +104,13 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
         try {
             const result = await deleteDenMutation({ id: denId });
             if (result.error) throw result.error;
+            if (!result.data?.deleteDen) {
+                showAlert(
+                    "This den can't be deleted while a round is scoped to it. Remove or reassign that round first.",
+                    "Error"
+                );
+                return;
+            }
             refreshDens();
         } catch (e) {
             console.error("Failed to delete den", e);

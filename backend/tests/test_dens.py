@@ -79,6 +79,42 @@ def test_delete_den_logic(client, db):
     assert racer.den_id is None
 
 
+def test_delete_den_refused_when_round_is_scoped_to_it(client, db):
+    """#312: a den-scoped round's FK must refuse the delete, not crash it."""
+    race_id = create_race_context(db)
+
+    den_name = get_unique_name("ScopedDen")
+    mutation_create = f"""
+    mutation {{
+        createDen(
+            den: {{name: "{den_name}", color: "#000000", rank: "LION"}}
+            raceId: {race_id}
+        ) {{
+            id
+        }}
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_create})
+    assert resp.status_code == 200
+    den_id = resp.json()["data"]["createDen"]["id"]
+
+    crud.create_round(db, race_id=race_id, round_number=1, den_id=int(den_id))
+
+    mutation_delete = f"""
+    mutation {{
+        deleteDen(id: {den_id})
+    }}
+    """
+    resp = client.post("/graphql", json={"query": mutation_delete})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body.get("errors") is None
+    assert body["data"]["deleteDen"] is False
+
+    # The den survives the refused delete.
+    assert crud.get_den(db, int(den_id)) is not None
+
+
 def test_edit_den_logic(client, db):
     race_id = create_race_context(db)
 
