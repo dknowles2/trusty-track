@@ -2421,7 +2421,10 @@ class Mutation:
         db = info.context["db"]
         den = db.query(models.Den).filter(models.Den.id == id).first()
         race_id = den.race_id if den else None
-        result = crud.delete_den(db, den_id=id) is not None
+        try:
+            result = crud.delete_den(db, den_id=id) is not None
+        except ValueError:
+            return False
         if race_id:
             await _publish_race_state(race_id)
         return result

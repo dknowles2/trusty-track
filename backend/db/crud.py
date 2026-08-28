@@ -97,6 +97,18 @@ def create_den(db: Session, den: schemas.DenCreate, race_id: int) -> models.Den:
 def delete_den(db: Session, den_id: int) -> models.Den | None:
     db_den = db.query(models.Den).filter(models.Den.id == den_id).first()
     if db_den:
+        # A per-den general round (`Round.den_id`, from the wizard's "DEN"
+        # option) would otherwise fail that column's foreign key (#125) with
+        # an unhandled IntegrityError. Unlike a racer's den_id, nulling it
+        # would silently change what the round means — which racers it draws
+        # from — rather than merely losing an assignment, so this refuses
+        # instead, the same shape `delete_track` uses when races exist.
+        round_scoped = (
+            db.query(models.Round).filter(models.Round.den_id == den_id).first()
+        )
+        if round_scoped:
+            raise ValueError("Cannot delete den: a round is scoped to it.")
+
         racers = db.query(models.Racer).filter(models.Racer.den_id == den_id).all()
         for racer in racers:
             racer.den_id = None
