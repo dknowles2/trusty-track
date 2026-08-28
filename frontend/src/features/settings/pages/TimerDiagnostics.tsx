@@ -16,6 +16,7 @@ import { useQuery, useSubscription, useMutation } from 'urql';
 import { gql } from 'urql';
 import { buildDisplayLines } from '../../racing/serialLog';
 import type { SerialLogEntry } from '../../racing/serialLog';
+import { SerialProxyConnector } from '../../racing/components/SerialProxyConnector';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { fetchTimerReport, issueUrl, testInstruction } from '../timerTest';
@@ -99,11 +100,23 @@ interface Track {
  * could sit there all event — so an operator seeing it needs to know whether
  * to wait or to start unplugging things.
  */
-const STATE_HELP: Record<string, { label: string; tone: string; detail: string }> = {
+type StateHelp = { label: string; tone: string; detail: string | ((timerType: string) => string) };
+
+// DISCONNECTED is the one state whose fix depends on the transport: a
+// backend-direct track is plugged into this machine and the Connect button
+// below does the rest, but a proxied one is plugged into whoever's browser is
+// looking at this page, and the button that opens *that* port is the proxy
+// connector, not "Connect".
+const disconnectedDetail = (timerType: string): string =>
+    timerType === 'AUTO_DETECT_PROXY'
+        ? 'Trusty Track cannot see a timer. Check the cable, then use Connect Hardware Timer below — on the laptop the timer is plugged into.'
+        : 'Trusty Track cannot see a timer. Check the cable, then press Connect.';
+
+const STATE_HELP: Record<string, StateHelp> = {
     DISCONNECTED: {
         label: 'Not connected',
         tone: '#9e9e9e',
-        detail: 'Trusty Track cannot see a timer. Check the cable, then press Connect.',
+        detail: disconnectedDetail,
     },
     CONNECTED: {
         label: 'Port open, waiting for the timer to answer',
@@ -352,6 +365,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
         tone: '#9e9e9e',
         detail: '',
     };
+    const detail = typeof help.detail === 'function' ? help.detail(track.timerType) : help.detail;
 
     useEffect(() => {
         logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -395,9 +409,9 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                 </span>
             </header>
 
-            {help.detail && (
+            {detail && (
                 <p style={{ margin: '0.5rem 0 0.75rem', color: '#555', fontSize: '0.9rem' }}>
-                    {help.detail}
+                    {detail}
                 </p>
             )}
 
@@ -470,7 +484,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
             )}
 
             {!isFake && (
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                     {track.timerType === 'AUTO_DETECT_BACKEND' && (
                         <button type="button" onClick={() => run(reconnect, 'connect')}>
                             {track.serialPort ? 'Connect' : 'Search for the timer'}
@@ -479,6 +493,18 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                     <button type="button" onClick={() => run(reset, 'reset the timer')}>
                         Reset
                     </button>
+                    {/*
+                      A proxied timer is plugged into whoever's browser is
+                      looking at this page, not this machine — so there is no
+                      backend "Connect" for it, and the affordance that opens
+                      the port is this connector (#330). It is the same
+                      component RaceExecution and FreeRaceExecution mount, so
+                      a port opened here stays open when the operator moves on
+                      to a real heat.
+                    */}
+                    {track.timerType === 'AUTO_DETECT_PROXY' && (
+                        <SerialProxyConnector trackId={track.id} />
+                    )}
                 </div>
             )}
 

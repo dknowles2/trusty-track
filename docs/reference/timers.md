@@ -75,7 +75,7 @@ blank, Trusty Track still searches — for that timer only.
 | State | What it means |
 | --- | --- |
 | **Ready** | The timer answered and is waiting for a heat. This is what you want. |
-| **Not connected** | Trusty Track cannot see a timer. Check the cable, then search again. |
+| **Not connected** | Trusty Track cannot see a timer. Check the cable, then search again — or, for a browser-connected timer, press **Connect Hardware Timer**. |
 | **Port open, waiting for the timer to answer** | Something is plugged in but has not said what it is. Trusty Track keeps asking. If this never clears, whatever is plugged in is probably not the timer. |
 | **Armed** | Lanes are set and the timer is waiting for the start gate. |
 | **Staged** | The start gate is closed with cars behind it. |

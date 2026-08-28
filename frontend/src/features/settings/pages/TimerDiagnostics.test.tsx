@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
+import { SerialProxyProvider } from '../../../context/SerialProxyContext';
 import { useQuery, useSubscription, useMutation } from 'urql';
 import TimerDiagnostics from './TimerDiagnostics';
 
@@ -46,6 +47,33 @@ function setup(
         <MemoryRouter initialEntries={[route]}>
             <AlertProvider>
                 <TimerDiagnostics />
+            </AlertProvider>
+        </MemoryRouter>
+    );
+}
+
+// A proxy track's "Connect" affordance is `SerialProxyConnector`, the same
+// component RaceExecution and FreeRaceExecution mount — and it reads
+// `navigator.serial` through `SerialProxyProvider`, which App.tsx wraps this
+// route in. Both are real here rather than mocked, the same way the page
+// reaches them in the app.
+function setupProxyTrack(
+    tracks: unknown[],
+    status: Record<string, unknown> | null,
+    route = '/timer-check',
+) {
+    (useQuery as any).mockReturnValue([{ data: { tracks }, fetching: false, error: null }]);
+    (useSubscription as any).mockReturnValue([
+        { data: status ? { timerStatus: { trackId: 1, status } } : undefined },
+    ]);
+    (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+
+    render(
+        <MemoryRouter initialEntries={[route]}>
+            <AlertProvider>
+                <SerialProxyProvider>
+                    <TimerDiagnostics />
+                </SerialProxyProvider>
             </AlertProvider>
         </MemoryRouter>
     );
@@ -181,6 +209,79 @@ describe('TimerDiagnostics', () => {
         setup([], null);
 
         expect(await screen.findByText(/No tracks are configured/)).toBeInTheDocument();
+    });
+});
+
+describe('a proxy track (#330)', () => {
+    const proxyTrack = (over: Partial<Record<string, unknown>> = {}) =>
+        track({ timerType: 'AUTO_DETECT_PROXY', ...over });
+
+    it('mounts a Connect affordance instead of pointing at a button that does not exist', async () => {
+        // Before the fix, a proxied track rendered only Reset here — the
+        // backend-only Connect/Search button never applied to it, and there
+        // was no proxy connector to take its place.
+        Object.defineProperty(navigator, 'serial', { value: {}, configurable: true });
+        try {
+            setupProxyTrack([proxyTrack()], {
+                state: 'DISCONNECTED',
+                deviceName: null,
+                port: null,
+                laneCount: null,
+                lastError: null,
+                serialLog: [],
+            });
+
+            expect(await screen.findByText('Connect Hardware Timer')).toBeInTheDocument();
+            expect(screen.queryByText('Connect')).not.toBeInTheDocument();
+            expect(screen.queryByText('Search for the timer')).not.toBeInTheDocument();
+        } finally {
+            delete (navigator as { serial?: unknown }).serial;
+        }
+    });
+
+    it('offers the connector even without Web Serial support, rather than nothing', async () => {
+        // jsdom has no `navigator.serial`, which is also true of Safari and
+        // Firefox. Either way the operator gets an explanation, not a dead
+        // page.
+        setupProxyTrack([proxyTrack()], {
+            state: 'DISCONNECTED',
+            deviceName: null,
+            port: null,
+            laneCount: null,
+            lastError: null,
+            serialLog: [],
+        });
+
+        expect(await screen.findByText(/Web Serial not supported/)).toBeInTheDocument();
+    });
+
+    it('tells a disconnected proxy track to use the connector, not "press Connect"', async () => {
+        setupProxyTrack([proxyTrack()], {
+            state: 'DISCONNECTED',
+            deviceName: null,
+            port: null,
+            laneCount: null,
+            lastError: null,
+            serialLog: [],
+        });
+
+        expect(
+            await screen.findByText(/use Connect Hardware Timer below/)
+        ).toBeInTheDocument();
+        expect(screen.queryByText(/press Connect/)).not.toBeInTheDocument();
+    });
+
+    it('leaves the backend-track help text alone', async () => {
+        setup([track({ timerType: 'AUTO_DETECT_BACKEND' })], {
+            state: 'DISCONNECTED',
+            deviceName: null,
+            port: null,
+            laneCount: null,
+            lastError: null,
+            serialLog: [],
+        });
+
+        expect(await screen.findByText(/press Connect/)).toBeInTheDocument();
     });
 });
 
