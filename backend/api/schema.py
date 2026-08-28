@@ -114,6 +114,44 @@ def _stored_lanes(db: Session, heat: models.Heat) -> list[lanes.Lane]:
     return crud.lanes_for_heats(db, [heat])[0]
 
 
+def _heat_and_manager(
+    db: Session,
+    timer_managers: Mapping[int, Any],
+    heat_id: int,
+    *,
+    is_free_race: bool = False,
+) -> tuple[models.Heat, models.Race, TimerManager] | None:
+    """Load a heat, its race, and the ``TimerManager`` for the race's track.
+
+    ``fake_timer_start``, ``prepare_heat`` and ``fake_timer_finish`` each
+    re-derived this by hand: load the Heat (or free-race heat), load its
+    Race, bail if ``race.track_id`` is None, look the manager up in
+    ``timer_managers``, bail if absent — the same guards, three times, free
+    to drift apart (#431, the #48 shape CLAUDE.md warns about throughout).
+    Returns ``None`` on any failure so callers keep a one-line guard.
+
+    ``is_free_race`` narrows the lookup to ``kind == FREE``, the way
+    :func:`crud.get_free_race_heat` does. Only ``fake_timer_start`` passes
+    it — heat ids are unique across both kinds since #6, so
+    ``prepare_heat`` and ``fake_timer_finish`` read the kind off the row
+    instead and call this with the default, exactly as they did before.
+    """
+    heat = (
+        crud.get_free_race_heat(db, heat_id)
+        if is_free_race
+        else db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    )
+    if heat is None:
+        return None
+    race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+    if race is None or race.track_id is None:
+        return None
+    mgr = timer_managers.get(race.track_id)
+    if mgr is None:
+        return None
+    return heat, race, mgr
+
+
 def _free_race_heats(db: Session, race_id: int, recorded: bool) -> list[models.Heat]:
     """A race's free heats, newest first, split on whether they have been run.
 
@@ -3041,23 +3079,12 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        if is_free_race:
-            free_heat = crud.get_free_race_heat(db, heat_id)
-            if not free_heat:
-                return False
-            race_id = free_heat.race_id
-        else:
-            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if not heat:
-                return False
-            race_id = heat.race_id
-
-        race = db.query(models.Race).filter(models.Race.id == race_id).first()
-        if race is None or race.track_id is None:
+        found = _heat_and_manager(
+            db, timer_managers, heat_id, is_free_race=is_free_race
+        )
+        if found is None:
             return False
-        mgr = timer_managers.get(race.track_id)
-        if mgr is None:
-            return False
+        _heat, _race, mgr = found
         if mgr._state != TimerState.ARMED or mgr._active_heat_id != heat_id:
             return False
 
@@ -3100,15 +3127,10 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if not heat:
+        found = _heat_and_manager(db, timer_managers, heat_id)
+        if found is None:
             return False
-        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
-        if race is None or race.track_id is None:
-            return False
-        mgr = timer_managers.get(race.track_id)
-        if mgr is None:
-            return False
+        heat, race, mgr = found
         if (
             mgr._state in (TimerState.RUNNING, TimerState.RESULTS_OVERDUE)
             and mgr._active_heat_id != heat_id
@@ -3168,16 +3190,10 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if not heat:
+        found = _heat_and_manager(db, timer_managers, heat_id)
+        if found is None:
             return False
-
-        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
-        if race is None or race.track_id is None:
-            return False
-        mgr = timer_managers.get(race.track_id)
-        if mgr is None:
-            return False
+        heat, race, mgr = found
         if mgr._state != TimerState.RUNNING or mgr._active_heat_id != heat_id:
             return False
 
