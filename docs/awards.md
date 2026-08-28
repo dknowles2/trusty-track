@@ -98,6 +98,12 @@ walking the cars around with a clipboard.
 3. Click **Close voting** before the ceremony. Nothing does this
    for you — it is your call, the same way starting the ceremony itself is.
 
+**If some cars have no photo, this page tells you before you open voting.**
+A car with no photo shows as a gray square on the ballot instead — fine for a
+speed award, not for one about how the car looks. A line above the voting
+button counts how many cars are missing a photo and links to the roster,
+where **Upload Photos** (in the **⋯** menu) adds several at once.
+
 **Nobody's name or photo appears on the voting page.** Voting is about the
 cars, and only the cars: a car's number, its name if it has one, and its
 photo. Whoever is voting never sees who built it.
