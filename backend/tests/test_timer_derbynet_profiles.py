@@ -312,14 +312,19 @@ def test_polling_the_gate_is_only_safe_where_the_start_has_its_own_signal():
     the gate (`RACE`, `B`/`RACING`), so polling can safely stop the moment a
     race starts (issue #338).
 
-    Bert Drake and the Champ have no such matcher — a race start is visible to
-    them only as the gate opening, which the manager currently treats as
-    "gate reopened", not "race started". Turning polling on for either would
-    send gate queries straight through a live run (issue #340)."""
+    The Champ has no such matcher — a race start is visible to it only as the
+    gate opening — but it carries ``gate_open_starts_race``, so the manager
+    reads a polled gate-open from READY as the race starting rather than
+    "gate reopened", and stops polling at the same point the other two do
+    (issue #340). Bert Drake has neither a start matcher nor that flag, so
+    polling stays off for it — turning it on would send gate queries straight
+    through a live run."""
     assert DERBY_TIMER.polls_the_gate() is True
     assert PDT.polls_the_gate() is True
     assert BERT_DRAKE.polls_the_gate() is False
-    assert CHAMP.polls_the_gate() is False
+    assert CHAMP.polls_the_gate() is True
+    assert CHAMP.gate_open_starts_race is True
+    assert BERT_DRAKE.gate_open_starts_race is False
 
 
 def test_no_two_profiles_answer_the_same_probe_the_same_way():

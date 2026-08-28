@@ -358,13 +358,17 @@ CHAMP = TimerProfile(
     # or two, swallowing everything sent after it.
     setup=(b"r", b"or", b"ol", b"od", b"op", b"rs", b"ol0", b"op3"),
     heat_prep=HeatPrep(unmask=b"om0", mask=b"om", first_lane=b"1", arm=b"rg"),
-    # gate_state_is_knowable stays False. This device has no matcher of its
-    # own for a race starting — the gate opening *is* the only start signal,
-    # and the manager does not (yet) read a polled gate-open as anything but
-    # "back to armed" (see ``TimerManager._handle_event``). Turning polling on
-    # naively would send `rs` every 250ms straight through a live run, which
-    # is the documented Pack936 failure below. See the companion issue for the
-    # "polled gate-open is the start" mode this needs first (issue #340).
+    # This device has no matcher of its own for a race starting — the gate
+    # opening *is* the only start signal, so gate_open_starts_race routes a
+    # polled gate-open observed from READY through the same handling as a
+    # matched RaceStarted (stop polling, RUNNING, send the on-start commands)
+    # rather than back to ARMED. gate_state_is_knowable has to be True for
+    # that: it is what makes polling — and therefore READY — reachable at
+    # all. Polling itself stops the instant the race starts, which is what
+    # keeps `rs` from being sent during a live run, the documented Pack936
+    # failure below.
+    gate_state_is_knowable=True,
+    gate_open_starts_race=True,
     gate_watcher=GateWatcher(
         command=b"rs",
         matchers=(

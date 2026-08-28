@@ -782,17 +782,24 @@ class TimerManager:
         self._state = new_state
         await pubsub.publish(f"timer_state:{self._track_id}", self.status())
 
+    async def _start_race(self) -> None:
+        """Common to a matched ``RaceStarted`` and a polled gate-open standing
+        in for one (``gate_open_starts_race``) — both mean the same thing: the
+        car is away.
+        """
+        self._running_since = asyncio.get_event_loop().time()
+        # Nothing the gate says can change a run that is under way, and
+        # asking during one is what made some timers resend the previous
+        # heat's results.
+        self._stop_gate_polling()
+        await self._transition(TimerState.RUNNING)
+        await self._send_for(Event.RACE_STARTED)
+
     async def _handle_event(self, event: TimerEvent) -> None:
         """Process a timer event, updating state and publishing results."""
         if isinstance(event, RaceStarted):
             if self._state in (TimerState.ARMED, TimerState.READY):
-                self._running_since = asyncio.get_event_loop().time()
-                # Nothing the gate says can change a run that is under way, and
-                # asking during one is what made some timers resend the previous
-                # heat's results.
-                self._stop_gate_polling()
-                await self._transition(TimerState.RUNNING)
-                await self._send_for(Event.RACE_STARTED)
+                await self._start_race()
             else:
                 logger.warning(
                     "Timer %d: RaceStarted in unexpected state %s",
@@ -1364,9 +1371,16 @@ class TimerManager:
                 await self._transition(TimerState.READY)
                 await self._send_for(Event.GATE_CLOSED)
             elif not closed and self._state is TimerState.READY:
-                # The gate came back up without a start — somebody reloading,
-                # or a car pulled off the line. Back to merely armed.
-                await self._transition(TimerState.ARMED)
+                if self._device.gate_open_starts_race:
+                    # This device has no independent start signal — a polled
+                    # gate-open from READY *is* the race starting, not
+                    # somebody reloading.
+                    await self._start_race()
+                else:
+                    # The gate came back up without a start — somebody
+                    # reloading, or a car pulled off the line. Back to merely
+                    # armed.
+                    await self._transition(TimerState.ARMED)
             return True
 
         return False
