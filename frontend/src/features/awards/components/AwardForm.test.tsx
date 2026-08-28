@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import AwardForm from './AwardForm';
+import { templateById } from '../awardTemplates';
 
 const ROUNDS = [{ id: 4, name: 'Finals', roundNumber: 2 }];
 const DENS = [{ id: 10, name: 'Wolves' }];
@@ -182,6 +183,47 @@ describe('AwardForm', () => {
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Best Paint' }),
     );
+  });
+
+  it('shows the generic hint before any template is chosen', () => {
+    // #440: AwardTemplate.blurb was written by every template and read by
+    // nothing until this. Before a choice is made there is no blurb to show.
+    renderForm();
+    expect(
+      screen.getByText('Fills in the name and its artwork — both stay editable afterward.'),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the chosen template's blurb as help text (#440)", async () => {
+    renderForm();
+    const bestPaint = templateById('best-paint');
+    if (!bestPaint) throw new Error('missing fixture template');
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Start from a ready-made award'),
+      'Best Paint',
+    );
+
+    expect(screen.getByText(bestPaint.blurb)).toBeInTheDocument();
+    expect(
+      screen.queryByText('Fills in the name and its artwork — both stay editable afterward.'),
+    ).toBeNull();
+  });
+
+  it('falls back to the generic hint once the operator edits the name by hand', async () => {
+    // The blurb describes the template that was applied; once the name no
+    // longer matches it, showing it as a caption for the new name would be
+    // wrong rather than merely stale.
+    renderForm();
+    await userEvent.selectOptions(
+      screen.getByLabelText('Start from a ready-made award'),
+      'Best Paint',
+    );
+    await userEvent.type(screen.getByLabelText('Award name'), '!');
+
+    expect(
+      screen.getByText('Fills in the name and its artwork — both stay editable afterward.'),
+    ).toBeInTheDocument();
   });
 
   it('opens on the award it is editing', () => {
