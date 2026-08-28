@@ -19,15 +19,6 @@ def test_championship_rounds_populate_sequentially(db: Session):
             )
         ],
     )
-    # Clear existing if any (simplification for test env)
-    db.query(models.Heat).delete()
-    db.query(models.Round).delete()
-    db.query(models.Racer).delete()
-    db.query(models.Race).delete()
-    db.query(models.Group).delete()
-    db.query(models.Track).delete()
-    db.commit()
-
     crud.create_initial_config(db, config)
 
     # Create the race explicitly
