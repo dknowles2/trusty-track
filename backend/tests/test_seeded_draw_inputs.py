@@ -19,10 +19,13 @@ the answer is supposed to come from.
 import random
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 from backend import demo_seed
 from backend.db import crud, models, schemas
 from backend.domain import scheduling
+from backend.services import scoring
 
 SEED = "a-fixed-seed"
 
@@ -176,3 +179,39 @@ class TestScheduleGeneration:
         ]
         want = [dict(plan.assignments) for plan in expected_plans]
         assert got == want
+
+
+class TestDenAdvancementOrder:
+    """#316: den order isn't a shuffle, but it feeds the same kind of
+    unpromised query this file is about. ``get_advancing_racers`` visits dens
+    in the order ``db.query(models.Den)`` hands them back, and that order
+    decides which placeholder slot (and so which lane pattern) each den's
+    qualifiers land in — #240's rule applies here even though nothing is
+    seeded: a query fixing an output order needs an ``ORDER BY``, or the
+    promise is one SQLite is not making.
+    """
+
+    def test_the_den_query_carries_an_order_by(self, db):
+        race = _race(db, name="Ordered Den Advancement Derby")
+        for i in range(3):
+            crud.create_den(db, schemas.DenCreate(name=f"Den{i}"), race.id)
+        db.commit()
+
+        statements: list[str] = []
+
+        def _capture(_conn, _cursor, statement, *_args):
+            if "FROM dens" in statement:
+                statements.append(statement)
+
+        event.listen(Engine, "before_cursor_execute", _capture)
+        try:
+            scoring.get_advancing_racers(db, race.id, source="DEN", num_top=1)
+        finally:
+            event.remove(Engine, "before_cursor_execute", _capture)
+
+        # `get_leaderboard` (via `_standings_for`) also queries `dens` to build
+        # a lookup dict, unordered on purpose — dict-by-id doesn't care. It is
+        # among these statements too, so this only requires *one* of them to
+        # carry the promise: the query that builds `den_ids`.
+        assert statements, "expected get_advancing_racers to query dens"
+        assert any("ORDER BY dens.id" in s for s in statements), statements
