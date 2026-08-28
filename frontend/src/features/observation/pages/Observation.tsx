@@ -4,7 +4,7 @@ import { useSubscription, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
-import TimerStatusBadge from '../../racing/components/timer/TimerStatusBadge';
+import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import PhotoSlideshow from '../components/PhotoSlideshow';
 import { displayId } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';

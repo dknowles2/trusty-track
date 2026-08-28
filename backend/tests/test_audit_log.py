@@ -276,6 +276,45 @@ class TestPruning:
         assert crud.prune_audit_log(db, keep=10) == 0
 
 
+class TestTheLimitParameter:
+    """`min(limit, 500)` clamped the top but not the floor (#346) — a negative
+    ``limit`` reaches SQLite as ``LIMIT -1``, which it reads as "no limit at
+    all" rather than "zero rows".
+    """
+
+    def test_a_negative_limit_is_not_unlimited(self, client, db):
+        for index in range(3):
+            crud.record_audit(db, f"action{index}", role=audit.ActorRole.OPERATOR.value)
+
+        response = client.post(
+            "/graphql",
+            json={"query": "{ auditLog(limit: -1) { id } }"},
+        )
+
+        assert response.json()["data"]["auditLog"] == []
+
+    def test_a_limit_of_zero_is_zero_rows(self, client, db):
+        crud.record_audit(db, "only", role=audit.ActorRole.OPERATOR.value)
+
+        response = client.post(
+            "/graphql",
+            json={"query": "{ auditLog(limit: 0) { id } }"},
+        )
+
+        assert response.json()["data"]["auditLog"] == []
+
+    def test_a_positive_limit_still_works(self, client, db):
+        for index in range(3):
+            crud.record_audit(db, f"action{index}", role=audit.ActorRole.OPERATOR.value)
+
+        response = client.post(
+            "/graphql",
+            json={"query": "{ auditLog(limit: 2) { id } }"},
+        )
+
+        assert len(response.json()["data"]["auditLog"]) == 2
+
+
 @pytest.mark.usefixtures("locked_install")
 class TestWhoMayRead:
     """`RolePolicyExtension` guards mutations, and this is a query.

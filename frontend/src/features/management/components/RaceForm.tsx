@@ -260,7 +260,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         id="race-global-start"
                         type="number"
                         value={formData.global_start_number}
-                        onChange={e => handleChange('global_start_number', parseInt(e.target.value))}
+                        onChange={e => handleChange('global_start_number', parseInt(e.target.value) || 1)}
                         style={inputStyle}
                         placeholder="e.g. 1"
                     />
