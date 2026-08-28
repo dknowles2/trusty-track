@@ -101,6 +101,12 @@ them.
 - **Move to den**: Batch change the den assignment for selected racers, or move them to Unassigned.
 - **Delete**: Remove selected racers from the race.
 
+Check In, Auto number and Move to den leave your selection in place afterward,
+so you can select a group once and run through several of them in a row —
+select everyone, auto-number, then check them in, without re-ticking anything
+in between. Clear numbers and Delete clear the selection instead, since both
+remove something rather than adding to it.
+
 The **✕** on the right clears the selection and puts the bar away.
 
 ### Final Roster Review
