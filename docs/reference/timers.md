@@ -81,7 +81,7 @@ blank, Trusty Track still searches — for that timer only.
 | **Staged** | The start gate is closed with cars behind it. |
 | **Racing** | The gate opened and the timer is counting. |
 | **Results overdue** | The race started but no finish was reported — usually a car that never reached the finish line. **Force Results** makes the timer report what it has. |
-| **Fault** | The connection failed. The reason is shown on the page. |
+| **Fault** | The connection failed, or a heat's results could not be saved. The reason is shown on the page. If a heat just finished, its times are still shown — read them off the screen and enter them with **Override**. |
 
 ## The serial log
 

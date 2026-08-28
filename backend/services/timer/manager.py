@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import serial
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend import demo_mode
@@ -1000,6 +1001,38 @@ class TimerManager:
         self._stop_gate_polling()
         await self._transition(TimerState.IDLE)
 
+    async def _recording_failed(self, reason: str) -> None:
+        """A database error struck while writing a heat's results (#342).
+
+        The same shape as :meth:`_abandon_run` — the heat is disarmed and
+        ``_pending_results`` is deliberately kept, so the times stay on the
+        status (and in the merged ``heatSession`` view, laid over the heat's
+        still-unrecorded lanes) for the operator to read off the screen and
+        key in through Override, instead of vanishing. It lands in FAULT
+        rather than IDLE, unlike
+        `_abandon_run`'s two callers: those are the schedule changing
+        underneath an armed heat, which is routine enough that IDLE — ready
+        for the next heat — is the right resting state; a database write
+        failing is not routine, and FAULT is what the rest of the app already
+        uses to say "something needs the operator's attention" (`resetTimer`
+        clears it once they have).
+
+        What must not happen is the exception reaching ``receive_bytes`` /
+        ``_process_line``. On backend-direct serial that kills ``_read_loop``
+        and drops the port; over the proxy it reaches ``main.py``'s generic
+        WebSocket handler, which closes the socket. Either way the whole timer
+        link goes down over a write failure that has nothing to do with the
+        hardware — so this is called from inside a ``try`` around the
+        recording step instead of letting it propagate.
+        """
+        logger.error("Timer %d: %s", self._track_id, reason)
+        self._last_error = reason
+        self._active_heat_id = None
+        self._active_heat_kind = None
+        self._running_since = None
+        self._stop_gate_polling()
+        await self._transition(TimerState.FAULT)
+
     async def _record_results(self) -> None:
         """Persist accumulated lane results to the database and notify subscribers."""
         heat_id = self._active_heat_id
@@ -1011,50 +1044,63 @@ class TimerManager:
 
         db = self._session_factory()
         try:
-            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if heat is None:
-                await self._abandon_run(
-                    f"Heat {heat_id} no longer exists — results not recorded"
+            try:
+                heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+                if heat is None:
+                    await self._abandon_run(
+                        f"Heat {heat_id} no longer exists — results not recorded"
+                    )
+                    return
+
+                stale = self._armed_heat_is_stale(db, heat)
+                if stale is not None:
+                    await self._abandon_run(f"{stale} — results not recorded")
+                    return
+
+                # One path for both kinds since #6. A free race heat used to
+                # keep its schedule in `lane_assignments` and this had to know
+                # that; both now hold it in `lane_results`, written when the
+                # heat is created and filled in here.
+                heat_lanes = crud.heat_lanes_of(db, heat)
+                for lane in heat_lanes:
+                    result = self._pending_results.get(lane.lane)
+                    if result is not None:
+                        lane.time = result.time_seconds
+                        lane.place = result.place
+
+                logger.info(
+                    "Timer %d: recording %d timer results into %d lanes of %s heat %d",
+                    self._track_id,
+                    len(self._pending_results),
+                    len(heat_lanes),
+                    heat.kind.value.lower(),
+                    heat_id,
+                )
+
+                if heat.kind is models.HeatKind.FREE:
+                    # Deliberately not `record_heat_result`: that re-runs
+                    # advancement, and an exhibition run must not move a
+                    # championship field.
+                    crud.update_free_race_heat_result(
+                        db, heat_id, heat_lanes, source=audit.ResultSource.TIMER
+                    )
+                else:
+                    crud.record_heat_result(
+                        db, heat_id, heat_lanes, source=audit.ResultSource.TIMER
+                    )
+                race_id = heat.race_id
+            except SQLAlchemyError as e:
+                # A locked SQLite file or an integrity error, most plausibly —
+                # see the docstring on `_recording_failed` for why this must
+                # not simply raise. `_pending_results` is untouched, so the
+                # times are still on the status for the operator to key in by
+                # hand through Override.
+                db.rollback()
+                await self._recording_failed(
+                    f"Heat {heat_id}: results could not be saved ({e}) — "
+                    "the timer link is fine; enter the times with Override"
                 )
                 return
-
-            stale = self._armed_heat_is_stale(db, heat)
-            if stale is not None:
-                await self._abandon_run(f"{stale} — results not recorded")
-                return
-
-            # One path for both kinds since #6. A free race heat used to keep
-            # its schedule in `lane_assignments` and this had to know that;
-            # both now hold it in `lane_results`, written when the heat is
-            # created and filled in here.
-            heat_lanes = crud.heat_lanes_of(db, heat)
-            for lane in heat_lanes:
-                result = self._pending_results.get(lane.lane)
-                if result is not None:
-                    lane.time = result.time_seconds
-                    lane.place = result.place
-
-            logger.info(
-                "Timer %d: recording %d timer results into %d lanes of %s heat %d",
-                self._track_id,
-                len(self._pending_results),
-                len(heat_lanes),
-                heat.kind.value.lower(),
-                heat_id,
-            )
-
-            if heat.kind is models.HeatKind.FREE:
-                # Deliberately not `record_heat_result`: that re-runs
-                # advancement, and an exhibition run must not move a
-                # championship field.
-                crud.update_free_race_heat_result(
-                    db, heat_id, heat_lanes, source=audit.ResultSource.TIMER
-                )
-            else:
-                crud.record_heat_result(
-                    db, heat_id, heat_lanes, source=audit.ResultSource.TIMER
-                )
-            race_id = heat.race_id
         finally:
             db.close()
 
