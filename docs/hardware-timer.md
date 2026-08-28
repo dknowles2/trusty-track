@@ -97,7 +97,9 @@ track's panel.
 _A healthy timer: **Ready**, the device it identified itself as, and — in the yellow note — how well that device's support has actually been tested._
 
 **Ready** is what you want: the timer answered and is waiting for a heat.
-**Not connected** means check the cable and search again. Every other state
+**Not connected** means check the cable, then search again — or, if the timer
+is plugged into your laptop rather than the machine running Trusty Track,
+press **Connect Hardware Timer** on the same page. Every other state
 the page can show is explained in
 [the timer reference](reference/timers.md#what-each-state-means).
 
