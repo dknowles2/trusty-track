@@ -220,4 +220,39 @@ test('screenshot the awards screens', async ({ page }) => {
     await expect(page.getByText(/Still to be decided/i)).toBeVisible();
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05-ceremony-undecided.png') });
+
+    // The ready-made superlative picker (#306), on a fresh judged award —
+    // opened new rather than reusing the cancelled one above, since Modal
+    // unmounts its contents on close and a reopened AwardForm starts blank.
+    // Choosing one just writes an ordinary name (and, invisibly here, an
+    // artwork key) into the draft; both stay editable free-text fields
+    // afterward, which is what makes the filled name worth photographing
+    // rather than the dropdown's own options.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/race/${raceId}/awards`);
+    await expect(page.getByText('Fastest Car')).toBeVisible();
+    await page.getByRole('button', { name: 'Add an award' }).click();
+    await expect(page.getByLabel('Award name')).toBeVisible();
+    await page
+        .getByLabel('Start from a ready-made award')
+        .selectOption({ label: 'Most Aerodynamic' });
+    await expect(page.getByLabel('Award name')).toHaveValue('Most Aerodynamic');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06-award-template-picker.png') });
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    // The printable certificates (#306): one per award, in the ceremony's own
+    // running order. `fullPage` rather than a viewport crop, because the
+    // point of this picture is the variety down the stack — the speed awards
+    // carry the trophy or medal artwork their rule computed, and the two
+    // judged awards are still undecided, so each prints with a blank line
+    // rather than being left out of the batch.
+    await page.goto(`/race/${raceId}/print/certificates`);
+    await expect(page.getByTestId('certificates')).toBeVisible();
+    await expect(page.getByText('Fastest Car')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await page.screenshot({
+        path: path.join(SCREENSHOT_DIR, '07-certificates.png'),
+        fullPage: true,
+    });
 });
