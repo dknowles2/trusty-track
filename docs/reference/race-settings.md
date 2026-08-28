@@ -52,7 +52,7 @@ both.
 | Field | What it does |
 | --- | --- |
 | **Track Name** | Names it in race forms and settings |
-| **Lanes** | How many lanes the track has. Schedules are built for this |
+| **Lanes** | How many lanes the track has. Schedules are built for this — lowering it mid-event brings existing heats into line, see [turning down a track's lane count](mid-race-changes.md#turning-down-a-tracks-lane-count) |
 | **Length (Feet)** | Recorded for reference |
 | **Timer Type** | Fake, plugged into this machine, or plugged into the laptop running the browser — see [Timers](timers.md#the-three-timer-types) |
 | **Serial Port** | Almost always blank. Fill it only to force a specific port; it is then used exactly as typed |

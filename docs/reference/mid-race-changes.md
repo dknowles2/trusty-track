@@ -72,6 +72,16 @@ rather than by appointment.
   with no working lanes generates no schedule at all, and the settings page
   says so.
 
+## Turning down a track's lane count
+
+**Settings → Tracks → Lanes** — lowering the number and pressing
+**Save Settings** is brought into line the same way a lane going out of
+service is, following the same table above: a round nobody has raced is
+rebuilt for the lanes that remain, a round part-way through keeps its
+recorded heats and has the lane it no longer has dropped from what is still
+to come (set aside in a points race, same as above), and a finished round is
+untouched.
+
 ## Skipping a heat
 
 **Skip Heat** passes over the current heat without racing it — for when
