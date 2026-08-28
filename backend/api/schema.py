@@ -3494,7 +3494,11 @@ class Mutation:
         if not race:
             raise ValueError("Race not found")
 
-        f = io.StringIO(csv_data)
+        # Excel writes a UTF-8 BOM on every "CSV UTF-8" save. Left in place it
+        # sticks to the first header (`﻿first_name`), which never matches
+        # `first_name` in `get_val` below, so every row is silently skipped
+        # and the mutation returns 0 with no error.
+        f = io.StringIO(csv_data.lstrip("﻿"))
         reader = csv.DictReader(f)
         count = 0
 

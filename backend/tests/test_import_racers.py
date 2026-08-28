@@ -105,6 +105,20 @@ def test_a_row_with_no_name_is_skipped_and_not_counted(client, db, race):
     assert len(_racers(db, race.id)) == 1
 
 
+def test_a_leading_utf8_bom_does_not_hide_every_row(client, db, race):
+    """Excel writes a BOM on every "CSV UTF-8" save. Left attached to the
+    first header it never matched `first_name`, so `get_val` returned None
+    for every row and the import silently returned 0."""
+    count = _import(
+        client,
+        race.id,
+        "﻿first_name,last_name\nAlex,Rivera\n",
+    )
+
+    assert count == 1
+    assert _racers(db, race.id)[0].first_name == "Alex"
+
+
 def test_a_non_numeric_car_number_is_left_blank(client, db, race):
     _import(client, race.id, "first_name,last_name,car_number\nAlex,Rivera,A12\n")
 
