@@ -12,6 +12,7 @@ import type { Lane, LaneInput } from '../types';
 import { cleared, toInput } from '../lanes';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 
 const RESET_TIMER = `
   mutation ResetTimer($trackId: Int!) {
@@ -68,7 +69,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   trackId,
   onRunAnother,
 }) => {
-  const { showConfirm } = useAlert();
+  const { showConfirm, showAlert } = useAlert();
   const [results, setResults] = useState<Lane[] | null>(null);
   const lastPreparedIdRef = useRef<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -193,6 +194,14 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     });
 
     const res = await recordResult({ heatId, lanes: finalResults });
+    if (res.error) {
+      // The screen must not flip to "completed" showing times the server
+      // never stored — a viewer-role device holding no PIN, or a dropped
+      // connection, would otherwise disagree with the freeRaceHeat
+      // subscription for the rest of the session.
+      showAlert(errorText(res.error, 'The results could not be saved.'), 'Error');
+      return;
+    }
 
     setResults(res.data?.recordFreeRaceResult?.lanes ?? finalResults);
 
@@ -202,8 +211,18 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   const handleNextHeat = async () => {
     // If not completed, we should probably delete the current heat to avoid clutter
     if (!isCompleted) {
-      await deleteFreeRaceHeat({ heatId });
-      if (trackId) await resetTimer({ trackId });
+      const delRes = await deleteFreeRaceHeat({ heatId });
+      if (delRes.error) {
+        showAlert(errorText(delRes.error, 'The heat could not be deleted.'), 'Error');
+        return;
+      }
+      if (trackId) {
+        const resetRes = await resetTimer({ trackId });
+        if (resetRes.error) {
+          showAlert(errorText(resetRes.error, 'The timer could not be reset.'), 'Error');
+          return;
+        }
+      }
     }
     onRunAnother();
   };
@@ -224,12 +243,26 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
         // over from when the mutation took the blob as a string — the required
         // `lanes` variable was simply missing, so the server kept the old
         // times while the screen showed an empty heat.
-        await recordResult({ heatId, lanes: cleared(results ?? []) });
+        const clearRes = await recordResult({ heatId, lanes: cleared(results ?? []) });
+        if (clearRes.error) {
+          showAlert(errorText(clearRes.error, 'The results could not be cleared.'), 'Error');
+          return;
+        }
         setResults(null);
       }
       lastPreparedIdRef.current = null; // Allow re-prepare
-      if (trackId) await resetTimer({ trackId });
-      await prepareHeat({ heatId, isFreeRace: true });
+      if (trackId) {
+        const resetRes = await resetTimer({ trackId });
+        if (resetRes.error) {
+          showAlert(errorText(resetRes.error, 'The timer could not be reset.'), 'Error');
+          return;
+        }
+      }
+      const prepRes = await prepareHeat({ heatId, isFreeRace: true });
+      if (prepRes.error) {
+        showAlert(errorText(prepRes.error, 'The heat could not be armed.'), 'Error');
+        return;
+      }
       lastPreparedIdRef.current = heatId;
     }
   };
