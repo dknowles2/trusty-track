@@ -70,6 +70,15 @@ yourself when:
 Picking a model does not say where the timer is plugged in. With the port
 blank, Trusty Track still searches — for that timer only.
 
+## One connection at a time
+
+On the browser connection, whichever tab is connected *is* the timer. Opening
+Race Control on a second device, or reloading a tab before its old connection
+has closed, takes the timer over rather than sharing it: the newer connection
+wins, and the older one is disconnected with a message saying another
+connection took over. If a tab unexpectedly shows the timer as disconnected,
+check whether it is open somewhere else too.
+
 ## What each state means
 
 | State | What it means |

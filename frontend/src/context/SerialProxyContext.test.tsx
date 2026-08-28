@@ -77,13 +77,23 @@ class FakeSocket {
     sent: string[] = [];
     onopen: (() => void) | null = null;
     onmessage: ((e: { data: string }) => void) | null = null;
-    onclose: (() => void) | null = null;
+    onclose: ((e: { code: number; reason: string }) => void) | null = null;
     onerror: (() => void) | null = null;
 
     constructor(public url: string) { FakeSocket.last = this; }
 
     send(data: string) { this.sent.push(data); }
-    close() { this.readyState = 3; this.onclose?.(); }
+
+    /** This tab closing its own connection — no reason, as a real browser
+     * gives none for a locally-initiated close. */
+    close() { this.readyState = 3; this.onclose?.({ code: 1000, reason: '' }); }
+
+    /** The backend closing this connection and saying why — the role check,
+     * a track problem, or a second connection taking the timer over (#301). */
+    remoteClose(code: number, reason: string) {
+        this.readyState = 3;
+        this.onclose?.({ code, reason });
+    }
 
     /** Deliver a message from the backend, and let its handler settle. */
     async deliver(message: object) {
@@ -98,10 +108,11 @@ class FakeSocket {
 }
 
 const Consumer = () => {
-    const { connect, status } = useSerialProxy();
+    const { connect, status, errorMsg } = useSerialProxy();
     return (
         <div>
             <span data-testid="status">{status}</span>
+            <span data-testid="error">{errorMsg}</span>
             <button onClick={() => connect(1)}>connect</button>
         </div>
     );
@@ -216,5 +227,46 @@ describe('relaying', () => {
 
         await waitFor(() => expect(ws.messages('serial_rx')).toHaveLength(1));
         expect(ws.messages('serial_rx')[0].data).toBe(btoa('@'));
+    });
+});
+
+describe('a server-initiated close', () => {
+    // A second tab or device connecting to the same track takes the timer
+    // over (#301) rather than sharing it silently — the outgoing connection
+    // is closed with a reason, and it needs to say so rather than reading
+    // like an ordinary, unremarkable disconnect.
+    it('surfaces the close reason as an error rather than a plain disconnect', async () => {
+        const ws = await connect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        await act(async () => {
+            ws.remoteClose(4000, 'Another connection took over this timer');
+        });
+
+        expect(screen.getByTestId('status')).toHaveTextContent('error');
+        expect(screen.getByTestId('error')).toHaveTextContent(
+            'Another connection took over this timer',
+        );
+    });
+
+    it('surfaces a role refusal the same way', async () => {
+        const ws = await connect();
+
+        await act(async () => {
+            ws.remoteClose(4403, 'Operator PIN required');
+        });
+
+        expect(screen.getByTestId('status')).toHaveTextContent('error');
+        expect(screen.getByTestId('error')).toHaveTextContent('Operator PIN required');
+    });
+
+    it('still reports a plain disconnect for this tab closing its own connection', async () => {
+        const ws = await connect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        await act(async () => { ws.close(); });
+
+        expect(screen.getByTestId('status')).toHaveTextContent('disconnected');
+        expect(screen.getByTestId('error')).toHaveTextContent('');
     });
 });

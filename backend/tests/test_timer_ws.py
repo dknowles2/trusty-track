@@ -3,8 +3,9 @@ import base64
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import WebSocketDisconnect
 
-from backend.api.main import TIMER_MANAGERS
+from backend.api.main import TIMER_MANAGERS, TIMER_WS_CONNECTIONS, timer_websocket
 from backend.db import crud, models, schemas
 from backend.services.timer.devices import MICROWIZARD
 from backend.services.timer.manager import TimerManager
@@ -114,3 +115,151 @@ async def test_timer_websocket_proxy_flow(client, proxy_track, db_session):
 
         # Should have called _record_results
         manager._record_results.assert_awaited_once()
+
+
+class _FakeProxyWebSocket:
+    """A minimal double for the parts of ``fastapi.WebSocket`` the endpoint
+    uses, driven directly from the test's own coroutine — via ``asyncio.
+    create_task`` on the test's own event loop — rather than through two
+    independent ``TestClient`` websocket sessions.
+
+    Two real proxy connections share nothing but the track's ``TimerManager``,
+    and a ``TestClient`` websocket session runs its connection on its own
+    dedicated thread and event loop unless the client itself is entered as a
+    context manager. Driving both connections as plain tasks on one loop is
+    what a real server actually does — one process, one loop, concurrent
+    connections as coroutines rather than threads — and it is what lets
+    ``manager._event_lock`` (an ``asyncio.Lock``) and the ``ProxySession``
+    tasks be touched from both "connections" without a cross-loop hazard that
+    two TestClient portals would add and that no production server has.
+    """
+
+    def __init__(self) -> None:
+        self.query_params: dict[str, str] = {}
+        self._inbound: asyncio.Queue = asyncio.Queue()
+        self._outbound: asyncio.Queue = asyncio.Queue()
+        self.close_code: int | None = None
+        self.close_reason: str | None = None
+
+    # -- the fastapi.WebSocket surface the endpoint uses --
+
+    async def accept(self) -> None:
+        pass
+
+    async def close(self, code: int = 1000, reason: str | None = None) -> None:
+        self.close_code = code
+        self.close_reason = reason
+        # A close the app initiates ends its own receive loop too, exactly as
+        # a real ASGI server eventually delivers a disconnect once the close
+        # completes.
+        await self._inbound.put(_CLOSE)
+
+    async def send_json(self, data: dict) -> None:
+        await self._outbound.put(data)
+
+    async def receive_json(self) -> dict:
+        item = await self._inbound.get()
+        if item is _CLOSE:
+            raise WebSocketDisconnect(
+                code=self.close_code or 1000, reason=self.close_reason or ""
+            )
+        return item
+
+    # -- the browser's half, driven by the test --
+
+    async def deliver(self, message: dict) -> None:
+        await self._inbound.put(message)
+
+    async def recv(self) -> dict:
+        return await self._outbound.get()
+
+    async def hang_up(self) -> None:
+        """Simulate the browser tab closing this connection on its own."""
+        await self._inbound.put(_CLOSE)
+
+
+_CLOSE = object()
+
+
+async def _identify_microwizard(ws: _FakeProxyWebSocket) -> None:
+    """Drive one proxy connection through the identification handshake to a
+    Micro Wizard banner, exactly as ``test_timer_websocket_proxy_flow`` does
+    over a real ``TestClient`` socket, but against the fake above."""
+    configure = await ws.recv()
+    assert configure["type"] == "configure"
+    await ws.deliver({"type": "ready"})
+
+    probe_msg = await ws.recv()
+    assert base64.b64decode(probe_msg["data"]) == b"RV"
+
+    await ws.deliver(
+        {
+            "type": "serial_rx",
+            "data": base64.b64encode(
+                b"Copyright (c) Micro Wizard 2002-2009\r"
+                b"K2 Version 2.3A  Serial Number29284\r"
+            ).decode("utf-8"),
+        }
+    )
+
+    assert base64.b64decode((await ws.recv())["data"]) == b"N1"
+    assert base64.b64decode((await ws.recv())["data"]) == b"N2"
+
+
+@pytest.mark.anyio
+async def test_a_second_connection_takes_over_the_timer(proxy_track, db_session):
+    """A second proxy connection for the same track (#301): the first is told
+    why it lost the timer, with an explicit reason rather than a silent
+    disconnect, and the second is the one whose commands actually reach the
+    device from then on."""
+    track_id = proxy_track.id
+    manager = TimerManager(track_id, MICROWIZARD)
+    manager._active_heat_id = None
+    TIMER_MANAGERS[track_id] = manager
+
+    ws1 = _FakeProxyWebSocket()
+    ws2 = _FakeProxyWebSocket()
+
+    with patch("backend.api.main.SessionLocal", return_value=db_session):
+        task1 = asyncio.create_task(timer_websocket(ws1, track_id))
+        await _identify_microwizard(ws1)
+        await asyncio.sleep(0.1)
+        assert manager._state == TimerState.IDLE
+        first_registered_websocket = TIMER_WS_CONNECTIONS[track_id][0]
+        first_write_fn = manager._write_fn
+
+        task2 = asyncio.create_task(timer_websocket(ws2, track_id))
+
+        # The outgoing connection is closed with an explicit reason, not left
+        # to read as an ordinary, unremarkable disconnect — and its own
+        # handler runs to completion rather than hanging.
+        await asyncio.wait_for(task1, timeout=2)
+        assert ws1.close_code == 4000
+        assert ws1.close_reason == "Another connection took over this timer"
+
+        # The manager's write function was reset and reassigned, not left
+        # pointing at the connection that just lost the timer.
+        assert manager._write_fn is not first_write_fn
+
+        await _identify_microwizard(ws2)
+        await asyncio.sleep(0.1)
+        assert manager._state == TimerState.IDLE
+        assert manager._device is MICROWIZARD
+
+        # Commands go to the surviving connection.
+        manager._record_results = AsyncMock()
+        await manager.prepare_heat(
+            heat_id=1, kind=models.HeatKind.OFFICIAL, lane_mask=0b11
+        )
+        for expected in (b"MG", b"MC", b"MD", b"ME", b"MF", b"LR"):
+            msg = await ws2.recv()
+            assert msg["type"] == "serial_tx"
+            assert base64.b64decode(msg["data"]) == expected
+
+        # Only the surviving connection is registered as owning the timer.
+        assert TIMER_WS_CONNECTIONS[track_id][0] is not first_registered_websocket
+
+        # Clean up the second connection so its task does not outlive the test.
+        await ws2.hang_up()
+        await asyncio.wait_for(task2, timeout=2)
+        assert track_id not in TIMER_WS_CONNECTIONS
