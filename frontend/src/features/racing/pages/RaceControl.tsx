@@ -35,6 +35,7 @@ const GET_RACE_CONTROL_DATA = gql`
         id
         laneCount
         timerType
+        laneOutages
       }
       dens {
         id
@@ -711,6 +712,7 @@ export default function RaceControl() {
         <FreeRaceTab
           raceId={id}
           laneCount={race?.track?.laneCount ?? 4}
+          laneOutages={race?.track?.laneOutages ?? []}
           timerType={race?.track?.timerType ?? null}
           trackId={race?.track?.id ?? null}
           racers={racers}

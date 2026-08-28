@@ -161,7 +161,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `displays(raceId)` — Audience displays known for this race, connected or not. Presence is in-memory (see below), so this is not a database read.
 -   `timerModels()` — The timer models an operator can pick from, with the provenance of each profile. The fake timer is deliberately absent: it is reachable by `timer_type`, and offering it as a *model* would let a track ask for a fake timer over a real serial port.
 -   `heatSession(trackId, heatId)` — What is on the track right now (see below).
--   `freeRaceHeats(raceId)`, `activeFreeRaceHeat(raceId)`, `randomFreeRaceLanes(raceId, shuffle)`
+-   `freeRaceHeats(raceId)`, `activeFreeRaceHeat(raceId)`, `randomFreeRaceLanes(raceId, shuffle, enabledLanes)` — the draw runs over the race's usable lanes (`usable_lanes_for_race`, #171); `enabledLanes` narrows it further to a session-only subset the Free Race screen's per-lane toggle asks for (#303), and is intersected against usable rather than trusted outright
 -   `version` — Running application version.
 
 **GraphQL Mutations:**

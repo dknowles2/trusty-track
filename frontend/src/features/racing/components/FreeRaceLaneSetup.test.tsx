@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useQuery } from 'urql';
@@ -28,7 +28,18 @@ const mockRacers = [
 
 const StatefulWrapper: React.FC<any> = (props) => {
   const [mode, setMode] = React.useState<Mode>('random');
-  return <FreeRaceLaneSetup {...props} mode={mode} onModeChange={setMode} />;
+  const [disabledLanes, setDisabledLanes] = React.useState<number[]>(props.disabledLanes ?? []);
+  const onToggleLane = (lane: number) =>
+    setDisabledLanes((prev) => (prev.includes(lane) ? prev.filter((l) => l !== lane) : [...prev, lane]));
+  return (
+    <FreeRaceLaneSetup
+      {...props}
+      mode={mode}
+      onModeChange={setMode}
+      disabledLanes={disabledLanes}
+      onToggleLane={onToggleLane}
+    />
+  );
 };
 
 describe('FreeRaceLaneSetup', () => {
@@ -41,6 +52,7 @@ describe('FreeRaceLaneSetup', () => {
   const defaultProps = {
     raceId: 1,
     laneCount: 4,
+    laneOutages: [],
     onStart: mockOnStart,
     racers: racersMap,
     timerType: 'FAKE',
@@ -71,10 +83,11 @@ describe('FreeRaceLaneSetup', () => {
   it('displays lane assignments returned by the randomFreeRaceLanes query', async () => {
     render(<StatefulWrapper {...defaultProps} />);
     await waitFor(() => {
-      expect(screen.getByText('Lane 1')).toBeInTheDocument();
-      expect(screen.getByText('Lane 2')).toBeInTheDocument();
-      expect(screen.getByText('Lane 3')).toBeInTheDocument();
-      expect(screen.getByText('Lane 4')).toBeInTheDocument();
+      const cards = within(screen.getByTestId('lane-cards'));
+      expect(cards.getByText('Lane 1')).toBeInTheDocument();
+      expect(cards.getByText('Lane 2')).toBeInTheDocument();
+      expect(cards.getByText('Lane 3')).toBeInTheDocument();
+      expect(cards.getByText('Lane 4')).toBeInTheDocument();
     });
     // Racer Names are shown in random mode
     expect(screen.getByText(/Alice Smith/)).toBeInTheDocument();
@@ -96,13 +109,13 @@ describe('FreeRaceLaneSetup', () => {
     });
 
     render(<StatefulWrapper {...defaultProps} />);
-    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 0 });
+    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 0, enabledLanes: [1, 2, 3, 4] });
 
     fireEvent.click(screen.getByRole('button', { name: /Re-shuffle/i }));
-    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 1 });
+    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 1, enabledLanes: [1, 2, 3, 4] });
 
     fireEvent.click(screen.getByRole('button', { name: /Re-shuffle/i }));
-    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 2 });
+    expect(seen[seen.length - 1]).toEqual({ raceId: 1, shuffle: 2, enabledLanes: [1, 2, 3, 4] });
   });
 
   it('a new draw replaces the lanes on screen', async () => {
@@ -209,7 +222,7 @@ describe('FreeRaceLaneSetup', () => {
     // Not the empty-lane wording the other modes use: a lane here is unnamed,
     // not empty.
     expect(screen.queryByText(/\(empty\)/i)).not.toBeInTheDocument();
-    expect(screen.getByText('Lane 4')).toBeInTheDocument();
+    expect(within(screen.getByTestId('lane-cards')).getByText('Lane 4')).toBeInTheDocument();
     expect(screen.queryAllByRole('combobox')).toHaveLength(0);
     // The draw's racers belong to the other modes, not this one.
     expect(screen.queryByText(/Alice Smith/)).not.toBeInTheDocument();
@@ -272,5 +285,89 @@ describe('FreeRaceLaneSetup', () => {
   it('displays the results-do-not-affect-standings banner', () => {
     render(<StatefulWrapper {...defaultProps} />);
     expect(screen.getByText(/results do not affect standings/i)).toBeInTheDocument();
+  });
+
+  describe('per-lane toggle (#303)', () => {
+    it('a lane out of service is shown locked and cannot be toggled', () => {
+      render(<StatefulWrapper {...defaultProps} laneOutages={[3]} />);
+      const lane3 = screen.getByRole('checkbox', { name: /Lane 3/i });
+      expect(lane3).toBeDisabled();
+      expect(lane3).not.toBeChecked();
+    });
+
+    it('switching a lane off removes it from the random draw\'s query variables', () => {
+      const seen: unknown[] = [];
+      (useQuery as any).mockImplementation(({ query, variables }: any) => {
+        if (query.includes('randomFreeRaceLanes')) {
+          seen.push(variables);
+          return [mockResult, mockReExecute];
+        }
+        return [emptyResult, vi.fn()];
+      });
+
+      render(<StatefulWrapper {...defaultProps} />);
+      fireEvent.click(screen.getByRole('checkbox', { name: /Lane 3/i }));
+
+      expect(seen[seen.length - 1]).toEqual({
+        raceId: 1,
+        shuffle: 0,
+        enabledLanes: [1, 2, 4],
+      });
+    });
+
+    it('anonymous mode leaves out a lane switched off for the session', async () => {
+      render(<StatefulWrapper {...defaultProps} />);
+      fireEvent.click(screen.getByRole('checkbox', { name: /Lane 3/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Anonymous/i }));
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Any car')).toHaveLength(3);
+      });
+      expect(within(screen.getByTestId('lane-cards')).queryByText(/^Lane 3$/)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Start Anonymous Heat/i }));
+      expect(mockOnStart).toHaveBeenCalledWith([
+        { id: 'anonymous-1', lane: 1, racerId: null },
+        { id: 'anonymous-2', lane: 2, racerId: null },
+        { id: 'anonymous-4', lane: 4, racerId: null },
+      ]);
+    });
+
+    it('a lane out of service is left out of an anonymous heat the same way', async () => {
+      render(<StatefulWrapper {...defaultProps} laneOutages={[3]} />);
+      fireEvent.click(screen.getByRole('button', { name: /Anonymous/i }));
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Any car')).toHaveLength(3);
+      });
+      expect(within(screen.getByTestId('lane-cards')).queryByText(/^Lane 3$/)).not.toBeInTheDocument();
+    });
+
+    it('manual mode drops a select for a lane switched off, keeping the rest', async () => {
+      render(<StatefulWrapper {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /Manual/i }));
+      await waitFor(() => {
+        expect(screen.getAllByRole('combobox')).toHaveLength(4);
+      });
+
+      fireEvent.click(screen.getByRole('checkbox', { name: /Lane 3/i }));
+
+      await waitFor(() => {
+        expect(screen.getAllByRole('combobox')).toHaveLength(3);
+      });
+      expect(within(screen.getByTestId('lane-cards')).queryByText(/^Lane 3$/)).not.toBeInTheDocument();
+    });
+
+    it('turning off every lane disables Start and explains why', async () => {
+      render(<StatefulWrapper {...defaultProps} laneCount={1} />);
+      fireEvent.click(screen.getByRole('checkbox', { name: /Lane 1/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/No lanes are enabled/i)).toBeInTheDocument();
+      });
+      expect(
+        screen.getByRole('button', { name: /Start (Free Race|Anonymous) Heat/i })
+      ).toBeDisabled();
+    });
   });
 });

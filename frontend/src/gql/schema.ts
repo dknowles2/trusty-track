@@ -769,6 +769,7 @@ export type QueryRacesArgs = {
 
 
 export type QueryRandomFreeRaceLanesArgs = {
+  enabledLanes?: InputMaybe<Array<Scalars['Int']['input']>>;
   raceId: Scalars['Int']['input'];
   shuffle?: Scalars['Int']['input'];
 };

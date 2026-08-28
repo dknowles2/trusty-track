@@ -1880,11 +1880,15 @@ class Query:
 
     @strawberry.field
     def random_free_race_lanes(
-        self, info: Info, race_id: int, shuffle: int = 0
+        self,
+        info: Info,
+        race_id: int,
+        shuffle: int = 0,
+        enabled_lanes: list[int] | None = None,
     ) -> list[FreeRaceLaneAssignment]:
         """
-        Return a random lane assignment for the race's track lane count,
-        using only checked-in racers. Frontend can display this as a preview
+        Return a random lane assignment over the race's usable lanes, using
+        only checked-in racers. Frontend can display this as a preview
         before the operator commits to starting the heat.
 
         ``shuffle`` counts the re-shuffles the operator has asked for, and it
@@ -1894,12 +1898,24 @@ class Query:
         nothing at all. Counting the draws keys each one separately, so a
         re-shuffle really re-shuffles while the *first* draw a screen shows
         stays the fixed one the screenshots and the demo want.
+
+        ``enabled_lanes`` narrows the draw to a subset of the race's usable
+        lanes (#303) — the Free Race screen's per-lane toggle is session-only
+        and lives entirely on the client, so this is how a temporarily
+        disabled lane keeps out of the preview without ever being written
+        anywhere. Absent means every usable lane; a lane out of service is
+        never offered even if named here, since usability is still decided
+        by ``usable_lanes_for_race`` rather than trusted from the caller.
         """
         db = info.context["db"]
-        race = db.query(models.Race).filter(models.Race.id == race_id).first()
-        lane_count = race.track.lane_count if race and race.track else 4
+        usable = crud.usable_lanes_for_race(db, race_id)
+        lane_numbers = (
+            [lane for lane in enabled_lanes if lane in usable]
+            if enabled_lanes is not None
+            else usable
+        )
         assignments = crud.get_random_lane_assignments(
-            db, race_id, lane_count, shuffle=shuffle
+            db, race_id, lane_numbers, shuffle=shuffle
         )
         return [
             FreeRaceLaneAssignment(lane=a["lane"], racer_id=a["racer_id"])
@@ -2940,19 +2956,26 @@ class Mutation:
 
         lane_mask = 0
         racer_by_lane: dict[int, int | None] = {}
-        for lane in _stored_lanes(db, heat):
+        stored = _stored_lanes(db, heat)
+        for lane in stored:
             if lane.racer_id is not None:
                 lane_mask |= 1 << (lane.lane - 1)
                 racer_by_lane[lane.lane] = lane.racer_id
 
         if lane_mask == 0 and heat.kind is models.HeatKind.FREE:
-            # A free heat with nobody assigned arms the whole track: the point
-            # of an exhibition run is to time whatever is on it.
-            track = (
-                db.query(models.Track).filter(models.Track.id == race.track_id).first()
-            )
-            if track:
-                lane_mask = (1 << track.lane_count) - 1
+            # A free heat with nobody assigned arms every lane the heat itself
+            # holds — anonymous mode, or manual/random left entirely empty —
+            # the point of an exhibition run is to time whatever is on it.
+            # Reading the stored rows rather than `track.lane_count` (#303) is
+            # what makes this honour a lane out of service and the Free Race
+            # screen's temporary per-lane toggle: neither ever gets a row, so
+            # neither is in `stored`. Fall back to the race's usable lanes
+            # only if the heat somehow holds no rows at all.
+            stored_lane_numbers = {lane.lane for lane in stored}
+            if not stored_lane_numbers:
+                stored_lane_numbers = set(crud.usable_lanes_for_race(db, race.id))
+            for lane_num in stored_lane_numbers:
+                lane_mask |= 1 << (lane_num - 1)
 
         if lane_mask == 0:
             return False
@@ -2997,18 +3020,17 @@ class Mutation:
         if mgr._state != TimerState.RUNNING or mgr._active_heat_id != heat_id:
             return False
 
-        occupied = [
-            lane.lane for lane in _stored_lanes(db, heat) if lane.racer_id is not None
-        ]
+        stored = _stored_lanes(db, heat)
+        occupied = [lane.lane for lane in stored if lane.racer_id is not None]
         if not occupied:
-            # If no racers are assigned (e.g., anonymous free race),
-            # generate results for all lanes.
-            track = (
-                db.query(models.Track).filter(models.Track.id == race.track_id).first()
-            )
-            if not track:
-                return False
-            occupied = list(range(1, track.lane_count + 1))
+            # If no racers are assigned (e.g., anonymous free race), generate
+            # results for every lane the heat holds — which already excludes
+            # anything out of service or temporarily disabled (#303), since
+            # neither ever got a row. Fall back to the race's usable lanes
+            # only if the heat somehow holds no rows at all.
+            occupied = sorted(
+                {lane.lane for lane in stored}
+            ) or crud.usable_lanes_for_race(db, race.id)
 
         # Times, fastest first, so the enumeration below is the placement.
         # Keyed on the heat rather than drawn from a running sequence — see
