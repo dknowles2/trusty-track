@@ -170,6 +170,16 @@ describe('the award ceremony', () => {
     expect(document.querySelectorAll('svg[role="img"]')).toHaveLength(0);
   });
 
+  it('draws the artwork in the dark-background palette — the slide is navy (#400)', () => {
+    // The slide paints its own background in `--scouting-blue`; the artwork
+    // must not stroke its outlines in the same colour, or they vanish into
+    // the wall behind them, which is what shipped in #378.
+    renderCeremony();
+    const svg = document.querySelector('svg[role="img"]')!;
+    expect(svg.innerHTML).not.toContain('var(--scouting-blue');
+    expect(svg.innerHTML).toContain('#ffffff');
+  });
+
   it('does not claim there are no awards while it is still loading', () => {
     // The empty state and the loading state look identical otherwise, and this
     // one goes on a projector in front of a room.

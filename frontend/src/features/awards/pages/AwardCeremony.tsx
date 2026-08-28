@@ -161,7 +161,10 @@ export default function AwardCeremony() {
               the slide is exactly as it was before this existed. */}
           {slide.artworkKey && (
             <div style={{ margin: '3vh 0 1vh' }}>
-              <AwardArtwork artworkKey={slide.artworkKey} size={140} />
+              {/* dark: the slide's background is the same navy the artwork's
+                  outlines default to (#400) — without this every line in the
+                  icon matches the wall behind it. */}
+              <AwardArtwork artworkKey={slide.artworkKey} size={140} variant="dark" />
             </div>
           )}
 
