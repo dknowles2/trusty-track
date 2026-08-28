@@ -42,7 +42,13 @@ The same as the fastest overall, from the other end — the Slowest Race.
 
 ## How the line-up fills in
 
-- A championship round starts out showing **To be decided** in each lane.
+- Until it fills in, an undecided lane reads differently depending on where
+  you're looking: the schedule (Race Control → Schedule) shows
+  **Placeholder 1**, **Placeholder 2** and so on; Race Control's heat view
+  shows **Top 1**, **Top 2** (**Slowest 1**, **Slowest 2**… for
+  [the Slowest Race](#the-slowest-cars)); and the printed
+  [heat sheet](printing.md#the-heat-sheet) reads **To be decided** — it's the
+  only one of the three meant to be written on.
 - It fills itself the moment the racing that decides it is finished. There
   is no button.
 - One created *after* its deciding racing already finished fills in

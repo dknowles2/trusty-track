@@ -111,9 +111,11 @@ immediately.
 
 ### Things the app takes care of
 
-- **The right cars appear on their own.** A championship round starts out
-  showing "To be decided" in each lane, and fills itself the moment the
-  racing that decides it is finished — no button to press.
+- **The right cars appear on their own.** An undecided lane is a
+  placeholder rather than a blank — see
+  [How the line-up fills in](reference/championship-rounds.md#how-the-line-up-fills-in)
+  for what each screen shows — and it fills itself the moment the racing
+  that decides it is finished, no button to press.
 - **Fixing a time fixes the final.** A championship round not yet raced
   re-picks its cars; one already raced shows a **Line-up out of date** badge
   instead, so you decide.
