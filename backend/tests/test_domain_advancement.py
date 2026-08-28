@@ -13,6 +13,7 @@ from backend.domain.advancement import (
     Standing,
     advancing_racer_ids,
     field_is_short,
+    field_is_stale,
     field_size,
     is_round_complete,
     may_rebuild,
@@ -327,6 +328,48 @@ def test_scheduled_participant_count_keeps_racers_and_slots_apart():
 
 def test_scheduled_participant_count_ignores_empty_lanes():
     assert scheduled_participant_count([[Lane(lane=1, racer_id=None)]]) == 0
+
+
+# --------------------------------------------------------------------------- #
+# `field_is_stale` — the "Line-up out of date" rule (#229, extracted #433)     #
+# --------------------------------------------------------------------------- #
+
+
+def test_an_unraced_round_is_never_stale():
+    """An unraced round is re-fielded by invalidation the moment the
+    standings move, so a mismatch here is a bug, not a state to report."""
+    heats = [[Lane(lane=1, racer_id=1, time=None), Lane(lane=2, racer_id=2)]]
+    assert not field_is_stale(heats, winner_ids={7, 8})
+
+
+def test_a_raced_round_matching_the_standings_is_not_stale():
+    heats = [[Lane(lane=1, racer_id=1, time=12.3), Lane(lane=2, racer_id=2, time=13.1)]]
+    assert not field_is_stale(heats, winner_ids={1, 2})
+
+
+def test_a_raced_round_whose_field_has_drifted_is_stale():
+    """A prelim correction moved who qualifies; the final still holds the old
+    field."""
+    heats = [[Lane(lane=1, racer_id=1, time=12.3), Lane(lane=2, racer_id=2, time=13.1)]]
+    assert field_is_stale(heats, winner_ids={1, 3})
+
+
+def test_comparison_is_by_set_not_by_order():
+    """Lane order is the scheduler's business, not part of what "the same
+    field" means."""
+    heats = [[Lane(lane=1, racer_id=2, time=13.1), Lane(lane=2, racer_id=1, time=12.3)]]
+    assert not field_is_stale(heats, winner_ids={1, 2})
+
+
+def test_a_round_still_holding_only_placeholders_is_not_stale():
+    """No real racer has been placed yet, so there is no field to have
+    drifted from — even if some lane already carries a time."""
+    heats = [[Lane(lane=1, placeholder_slot=1, time=9.999)]]
+    assert not field_is_stale(heats, winner_ids={1, 2})
+
+
+def test_a_round_with_no_heats_is_not_stale():
+    assert not field_is_stale([], winner_ids={1, 2})
 
 
 def test_a_pack_field_is_the_number_asked_for():

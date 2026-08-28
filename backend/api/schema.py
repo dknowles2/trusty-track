@@ -413,22 +413,15 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
     # A raced championship round whose field has drifted from the standings.
     # Only a *raced* round can be stale: an unraced one is re-fielded by
     # invalidation (or withdrawal) the moment the standings move, so a
-    # mismatch there is a bug, not a state. Sets, not lists — lane order is
-    # the scheduler's business.
+    # mismatch there is a bug, not a state. See domain.advancement.field_is_stale
+    # for the rule itself (#433).
     field_is_stale = False
     if round_obj.advancement_source is not None and already_advanced and winner_ids:
         round_lanes = [
             loaders.lane_values_for_heat(race_id, heat.id)
             for heat in loaders.heats_for_round(race_id, round_id)
         ]
-        actual_field = {
-            lane.racer_id
-            for heat_lanes in round_lanes
-            for lane in heat_lanes
-            if lane.racer_id is not None
-        }
-        raced = any(lanes.has_results(heat_lanes) for heat_lanes in round_lanes)
-        field_is_stale = raced and bool(actual_field) and actual_field != winner_ids
+        field_is_stale = advancement.field_is_stale(round_lanes, winner_ids)
 
     return AdvancementStatus(
         is_ready=is_ready,
@@ -1488,31 +1481,33 @@ class AuditLogEntry:
         # duck-typed shells. So this reads the column rather than recursing.
         return self.source_ip  # type: ignore[attr-defined,no-any-return]
 
+    def _entry(self):
+        """The domain `Entry` this row describes.
+
+        `summary` and `noteworthy` each need one built from `self`; sharing the
+        construction is what keeps them in step if `Entry` grows a field —
+        two independent copies is how one of them would quietly stop getting
+        it. `noteworthy` reads neither `race_id` nor `details`, but there is
+        no cheaper `Entry` to hand it than the real one.
+        """
+        return audit.Entry(
+            action=self.action,
+            role=audit.ActorRole(self.role),
+            at=self.at,
+            outcome=audit.Outcome(self.outcome),
+            race_id=self.race_id,
+            details=json.loads(self.details) if self.details else {},
+        )
+
     @strawberry.field
     def summary(self) -> str:
         """The sentence to show, rendered from this entry alone."""
-        return audit.describe(
-            audit.Entry(
-                action=self.action,
-                role=audit.ActorRole(self.role),
-                at=self.at,
-                outcome=audit.Outcome(self.outcome),
-                race_id=self.race_id,
-                details=json.loads(self.details) if self.details else {},
-            )
-        )
+        return audit.describe(self._entry())
 
     @strawberry.field
     def noteworthy(self) -> bool:
         """Whether this one deserves attention rather than merely a line."""
-        return audit.is_noteworthy(
-            audit.Entry(
-                action=self.action,
-                role=audit.ActorRole(self.role),
-                at=self.at,
-                outcome=audit.Outcome(self.outcome),
-            )
-        )
+        return audit.is_noteworthy(self._entry())
 
 
 @strawberry.type
@@ -2787,7 +2782,6 @@ class Mutation:
     ) -> list[Round]:
         """Create rounds using the wizard logic."""
         db = info.context["db"]
-        # Logic replicated from main.py's create_race_wizard
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if not race:
             raise ValueError("Race not found")
