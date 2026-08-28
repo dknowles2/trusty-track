@@ -13,7 +13,7 @@ import { FreeRaceTab } from '../components/FreeRaceTab';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
-import { hasRun, hasTimes, byPlace, cleared } from '../lanes';
+import { hasRun, hasTimes, byPlace, cleared, assignPlaces } from '../lanes';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { shouldShowReadiness } from '../readiness';
 
@@ -325,28 +325,11 @@ export default function RaceControl() {
           const heat = heats.find((h: Heat) => h.id === heatId);
           if (!heat) return;
 
-          const sortedResults = results.map(r => ({ ...r }));
-
-          // Only assign places if at least one racer has a time
-          const hasAnyTime = sortedResults.some(r => r.time !== null);
-
-          if (hasAnyTime) {
-              sortedResults.sort((a, b) => (a.time ?? 9999) - (b.time ?? 9999));
-
-              sortedResults.forEach((r, idx) => {
-                  r.skipped = false; // Always clear skipped flag if we have times
-                  r.place = r.time !== null ? idx + 1 : null;
-              });
-          } else {
-              // If no times (e.g. Skip Heat), clear all places
-              sortedResults.forEach(r => {
-                  r.place = null;
-              });
-          }
+          const placedResults = assignPlaces(results);
 
           const result = await updateHeatResultMutation({
               heatId,
-              lanes: sortedResults,
+              lanes: placedResults,
           });
           if (result.error) throw result.error;
 

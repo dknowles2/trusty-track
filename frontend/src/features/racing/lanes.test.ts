@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { hasTimes, hasRun, wasSkipped, byPlace } from './lanes';
+import { hasTimes, hasRun, wasSkipped, byPlace, assignPlaces, toInput } from './lanes';
 import { lane } from './testFixtures';
+import type { LaneInput } from './types';
+
+const input = (over: Parameters<typeof lane>[0]): LaneInput => toInput(lane(over));
 
 /**
  * Issue #5. These predicates were eight inline copies of the same test before
@@ -61,5 +64,88 @@ describe('lane predicates', () => {
     const lanes = [lane({ lane: 1, place: 2 }), lane({ lane: 2, place: 1 })];
     byPlace(lanes);
     expect(lanes.map((l) => l.lane)).toEqual([1, 2]);
+  });
+});
+
+/**
+ * Issue #308. A recorded 0.0 is a DNF (backend/domain/scoring.py's rule: a
+ * time <= 0 gets no place), but the editor's ascending sort ranked it first —
+ * a routine hand-correction that touched no other lane handed the car that
+ * never crossed the sensor first place.
+ */
+describe('assignPlaces', () => {
+  it('ranks a normal heat by ascending time', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 5.2 }),
+      input({ lane: 2, racerId: 2, time: 3.1 }),
+      input({ lane: 3, racerId: 3, time: 4.0 }),
+    ];
+    const placed = assignPlaces(results);
+    expect(placed.find((r) => r.lane === 2)?.place).toBe(1);
+    expect(placed.find((r) => r.lane === 3)?.place).toBe(2);
+    expect(placed.find((r) => r.lane === 1)?.place).toBe(3);
+  });
+
+  it('a recorded 0.0 (a DNF) gets no place, and does not steal first', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 0 }),
+      input({ lane: 2, racerId: 2, time: 4.821 }),
+      input({ lane: 3, racerId: 3, time: 5.0 }),
+    ];
+    const placed = assignPlaces(results);
+    expect(placed.find((r) => r.lane === 1)?.place).toBeNull();
+    expect(placed.find((r) => r.lane === 2)?.place).toBe(1);
+    expect(placed.find((r) => r.lane === 3)?.place).toBe(2);
+  });
+
+  it('a negative time also gets no place', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: -1 }),
+      input({ lane: 2, racerId: 2, time: 4.0 }),
+    ];
+    const placed = assignPlaces(results);
+    expect(placed.find((r) => r.lane === 1)?.place).toBeNull();
+    expect(placed.find((r) => r.lane === 2)?.place).toBe(1);
+  });
+
+  it('an unrun lane (null time) gets no place', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 3.0 }),
+      input({ lane: 2, racerId: 2, time: null }),
+    ];
+    const placed = assignPlaces(results);
+    expect(placed.find((r) => r.lane === 1)?.place).toBe(1);
+    expect(placed.find((r) => r.lane === 2)?.place).toBeNull();
+  });
+
+  it('clears skipped once any lane has a time', () => {
+    const results = [input({ lane: 1, racerId: 1, time: 3.0, skipped: true })];
+    expect(assignPlaces(results)[0].skipped).toBe(false);
+  });
+
+  it('a heat with no recorded times at all clears every place', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, skipped: true }),
+      input({ lane: 2, racerId: 2, skipped: true }),
+    ];
+    const placed = assignPlaces(results);
+    expect(placed.every((r) => r.place === null)).toBe(true);
+    // Skip is the caller's own decision here, not this function's to touch.
+    expect(placed.every((r) => r.skipped === true)).toBe(true);
+  });
+
+  it('a heat that is entirely DNFs places nobody', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 0 }),
+      input({ lane: 2, racerId: 2, time: 0 }),
+    ];
+    const placed = assignPlaces(results);
+    expect(placed.every((r) => r.place === null)).toBe(true);
+  });
+
+  it('does not mutate its input', () => {
+    const results = [input({ lane: 1, racerId: 1, time: 3.0 })];
+    assignPlaces(results);
+    expect(results[0].place).toBeNull();
   });
 });

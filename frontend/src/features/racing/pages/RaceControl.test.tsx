@@ -27,6 +27,15 @@ vi.mock('../components/RaceExecution', () => ({
                 // Simulate finishing heat
                 onUpdateResult(1, [{ lane: 1, racerId: 1, placeholderSlot: null, time: 4.5, place: 1, skipped: false }]);
             }}>Finish Heat 1</button>
+            <button onClick={() => {
+                // Simulate editing a heat that holds a DNF (recorded 0.0) alongside
+                // a real finisher, exactly as the editor sends it: raw, unsorted,
+                // with whatever stale place each lane happened to carry.
+                onUpdateResult(1, [
+                    { lane: 1, racerId: 1, placeholderSlot: null, time: 0, place: 1, skipped: false },
+                    { lane: 2, racerId: 2, placeholderSlot: null, time: 4.2, place: 2, skipped: false },
+                ]);
+            }}>Save Edit With DNF</button>
             <div data-testid="timer-type">{timerType}</div>
         </div>
     )
@@ -304,6 +313,45 @@ describe('RaceControl Page', () => {
         expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith({
             heatId: 1,
             lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 4.5, place: 1, skipped: false }],
+        });
+    });
+
+    it('a saved edit does not hand the DNF lane first place (issue #308)', async () => {
+        const mockUpdateHeatResultMutation = vi.fn().mockResolvedValue({ data: { updateHeatResult: true } });
+        (useMutation as any).mockImplementation(() => {
+             return [{ fetching: false }, mockUpdateHeatResultMutation];
+        });
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => expect(screen.getByRole('button', { name: /Schedule/i })).toBeInTheDocument());
+        fireEvent.click(screen.getByRole('button', { name: /^\s*Race\s*$/i }));
+
+        await waitFor(() => expect(screen.getByTestId('race-execution')).toBeInTheDocument());
+
+        fireEvent.click(screen.getByText('Save Edit With DNF'));
+
+        await waitFor(() => {
+             expect(mockUpdateHeatResultMutation).toHaveBeenCalled();
+        });
+
+        // The 0.0 lane (a DNF) must be sent with no place, and the real
+        // finisher must be first — not the ascending-sort order the raw
+        // results arrived in.
+        expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith({
+            heatId: 1,
+            lanes: [
+                { lane: 1, racerId: 1, placeholderSlot: null, time: 0, place: null, skipped: false },
+                { lane: 2, racerId: 2, placeholderSlot: null, time: 4.2, place: 1, skipped: false },
+            ],
         });
     });
 
