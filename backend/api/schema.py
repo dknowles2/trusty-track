@@ -2217,6 +2217,10 @@ class Mutation:
         db = info.context["db"]
         deleted = crud.delete_race(db, race_id=id)
         if deleted:
+            # Removes every heat of both kinds, which can take the one just
+            # armed with it — a shared track can be running a second race
+            # (#309).
+            await _revalidate_timers(info)
             await _publish_races_list()
         return deleted
 
@@ -2336,6 +2340,10 @@ class Mutation:
         race_id = racer.race_id if racer else None
         result = crud.delete_racer(db, racer_id=id) is not None
         if race_id:
+            # `_vacate_lanes` can regenerate an unraced round underneath the
+            # deleted racer's lanes, the same #50 risk every other re-fielding
+            # path already guards (#309).
+            await _revalidate_timers(info)
             await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return result
 
@@ -3174,6 +3182,9 @@ class Mutation:
         race_id = racer.race_id if racer else None
         crud.bulk_delete_racers(db, racer_ids)
         if race_id:
+            # Same #50 risk as a single delete, and this is the desk's bulk
+            # path onto it (#309).
+            await _revalidate_timers(info)
             await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return True
 

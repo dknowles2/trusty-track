@@ -444,6 +444,93 @@ class TestProactiveDisarm:
         assert status.state == TimerState.IDLE.value
         assert status.last_error and "no longer exists" in status.last_error
 
+    def test_deleting_a_racer_disarms_a_stale_heat(self, client, db: Session, registry):
+        """`deleteRacer` rebuilds an unraced round's heats through
+        `bulk_delete_racers` — the same #50 risk any other rebuild carries,
+        and until now the only rebuild path with no guard (#309).
+        """
+        race, r1, _ = _setup(db, "delracer", extra_round=False)
+        db.commit()
+        target = crud.get_heats(db, race.id, round_id=r1.id)[0]
+        mgr = self._arm_on_registry(db, registry, race, target)
+
+        # Any racer in the round works: `generate_heats_for_round` rebuilds
+        # the whole round, not just the heats the deleted racer was in.
+        victim = db.query(models.Racer).filter(models.Racer.race_id == race.id).first()
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": "mutation D($id: Int!) { deleteRacer(id: $id) }",
+                "variables": {"id": victim.id},
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json().get("errors") is None, resp.json()
+
+        status = mgr.status()
+        assert status.state == TimerState.IDLE.value
+        assert status.last_error
+
+    def test_bulk_deleting_racers_disarms_a_stale_heat(
+        self, client, db: Session, registry
+    ):
+        """The check-in desk's bulk path onto the same gap (#309)."""
+        race, r1, _ = _setup(db, "bulkdelracer", extra_round=False)
+        db.commit()
+        target = crud.get_heats(db, race.id, round_id=r1.id)[0]
+        mgr = self._arm_on_registry(db, registry, race, target)
+
+        victims = [
+            r.id
+            for r in db.query(models.Racer)
+            .filter(models.Racer.race_id == race.id)
+            .limit(2)
+            .all()
+        ]
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": (
+                    "mutation D($ids: [Int!]!) { bulkDeleteRacers(racerIds: $ids) }"
+                ),
+                "variables": {"ids": victims},
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json().get("errors") is None, resp.json()
+
+        status = mgr.status()
+        assert status.state == TimerState.IDLE.value
+        assert status.last_error
+
+    def test_deleting_the_race_disarms_its_armed_heat(
+        self, client, db: Session, registry
+    ):
+        """`deleteRace` removes every heat of both kinds with no revalidate,
+        reachable when deleting a practice or second race on a shared track
+        while a heat is armed (#309).
+        """
+        race, r1, _ = _setup(db, "delrace", extra_round=False)
+        db.commit()
+        target = crud.get_heats(db, race.id, round_id=r1.id)[0]
+        mgr = self._arm_on_registry(db, registry, race, target)
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": "mutation D($id: Int!) { deleteRace(id: $id) }",
+                "variables": {"id": race.id},
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json().get("errors") is None, resp.json()
+
+        status = mgr.status()
+        assert status.state == TimerState.IDLE.value
+        assert status.last_error and "no longer exists" in status.last_error
+
     def test_an_untouched_heat_stays_armed(self, client, db: Session, registry):
         """The guard must not disarm the operator mid-race for no reason."""
         race, r1, _ = _setup(db, "untouched", extra_round=False)
