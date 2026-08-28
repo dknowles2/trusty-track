@@ -339,6 +339,20 @@ Web Serial is a Chromium-only API, which is the same trade the check-in scanner
 makes; a browser without it can still use a track in backend-direct or fake
 mode.
 
+**At most one browser owns a track's proxy socket at a time.** A second
+connection — another device, or a reload whose old tab has not gone away yet
+— *is* a second timer for the same track, and letting both run left the
+manager's write function silently repointed to whichever connected last: the
+first tab kept showing a connected-looking timer while its bytes went nowhere
+(#301). `/ws/timer/{track_id}` now tears the outgoing session down itself —
+`ProxySession.close()`, which resets the write function and tells the manager
+the connection is down — before installing the new one, so the two sessions
+can never fight over the write function; the outgoing socket is then closed
+with code `4000` and the reason `"Another connection took over this timer"`,
+which is only for the person watching that screen. The frontend's
+`SerialProxyContext` surfaces the close reason rather than reporting a plain
+disconnect, so a demoted tab says so.
+
 ### 5.3. Device support
 
 A timer model is a `TimerProfile` record in

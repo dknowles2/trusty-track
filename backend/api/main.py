@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -62,6 +62,25 @@ pillow_heif.register_heif_opener()
 
 # Registry of TimerManager instances, keyed by track_id
 TIMER_MANAGERS: dict[int, TimerManager] = {}
+
+# The WebSocket and ProxySession currently "owning" a track's proxy timer. On
+# a proxied track this socket *is* the timer, so a second connection to the
+# same track_id — a second device, or a reload whose old socket has not gone
+# away yet — is a second timer for the same device. Left alone that used to
+# repoint `manager.set_write_fn()` and leave both sessions running: the first
+# tab kept believing it was armed while its bytes went nowhere (#301).
+#
+# A takeover tears the outgoing session down itself — `ProxySession.close()`,
+# which resets the write function and tells the manager the connection is
+# down — *before* installing the new one, and removes the registry entry
+# first so the outgoing connection's own `finally` does not repeat that
+# teardown once its receive loop eventually notices the close. Two calls to
+# `handle_disconnect()` would reset the *new* connection's write function
+# back to the no-op, which is the bug this exists to close. The outgoing
+# socket is also closed with an explicit code and reason, so the tab that
+# lost the timer says so — but that is only for the person watching the
+# screen; the manager's state is already settled by the time it happens.
+TIMER_WS_CONNECTIONS: dict[int, tuple[WebSocket, ProxySession]] = {}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -632,6 +651,25 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
 
     await websocket.accept()
 
+    # A second connection for this track takes over rather than sharing it
+    # silently (#301). Popped rather than merely read, so the outgoing
+    # connection's own `finally` — once its receive loop eventually notices
+    # the close below — finds no entry naming it and skips tearing its
+    # session down a second time; see TIMER_WS_CONNECTIONS above for why that
+    # matters.
+    previous = TIMER_WS_CONNECTIONS.pop(track_id, None)
+    if previous is not None:
+        prev_websocket, prev_session = previous
+        logger.info(
+            "Timer %d: a new proxy connection is taking over from an existing one",
+            track_id,
+        )
+        await prev_session.close()
+        with suppress(Exception):
+            await prev_websocket.close(
+                code=4000, reason="Another connection took over this timer"
+            )
+
     # Everything ordered — asking for the port, walking the candidate profiles,
     # handing the identified device to the manager — is the session's. What is
     # left here is the message encoding, which is what this endpoint is for.
@@ -639,6 +677,7 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
     manager.set_write_fn(transport.send)
     # A track whose model the operator named skips the walk entirely (#143).
     session = ProxySession(manager, transport, chosen=chosen_profile)
+    TIMER_WS_CONNECTIONS[track_id] = (websocket, session)
     session.start()
 
     try:
@@ -658,7 +697,10 @@ async def timer_websocket(websocket: WebSocket, track_id: int):
     except Exception as e:
         logger.error("WebSocket error for track %d: %s", track_id, e)
     finally:
-        await session.close()
+        current = TIMER_WS_CONNECTIONS.get(track_id)
+        if current is not None and current[0] is websocket:
+            del TIMER_WS_CONNECTIONS[track_id]
+            await session.close()
 
 
 #: The largest upload this route accepts, in bytes.

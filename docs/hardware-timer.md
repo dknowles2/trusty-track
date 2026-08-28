@@ -133,6 +133,13 @@ numbering: lane 1 in Trusty Track must be the lane the timer calls `A`.
 and says so, rather than recording times against cars that have moved.
 Re-arm the heat and run it again.
 
+**The browser-connected timer suddenly says it is disconnected.** With the
+timer plugged into the laptop running the browser, only one tab can be
+connected to it at a time — opening Race Control on a second device, or
+reloading the page, takes it over. The tab that lost it says so; reload it
+to reconnect, and make sure only one device is driving that timer at once.
+More in [the timer reference](reference/timers.md#one-connection-at-a-time).
+
 ## Testing your timer and telling us
 
 The timer check page can run your timer through a pretend heat — no race set

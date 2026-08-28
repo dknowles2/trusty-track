@@ -217,11 +217,22 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 }
             };
 
-            ws.onclose = () => {
-                setStatus('disconnected');
+            ws.onclose = (event: CloseEvent) => {
                 portRef.current?.close();
                 portRef.current = null;
                 setActiveTrackId(null);
+                // The server closes this socket with a reason for the role
+                // check, a track problem, or a second connection taking the
+                // timer over (#301) — surfaced here rather than discarded, so
+                // a demoted or refused tab says so instead of just reading
+                // "disconnected". A reason-less close is this tab's own
+                // disconnect() call.
+                if (event.reason) {
+                    setErrorMsg(event.reason);
+                    setStatus('error');
+                } else {
+                    setStatus('disconnected');
+                }
             };
 
             ws.onerror = () => {
