@@ -119,6 +119,33 @@ describe('the voting ballot page (#305)', () => {
     expect(screen.getByText('#42')).toBeInTheDocument();
   });
 
+  it('names the car the vote landed on, so a stray tap is visible (#418)', async () => {
+    renderPage();
+    await userEvent.click(screen.getByText('#42'));
+
+    expect(
+      await screen.findByText('Thanks for voting for #42 Blue Streak!'),
+    ).toBeInTheDocument();
+  });
+
+  it('falls back sensibly when the car has no name', async () => {
+    renderPage();
+    // Car 101 (#7) has a number but no carName.
+    await userEvent.click(screen.getByText('#7'));
+
+    expect(await screen.findByText('Thanks for voting for #7!')).toBeInTheDocument();
+  });
+
+  it('falls back to "this car" when the car has neither a number nor a name', async () => {
+    renderPage();
+    // Car 102 is unnumbered and unnamed.
+    await userEvent.click(screen.getByText('Unnumbered'));
+
+    expect(
+      await screen.findByText('Thanks for voting for this car!'),
+    ).toBeInTheDocument();
+  });
+
   it('shows the reason a vote was refused rather than a raw error', async () => {
     castVote = vi
       .fn()
