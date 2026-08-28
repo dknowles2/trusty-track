@@ -177,8 +177,10 @@ describe('SystemSettings', () => {
                 tracks: [
                     // A fake timer carries no model: it is chosen by transport, and a model
                     // travelling with one would linger unseen if the operator switched back.
-                    { name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
-                    { name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false }
+                    // Neither track has an id yet — both were added on this screen, before
+                    // ever being saved (#318).
+                    { id: null, name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                    { id: null, name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false }
                 ]
             }
         });
@@ -291,6 +293,65 @@ describe('a saved track with no length', () => {
 
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
         expect(mockUpdate.mock.calls[0][0].config.tracks[1].lengthFeet).toBe(40);
+    });
+});
+
+describe('removing a track from the middle of the list', () => {
+    afterEach(cleanup);
+
+    it('sends the surviving tracks by id, not by their new position (#318)', async () => {
+        // The server matches a submitted track to its database row by id
+        // (#318). Sending no id — the old, position-based behaviour — for a
+        // track that already has one would have the server update whichever
+        // row now sits at that position, silently renaming and
+        // reconfiguring it.
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    groupName: 'Pack 42',
+                    debugMode: false,
+                    tracks: [
+                        { id: 1, name: 'Track A', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                        { id: 2, name: 'Track B', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                        { id: 3, name: 'Track C', laneCount: 2, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+                    ],
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+
+        const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+
+        // Remove Track B, the middle one.
+        const removeButtons = await screen.findAllByTitle('Remove Track');
+        await user.click(removeButtons[1]);
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        const sentTracks = mockUpdate.mock.calls[0][0].config.tracks;
+        expect(sentTracks).toHaveLength(2);
+        expect(sentTracks[0]).toMatchObject({ id: 1, name: 'Track A' });
+        expect(sentTracks[1]).toMatchObject({ id: 3, name: 'Track C' });
     });
 });
 

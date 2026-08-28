@@ -1103,6 +1103,7 @@ export type Track = {
 };
 
 export type TrackInput = {
+  id?: InputMaybe<Scalars['Int']['input']>;
   laneCount?: Scalars['Int']['input'];
   lengthFeet?: InputMaybe<Scalars['Int']['input']>;
   name?: Scalars['String']['input'];
