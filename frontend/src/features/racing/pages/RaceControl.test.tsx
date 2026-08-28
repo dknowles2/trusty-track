@@ -5,10 +5,11 @@ import { useQuery, useMutation, useSubscription } from 'urql';
 
 // Mock child components to isolate RaceControl logic
 vi.mock('../components/ScheduleManagement', () => ({
-    ScheduleManagement: ({ laneCount }: any) => (
+    ScheduleManagement: ({ laneCount, activeHeatId }: any) => (
         <div data-testid="schedule-management">
             Schedule Management
             <div data-testid="lane-count-prop">{laneCount}</div>
+            <div data-testid="schedule-active-heat-id">{activeHeatId ?? 'none'}</div>
         </div>
     )
 }));
@@ -283,7 +284,7 @@ describe('RaceControl Page', () => {
         });
     });
 
-    it('clears activeHeatId when results are updated (finish heat)', async () => {
+    it('sends the finished heat\'s results to the server', async () => {
         const mockUpdateHeatResultMutation = vi.fn().mockResolvedValue({ data: { updateHeatResult: true } });
         (useMutation as any).mockImplementation(() => {
              return [{ fetching: false }, mockUpdateHeatResultMutation];
@@ -313,6 +314,79 @@ describe('RaceControl Page', () => {
         expect(mockUpdateHeatResultMutation).toHaveBeenCalledWith({
             heatId: 1,
             lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 4.5, place: 1, skipped: false }],
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // The Schedule view's running-heat protections (#345)
+    // -----------------------------------------------------------------------
+    //
+    // `activeHeatId` used to be local state that was only ever cleared, so
+    // `ScheduleManagement`'s orange border, drag block and "…" label could
+    // never fire. It is now the heat session's own `heatId`, with `heatId`
+    // omitted from the subscription's variables — the tell that asks the
+    // backend for whatever the timer manager considers armed or running,
+    // rather than for one particular heat.
+
+    it('passes the heat session\'s heatId as activeHeatId to the Schedule view', async () => {
+        (useSubscription as any).mockImplementation((opts: any) => {
+            if (opts.variables && 'trackId' in opts.variables) {
+                return [{ data: { heatSession: { trackId: 1, heatId: 9, phase: 'RUNNING', timerState: 'RUNNING', lanes: [] } } }, vi.fn()];
+            }
+            return [{ data: undefined }, vi.fn()];
+        });
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('schedule-active-heat-id')).toHaveTextContent('9');
+        });
+    });
+
+    it('passes null as activeHeatId when nothing is armed or running', async () => {
+        // The default mock (beforeEach) answers with no data, as an unarmed
+        // track's subscription does before anything has ever been armed.
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('schedule-active-heat-id')).toHaveTextContent('none');
+        });
+    });
+
+    it('subscribes to the heat session with heatId omitted, scoped to the track', async () => {
+        const subscribeSpy = vi.fn().mockReturnValue([{ data: undefined }, vi.fn()]);
+        (useSubscription as any).mockImplementation(subscribeSpy);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => {
+            expect(subscribeSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ variables: { trackId: 1, heatId: null } })
+            );
         });
     });
 
@@ -455,9 +529,15 @@ describe('RaceControl Page', () => {
             error: null
         }, mockReExecute]);
 
+        // The page now runs two subscriptions — raceStateChanged and (#345)
+        // heatSession — so the handler is only captured for the one this test
+        // is about, by its distinguishing variable. Otherwise the heatSession
+        // call, which passes no handler, overwrites it with undefined.
         (useSubscription as any).mockImplementation(
-            (_opts: any, handler: (prev: any, data: any) => any) => {
-                capturedHandler = handler;
+            (opts: any, handler: (prev: any, data: any) => any) => {
+                if (opts.variables?.raceId !== undefined) {
+                    capturedHandler = handler;
+                }
                 return [{ data: undefined }, vi.fn()];
             }
         );
@@ -497,9 +577,15 @@ describe('RaceControl Page', () => {
             error: null
         }, mockReExecute]);
 
+        // The page now runs two subscriptions — raceStateChanged and (#345)
+        // heatSession — so the handler is only captured for the one this test
+        // is about, by its distinguishing variable. Otherwise the heatSession
+        // call, which passes no handler, overwrites it with undefined.
         (useSubscription as any).mockImplementation(
-            (_opts: any, handler: (prev: any, data: any) => any) => {
-                capturedHandler = handler;
+            (opts: any, handler: (prev: any, data: any) => any) => {
+                if (opts.variables?.raceId !== undefined) {
+                    capturedHandler = handler;
+                }
                 return [{ data: undefined }, vi.fn()];
             }
         );
