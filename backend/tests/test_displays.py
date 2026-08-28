@@ -8,6 +8,7 @@ was on a wall last March is not something worth storing.
 import pytest
 
 from backend.domain import displays as domain
+from backend.services import displays as displays_service
 from backend.services.displays import DisplayRegistry
 
 
@@ -276,3 +277,91 @@ class TestSteppingTheCeremony:
 
         assert registry.get("abc").assignment.view is domain.DisplayView.AWARDS
         assert registry.get("abc").assigned is True
+
+
+class TestAdvanceDisplayMutation:
+    """The GraphQL layer over `DisplayRegistry.advance` (#347).
+
+    Everything above drives the registry directly; `advance_display` in
+    `api/schema.py` is what the operator's list actually calls when someone
+    presses Next across the room, and until now nothing but `displays.spec.ts`
+    ever ran it — so a mistake in the resolver itself (the wrong registry
+    method, a swallowed `ValueError`, the wrong field on the returned type)
+    had no test below the browser.
+
+    `displays_service.registry` is the process-wide singleton the resolver
+    reads, unlike the ``registry`` fixture above — so each test owns it for
+    its duration, the same way ``TIMER_MANAGERS`` tests own that dict.
+    """
+
+    MUTATION = """
+    mutation($displayId: String!, $delta: Int!) {
+        advanceDisplay(displayId: $displayId, delta: $delta) {
+            displayId
+            slideSeq
+            slideDelta
+        }
+    }
+    """
+
+    @pytest.fixture(autouse=True)
+    def clean_registry(self):
+        saved = dict(displays_service.registry._displays)
+        displays_service.registry.clear()
+        yield
+        displays_service.registry.clear()
+        displays_service.registry._displays.update(saved)
+
+    def _advance(self, client, display_id, delta):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": self.MUTATION,
+                "variables": {"displayId": display_id, "delta": delta},
+            },
+        )
+        assert resp.status_code == 200
+        return resp.json()
+
+    def test_a_display_nobody_has_seen_returns_null(self, client):
+        # The one the wall screen could vanish behind between listing and
+        # clicking Next — the resolver must report nothing rather than invent
+        # a display to advance.
+        body = self._advance(client, "unknown", 1)
+
+        assert "errors" not in body, body.get("errors")
+        assert body["data"]["advanceDisplay"] is None
+
+    def test_steps_a_known_display_and_returns_its_new_counter(self, client):
+        displays_service.registry.connect("gql-display", race_id=7)
+
+        body = self._advance(client, "gql-display", 1)
+
+        assert "errors" not in body, body.get("errors")
+        data = body["data"]["advanceDisplay"]
+        assert data == {
+            "displayId": "gql-display",
+            "slideSeq": 1,
+            "slideDelta": 1,
+        }
+        assert displays_service.registry.get("gql-display").slide_seq == 1
+
+    def test_a_second_step_carries_the_same_direction_further(self, client):
+        # Two Nexts in a row must both land — the counter is what tells a
+        # display a command is new even when the delta repeats.
+        displays_service.registry.connect("gql-display", race_id=7)
+        self._advance(client, "gql-display", 1)
+
+        body = self._advance(client, "gql-display", 1)
+
+        assert body["data"]["advanceDisplay"]["slideSeq"] == 2
+
+    def test_a_step_of_zero_is_refused(self, client):
+        # A step of nowhere would still bump the counter, so every screen
+        # would obey a command that means nothing.
+        displays_service.registry.connect("gql-display", race_id=7)
+
+        body = self._advance(client, "gql-display", 0)
+
+        assert body.get("errors"), "a step of zero should be refused, not silent"
+        assert displays_service.registry.get("gql-display").slide_seq == 0
