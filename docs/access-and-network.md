@@ -76,10 +76,15 @@ your mind before saving.
 
 ### If you forget the operator PIN
 
-Anyone who can reach the machine running Trusty Track can remove it, using
-**Remove** as above. There is no recovery from another device, which is the
-point of a PIN — but it also means the person at the machine is never locked
-out of their own event.
+There is no "forgot PIN" button, and nobody can remove it from inside the
+app without the PIN they are trying to recover — not from another device,
+and not by sitting down at the machine itself. Write the PIN somewhere
+durable before race day; that is cheaper than the alternative.
+
+If it does happen, there is a way back in, but it is technical — editing the
+database file directly, not clicking anything in Trusty Track. See
+[If you forget the operator PIN](reference/roles-and-permissions.md#if-you-forget-the-operator-pin)
+for the exact steps.
 
 ## Which network to use
 
