@@ -1986,7 +1986,7 @@ def bulk_delete_racers(db: Session, racer_ids: list[int]):
     # that was never raced. Asking afterwards regenerates a started round and
     # destroys the results it was meant to protect.
     rebuildable = [
-        r.id
+        r
         for race_id in by_race
         for r in db.query(models.Round).filter(models.Round.race_id == race_id)
         if advancement.may_rebuild(_round_heat_lanes(db, r.id))
@@ -2008,9 +2008,18 @@ def bulk_delete_racers(db: Session, racer_ids: list[int]):
     db.commit()
 
     # A round that was raced keeps the holes the vacating left; only the rest
-    # are rebuilt.
-    for round_id in rebuildable:
-        generate_heats_for_round(db, round_id, clear_existing=True)
+    # are rebuilt. A general round asks the field for at least two racers and
+    # raises if it can't have them (#310) — the deletes above are already
+    # committed by this point, so that exception must never reach the caller.
+    # `withdraw_absent_racers` hits the identical situation (checked-in count
+    # drops below two) and falls back to leaving the round on its vacated
+    # holes instead of regenerating; do the same here rather than raising.
+    for round_obj in rebuildable:
+        if round_obj.advancement_source is None:
+            eligible = _eligible_racer_ids(db, round_obj.race_id, round_obj.den_id)
+            if len(eligible) < 2:
+                continue
+        generate_heats_for_round(db, round_obj.id, clear_existing=True)
     db.commit()
 
 
