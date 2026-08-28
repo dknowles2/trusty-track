@@ -100,7 +100,7 @@ export default function AwardForm({
 
       <fieldset style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '0.75rem' }}>
         <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem' }}>Who wins it</legend>
-        <label style={{ display: 'block', marginBottom: '0.35rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.6rem' }}>
           <input
             type="radio"
             name="award-kind"
@@ -108,6 +108,10 @@ export default function AwardForm({
             onChange={() => set('kind', 'SPECIAL')}
           />{' '}
           Somebody we choose
+          <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
+            For awards nothing can measure — paint, design, spirit. You can leave it
+            undecided for now.
+          </small>
         </label>
         <label style={{ display: 'block' }}>
           <input
@@ -117,12 +121,11 @@ export default function AwardForm({
             onChange={() => set('kind', 'SPEED')}
           />{' '}
           Speed-based
+          <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
+            Worked out from the standings — fastest or slowest — so it stays right if
+            you correct a time later.
+          </small>
         </label>
-        <small style={{ color: '#666', display: 'block', marginTop: '0.4rem' }}>
-          {draft.kind === 'SPEED'
-            ? 'Worked out from the standings — fastest or slowest — so it stays right if you correct a time later.'
-            : 'For awards nothing can measure — paint, design, spirit. You can leave it undecided for now.'}
-        </small>
       </fieldset>
 
       {draft.kind === 'SPEED' ? (

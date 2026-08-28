@@ -44,6 +44,26 @@ describe('AwardForm', () => {
     expect(screen.queryByLabelText('Winner')).toBeNull();
   });
 
+  it('shows both "Who wins it" descriptions at once, whichever is checked', async () => {
+    // #304: the description used to sit below both radios and switch on
+    // whichever was selected, so the one you did not pick was never on
+    // screen. Both belong under their own label, always visible.
+    renderForm();
+    const judgedText = screen.getByText(
+      /For awards nothing can measure — paint, design, spirit\./,
+    );
+    const speedText = screen.getByText(
+      /Worked out from the standings — fastest or slowest/,
+    );
+    expect(judgedText).toBeInTheDocument();
+    expect(speedText).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText(/speed-based/i));
+
+    expect(judgedText).toBeInTheDocument();
+    expect(speedText).toBeInTheDocument();
+  });
+
   it('offers the overall standings and every round as a source', async () => {
     renderForm();
     await userEvent.click(screen.getByLabelText(/speed-based/i));
