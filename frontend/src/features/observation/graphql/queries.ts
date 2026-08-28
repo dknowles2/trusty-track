@@ -56,6 +56,7 @@ export const TimingStatsSubscription = gql`
   subscription TimingStatsSubscription($raceId: Int!) {
     timingStats(raceId: $raceId) {
       heatId
+      recordedAt
       roundName
       heatNumber
       globalHeatNumber

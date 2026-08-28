@@ -1076,6 +1076,7 @@ export type TimingStats = {
   heatNumber: Scalars['Int']['output'];
   lanes: Array<TimingStatsLane>;
   recordBreak?: Maybe<TrackRecordBreak>;
+  recordedAt?: Maybe<Scalars['String']['output']>;
   roundName: Scalars['String']['output'];
 };
 

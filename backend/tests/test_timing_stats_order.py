@@ -185,6 +185,34 @@ async def test_re_recording_an_earlier_heat_brings_it_forward(
 
 
 @pytest.mark.anyio
+async def test_the_payload_carries_recorded_at(db, race, racers, round_one):
+    """The observation display keys its results overlay on `heatId` plus this
+    (#335) — `heatId` alone is unchanged by a correction, so a re-recorded
+    heat needs something that does change."""
+    heat = _official(db, race, round_one, racers, 1)
+    _record(db, heat, 3.0)
+
+    stats = await _timing_stats(db, race.id)
+
+    assert stats is not None
+    assert stats.recorded_at == heat.recorded_at
+    assert stats.recorded_at is not None
+
+
+@pytest.mark.anyio
+async def test_re_recording_changes_recorded_at(db, race, racers, round_one):
+    heat = _official(db, race, round_one, racers, 1)
+    _record(db, heat, 3.0)
+    first_stamp = (await _timing_stats(db, race.id)).recorded_at
+
+    _record(db, heat, 4.0)
+    second_stamp = (await _timing_stats(db, race.id)).recorded_at
+
+    assert second_stamp is not None
+    assert second_stamp != first_stamp
+
+
+@pytest.mark.anyio
 async def test_a_heat_with_no_results_is_never_the_target(db, race, racers, round_one):
     _official(db, race, round_one, racers, 1)
 
