@@ -248,6 +248,65 @@ def test_race_stats_multiple_heats(client, db):
     assert r0["stdDev"] == pytest.approx(0.5, abs=0.001)
 
 
+def test_race_stats_unnamed_round_falls_back_to_round_number(client, db):
+    """An unnamed round's heats are labelled by the round number, not the
+    heat's own number within it (#315).
+
+    The round is deliberately numbered differently from every heat number it
+    holds, so the old `f"Round {heat.heat_number}"` fallback — which varies
+    per heat — is distinguishable from the fixed `f"Round {round_number}"`
+    one, which is the same for every heat in the round.
+    """
+    race_id, racer_ids, den_ids = _setup_race(client, db)
+
+    round_obj = crud.create_round(db, race_id=race_id, round_number=5)
+    assert round_obj.name is None
+    crud.generate_heats_for_round(db, round_obj.id)
+
+    resp = client.post(
+        "/graphql",
+        json={
+            "query": """
+            query($raceId: Int!) {
+                race(raceId: $raceId) { heats { id heatNumber } }
+            }
+            """,
+            "variables": {"raceId": race_id},
+        },
+    )
+    heats = resp.json()["data"]["race"]["heats"]
+    # Four racers on a four-lane track schedule one heat per racer (PPC), so
+    # there is a heat numbered something other than the round number (5).
+    heats_to_record = [h for h in heats if h["heatNumber"] != 5]
+    assert heats_to_record
+
+    for heat in heats_to_record:
+        _record_heat_result(
+            client,
+            heat["id"],
+            [
+                {"lane": 1, "racer_id": racer_ids[0], "time": 3.1, "place": 1},
+                {"lane": 2, "racer_id": racer_ids[1], "time": 3.5, "place": 2},
+            ],
+        )
+
+    resp = client.post(
+        "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}}
+    )
+    data = resp.json()["data"]["raceStats"]
+
+    recorded_heat_numbers = {h["heatNumber"] for h in heats_to_record}
+    rows = [r for r in data["heatResults"] if r["heatNumber"] in recorded_heat_numbers]
+    assert rows
+    for row in rows:
+        assert row["roundName"] == "Round 5"
+
+    highlights = data["highlights"]
+    assert highlights
+    for h in highlights:
+        assert h["roundName"] == "Round 5"
+
+
 def test_race_stats_returns_none_for_missing_race(client):
     """raceStats returns null for a non-existent race ID."""
     resp = client.post(
