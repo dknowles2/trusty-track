@@ -18,9 +18,10 @@ const recordedHeat = (lanes: (Partial<Parameters<typeof lane>[0]> & { lane: numb
 });
 
 const mockShowConfirm = vi.fn();
+const mockShowAlert = vi.fn();
 vi.mock('../../../context/AlertContext', () => ({
   useAlert: () => ({
-    showAlert: vi.fn(),
+    showAlert: mockShowAlert,
     showConfirm: mockShowConfirm,
     showToast: vi.fn(),
   }),
@@ -71,6 +72,7 @@ describe('FreeRaceExecution', () => {
   const mockRecordResult = vi.fn();
   const mockPrepareHeat = vi.fn();
   const mockResetTimer = vi.fn();
+  const mockDeleteFreeRaceHeat = vi.fn();
 
   const defaultProps = {
     heatId: 42,
@@ -86,12 +88,14 @@ describe('FreeRaceExecution', () => {
     mockPrepareHeat.mockResolvedValue({ data: { prepareHeat: true } });
     mockRecordResult.mockResolvedValue({ data: { recordFreeRaceResult: { id: 42, lanes: [] } } });
     mockResetTimer.mockResolvedValue({ data: { resetTimer: true } });
+    mockDeleteFreeRaceHeat.mockResolvedValue({ data: { deleteFreeRaceHeat: true } });
 
     (useMutation as any).mockImplementation((query: any) => {
       const qStr = JSON.stringify(query);
       if (qStr.includes('RecordFreeRaceResult')) return [{}, mockRecordResult];
       if (qStr.includes('PrepareHeat')) return [{}, mockPrepareHeat];
       if (qStr.includes('ResetTimer')) return [{}, mockResetTimer];
+      if (qStr.includes('DeleteFreeRaceHeat')) return [{}, mockDeleteFreeRaceHeat];
       return [{}, vi.fn()];
     });
 
@@ -271,5 +275,88 @@ describe('FreeRaceExecution', () => {
   it('warning badge "results do not affect standings" is always visible', () => {
     render(<FreeRaceExecution {...defaultProps} />);
     expect(screen.getByText(/results do not affect standings/i)).toBeInTheDocument();
+  });
+
+  it('Save Results does not show unsaved times as recorded when the mutation fails', async () => {
+    mockRecordResult.mockResolvedValue({ error: new Error('boom') });
+
+    (useSubscription as any).mockImplementation(({ query }: any) => {
+      const qStr = JSON.stringify(query);
+      if (qStr.includes('FreeRaceHeat')) {
+        return [{ data: { freeRaceHeat: {
+          ...recordedHeat([{ lane: 1, racerId: 101, time: 3.142, place: 1 }])
+        } } }];
+      }
+      return [{ data: null }];
+    });
+
+    render(<FreeRaceExecution {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
+
+    const inputs = screen.getAllByRole('spinbutton');
+    fireEvent.change(inputs[0], { target: { value: '3.999' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Results/i }));
+
+    await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
+
+    // The screen must not flip to showing the locally computed (unsaved)
+    // time — the server never stored it.
+    expect(screen.queryByText('3.9990s')).not.toBeInTheDocument();
+    expect(screen.getByText('3.1420s')).toBeInTheDocument();
+    // The edit modal stays open so the operator can retry.
+    expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
+  });
+
+  it('Next Heat does not move on when deleting the unfinished heat fails', async () => {
+    mockDeleteFreeRaceHeat.mockResolvedValue({ error: new Error('boom') });
+
+    render(<FreeRaceExecution {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Next Heat/i }));
+
+    await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
+    expect(mockOnRunAnother).not.toHaveBeenCalled();
+    expect(mockResetTimer).not.toHaveBeenCalled();
+  });
+
+  it('Reset Heat does not clear local results when the clearing mutation fails', async () => {
+    mockShowConfirm.mockResolvedValue(true);
+    mockRecordResult.mockResolvedValue({ error: new Error('boom') });
+
+    (useSubscription as any).mockImplementation(({ query }: any) => {
+      const qStr = JSON.stringify(query);
+      if (qStr.includes('FreeRaceHeat')) {
+        return [{ data: { freeRaceHeat: {
+          ...recordedHeat([{ lane: 1, racerId: 101, time: 3.142, place: 1 }])
+        } } }];
+      }
+      return [{ data: null }];
+    });
+
+    render(<FreeRaceExecution {...defaultProps} trackId={1} />);
+    fireEvent.click(screen.getByRole('button', { name: /Reset Heat/i }));
+
+    await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
+    await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
+
+    // The recorded time is still on screen — the server still holds it.
+    expect(screen.getByText('3.1420s')).toBeInTheDocument();
+    expect(mockResetTimer).not.toHaveBeenCalled();
+    expect(mockPrepareHeat).not.toHaveBeenCalled();
+  });
+
+  it('Reset Heat does not re-arm the timer when resetTimer fails', async () => {
+    mockShowConfirm.mockResolvedValue(true);
+    mockResetTimer.mockResolvedValue({ error: new Error('boom') });
+
+    render(<FreeRaceExecution {...defaultProps} trackId={1} />);
+    // The auto-prepare effect already called this once on mount.
+    mockPrepareHeat.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: /Reset Heat/i }));
+
+    await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
+    await waitFor(() => expect(mockShowAlert).toHaveBeenCalled());
+
+    expect(mockPrepareHeat).not.toHaveBeenCalled();
   });
 });
