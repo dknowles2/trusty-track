@@ -9,7 +9,7 @@ import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiArrowRight } from
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import type { Lane, LaneInput } from '../types';
-import { cleared, toInput } from '../lanes';
+import { assignPlaces, cleared, toInput } from '../lanes';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
@@ -181,17 +181,10 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   };
 
   const handleSaveEdit = async () => {
-    // Re-sort by time and assign places
-    const withTimes = editingResults.filter(
-      (r) => r.racerId != null && r.time != null
-    );
-    withTimes.sort((a, b) => (a.time ?? 9999) - (b.time ?? 9999));
-    withTimes.forEach((r, idx) => { r.place = idx + 1; });
-
-    const finalResults = editingResults.map((r) => {
-      const found = withTimes.find((w) => w.lane === r.lane);
-      return found ?? { ...r, place: null };
-    });
+    // A recorded 0.0 (or any time <= 0) is a DNF, not a finish — assignPlaces
+    // mirrors the backend rule (issue #308) so a hand-corrected DNF is never
+    // stamped first place by an ascending sort that treats it as the fastest.
+    const finalResults = assignPlaces(editingResults);
 
     const res = await recordResult({ heatId, lanes: finalResults });
     if (res.error) {
@@ -536,6 +529,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
               <input
                 type="number"
                 step="0.0001"
+                min="0"
                 value={r.time ?? ''}
                 onChange={(e) => {
                   const val = e.target.value === '' ? null : parseFloat(e.target.value);

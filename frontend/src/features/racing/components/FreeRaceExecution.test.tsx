@@ -224,6 +224,55 @@ describe('FreeRaceExecution', () => {
     );
   });
 
+  it('saving an edit does not hand a DNF lane first place (issue #397)', async () => {
+    mockRecordResult.mockResolvedValue({ data: { recordFreeRaceResult: { id: 42 } } });
+
+    (useSubscription as any).mockImplementation(({ query }: any) => {
+      const qStr = JSON.stringify(query);
+      if (qStr.includes('FreeRaceHeat')) {
+        return [{ data: { freeRaceHeat: {
+          // Lane 1 recorded a 0.0 (a DNF) and lane 2 a real time. The old
+          // handler sorted ascending by raw time, so the untouched DNF's 0.0
+          // beat lane 2's 4.821 and was stamped place 1.
+          ...recordedHeat([
+            { lane: 1, racerId: 101, time: 0, place: null },
+            { lane: 2, racerId: 102, time: 4.821, place: 1 },
+          ])
+        } } }];
+      }
+      return [{ data: null }];
+    });
+
+    render(<FreeRaceExecution {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
+
+    // Save without changing either lane's time.
+    fireEvent.click(screen.getByRole('button', { name: /Save Results/i }));
+
+    await waitFor(() => expect(mockRecordResult).toHaveBeenCalled());
+    expect(mockRecordResult).toHaveBeenCalledWith({
+      heatId: 42,
+      lanes: [
+        {
+          lane: 1,
+          racerId: 101,
+          placeholderSlot: null,
+          time: 0,
+          place: null,
+          skipped: false,
+        },
+        {
+          lane: 2,
+          racerId: 102,
+          placeholderSlot: null,
+          time: 4.821,
+          place: 1,
+          skipped: false,
+        },
+      ],
+    });
+  });
+
   it('Reset Heat button clears results and re-prepares heat', async () => {
     mockShowConfirm.mockResolvedValue(true);
     (useSubscription as any).mockImplementation(({ query }: any) => {
