@@ -74,7 +74,10 @@ Most Original, Best Use of Colour, Most Aerodynamic, Most Patriotic, Best
 Scout Spirit, Judges' Choice — so a pack that has never run one of these does
 not have to invent a name the night before. Choosing one fills in the name
 and its artwork; both stay ordinary editable fields afterward, so you can
-rename it or type something else entirely without losing the picture.
+rename it or type something else entirely without losing the picture. A short
+line under the picker explains what each one is for — useful for a name like
+"Best Scout Spirit" that a first-time operator might otherwise have to guess
+at.
 
 It has no effect on a speed-based award. Those get their artwork worked out
 automatically from what they are — first place, second and third, or the

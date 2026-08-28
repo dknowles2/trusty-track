@@ -87,17 +87,24 @@ export default function AwardForm({
   onCancel,
 }: Props) {
   const [draft, setDraft] = useState<AwardDraft>({ ...EMPTY, ...initial });
+  // Which template the picker last applied, purely to show its blurb as help
+  // text (#440) — the name and artwork fields it wrote are the only lasting
+  // effect, and stay free text from the moment `applyTemplate` runs. Cleared
+  // whenever the operator edits the name themselves, so the blurb cannot go
+  // on describing an award that no longer matches it.
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   const set = <K extends keyof AwardDraft>(key: K, value: AwardDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
 
   // Writes an ordinary name and artwork key into the draft. Nothing tracks
-  // "which template is currently applied" — both fields stay free text the
-  // moment this runs, exactly as if the operator had typed them and picked
-  // artwork some other way. Choosing the blank option is the explicit way to
-  // drop artwork without also clearing a name the operator may have already
-  // customised.
+  // "which template is currently applied" for the *draft* — both fields stay
+  // free text the moment this runs, exactly as if the operator had typed them
+  // and picked artwork some other way. Choosing the blank option is the
+  // explicit way to drop artwork without also clearing a name the operator
+  // may have already customised.
   const applyTemplate = (id: string) => {
+    setSelectedTemplateId(id);
     if (!id) {
       set('artworkKey', null);
       return;
@@ -110,6 +117,8 @@ export default function AwardForm({
       artworkKey: template.artworkKey,
     }));
   };
+
+  const selectedTemplate = selectedTemplateId ? templateById(selectedTemplateId) : undefined;
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -126,7 +135,10 @@ export default function AwardForm({
         <input
           id="award-name"
           value={draft.name}
-          onChange={(e) => set('name', e.target.value)}
+          onChange={(e) => {
+            set('name', e.target.value);
+            setSelectedTemplateId('');
+          }}
           placeholder="e.g. Best Paint, Fastest Wolf"
           style={inputStyle}
           required
@@ -250,7 +262,7 @@ export default function AwardForm({
             </label>
             <select
               id="award-template"
-              defaultValue=""
+              value={selectedTemplateId}
               onChange={(e) => applyTemplate(e.target.value)}
               style={inputStyle}
             >
@@ -262,7 +274,9 @@ export default function AwardForm({
               ))}
             </select>
             <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
-              Fills in the name and its artwork — both stay editable afterward.
+              {selectedTemplate
+                ? selectedTemplate.blurb
+                : 'Fills in the name and its artwork — both stay editable afterward.'}
             </small>
           </div>
 
