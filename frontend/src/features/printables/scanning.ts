@@ -73,24 +73,41 @@ export function resolveScan(
 }
 
 /**
+ * What typing a car number turned out to find.
+ *
+ * `none` and `ambiguous` used to collapse into the same `null` — the operator
+ * was told a car clearly numbered X did not exist, when in fact two racers
+ * held it. Manual numbering allows duplicates, so `ambiguous` is refused
+ * rather than guessed at: picking the first would check in the wrong child,
+ * silently. Distinguishing the two here is what lets the caller tell them
+ * apart on screen (issue #336).
+ */
+export type CarNumberMatch =
+    | { status: 'ok'; racer: ScannableRacer }
+    /** Nothing typed, or nothing on the roster holds this number. */
+    | { status: 'none' }
+    /** More than one racer holds this number — find them by name instead. */
+    | { status: 'ambiguous' };
+
+/**
  * The fallback: a car number typed in.
  *
  * Wanted on every browser, not only the ones that cannot scan — a code gets
- * creased, a camera will not focus, and the operator has a queue. Returns the
- * racer only when exactly one matches, so an ambiguous entry never checks in
- * the wrong child.
+ * creased, a camera will not focus, and the operator has a queue.
  */
 export function matchByCarNumber(
     racers: readonly ScannableRacer[],
     typed: string,
-): ScannableRacer | null {
+): CarNumberMatch {
     const wanted = typed.trim();
-    if (!wanted) return null;
+    if (!wanted) return { status: 'none' };
 
     const matches = racers.filter(
         (r) => r.car_number != null && String(r.car_number).trim() === wanted,
     );
-    return matches.length === 1 ? matches[0] : null;
+    if (matches.length === 0) return { status: 'none' };
+    if (matches.length > 1) return { status: 'ambiguous' };
+    return { status: 'ok', racer: matches[0] };
 }
 
 /**

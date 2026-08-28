@@ -10,6 +10,11 @@ const RACERS = [
     { id: 8, first_name: 'Sam', last_name: 'Okafor', car_number: 12 },
 ];
 
+const RACERS_WITH_DUPLICATE = [
+    ...RACERS,
+    { id: 9, first_name: 'Jamie', last_name: 'Chen', car_number: 12 },
+];
+
 /** What the camera "sees". Each call returns the next queued payload. */
 let payloads: string[] = [];
 const stopTrack = vi.fn();
@@ -50,9 +55,9 @@ afterEach(() => {
     delete (window as unknown as { BarcodeDetector?: unknown }).BarcodeDetector;
 });
 
-function open(onRacer = vi.fn(), onClose = vi.fn()) {
+function open(onRacer = vi.fn(), onClose = vi.fn(), racers = RACERS) {
     render(
-        <CheckInScanner raceId={1} racers={RACERS} onRacer={onRacer} onClose={onClose} />,
+        <CheckInScanner raceId={1} racers={racers} onRacer={onRacer} onClose={onClose} />,
     );
     return { onRacer, onClose };
 }
@@ -158,6 +163,22 @@ describe('CheckInScanner where the browser cannot scan', () => {
 
         expect(onRacer).not.toHaveBeenCalled();
         expect(screen.getByText('No racer has car number 404.')).toBeInTheDocument();
+    });
+
+    it('says so, not that the car does not exist, when two racers share the number', async () => {
+        // #336: the operator is holding a car clearly numbered 12 — telling
+        // them nobody has it is the opposite of the situation.
+        const { onRacer } = open(vi.fn(), vi.fn(), RACERS_WITH_DUPLICATE);
+
+        await userEvent.type(screen.getByLabelText('Car number'), '12');
+        await userEvent.click(screen.getByRole('button', { name: /Find/ }));
+
+        expect(onRacer).not.toHaveBeenCalled();
+        expect(
+            screen.getByText(
+                'More than one racer has car number 12 — find them by name.',
+            ),
+        ).toBeInTheDocument();
     });
 });
 

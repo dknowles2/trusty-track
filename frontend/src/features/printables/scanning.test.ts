@@ -78,32 +78,46 @@ describe('resolveScan', () => {
 
 describe('matchByCarNumber', () => {
     it('finds the one racer with that number', () => {
-        expect(matchByCarNumber([racer(1, 7), racer(2, 12)], '12')?.id).toBe(2);
+        expect(matchByCarNumber([racer(1, 7), racer(2, 12)], '12')).toEqual({
+            status: 'ok',
+            racer: racer(2, 12),
+        });
     });
 
     it('matches a number the roster holds as a string', () => {
-        expect(matchByCarNumber([racer(1, '7')], '7')?.id).toBe(1);
+        expect(matchByCarNumber([racer(1, '7')], '7')).toEqual({
+            status: 'ok',
+            racer: racer(1, '7'),
+        });
     });
 
     it('ignores surrounding spaces', () => {
-        expect(matchByCarNumber([racer(1, 7)], ' 7 ')?.id).toBe(1);
+        expect(matchByCarNumber([racer(1, 7)], ' 7 ')).toEqual({
+            status: 'ok',
+            racer: racer(1, 7),
+        });
     });
 
-    it('refuses to guess when two racers share a number', () => {
+    it('reports ambiguous rather than guessing when two racers share a number', () => {
         // Manual numbering allows duplicates. Picking the first would check in
-        // the wrong child, silently.
-        expect(matchByCarNumber([racer(1, 7), racer(2, 7)], '7')).toBeNull();
+        // the wrong child, silently — and `none` would tell the operator, who
+        // is holding a car clearly numbered 7, that it does not exist (#336).
+        expect(matchByCarNumber([racer(1, 7), racer(2, 7)], '7')).toEqual({
+            status: 'ambiguous',
+        });
     });
 
     it('matches nothing on an empty entry', () => {
         // A racer whose number was cleared holds an empty string, which an
         // empty entry would otherwise match — check-in by pressing Find on a
         // blank box.
-        expect(matchByCarNumber([racer(1, ''), racer(2, 7)], '  ')).toBeNull();
+        expect(matchByCarNumber([racer(1, ''), racer(2, 7)], '  ')).toEqual({
+            status: 'none',
+        });
     });
 
     it('does not match a racer who has no number', () => {
-        expect(matchByCarNumber([racer(1)], '0')).toBeNull();
+        expect(matchByCarNumber([racer(1)], '0')).toEqual({ status: 'none' });
     });
 });
 

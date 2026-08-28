@@ -133,9 +133,15 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
 
     const submitTyped = (event: React.FormEvent) => {
         event.preventDefault();
-        const racer = matchByCarNumber(racers, typed);
-        if (racer) {
-            onRacer(racer.id);
+        const result = matchByCarNumber(racers, typed);
+        if (result.status === 'ok') {
+            onRacer(result.racer.id);
+            return;
+        }
+        if (result.status === 'ambiguous') {
+            setMessage(
+                `More than one racer has car number ${typed.trim()} — find them by name.`,
+            );
             return;
         }
         setMessage(`No racer has car number ${typed.trim()}.`);
