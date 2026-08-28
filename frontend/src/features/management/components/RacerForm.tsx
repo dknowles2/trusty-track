@@ -4,6 +4,7 @@ import { useQuery, useMutation } from 'urql';
 import { GET_RACE_DENS, UPLOAD_IMAGE } from '../graphql/queries';
 import { carryOver } from '../racerEntry';
 import { weightNotice, weightVerdict } from '../weightCheck';
+import { useAlert } from '../../../context/AlertContext';
 
 export interface RacerData {
   first_name: string;
@@ -74,6 +75,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   // which is most of what the button was meant to save.
   const firstNameRef = useRef<HTMLInputElement>(null);
   const [, uploadImageMutation] = useMutation(UPLOAD_IMAGE);
+  const { showAlert } = useAlert();
 
   // Advisory, and recomputed as the operator types. Nothing here blocks the
   // save — the inspector decides, and a car that is over gets checked in with
@@ -107,6 +109,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
               }));
           } catch (error) {
               console.error('Upload failed', error);
+              showAlert('Failed to upload photo. Please try again.', 'Error');
           }
       };
       reader.readAsDataURL(file);

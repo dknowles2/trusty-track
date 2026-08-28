@@ -14,6 +14,15 @@ vi.mock('urql', async (importOriginal) => {
   };
 });
 
+// Skip Heat used to go through the browser's own `window.confirm` — the one
+// dialog outside the app's convention, and unstyled on a projector-connected
+// machine. Mocked so a test can drive the confirm/cancel outcome and assert
+// nothing ever reaches `window.confirm`.
+const mockShowConfirm = vi.fn();
+vi.mock('../../../context/AlertContext', () => ({
+    useAlert: () => ({ showConfirm: mockShowConfirm, showAlert: vi.fn(), showToast: vi.fn() }),
+}));
+
 // Mock Modal component
 vi.mock('../../../components/ui/Modal', () => ({
     default: ({ isOpen, onClose, children, title }: any) => isOpen ? (
@@ -82,6 +91,7 @@ describe('RaceExecution', () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
+        mockShowConfirm.mockResolvedValue(true);
         mockMutationFn.mockResolvedValue({ data: { prepareHeat: true } });
         (useMutation as any).mockReturnValue([{}, mockMutationFn]);
 
@@ -194,6 +204,24 @@ describe('RaceExecution', () => {
     });
 
     describe('the live view comes from the server (#7)', () => {
+        it('shows a recorded 0.0 as a time, not as an unrun lane (#346)', () => {
+            // A recorded 0.0 is a DNF marker, not "nothing here yet" — and
+            // `r.time ? ... : '--'` treated 0 as falsy, so this screen hid the
+            // very time RaceControl's own list renders as `0.0000s`.
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'RECORDED',
+                timerState: 'IDLE',
+                lanes: [liveLane({ lane: 1, racerId: 101, time: 0.0, place: null })],
+            });
+
+            render(<RaceExecution {...defaultProps} />);
+
+            expect(screen.getByText('0.0000s')).toBeInTheDocument();
+            expect(screen.queryByText('--')).not.toBeInTheDocument();
+        });
+
         it('shows a lane time the timer has reported but nothing has saved', () => {
             mockHeatSession({
                 trackId: 1,
@@ -663,6 +691,54 @@ describe('RaceExecution', () => {
                 />
             );
             expect(screen.queryByText(/Next Heat \(\d+s\)/)).not.toBeInTheDocument();
+        });
+    });
+
+    describe('skipping a heat', () => {
+        // #346: this used to go through window.confirm, the one dialog
+        // outside the app's own convention.
+        function renderRunningHeat() {
+            mockHeatSession({
+                trackId: 1,
+                heatId: 1,
+                phase: 'RUNNING',
+                timerState: 'RUNNING',
+                lanes: [liveLane({ lane: 1, racerId: 101 })],
+            });
+            render(
+                <RaceExecution
+                    {...defaultProps}
+                    activeExecutionHeat={{ ...mockHeat, lanes: [lane({ lane: 1, racerId: 101 })] }}
+                />
+            );
+        }
+
+        it('asks through the app\'s own confirm dialog, never window.confirm', async () => {
+            const windowConfirm = vi.spyOn(window, 'confirm');
+            mockShowConfirm.mockResolvedValue(true);
+            renderRunningHeat();
+
+            fireEvent.click(screen.getByText('Skip Heat'));
+
+            await waitFor(() => expect(mockOnUpdateResult).toHaveBeenCalled());
+            expect(mockShowConfirm).toHaveBeenCalledWith(
+                expect.stringMatching(/skip this heat/i),
+                expect.any(String),
+                expect.any(String),
+                'danger',
+            );
+            expect(windowConfirm).not.toHaveBeenCalled();
+        });
+
+        it('records nothing when the operator declines', async () => {
+            mockShowConfirm.mockResolvedValue(false);
+            renderRunningHeat();
+
+            fireEvent.click(screen.getByText('Skip Heat'));
+
+            await waitFor(() => expect(mockShowConfirm).toHaveBeenCalled());
+            expect(mockOnUpdateResult).not.toHaveBeenCalled();
+            expect(mockOnNextHeat).not.toHaveBeenCalled();
         });
     });
 });

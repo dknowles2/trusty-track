@@ -11,6 +11,7 @@ vi.mock('urql', async (importOriginal) => {
 
 import { useQuery, useMutation } from 'urql';
 import RacerForm from './RacerForm';
+import { AlertProvider } from '../../../context/AlertContext';
 
 beforeEach(() => {
     vi.mocked(useQuery).mockReturnValue([
@@ -22,12 +23,14 @@ beforeEach(() => {
 
 const form = (weightLimitOz?: number | null) =>
     render(
-        <RacerForm
-            raceId={1}
-            weightLimitOz={weightLimitOz}
-            onSubmit={vi.fn()}
-            onCancel={vi.fn()}
-        />,
+        <AlertProvider>
+            <RacerForm
+                raceId={1}
+                weightLimitOz={weightLimitOz}
+                onSubmit={vi.fn()}
+                onCancel={vi.fn()}
+            />
+        </AlertProvider>,
     );
 
 describe('the weight limit warning', () => {
@@ -63,7 +66,9 @@ describe('the weight limit warning', () => {
         // would only mean the weight goes unrecorded.
         const onSubmit = vi.fn().mockResolvedValue(undefined);
         render(
-            <RacerForm raceId={1} weightLimitOz={5} onSubmit={onSubmit} onCancel={vi.fn()} />,
+            <AlertProvider>
+                <RacerForm raceId={1} weightLimitOz={5} onSubmit={onSubmit} onCancel={vi.fn()} />
+            </AlertProvider>,
         );
 
         await userEvent.type(screen.getByLabelText('First Name'), 'Ada');

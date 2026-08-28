@@ -1776,7 +1776,11 @@ class Query:
             crud.get_audit_entries(
                 info.context["db"],
                 race_id=race_id,
-                limit=min(limit, 500),
+                # Clamped on both ends: unclamped, a negative limit reaches
+                # SQLite as `LIMIT -1`, which SQLite reads as "no limit at
+                # all" rather than "zero rows" — the opposite of what a
+                # negative number should ever mean here.
+                limit=max(0, min(limit, 500)),
                 before_id=before_id,
             ),
         )
@@ -2623,7 +2627,7 @@ class Mutation:
 
     # Track Mutations
     @strawberry.mutation
-    def create_track(self, info: Info, track: TrackInput) -> Track:
+    async def create_track(self, info: Info, track: TrackInput) -> Track:
         """Create a new track and its associated TimerManager."""
         db = info.context["db"]
         track_in = schemas.TrackCreate(**typing.cast(Any, strawberry.asdict(track)))
@@ -2632,7 +2636,13 @@ class Mutation:
         # Handle TimerManager initialization
         timer_managers = info.context.get("timer_managers", {})
         if new_track.id not in timer_managers:
-            timer_managers[new_track.id] = _manager_for(new_track, info)
+            mgr = _manager_for(new_track, info)
+            timer_managers[new_track.id] = mgr
+            # Same as `updateInitialConfig`'s new-track branch: a backend-direct
+            # track left unstarted sits DISCONNECTED until something else
+            # happens to kick it, which for a freshly created track is nothing.
+            if new_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+                _start_backend_direct(mgr, new_track.serial_port)
 
         return new_track
 

@@ -27,6 +27,7 @@ import { hasRun, hasTimes, toInput } from '../lanes';
 import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime';
 import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
+import { useAlert } from '../../../context/AlertContext';
 
 /**
  * A lane being edited by hand. `time` is held as text while the operator types
@@ -93,6 +94,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [editingResults, setEditingResults] = useState<EditableLane[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
+    const { showConfirm } = useAlert();
 
     // The live view, assembled by the server (#7). What used to be here was a
     // merge of the heat's stored lanes with `timerStatus.pendingResults`,
@@ -280,7 +282,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     };
 
     const handleSkipHeat = async () => {
-        if (window.confirm("Are you sure you want to skip this heat? No results will be recorded.")) {
+        if (await showConfirm(
+            "Are you sure you want to skip this heat? No results will be recorded.",
+            "Skip Heat",
+            "Skip Heat",
+            "danger",
+        )) {
             // A skip advances through the handler below rather than waiting out
             // the countdown, so call the countdown off first.
             flow.cancelCountdown();
@@ -449,7 +456,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                                                 <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                    {r.time ? `${Number(r.time).toFixed(4)}s` : '--'}
+                                                    {r.time != null ? `${Number(r.time).toFixed(4)}s` : '--'}
                                                 </div>
                                                 {r.place !== null && (
                                                     <div style={{
