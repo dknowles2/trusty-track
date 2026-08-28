@@ -273,6 +273,35 @@ def placeholder_slots(heats_lanes: Iterable[Sequence]) -> set[int]:
     }
 
 
+def scheduled_participant_count(heats_lanes: Iterable[Sequence]) -> int:
+    """How many distinct participants a round's existing heats were built for.
+
+    PPC schedules one heat per participant per run (#26), so this is also how
+    many heats make up a single run — the divisor a rebuild needs to recover
+    how many runs a round held (#230).
+
+    Counted from the heats rather than from ``Round.total_participants``,
+    which is the round's *requested* field size. The two disagree whenever
+    the field came up short of the request (#48) — a den of three answering
+    a request for four — and dividing by the request instead of the actual
+    field is how a short-field multi-run final collapsed to one run on the
+    very next prelim correction (#311): the heats held three participants
+    per run, not four, and ``6 // 4`` is not ``6 // 3``.
+
+    Real racers and placeholder slots are different identity spaces — a
+    lane's ``racer_id`` and ``placeholder_slot`` never collide — so both are
+    counted, keyed apart.
+    """
+    participants: set[tuple[str, int]] = set()
+    for lanes in heats_lanes:
+        for lane in lanes:
+            if lane.racer_id is not None:
+                participants.add(("racer", lane.racer_id))
+            elif lane.placeholder_slot is not None:
+                participants.add(("slot", lane.placeholder_slot))
+    return len(participants)
+
+
 def field_is_short(heats_lanes: Iterable[Sequence], advancing_count: int) -> bool:
     """Fewer racers qualified than the round was built to hold.
 

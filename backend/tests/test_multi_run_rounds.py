@@ -140,6 +140,38 @@ def test_a_short_field_rebuild_keeps_both_runs(db, race):
     assert len(heats) == 4  # 2 racers x 2 runs, not 2 x 1
 
 
+def test_a_further_invalidation_after_a_short_field_rebuild_keeps_both_runs(db, race):
+    """#311: the short-field rebuild collapses a round to its *actual* field,
+    and a later invalidation used to derive `runs` from the round's
+    *requested* field again — which no longer matches the heats it was
+    rebuilding, so a two-run final lost a run all over again.
+
+    Reproduces the issue's own trace: a 4-slot, 2-run final that only 3
+    racers ever qualify for, short-field-rebuilt once already, then hit by
+    the ordinary invalidation a prelim correction fires on every later
+    championship round.
+    """
+    prelim, final = _two_run_final(db, race, num_racers=4)
+    assert len(_heats_of(db, final.id)) == 8  # 4 slots x 2 runs
+
+    # Only three of the four racers qualify: the field comes up short, so
+    # the round is rebuilt for the field it can actually fill.
+    crud.populate_round_field(db, final.id, [1, 2, 3])
+    assert len(_heats_of(db, final.id)) == 6  # 3 racers x 2 runs
+
+    # A prelim result changes. Invalidation resets the final back to
+    # placeholders sized for the *request* (four) — which does not divide
+    # evenly into the six heats the round actually holds (#230's check), so
+    # it falls all the way to full regeneration.
+    crud.invalidate_future_rounds(db, race.id, prelim.round_number)
+    assert len(_heats_of(db, final.id)) == 8  # 4 placeholder slots x 2 runs
+
+    # Re-population finds the same three qualifiers again.
+    crud.populate_round_field(db, final.id, [1, 2, 3])
+    heats = _heats_of(db, final.id)
+    assert len(heats) == 6  # 3 racers x 2 runs, not 3 x 1
+
+
 def test_regenerate_preserves_the_run_count(db, race):
     """#143's original case, now riding the shared derivation."""
     round_obj = crud.create_round(db, race_id=race.id, round_number=1)
