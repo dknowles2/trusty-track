@@ -132,3 +132,133 @@ export const RELEASE_START_GATE = gql`
     releaseStartGate(trackId: $trackId)
   }
 `;
+
+export const GET_RACE_CONTROL_DATA = gql`
+  query GetRaceControlData($id: Int!) {
+    initialConfig {
+      debugMode
+    }
+    race(raceId: $id) {
+      id
+      name
+      championshipTrophies
+      scoringStrategy
+      autoAdvanceHeat
+      registeredCount
+      checkedInCount
+      track {
+        id
+        laneCount
+        timerType
+        laneOutages
+      }
+      dens {
+        id
+        name
+      }
+      racers {
+        id
+        firstName
+        lastName
+        carNumber
+        racerImageUrl
+        carImageUrl
+      }
+      heats {
+        id
+        heatNumber
+        roundNumber
+        roundId
+        roundName
+        lanes {
+          lane
+          racerId
+          placeholderSlot
+          time
+          place
+          skipped
+        }
+      }
+      rounds {
+        id
+        roundNumber
+        name
+        advancementSource
+        advancementFromBottom
+        schedulingStrategy
+        advancementStatus {
+          isReady
+          requiresAdvancement
+          alreadyAdvanced
+          fieldIsStale
+          source
+          numRacers
+          fromBottom
+          advancingRacers {
+            racerId
+            firstName
+            lastName
+            carNumber
+            denName
+            score
+            rank
+            isAdvancing
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const CREATE_ROUND_MUTATION = gql`
+  mutation CreateRound($raceId: Int!, $roundData: RoundCreateInput!) {
+    createRound(raceId: $raceId, roundData: $roundData) {
+      id
+    }
+  }
+`;
+
+export const REGENERATE_ROUND_MUTATION = gql`
+  mutation RegenerateRound($roundId: Int!) {
+    regenerateRound(roundId: $roundId) {
+      id
+    }
+  }
+`;
+
+export const DELETE_ROUND_MUTATION = gql`
+  mutation DeleteRound($roundId: Int!) {
+    deleteRound(roundId: $roundId)
+  }
+`;
+
+export const DELETE_HEAT_MUTATION = gql`
+  mutation DeleteHeat($heatId: Int!) {
+    deleteHeat(heatId: $heatId)
+  }
+`;
+
+export const REORDER_HEATS_MUTATION = gql`
+  mutation ReorderHeats($heatUpdates: [HeatReorderItemInput!]!) {
+    reorderHeats(heatUpdates: $heatUpdates) {
+      updatedCount
+    }
+  }
+`;
+
+export const UPDATE_HEAT_RESULT_MUTATION = gql`
+  mutation UpdateHeatResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
+    updateHeatResult(heatId: $heatId, lanes: $lanes) {
+      id
+    }
+  }
+`;
+
+export const UPDATE_RACE_AUTO_ADVANCE_MUTATION = gql`
+  mutation UpdateRaceAutoAdvance($id: Int!, $race: RaceUpdateInput!) {
+    updateRace(id: $id, race: $race) {
+      id
+      autoAdvanceHeat
+    }
+  }
+`;
