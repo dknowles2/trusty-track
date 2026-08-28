@@ -371,7 +371,14 @@ class TestStartup:
     def test_an_ordinary_install_carries_on(self, monkeypatch):
         """The other half, and the reason the branch exists rather than a
         blanket change: a Pi that cannot migrate is still the operator's app,
-        and taking it down at 9am helps nobody."""
+        and taking it down at 9am helps nobody.
+
+        Asserts the app is actually serving afterwards, not merely that the
+        lifespan raised nothing — a `with TestClient(...): pass` on its own
+        proves only that startup did not propagate the exception, which is
+        also what it would look like if the app came up half-built and every
+        request then 500'd.
+        """
         from backend.api import main
 
         def _explode() -> None:
@@ -380,8 +387,10 @@ class TestStartup:
         monkeypatch.setattr(main, "init_db", _explode)
         monkeypatch.setattr(main, "demo_content", _NeverSeeds())
 
-        with TestClient(main.app):
-            pass
+        with TestClient(main.app) as client:
+            response = client.get("/health")
+
+        assert response.status_code == 200
 
     def test_seeding_does_not_run_twice(self, db, monkeypatch, demo):  # noqa: ARG002
         """The flag says nothing about whether this container has run before —

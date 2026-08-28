@@ -20,6 +20,7 @@ from backend.api import auth
 from backend.db import models
 from backend.db.database import Base, known_revisions
 from backend.services import backup
+from backend.tests.helpers import run_alembic
 
 
 def _head_revision() -> str:
@@ -174,12 +175,72 @@ class TestRefusingAnArchive:
     def test_an_older_archive_is_accepted(self, data_dir: Path, source_engine) -> None:
         # The mirror of the above, and the reason the check is "known" rather
         # than "equal to head": an older archive is restored and then upgraded
-        # forward, which is the path a legacy database already takes.
+        # forward, which is the path a legacy database already takes. This
+        # only proves the pre-check does not raise for a revision that is not
+        # head — `test_an_older_archive_is_restored_and_upgraded_forward`
+        # below proves the claim in the comment above.
         archive = _make_archive(data_dir, source_engine)
         manifest = backup.read_manifest(archive)
         backup.check_restorable(
             manifest, {manifest.schema_revision, "some_later_revision"}
         )
+
+    def test_an_older_archive_is_restored_and_upgraded_forward(
+        self, tmp_path: Path
+    ) -> None:
+        """What the test above only names: an archive genuinely older than
+        head is restored as-is — at its own revision, not head's — and then
+        `init_db()`'s forward-upgrade path (exercised here through the
+        Alembic CLI, the same one `helpers.run_alembic` drives) carries it the
+        rest of the way. A restore that silently stayed on the archive's
+        revision, or a restore that quietly upgraded it on the way in, would
+        both pass `test_an_older_archive_is_accepted` and fail this.
+        """
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        result = run_alembic(source_dir, "upgrade", "0001_baseline")
+        assert result.returncode == 0, result.stderr
+        source_engine = create_engine(f"sqlite:///{source_dir / 'trusty-track.db'}")
+
+        data_dir = tmp_path / "install"
+        (data_dir / "uploads").mkdir(parents=True)
+        (data_dir / "staging").mkdir()
+        archive = data_dir / "backup.zip"
+        backup.write_archive(
+            archive,
+            engine=source_engine,
+            upload_dir=data_dir / "uploads",
+            app_version="1.2.3",
+            staging_dir=data_dir / "staging",
+        )
+        source_engine.dispose()
+
+        manifest = backup.restore_archive(
+            archive,
+            database_path=data_dir / "trusty-track.db",
+            upload_dir=data_dir / "uploads",
+            staging_dir=data_dir / "staging",
+            known_revisions=known_revisions(),
+        )
+        assert manifest.schema_revision == "0001_baseline"
+
+        def _restored_revision() -> str | None:
+            connection = sqlite3.connect(data_dir / "trusty-track.db")
+            try:
+                row = connection.execute(
+                    "SELECT version_num FROM alembic_version"
+                ).fetchone()
+                return row[0] if row else None
+            finally:
+                connection.close()
+
+        # Restored as archived — not silently forward-migrated on the way in.
+        assert _restored_revision() == "0001_baseline"
+
+        upgraded = run_alembic(data_dir, "upgrade", "head")
+        assert upgraded.returncode == 0, upgraded.stderr
+
+        assert _restored_revision() == _head_revision()
 
     def test_an_archive_whose_database_disagrees_with_its_manifest(
         self, data_dir: Path, source_engine

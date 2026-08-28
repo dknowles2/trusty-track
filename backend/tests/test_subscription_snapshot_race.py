@@ -32,7 +32,7 @@ import backend.api.schema as schema_mod
 from backend.api.pubsub import _PubSub
 from backend.api.schema import Subscription
 from backend.db import crud, models, schemas
-from backend.domain import lanes
+from backend.domain import audit, lanes
 from backend.services.timer.devices import FAKE
 from backend.services.timer.manager import TimerManager
 
@@ -134,17 +134,29 @@ async def test_heat_session_watches_the_race_channel_from_the_snapshot_on(
 
     A result saved in the same window is what turns RUNNING into RECORDED, and
     it never comes from the timer — so losing it leaves the screen claiming a
-    heat is still racing while its times are in the standings.
+    heat is still racing while its times are in the standings. The opening
+    snapshot is WAITING; a payload that merely *arrives* on time would also
+    pass if the resolver replayed the same stale snapshot on every wakeup, so
+    this reads the phase the second payload actually carries.
     """
     race, track = _race(db, "SessionRace")
     heat = _heat(db, race)
 
     stream = Subscription().heat_session(_info(db), track.id, heat.id)
-    await _next(stream)
+    opening = await _next(stream)
+    assert opening.phase == "WAITING"
 
+    recorded_lanes = crud.heat_lanes_of(db, heat)
+    for i, lane in enumerate(recorded_lanes):
+        lane.time = 3.5 + i
+        lane.place = i + 1
+    crud.record_heat_result(
+        db, heat.id, recorded_lanes, source=audit.ResultSource.OPERATOR
+    )
     await isolated_pubsub.publish(f"race_state:{race.id}", None)
 
-    await asyncio.wait_for(_next(stream), timeout=TIMEOUT)
+    recorded = await asyncio.wait_for(_next(stream), timeout=TIMEOUT)
+    assert recorded.phase == "RECORDED"
 
 
 @pytest.mark.anyio
