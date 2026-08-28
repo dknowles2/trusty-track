@@ -1,6 +1,159 @@
+/* ---------------------------------------------------------------------------
+   The documentation half of trusty-track.com.
+
+   The landing page at the root of this domain (`www/styles.css`) and these
+   guides are one site, and a reader crosses between them constantly — every
+   feature block on the front page ends in a link to a guide, and the logo up
+   there goes back. So the two share a palette, a display face and a header
+   treatment. What is *not* shared is layout: Material's is better at long
+   documents than anything worth hand-writing, and it stays.
+
+   Both files define the same four colours from the same source, which is the
+   app itself: `--scouting-blue` and `--cub-scouting-gold` are custom
+   properties in `frontend/src/index.css`. The cream and wood tones come from
+   the logo's pinewood car.
+   --------------------------------------------------------------------------- */
+
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap");
+
 :root {
-  --md-primary-fg-color: #003F87;   /* scouting blue */
-  --md-primary-fg-color--light: #1a5faa;
-  --md-primary-fg-color--dark: #002d63;
-  --md-accent-fg-color: #FCD116;    /* gold */
+  --tt-blue: #003f87;
+  --tt-blue-deep: #002d63;
+  --tt-blue-lift: #1a5faa;
+  --tt-gold: #fcd116;
+  --tt-cream: #fdf8ee;
+  --tt-cream-edge: #efe4cf;
+
+  --tt-display: "Outfit", var(--md-text-font-family, ui-sans-serif), system-ui, sans-serif;
+}
+
+/* -------------------------------------------------------------- light mode */
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--tt-blue);
+  --md-primary-fg-color--light: var(--tt-blue-lift);
+  --md-primary-fg-color--dark: var(--tt-blue-deep);
+
+  /* The accent colour is what Material paints a hovered link, a focused input
+     and the active table-of-contents entry — all of them text. It used to be
+     the gold, which is about 1.6:1 against white: the link a reader is
+     pointing at was the least legible thing on the page. The gold is still
+     here, but as decoration that never has to be read (the rule under the
+     header, the marker on the current nav item), which is what it is on the
+     landing page too. */
+  --md-accent-fg-color: var(--tt-blue-lift);
+  --md-accent-fg-color--transparent: rgba(26, 95, 170, 0.1);
+
+  --md-typeset-a-color: var(--tt-blue-lift);
+  --md-code-bg-color: var(--tt-cream);
+  --md-footer-bg-color: var(--tt-blue-deep);
+  --md-footer-bg-color--dark: var(--tt-blue-deep);
+}
+
+/* --------------------------------------------------------------- dark mode */
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 215; /* Material's slate is violet by default; this is the app's blue */
+
+  --md-primary-fg-color: #0b1626;
+  --md-primary-fg-color--light: var(--tt-blue-lift);
+  --md-primary-fg-color--dark: #060d18;
+
+  --md-accent-fg-color: #4d8fdb;
+  --md-accent-fg-color--transparent: rgba(77, 143, 219, 0.14);
+
+  --md-typeset-a-color: #4d8fdb;
+  --md-footer-bg-color: #060d18;
+  --md-footer-bg-color--dark: #060d18;
+}
+
+/* ------------------------------------------------------------------- type */
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-header__topic .md-ellipsis,
+.md-nav__title {
+  font-family: var(--tt-display);
+  letter-spacing: -0.015em;
+}
+
+.md-typeset h1 {
+  font-weight: 800;
+  color: var(--md-default-fg-color);
+}
+.md-typeset h2 {
+  font-weight: 700;
+}
+.md-typeset h3,
+.md-typeset h4 {
+  font-weight: 600;
+}
+
+/* The site name in the header, matching the landing page's wordmark. */
+.md-header__topic:first-child .md-ellipsis {
+  font-weight: 800;
+}
+
+/* ----------------------------------------------------------------- header */
+
+/* The landing page ends its hero with a blue-and-gold ribbon, echoing the
+   track the car is on in the logo. One gold rule under the header is the same
+   idea at the scale a documentation page can afford — enough that arriving
+   from the front page does not feel like arriving somewhere else. */
+.md-header {
+  border-bottom: 3px solid var(--tt-gold);
+}
+
+.md-tabs {
+  border-bottom: none;
+}
+
+/* ------------------------------------------------------------------- nav */
+
+/* Material marks the current page by colour alone. A gold marker beside it is
+   the same distinction the landing page's section headings use, and it does
+   not depend on telling two blues apart. */
+.md-nav__link--active,
+.md-nav__item .md-nav__link--active {
+  font-weight: 600;
+}
+
+.md-nav--secondary .md-nav__link--active {
+  border-left: 3px solid var(--tt-gold);
+  margin-left: -3px;
+  padding-left: 0.4rem;
+}
+
+/* ---------------------------------------------------------------- content */
+
+.md-typeset table:not([class]) th {
+  background: var(--tt-blue);
+  color: #fff;
+  font-family: var(--tt-display);
+  font-weight: 600;
+}
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) th {
+  background: var(--tt-blue-deep);
+}
+
+/* Screenshots are pictures of a real screen, so they get the frame the
+   landing page gives them rather than sitting flush against the prose. */
+.md-typeset img[src*="/screenshots/"] {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 10px;
+}
+
+.md-typeset kbd {
+  font-family: var(--md-text-font-family, system-ui), sans-serif;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- printing */
+
+@media print {
+  .md-header {
+    border-bottom-color: #000;
+  }
 }
