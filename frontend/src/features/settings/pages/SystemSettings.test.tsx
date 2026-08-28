@@ -133,12 +133,11 @@ describe('SystemSettings', () => {
         }, vi.fn()]);
 
         const mockCreateMutation = vi.fn().mockResolvedValue({ data: { createInitialConfig: { initialized: true } } });
-        (useMutation as any).mockImplementation((query: any) => {
-            if (query.includes('mutation CreateInitialConfig')) {
-                return [{ fetching: false }, mockCreateMutation];
-            }
-            return [{ fetching: false }, vi.fn()];
-        });
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation CreateInitialConfig')
+                ? [{ fetching: false }, mockCreateMutation]
+                : [{ fetching: false }, vi.fn()],
+        );
 
         const user = (await import('@testing-library/user-event')).default.setup();
 
@@ -202,12 +201,11 @@ describe('SystemSettings', () => {
             fetching: false,
             error: null
         }, vi.fn()]);
-        (useMutation as any).mockImplementation((query: any) => {
-            if (query.includes('mutation CreateInitialConfig')) {
-                return [{ fetching: false }, mockCreateMutation];
-            }
-            return [{ fetching: false }, vi.fn()];
-        });
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation CreateInitialConfig')
+                ? [{ fetching: false }, mockCreateMutation]
+                : [{ fetching: false }, vi.fn()],
+        );
 
         // AlertProvider because the Backup panel reports a failed download or
         // restore through it; the app wraps every route the same way.
@@ -235,6 +233,55 @@ describe('SystemSettings', () => {
         const { config } = mockCreateMutation.mock.calls[0][0];
         expect(config.tracks[0].timerType).toBe('AUTO_DETECT_BACKEND');
         expect(config.tracks[0].serialPort).toBeFalsy();
+    });
+});
+
+describe('the mutation matcher beside a gql-tagged mutation', () => {
+    afterEach(cleanup);
+
+    // A saved track mounts TrackRecords, which calls `useMutation` with a
+    // `gql`-tagged DocumentNode rather than this page's own template-literal
+    // strings. A matcher that calls `query.includes(...)` directly throws
+    // `query.includes is not a function` the instant that mounts — normalising
+    // through `documentText` first is what lets both kinds of document share a
+    // fixture.
+
+    it('still resolves the right mutation once a saved track joins the fixture', async () => {
+        const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    groupName: 'Pack 42',
+                    debugMode: false,
+                    tracks: [
+                        { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, historicalRecords: [] },
+                    ],
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
     });
 });
 

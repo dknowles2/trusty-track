@@ -24,14 +24,14 @@ def test_bulk_move_to_den(client, db):
 
     # Create Racers
     racer_ids = []
-    for _ in range(3):
+    for i in range(3):
         resp = client.post(
             "/graphql",
             json={
                 "query": f"""
             mutation {{
                 createRacer(
-                    racer: {{firstName: "R{{i}}", lastName: "T", raceId: {race_id}}}
+                    racer: {{firstName: "R{i}", lastName: "T", raceId: {race_id}}}
                 ) {{ id }}
             }}
         """
@@ -100,7 +100,7 @@ def test_reorder_heats(client, db):
                 "query": f"""
             mutation {{
                 createRacer(racer: {{
-                    firstName: "R{{i}}"
+                    firstName: "R{i}"
                     lastName: "T"
                     carNumber: {100 + i}
                     raceId: {race_id}
@@ -185,7 +185,7 @@ def test_wizard_graphql_flow(client, db):
                 "query": f"""
             mutation {{
                 createRacer(racer: {{
-                    firstName: "R{{i}}"
+                    firstName: "R{i}"
                     lastName: "T"
                     carNumber: {100 + i}
                     raceId: {race_id}

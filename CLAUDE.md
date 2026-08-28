@@ -345,7 +345,7 @@ Databases created before Alembic are detected at startup (app tables present, no
 
 Defined entirely in `backend/api/schema.py`.
 
-**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `version`
+**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `version`, `networkAddresses`
 
 **Mutations:**
 
@@ -604,6 +604,10 @@ Rules in `domain/awards.can_be_voted_on` and `domain/awards.rank_tally`, databas
 
 **Timing is operator judgment, not enforced.** Nothing here couples `voting_open` to racing progress or to the ceremony route; the operator is expected to close voting before presenting, the same trust the ceremony's own pacing already runs on.
 
+**Sharing the ballot address is a backend question, not a browser one** ([#414](https://github.com/dknowles2/trusty-track/issues/414)). `window.location.origin` names the machine from its own point of view, and on the documented setup — one machine at the venue, the operator's own laptop — that is `http://localhost:8000`, which no phone on the wifi can open. The browser has no way to do better than that; the backend can, because it is the thing bound to the network. `services/network.lan_addresses()` is best-effort over two OS-level techniques (resolving the machine's own hostname, and reading which interface a UDP "connect" would route through — neither sends a packet, and neither alone is reliable on every OS), exposed as the `networkAddresses` query. `features/awards/shareAddress.ts` (pure) is where the substitution happens: `window.location`'s own address is kept whenever its hostname is already not `localhost`/`127.0.0.1`/`::1`, and swapped for the first LAN address otherwise, keeping the browser's own port and path — the frontend does not need the backend to tell it what port it is being served on, since it is already being served on the right one. **The result always carries a `reachable` flag, checked whether or not a substitution happened** — an empty `networkAddresses` list leaves the shown address as `localhost` and says so, because implying an address works when nothing here could confirm it is worse than a plain warning.
+
+**The QR code is rendered server-side, from the same URL the text shows** — `services/printables.url_png`, sharing `_qr_png` with the check-in code but encoding an ordinary URL rather than an app-internal payload, since this code is scanned by a phone that is not running Trusty Track and never will be. `GET /printables/vote-qr/{race_id}.png` (`/api/` too, the barcode endpoint's reason) takes the URL as a query parameter rather than working it out again on the backend — computing the shareable address twice would be two copies of the same rule free to disagree — and refuses one that does not contain `/race/{race_id}/vote`, since this is not a general-purpose QR generator sitting behind no credential. Not cached `immutable` like the check-in code: the encoded address depends on the machine's current network and can change between requests in a way a racer's id never does. Unguarded, like the barcode endpoint and the ballot page itself — voting is the one screen a `VIEWER` with no PIN is meant to reach.
+
 ### Car numbering
 
 `PER_GROUP` fills within each den's range; `GLOBAL` numbers sequentially from `global_start_number`; `MANUAL` disables auto-numbering.
@@ -823,6 +827,8 @@ If you add a race view, it goes in `links` in `Navigation.tsx`. Don't reintroduc
 **There is no Bulk Actions button.** It was disabled for most of the day — space spent saying "not yet" — and what it held is now a selection bar that exists only while rows are ticked, with a clear-selection ✕. `roster-selection-bar` and `roster-more-menu` are the test ids; the individual `bulk-*-btn` ids survived the move, so what changed for a test is only that the actions no longer need a menu opened first.
 
 Move-to-den is still a menu, because six dens will not fit on the bar — but it opens **downward** now rather than flying out sideways, which retired `denMenuSide`, `denMenuContainerRef`, `moveDenTimeoutRef` and the two hover handlers that measured which side had room.
+
+**Only the actions that remove something clear the selection** ([#420](https://github.com/dknowles2/trusty-track/issues/420)). The desk works a queue: select everyone, Auto number, then Check In — and until now the first click cleared the selection along with everything else, so the second landed on nothing, silently, because the bar it would have used had just disappeared. Check In, Auto number and Move to den now leave `selectedRacerIds` standing after they succeed, so that sequence is one selection rather than two. Clear numbers and Delete still clear it — both remove data (numbers, or the rows themselves) rather than adding to it, so a selection surviving them is a chance to repeat a destructive action by mistake, not a convenience. The explicit **✕** is unaffected either way.
 
 ### The settings page is sectioned, except the first time
 

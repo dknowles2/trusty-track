@@ -31,7 +31,15 @@ beforeEach(() => {
         { data: undefined },
         vi.fn(),
     ]);
-    (useMutation as unknown as ReturnType<typeof vi.fn>).mockReturnValue([{}, vi.fn()]);
+    // No test in this file asserts on a specific mutation — it exercises the
+    // scan-to-check-in flow reaching the check-in form — but a shared spy
+    // across all ten of `RaceDetails.tsx`'s `useMutation` calls is still the
+    // wrong default, so a test added later inherits a discriminating mock
+    // rather than a blanket one. Each call gets its own inert spy.
+    (useMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => [
+        { fetching: false },
+        vi.fn(),
+    ]);
     (useQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
         {
             data: {

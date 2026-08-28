@@ -94,9 +94,21 @@ walking the cars around with a clipboard.
    button's label flips to **Close voting**, and the text beside it says
    "Voting is open." Share the address that appears next to it — a phone on
    the venue wifi that opens it sees every car's number, name and photo, and
-   can vote for any award you have left on.
+   can vote for any award you have left on. Trusty Track works out an address
+   a phone can actually reach — not the one your own browser shows, if that
+   one would only work on this machine — and offers a **Copy** button and a
+   QR code beside it for handing to someone across the room. If it says it
+   could not find a working address, see
+   [finding this machine's address](access-and-network.md#finding-this-machines-address)
+   and check the phone can reach it before relying on it.
 3. Click **Close voting** before the ceremony. Nothing does this
    for you — it is your call, the same way starting the ceremony itself is.
+
+**If some cars have no photo, this page tells you before you open voting.**
+A car with no photo shows as a gray square on the ballot instead — fine for a
+speed award, not for one about how the car looks. A line above the voting
+button counts how many cars are missing a photo and links to the roster,
+where **Upload Photos** (in the **⋯** menu) adds several at once.
 
 **Nobody's name or photo appears on the voting page.** Voting is about the
 cars, and only the cars: a car's number, its name if it has one, and its
@@ -106,6 +118,11 @@ photo. Whoever is voting never sees who built it.
 voting more than once from the same device — the assumption is a single
 iPad by the cars, passed from hand to hand, not a ballot tied to a person.
 What your pack decides that is worth is your call, not the app's.
+
+**A tap casts the vote right away**, with no "are you sure?" step — the
+confirmation names the car ("Thanks for voting for #7 Blue Streak!") so an
+accidental tap while scrolling is at least visible to whoever is holding the
+phone, rather than a silent vote for the wrong car.
 
 **A vote never fills in the winner by itself.** As soon as an award has any
 votes, its tally — how many votes each car got — appears right on its row in

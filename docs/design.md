@@ -173,6 +173,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   `heatSession(trackId, heatId)` — What is on the track right now (see below).
 -   `freeRaceHeats(raceId)`, `activeFreeRaceHeat(raceId)`, `randomFreeRaceLanes(raceId, shuffle, enabledLanes)` — the draw runs over the race's usable lanes (`usable_lanes_for_race`, #171); `enabledLanes` narrows it further to a session-only subset the Free Race screen's per-lane toggle asks for (#303), and is intersected against usable rather than trusted outright
 -   `version` — Running application version.
+-   `networkAddresses` — This machine's own LAN address(es), best-effort (`services/network.py`). The voting page's share step uses this to replace `window.location`'s `localhost`/`127.0.0.1` with something a phone on the venue wifi can actually open (#414); an empty list means none could be found.
 
 **GraphQL Mutations:**
 
@@ -196,6 +197,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 
 -   `POST /upload/` — File upload, returns URL. Check-in role or above, and capped at 16 MB. It is guarded at the check-in level rather than the operator's because its GraphQL twin `uploadImage` is a check-in mutation and photographing a car is the registration desk's job. Nothing in the frontend calls it — images travel as data URLs through `uploadImage` — but it wrote a permanent file from an unauthenticated, unbounded request until the check existed.
 -   `GET /printables/barcode/{racer_id}.png` and `GET /api/printables/barcode/{racer_id}.png` — the check-in QR code. Registered at both paths because the Vite dev proxy strips the `/api` prefix; the payload is `TT1:<race_id>:<racer_id>`.
+-   `GET /printables/vote-qr/{race_id}.png` and `GET /api/printables/vote-qr/{race_id}.png` — a QR code for the ballot address (#414), encoding the `url` query parameter as-is (refused if it does not contain `/race/{race_id}/vote`) rather than recomputing it, so the text and the code cannot disagree. Not cached `immutable`: the address depends on the machine's current network.
 -   `GET /backup` and `GET /api/backup` — the whole install as one zip: a SQLite snapshot, the uploads directory, and a manifest recording the schema revision. Operator-only.
 -   `POST /backup/restore` and `POST /api/backup/restore` — replaces the database and uploads with an archive's copies. Operator-only. Refuses an archive whose schema revision this install has no migrations for, and validates everything before it moves anything.
 -   `GET /timer-test/{track_id}/report` and `GET /api/timer-test/{track_id}/report` — the timer test report as a JSON download: app version, matched profile and provenance, port framing, and the full timestamped serial conversation. Operator-only, self-guarding like the backup endpoints. The serial capture is the same kind of evidence as `backend/tests/timer_recordings/`, which is what lets a user's report become a regression fixture (#235).

@@ -7,6 +7,7 @@ import RaceDetails from './RaceDetails';
 
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
+import * as GQL from '../graphql/queries';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -18,6 +19,20 @@ vi.mock('urql', async (importOriginal) => {
         useSubscription: vi.fn(),
     };
 });
+
+/**
+ * Discriminate `useMutation` by document, as `RaceDetailsBulkActions.test.tsx`
+ * does. `RaceDetails.tsx` calls `useMutation` ten times; a blanket
+ * `mockReturnValue` makes every one of them the same spy, so an assertion on
+ * "the mutation" passes whichever button actually fired it. Pass the specific
+ * documents a test cares about; every other mutation gets an inert `vi.fn()`.
+ */
+function mockMutations(overrides: [unknown, ReturnType<typeof vi.fn>][] = []) {
+    (useMutation as any).mockImplementation((query: unknown) => {
+        const match = overrides.find(([doc]) => doc === query);
+        return [{ fetching: false }, match ? match[1] : vi.fn()];
+    });
+}
 
 // Cleanup after each test
 afterEach(() => {
@@ -87,7 +102,7 @@ describe('RaceDetails', () => {
             error: null
         }, vi.fn()]);
 
-        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        mockMutations();
 
         render(
             <MemoryRouter initialEntries={['/races/1']}>
@@ -142,7 +157,7 @@ describe('RaceDetails', () => {
             error: null
         }, vi.fn()]);
 
-        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        mockMutations();
 
         render(
             <MemoryRouter initialEntries={['/races/1']}>
@@ -207,7 +222,7 @@ describe('RaceDetails', () => {
         }, vi.fn()]);
 
         const mockDeleteRace = vi.fn().mockResolvedValue({ data: { deleteRace: { success: true } } });
-        (useMutation as any).mockReturnValue([{ fetching: false }, mockDeleteRace]);
+        mockMutations([[GQL.DELETE_RACE, mockDeleteRace]]);
 
         render(
             <MemoryRouter initialEntries={['/races/1']}>
@@ -256,7 +271,7 @@ describe('RaceDetails', () => {
             error: null
         }, mockReExecute]);
 
-        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        mockMutations();
 
         (useSubscription as any).mockImplementation(
             (_opts: any, handler: (prev: any, data: any) => any) => {
@@ -373,7 +388,7 @@ describe('editing a race that is not on the first track', () => {
             },
             vi.fn(),
         ]);
-        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        mockMutations();
 
         render(
             <MemoryRouter initialEntries={['/races/1']}>

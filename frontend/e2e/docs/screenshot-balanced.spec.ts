@@ -118,6 +118,7 @@ test('screenshot balanced racing', async ({ page }) => {
         }`,
         { raceId },
     );
+    const phaseOneWinners: number[] = [];
     for (const heat of scheduled.race.heats) {
         const running = heat.lanes.filter(
             (lane: { racerId: number | null }) => lane.racerId !== null,
@@ -132,6 +133,8 @@ test('screenshot balanced racing', async ({ page }) => {
             time: 3.05 + order.findIndex((other: { racerId: number }) => other.racerId === lane.racerId) * 0.14,
             place: order.findIndex((other: { racerId: number }) => other.racerId === lane.racerId) + 1,
         }));
+        // order[0] is strongest present, so lowest time, so place 1 — the heat's winner.
+        phaseOneWinners.push(order[0].racerId);
         await gql(
             page,
             `mutation Result($heatId: Int!, $lanes: [HeatLaneInput!]!) {
@@ -157,6 +160,14 @@ test('screenshot balanced racing', async ({ page }) => {
     );
     expect(pending.length).toBeGreaterThan(0);
     await expect(page.getByText('Heat 3')).toBeVisible();
+    // The caption's claim: the phase-one winners are matched against each
+    // other in the first phase-two heat, not scattered across the field.
+    const firstPendingRacerIds = pending[0].lanes.map(
+        (lane: { racerId: number | null }) => lane.racerId,
+    );
+    for (const winner of phaseOneWinners) {
+        expect(firstPendingRacerIds).toContain(winner);
+    }
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '30-balanced-schedule.png'),
         fullPage: false,

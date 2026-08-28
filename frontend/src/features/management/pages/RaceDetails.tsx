@@ -364,13 +364,21 @@ export default function RaceDetails() {
   };
 
   // Bulk Handlers
+  //
+  // The additive ones — auto-number, check in, move to den — leave the
+  // selection standing after they succeed (#420). The desk works a queue:
+  // select everyone, auto-number, then check in, and re-ticking select-all
+  // between two clicks that both meant "these racers" is the friction the
+  // selection bar exists to remove. Clear numbers and delete keep clearing
+  // it — both remove data rather than adding to it, so a stale selection
+  // there is a chance to repeat a destructive action by mistake rather than
+  // a convenience.
   const handleBulkAutoNumber = async () => {
     try {
       const result = await bulkAutoNumberMutation({ racerIds: selectedRacerIds });
       if (result.error) throw result.error;
       refreshData();
       showAlert(`Successfully auto-numbered ${result.data.bulkAutoNumber} racers`, "Bulk Auto-Number Result");
-      setSelectedRacerIds([]);
     } catch {
       showAlert("Failed to bulk auto-number racers", "Error");
     }
@@ -408,7 +416,6 @@ export default function RaceDetails() {
       const result = await bulkCheckInMutation({ racerIds: selectedRacerIds, passedInspection: true });
       if (result.error) throw result.error;
       refreshData();
-      setSelectedRacerIds([]);
       setIsMoreMenuOpen(false);
     } catch {
       showAlert("Failed to bulk check-in racers", "Error");
@@ -420,7 +427,6 @@ export default function RaceDetails() {
       const result = await bulkMoveToDenMutation({ racerIds: selectedRacerIds, denId });
       if (result.error) throw result.error;
       refreshData();
-      setSelectedRacerIds([]);
       setIsMoveToDenOpen(false);
       setIsMoreMenuOpen(false);
     } catch {

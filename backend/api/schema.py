@@ -31,8 +31,8 @@ from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import scoring as domain_scoring
 from backend.services import displays as displays_service
+from backend.services import network, scoring
 from backend.services import records as records_service
-from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
 from backend.services.timer.devices import by_key as _profile_by_key
@@ -112,6 +112,44 @@ def _stored_lanes(db: Session, heat: models.Heat) -> list[lanes.Lane]:
     about every heat in a race.
     """
     return crud.lanes_for_heats(db, [heat])[0]
+
+
+def _heat_and_manager(
+    db: Session,
+    timer_managers: Mapping[int, Any],
+    heat_id: int,
+    *,
+    is_free_race: bool = False,
+) -> tuple[models.Heat, models.Race, TimerManager] | None:
+    """Load a heat, its race, and the ``TimerManager`` for the race's track.
+
+    ``fake_timer_start``, ``prepare_heat`` and ``fake_timer_finish`` each
+    re-derived this by hand: load the Heat (or free-race heat), load its
+    Race, bail if ``race.track_id`` is None, look the manager up in
+    ``timer_managers``, bail if absent — the same guards, three times, free
+    to drift apart (#431, the #48 shape CLAUDE.md warns about throughout).
+    Returns ``None`` on any failure so callers keep a one-line guard.
+
+    ``is_free_race`` narrows the lookup to ``kind == FREE``, the way
+    :func:`crud.get_free_race_heat` does. Only ``fake_timer_start`` passes
+    it — heat ids are unique across both kinds since #6, so
+    ``prepare_heat`` and ``fake_timer_finish`` read the kind off the row
+    instead and call this with the default, exactly as they did before.
+    """
+    heat = (
+        crud.get_free_race_heat(db, heat_id)
+        if is_free_race
+        else db.query(models.Heat).filter(models.Heat.id == heat_id).first()
+    )
+    if heat is None:
+        return None
+    race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
+    if race is None or race.track_id is None:
+        return None
+    mgr = timer_managers.get(race.track_id)
+    if mgr is None:
+        return None
+    return heat, race, mgr
 
 
 def _free_race_heats(db: Session, race_id: int, recorded: bool) -> list[models.Heat]:
@@ -1825,6 +1863,18 @@ class Query:
             return "unknown"
 
     @strawberry.field
+    def network_addresses(self) -> list[str]:
+        """Addresses this machine can be reached at from off itself (#414).
+
+        For the voting page's share step: `window.location.origin` is
+        `localhost` on the machine running Trusty Track, which a phone on the
+        venue wifi cannot open. The frontend substitutes one of these in when
+        that happens; an empty list means the backend could not find one, and
+        the page has to say so rather than pretend `localhost` works.
+        """
+        return network.lan_addresses()
+
+    @strawberry.field
     def race(self, info: Info, race_id: int) -> Race | None:
         """Get a single race by ID."""
         return typing.cast(Any, crud.get_race(info.context["db"], race_id=race_id))
@@ -3041,23 +3091,12 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        if is_free_race:
-            free_heat = crud.get_free_race_heat(db, heat_id)
-            if not free_heat:
-                return False
-            race_id = free_heat.race_id
-        else:
-            heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-            if not heat:
-                return False
-            race_id = heat.race_id
-
-        race = db.query(models.Race).filter(models.Race.id == race_id).first()
-        if race is None or race.track_id is None:
+        found = _heat_and_manager(
+            db, timer_managers, heat_id, is_free_race=is_free_race
+        )
+        if found is None:
             return False
-        mgr = timer_managers.get(race.track_id)
-        if mgr is None:
-            return False
+        _heat, _race, mgr = found
         if mgr._state != TimerState.ARMED or mgr._active_heat_id != heat_id:
             return False
 
@@ -3100,15 +3139,10 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if not heat:
+        found = _heat_and_manager(db, timer_managers, heat_id)
+        if found is None:
             return False
-        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
-        if race is None or race.track_id is None:
-            return False
-        mgr = timer_managers.get(race.track_id)
-        if mgr is None:
-            return False
+        heat, race, mgr = found
         if (
             mgr._state in (TimerState.RUNNING, TimerState.RESULTS_OVERDUE)
             and mgr._active_heat_id != heat_id
@@ -3168,16 +3202,10 @@ class Mutation:
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
 
-        heat = db.query(models.Heat).filter(models.Heat.id == heat_id).first()
-        if not heat:
+        found = _heat_and_manager(db, timer_managers, heat_id)
+        if found is None:
             return False
-
-        race = db.query(models.Race).filter(models.Race.id == heat.race_id).first()
-        if race is None or race.track_id is None:
-            return False
-        mgr = timer_managers.get(race.track_id)
-        if mgr is None:
-            return False
+        heat, race, mgr = found
         if mgr._state != TimerState.RUNNING or mgr._active_heat_id != heat_id:
             return False
 
@@ -3674,6 +3702,7 @@ class Mutation:
         if not race:
             raise ValueError("Race not found")
 
+        round_obj: models.Round | None = None
         try:
             # `runs_per_lane` becomes `HeatPlan` heats: zero or negative
             # schedules nothing and a championship round with no heats is
@@ -3783,8 +3812,15 @@ class Mutation:
                 crud.populate_round_if_decided(db, round_obj)
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
                 return [typing.cast(Any, round_obj)]
-        except ValueError as e:
-            raise ValueError(str(e)) from None
+        except ValueError:
+            # `create_round` commits immediately (backend/db/crud.py), so a
+            # round joins the rollback the moment its row exists — the
+            # wizard's rule (#249), applied to its single-round sibling
+            # (#415): a failure in heat generation must not leave a
+            # committed, heat-less round behind.
+            if round_obj is not None:
+                crud.delete_round(db, round_obj.id)
+            raise
 
     @strawberry.mutation
     async def reorder_heats(

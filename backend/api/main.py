@@ -326,6 +326,38 @@ def check_in_barcode(racer_id: int, db: Session = Depends(get_db)) -> Response:
     )
 
 
+@app.get("/printables/vote-qr/{race_id}.png")
+@app.get("/api/printables/vote-qr/{race_id}.png")
+def voting_qr(race_id: int, url: str, db: Session = Depends(get_db)) -> Response:
+    """A QR code a phone can scan to reach this race's ballot (#414).
+
+    `url` is supplied by the caller rather than built here: the Awards page
+    already works out the one address a phone can actually reach —
+    substituting a LAN address for `localhost` when the browser's own origin
+    would not do — and encoding a second copy of that logic here would be the
+    two ways of getting a share address disagreeing with each other. Scoped
+    to `race_id` only to reject a code for an obviously unrelated URL; this is
+    not a general-purpose QR generator.
+
+    Not cached `immutable` like the check-in code above: the address depends
+    on the machine's current network, which can change between requests in a
+    way a racer's id never does.
+    """
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise HTTPException(status_code=404, detail="Race not found")
+    if f"/race/{race_id}/vote" not in url:
+        raise HTTPException(
+            status_code=400, detail="Not a ballot address for this race"
+        )
+
+    return Response(
+        content=printables.url_png(url),
+        media_type="image/png",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 def _refuse_on_demo(what: str) -> None:
     """Refuse a REST route the public demo does not offer.
 

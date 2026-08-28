@@ -170,3 +170,84 @@ class TestEndpoint:
         response = client.get(f"/api/printables/barcode/{racer.id}.png")
 
         assert "immutable" in response.headers.get("cache-control", "")
+
+
+class TestVotingQrRendering:
+    """`url_png`: a QR code that encodes an ordinary URL rather than an
+    app-internal payload, for a phone that scans it and never opens Trusty
+    Track at all (#414)."""
+
+    def test_it_renders_a_png(self):
+        assert service_printables.url_png(
+            "http://192.168.1.42:8000/race/1/vote"
+        ).startswith(PNG_MAGIC)
+
+    def test_different_urls_get_different_codes(self):
+        assert service_printables.url_png(
+            "http://192.168.1.42:8000/race/1/vote"
+        ) != service_printables.url_png("http://192.168.1.42:8000/race/2/vote")
+
+
+class TestVotingQrEndpoint:
+    def test_it_serves_a_png(self, client, race):
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://192.168.1.42:8000/race/{race.id}/vote"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        assert response.content.startswith(PNG_MAGIC)
+
+    def test_it_answers_without_the_api_prefix_too(self, client, race):
+        response = client.get(
+            f"/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://192.168.1.42:8000/race/{race.id}/vote"},
+        )
+
+        assert response.status_code == 200
+        assert response.content.startswith(PNG_MAGIC)
+
+    def test_the_image_encodes_the_given_url(self, client, race):
+        url = f"http://192.168.1.42:8000/race/{race.id}/vote"
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png", params={"url": url}
+        )
+
+        assert response.content == service_printables.url_png(url)
+
+    def test_an_unknown_race_is_a_404(self, client):
+        response = client.get(
+            "/api/printables/vote-qr/999999.png",
+            params={"url": "http://192.168.1.42:8000/race/999999/vote"},
+        )
+
+        assert response.status_code == 404
+
+    def test_a_url_for_a_different_race_is_refused(self, client, race):
+        """Scoped to `race_id` to reject an obviously unrelated URL — this is
+        not a general-purpose QR generator sitting behind no credential."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": "http://192.168.1.42:8000/race/999999/vote"},
+        )
+
+        assert response.status_code == 400
+
+    def test_an_unrelated_url_is_refused(self, client, race):
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": "https://example.com/"},
+        )
+
+        assert response.status_code == 400
+
+    def test_the_response_is_not_cached_as_immutable(self, client, race):
+        """Unlike the check-in code, the encoded address depends on the
+        machine's current network and can change between requests."""
+        response = client.get(
+            f"/api/printables/vote-qr/{race.id}.png",
+            params={"url": f"http://192.168.1.42:8000/race/{race.id}/vote"},
+        )
+
+        assert "immutable" not in response.headers.get("cache-control", "")

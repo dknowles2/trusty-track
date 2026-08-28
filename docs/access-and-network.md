@@ -26,10 +26,10 @@ is using it. There are three:
 | **Check-in desk** | the check-in PIN | add and edit racers, check them in, take photos |
 | **Operator** | the operator PIN | everything |
 
-A display needs no setup at all. Point a browser at the address and it works,
-which is the behaviour you want on a screen taped to a wall. Exactly what
-each role can and cannot do is in
-[Roles and permissions](reference/roles-and-permissions.md).
+A display needs no setup at all. Point a browser at
+[the address](#finding-this-machines-address) and it works, which is the
+behaviour you want on a screen taped to a wall. Exactly what each role can and
+cannot do is in [Roles and permissions](reference/roles-and-permissions.md).
 
 ## Setting the PINs
 
@@ -85,6 +85,30 @@ If it does happen, there is a way back in, but it is technical — editing the
 database file directly, not clicking anything in Trusty Track. See
 [If you forget the operator PIN](reference/roles-and-permissions.md#if-you-forget-the-operator-pin)
 for the exact steps.
+
+## Finding this machine's address
+
+A display, a check-in tablet, or a phone voting on an award all need the same
+thing: an address that opens Trusty Track from *another* device, not just the
+one it is running on. The address in your own browser's bar can be the wrong
+one to hand out — on the machine running Trusty Track, it is often
+`http://localhost:8000`, which names that machine to itself and nothing else
+can open.
+
+Where Trusty Track can work this out for you, it does — the voting page's
+sharing step (see [Letting people vote](awards.md#letting-people-vote)) shows
+an address it has checked is not `localhost`, with a **Copy** button and a QR
+code. If it says it could not find one, or for setting up a display, the
+address is whatever this machine's own network settings say:
+
+> [!NOTE]
+> Windows: open a command prompt and type `ipconfig` — look for "IPv4
+> Address". Mac: **System Settings → Wi-Fi → Details**. Raspberry Pi: type
+> `hostname -I` at a terminal. On any of them, it looks like
+> `192.168.___.___` or `10.___.___.___`. The full address to type into another
+> device's browser is that, with the same `http://` or `https://` and `:port`
+> your own browser's address bar shows for Trusty Track — for example
+> `http://192.168.1.42:8000` if yours shows `http://localhost:8000`.
 
 ## Which network to use
 

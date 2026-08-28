@@ -35,6 +35,19 @@ describe('activeNavLink', () => {
         expect(activeNavLink('/race/1/print/heat-sheet', LINKS)).toBe('/race/1');
     });
 
+    it('certificates highlight Awards, where the Print certificates button lives (#417)', () => {
+        expect(activeNavLink('/race/1/print/certificates', LINKS)).toBe('/race/1/awards');
+    });
+
+    it('the results sheet highlights Standings, where its button lives (#417)', () => {
+        expect(activeNavLink('/race/1/print/results', LINKS)).toBe('/race/1/standings');
+    });
+
+    it('a print sub-page whose owning link is absent from the row falls back to Roster', () => {
+        const withoutAwards = LINKS.filter((l) => l.to !== '/race/1/awards');
+        expect(activeNavLink('/race/1/print/certificates', withoutAwards)).toBe('/race/1');
+    });
+
     it('a race id that merely starts the same is not a sub-path', () => {
         expect(activeNavLink('/race/12', [{ to: '/race/1' }])).toBeNull();
     });
