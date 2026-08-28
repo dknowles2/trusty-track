@@ -4,6 +4,7 @@ import { useQuery, useMutation, gql } from 'urql';
 import { CREATE_PRACTICE_RACE, CREATE_RACE } from '../graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
+import { buildCreateRaceInput } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
@@ -47,18 +48,7 @@ export default function Home() {
 
     const handleCreate = async (formData: RaceFormData) => {
         try {
-            // Map snake_case to camelCase for GQL input
-            const raceInput = {
-                name: formData.name,
-                dateTime: formData.date_time,
-                location: formData.location,
-                trackId: formData.track_id,
-                scoringStrategy: formData.scoring_strategy,
-                carNumberingStrategy: formData.car_numbering_strategy,
-                globalStartNumber: formData.global_start_number,
-                championshipTrophies: formData.championship_trophies,
-                weightLimitOz: formData.weight_limit_oz,
-            };
+            const raceInput = buildCreateRaceInput(formData);
             const result = await createRace({ race: raceInput });
             if (result.error) {
                 throw result.error;

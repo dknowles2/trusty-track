@@ -171,6 +171,11 @@ describe('Navigation Component', () => {
                     carNumberingStrategy: expect.any(String),
                     globalStartNumber: expect.any(Number),
                     championshipTrophies: expect.any(Number),
+                    // The reported bug (#332): this handler used to build its
+                    // own input object and left weightLimitOz out, so a race
+                    // created from "New Race…" got no weight check while the
+                    // form on screen showed one ticked.
+                    weightLimitOz: expect.any(Number),
                 }),
             });
             // Ensure no snake_case keys are passed
@@ -181,6 +186,7 @@ describe('Navigation Component', () => {
             expect(callArg).not.toHaveProperty('car_numbering_strategy');
             expect(callArg).not.toHaveProperty('global_start_number');
             expect(callArg).not.toHaveProperty('championship_trophies');
+            expect(callArg).not.toHaveProperty('weight_limit_oz');
         });
     });
 });

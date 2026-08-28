@@ -6,6 +6,7 @@ import { activeNavLink } from '../activeNavLink';
 import { CREATE_RACE } from '../../management/graphql/queries';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../../management/components/RaceForm';
+import { buildCreateRaceInput } from '../../management/raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiAccountGroup, mdiMedal, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
@@ -69,16 +70,7 @@ export default function Navigation() {
 
   const handleCreateRace = async (data: RaceFormData) => {
     try {
-      const raceInput = {
-        name: data.name,
-        dateTime: data.date_time,
-        location: data.location,
-        trackId: data.track_id,
-        scoringStrategy: data.scoring_strategy,
-        carNumberingStrategy: data.car_numbering_strategy,
-        globalStartNumber: data.global_start_number,
-        championshipTrophies: data.championship_trophies,
-      };
+      const raceInput = buildCreateRaceInput(data);
       const result = await createRaceMutation({ race: raceInput });
       if (result.error) throw result.error;
 
