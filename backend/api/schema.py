@@ -2209,6 +2209,14 @@ class Mutation:
             # changing, and a signal nobody needed is far cheaper than one
             # that is missing.
             await _publish_races_list()
+            # The race-scoped channel (#319): this is the mutation that
+            # actually changes name, scoring_strategy, auto_advance_heat,
+            # championship_trophies and the weight limit — exactly what
+            # RACE_SETTINGS exists to announce. Without it, an audience
+            # display's `leaderboard` subscription keeps showing standings
+            # computed under the old scoring strategy until the next heat
+            # result happens to fire the channel.
+            await _publish_race_state(updated.id, kind=RaceChangeKind.RACE_SETTINGS)
         return updated
 
     @strawberry.mutation

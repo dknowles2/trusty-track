@@ -365,6 +365,41 @@ def test_update_race_publishes_races_changed(client, db, monkeypatch) -> None:
     assert (RACES_LIST_CHANNEL, None) in calls
 
 
+def test_update_race_publishes_race_state_changed(client, db, monkeypatch) -> None:
+    """`createRace` publishes RACE_SETTINGS on `race_state:{id}`, and so must
+    `updateRace` — it is the mutation that actually changes the name,
+    scoring_strategy, auto_advance_heat, championship_trophies and the
+    weight limit (#319). Without it, an audience display's `leaderboard`
+    subscription keeps showing standings computed under the old scoring
+    strategy until the next heat result happens to fire the channel."""
+    from backend.api.schema import RaceChangeKind
+
+    group_id, track_id = _configure(db)
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(name="Before", group_id=group_id, track_id=track_id),
+    )
+
+    calls = _spy_on_publish(monkeypatch)
+
+    mutation = f"""
+    mutation {{
+        updateRace(id: {race.id}, race: {{scoringStrategy: "POINTS"}}) {{
+            id
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation})
+    assert response.status_code == 200
+    assert response.json()["data"]["updateRace"]["id"] == race.id
+
+    race_state_events = [
+        payload for channel, payload in calls if channel == f"race_state:{race.id}"
+    ]
+    assert len(race_state_events) == 1
+    assert race_state_events[0].kind == RaceChangeKind.RACE_SETTINGS
+
+
 def test_update_race_does_not_publish_for_a_missing_race(client, monkeypatch) -> None:
     """No race was actually changed, so no tab needs to hear about one."""
     calls = _spy_on_publish(monkeypatch)
