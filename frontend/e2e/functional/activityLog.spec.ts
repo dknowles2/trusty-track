@@ -12,14 +12,44 @@ import { createSchedule, ensureConfigured, gql, seedRace } from './support';
 
 test('it records what the operator did, newest first', async ({ page }) => {
     await ensureConfigured(page);
-    const { raceId } = await seedRace(page, 'Activity Recorded Race');
+    await seedRace(page, 'Activity Recorded Race');
 
+    // Not scoped to this race: `_race_id_from` (backend/api/auth.py) only
+    // reads an argument actually named `raceId`/`race_id` at the top level of
+    // a mutation, by design — it does not open a nested input object or chase
+    // a result back to its race, which would cost a query per mutation. Both
+    // `createRace` (the id does not exist until the resolver returns) and
+    // `createRacer`/`checkInRacer` (the race id, where present at all, is
+    // nested inside `RacerInput` or absent entirely) therefore write their
+    // audit entries with no `raceId`, and a page filtered to this race would
+    // never show them — not a stale filter, just entries the query never
+    // scoped to begin with.
+    //
+    // The unscoped log still proves "newest first": the backend always reads
+    // it back with `order_by(AuditEntry.id.desc())` regardless of any race
+    // filter, so seeding this race still leaves several entries — createRace
+    // and a run of createRacer/checkInRacer calls — whose ids are known to be
+    // ascending in the order they were written. A component that rendered the
+    // server's rows in reverse, or in whatever order the network happened to
+    // deliver them, fails the ordering check below even though other specs
+    // are writing to the same shared log at the same time.
     await page.goto('/activity');
 
-    // Seeding the race ran createRace and a string of createRacer mutations.
     await expect(page.getByText('Created a race').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/Activity Recorded Race/).first()).toBeVisible();
-    expect(raceId).toBeGreaterThan(0);
+
+    const entryIds = (
+        await page.locator('[data-testid^="activity-entry-"]').evaluateAll((els) =>
+            els.map((el) => el.getAttribute('data-testid')),
+        )
+    ).map((testId) => parseInt(testId!.replace('activity-entry-', ''), 10));
+
+    // Seeding six racers (each a create plus a check-in) leaves well more than
+    // one entry to order — enough that a page rendering them in reverse, or in
+    // whatever order the network happened to deliver them, would fail this.
+    expect(entryIds.length).toBeGreaterThan(1);
+    const sortedDescending = [...entryIds].sort((a, b) => b - a);
+    expect(entryIds).toEqual(sortedDescending);
 });
 
 test('a heat the timer records reaches the log', async ({ page }) => {

@@ -42,12 +42,24 @@ test('the results sheet prints the standings and the trophies together', async (
     const sheet = page.getByTestId('results-sheet');
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole('heading', { name: 'Awards' })).toBeVisible();
-    await expect(sheet.getByRole('heading', { name: 'Overall standings' })).toBeVisible();
+    const overallHeading = sheet.getByRole('heading', { name: 'Overall standings' });
+    await expect(overallHeading).toBeVisible();
 
     // Car 1 has the lowest time under `recordRound`'s scheme, so it is both
-    // first in the table and the winner of the speed award.
+    // *first in the table* — not merely present somewhere on the sheet — and
+    // the winner of the speed award.
     const fastest = racers[0];
-    await expect(sheet.getByText(`${fastest.firstName} ${fastest.lastName}`).first()).toBeVisible();
+    // The inner locator for `has` must be built from `page`, not from `sheet`:
+    // `has` is evaluated relative to each candidate outer element, and an
+    // inner locator that already carries the `results-sheet` testid prefix
+    // then asks each <section> to contain *another* `results-sheet` element
+    // nested inside it, which never exists.
+    const overallSection = sheet
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Overall standings' }) });
+    const firstRow = overallSection.locator('tbody tr').first();
+    await expect(firstRow).toContainText(String(fastest.carNumber));
+    await expect(firstRow).toContainText(`${fastest.firstName} ${fastest.lastName}`);
     await expect(sheet.getByText(/Fastest Car/)).toBeVisible();
 });
 
