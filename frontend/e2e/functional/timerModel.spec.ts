@@ -65,15 +65,22 @@ test('a timer model can be chosen, and the undetectable one is marked', async ({
     await timerType.selectOption('AUTO_DETECT_BACKEND');
     await expect(picker).toBeVisible();
 
-    const options = await picker.locator('option').allInnerTexts();
+    // Value alongside label: the label is what the operator picks by, the
+    // value is the profile key that has to survive to the database — and
+    // they are not the same string, so a read-back that only checks
+    // truthiness would pass for *any* profile, not the one chosen.
+    const options = await picker.locator('option').evaluateAll((opts) =>
+        opts.map((o) => ({ value: (o as HTMLOptionElement).value, label: o.textContent ?? '' })),
+    );
     // Detection is the default, and stays first.
-    expect(options[0]).toBe('Detect automatically');
+    expect(options[0].label).toBe('Detect automatically');
     // Exactly the profiles a probe cannot find are flagged, and at least one
     // is — if none were, this feature would have nothing to justify it.
-    const undetectable = options.filter((o) => o.includes('must be chosen'));
+    const undetectable = options.filter((o) => o.label.includes('must be chosen'));
     expect(undetectable.length).toBeGreaterThan(0);
+    const chosen = undetectable[0];
 
-    await picker.selectOption({ label: undetectable[0] });
+    await picker.selectOption({ label: chosen.label });
 
     // The provenance of whatever was picked, because "we have a profile for
     // your timer" and "your timer is known to work" are different claims.
@@ -94,5 +101,8 @@ test('a timer model can be chosen, and the undetectable one is marked', async ({
             }>(page, `query { initialConfig { tracks { name timerProfile } } }`);
             return data.initialConfig.tracks.find((t) => t.name === TRACK_NAME)?.timerProfile;
         }, { timeout: 30000 })
-        .toBeTruthy();
+        // Equal to the profile *chosen*, not merely truthy — a save that
+        // silently kept the previous profile, or picked a different
+        // undetectable one, would still satisfy toBeTruthy().
+        .toBe(chosen.value);
 });
