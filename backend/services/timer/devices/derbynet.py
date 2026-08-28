@@ -145,7 +145,14 @@ DERBY_TIMER = TimerProfile(
             Matcher(re.compile(rb"^D$"), Event.GATE_OPEN),
         ),
     ),
-    # F forces the end of a race and reports whatever the timer has.
+    # No documented device-side timeout for this one, unlike the MicroWizard's
+    # measured 10s — this is purely so our own watchdog can reach
+    # RESULTS_OVERDUE at all (issue #339). Matches the only number we have.
+    result_timeout_seconds=10.0,
+    # F forces the end of a race and reports whatever the timer has. Also
+    # wired as force_results below, so the manual Force Results button sends
+    # the same command rather than nothing (issue #339).
+    force_results=(b"F",),
     on_event={Event.RESULTS_OVERDUE: (b"F",)},
     matchers=(
         Matcher(re.compile(rb"^RACE$"), Event.RACE_STARTED),
@@ -194,6 +201,10 @@ BERT_DRAKE = TimerProfile(
             Matcher(re.compile(rb"^Go$"), Event.GATE_OPEN),
         ),
     ),
+    # See DERBY_TIMER's comment: no documented device timeout, just enough to
+    # let the watchdog reach RESULTS_OVERDUE (issue #339).
+    result_timeout_seconds=10.0,
+    force_results=(b"F",),
     on_event={Event.RESULTS_OVERDUE: (b"F",)},
     matchers=(
         Matcher(re.compile(rb"^B$"), Event.GATE_OPEN),
@@ -250,6 +261,10 @@ PDT = TimerProfile(
             Matcher(re.compile(rb"^\.$"), Event.GATE_CLOSED),
         ),
     ),
+    # See DERBY_TIMER's comment: no documented device timeout, just enough to
+    # let the watchdog reach RESULTS_OVERDUE (issue #339).
+    result_timeout_seconds=10.0,
+    force_results=(b"F",),
     on_event={
         # "The Reset command needs to be sent after the gate is closed."
         Event.GATE_CLOSED: (b"R",),
@@ -294,6 +309,10 @@ THE_JUDGE = TimerProfile(
     probe=(b"*",),
     identification=(re.compile(rb"Checking Valid Lanes"),),
     heat_prep=HeatPrep(),
+    # See DERBY_TIMER's comment: no documented device timeout, just enough to
+    # let the watchdog reach RESULTS_OVERDUE (issue #339).
+    result_timeout_seconds=10.0,
+    force_results=(b"*",),
     on_event={Event.RESULTS_OVERDUE: (b"*",)},
     matchers=(
         Matcher(re.compile(rb"^G[oO]!?$"), Event.RACE_STARTED),
@@ -353,6 +372,12 @@ CHAMP = TimerProfile(
             Matcher(re.compile(rb"^1$"), Event.GATE_OPEN),
         ),
     ),
+    # See DERBY_TIMER's comment: no documented device timeout, just enough to
+    # let the watchdog reach RESULTS_OVERDUE (issue #339).
+    result_timeout_seconds=10.0,
+    # ra also force-ends the race, so Force Results sends it too rather than
+    # nothing (issue #339).
+    force_results=(b"ra",),
     on_event={
         # rg = "return results when the race ends". DerbyNet's note: a gate
         # query sent after this cancels it, and Pack936 found that sending it

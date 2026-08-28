@@ -14,10 +14,13 @@ import asyncio
 from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
+import pytest
 import serial
 
+from backend.services.timer import manager as manager_module
 from backend.services.timer.devices import MICROWIZARD
 from backend.services.timer.devices.base import GateClosed, LaneResult
+from backend.services.timer.devices.derbynet import PDT
 from backend.services.timer.manager import TimerManager
 from backend.services.timer.state_machine import TimerState
 
@@ -270,3 +273,91 @@ async def test_a_dnf_lane_does_not_make_the_reported_places_look_partial():
     assert manager._pending_results[1].place == 2
     assert manager._pending_results[2].place == 1
     assert manager._pending_results[3].place == 0
+
+
+# ---------------------------------------------------------------------------
+# RESULTS_OVERDUE is reachable, and can fire a second time (issue #339)
+# ---------------------------------------------------------------------------
+
+#: PDT with a timeout short enough for a test to wait out.
+_QUICK_OVERDUE = replace(PDT, result_timeout_seconds=0.02)
+
+
+def _collecting(manager: TimerManager) -> list[bytes]:
+    sent: list[bytes] = []
+
+    async def write(data: bytes) -> None:
+        sent.append(data)
+
+    manager.set_write_fn(write)
+    return sent
+
+
+async def test_a_running_heat_with_no_results_goes_overdue():
+    """Before #339, PDT (like DerbyTimer, Bert Drake, The Judge and the Champ)
+    set no `result_timeout_seconds`, so the watchdog's guard in
+    `_watchdog_loop` never let the state machine leave RUNNING -- the give-up
+    command each of these declares under `on_event[RESULTS_OVERDUE]` was
+    unreachable, and a DNF left the manager RUNNING forever."""
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(manager_module, "WATCHDOG_SECONDS", 0.01)
+    try:
+        manager = TimerManager(track_id=1, device=_QUICK_OVERDUE)
+        sent = _collecting(manager)
+        manager._state = TimerState.RUNNING
+        manager._running_since = asyncio.get_event_loop().time()
+        manager._watchdog_task = asyncio.create_task(manager._watchdog_loop())
+
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if manager._state == TimerState.RESULTS_OVERDUE:
+                break
+
+        assert manager._state == TimerState.RESULTS_OVERDUE
+        assert sent == [b"F"], "the give-up command must reach the device"
+        await manager.stop()
+    finally:
+        monkeypatch.undo()
+
+
+async def test_a_still_incomplete_heat_can_go_overdue_a_second_time():
+    """A lane reporting in after the first give-up does not mean the heat is
+    decided -- it may still be short a lane. `_running_since` used to stay
+    cleared across the RESULTS_OVERDUE -> LaneResult -> RUNNING transition, so
+    the watchdog's `self._running_since is not None` guard was permanently
+    false from the first timeout on and could never fire again."""
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(manager_module, "WATCHDOG_SECONDS", 0.01)
+    try:
+        manager = TimerManager(track_id=1, device=_QUICK_OVERDUE)
+        sent = _collecting(manager)
+        manager._state = TimerState.RUNNING
+        manager._running_since = asyncio.get_event_loop().time()
+        # An empty mask never looks "complete" (see the derived-place tests
+        # above), so a reported lane cannot finish the heat and mask this bug
+        # behind an ordinary result recording.
+        manager._lane_mask = 0
+        manager._watchdog_task = asyncio.create_task(manager._watchdog_loop())
+
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if manager._state == TimerState.RESULTS_OVERDUE:
+                break
+        assert manager._state == TimerState.RESULTS_OVERDUE, (
+            "never went overdue the first time"
+        )
+
+        # A straggling lane reports in, but the heat is still short a lane.
+        await manager.inject_event(LaneResult(lane=1, time_seconds=3.1, place=1))
+        assert manager._state == TimerState.RUNNING
+        assert manager._running_since is not None, "the clock must restart"
+
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if sent.count(b"F") >= 2:
+                break
+
+        assert sent.count(b"F") >= 2, "the give-up command must be sent again"
+        await manager.stop()
+    finally:
+        monkeypatch.undo()
