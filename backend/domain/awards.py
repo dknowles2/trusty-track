@@ -41,11 +41,15 @@ from backend.domain.advancement import (
 )
 
 __all__ = [
+    "MEDAL",
     "PACK",
     "ROUND_PREFIX",
     "SPECIAL",
     "SPEED",
+    "TORTOISE",
+    "TROPHY",
     "SpeedRule",
+    "default_artwork_key",
     "recipient_of",
     "sources_for",
 ]
@@ -54,6 +58,14 @@ __all__ = [
 #: boundary as plain strings, like the other enum-ish vocabulary here.
 SPEED = "SPEED"
 SPECIAL = "SPECIAL"
+
+#: Artwork keys a `SPEED` award's rule maps to (#306). Plain strings, the same
+#: way `SPEED`/`SPECIAL` are — the frontend's `artwork.tsx` is the one place
+#: that says which picture a key draws, this module only says which key a rule
+#: gets.
+TROPHY = "trophy"
+MEDAL = "medal"
+TORTOISE = "tortoise"
 
 
 @dataclass(frozen=True)
@@ -137,6 +149,23 @@ def recipient_of(rule: SpeedRule, standings: Sequence[Standing]) -> int | None:
     if index >= len(eligible):
         return None
     return eligible[index].racer_id
+
+
+def default_artwork_key(rule: SpeedRule) -> str:
+    """Which artwork a `SPEED` award gets — no picker involved (#306).
+
+    A speed award's rule already says what kind of trophy it is: first place,
+    a lesser place, or the slowest car. Offering a picker on top of that would
+    be asking the operator to describe an award they have already described,
+    the same reasoning that keeps `DEN` out of the source vocabulary above.
+
+    `from_bottom` wins over `place`: a "3rd slowest" award is still a slowest-
+    car award, not a bronze medal — there is no ladder of slowness worth six
+    different pictures for.
+    """
+    if rule.from_bottom:
+        return TORTOISE
+    return TROPHY if rule.place == 1 else MEDAL
 
 
 def sources_for(round_ids: Sequence[int]) -> list[str]:

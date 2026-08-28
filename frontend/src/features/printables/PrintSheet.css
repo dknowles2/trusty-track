@@ -404,3 +404,112 @@
     color: #555;
     font-style: italic;
 }
+
+/* The certificate (#306). One per award, one per sheet — its own module
+   (`certificate.ts`), not a `DocumentSpec`: those size a card repeated to a
+   grid, and this is a single full-page document. */
+.certificates {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.certificate {
+    width: 9in;
+    min-height: 6.5in;
+    box-sizing: border-box;
+    padding: 0.6in;
+    border: 3px solid var(--scouting-blue);
+    outline: 1px solid var(--cub-scouting-gold);
+    outline-offset: -0.18in;
+    border-radius: var(--border-radius);
+    background: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0.4rem;
+    /* Trimmed to page size on paper; the outline above is the frame. */
+    break-inside: avoid;
+    page-break-inside: avoid;
+    /* Every certificate but the last starts a fresh sheet. */
+    page-break-after: always;
+}
+
+.certificate:last-child {
+    page-break-after: auto;
+}
+
+.certificate-eyebrow {
+    font-family: var(--font-header);
+    font-size: 11pt;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--scouting-blue);
+}
+
+.certificate-race {
+    font-size: 13pt;
+    color: #444;
+}
+
+.certificate-artwork {
+    margin: 0.3rem 0;
+}
+
+.certificate-award-name {
+    font-family: var(--font-header);
+    font-size: 28pt;
+    color: var(--scouting-blue);
+    margin: 0.1rem 0;
+}
+
+.certificate-presented-to {
+    font-size: 12pt;
+    color: #444;
+    margin-top: 0.3rem;
+}
+
+.certificate-recipient {
+    font-family: var(--font-header);
+    font-size: 22pt;
+    color: #222;
+    border-bottom: 2px solid var(--cub-scouting-gold);
+    padding: 0.1rem 1.5rem 0.15rem;
+    min-width: 4in;
+}
+
+/* An award nobody has decided yet still prints, with a blank line to write a
+   name on rather than being left out of the batch (#306). */
+.certificate-recipient.certificate-recipient-blank {
+    border-bottom-style: dashed;
+    color: transparent;
+}
+
+.certificate-date {
+    margin-top: 0.5rem;
+    font-size: 10pt;
+    color: #666;
+}
+
+@media print {
+    body:has(.certificates) nav,
+    body:has(.certificates) .no-print {
+        display: none !important;
+    }
+
+    body:has(.certificates) {
+        background: white;
+    }
+
+    .certificates {
+        gap: 0;
+    }
+
+    .certificate {
+        width: auto;
+        min-height: 9.5in;
+    }
+}

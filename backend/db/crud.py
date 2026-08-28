@@ -12,6 +12,7 @@ from backend import demo_seed
 from backend.domain import (
     advancement,
     audit,
+    awards,
     balanced,
     elimination,
     lanes,
@@ -2259,6 +2260,7 @@ def create_award(db: Session, race_id: int, award: schemas.AwardCreate) -> model
         **data,
     )
     _clear_fields_of_other_kind(db_award)
+    _set_speed_artwork_key(db_award)
     db.add(db_award)
     db.commit()
     db.refresh(db_award)
@@ -2288,6 +2290,7 @@ def update_award(
     # After the update, not before: changing the kind is what makes the other
     # kind's fields stale, and the change and the fields can arrive together.
     _clear_fields_of_other_kind(db_award)
+    _set_speed_artwork_key(db_award)
 
     db.commit()
     db.refresh(db_award)
@@ -2303,6 +2306,33 @@ def _clear_fields_of_other_kind(award: models.Award) -> None:
         award.place = None
         award.from_bottom = False
         award.den_id = None
+
+
+def _set_speed_artwork_key(award: models.Award) -> None:
+    """A `SPEED` award's artwork comes from its rule, never a picker (#306).
+
+    Runs after `_clear_fields_of_other_kind`, so a `SPECIAL` award's
+    `artwork_key` — set by the ready-made superlative picker, or left blank
+    for a plain certificate — is untouched here. Whatever a client sent for a
+    `SPEED` award's `artwork_key` is overwritten: the frontend offers no
+    control for it, and trusting a stray value would let it drift from the
+    rule the moment the rule changes.
+
+    A rule that is not complete yet (no place) gets no artwork key rather than
+    a guess — the same "not decided yet" the recipient itself resolves to.
+    """
+    if award.kind is not models.AwardKind.SPEED:
+        return
+    if award.place is None:
+        award.artwork_key = None
+        return
+    rule = awards.SpeedRule(
+        source=award.source or awards.PACK,
+        place=award.place,
+        den_id=award.den_id,
+        from_bottom=award.from_bottom,
+    )
+    award.artwork_key = awards.default_artwork_key(rule)
 
 
 def delete_award(db: Session, award_id: int) -> models.Award | None:

@@ -4,7 +4,7 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
 — nothing to install, no PDFs. For the walkthrough, see the
 [Printables guide](../printables.md).
 
-## The five documents
+## The six documents
 
 | Document | Where | What it is |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
 | **Check-in codes** | Roster → ⋯ → Print | A QR code per racer, twelve per sheet, name and car number underneath |
 | **Heat sheet** | Race Control → Schedule | The running order: a table per round, a row per heat, a column per lane, and an empty **Result** column to write into |
 | **Results sheet** | Standings → Print results | Awards and winners at the top, then the standings — overall, and a table per den |
+| **Certificates** | Race → Awards → Print certificates | One certificate per award, one per sheet, in the ceremony's running order — with artwork for a ready-made superlative or a speed award |
 
 ## Rules the card documents follow
 
@@ -68,6 +69,26 @@ laptop runs flat, and the announcer still has to know which cars are next.
   left out — a missing line reads as an award that does not exist.
 - A race with one den gets no per-den tables; racers in no den appear only
   in the overall table.
+
+## Certificates
+
+One certificate per award — not per racer — because a den's speed trophy or
+a single Best Paint has one recipient, not a stack. They print in the
+ceremony's own order (the running order on the Awards screen), so a printed
+stack matches the order they get handed out in.
+
+- An award nobody has decided yet still gets a certificate, with a blank
+  line where the name goes, rather than being skipped — the same choice the
+  results sheet's award lines make, and for the same reason: skipping it
+  would mean reprinting the whole run the moment judging finishes.
+- **Its artwork comes from the award, not a separate choice on this page.**
+  A ready-made superlative carries the artwork chosen for it on the Awards
+  screen; a speed award (Fastest Car, Fastest Wolf, and so on) gets its
+  artwork automatically from what kind of trophy it is. An award with
+  neither prints a plain certificate — no artwork, just the name, the
+  recipient, and the event.
+- Artwork ships inside the app itself. Nothing is fetched or generated when
+  you print, which matters on the venue's own network.
 
 ## Printer settings worth setting once
 

@@ -22,6 +22,7 @@ const RACE = {
       source: 'PACK',
       place: 1,
       denId: 5,
+      artworkKey: 'trophy',
       den: { id: 5, name: 'Wolves' },
       recipient: {
         id: 100,
@@ -39,6 +40,7 @@ const RACE = {
       source: null,
       place: null,
       denId: null,
+      artworkKey: null,
       den: null,
       recipient: null,
     },
@@ -153,6 +155,19 @@ describe('the award ceremony', () => {
   it('has something to say for a race with no awards', () => {
     renderCeremony({ ...RACE, awards: [] });
     expect(screen.getByText(/no awards have been set up/i)).toBeInTheDocument();
+  });
+
+  it('draws the artwork when the award has one', () => {
+    renderCeremony();
+    // AwardArtwork renders an `<svg role="img">`; a plain certificate slide
+    // (the second award, no artworkKey) draws none.
+    expect(document.querySelectorAll('svg[role="img"]')).toHaveLength(1);
+  });
+
+  it('draws no artwork for an award with none', async () => {
+    renderCeremony();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(document.querySelectorAll('svg[role="img"]')).toHaveLength(0);
   });
 
   it('does not claim there are no awards while it is still loading', () => {

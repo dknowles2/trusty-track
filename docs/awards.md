@@ -67,6 +67,19 @@ end of an event, which is normal and nothing is wrong.
 
 ![A judged award: a name, and a winner you pick once the judging is done](assets/screenshots/awards/03-judged-award-form.png)
 
+#### Starting from a ready-made award
+
+**Start from a ready-made award** offers the usual superlatives — Best Paint,
+Most Original, Best Use of Colour, Most Aerodynamic, Most Patriotic, Best
+Scout Spirit, Judges' Choice — so a pack that has never run one of these does
+not have to invent a name the night before. Choosing one fills in the name
+and its artwork; both stay ordinary editable fields afterward, so you can
+rename it or type something else entirely without losing the picture.
+
+It has no effect on a speed-based award. Those get their artwork worked out
+automatically from what they are — first place, second and third, or the
+slowest car — with nothing to choose.
+
 ## The running order
 
 Awards are listed in the order you will announce them, and the arrows on the
@@ -87,8 +100,9 @@ missing. Edit it and choose which standings it reads and which place wins it.
 ## Announcing them
 
 **Present** opens the ceremony: one award at a time, filling the screen, with
-the winner's photo. Click or press the right arrow for the next one — a
-presenter remote works too, since it sends the same keys.
+the winner's photo and — for a ready-made superlative or a speed award —
+its artwork. Click or press the right arrow for the next one — a presenter
+remote works too, since it sends the same keys.
 
 ![One award filling the screen, with its winner](assets/screenshots/awards/04-ceremony-slide.png)
 
@@ -125,12 +139,20 @@ them are, right up until the moment you announce them.
 
 ![An award still to be decided gets a slide of its own](assets/screenshots/awards/05-ceremony-undecided.png)
 
+## Printing certificates
+
+**Print certificates**, next to **Present**, opens one certificate per award —
+the ceremony's own running order, so the stack comes off the printer in the
+order you will hand them out. An award still undecided prints too, with a
+blank line to write a name on, rather than being left out of the batch; a
+ready-made superlative or a speed award prints its artwork, and anything
+else prints plain. More in
+[Printed documents](reference/printing.md#certificates).
+
 ## What awards do not do
 
 - **They are not the championship.** How many cars go through to the final is
   set when you create the round, not here.
-- **They are not printed.** The list is on screen and the ceremony fills a
-  projector; a printed results sheet carrying the awards is still to come.
 - **Only the operator can change them.** If [a PIN is set](access-and-network.md),
   the check-in desk and the audience displays can see the awards but not edit
   them — see [Roles and permissions](reference/roles-and-permissions.md).

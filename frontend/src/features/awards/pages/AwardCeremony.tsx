@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
+import AwardArtwork from '../artwork';
 import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
 import { RACE_AWARDS_QUERY } from '../graphql/queries';
 import { displayId } from '../../observation/displayIdentity';
@@ -153,6 +154,16 @@ export default function AwardCeremony() {
           <p style={{ fontSize: 'clamp(1rem, 3vh, 2rem)', opacity: 0.85, marginTop: '1vh' }}>
             {slide.subtitle}
           </p>
+
+          {/* The award's own artwork, not the winner's photo — that comes
+              below, when there is one. A `SPECIAL` award with no ready-made
+              template and no `SPEED` rule to derive one from has none, and
+              the slide is exactly as it was before this existed. */}
+          {slide.artworkKey && (
+            <div style={{ margin: '3vh 0 1vh' }}>
+              <AwardArtwork artworkKey={slide.artworkKey} size={140} />
+            </div>
+          )}
 
           {slide.racerImageUrl && (
             <img

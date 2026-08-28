@@ -591,6 +591,16 @@ class Award(Base):
         Integer, ForeignKey("racers.id", ondelete="SET NULL"), nullable=True
     )
 
+    #: Which clipart to draw on the ceremony slide and the certificate (#306).
+    #: Null means a plain certificate — the ordinary state for an award nobody
+    #: has picked artwork for. `SPEED` awards get this defaulted from their
+    #: rule (`crud._set_speed_artwork_key`) rather than offered as a picker;
+    #: `SPECIAL` awards get it from the ready-made superlative picker, or
+    #: whatever the operator typed over it, and nothing here validates the
+    #: value against a known set — an artwork key an old frontend build does
+    #: not recognise should print blank, not fail to save.
+    artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
+
     race: Mapped["Race"] = relationship("Race", back_populates="awards")
 
 

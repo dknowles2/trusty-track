@@ -115,3 +115,34 @@ export const GET_RESULTS_SHEET = gql`
     }
   }
 `;
+
+/**
+ * One certificate per award (#306).
+ *
+ * Only what a certificate shows — no leaderboard, no schedule. `artworkKey` is
+ * what tells the page whether to draw a ready-made superlative's clipart or a
+ * plain certificate.
+ */
+export const GET_CERTIFICATES = gql`
+  query GetCertificates($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      name
+      dateTime
+      location
+      awards {
+        id
+        name
+        kind
+        sortOrder
+        artworkKey
+        recipient {
+          id
+          firstName
+          lastName
+          carNumber
+        }
+      }
+    }
+  }
+`;

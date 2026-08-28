@@ -42,6 +42,7 @@ describe('pageTitle', () => {
         expect(pageTitle('/race/1/print', DERBY)).toBe(`Print — ${DERBY}`);
         expect(pageTitle('/race/1/print/heat-sheet', DERBY)).toBe(`Heat Sheet — ${DERBY}`);
         expect(pageTitle('/race/1/print/results', DERBY)).toBe(`Results Sheet — ${DERBY}`);
+        expect(pageTitle('/race/1/print/certificates', DERBY)).toBe(`Certificates — ${DERBY}`);
     });
 
     it('says the view alone while the race name is still coming', () => {

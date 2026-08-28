@@ -429,6 +429,140 @@ class TestTheTwoKindsDoNotBleed:
         assert award.racer_id == racers[0]
 
 
+class TestArtwork:
+    """Which artwork key an award ends up with (#306).
+
+    The rule for a `SPEED` award is `test_domain_awards.py`'s; what is checked
+    here is that `crud` actually applies it, and leaves a `SPECIAL` award's
+    key alone.
+    """
+
+    def test_a_special_award_keeps_whatever_key_it_was_given(self, db):
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Best Paint",
+                kind=models.AwardKind.SPECIAL,
+                artwork_key="paintbrush",
+            ),
+        )
+        assert award.artwork_key == "paintbrush"
+
+    def test_a_special_award_may_have_no_artwork(self, db):
+        # The plain-certificate case: no ready-made template was chosen.
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(db, race_id, schemas.AwardCreate(name="Best Paint"))
+        assert award.artwork_key is None
+
+    def test_a_speed_award_gets_its_key_from_the_rule_not_the_client(self, db):
+        # The frontend offers no picker for a SPEED award; anything a client
+        # sends here is overwritten rather than trusted.
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Car",
+                kind=models.AwardKind.SPEED,
+                source="PACK",
+                place=1,
+                artwork_key="paintbrush",
+            ),
+        )
+        assert award.artwork_key == "trophy"
+
+    def test_a_slowest_car_award_gets_the_slowest_car_key(self, db):
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Turtle Award",
+                kind=models.AwardKind.SPEED,
+                source="PACK",
+                place=1,
+                from_bottom=True,
+            ),
+        )
+        assert award.artwork_key == "tortoise"
+
+    def test_a_speed_award_with_no_place_yet_has_no_artwork(self, db):
+        # Mirrors the recipient itself: an incomplete rule resolves to
+        # "nothing yet" rather than a guess.
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(name="Fastest Car", kind=models.AwardKind.SPEED),
+        )
+        assert award.artwork_key is None
+
+    def test_the_key_updates_when_the_rule_changes(self, db):
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+            ),
+        )
+        assert award.artwork_key == "trophy"
+
+        crud.update_award(db, award.id, schemas.AwardUpdate(place=2))
+        db.refresh(award)
+        assert award.artwork_key == "medal"
+
+    def test_switching_to_special_drops_the_speed_derived_key_only_if_told_to(self, db):
+        # Switching kind clears the fields the other kind uses (source, place,
+        # ...) but artwork_key belongs to both kinds, so it is left exactly as
+        # the payload says — here, the picker's own choice.
+        race_id, _dens, _racers = build_race(db)
+        award = crud.create_award(
+            db,
+            race_id,
+            schemas.AwardCreate(
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+            ),
+        )
+        assert award.artwork_key == "trophy"
+
+        crud.update_award(
+            db,
+            award.id,
+            schemas.AwardUpdate(
+                kind=models.AwardKind.SPECIAL, artwork_key="paintbrush"
+            ),
+        )
+        db.refresh(award)
+        assert award.artwork_key == "paintbrush"
+
+    def test_artwork_key_round_trips_through_graphql(self, client, db):
+        race_id, _dens, racers = build_race(db)
+        created = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation Create($raceId: Int!, $award: AwardInput!) {
+                  createAward(raceId: $raceId, award: $award) { id artworkKey }
+                }
+                """,
+                "variables": {
+                    "raceId": race_id,
+                    "award": {
+                        "name": "Best Paint",
+                        "kind": "SPECIAL",
+                        "racerId": racers[0],
+                        "artworkKey": "paintbrush",
+                    },
+                },
+            },
+        ).json()
+        assert "errors" not in created, created.get("errors")
+        assert created["data"]["createAward"]["artworkKey"] == "paintbrush"
+
+
 class TestOrdering:
     def test_saving_an_award_leaves_the_running_order_alone(self, db):
         """The edit form sends every field, and never offers `sort_order`.

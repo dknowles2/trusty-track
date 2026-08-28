@@ -130,6 +130,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `from_bottom` (`SPEED` only: which end `place` counts from — false is the fastest car, true the slowest. The same flip `Round.advancement_from_bottom` makes for a Slowest Race bracket, and a car that has not raced is never picked)
     -   `den_id` (`SPEED` only, FK to Den, `ON DELETE CASCADE` — narrows the standings to one den, which is how "fastest Wolf" is expressed rather than a third kind of source)
     -   `racer_id` (`SPECIAL` only, FK to Racer, `ON DELETE SET NULL` — deleting a racer un-assigns the award rather than deleting the trophy)
+    -   `artwork_key` (nullable — which clipart the ceremony slide and the printed certificate draw; null prints a plain certificate. A `SPEED` award has this defaulted from its rule rather than offered as a picker; a `SPECIAL` award gets it from the ready-made superlative picker, or free text over it (#306))
     -   A `SPEED` recipient is **computed on demand and never stored**, like the leaderboard: an award defined before the racing stays correct when a time is corrected after it. Storing one would make this the first thing in the app able to disagree with the standings (#17).
 
 **Authentication** is implemented — see `backend/api/auth.py` and issue #15.
@@ -170,7 +171,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
 -   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 -   Den: `createDen`, `updateDen`, `deleteDen`
--   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored)
+-   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored; `artworkKey` is accepted but overwritten server-side for a `SPEED` award — see `crud._set_speed_artwork_key` — since only `SPECIAL` offers a picker for it, #306)
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
 -   Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord` — the hand-entered historical records (`HistoricalTrackRecord`), merged into `raceStats.trackRecords` beside the computed ones
 -   Audience displays: `assignDisplay`, `advanceDisplay`, `renameDisplay`, `forgetDisplay` (operator-only — a display is a `VIEWER` and is *told*, never asks) (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)

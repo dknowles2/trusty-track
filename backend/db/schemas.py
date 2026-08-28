@@ -230,6 +230,12 @@ class AwardBase(BaseModel):
     den_id: int | None = None
     #: SPECIAL: whoever a person decided, or nobody yet.
     racer_id: int | None = None
+    #: Which clipart to show on the ceremony slide and the certificate (#306).
+    #: Null prints a plain certificate. `crud` overwrites this for a `SPEED`
+    #: award from its rule rather than trusting whatever a client sends — see
+    #: `crud._set_speed_artwork_key` — so a value sent here only ever sticks
+    #: for `SPECIAL`.
+    artwork_key: str | None = None
 
     @field_validator("place")
     @classmethod
@@ -258,6 +264,7 @@ class AwardUpdate(BaseModel):
     from_bottom: bool | None = None
     den_id: int | None = None
     racer_id: int | None = None
+    artwork_key: str | None = None
     sort_order: int | None = None
 
     @field_validator("place")

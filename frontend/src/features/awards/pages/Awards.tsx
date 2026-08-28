@@ -16,6 +16,7 @@ import { mdiArrowDown, mdiArrowUp, mdiPencil, mdiTrashCan, mdiTrophyOutline } fr
 import Modal from '../../../components/ui/Modal';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
+import AwardArtwork from '../artwork';
 import { describeSpeedAward, racerLabel } from '../awardText';
 import AwardForm, { AwardDraft } from '../components/AwardForm';
 import {
@@ -34,6 +35,7 @@ type AwardRow = {
   place?: number | null;
   denId?: number | null;
   fromBottom?: boolean | null;
+  artworkKey?: string | null;
   recipient?: {
     id: number;
     firstName: string;
@@ -77,6 +79,10 @@ export default function Awards() {
     fromBottom: draft.kind === 'SPEED' ? draft.fromBottom : false,
     denId: draft.kind === 'SPEED' ? draft.denId : null,
     racerId: draft.kind === 'SPECIAL' ? draft.racerId : null,
+    // A SPEED award's key comes from its rule server-side (crud
+    // ._set_speed_artwork_key) regardless of what is sent — this is only
+    // meaningful for SPECIAL, same as racerId above.
+    artworkKey: draft.kind === 'SPECIAL' ? draft.artworkKey : null,
   });
 
   const handleCreate = async (draft: AwardDraft) => {
@@ -152,6 +158,11 @@ export default function Awards() {
           <Link to={`/race/${id}/awards/present`} className="secondary-btn">
             Present
           </Link>
+          {/* The certificate print page, next to the ceremony route it pairs
+              with — one is for the room, the other for the wall afterward. */}
+          <Link to={`/race/${id}/print/certificates`} className="secondary-btn">
+            Print certificates
+          </Link>
           <button type="button" className="primary-btn" onClick={() => setAdding(true)}>
             Add an award
           </button>
@@ -211,6 +222,10 @@ export default function Awards() {
                 <Icon path={mdiArrowDown} size={0.7} />
               </button>
             </div>
+
+            {award.artworkKey && (
+              <AwardArtwork artworkKey={award.artworkKey} size={32} />
+            )}
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong>{award.name}</strong>
@@ -291,6 +306,7 @@ export default function Awards() {
               // judged award" into "give it permanently to whoever happens to
               // be fastest right now".
               racerId: editing.kind === 'SPECIAL' ? (editing.recipient?.id ?? null) : null,
+              artworkKey: editing.artworkKey ?? null,
             }}
             rounds={rounds}
             dens={dens}

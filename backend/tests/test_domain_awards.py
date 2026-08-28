@@ -7,7 +7,16 @@ covered in `test_awards.py`.
 import pytest
 
 from backend.domain.advancement import Standing
-from backend.domain.awards import PACK, SpeedRule, recipient_of, sources_for
+from backend.domain.awards import (
+    MEDAL,
+    PACK,
+    TORTOISE,
+    TROPHY,
+    SpeedRule,
+    default_artwork_key,
+    recipient_of,
+    sources_for,
+)
 
 
 def standings(*pairs: tuple[int, int | None]) -> list[Standing]:
@@ -123,3 +132,29 @@ class TestSource:
 
     def test_a_race_with_no_rounds_can_still_offer_the_pack(self) -> None:
         assert sources_for([]) == [PACK]
+
+
+class TestDefaultArtworkKey:
+    """A `SPEED` award's artwork, worked out from its rule with no picker (#306)."""
+
+    def test_first_place_gets_the_trophy(self) -> None:
+        rule = SpeedRule(source=PACK, place=1)
+        assert default_artwork_key(rule) == TROPHY
+
+    def test_a_lesser_place_gets_the_medal(self) -> None:
+        rule = SpeedRule(source=PACK, place=2)
+        assert default_artwork_key(rule) == MEDAL
+
+    def test_the_slowest_car_gets_its_own_key_regardless_of_place(self) -> None:
+        # `from_bottom` wins over `place`: a "3rd slowest" award is still a
+        # slowest-car award, not a bronze medal.
+        first = SpeedRule(source=PACK, place=1, from_bottom=True)
+        third = SpeedRule(source=PACK, place=3, from_bottom=True)
+        assert default_artwork_key(first) == TORTOISE
+        assert default_artwork_key(third) == TORTOISE
+
+    def test_a_den_scope_does_not_change_the_key(self) -> None:
+        # "Fastest Wolf" is still a first-place trophy; den narrowing is about
+        # who is eligible, not what kind of award it is.
+        rule = SpeedRule(source=PACK, place=1, den_id=3)
+        assert default_artwork_key(rule) == TROPHY

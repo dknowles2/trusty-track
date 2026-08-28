@@ -31,6 +31,7 @@ import AwardCeremony from './features/awards/pages/AwardCeremony';
 import Printables from './features/printables/pages/Printables';
 import HeatSheet from './features/printables/pages/HeatSheet';
 import ResultsSheet from './features/printables/pages/ResultsSheet';
+import Certificate from './features/printables/pages/Certificate';
 import TimerDiagnostics from './features/settings/pages/TimerDiagnostics';
 import ActivityLog from './features/settings/pages/ActivityLog';
 
@@ -113,6 +114,7 @@ function App() {
                 <Route path="/race/:raceId/print" element={<ProtectedRoute><Printables /></ProtectedRoute>} />
                 <Route path="/race/:raceId/print/heat-sheet" element={<ProtectedRoute><HeatSheet /></ProtectedRoute>} />
                 <Route path="/race/:raceId/print/results" element={<ProtectedRoute><ResultsSheet /></ProtectedRoute>} />
+                <Route path="/race/:raceId/print/certificates" element={<ProtectedRoute><Certificate /></ProtectedRoute>} />
                 <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
                 {/* Keyed on the race: switching races is a fresh screen, so no
                     state from the last one can survive into the next. */}

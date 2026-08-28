@@ -45,6 +45,7 @@ export type AuditLogEntry = {
 };
 
 export type Award = {
+  artworkKey?: Maybe<Scalars['String']['output']>;
   den?: Maybe<Den>;
   denId?: Maybe<Scalars['Int']['output']>;
   fromBottom: Scalars['Boolean']['output'];
@@ -59,6 +60,7 @@ export type Award = {
 };
 
 export type AwardInput = {
+  artworkKey?: InputMaybe<Scalars['String']['input']>;
   denId?: InputMaybe<Scalars['Int']['input']>;
   fromBottom?: Scalars['Boolean']['input'];
   kind?: Scalars['String']['input'];

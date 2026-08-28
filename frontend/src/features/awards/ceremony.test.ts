@@ -12,6 +12,7 @@ const AWARDS: CeremonyAward[] = [
     source: 'PACK',
     place: 1,
     denId: 5,
+    artworkKey: 'trophy',
     recipient: {
       id: 100,
       firstName: 'Ada',
@@ -77,8 +78,13 @@ describe('what goes on the screen', () => {
       subtitle: 'Fastest in Wolves',
       winner: 'Ada Lovelace (#42)',
       racerImageUrl: '/static/ada.png',
+      artworkKey: 'trophy',
       position: '1 of 2',
     });
+  });
+
+  it('has no artwork for an award none was set for', () => {
+    expect(slideFor(AWARDS, 1, ROUNDS, DENS)?.artworkKey).toBeNull();
   });
 
   it('still shows an award nobody has won', () => {
