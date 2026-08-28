@@ -140,6 +140,13 @@ const forgetInitialConfig: UpdateResolver = (_result, _args, cache) => {
  * its id in `races`, so a race missing from the cached list leaves the header
  * reading "Select a Race" while you are standing on that race's own page.
  *
+ * `createPracticeRace` is registered here too, for the same reason as
+ * `createRace` — it also inserts a `Race` and Home navigates straight to it
+ * (see [#326](https://github.com/dknowles2/trusty-track/issues/326)). It was
+ * missing the first time around: a race-creating mutation added after this
+ * map was written has no reason to be noticed as one, which is why the list is
+ * worth re-checking whenever a new one appears (a future restore path, say).
+ *
  * Invalidating rather than splicing the new entity in: `createRace` selects
  * only `id`, while both readers want more than that, so there is nothing to
  * splice. "This answer is stale, ask again" needs no payload.
@@ -160,6 +167,7 @@ export const CACHE_CONFIG = {
       createInitialConfig: forgetInitialConfig,
       updateInitialConfig: forgetInitialConfig,
       createRace: forgetRaceList,
+      createPracticeRace: forgetRaceList,
       deleteRace: forgetRaceList,
     },
   },

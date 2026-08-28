@@ -115,7 +115,16 @@ describe('the cached race list and the mutations that change it', () => {
       { __typename: 'Race', id: 2, name: 'Second Derby' },
     ],
   };
+  const CREATE_PRACTICE_RACE = gql`
+    mutation CacheTestCreatePracticeRace {
+      createPracticeRace {
+        id
+      }
+    }
+  `;
+
   const created = { createRace: { __typename: 'Race', id: 2 } };
+  const createdPractice = { createPracticeRace: { __typename: 'Race', id: 2 } };
 
   it('asks again after a race is created', async () => {
     // Characterisation, not a guard on our own configuration: graphcache does
@@ -133,6 +142,22 @@ describe('the cached race list and the mutations that change it', () => {
 
     await client.query(RACES, {}).toPromise();
     await client.mutation(CREATE_RACE, {}).toPromise();
+    const after = await client.query(RACES, {}).toPromise();
+
+    expect(queries()).toBe(2);
+    expect(after.data.races).toHaveLength(2);
+  });
+
+  it('asks again after a practice race is created', async () => {
+    // #326: `createPracticeRace` also inserts a `Race` and Home navigates
+    // straight to it, the same shape as `createRace` above — but it was
+    // missing from `CACHE_CONFIG`, and the header pill and tab title on the
+    // new race's own page were served the stale (empty) cached list and read
+    // "Select a Race" / "No races found" until a reload.
+    const { client, queries } = clientReplying([oneRace, createdPractice, twoRaces]);
+
+    await client.query(RACES, {}).toPromise();
+    await client.mutation(CREATE_PRACTICE_RACE, {}).toPromise();
     const after = await client.query(RACES, {}).toPromise();
 
     expect(queries()).toBe(2);
