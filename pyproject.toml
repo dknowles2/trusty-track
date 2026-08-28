@@ -36,15 +36,16 @@ dev = [
     "mypy",
     "pyinstaller",
     "pre-commit",
-    "mkdocs-callouts>=1.16.1",
     # `test_docs_stay_current.py` renders each page and reads the heading ids
     # the real toc extension produces, rather than reimplementing its slug
-    # rules. Already present as a transitive dependency of the mkdocs plugin
-    # above; named here because a test depends on it directly.
+    # rules. Already present as a transitive dependency of the mkdocs plugins
+    # below; named here because a test depends on it directly.
     "markdown",
+    { include-group = "docs" },
 ]
 docs = [
     "mkdocs-material",
+    "mkdocs-callouts>=1.16.1",
 ]
 
 [tool.pytest.ini_options]

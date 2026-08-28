@@ -162,9 +162,12 @@ jobs:
         run: uv sync --only-group docs
 
       # On the pull request, not just on the deploy: `docs.yml` runs after the
-      # merge, so a broken link found there is already on main.
+      # merge, so a broken link found there is already on main. Invoked via
+      # the venv's own binary rather than `uv run`, which would silently
+      # re-sync the default `dev` group (and any plugin missing from `docs`
+      # alone) back in before building — see #468.
       - name: Build
-        run: uv run mkdocs build --strict
+        run: .venv/bin/mkdocs build --strict
 
   e2e:
     name: End-to-End Run (${{ matrix.shard }}/2)

@@ -2137,6 +2137,7 @@ dev = [
     { name = "httpx" },
     { name = "markdown" },
     { name = "mkdocs-callouts" },
+    { name = "mkdocs-material" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pyinstaller" },
@@ -2146,6 +2147,7 @@ dev = [
     { name = "ruff" },
 ]
 docs = [
+    { name = "mkdocs-callouts" },
     { name = "mkdocs-material" },
 ]
 
@@ -2171,6 +2173,7 @@ dev = [
     { name = "httpx" },
     { name = "markdown" },
     { name = "mkdocs-callouts", specifier = ">=1.16.1" },
+    { name = "mkdocs-material" },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pyinstaller" },
@@ -2179,7 +2182,10 @@ dev = [
     { name = "pytest-xdist" },
     { name = "ruff" },
 ]
-docs = [{ name = "mkdocs-material" }]
+docs = [
+    { name = "mkdocs-callouts", specifier = ">=1.16.1" },
+    { name = "mkdocs-material" },
+]
 
 [[package]]
 name = "typing-extensions"
