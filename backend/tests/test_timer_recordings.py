@@ -162,6 +162,14 @@ def test_a_recorded_session_produces_the_events_it_should(
         assert any(isinstance(e, (GateClosed, GateOpen)) for e in seen)
 
 
+def test_derby_timer_and_pdt_actually_poll_the_gate():
+    """Pins issue #338: both recordings carry gate answers, and the assertion
+    in the test above is only exercised — instead of silently skipped — once
+    ``polls_the_gate()`` is true for these two profiles."""
+    assert DERBY_TIMER.polls_the_gate() is True
+    assert PDT.polls_the_gate() is True
+
+
 def test_the_derby_timer_session_reads_end_to_end():
     """Its recording is the most complete: identification, lane count, both
     gate states, the start, and three results."""

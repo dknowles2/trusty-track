@@ -278,6 +278,21 @@ def test_the_replayed_ones_say_which_evidence_they_have():
         assert "never been tried with the real device" in profile.provenance
 
 
+def test_polling_the_gate_is_only_safe_where_the_start_has_its_own_signal():
+    """DerbyTimer and PDT each have a ``RACE_STARTED`` matcher independent of
+    the gate (`RACE`, `B`/`RACING`), so polling can safely stop the moment a
+    race starts (issue #338).
+
+    Bert Drake and the Champ have no such matcher — a race start is visible to
+    them only as the gate opening, which the manager currently treats as
+    "gate reopened", not "race started". Turning polling on for either would
+    send gate queries straight through a live run (issue #340)."""
+    assert DERBY_TIMER.polls_the_gate() is True
+    assert PDT.polls_the_gate() is True
+    assert BERT_DRAKE.polls_the_gate() is False
+    assert CHAMP.polls_the_gate() is False
+
+
 def test_no_two_profiles_answer_the_same_probe_the_same_way():
     """A prober takes the first match, so two models that cannot be told apart
     would silently mean one of them is unreachable.
