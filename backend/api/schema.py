@@ -2359,12 +2359,20 @@ class Mutation:
     ) -> Racer | None:
         """Check in a racer."""
         db = info.context["db"]
-        racer_update = schemas.RacerUpdate(
-            car_passed_inspection=passed_inspection,
-            car_weight=weight,
-            racer_image_url=racer_image_url,
-            car_image_url=car_image_url,
-        )
+        # Absent means leave alone (#192/#205's convention): only a caller
+        # that actually supplies a weight or a photo should overwrite one
+        # already on file. Passing every kwarg to RacerUpdate unconditionally
+        # would make `model_dump(exclude_unset=True)` treat an omitted value
+        # as an explicit null and erase it — e.g. a photo `bulkAssignPhotos`
+        # placed, on a check-in that doesn't re-supply it.
+        update_fields: dict[str, Any] = {"car_passed_inspection": passed_inspection}
+        if weight is not None:
+            update_fields["car_weight"] = weight
+        if racer_image_url is not None:
+            update_fields["racer_image_url"] = racer_image_url
+        if car_image_url is not None:
+            update_fields["car_image_url"] = car_image_url
+        racer_update = schemas.RacerUpdate(**update_fields)
         updated = typing.cast(
             Any, crud.update_racer(db, racer_id=id, racer_update=racer_update)
         )

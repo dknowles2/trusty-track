@@ -87,6 +87,96 @@ def test_racer_mutations(client, db):
     assert response.json()["data"]["deleteRacer"] is True
 
 
+def test_check_in_racer_preserves_weight_and_photos_it_was_not_given(client, db):
+    # #324: checkInRacer used to build its RacerUpdate with every kwarg
+    # supplied explicitly, so `weight`/`racerImageUrl`/`carImageUrl` left out
+    # of a call arrived as an explicit None and erased whatever a prior
+    # check-in (or bulkAssignPhotos) had set — breaking the "absent means
+    # leave alone" convention (#192/#205).
+    group = crud.create_group(db, schemas.GroupCreate(name="Check-In Group"))
+    track = crud.create_track(db, schemas.TrackCreate(name="Check-In Track"))
+    race_id = client.post(
+        "/graphql",
+        json={
+            "query": f"""
+            mutation {{
+                createRace(
+                    race: {{
+                        name: "Check-In Race",
+                        groupId: {group.id},
+                        trackId: {track.id}
+                    }}
+                ) {{ id }}
+            }}
+            """
+        },
+    ).json()["data"]["createRace"]["id"]
+
+    racer_id = client.post(
+        "/graphql",
+        json={
+            "query": f"""
+            mutation {{
+                createRacer(racer: {{
+                    firstName: "Pat",
+                    lastName: "Racer",
+                    carNumber: 7,
+                    raceId: {race_id}
+                }}) {{ id }}
+            }}
+            """
+        },
+    ).json()["data"]["createRacer"]["id"]
+
+    # First check-in supplies a weight and both photos.
+    first = client.post(
+        "/graphql",
+        json={
+            "query": f"""
+            mutation {{
+                checkInRacer(
+                    id: {racer_id},
+                    passedInspection: true,
+                    weight: 5.0,
+                    racerImageUrl: "/static/racer.jpg",
+                    carImageUrl: "/static/car.jpg"
+                ) {{
+                    carPassedInspection
+                    carWeight
+                    racerImageUrl
+                    carImageUrl
+                }}
+            }}
+            """
+        },
+    ).json()["data"]["checkInRacer"]
+    assert first["carWeight"] == 5.0
+    assert first["racerImageUrl"] == "/static/racer.jpg"
+    assert first["carImageUrl"] == "/static/car.jpg"
+
+    # A later check-in that only re-supplies the inspection result must not
+    # null out the weight and photos already on file.
+    second = client.post(
+        "/graphql",
+        json={
+            "query": f"""
+            mutation {{
+                checkInRacer(id: {racer_id}, passedInspection: true, weight: null) {{
+                    carPassedInspection
+                    carWeight
+                    racerImageUrl
+                    carImageUrl
+                }}
+            }}
+            """
+        },
+    ).json()["data"]["checkInRacer"]
+    assert second["carPassedInspection"] is True
+    assert second["carWeight"] == 5.0
+    assert second["racerImageUrl"] == "/static/racer.jpg"
+    assert second["carImageUrl"] == "/static/car.jpg"
+
+
 def _setup_race_with_heat(db, lane_count=4):
     """Create a race with two racers and a heat whose lane_results reference them."""
     group = crud.create_group(db, schemas.GroupCreate(name="Heat Test Group"))
