@@ -18,6 +18,15 @@ export const GET_RACES_NAV = gql`
   }
 `;
 
+// A bare signal, not the list itself (#300) — a create, rename or delete of
+// any race, from any tab, is a nudge to re-run GET_RACES_NAV rather than a
+// second copy of the list to keep in step with that query.
+export const RACES_CHANGED = gql`
+  subscription RacesChanged {
+    racesChanged
+  }
+`;
+
 export const INITIAL_CONFIG_QUERY = `
   query GetInitialConfig {
     initialConfig {

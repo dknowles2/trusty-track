@@ -1478,6 +1478,24 @@ async def _publish_displays(race_id: int) -> None:
     await pubsub.publish(f"displays:{race_id}", None)
 
 
+RACES_LIST_CHANNEL = "races_list"
+
+
+async def _publish_races_list() -> None:
+    """Tell every tab's navigation that the race list itself changed.
+
+    Deliberately a signal on its own channel rather than a sentinel `race_id`
+    on `race_state:{race_id}` (#300) — the navigation's race selector and the
+    browser tab's title aren't scoped to one race the way everything else
+    subscribed to `raceStateChanged` is, and overloading that channel would
+    mean every existing subscriber filtering out an event meant for a screen
+    that isn't there. The payload carries nothing: `racesChanged` is a nudge
+    to re-run `GET_RACES_NAV`, not a copy of the list down the wire a second
+    way that would have to be kept in step with the query.
+    """
+    await pubsub.publish(RACES_LIST_CHANNEL, None)
+
+
 @strawberry.type
 class LiveLane:
     """One lane of the heat on the track right now (#7).
@@ -2141,10 +2159,13 @@ class Mutation:
         race_in = schemas.RaceCreate(**typing.cast(Any, strawberry.asdict(race)))
         new_race = typing.cast(Any, crud.create_race(info.context["db"], race_in))
         await _publish_race_state(new_race.id, kind=RaceChangeKind.RACE_SETTINGS)
+        await _publish_races_list()
         return new_race
 
     @strawberry.mutation
-    def update_race(self, info: Info, id: int, race: RaceUpdateInput) -> Race | None:
+    async def update_race(
+        self, info: Info, id: int, race: RaceUpdateInput
+    ) -> Race | None:
         """Update an existing race."""
         db = info.context["db"]
         data = strawberry.asdict(race)
@@ -2155,15 +2176,26 @@ class Mutation:
         if clear_weight_limit:
             filtered_data["weight_limit_oz"] = None
         race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
-        return typing.cast(
+        updated = typing.cast(
             Any, crud.update_race(db, race_id=id, race_update=race_update)
         )
+        if updated is not None:
+            # A rename is what the browser tab's title reads (#300) — the
+            # rest of `race` (dates, location…) is not shown in the nav, but
+            # there is no cheap way to tell a rename from any other field
+            # changing, and a signal nobody needed is far cheaper than one
+            # that is missing.
+            await _publish_races_list()
+        return updated
 
     @strawberry.mutation
-    def delete_race(self, info: Info, id: int) -> bool:
+    async def delete_race(self, info: Info, id: int) -> bool:
         """Delete a race."""
         db = info.context["db"]
-        return crud.delete_race(db, race_id=id)
+        deleted = crud.delete_race(db, race_id=id)
+        if deleted:
+            await _publish_races_list()
+        return deleted
 
     # Racer Mutations
     @strawberry.mutation
@@ -3315,7 +3347,7 @@ class Mutation:
         return f"Populated race {race_id} with {config.count} racers"
 
     @strawberry.mutation
-    def create_practice_race(self, info: Info) -> Race:
+    async def create_practice_race(self, info: Info) -> Race:
         """A whole event on a fake timer, ready to run (#201).
 
         One mutation rather than the five round trips a client would need —
@@ -3324,7 +3356,12 @@ class Mutation:
         the opposite of the confidence this exists to give.
         """
         db = info.context["db"]
-        return typing.cast(Any, crud.create_practice_race(db))
+        new_race = typing.cast(Any, crud.create_practice_race(db))
+        # Inserts a race the same as createRace, and #300's signal is a rule
+        # about every insert into `races`, not just the ones reached through
+        # the ordinary form.
+        await _publish_races_list()
+        return new_race
 
     @strawberry.mutation
     async def import_racers(self, info: Info, race_id: int, csv_data: str) -> int:
@@ -3915,6 +3952,22 @@ class Subscription:
         async with pubsub.subscribe(f"race_state:{race_id}") as stream:
             async for event in stream:
                 yield event
+
+    @strawberry.subscription
+    async def races_changed(self) -> AsyncGenerator[bool, None]:
+        """A nudge that the race list itself changed elsewhere (#300).
+
+        Argument-free, unlike every other subscription here: the navigation's
+        race selector and the browser tab's title aren't scoped to one race.
+        The payload is a bare `True` rather than the new list, because the
+        client already holds `GET_RACES_NAV` — re-executing it network-only
+        is simpler than shipping the list down the socket a second way that
+        would have to be kept in step with the query. No initial value: the
+        query's own fetch on mount is the first answer.
+        """
+        async with pubsub.subscribe(RACES_LIST_CHANNEL) as stream:
+            async for _ in stream:
+                yield True
 
     @strawberry.subscription
     async def leaderboard(

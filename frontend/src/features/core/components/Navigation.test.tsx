@@ -12,12 +12,14 @@ vi.mock('urql', async () => {
         ...actual,
         useQuery: vi.fn(),
         useMutation: vi.fn(),
+        useSubscription: vi.fn(),
     };
 });
 
 describe('Navigation Component', () => {
     const mockUseQuery = Urql.useQuery as any;
     const mockUseMutation = Urql.useMutation as any;
+    const mockUseSubscription = Urql.useSubscription as any;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -33,6 +35,10 @@ describe('Navigation Component', () => {
         }]);
 
         mockUseMutation.mockReturnValue([{}, vi.fn()]);
+
+        // No signal has arrived yet — the ordinary state for every test that
+        // isn't specifically about #300.
+        mockUseSubscription.mockReturnValue([{ data: undefined, fetching: false, error: undefined }]);
 
         // Reset innerWidth
         Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
@@ -188,5 +194,52 @@ describe('Navigation Component', () => {
             expect(callArg).not.toHaveProperty('championship_trophies');
             expect(callArg).not.toHaveProperty('weight_limit_oz');
         });
+    });
+
+    // #300: a race created, renamed or deleted in another tab left this list
+    // stale until a reload — GET_RACES_NAV was fetched once on mount and
+    // nothing here ever asked again.
+    it('re-fetches the race list when racesChanged signals a change elsewhere', async () => {
+        const reexecuteRacesNav = vi.fn();
+        mockUseQuery
+            .mockReturnValueOnce([
+                { data: { races: [{ id: 1, name: 'Race 1' }] }, fetching: false, error: undefined },
+                reexecuteRacesNav,
+            ])
+            .mockReturnValue([{ data: undefined, fetching: false, error: undefined }]);
+        mockUseSubscription.mockReturnValue([{ data: { racesChanged: true }, error: undefined }]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter>
+                    <Navigation />
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => {
+            expect(reexecuteRacesNav).toHaveBeenCalledWith({ requestPolicy: 'network-only' });
+        });
+    });
+
+    it('does not re-fetch the race list before racesChanged has fired', () => {
+        const reexecuteRacesNav = vi.fn();
+        mockUseQuery
+            .mockReturnValueOnce([
+                { data: { races: [{ id: 1, name: 'Race 1' }] }, fetching: false, error: undefined },
+                reexecuteRacesNav,
+            ])
+            .mockReturnValue([{ data: undefined, fetching: false, error: undefined }]);
+        mockUseSubscription.mockReturnValue([{ data: undefined, error: undefined }]);
+
+        render(
+            <AlertProvider>
+                <MemoryRouter>
+                    <Navigation />
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        expect(reexecuteRacesNav).not.toHaveBeenCalled();
     });
 });

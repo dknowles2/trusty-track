@@ -962,6 +962,7 @@ export type Subscription = {
   leaderboard: Array<LeaderboardEntry>;
   onDeck: Array<Heat>;
   raceStateChanged: RaceStateChangedEvent;
+  racesChanged: Scalars['Boolean']['output'];
   timerStatus: TimerStateChangedEvent;
   timingStats?: Maybe<TimingStats>;
 };

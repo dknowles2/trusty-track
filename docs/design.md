@@ -207,6 +207,7 @@ only part the server renders.
 Delivered over the existing `/graphql` endpoint using the `graphql-ws` subprotocol. Clients use urql's `useSubscription` hook; no separate WebSocket URL is needed.
 
 -   `subscription raceStateChanged(raceId)` — Anything that changed the race, for cache invalidation.
+-   `subscription racesChanged()` — Argument-free: a bare `true` whenever a race is created, renamed or deleted anywhere, so the navigation's race selector and the browser tab's title (#300) can re-run `GET_RACES_NAV` instead of going stale in every tab but the one that made the change.
 -   `subscription leaderboard(raceId)` — Current standings, pushed on every heat result.
 -   `subscription onDeck(raceId)` — Next-up racers.
 -   `subscription currentlyRacing(raceId)` — Current heat racers and lane assignments.

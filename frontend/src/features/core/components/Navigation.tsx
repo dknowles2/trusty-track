@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation } from 'urql';
-import { GET_RACES_NAV, INITIAL_CONFIG_QUERY } from '../graphql/queries';
+import { useQuery, useMutation, useSubscription } from 'urql';
+import { GET_RACES_NAV, INITIAL_CONFIG_QUERY, RACES_CHANGED } from '../graphql/queries';
 import { activeNavLink } from '../activeNavLink';
 import { CREATE_RACE } from '../../management/graphql/queries';
 import Modal from '../../../components/ui/Modal';
@@ -17,8 +17,21 @@ import { useChrome } from '../../../context/ChromeContext';
 export default function Navigation() {
   const { hidden: chromeHidden } = useChrome();
   const { showAlert } = useAlert();
-  const [{ data: navData }] = useQuery({ query: GET_RACES_NAV });
+  const [{ data: navData }, reexecuteRacesNav] = useQuery({ query: GET_RACES_NAV });
   const races: { id: number; name: string }[] = navData?.races || [];
+
+  // #300: a race created, renamed or deleted in another tab (or another
+  // device on the same network) left this list, and the browser tab's title
+  // that reads off it, stale until a reload — `GET_RACES_NAV` was fetched
+  // once on mount and nothing here ever asked again. `racesChanged` carries
+  // no payload worth caching, so a signal on it means "go re-fetch" rather
+  // than something to merge.
+  const [racesChangedResult] = useSubscription({ query: RACES_CHANGED });
+  useEffect(() => {
+    if (racesChangedResult.data !== undefined) {
+      reexecuteRacesNav({ requestPolicy: 'network-only' });
+    }
+  }, [racesChangedResult.data, reexecuteRacesNav]);
 
   const [{ data: configData }] = useQuery({ query: INITIAL_CONFIG_QUERY });
   const version = configData?.initialConfig?.version || '0.0.0';
