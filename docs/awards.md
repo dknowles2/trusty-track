@@ -80,6 +80,8 @@ It has no effect on a speed-based award. Those get their artwork worked out
 automatically from what they are — first place, second and third, or the
 slowest car — with nothing to choose.
 
+![Choosing "Most Aerodynamic" from the ready-made list fills in the award name — the field stays editable afterward](assets/screenshots/awards/06-award-template-picker.png)
+
 ## Letting people vote
 
 For a judged award, you can let people vote from their own phones instead of
@@ -178,6 +180,8 @@ blank line to write a name on, rather than being left out of the batch; a
 ready-made superlative or a speed award prints its artwork, and anything
 else prints plain. More in
 [Printed documents](reference/printing.md#certificates).
+
+![Five certificates: a trophy or medal on each speed award, and a blank line where a judged award's winner has not been decided yet](assets/screenshots/awards/07-certificates.png)
 
 ## What awards do not do
 

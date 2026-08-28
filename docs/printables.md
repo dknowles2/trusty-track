@@ -158,6 +158,8 @@ take-home, where the results sheet is the noticeboard's copy.
 
 **Race → Awards → Print certificates.**
 
+![Five printed certificates: trophy and medal artwork on the speed awards, blank lines on the two not yet decided](assets/screenshots/awards/07-certificates.png)
+
 An award nobody has decided yet still gets a certificate, with a blank line
 to write a name on rather than being left out of the batch — most awards
 stay undecided right up until the ceremony, and reprinting the whole run the
