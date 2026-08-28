@@ -49,7 +49,14 @@ test('the results sheet prints the standings and the trophies together', async (
     // *first in the table* — not merely present somewhere on the sheet — and
     // the winner of the speed award.
     const fastest = racers[0];
-    const overallSection = sheet.locator('section', { has: overallHeading });
+    // The inner locator for `has` must be built from `page`, not from `sheet`:
+    // `has` is evaluated relative to each candidate outer element, and an
+    // inner locator that already carries the `results-sheet` testid prefix
+    // then asks each <section> to contain *another* `results-sheet` element
+    // nested inside it, which never exists.
+    const overallSection = sheet
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Overall standings' }) });
     const firstRow = overallSection.locator('tbody tr').first();
     await expect(firstRow).toContainText(String(fastest.carNumber));
     await expect(firstRow).toContainText(`${fastest.firstName} ${fastest.lastName}`);

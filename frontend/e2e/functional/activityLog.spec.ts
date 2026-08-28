@@ -12,16 +12,28 @@ import { createSchedule, ensureConfigured, gql, seedRace } from './support';
 
 test('it records what the operator did, newest first', async ({ page }) => {
     await ensureConfigured(page);
-    const { raceId } = await seedRace(page, 'Activity Recorded Race');
+    await seedRace(page, 'Activity Recorded Race');
 
-    // Scoped to this race: seeding ran createRace followed by a string of
-    // createRacer/checkInRacer mutations, which is several entries whose
-    // chronological order is known — createRace happened first — and whose
-    // ids the backend assigns in that same order (`auditLog` reads back
-    // `order_by(AuditEntry.id.desc())`). "Newest first" means those ids read
-    // in descending order down the page; a component that rendered the
-    // server's rows in reverse would still pass a mere-presence check.
-    await page.goto(`/activity?race=${raceId}`);
+    // Not scoped to this race: `_race_id_from` (backend/api/auth.py) only
+    // reads an argument actually named `raceId`/`race_id` at the top level of
+    // a mutation, by design — it does not open a nested input object or chase
+    // a result back to its race, which would cost a query per mutation. Both
+    // `createRace` (the id does not exist until the resolver returns) and
+    // `createRacer`/`checkInRacer` (the race id, where present at all, is
+    // nested inside `RacerInput` or absent entirely) therefore write their
+    // audit entries with no `raceId`, and a page filtered to this race would
+    // never show them — not a stale filter, just entries the query never
+    // scoped to begin with.
+    //
+    // The unscoped log still proves "newest first": the backend always reads
+    // it back with `order_by(AuditEntry.id.desc())` regardless of any race
+    // filter, so seeding this race still leaves several entries — createRace
+    // and a run of createRacer/checkInRacer calls — whose ids are known to be
+    // ascending in the order they were written. A component that rendered the
+    // server's rows in reverse, or in whatever order the network happened to
+    // deliver them, fails the ordering check below even though other specs
+    // are writing to the same shared log at the same time.
+    await page.goto('/activity');
 
     await expect(page.getByText('Created a race').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/Activity Recorded Race/).first()).toBeVisible();
