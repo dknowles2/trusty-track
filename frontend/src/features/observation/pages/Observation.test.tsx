@@ -502,20 +502,21 @@ describe('Observation Page', () => {
         expect(docRow?.textContent).not.toMatch(/Wolf/);
     });
 
-    it('shows and hides the heat result overlay in projector mode', async () => {
+    it('does not flash the overlay for the subscription\'s opening payload (#335)', async () => {
+        // A projector that just loaded (or reconnected) receives an opening
+        // snapshot for whatever heat finished last — possibly minutes ago.
+        // That is history, not news, and must not pop the overlay.
         const timingStats = {
             heatId: 1,
+            recordedAt: '2026-01-01T00:00:00Z',
             roundName: 'Round 1',
             heatNumber: 1,
             lanes: [
                 { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.5, place: 1, racerImageUrl: 'http://example.com/speedy.jpg' },
-                { laneNumber: 2, racerName: 'Doc Hudson', carName: '51', time: 3.6, place: 2, racerImageUrl: null },
             ]
         };
 
         setupMocks({ timingStats });
-
-        vi.useFakeTimers();
 
         render(
             <MemoryRouter initialEntries={['/race/1/observation?projector=true']}>
@@ -525,32 +526,82 @@ describe('Observation Page', () => {
             </MemoryRouter>
         );
 
-        // Overlay should be visible
+        await waitFor(() => {
+            expect(screen.getByText('Now Racing')).toBeInTheDocument();
+        });
+
+        expect(screen.queryByText('Heat Results')).not.toBeInTheDocument();
+    });
+
+    it('shows the overlay for a heat that finishes after the page has loaded, and re-shows it when the same heat is re-recorded', async () => {
+        let timingStats: any = {
+            heatId: 1,
+            recordedAt: '2026-01-01T00:00:00Z',
+            roundName: 'Round 1',
+            heatNumber: 1,
+            lanes: [
+                { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.5, place: 1, racerImageUrl: 'http://example.com/speedy.jpg' },
+                { laneNumber: 2, racerName: 'Doc Hudson', carName: '51', time: 3.6, place: 2, racerImageUrl: null },
+            ]
+        };
+
+        (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
+        (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+            if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+            if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+            if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+            if (query === TimingStatsSubscription) return [{ data: { timingStats } }];
+            if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+            if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+            return [{ data: null }];
+        });
+
+        vi.useFakeTimers();
+
+        // A fresh element on every call — reusing one const across `rerender`
+        // calls makes React bail out at the root (identical props, no local
+        // state change on that fiber) without ever calling `Observation`
+        // again, silently defeating the mock update below it.
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation?projector=true']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+        const { rerender } = render(renderTree());
+
+        // The opening payload: no overlay yet.
+        expect(screen.queryByText('Heat Results')).not.toBeInTheDocument();
+
+        // Heat 2 finishes.
+        timingStats = { ...timingStats, heatId: 2, recordedAt: '2026-01-01T00:05:00Z' };
+        act(() => {
+            rerender(renderTree());
+        });
+
         expect(screen.getByText('Heat Results')).toBeInTheDocument();
         expect(screen.getByText('Speedy McQueen')).toBeInTheDocument();
-
-        // Check for trophy icons (by checking if the Icon component renders an SVG, implicitly)
-        // Or better, check for the color style which distinguishes the trophies
         const firstPlaceRow = screen.getByText('Speedy McQueen').closest('.overlay-result-item');
         expect(firstPlaceRow).toHaveClass('first-place');
-        // The trophy icon is inside .overlay-rank. We can check if it exists.
-        // Since we can't easily check for the specific SVG path without more setup, we'll assume class presence and structure implies it.
-
-        // We can check if the image is passed to RacerAvatar
-        // RacerAvatar renders an img tag if racerImageUrl is present.
         const avatarImg = screen.getByAltText('Speedy McQueen');
-        expect(avatarImg).toBeInTheDocument();
         expect(avatarImg).toHaveAttribute('src', 'http://example.com/speedy.jpg');
 
-
-        // Fast-forward time
+        // Fast-forward past the 5-second timeout.
         act(() => {
             vi.advanceTimersByTime(6000);
         });
-
-        // Overlay should be gone
-        // Overlay should be gone
         expect(screen.queryByText('Heat Results')).not.toBeInTheDocument();
+
+        // Heat 2 is re-recorded — same round, same heat number, same heat id
+        // — but a new `recordedAt`. The old key (`roundName`-`heatNumber`)
+        // never changed for this case, so the overlay never fired again.
+        timingStats = { ...timingStats, recordedAt: '2026-01-01T00:10:00Z' };
+        act(() => {
+            rerender(renderTree());
+        });
+
+        expect(screen.getByText('Heat Results')).toBeInTheDocument();
 
         vi.useRealTimers();
     });

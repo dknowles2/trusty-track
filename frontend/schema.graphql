@@ -608,6 +608,7 @@ type TimingStats {
   globalHeatNumber: Int!
   lanes: [TimingStatsLane!]!
   recordBreak: TrackRecordBreak
+  recordedAt: String
 }
 
 type TimingStatsLane {

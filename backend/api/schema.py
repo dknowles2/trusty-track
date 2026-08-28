@@ -3987,6 +3987,10 @@ class TimingStats:
     #: Set when this heat broke the track record; a free race heat never
     #: does, because exhibition runs cannot hold records (#6).
     record_break: TrackRecordBreak | None
+    #: When this result was saved. `heat_id` alone is not enough to notice a
+    #: re-recorded heat on the observation display (#335) — the id is the
+    #: same heat both times, and only this changes.
+    recorded_at: str | None
 
 
 async def _publish_race_state(
@@ -4404,6 +4408,7 @@ class Subscription:
                     global_heat_number=global_num,
                     lanes=lane_stats,
                     record_break=record_break,
+                    recorded_at=target_heat.recorded_at,
                 )
 
             yield _get_timing_stats()

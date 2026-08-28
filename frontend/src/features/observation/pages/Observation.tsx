@@ -10,6 +10,7 @@ import { displayId } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
+import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import { rankLabel } from '../../management/rankText';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import {
@@ -116,7 +117,7 @@ export default function Observation() {
     }[];
     recordBreak?: RecordBreak | null;
   } | null>(null);
-  const [lastProcessedHeatId, setLastProcessedHeatId] = useState<string | null>(null);
+  const [seenHeatResult, setSeenHeatResult] = useState<SeenHeatResult>(null);
 
   // Auto-cycling logic (disabled in projector mode)
   useEffect(() => {
@@ -221,12 +222,20 @@ export default function Observation() {
     pause: !trackId,
   });
 
-  // Sync results overlay state during render
-  const currentHeatId = timingStatsData?.timingStats ? `${timingStatsData.timingStats.roundName}-${timingStatsData.timingStats.heatNumber}` : null;
-  if (isProjectorMode && currentHeatId && currentHeatId !== lastProcessedHeatId) {
-    setOverlayData(timingStatsData.timingStats);
-    setShowResultsOverlay(true);
-    setLastProcessedHeatId(currentHeatId);
+  // Sync results overlay state during render. `observeHeatResult` is the
+  // `seen === null` rule from `roundCompletion.ts`: the subscription's
+  // opening payload (on load, or on reconnect) is history, not news, and the
+  // key includes `recordedAt` so a re-recorded heat — which reuses its round
+  // name and heat number — is news a second time (#335).
+  if (isProjectorMode && timingStatsData?.timingStats) {
+    const observation = observeHeatResult(seenHeatResult, timingStatsData.timingStats);
+    if (observation.seen !== seenHeatResult) {
+      setSeenHeatResult(observation.seen);
+      if (observation.isNew) {
+        setOverlayData(timingStatsData.timingStats);
+        setShowResultsOverlay(true);
+      }
+    }
   }
 
   // Effect to handle overlay timeout
@@ -237,7 +246,7 @@ export default function Observation() {
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [showResultsOverlay, lastProcessedHeatId]);
+  }, [showResultsOverlay, seenHeatResult]);
 
   interface Racer {
     id: number;
