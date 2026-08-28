@@ -4,6 +4,12 @@
 
 # Trusty Track
 
+<p align="center">
+  <strong><a href="https://trusty-track.com">trusty-track.com</a></strong> ·
+  <a href="https://trusty-track.com/docs/">Documentation</a> ·
+  <a href="https://trusty-track.com/docs/user/install/">Install</a>
+</p>
+
 **Trusty Track** is race management software for Cub Scout Pinewood Derby events. It runs in a web browser and handles everything from racer registration through final standings — so you can focus on the race, not the paperwork.
 
 ---
@@ -40,37 +46,37 @@
 
 ## Documentation
 
-For the full documentation and user guides, visit: **[https://dknowles2.github.io/trusty-track/](https://dknowles2.github.io/trusty-track/)**
+For the full documentation and user guides, visit: **[https://trusty-track.com/docs/](https://trusty-track.com/docs/)**
 
 ### User Guides
 
 | Guide                                                     | Description                                                       |
 | --------------------------------------------------------- | ----------------------------------------------------------------- |
-| [Getting Started](https://dknowles2.github.io/trusty-track/getting-started/)           | First-time setup: system settings and creating your first race    |
-| [Race Setup Guide](https://dknowles2.github.io/trusty-track/race-setup/)               | Managing dens, registering racers, and preparing the roster       |
-| [Race Day Operations](https://dknowles2.github.io/trusty-track/race-day/)              | Check-in, scheduling heats, running the race, and final standings |
-| [Scoring & Championships](https://dknowles2.github.io/trusty-track/scoring-and-championships/) | How scores are worked out, and how championship rounds pick their field |
-| [Awards](https://dknowles2.github.io/trusty-track/awards/)                             | Speed trophies, and the judged ones the timer cannot decide       |
-| [Printables](https://dknowles2.github.io/trusty-track/printables/)                     | Pit passes, driver's licences, and scannable check-in codes       |
-| [Free Race](https://dknowles2.github.io/trusty-track/free-race/)                       | Practice and exhibition heats that count for nothing              |
-| [Hardware Timer](https://dknowles2.github.io/trusty-track/hardware-timer/)             | Connecting an electronic finish line, checking it works, and sending us a test report |
-| [Fake Timer](https://dknowles2.github.io/trusty-track/fake-timer/)                      | Running the whole thing without a track, for practice             |
-| [Observation Displays](https://dknowles2.github.io/trusty-track/observation-displays/) | Setting up audience screens and projectors                        |
-| [Race Stats](https://dknowles2.github.io/trusty-track/race-stats/)                     | Lane fairness, per-racer numbers, and CSV exports                 |
-| [Access and Your Network](https://dknowles2.github.io/trusty-track/access-and-network/) | PINs, which network to use, what a display may do, and the activity log |
-| [Backup and Restore](https://dknowles2.github.io/trusty-track/backup-and-restore/)     | Saving the whole event to one file, and putting it back           |
+| [Getting Started](https://trusty-track.com/docs/getting-started/)           | First-time setup: system settings and creating your first race    |
+| [Race Setup Guide](https://trusty-track.com/docs/race-setup/)               | Managing dens, registering racers, and preparing the roster       |
+| [Race Day Operations](https://trusty-track.com/docs/race-day/)              | Check-in, scheduling heats, running the race, and final standings |
+| [Scoring & Championships](https://trusty-track.com/docs/scoring-and-championships/) | How scores are worked out, and how championship rounds pick their field |
+| [Awards](https://trusty-track.com/docs/awards/)                             | Speed trophies, and the judged ones the timer cannot decide       |
+| [Printables](https://trusty-track.com/docs/printables/)                     | Pit passes, driver's licences, and scannable check-in codes       |
+| [Free Race](https://trusty-track.com/docs/free-race/)                       | Practice and exhibition heats that count for nothing              |
+| [Hardware Timer](https://trusty-track.com/docs/hardware-timer/)             | Connecting an electronic finish line, checking it works, and sending us a test report |
+| [Fake Timer](https://trusty-track.com/docs/fake-timer/)                      | Running the whole thing without a track, for practice             |
+| [Observation Displays](https://trusty-track.com/docs/observation-displays/) | Setting up audience screens and projectors                        |
+| [Race Stats](https://trusty-track.com/docs/race-stats/)                     | Lane fairness, per-racer numbers, and CSV exports                 |
+| [Access and Your Network](https://trusty-track.com/docs/access-and-network/) | PINs, which network to use, what a display may do, and the activity log |
+| [Backup and Restore](https://trusty-track.com/docs/backup-and-restore/)     | Saving the whole event to one file, and putting it back           |
 
 ### Installation
 
 | Method | Difficulty | Best for |
 |--------|-----------|----------|
-| [macOS App](https://dknowles2.github.io/trusty-track/user/install-mac/) | Easy | Mac users |
-| [Windows App](https://dknowles2.github.io/trusty-track/user/install-windows/) | Easy | Windows users |
-| [Docker](https://dknowles2.github.io/trusty-track/user/install-docker/) | Medium | Home servers, NAS devices |
-| [Raspberry Pi](https://dknowles2.github.io/trusty-track/user/install-raspberry-pi/) | Medium | Dedicated race-day appliance |
-| [From Source](https://dknowles2.github.io/trusty-track/user/install-from-source/) | Advanced | Developers |
+| [macOS App](https://trusty-track.com/docs/user/install-mac/) | Easy | Mac users |
+| [Windows App](https://trusty-track.com/docs/user/install-windows/) | Easy | Windows users |
+| [Docker](https://trusty-track.com/docs/user/install-docker/) | Medium | Home servers, NAS devices |
+| [Raspberry Pi](https://trusty-track.com/docs/user/install-raspberry-pi/) | Medium | Dedicated race-day appliance |
+| [From Source](https://trusty-track.com/docs/user/install-from-source/) | Advanced | Developers |
 
-Not sure which to pick? See [Which method should I use?](https://dknowles2.github.io/trusty-track/user/install/)
+Not sure which to pick? See [Which method should I use?](https://trusty-track.com/docs/user/install/)
 
 ---
 
@@ -92,7 +98,7 @@ Then open `https://localhost:8005` in your browser. `serve.sh` always runs over 
 
 If you're working on Trusty Track itself:
 
-- [Development Guide](https://dknowles2.github.io/trusty-track/development/) — local setup, testing, and troubleshooting
-- [Design](https://dknowles2.github.io/trusty-track/design/) — architecture, data models, and API design
-- [Specification](https://dknowles2.github.io/trusty-track/spec/) — detailed product requirements and user journeys
-- [Scheduling Algorithms](https://dknowles2.github.io/trusty-track/scheduling-algorithms/) — how heats are generated (PPC / Perfect-N)
+- [Development Guide](https://trusty-track.com/docs/development/) — local setup, testing, and troubleshooting
+- [Design](https://trusty-track.com/docs/design/) — architecture, data models, and API design
+- [Specification](https://trusty-track.com/docs/spec/) — detailed product requirements and user journeys
+- [Scheduling Algorithms](https://trusty-track.com/docs/scheduling-algorithms/) — how heats are generated (PPC / Perfect-N)

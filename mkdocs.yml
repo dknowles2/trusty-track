@@ -1,15 +1,37 @@
 site_name: Trusty Track Help
 site_description: User guide for Trusty Track Pinewood Derby race management
-site_url: https://dknowles2.github.io/trusty-track/
+site_url: https://trusty-track.com/docs/
 repo_url: https://github.com/dknowles2/trusty-track
 repo_name: trusty-track
 edit_uri: edit/main/docs/
 
 theme:
   name: material
+  # Three palettes rather than one, because the landing page at the root of
+  # this domain follows `prefers-color-scheme` and the guides did not: a
+  # visitor reading in the dark crossed from one to the other and the page went
+  # white. `media: "(prefers-color-scheme)"` is Material's "follow the system"
+  # entry, and it is first so that it is the default; the other two are the
+  # explicit overrides the toggle cycles to.
   palette:
-    primary: custom          # --scouting-blue (#003F87)
-    accent: custom           # --gold (#FCD116)
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Match my system
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom        # --scouting-blue (#003F87)
+      accent: custom         # see assets/extra.css
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light
   features:
     - navigation.tabs
     - navigation.sections
@@ -17,6 +39,13 @@ theme:
     - search.highlight
     - content.action.edit    # "edit this page" link
   logo: assets/logo.png
+
+# Clicking the logo leaves the documentation for the landing page at
+# trusty-track.com. The two are one deployment (see scripts/build_site.sh), so
+# "home" from inside the guides means the front door, not docs/index.md — which
+# is still reachable as the first entry in the nav.
+extra:
+  homepage: https://trusty-track.com/
 
 extra_css:
   - assets/extra.css         # custom color overrides
