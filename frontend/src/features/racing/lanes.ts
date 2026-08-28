@@ -63,3 +63,37 @@ export const toInput = (lane: Lane): LaneInput => ({
 /** The same lanes with any result removed — what re-running a heat sends. */
 export const cleared = (lanes: readonly Lane[]): LaneInput[] =>
   lanes.map((lane) => ({ ...toInput(lane), time: null, place: null, skipped: false }));
+
+/**
+ * Stamp finishing places over a heat's edited results.
+ *
+ * Mirrors `backend/domain/scoring.py`'s DNF rule: a recorded time of zero or
+ * less is not a finish — the timer assigns it no place, and `POINTS` scores
+ * it as a last-place penalty rather than as a placement (issue #308). Ranking
+ * every recorded time, including a DNF's `0.0`, undid that: the DNF lane
+ * sorted first and was stamped `place = 1`.
+ *
+ * Only lanes with a real time (`time > 0`) are ranked; a null, zero or
+ * negative time gets `place: null`, same as an unrun lane.
+ *
+ * A heat with no recorded time at all (the operator hit Skip) clears every
+ * place without touching `skipped` — this is not that heat's concern, since
+ * the caller has already set `skipped` on the lanes it wants marked.
+ */
+export const assignPlaces = (results: readonly LaneInput[]): LaneInput[] => {
+  const hasAnyTime = results.some((r) => r.time !== null);
+  if (!hasAnyTime) {
+    return results.map((r) => ({ ...r, place: null }));
+  }
+
+  const finishers = results
+    .filter((r): r is LaneInput & { time: number } => typeof r.time === 'number' && r.time > 0)
+    .sort((a, b) => a.time - b.time);
+  const placeByLane = new Map(finishers.map((r, idx) => [r.lane, idx + 1]));
+
+  return results.map((r) => ({
+    ...r,
+    skipped: false, // Always clear skipped flag if we have any time.
+    place: placeByLane.get(r.lane) ?? null,
+  }));
+};

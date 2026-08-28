@@ -882,6 +882,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <input
                                             type="number"
                                             step="0.0001"
+                                            min="0"
                                             value={r.timeText}
                                             onChange={(e) => handleResultChange(idx, 'time', e.target.value)}
                                             className="form-control"
