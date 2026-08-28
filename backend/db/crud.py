@@ -2157,13 +2157,19 @@ def get_free_race_heats(
 def get_random_lane_assignments(
     db: Session,
     race_id: int,
-    lane_count: int,
+    lane_numbers: Sequence[int],
     shuffle: int = 0,
 ) -> list[dict]:
     """
-    Randomly select `lane_count` checked-in racers and return lane assignments.
-    If fewer than `lane_count` racers are checked in, fill remaining lanes with
-    empty slots (racer_id=None).
+    Randomly select ``len(lane_numbers)`` checked-in racers and return lane
+    assignments over exactly those lanes. If fewer racers are checked in than
+    there are lanes, fill the remainder with empty slots (racer_id=None).
+
+    Takes the lanes themselves rather than a count (#303) — a race with a
+    lane out of service, or an operator's temporary per-lane disable on the
+    Free Race screen, has to draw over the lanes that are actually usable,
+    and a bare count cannot say which those are. ``lane_numbers`` need not be
+    contiguous or start at 1.
 
     ``shuffle`` is which draw this is — 0 for the one a screen opens on, then
     1, 2, ... for each Re-shuffle. It is part of the key because the draw may
@@ -2173,23 +2179,25 @@ def get_random_lane_assignments(
     """
     # Ordered because the shuffle below may be seeded (`demo_seed`): a shuffle
     # is only as repeatable as the order of what it shuffles, and a query
-    # without ORDER BY promises none.
+    # without ORDER BY promises none. `lane_numbers` is sorted for the same
+    # reason (#240) — a caller may hand it over as a set.
     pool = (
         db.query(models.Racer)
         .filter(models.Racer.race_id == race_id, models.Racer.car_passed_inspection)
         .order_by(models.Racer.id)
         .all()
     )
+    lanes_sorted = sorted(lane_numbers)
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     demo_seed.generator(
         f"free-race lanes:{race.name if race else race_id}:{shuffle}"
     ).shuffle(pool)
-    selected = pool[:lane_count]
+    selected = pool[: len(lanes_sorted)]
 
     assignments = []
-    for i in range(lane_count):
+    for i, lane in enumerate(lanes_sorted):
         racer_id = selected[i].id if i < len(selected) else None
-        assignments.append({"lane": i + 1, "racer_id": racer_id})
+        assignments.append({"lane": lane, "racer_id": racer_id})
     return assignments
 
 

@@ -15,6 +15,8 @@ interface RacerSummary {
 interface FreeRaceTabProps {
   raceId: number;
   laneCount: number;
+  /** Lanes permanently out of service on the track (System Settings). */
+  laneOutages?: number[];
   timerType: string | null;
   trackId?: number | null;
   racers: Record<number, RacerSummary>;
@@ -36,6 +38,7 @@ const START_FREE_RACE_HEAT = `
 export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
   raceId,
   laneCount,
+  laneOutages,
   timerType,
   trackId,
   racers,
@@ -44,6 +47,15 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
   const [phase, setPhase] = useState<FreeRacePhase>({ kind: 'setup' });
   const [mode, setMode] = useState<Mode>('random');
   const [error, setError] = useState<string | null>(null);
+  // Session-only, like `mode` — lives here rather than in FreeRaceLaneSetup
+  // so it survives "Next Heat" swapping that component out for
+  // FreeRaceExecution and back (#303). Never written to the track.
+  const [disabledLanes, setDisabledLanes] = useState<number[]>([]);
+  const handleToggleLane = (lane: number) => {
+    setDisabledLanes((prev) =>
+      prev.includes(lane) ? prev.filter((l) => l !== lane) : [...prev, lane]
+    );
+  };
 
   const [, startMutation] = useMutation(START_FREE_RACE_HEAT);
 
@@ -94,6 +106,9 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
         <FreeRaceLaneSetup
           raceId={raceId}
           laneCount={laneCount}
+          laneOutages={laneOutages ?? []}
+          disabledLanes={disabledLanes}
+          onToggleLane={handleToggleLane}
           onStart={handleStart}
           racers={racers}
           timerType={timerType}

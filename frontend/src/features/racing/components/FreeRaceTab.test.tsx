@@ -14,8 +14,10 @@ vi.mock('urql', async (importOriginal) => {
 
 // Stub child components so tests stay focused on FreeRaceTab's phase logic
 vi.mock('./FreeRaceLaneSetup', () => ({
-  FreeRaceLaneSetup: ({ onStart }: any) => (
+  FreeRaceLaneSetup: ({ onStart, disabledLanes, onToggleLane }: any) => (
     <div data-testid="free-race-lane-setup">
+      <span data-testid="disabled-lanes">{JSON.stringify(disabledLanes)}</span>
+      <button onClick={() => onToggleLane(3)}>Toggle Lane 3</button>
       <button
         onClick={() => onStart([{ lane: 1, racerId: 101 }, { lane: 2, racerId: 102 }])}
       >
@@ -92,6 +94,25 @@ describe('FreeRaceTab', () => {
       expect(screen.getByTestId('free-race-lane-setup')).toBeInTheDocument();
     });
     expect(screen.queryByTestId('free-race-execution')).not.toBeInTheDocument();
+  });
+
+  it('a lane switched off for the session survives Run Another (#303)', async () => {
+    render(<FreeRaceTab {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Toggle Lane 3/i }));
+    expect(screen.getByTestId('disabled-lanes')).toHaveTextContent('[3]');
+
+    fireEvent.click(screen.getByRole('button', { name: /Start Heat/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('free-race-execution')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Run Another/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('free-race-lane-setup')).toBeInTheDocument();
+    });
+
+    // Lifted to FreeRaceTab rather than reset by the setup screen
+    // unmounting, the same way `mode` already survives the round trip.
+    expect(screen.getByTestId('disabled-lanes')).toHaveTextContent('[3]');
   });
 
   it('shows an error message when startFreeRaceHeat mutation fails', async () => {

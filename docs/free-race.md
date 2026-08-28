@@ -22,7 +22,25 @@ _The Free Race tab. The blue banner is on every screen in this mode — nothing 
 
 ---
 
+## Turning a lane off for a few heats
+
+Free Race lists every lane the track has along the top of the setup screen —
+click one to switch it off. It lasts only as long as this tab stays open;
+leave the page or reload it and every lane comes back. Use it when a car is
+stuck in a lane, or to test one lane at a time on the bench.
+
+A lane the track itself has taken out of service shows here too, greyed out
+and already off — this toggle cannot turn that lane back on, only take a
+*working* one out temporarily. See
+[a lane stops working](reference/mid-race-changes.md#a-lane-stops-working) to
+bring a broken lane back for good.
+
+---
+
 ## Choosing who races
+
+Whichever lanes are switched on above, all three modes below fill from that
+set — a disabled or out-of-service lane never gets a car, in any of them.
 
 ### Random
 

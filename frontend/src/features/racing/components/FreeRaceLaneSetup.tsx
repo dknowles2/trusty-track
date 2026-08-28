@@ -45,6 +45,15 @@ const MODES: { key: Mode; label: string; icon: string }[] = [
 interface FreeRaceLaneSetupProps {
   raceId: number;
   laneCount: number;
+  /** Lanes permanently out of service on the track (System Settings). */
+  laneOutages: number[];
+  /**
+   * Lanes the operator has switched off for this free-race session only —
+   * lasts as long as the tab stays open, never written to the track. Lifted
+   * to the parent so it survives "Next Heat" the same way `mode` does.
+   */
+  disabledLanes: number[];
+  onToggleLane: (lane: number) => void;
   onStart: (assignments: LaneAssignment[]) => void;
   timerType: string | null;
   trackId?: number | null;
@@ -238,6 +247,9 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
 export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Record<number, Racer> }> = ({
   raceId,
   laneCount,
+  laneOutages,
+  disabledLanes,
+  onToggleLane,
   onStart,
   racers,
   timerType,
@@ -245,9 +257,42 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
   mode,
   onModeChange,
 }) => {
-  const [manualAssignments, setManualAssignments] = useState<LaneAssignment[]>(
-    Array.from({ length: laneCount }, (_, i) => ({ id: `manual-${i + 1}`, lane: i + 1, racerId: null }))
+  // Every physical lane the track has — the one place `i + 1` is the right
+  // lane number, because this *is* the definition of "the track's lanes".
+  // Everything downstream reads lane numbers off `enabledLanes` instead, not
+  // off a position in some filtered or reordered list (#303).
+  const allLanes = React.useMemo(
+    () => Array.from({ length: laneCount }, (_, i) => i + 1),
+    [laneCount],
   );
+  const outageSet = React.useMemo(() => new Set(laneOutages), [laneOutages]);
+  const disabledSet = React.useMemo(() => new Set(disabledLanes), [disabledLanes]);
+  const enabledLanes = React.useMemo(
+    () => allLanes.filter((lane) => !outageSet.has(lane) && !disabledSet.has(lane)),
+    [allLanes, outageSet, disabledSet],
+  );
+  const enabledLanesKey = enabledLanes.join(',');
+
+  const [manualAssignments, setManualAssignments] = useState<LaneAssignment[]>(
+    enabledLanes.map((lane) => ({ id: `manual-${lane}`, lane, racerId: null }))
+  );
+  // The operator may have half-filled the manual lanes when a lane comes on
+  // or off — a racer already picked for a lane that is still enabled must
+  // survive, and a lane that dropped out must not linger with a name in it.
+  // Adjusted during render rather than in an effect, the same way
+  // `RaceControl` pins its active heat: an effect would paint the stale
+  // rows for a frame before correcting them.
+  const [syncedLanesKey, setSyncedLanesKey] = useState(enabledLanesKey);
+  if (enabledLanesKey !== syncedLanesKey) {
+    setSyncedLanesKey(enabledLanesKey);
+    const byLane = new Map(manualAssignments.map((a) => [a.lane, a]));
+    setManualAssignments(
+      enabledLanes.map(
+        (lane) => byLane.get(lane) ?? { id: `manual-${lane}`, lane, racerId: null }
+      )
+    );
+  }
+
   const [randomAssignments, setRandomAssignments] = useState<LaneAssignment[]>([]);
 
   // Which draw is on screen: 0 when the setup opens, then one per Re-shuffle.
@@ -259,14 +304,17 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
   const [randomResult] = useQuery({
     query: `
-      query GetRandomFreeRaceLanes($raceId: Int!, $shuffle: Int!) {
-        randomFreeRaceLanes(raceId: $raceId, shuffle: $shuffle) {
+      query GetRandomFreeRaceLanes($raceId: Int!, $shuffle: Int!, $enabledLanes: [Int!]) {
+        randomFreeRaceLanes(raceId: $raceId, shuffle: $shuffle, enabledLanes: $enabledLanes) {
           lane
           racerId
         }
       }
     `,
-    variables: { raceId, shuffle },
+    // `enabledLanes` rides along as a query variable rather than a client
+    // filter: the draw itself has to run over the right pool of racers for
+    // the right number of lanes, which only the server can do.
+    variables: { raceId, shuffle, enabledLanes },
     requestPolicy: 'network-only',
   });
 
@@ -325,9 +373,15 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
       if (oldIndex !== -1 && newIndex !== -1) {
         const reordered = arrayMove(current, oldIndex, newIndex);
+        // A card's *position* is not its lane number once a lane can be
+        // missing from the list (#303) — `i + 1` put whatever was dragged
+        // to the second slot into lane 2 even when lane 2 was disabled, and
+        // it stopped lining up with the enabled lanes as soon as any earlier
+        // lane was out. `enabledLanes[i]` is the physical lane the i-th card
+        // actually sits over.
         const fixed = reordered.map((a, i) => ({
           ...a,
-          lane: i + 1,
+          lane: enabledLanes[i] ?? a.lane,
         }));
         set(fixed);
       }
@@ -339,15 +393,17 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
     // We can keep onDragEnd as a no-op or for any final persistence if needed.
   };
 
-  // An anonymous heat is one empty lane per lane the track has. Derived, not
-  // state: there is nothing on it to edit, so nothing to remember.
+  // An anonymous heat is one empty lane per *enabled* lane (#303) — a lane
+  // out of service or switched off for this session never gets a card, and
+  // so never gets a row when the heat is started. Derived, not state: there
+  // is nothing on it to edit, so nothing to remember.
   const anonymousAssignments = React.useMemo(
-    () => Array.from({ length: laneCount }, (_, i) => ({
-      id: `anonymous-${i + 1}`,
-      lane: i + 1,
+    () => enabledLanes.map((lane) => ({
+      id: `anonymous-${lane}`,
+      lane,
       racerId: null,
     })),
-    [laneCount],
+    [enabledLanes],
   );
 
   const currentAssignments =
@@ -405,6 +461,51 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           ))}
         </div>
 
+        {/* Per-lane toggle — session only, never written to the track (#303).
+            A lane out of service is shown locked rather than left off the
+            row, so an operator can see why it is not on offer. */}
+        <div style={{ marginBottom: '20px' }} data-testid="lane-toggle-row">
+          <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '6px' }}>
+            Lanes for this session
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {allLanes.map((lane) => {
+              const outOfService = outageSet.has(lane);
+              const enabled = !outOfService && !disabledSet.has(lane);
+              return (
+                <label
+                  key={lane}
+                  title={
+                    outOfService
+                      ? 'This lane is out of service. Change it on the track in System Settings.'
+                      : undefined
+                  }
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    border: '1px solid ' + (outOfService ? '#eee' : enabled ? 'var(--scouting-blue)' : '#ccc'),
+                    background: outOfService ? '#f5f5f5' : enabled ? '#e3f2fd' : 'white',
+                    color: outOfService ? '#aaa' : '#333',
+                    cursor: outOfService ? 'not-allowed' : 'pointer',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    disabled={outOfService}
+                    onChange={() => onToggleLane(lane)}
+                  />
+                  Lane {lane}{outOfService ? ' — out of service' : ''}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
         {mode === 'anonymous' && (
           <p style={{ color: '#666', marginTop: 0, marginBottom: '20px' }}>
             Put any car in any lane — the time is kept against the lane, not
@@ -413,46 +514,52 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           </p>
         )}
 
-        {mode === 'anonymous' ? (
-          <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
-            {anonymousAssignments.map((a) => (
-              <AnonymousLaneItem key={a.id} lane={a.lane} />
-            ))}
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-          >
-            {mode === 'random' && randomResult.fetching && randomAssignments.length === 0 ? (
-              <p style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                Loading random assignments...
-              </p>
-            ) : (
-              <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
-                <SortableContext
-                  items={currentAssignments.map((a) => a.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {currentAssignments.map((a) => (
-                    <SortableLaneItem
-                      key={a.id}
-                      assignment={a}
-                      racer={a.racerId ? racers[a.racerId] : null}
-                      mode={mode}
-                      racers={racers}
-                      allRacersList={allRacersList}
-                      onManualChange={handleManualChange}
-                      manualAssignments={manualAssignments}
-                    />
-                  ))}
-                </SortableContext>
-              </div>
-            )}
-          </DndContext>
-        )}
+        <div data-testid="lane-cards">
+          {enabledLanes.length === 0 ? (
+            <p style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+              No lanes are enabled. Turn one on above to start a heat.
+            </p>
+          ) : mode === 'anonymous' ? (
+            <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
+              {anonymousAssignments.map((a) => (
+                <AnonymousLaneItem key={a.id} lane={a.lane} />
+              ))}
+            </div>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+            >
+              {mode === 'random' && randomResult.fetching && randomAssignments.length === 0 ? (
+                <p style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                  Loading random assignments...
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gap: '15px', marginBottom: '20px' }}>
+                  <SortableContext
+                    items={currentAssignments.map((a) => a.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {currentAssignments.map((a) => (
+                      <SortableLaneItem
+                        key={a.id}
+                        assignment={a}
+                        racer={a.racerId ? racers[a.racerId] : null}
+                        mode={mode}
+                        racers={racers}
+                        allRacersList={allRacersList}
+                        onManualChange={handleManualChange}
+                        manualAssignments={manualAssignments}
+                      />
+                    ))}
+                  </SortableContext>
+                </div>
+              )}
+            </DndContext>
+          )}
+        </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -493,7 +600,10 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
           </div>
           <button
             onClick={() => onStart(currentAssignments)}
-            disabled={mode === 'random' && randomResult.fetching && randomAssignments.length === 0}
+            disabled={
+              enabledLanes.length === 0 ||
+              (mode === 'random' && randomResult.fetching && randomAssignments.length === 0)
+            }
             className="primary-btn"
             style={{
               padding: '10px 20px',

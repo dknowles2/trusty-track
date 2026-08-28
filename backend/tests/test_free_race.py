@@ -130,7 +130,7 @@ def test_get_random_lane_assignments_with_enough_racers(db: Session):
     for i in range(6):
         _add_checked_in_racer(db, race_id, f"Racer{i}", "Test")
 
-    assignments = crud.get_random_lane_assignments(db, race_id, 4)
+    assignments = crud.get_random_lane_assignments(db, race_id, [1, 2, 3, 4])
     assert len(assignments) == 4
     lanes = [a["lane"] for a in assignments]
     assert lanes == [1, 2, 3, 4]
@@ -147,7 +147,7 @@ def test_get_random_lane_assignments_pads_with_none(db: Session):
     _add_checked_in_racer(db, race_id, "Alice", "Smith")
     _add_checked_in_racer(db, race_id, "Bob", "Jones")
 
-    assignments = crud.get_random_lane_assignments(db, race_id, 4)
+    assignments = crud.get_random_lane_assignments(db, race_id, [1, 2, 3, 4])
     assert len(assignments) == 4
     non_none = [a["racer_id"] for a in assignments if a["racer_id"] is not None]
     assert len(non_none) == 2
@@ -171,7 +171,25 @@ def test_get_random_lane_assignments_excludes_not_checked_in(db: Session):
             ),
         )
 
-    assignments = crud.get_random_lane_assignments(db, race_id, 4)
+    assignments = crud.get_random_lane_assignments(db, race_id, [1, 2, 3, 4])
     non_none_ids = {a["racer_id"] for a in assignments if a["racer_id"] is not None}
     # Only the 2 checked-in racers should appear
     assert non_none_ids.issubset({checked_id1, checked_id2})
+
+
+def test_get_random_lane_assignments_uses_the_lanes_given_not_a_count(db: Session):
+    """#303: the draw is over specific lanes, not a bare count.
+
+    A track with lane 3 out of service (or an operator's temporary disable)
+    hands over `[1, 2, 4]` — a non-contiguous set skipping the unusable lane.
+    The old signature took a count and always produced `1..count`, which
+    would have put a racer back in lane 3.
+    """
+    race_id = _create_race(db)
+    for i in range(3):
+        _add_checked_in_racer(db, race_id, f"Racer{i}", "Test")
+
+    assignments = crud.get_random_lane_assignments(db, race_id, [1, 2, 4])
+    lanes = [a["lane"] for a in assignments]
+    assert lanes == [1, 2, 4]
+    assert 3 not in lanes

@@ -77,7 +77,7 @@ class TestFreeRaceLanes:
         race = _race(db)
         ids = _racers(db, race.id, 6)
 
-        picks = crud.get_random_lane_assignments(db, race.id, 4)
+        picks = crud.get_random_lane_assignments(db, race.id, [1, 2, 3, 4])
 
         expected = sorted(ids)
         random.Random(f"{SEED}:free-race lanes:{race.name}:0").shuffle(expected)
@@ -89,8 +89,8 @@ class TestFreeRaceLanes:
         _racers(db, race.id, 6)
 
         assert crud.get_random_lane_assignments(
-            db, race.id, 4
-        ) == crud.get_random_lane_assignments(db, race.id, 4)
+            db, race.id, [1, 2, 3, 4]
+        ) == crud.get_random_lane_assignments(db, race.id, [1, 2, 3, 4])
 
     def test_a_re_shuffle_draws_again(self, db):
         """Re-shuffle has to change something, seed or no seed.
@@ -105,7 +105,9 @@ class TestFreeRaceLanes:
         draws = [
             tuple(
                 p["racer_id"]
-                for p in crud.get_random_lane_assignments(db, race.id, 4, shuffle=n)
+                for p in crud.get_random_lane_assignments(
+                    db, race.id, [1, 2, 3, 4], shuffle=n
+                )
             )
             for n in range(4)
         ]
@@ -122,8 +124,8 @@ class TestFreeRaceLanes:
         _racers(db, race.id, 8)
 
         assert crud.get_random_lane_assignments(
-            db, race.id, 4, shuffle=3
-        ) == crud.get_random_lane_assignments(db, race.id, 4, shuffle=3)
+            db, race.id, [1, 2, 3, 4], shuffle=3
+        ) == crud.get_random_lane_assignments(db, race.id, [1, 2, 3, 4], shuffle=3)
 
 
 @pytest.mark.usefixtures("seeded")
