@@ -496,8 +496,12 @@ test('a live screen recovers when the network drops under it', async ({ page, co
     await context.setOffline(false);
 
     // No reload anywhere in this test. If the standings appear, the socket
-    // reconnected and the resubscribe snapshot reached the cache.
-    await expect(page.getByRole('row').filter({ hasText: 'Ada Ant' })).toBeVisible({
-        timeout: 60000,
-    });
+    // reconnected and the resubscribe snapshot reached the cache. The whole
+    // roster, not one racer of six — a partial or stale snapshot could show a
+    // single row and still pass.
+    for (const racer of racers) {
+        await expect(
+            page.getByRole('row').filter({ hasText: `${racer.firstName} ${racer.lastName}` }),
+        ).toBeVisible({ timeout: 60000 });
+    }
 });

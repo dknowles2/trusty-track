@@ -94,8 +94,30 @@ test('a second rehearsal does not collide with the first', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('practice-race').click();
     await expect(page).toHaveURL(/\/race\/\d+\/control\/race/);
+    const firstId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
+    const firstName = (
+        await gql<{ race: { name: string } }>(
+            page,
+            `query PracticeName($id: Int!) { race(raceId: $id) { name } }`,
+            { id: firstId },
+        )
+    ).race.name;
 
     await page.goto('/');
     await page.getByTestId('practice-race').click();
     await expect(page).toHaveURL(/\/race\/\d+\/control\/race/);
+    const secondId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
+    const secondName = (
+        await gql<{ race: { name: string } }>(
+            page,
+            `query PracticeName($id: Int!) { race(raceId: $id) { name } }`,
+            { id: secondId },
+        )
+    ).race.name;
+
+    // Both clicks matching the URL pattern proves nothing on its own — that
+    // is also what landing on the *same* race twice would look like. Capture
+    // and compare id and name, the way the track lookup above does.
+    expect(secondId).not.toBe(firstId);
+    expect(secondName).not.toBe(firstName);
 });
