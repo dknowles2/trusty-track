@@ -210,13 +210,24 @@ def _elimination_leaderboard(
     else — but the *order* is the round's own: survivors first, then the
     eliminated by how long they lasted. Two cars knocked out in the same heat
     share a rank, the same visibility rule as #226.
+
+    Filtered to who is still checked in, the same population
+    `crud.extend_elimination_round` fields the next wave from (#313). A
+    withdrawn car that never lost a heat — every lane it held was skipped,
+    never raced — would otherwise sit at zero losses and tie the actual
+    winner for first, though it never crossed the line.
     """
     from backend.domain import elimination as domain_elimination
 
     heats = crud.get_heats(db, race_id, round_id=round_obj.id)
     parsed = crud.lanes_for_heats(db, heats)
     threshold = round_obj.elimination_losses or 1
-    entries = domain_elimination.standings(parsed, threshold)
+    eligible = set(crud.eligible_racer_ids(db, race_id, round_obj.den_id))
+    entries = [
+        entry
+        for entry in domain_elimination.standings(parsed, threshold)
+        if entry.racer_id in eligible
+    ]
 
     completed: dict[int, int] = {}
     for heat_lanes in parsed:

@@ -673,7 +673,7 @@ def extend_elimination_round(db: Session, round_id: int) -> list[models.Heat]:
 
     losses = elimination.losses_by_racer(heat_lanes)
     threshold = round_obj.elimination_losses or 1
-    eligible = set(_eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
+    eligible = set(eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
     losses = {r: c for r, c in losses.items() if r in eligible}
     if not elimination.is_decided(losses, threshold):
         # A latecomer joins the next wave at zero losses (#172's rule, in
@@ -765,7 +765,7 @@ def extend_balanced_round(db: Session, round_id: int) -> list[models.Heat]:
     if apps and max(apps.values()) >= target:
         return []
 
-    eligible = set(_eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
+    eligible = set(eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
     if len(eligible) < 2:
         return []
     recs = balanced.records(heat_lanes)
@@ -1330,7 +1330,7 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
             # checked in by then.
             continue
 
-        eligible = _eligible_racer_ids(db, race_id, round_obj.den_id)
+        eligible = eligible_racer_ids(db, race_id, round_obj.den_id)
         heat_lanes = lanes_for_heats(db, heats)
         already = {
             racer_id for heat in heat_lanes for racer_id in lanes.real_racer_ids(heat)
@@ -1477,7 +1477,7 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
             continue
 
         if advancement.may_rebuild(heat_lanes):
-            eligible = _eligible_racer_ids(db, race_id, round_obj.den_id)
+            eligible = eligible_racer_ids(db, race_id, round_obj.den_id)
             if len(eligible) >= 2:
                 generate_heats_for_round(db, round_obj.id, clear_existing=True)
                 changed_round_ids.append(round_obj.id)
@@ -1509,7 +1509,7 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
     return changed_round_ids
 
 
-def _eligible_racer_ids(db: Session, race_id: int, den_id: int | None) -> list[int]:
+def eligible_racer_ids(db: Session, race_id: int, den_id: int | None) -> list[int]:
     """Who a general round's field is drawn from — the same query the generator uses."""
     query = db.query(models.Racer).filter(
         models.Racer.race_id == race_id, models.Racer.car_passed_inspection
@@ -1675,10 +1675,19 @@ def is_round_complete(db: Session, round_id: int) -> bool:
         round_obj
         and round_obj.scheduling_strategy == models.SchedulingStrategy.ELIMINATION
     ):
-        return elimination.is_decided(
-            elimination.losses_by_racer(heat_lanes),
-            round_obj.elimination_losses or 1,
-        )
+        # Filtered to who is still checked in, the same population
+        # `extend_elimination_round` fields the next wave from (#313). A car
+        # that never loses — every lane it holds is skipped, not raced — sits
+        # at zero losses forever; withdrawing it is the operator's only way
+        # out, and it must not go on counting as a second car still alive.
+        losses = elimination.losses_by_racer(heat_lanes)
+        eligible = set(eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
+        losses = {
+            racer_id: count
+            for racer_id, count in losses.items()
+            if racer_id in eligible
+        }
+        return elimination.is_decided(losses, round_obj.elimination_losses or 1)
     if (
         round_obj
         and round_obj.scheduling_strategy == models.SchedulingStrategy.BALANCED
@@ -2105,7 +2114,7 @@ def bulk_delete_racers(db: Session, racer_ids: list[int]):
     # holes instead of regenerating; do the same here rather than raising.
     for round_obj in rebuildable:
         if round_obj.advancement_source is None:
-            eligible = _eligible_racer_ids(db, round_obj.race_id, round_obj.den_id)
+            eligible = eligible_racer_ids(db, round_obj.race_id, round_obj.den_id)
             if len(eligible) < 2:
                 continue
         generate_heats_for_round(db, round_obj.id, clear_existing=True)
