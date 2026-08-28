@@ -327,9 +327,16 @@ def get_advancing_racers(
 
     den_ids: list[int] = []
     if rule.source == domain_advancement.DEN:
+        # Ordered (#316): den order decides which placeholder slot each den's
+        # qualifiers land in, so an unordered query is the #240 failure mode
+        # on the advancement path — same seed, different field, on a plan
+        # change SQLite gives no warning before making.
         den_ids = [
             d.id
-            for d in db.query(models.Den).filter(models.Den.race_id == race_id).all()
+            for d in db.query(models.Den)
+            .filter(models.Den.race_id == race_id)
+            .order_by(models.Den.id)
+            .all()
         ]
 
     return domain_advancement.advancing_racer_ids(rule, standings, den_ids)
