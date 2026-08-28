@@ -477,6 +477,65 @@ class TestTheMutationsThatTriggerIt:
         db.refresh(round_obj)
         assert round_obj.disrupted is False
 
+    def test_import_racers_admits_a_pre_checked_in_row(self, db, client):
+        # The canonical CSV carries passed_inspection, and a spreadsheet
+        # import of already-inspected racers after a round is generated is
+        # exactly an arrival (#343) — the same as check-in, just batched.
+        _, race_id = build(db)
+        round_obj = start_round(db, race_id)
+        run_heats(client, db, race_id, round_obj.id, count=2)
+
+        imported = self._gql(
+            client,
+            """
+            mutation Import($raceId: Int!, $csvData: String!) {
+                importRacers(raceId: $raceId, csvData: $csvData)
+            }
+            """,
+            {
+                "raceId": race_id,
+                "csvData": (
+                    "first_name,last_name,car_number,car_passed_inspection\n"
+                    "Spreadsheet,Import,950,yes\n"
+                ),
+            },
+        )
+
+        assert imported["importRacers"] == 1
+        db.expire_all()
+        scheduled = racers_in(db, race_id, round_obj.id)
+        assert len(scheduled) > 0
+        imported_racer = (
+            db.query(models.Racer)
+            .filter(models.Racer.race_id == race_id, models.Racer.car_number == 950)
+            .one()
+        )
+        assert imported_racer.id in scheduled
+
+    def test_import_racers_leaves_uninspected_rows_unscheduled(self, db, client):
+        # A row with no inspection column stays unchecked, the same as the
+        # single-racer creation path — import must not schedule everyone.
+        _, race_id = build(db)
+        round_obj = start_round(db, race_id)
+        run_heats(client, db, race_id, round_obj.id, count=2)
+        before = len(crud.get_heats(db, race_id, round_id=round_obj.id))
+
+        self._gql(
+            client,
+            """
+            mutation Import($raceId: Int!, $csvData: String!) {
+                importRacers(raceId: $raceId, csvData: $csvData)
+            }
+            """,
+            {
+                "raceId": race_id,
+                "csvData": "first_name,last_name,car_number\nNot,Inspected,951\n",
+            },
+        )
+
+        db.expire_all()
+        assert len(crud.get_heats(db, race_id, round_id=round_obj.id)) == before
+
     def test_update_racer_admits_them(self, db, client):
         # Editing a racer and ticking the inspection box reaches the field the
         # same way check-in does, so it has to admit them the same way.

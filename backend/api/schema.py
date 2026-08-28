@@ -3512,6 +3512,10 @@ class Mutation:
             crud.create_racer(db, racer_in)
             count += 1
 
+        # A row can arrive already checked in (the canonical CSV carries
+        # passed_inspection), which is exactly the arrival #172 admits for —
+        # once for the batch, the same reason bulkCheckIn calls it once.
+        await _admit_late_racers(info, race_id)
         # An import creates racers, so the roster list changed.
         await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return count
