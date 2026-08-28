@@ -27,6 +27,11 @@ to bottom. Afterwards the page splits into sections listed down the left —
 ### Organization Details
 
 - **Organization Name**: The name of your Cub Scout Pack, school, or group (e.g., "Pack 123").
+- **Debugging Mode**: Off by default. Turning it on shows extra timer controls and logs during races — leave it off unless you're troubleshooting.
+
+### Access
+
+Next comes a security decision, and it's fine to skip it for a kitchen-table first run: by default there's no PIN, so anyone who can reach the app on your network can change anything — including deleting the race mid-event. Setting an **Operator PIN** locks that down; an optional **Check-in PIN** limits a registration-desk device to adding and checking in racers. Both can be added later before race day. See [Access and Your Network](access-and-network.md) for what each PIN protects and how to set one.
 
 ### Setting Up Your Track
 
