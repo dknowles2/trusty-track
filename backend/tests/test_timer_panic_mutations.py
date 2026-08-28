@@ -2,10 +2,12 @@
 
 `reconnectTimer`, `abortHeat`, `forceResults` and `resetTimer` are pressed only
 when hardware is already misbehaving mid-event — the worst time to discover a
-regression — and until now none of them had a test. `force_results` in
-particular reaches into private manager API
-(``mgr._send_commands(mgr._device.force_results_commands())``), so a rename of
-either would break it silently.
+regression — and until now none of them had a test. `forceResults` in
+particular calls `TimerManager.force_results()`, which itself reaches into
+private device API (``self._send_commands(self._device.force_results_commands())``),
+so a rename of either would break it silently (#341 moved that call from the
+resolver into the manager, so the wait for the device's answer could hold
+`_event_lock` the way every other manager method does).
 
 These go through the GraphQL layer rather than calling `TimerManager` methods
 directly, the same way `test_heat_session_gql.py` does: the resolvers do more
@@ -166,10 +168,17 @@ class TestForceResults:
         assert _mutate(self.MUTATION, {"trackId": 999})["forceResults"] is False
 
     async def test_sends_the_devices_force_results_command(
-        self, db, timer_session_factory
+        self, db, timer_session_factory, monkeypatch
     ):
         """Pins the private call the issue calls out by name: a rename of
         either `_send_commands` or `force_results_commands` breaks this."""
+        import backend.services.timer.manager as manager_module
+
+        # No answer ever comes on this test's fake wire, so force_results()
+        # would otherwise sit out its full wait for one.
+        monkeypatch.setattr(manager_module, "FORCE_RESULTS_WAIT_SECONDS", 0.05)
+        monkeypatch.setattr(manager_module, "FORCE_RESULTS_POLL_SECONDS", 0.01)
+
         race, track = _race(db, timer_type="AUTO_DETECT_BACKEND")
         heat = _heat(db, race)
         mgr = TimerManager(
@@ -215,6 +224,50 @@ class TestForceResults:
         assert lanes[1].time == pytest.approx(3.1)
         assert lanes[1].place == 1
         assert lanes[2].time is None
+
+    async def test_a_late_arriving_report_is_not_dropped(
+        self, db, timer_session_factory, monkeypatch
+    ):
+        """The device's answer to the force command it was just sent can
+        arrive after force_record() would otherwise already have recorded
+        and gone IDLE (#341). Without the wait this pins, `_handle_event`
+        drops the late `LaneResult` — state has already left
+        RUNNING/ARMED/READY/RESULTS_OVERDUE — and the recorded heat is
+        missing the stuck lane's time rather than holding the 0.000 DNF the
+        device reported."""
+        import asyncio
+
+        import backend.services.timer.manager as manager_module
+
+        monkeypatch.setattr(manager_module, "FORCE_RESULTS_WAIT_SECONDS", 0.3)
+        monkeypatch.setattr(manager_module, "FORCE_RESULTS_POLL_SECONDS", 0.01)
+
+        race, track = _race(db, timer_type="AUTO_DETECT_BACKEND")
+        heat = _heat(db, race)
+        mgr = TimerManager(
+            track_id=track.id, device=MICROWIZARD, session_factory=timer_session_factory
+        )
+        TIMER_MANAGERS[track.id] = mgr
+        await mgr.prepare_heat(heat.id, models.HeatKind.OFFICIAL, lane_mask=0b11)
+        await mgr.inject_event(RaceStarted())
+        await mgr.inject_event(LaneResult(lane=1, time_seconds=3.1, place=1))
+        # Lane 2 never fires on its own — the case the button exists for.
+
+        async def _the_devices_answer() -> None:
+            # Stands in for the wire: the report the force command asked for
+            # arrives a moment later, the way it would from real hardware.
+            await asyncio.sleep(0.05)
+            await mgr.inject_event(LaneResult(lane=2, time_seconds=0.0, place=0))
+
+        answer = asyncio.create_task(_the_devices_answer())
+        await mgr.force_results()
+        await answer
+
+        lanes = {lane.lane: lane for lane in crud.heat_lanes_of(db, heat)}
+        assert lanes[1].time == pytest.approx(3.1)
+        assert lanes[1].place == 1
+        # The device's answer: a recorded 0.0 is the DNF marker, not a blank.
+        assert lanes[2].time == pytest.approx(0.0)
 
 
 class TestResetTimer:
