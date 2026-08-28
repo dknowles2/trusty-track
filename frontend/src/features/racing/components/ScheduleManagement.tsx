@@ -408,7 +408,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             <button
                 className="primary-btn"
                 onClick={() => setIsModalOpen(true)}
-                disabled={generating || reordering || sortedRoundIds.some(r => (rounds[r][0]?.roundName || '').toLowerCase().includes('final'))}
+                disabled={generating || reordering}
                 style={{
                   boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
                   whiteSpace: 'nowrap',
