@@ -19,6 +19,7 @@ import { errorText } from '../../../utils/errors';
 import AwardArtwork from '../artwork';
 import { describeSpeedAward, racerLabel } from '../awardText';
 import AwardForm, { AwardDraft } from '../components/AwardForm';
+import BallotShare from '../components/BallotShare';
 import {
   CREATE_AWARD_MUTATION,
   DELETE_AWARD_MUTATION,
@@ -87,8 +88,6 @@ export default function Awards() {
   const dens = race?.dens ?? [];
   const racers = race?.racers ?? [];
   const votingOpen = race?.votingOpen ?? false;
-  const ballotUrl =
-    typeof window !== 'undefined' ? `${window.location.origin}/race/${id}/vote` : '';
 
   if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
@@ -242,11 +241,7 @@ export default function Awards() {
             {votingOpen ? 'Close voting' : 'Open voting'}
           </button>
           <strong>Voting is {votingOpen ? 'open' : 'closed'}</strong>
-          {votingOpen && ballotUrl && (
-            <span style={{ color: '#666', wordBreak: 'break-all' }}>
-              Share this address for people to vote from their phones: {ballotUrl}
-            </span>
-          )}
+          {votingOpen && <BallotShare raceId={id} />}
         </div>
       )}
 

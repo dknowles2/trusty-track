@@ -31,8 +31,8 @@ from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import scoring as domain_scoring
 from backend.services import displays as displays_service
+from backend.services import network, scoring
 from backend.services import records as records_service
-from backend.services import scoring
 from backend.services.image_processing import convert_to_browser_safe_png
 from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
 from backend.services.timer.devices import by_key as _profile_by_key
@@ -1823,6 +1823,18 @@ class Query:
             return __version__
         except ImportError:
             return "unknown"
+
+    @strawberry.field
+    def network_addresses(self) -> list[str]:
+        """Addresses this machine can be reached at from off itself (#414).
+
+        For the voting page's share step: `window.location.origin` is
+        `localhost` on the machine running Trusty Track, which a phone on the
+        venue wifi cannot open. The frontend substitutes one of these in when
+        that happens; an empty list means the backend could not find one, and
+        the page has to say so rather than pretend `localhost` works.
+        """
+        return network.lan_addresses()
 
     @strawberry.field
     def race(self, info: Info, race_id: int) -> Race | None:
