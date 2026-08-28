@@ -57,6 +57,15 @@ NUDGE_SECONDS = 3.0
 #: rather than sleeping through it.
 WATCHDOG_SECONDS = 1.0
 
+#: How long `force_results` waits for the device's answer to the force
+#: command before giving up and recording whatever is on hand (#341).
+#: Bounded, because the button exists for a timer that has already stopped
+#: talking. Named so tests can shorten it, the same as WATCHDOG_SECONDS above.
+FORCE_RESULTS_WAIT_SECONDS = 1.0
+
+#: How often that wait checks for the device's answer to have arrived.
+FORCE_RESULTS_POLL_SECONDS = 0.05
+
 #: How often to ask a device for the start gate's state, and how long after
 #: asking its answer is still an answer. DerbyNet's pacing.
 #:
@@ -471,6 +480,50 @@ class TimerManager:
             elif self._active_heat_id is not None:
                 logger.info("Timer %d: force_record called", self._track_id)
                 await self._record_results()
+
+    async def force_results(self) -> None:
+        """Ask the device for whatever it has, then record it (#341).
+
+        Sends the force-results command (``RA`` on a MicroWizard — "report
+        every lane immediately") and briefly waits for its answer to arrive
+        through the ordinary read loop before falling back to
+        :meth:`force_record`. Without the wait, the two ran back to back:
+        `force_record` recorded the pending partials and transitioned to
+        IDLE before the device could answer, so its report — the very thing
+        just asked for, commonly the stuck lane's 0.000 DNF — arrived a
+        moment later into a state that drops a `LaneResult`
+        (`_handle_event`'s tested lane-result-outside-RUNNING branch) rather
+        than being recorded.
+
+        A no-op wait for timer types with no force-results command (e.g.
+        FAKE): there is nothing coming back, so this goes straight to
+        recording whatever is already pending, as before.
+        """
+        async with self._event_lock:
+            expected_lanes = {
+                i for i in range(1, 17) if self._lane_mask & (1 << (i - 1))
+            }
+            commands = self._device.force_results_commands()
+            if commands:
+                logger.info("Timer %d: force_results requested", self._track_id)
+                await self._send_commands(commands)
+            settled = self._state is TimerState.IDLE or (
+                bool(expected_lanes)
+                and expected_lanes.issubset(self._pending_results.keys())
+            )
+
+        if commands and not settled:
+            deadline = asyncio.get_event_loop().time() + FORCE_RESULTS_WAIT_SECONDS
+            while asyncio.get_event_loop().time() < deadline:
+                await asyncio.sleep(FORCE_RESULTS_POLL_SECONDS)
+                async with self._event_lock:
+                    if self._state is TimerState.IDLE or (
+                        expected_lanes
+                        and expected_lanes.issubset(self._pending_results.keys())
+                    ):
+                        break
+
+        await self.force_record()
 
     async def handle_connect(self) -> None:
         """Called when a serial connection (direct or proxy) is established."""

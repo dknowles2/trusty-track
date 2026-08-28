@@ -2886,8 +2886,9 @@ class Mutation:
 
     @strawberry.mutation
     async def force_results(self, info: Info, track_id: int) -> bool:
-        """Send the force-results command to the timer device (e.g. RA for MicroWizard)
-        and record whatever results have been collected so far.
+        """Send the force-results command to the timer device (e.g. RA for MicroWizard),
+        briefly wait for its answer, then record whatever results have been
+        collected.
 
         No-op for timer types that do not support this command (e.g. FAKE),
         but still forces recording of any pending results.
@@ -2898,11 +2899,7 @@ class Mutation:
         if mgr is None:
             return False
 
-        # 1. Send device command
-        await mgr._send_commands(mgr._device.force_results_commands())
-
-        # 2. Force manager to record what it has
-        await mgr.force_record()
+        await mgr.force_results()
 
         return True
 
