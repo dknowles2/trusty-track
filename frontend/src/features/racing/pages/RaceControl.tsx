@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery, useMutation, useSubscription, gql } from 'urql';
+import { useQuery, useMutation, useSubscription } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useAlert } from '../../../context/AlertContext';
@@ -10,143 +10,23 @@ import DisplaysPanel from '../../observation/components/DisplaysPanel';
 import { RaceExecution } from '../components/RaceExecution';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
-import { HEAT_SESSION_SUBSCRIPTION } from '../graphql/queries';
+import {
+  GET_RACE_CONTROL_DATA,
+  HEAT_SESSION_SUBSCRIPTION,
+  CREATE_ROUND_MUTATION,
+  REGENERATE_ROUND_MUTATION,
+  DELETE_ROUND_MUTATION,
+  DELETE_HEAT_MUTATION,
+  REORDER_HEATS_MUTATION,
+  UPDATE_HEAT_RESULT_MUTATION,
+  UPDATE_RACE_AUTO_ADVANCE_MUTATION,
+} from '../graphql/queries';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
 import { hasRun, hasTimes, byPlace, cleared, assignPlaces } from '../lanes';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { shouldShowReadiness } from '../readiness';
-
-const GET_RACE_CONTROL_DATA = gql`
-  query GetRaceControlData($id: Int!) {
-    initialConfig {
-      debugMode
-    }
-    race(raceId: $id) {
-      id
-      name
-      championshipTrophies
-      scoringStrategy
-      autoAdvanceHeat
-      registeredCount
-      checkedInCount
-      track {
-        id
-        laneCount
-        timerType
-        laneOutages
-      }
-      dens {
-        id
-        name
-      }
-      racers {
-        id
-        firstName
-        lastName
-        carNumber
-        racerImageUrl
-        carImageUrl
-      }
-      heats {
-        id
-        heatNumber
-        roundNumber
-        roundId
-        roundName
-        lanes {
-          lane
-          racerId
-          placeholderSlot
-          time
-          place
-          skipped
-        }
-      }
-      rounds {
-        id
-        roundNumber
-        name
-        advancementSource
-        advancementFromBottom
-        schedulingStrategy
-        advancementStatus {
-          isReady
-          requiresAdvancement
-          alreadyAdvanced
-          fieldIsStale
-          source
-          numRacers
-          fromBottom
-          advancingRacers {
-            racerId
-            firstName
-            lastName
-            carNumber
-            denName
-            score
-            rank
-            isAdvancing
-          }
-        }
-      }
-    }
-  }
-`;
-
-const CREATE_ROUND_MUTATION = gql`
-  mutation CreateRound($raceId: Int!, $roundData: RoundCreateInput!) {
-    createRound(raceId: $raceId, roundData: $roundData) {
-      id
-    }
-  }
-`;
-
-const REGENERATE_ROUND_MUTATION = gql`
-  mutation RegenerateRound($roundId: Int!) {
-    regenerateRound(roundId: $roundId) {
-      id
-    }
-  }
-`;
-
-const DELETE_ROUND_MUTATION = gql`
-  mutation DeleteRound($roundId: Int!) {
-    deleteRound(roundId: $roundId)
-  }
-`;
-
-const DELETE_HEAT_MUTATION = gql`
-  mutation DeleteHeat($heatId: Int!) {
-    deleteHeat(heatId: $heatId)
-  }
-`;
-
-const REORDER_HEATS_MUTATION = gql`
-  mutation ReorderHeats($heatUpdates: [HeatReorderItemInput!]!) {
-    reorderHeats(heatUpdates: $heatUpdates) {
-      updatedCount
-    }
-  }
-`;
-
-const UPDATE_HEAT_RESULT_MUTATION = gql`
-  mutation UpdateHeatResult($heatId: Int!, $lanes: [HeatLaneInput!]!) {
-    updateHeatResult(heatId: $heatId, lanes: $lanes) {
-      id
-    }
-  }
-`;
-
-const UPDATE_RACE_MUTATION = gql`
-  mutation UpdateRaceAutoAdvance($id: Int!, $race: RaceUpdateInput!) {
-    updateRace(id: $id, race: $race) {
-      id
-      autoAdvanceHeat
-    }
-  }
-`;
 
 export default function RaceControl() {
   const { showAlert, showConfirm, showToast } = useAlert();
@@ -183,7 +63,7 @@ export default function RaceControl() {
   const [, deleteHeatMutation] = useMutation(DELETE_HEAT_MUTATION);
   const [, reorderHeatsMutation] = useMutation(REORDER_HEATS_MUTATION);
   const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
-  const [, updateRaceMutation] = useMutation(UPDATE_RACE_MUTATION);
+  const [, updateRaceMutation] = useMutation(UPDATE_RACE_AUTO_ADVANCE_MUTATION);
 
   // Keep every open tab in sync. Heat results and check-ins arrive with the
   // updated entity and merge into the normalized cache; only structural
@@ -353,13 +233,13 @@ export default function RaceControl() {
           });
           if (result.error) throw result.error;
 
+          // Round completion is not decided here: the effect above compares
+          // this refetch's advancement status against what it saw last and
+          // raises the summary itself (`roundCompletion.ts`).
           reExecute({ requestPolicy: 'network-only' });
-
-          // Round completion check logic can be simplified or moved to sub-component
-          // For now we'll just re-fetch and let the user decide
       } catch (e) {
           console.error("Failed to update results", e);
-          showAlert("Failed to update results.", "Error");
+          showAlert(errorText(e, "Failed to update results."), "Error");
       }
   }, [heats, updateHeatResultMutation, reExecute, showAlert]);
 
@@ -394,7 +274,7 @@ export default function RaceControl() {
             setRoundSummary(null); // Clear any summary
         } catch (error) {
             console.error("Failed to clear results for re-run", error);
-            showToast("Failed to reset heat on server", "error");
+            showToast(errorText(error, "Failed to reset heat on server."), "error");
             return;
         }
     }

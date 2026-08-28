@@ -28,6 +28,7 @@ import {
 import CheckInScanner from '../../printables/components/CheckInScanner';
 import * as GQL from '../graphql/queries';
 import { DEFAULT_SORT, nextSortState, sortRacers, type SortKey, type SortState } from '../rosterSort';
+import { groupRacersByDen } from '../groupRacersByDen';
 
 /**
  * The shapes the query actually returns, derived rather than restated.
@@ -481,6 +482,11 @@ export default function RaceDetails() {
 
   const toggleSort = (key: SortKey) => setSort(current => nextSortState(current, key));
 
+  // The grouped view, shared between the desktop table and the mobile cards
+  // (#437) — both used to build this bucketing and sorting themselves, with
+  // no test of either copy.
+  const groupedRacers = useMemo(() => groupRacersByDen(filteredRacers, dens), [filteredRacers, dens]);
+
   const renderRacerCard = (racer: Racer) => {
     const den = dens.find(d => d.id === racer.den_id);
     const isSelected = selectedRacerIds.includes(racer.id);
@@ -913,24 +919,8 @@ export default function RaceDetails() {
                         </td></tr>
                     ) : isGroupedByDen ? (
                         // Grouped View
-                        Object.values(filteredRacers.reduce((acc, racer) => {
-                            const denId = racer.den_id || -1;
-                            if (!acc[denId]) acc[denId] = { denId, items: [] };
-                            acc[denId].items.push(racer);
-                            return acc;
-                        }, {} as Record<number, { denId: number, items: Racer[] }>))
-                        .sort((a, b) => {
-                             // Sort groups logic
-                             if (a.denId === -1) return 1; // Unassigned last
-                             if (b.denId === -1) return -1;
-                             const denA = dens.find((d: Den) => d.id === a.denId);
-                             const denB = dens.find((d: Den) => d.id === b.denId);
-                             return (denA?.name || '').localeCompare(denB?.name || '');
-                        })
-                        .map(group => {
-                            const den = dens.find(d => d.id === group.denId);
-                            const denName = group.denId === -1 ? "Unassigned" : (den?.name || 'Unknown Den');
-                            const denColor = group.denId === -1 ? "#eee" : (den?.color || '#eee');
+                        groupedRacers.map(group => {
+                            const { denName, denColor } = group;
 
                             return (
                                 // A keyed Fragment, not <>: the shorthand takes
@@ -1133,33 +1123,14 @@ export default function RaceDetails() {
               </div>
           ) : isGroupedByDen ? (
               // Mobile Grouped View
-              Object.values(filteredRacers.reduce((acc, racer) => {
-                  const denId = racer.den_id || -1;
-                  if (!acc[denId]) acc[denId] = { denId, items: [] };
-                  acc[denId].items.push(racer);
-                  return acc;
-              }, {} as Record<number, { denId: number, items: Racer[] }>))
-              .sort((a, b) => {
-                   if (a.denId === -1) return 1;
-                   if (b.denId === -1) return -1;
-                   const denA = dens.find(d => d.id === a.denId);
-                   const denB = dens.find(d => d.id === b.denId);
-                   return (denA?.name || '').localeCompare(denB?.name || '');
-              })
-              .map(group => {
-                  const den = dens.find(d => d.id === group.denId);
-                  const denName = group.denId === -1 ? "Unassigned" : (den?.name || 'Unknown Den');
-                  const denColor = group.denId === -1 ? "#eee" : (den?.color || '#eee');
-
-                  return (
-                      <div key={`mobile-group-${group.denId}`}>
-                          <div className="mobile-den-header" style={{ borderLeftColor: denColor }}>
-                              {denName} ({group.items.length})
-                          </div>
-                          {group.items.map(racer => renderRacerCard(racer))}
+              groupedRacers.map(group => (
+                  <div key={`mobile-group-${group.denId}`}>
+                      <div className="mobile-den-header" style={{ borderLeftColor: group.denColor }}>
+                          {group.denName} ({group.items.length})
                       </div>
-                  );
-              })
+                      {group.items.map(racer => renderRacerCard(racer))}
+                  </div>
+              ))
           ) : (
               // Mobile Standard View
               filteredRacers.map(racer => renderRacerCard(racer))
