@@ -52,6 +52,16 @@ REFUSED_MUTATIONS = frozenset(
         # in to the serial probing that `initialize_timer_managers` skips.
         "createInitialConfig",
         "updateInitialConfig",
+        # Same door, opened directly: both can set `timerType` /
+        # `serialPort` on a track, which reaches `_start_backend_direct` /
+        # `autodetect()` and probes real USB serial ports with a
+        # caller-supplied device path. `initialize_timer_managers`'s
+        # boot-time coercion to FAKE only covers what a seed archive was
+        # built with — it does not run again for a runtime mutation, so
+        # without this a visitor can still walk the serial ports (and break
+        # the seeded fake timer for everyone else) after boot.
+        "createTrack",
+        "updateTrack",
         # Writes a caller-supplied image to the disk. The demo exists partly to
         # avoid holding a photograph of somebody's child; this is the route by
         # which one would arrive. Its REST twin `POST /upload/` is refused in

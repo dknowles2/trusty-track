@@ -171,6 +171,94 @@ class TestTheInstanceCannotBeLockedOut:
         assert [e.outcome for e in entries] == [audit.Outcome.REFUSED.value]
 
 
+CREATE_TRACK_MUTATION = """
+    mutation {
+      createTrack(track: {name: "Visitor's Track", timerType: "AUTO_DETECT_BACKEND",
+                           serialPort: "/dev/ttyUSB0"}) { id }
+    }
+"""
+
+
+class TestTracksCannotBeReconfigured:
+    """The other door into the serial probing `initialize_timer_managers`'
+    boot-time coercion to FAKE does not cover (#323).
+
+    `createTrack`/`updateTrack` can set `timerType`/`serialPort` directly,
+    which reaches `_start_backend_direct`/`autodetect()` and walks real USB
+    serial ports with a caller-supplied device path — after boot, so the
+    coercion in `initialize_timer_managers` never runs again to catch it.
+    """
+
+    def test_a_visitor_cannot_create_a_track(self, client, db, demo):  # noqa: ARG002
+        before = db.query(models.Track).count()
+
+        client.post("/graphql", json={"query": CREATE_TRACK_MUTATION})
+
+        db.expire_all()
+        assert db.query(models.Track).count() == before
+
+    def test_an_ordinary_install_can_still_create_one(self, client, db):
+        before = db.query(models.Track).count()
+
+        client.post("/graphql", json={"query": CREATE_TRACK_MUTATION})
+
+        db.expire_all()
+        assert db.query(models.Track).count() == before + 1
+
+    def test_a_visitor_cannot_change_the_timer_type(
+        self,
+        client,
+        db,
+        default_track,
+        demo,  # noqa: ARG002
+    ):
+        mutation = f"""
+            mutation {{
+              updateTrack(id: {default_track}, track: {{
+                timerType: "AUTO_DETECT_BACKEND", serialPort: "/dev/ttyUSB0"
+              }}) {{ id }}
+            }}
+        """
+        client.post("/graphql", json={"query": mutation})
+
+        db.expire_all()
+        track = db.get(models.Track, default_track)
+        assert track.timer_type == models.TimerType.FAKE
+        assert track.serial_port is None
+
+    def test_an_ordinary_install_can_still_change_it(self, client, db, default_track):
+        mutation = f"""
+            mutation {{
+              updateTrack(id: {default_track}, track: {{
+                timerType: "AUTO_DETECT_BACKEND", serialPort: "/dev/ttyUSB0"
+              }}) {{ id }}
+            }}
+        """
+        client.post("/graphql", json={"query": mutation})
+
+        db.expire_all()
+        track = db.get(models.Track, default_track)
+        assert track.timer_type == models.TimerType.AUTO_DETECT_BACKEND
+        assert track.serial_port == "/dev/ttyUSB0"
+
+    def test_the_refusal_is_recorded(self, client, db, default_track, demo):  # noqa: ARG002
+        mutation = f"""
+            mutation {{
+              updateTrack(id: {default_track}, track: {{
+                timerType: "AUTO_DETECT_BACKEND"
+              }}) {{ id }}
+            }}
+        """
+        client.post("/graphql", json={"query": mutation})
+
+        entries = (
+            db.query(models.AuditEntry)
+            .filter(models.AuditEntry.action == "updateTrack")
+            .all()
+        )
+        assert [e.outcome for e in entries] == [audit.Outcome.REFUSED.value]
+
+
 class TestBulkGenerators:
     """Unbounded row creation behind no credential, on an instance other people
     are looking at."""
