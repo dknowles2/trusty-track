@@ -32,6 +32,13 @@ describe('weightVerdict', () => {
         expect(weightVerdict(5.001, 5)).toBe('UNDER');
     });
 
+    it('passes a car at exactly the tolerance boundary', () => {
+        // TOLERANCE_OZ is chosen precisely so a car reading limit + 0.005
+        // still passes — this is the value the constant exists for, not a
+        // value comfortably inside or outside it.
+        expect(weightVerdict(5.005, 5)).toBe('UNDER');
+    });
+
     it('flags a car the desk scale can actually distinguish', () => {
         // 5.01 is the smallest step a two-decimal scale shows above 5.00.
         expect(weightVerdict(5.01, 5)).toBe('OVER');

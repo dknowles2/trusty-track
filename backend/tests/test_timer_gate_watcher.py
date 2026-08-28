@@ -105,6 +105,18 @@ def test_a_change_that_persists_is_believed():
     assert belief.closed is True
 
 
+def test_a_change_at_exactly_the_threshold_is_believed():
+    """The boundary is inclusive: ``now - changing_since ==
+    min_change_seconds`` is a persisted change, not one sample short of it.
+    ``test_a_change_that_persists_is_believed`` above samples at 0.6s, past
+    the 0.5s threshold; this pins the `>=` at the exact value it names."""
+    belief = GateBelief(min_change_seconds=0.5, closed=False)
+
+    belief.observe(closed=True, now=0.0)
+    assert belief.observe(closed=True, now=0.5) is True
+    assert belief.closed is True
+
+
 def test_a_sample_that_agrees_cancels_a_pending_change():
     """A bounce that comes back is not a change, and must not leave a clock
     running that the next stray reading completes."""
