@@ -181,6 +181,47 @@ class TestRefusingAnArchive:
             manifest, {manifest.schema_revision, "some_later_revision"}
         )
 
+    def test_an_archive_whose_database_disagrees_with_its_manifest(
+        self, data_dir: Path, source_engine
+    ) -> None:
+        # A manifest is only a claim the archive makes about itself. The
+        # database packaged alongside it is what actually becomes live, so a
+        # manifest that claims a known revision must not be enough to let a
+        # database at an unknown one through — tampered, hand-edited, or
+        # built by a tool that never ran the real writer.
+        archive = _make_archive(data_dir, source_engine)
+        with zipfile.ZipFile(archive) as zf:
+            raw_db = zf.read("trusty-track.db")
+
+        tampered_db = data_dir / "tampered.db"
+        tampered_db.write_bytes(raw_db)
+        connection = sqlite3.connect(tampered_db)
+        try:
+            connection.execute(
+                "UPDATE alembic_version SET version_num = ?", ("9999_future",)
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        buffer = io.BytesIO()
+        with (
+            zipfile.ZipFile(archive) as source_zf,
+            zipfile.ZipFile(buffer, "w") as tampered_zf,
+        ):
+            tampered_zf.writestr("manifest.json", source_zf.read("manifest.json"))
+            tampered_zf.write(tampered_db, "trusty-track.db")
+        buffer.seek(0)
+
+        manifest = backup.read_manifest(buffer)
+        # The manifest itself still claims a known revision — the fast
+        # pre-check alone would let this through.
+        assert manifest.schema_revision != "9999_future"
+        buffer.seek(0)
+
+        with pytest.raises(backup.ArchiveError, match="schema 9999_future"):
+            self._restore(buffer, data_dir)
+
     def test_a_member_that_would_write_outside_the_data_directory(
         self, data_dir: Path, source_engine
     ) -> None:

@@ -207,7 +207,8 @@ def read_manifest(archive: IO[bytes] | Path) -> Manifest:
 
 
 def check_restorable(manifest: Manifest, known_revisions: Iterable[str]) -> None:
-    """Refuse an archive this install cannot restore, before anything is moved.
+    """Refuse an archive whose *manifest* claims a schema this install cannot
+    restore, before anything is unpacked.
 
     The version check is the one that matters. An archive from a *newer* Trusty
     Track holds a schema this install has no migrations for, and there is no
@@ -217,8 +218,12 @@ def check_restorable(manifest: Manifest, known_revisions: Iterable[str]) -> None
     database already takes at startup.
 
     Recognition is by revision rather than by version number because the
-    revision is what the schema is actually keyed on, and it is recorded in the
-    archived database itself rather than being asserted by the manifest.
+    revision is what the schema is actually keyed on. This is a fast
+    pre-check only, and it trusts the manifest's own claim about that
+    revision — a tampered or hand-built archive can carry a manifest that
+    disagrees with the database it packages. `restore_archive` re-checks the
+    unpacked database's own `alembic_version` once it is staged, and that
+    check — not this one — is what a caller must rely on for correctness.
     """
     if manifest.format != ARCHIVE_FORMAT:
         raise ArchiveError(
@@ -290,9 +295,13 @@ def restore_archive(
     """Replace the live database and uploads with the archive's copies.
 
     Everything that can be refused is refused before anything is moved: the
-    manifest is read, the schema version is checked, and every member is
-    unpacked into a staging directory. Only once all of that has succeeded is
-    anything swapped, so a damaged archive leaves the running event untouched.
+    manifest is read, its claimed schema version is checked as a fast
+    pre-check, every member is unpacked into a staging directory, and then the
+    *unpacked database's own* `alembic_version` is checked against
+    `known_revisions` — the check that actually matters, since a manifest is
+    only what the archive says about itself. Only once all of that has
+    succeeded is anything swapped, so a damaged or mismatched archive leaves
+    the running event untouched.
 
     ``dispose`` is called after staging and before the swap. It is the engine's
     `dispose`, and it matters: SQLAlchemy pools connections, so replacing the
@@ -302,8 +311,9 @@ def restore_archive(
     The caller is responsible for bringing the restored database up to date
     afterwards — `init_db()` does it, and an older archive needs it.
     """
+    revisions = set(known_revisions)
     manifest = read_manifest(archive)
-    check_restorable(manifest, known_revisions)
+    check_restorable(manifest, revisions)
 
     if hasattr(archive, "seek"):
         archive.seek(0)  # type: ignore[union-attr]
@@ -334,9 +344,23 @@ def restore_archive(
                 with zf.open(info) as src, open(staged_uploads / name, "wb") as dst:
                     shutil.copyfileobj(src, dst)
 
-        if _revision_of(staged_database) is None:
+        staged_revision = _revision_of(staged_database)
+        if staged_revision is None:
             raise ArchiveError(
                 "This backup's database could not be opened, so it is damaged."
+            )
+
+        # The manifest check above is a fast pre-check and nothing more — it
+        # trusts a claim the archive makes about itself. The database just
+        # unpacked is the thing that is about to become live, so it is what
+        # actually gets gated: a tampered, hand-edited or newer-tool-built
+        # archive can carry a manifest that lies about the schema it packages.
+        if staged_revision not in revisions:
+            raise ArchiveError(
+                f"This backup was taken from a newer version of Trusty Track "
+                f"(schema {staged_revision}, which this install does not "
+                f"know). Upgrade Trusty Track and try again — restoring it "
+                f"here would leave a database this version cannot open."
             )
 
         if callable(dispose):
