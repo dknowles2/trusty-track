@@ -18,7 +18,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
 import { errorText } from '../../../utils/errors';
 import AwardArtwork from '../artwork';
-import { describeSpeedAward, racerLabel } from '../awardText';
+import { carLabel, describeSpeedAward, racerLabel } from '../awardText';
 import AwardForm, { AwardDraft } from '../components/AwardForm';
 import BallotShare from '../components/BallotShare';
 import {
@@ -55,14 +55,6 @@ type AwardRow = {
     racerImageUrl?: string | null;
   } | null;
 };
-
-/** What a car in a tally row is called, for the operator screen — never a
- * child's name, the same anonymity the ballot page itself keeps. */
-function carLabel(racer?: VoteTallyRow['racer']): string {
-  if (!racer) return 'A car that has since been removed';
-  const number = racer.carNumber != null ? `#${racer.carNumber}` : 'Unnumbered car';
-  return racer.carName ? `${number} — ${racer.carName}` : number;
-}
 
 export default function Awards() {
   const { raceId } = useParams<{ raceId: string }>();
