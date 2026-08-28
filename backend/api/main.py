@@ -5,6 +5,7 @@ Mounts the GraphQL router and static file serving.
 """
 
 import base64
+import io
 import logging
 import os
 import sys
@@ -29,6 +30,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from PIL import Image
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 from strawberry.fastapi import GraphQLRouter
@@ -714,6 +716,34 @@ MAX_UPLOAD_BYTES = 16 * 1024 * 1024
 #: How much is read at a time while checking that limit.
 _UPLOAD_CHUNK = 1024 * 1024
 
+#: The extension stored for each format Pillow can report, mirroring the
+#: allowlist ``uploadImage`` (schema.py) already enforces for its GraphQL
+#: twin. `convert_to_browser_safe_png` re-encodes anything outside this set
+#: to PNG, so a format reaching `_sniffed_extension` unconverted is already
+#: guaranteed to be one of these four — the refusal below is defence in
+#: depth, not a path either caller expects to take.
+_EXTENSION_FOR_FORMAT = {
+    "JPEG": ".jpg",
+    "PNG": ".png",
+    "GIF": ".gif",
+    "WEBP": ".webp",
+}
+
+
+def _sniffed_extension(image_bytes: bytes) -> str:
+    """Return the extension for *image_bytes*, derived from the bytes
+    themselves rather than from a filename or a client-supplied content type.
+
+    A caller naming their upload ``x.html`` on a valid small GIF must not get
+    an ``.html`` back — that file is then served from `/static` as HTML on
+    the app's own origin (issue #322).
+    """
+    fmt = Image.open(io.BytesIO(image_bytes)).format
+    ext = _EXTENSION_FOR_FORMAT.get(fmt) if fmt else None
+    if ext is None:
+        raise HTTPException(status_code=400, detail=f"Unsupported image format: {fmt}")
+    return ext
+
 
 async def _read_capped(file: UploadFile, limit: int) -> bytes:
     """Read *file* up to *limit* bytes, refusing anything larger.
@@ -763,8 +793,11 @@ async def upload_file(
     raw_bytes = await _read_capped(file, MAX_UPLOAD_BYTES)
     image_bytes = convert_to_browser_safe_png(raw_bytes)
 
-    # Use .png extension if conversion happened, otherwise keep original.
-    ext = ".png" if image_bytes is not raw_bytes else os.path.splitext(file.filename)[1]
+    # The stored extension comes from the sniffed image content, never from
+    # the caller-supplied filename (#322) — a filename claiming `.html` on a
+    # small, browser-native GIF/JPEG polyglot must not end up served as HTML
+    # from this app's own origin.
+    ext = ".png" if image_bytes is not raw_bytes else _sniffed_extension(image_bytes)
 
     filename = f"{uuid.uuid4()}{ext}"
     file_path = os.path.join(UPLOAD_DIR, filename)
