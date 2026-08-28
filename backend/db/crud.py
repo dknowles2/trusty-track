@@ -824,12 +824,19 @@ def generate_heats_for_round(
         db.query(models.Heat).filter(models.Heat.round_id == round_id).all()
     )
     if runs is None:
-        # Derived before anything is deleted: a general round's
-        # `total_participants` reads the racers out of the heats themselves.
-        # Floor division, so a round that was never a clean multiple (a lane
+        # Derived before anything is deleted, and from the heats themselves
+        # rather than `Round.total_participants` — that property is the
+        # round's *requested* field size, and for a championship round whose
+        # field came up short of the request (#48) the two disagree: the
+        # heats were generated for the actual field, not the request, and
+        # dividing by the request is how a short-field multi-run final
+        # collapsed to one run on the next prelim correction (#311). Floor
+        # division, so a round that was never a clean multiple (a lane
         # outage mid-round, say) errs toward fewer runs rather than inventing
         # heats nobody scheduled.
-        participants = round_obj.total_participants
+        participants = advancement.scheduled_participant_count(
+            lanes_for_heats(db, existing_heats)
+        )
         if clear_existing and existing_heats and participants > 0:
             runs = max(1, len(existing_heats) // participants)
         else:

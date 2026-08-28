@@ -18,6 +18,7 @@ from backend.domain.advancement import (
     may_rebuild,
     placeholder_slots,
     rounds_to_invalidate,
+    scheduled_participant_count,
     should_populate,
 )
 from backend.domain.lanes import Lane
@@ -304,6 +305,28 @@ def test_one_qualifier_is_still_short():
 def test_a_round_holding_no_slots_is_never_short():
     """An already-resolved round has nothing left to strand."""
     assert not field_is_short([[Lane(lane=1, racer_id=7)]], advancing_count=1)
+
+
+def test_scheduled_participant_count_counts_slots_once_per_run():
+    """One heat per participant per run (#26): a two-run round of four slots
+    holds each slot across eight heats, not eight distinct participants."""
+    assert scheduled_participant_count(_placeholder_round(4) * 2) == 4
+
+
+def test_scheduled_participant_count_counts_real_racers():
+    heats = [[Lane(lane=1, racer_id=racer_id)] for racer_id in (1, 2, 3)]
+    assert scheduled_participant_count(heats) == 3
+
+
+def test_scheduled_participant_count_keeps_racers_and_slots_apart():
+    """A real racer id and a placeholder slot are different identity spaces,
+    even when the numbers happen to match."""
+    heats = [[Lane(lane=1, racer_id=1), Lane(lane=2, placeholder_slot=1)]]
+    assert scheduled_participant_count(heats) == 2
+
+
+def test_scheduled_participant_count_ignores_empty_lanes():
+    assert scheduled_participant_count([[Lane(lane=1, racer_id=None)]]) == 0
 
 
 def test_a_pack_field_is_the_number_asked_for():
