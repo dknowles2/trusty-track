@@ -29,6 +29,10 @@ click one to switch it off. It lasts only as long as this tab stays open;
 leave the page or reload it and every lane comes back. Use it when a car is
 stuck in a lane, or to test one lane at a time on the bench.
 
+![The lane toggle row, with Lane 2 switched off](assets/screenshots/free-race/06-lane-toggle.png)
+_Lane 2 clicked off for this session — it turns white and drops out of every
+mode below until it is clicked back on._
+
 A lane the track itself has taken out of service shows here too, greyed out
 and already off — this toggle cannot turn that lane back on, only take a
 *working* one out temporarily. See
