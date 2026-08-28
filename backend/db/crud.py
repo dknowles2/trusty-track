@@ -1761,6 +1761,72 @@ def set_heat_lanes(heat: models.Heat, heat_lanes: Sequence[lanes.Lane]) -> None:
     lane_sync.stage(heat, heat_lanes)
 
 
+def validate_lane_replacement(
+    db: Session, heat: models.Heat, heat_lanes: Sequence[lanes.Lane]
+) -> str | None:
+    """The first problem with replacing ``heat``'s lanes with ``heat_lanes``,
+    or ``None`` if there isn't one (#307).
+
+    ``updateHeatResult`` and ``recordFreeRaceResult`` replace a heat's whole
+    lane set with whatever a client sends, and until now nothing checked it
+    before it reached the table: an empty list wiped the schedule, a partial
+    list dropped the lanes it omitted, and a nonexistent racer id surfaced as
+    a raw ``sqlite3.IntegrityError``. This is the guard the armed-heat write
+    path already had (``_record_results`` verifies the lane assignment it
+    armed with) and the direct edit path did not.
+
+    Every legitimate caller — the Edit Results modal, the skip button, the
+    re-run clear, the timer's own write, the demo seed — builds its payload by
+    reading the heat's *current* lanes and returning the same set back
+    (`crud.heat_lanes_of`, echoed lane-for-lane), so requiring the sent set to
+    match the stored one exactly costs nothing any of them do already. Only
+    the operator's raw GraphQL call has no such guarantee, which is exactly
+    what this closes.
+
+    Not called from :func:`record_heat_result` or
+    :func:`update_free_race_heat_result` themselves: both are also the
+    timer's write path, running outside a request on its own session, and a
+    validation failure there has nowhere useful to surface — the resolvers are
+    the boundary a client's malformed input actually crosses.
+    """
+    if not heat_lanes:
+        return "A heat's lanes cannot be empty."
+
+    dupes = lanes.duplicate_lane_numbers(heat_lanes)
+    if dupes:
+        return f"Lane {dupes[0]} is assigned to more than one row."
+
+    sent = {lane.lane for lane in heat_lanes}
+    existing = {lane.lane for lane in heat_lanes_of(db, heat)}
+    if sent != existing:
+        missing = sorted(existing - sent)
+        extra = sorted(sent - existing)
+        detail = "; ".join(
+            part
+            for part in (
+                f"missing lane(s) {missing}" if missing else "",
+                f"unknown lane(s) {extra}" if extra else "",
+            )
+            if part
+        )
+        return f"The lanes sent don't match this heat's schedule ({detail})."
+
+    racer_ids = {lane.racer_id for lane in heat_lanes if lane.racer_id is not None}
+    if racer_ids:
+        found = {
+            row[0]
+            for row in db.query(models.Racer.id).filter(
+                models.Racer.race_id == heat.race_id,
+                models.Racer.id.in_(racer_ids),
+            )
+        }
+        missing_racers = racer_ids - found
+        if missing_racers:
+            return f"Racer {sorted(missing_racers)[0]} is not part of this heat's race."
+
+    return None
+
+
 def record_heat_result(
     db: Session,
     heat_id: int,

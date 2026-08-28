@@ -1,7 +1,32 @@
 import pytest
 
-from backend.db import crud, schemas
+from backend.db import crud, models, schemas
 from backend.tests.helpers import record_heat_result
+
+
+def _full_results(db, heat_id: int, overrides_by_racer: dict[int, dict]) -> list[dict]:
+    """A heat's whole lane set, with a result filled in for some racers.
+
+    `updateHeatResult` replaces a heat's entire lane set (#307): a four-racer
+    PPC schedule on a four-lane track fills every lane with every racer, so
+    recording only two of them would now be refused as a partial write. Every
+    real client resends the lanes it did not touch unchanged, which is what
+    this does too.
+
+    Keyed on the racer rather than the lane: PPC assigns each racer a
+    different lane in each heat, so which lane holds racer 0 varies heat to
+    heat. Overriding by lane number instead would risk landing a racer's
+    result on top of whichever *other* racer PPC actually put there.
+    """
+    heat = db.query(models.Heat).filter(models.Heat.id == heat_id).one()
+    results = []
+    for lane in crud.heat_lanes_of(db, heat):
+        override = overrides_by_racer.get(lane.racer_id)
+        if override is not None:
+            results.append({"lane": lane.lane, "racer_id": lane.racer_id, **override})
+        else:
+            results.append({"lane": lane.lane, "racer_id": lane.racer_id})
+    return results
 
 
 def _setup_race(client, db):
@@ -225,14 +250,15 @@ def test_race_stats_multiple_heats(client, db):
 
     # Record results in 2 heats for racer 0 (times: 3.0, 4.0 → mean 3.5, std_dev ~0.5)
     for h, t1, t2 in zip(heats[:2], [3.0, 4.0], [3.5, 4.5], strict=True):
-        _record_heat_result(
-            client,
+        results = _full_results(
+            db,
             h["id"],
-            [
-                {"lane": 1, "racer_id": racer_ids[0], "time": t1, "place": 1},
-                {"lane": 2, "racer_id": racer_ids[1], "time": t2, "place": 2},
-            ],
+            {
+                racer_ids[0]: {"time": t1, "place": 1},
+                racer_ids[1]: {"time": t2, "place": 2},
+            },
         )
+        _record_heat_result(client, h["id"], results)
 
     resp = client.post(
         "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}}
@@ -281,14 +307,15 @@ def test_race_stats_unnamed_round_falls_back_to_round_number(client, db):
     assert heats_to_record
 
     for heat in heats_to_record:
-        _record_heat_result(
-            client,
+        results = _full_results(
+            db,
             heat["id"],
-            [
-                {"lane": 1, "racer_id": racer_ids[0], "time": 3.1, "place": 1},
-                {"lane": 2, "racer_id": racer_ids[1], "time": 3.5, "place": 2},
-            ],
+            {
+                racer_ids[0]: {"time": 3.1, "place": 1},
+                racer_ids[1]: {"time": 3.5, "place": 2},
+            },
         )
+        _record_heat_result(client, heat["id"], results)
 
     resp = client.post(
         "/graphql", json={"query": RACE_STATS_QUERY, "variables": {"raceId": race_id}}

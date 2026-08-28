@@ -201,6 +201,27 @@ def real_racer_ids(lanes: Iterable[Lane]) -> list[int]:
     return [lane.racer_id for lane in lanes if lane.racer_id is not None]
 
 
+def duplicate_lane_numbers(lanes: Sequence[Lane]) -> list[int]:
+    """Lane numbers claimed by more than one row, each named once.
+
+    A replacement lane set is a client's whole description of a heat
+    (:func:`backend.db.crud.validate_lane_replacement`); two rows both
+    claiming lane 1 is not a heat, it is two heats squashed into one payload,
+    and storing it silently drops one of them. Named in the order they first
+    repeat, so the error can point at the first offender rather than an
+    unordered set.
+    """
+    seen: set[int] = set()
+    dupes: list[int] = []
+    for lane in lanes:
+        if lane.lane in seen:
+            if lane.lane not in dupes:
+                dupes.append(lane.lane)
+        else:
+            seen.add(lane.lane)
+    return dupes
+
+
 def resolve_placeholders(lanes: Sequence[Lane], racer_ids: Sequence[int]) -> bool:
     """Replace placeholder slots with real racers, in place.
 

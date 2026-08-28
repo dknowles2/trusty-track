@@ -203,6 +203,159 @@ def test_an_unknown_free_race_heat_is_answered_with_null(client, race):  # noqa:
     assert body["data"]["recordFreeRaceResult"] is None
 
 
+# --------------------------------------------------------------------------- #
+# Validating the replacement (#307)                                           #
+# --------------------------------------------------------------------------- #
+#
+# `updateHeatResult` and `recordFreeRaceResult` replace a heat's whole lane
+# set with whatever a client sends, and nothing checked it before it reached
+# the table: an empty list wiped the schedule, a partial list silently
+# dropped the lanes it omitted, and a nonexistent racer id surfaced as a raw
+# `sqlite3.IntegrityError`. Each test below asserts both halves — the
+# mutation is refused *and* the stored lanes are untouched — because a
+# rejected write that partially applied would be worse than the bug it
+# replaces.
+
+
+def test_an_empty_lane_list_is_refused(client, db, race, racer):
+    heat = _heat(db, race, [{"lane": 1, "racer_id": racer.id}])
+
+    body = _post(client, UPDATE_HEAT_RESULT, {"heatId": heat.id, "lanes": []})
+
+    assert "errors" in body, "an empty lane set must not silently wipe a heat"
+    assert [row.lane for row in _lanes(db, heat.id)] == [1]
+
+
+def test_a_partial_lane_list_is_refused(client, db, race, racer):
+    """One lane for a four-lane heat used to leave three racers with no run."""
+    heat = _heat(
+        db,
+        race,
+        [
+            {"lane": 1, "racer_id": racer.id},
+            {"lane": 2, "racer_id": None},
+            {"lane": 3, "racer_id": None},
+            {"lane": 4, "racer_id": None},
+        ],
+    )
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [lane_input({"lane": 1, "racer_id": racer.id, "time": 3.1})],
+        },
+    )
+
+    assert "errors" in body
+    assert [row.lane for row in _lanes(db, heat.id)] == [1, 2, 3, 4]
+
+
+def test_a_lane_number_the_heat_does_not_have_is_refused(client, db, race, racer):
+    heat = _heat(db, race, [{"lane": 1, "racer_id": racer.id}])
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input({"lane": 1, "racer_id": racer.id}),
+                lane_input({"lane": 2, "racer_id": None}),
+            ],
+        },
+    )
+
+    assert "errors" in body
+    assert [row.lane for row in _lanes(db, heat.id)] == [1]
+
+
+def test_duplicate_lane_numbers_are_refused(client, db, race, racer):
+    heat = _heat(
+        db, race, [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": None}]
+    )
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input({"lane": 1, "racer_id": racer.id, "time": 3.1}),
+                lane_input({"lane": 1, "racer_id": racer.id, "time": 3.2}),
+            ],
+        },
+    )
+
+    assert "errors" in body
+    assert [row.time_seconds for row in _lanes(db, heat.id)] == [None, None]
+
+
+def test_a_racer_id_outside_the_race_is_refused_cleanly(client, db, race, racer):
+    """A raw `sqlite3.IntegrityError` used to reach the client here."""
+    heat = _heat(db, race, [{"lane": 1, "racer_id": racer.id}])
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [lane_input({"lane": 1, "racer_id": 999999})],
+        },
+    )
+
+    assert "errors" in body
+    assert "IntegrityError" not in body["errors"][0]["message"]
+    assert [row.racer_id for row in _lanes(db, heat.id)] == [racer.id]
+
+
+def test_a_racer_from_another_race_is_refused(client, db, race, racer):
+    other_race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name="Another Derby",
+            group_id=race.group_id,
+            track_id=race.track_id,
+            car_numbering_strategy="MANUAL",
+        ),
+    )
+    other_racer = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Bea",
+            last_name="B",
+            race_id=other_race.id,
+            car_passed_inspection=True,
+        ),
+    )
+    heat = _heat(db, race, [{"lane": 1, "racer_id": racer.id}])
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [lane_input({"lane": 1, "racer_id": other_racer.id})],
+        },
+    )
+
+    assert "errors" in body
+    assert [row.racer_id for row in _lanes(db, heat.id)] == [racer.id]
+
+
+def test_an_empty_lane_list_is_refused_for_a_free_race_heat(client, db, race, racer):
+    heat = crud.create_free_race_heat(
+        db, race.id, as_lanes([{"lane": 1, "racer_id": racer.id}])
+    )
+    db.commit()
+
+    body = _post(client, RECORD_FREE_RACE_RESULT, {"heatId": heat.id, "lanes": []})
+
+    assert "errors" in body
+    assert [row.lane for row in _lanes(db, heat.id)] == [1]
+
+
 def test_only_one_place_writes_a_heats_lanes():
     """`crud.set_heat_lanes` is the one door (#72).
 
