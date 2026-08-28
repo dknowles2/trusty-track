@@ -55,8 +55,16 @@ class FakePort {
     closes = 0;
     written: Uint8Array[] = [];
     reader = new FakeReader();
+    private readerObtained = false;
+    private isOpen = false;
 
-    readable = { getReader: () => { this.reader = new FakeReader(); return this.reader; } };
+    readable = {
+        getReader: () => {
+            this.reader = new FakeReader();
+            this.readerObtained = true;
+            return this.reader;
+        },
+    };
     writable = {
         getWriter: () => ({
             write: async (data: Uint8Array) => { this.written.push(data); },
@@ -64,8 +72,28 @@ class FakePort {
         }),
     };
 
-    async open(options: Options) { this.opened.push(options); }
-    async close() { this.closes += 1; }
+    // A real SerialPort's open() rejects with InvalidStateError on a port
+    // that is already open (#331: exactly what a stranded port produces on
+    // the next connect()) — mirrored here so a test fails on that symptom
+    // instead of only on the internal bookkeeping.
+    async open(options: Options) {
+        if (this.isOpen) {
+            throw new Error('Failed to execute \'open\': The port is already open.');
+        }
+        this.opened.push(options);
+        this.isOpen = true;
+    }
+
+    // A real SerialPort's close() rejects while a reader holds the lock — the
+    // other #331 trap. Mirroring that here is what lets a test fail without
+    // the fix instead of merely passing by accident.
+    async close() {
+        if (this.readerObtained && !this.reader.released) {
+            throw new Error('Failed to execute \'close\': The port is locked by a reader.');
+        }
+        this.closes += 1;
+        this.isOpen = false;
+    }
 }
 
 class FakeSocket {
@@ -77,7 +105,7 @@ class FakeSocket {
     sent: string[] = [];
     onopen: (() => void) | null = null;
     onmessage: ((e: { data: string }) => void) | null = null;
-    onclose: ((e: { code: number; reason: string }) => void) | null = null;
+    onclose: ((e: { code: number; reason: string }) => void | Promise<void>) | null = null;
     onerror: (() => void) | null = null;
 
     constructor(public url: string) { FakeSocket.last = this; }
@@ -85,14 +113,15 @@ class FakeSocket {
     send(data: string) { this.sent.push(data); }
 
     /** This tab closing its own connection — no reason, as a real browser
-     * gives none for a locally-initiated close. */
-    close() { this.readyState = 3; this.onclose?.({ code: 1000, reason: '' }); }
+     * gives none for a locally-initiated close. Returns a promise so a test
+     * can wait for onclose's (now async) teardown to actually finish. */
+    async close() { this.readyState = 3; await this.onclose?.({ code: 1000, reason: '' }); }
 
     /** The backend closing this connection and saying why — the role check,
      * a track problem, or a second connection taking the timer over (#301). */
-    remoteClose(code: number, reason: string) {
+    async remoteClose(code: number, reason: string) {
         this.readyState = 3;
-        this.onclose?.({ code, reason });
+        await this.onclose?.({ code, reason });
     }
 
     /** Deliver a message from the backend, and let its handler settle. */
@@ -240,7 +269,7 @@ describe('a server-initiated close', () => {
         await ws.deliver(MICROWIZARD_FRAMING);
 
         await act(async () => {
-            ws.remoteClose(4000, 'Another connection took over this timer');
+            await ws.remoteClose(4000, 'Another connection took over this timer');
         });
 
         expect(screen.getByTestId('status')).toHaveTextContent('error');
@@ -249,11 +278,27 @@ describe('a server-initiated close', () => {
         );
     });
 
+    it('cancels the reader before closing the port', async () => {
+        // Same trap as reopening for the next probe candidate: close() rejects
+        // while a reader holds the lock. FakePort.close() throws if it is
+        // called before the reader has been released, so this fails without
+        // the fix rather than passing by accident.
+        const ws = await connect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        await act(async () => {
+            await ws.remoteClose(4000, 'Another connection took over this timer');
+        });
+
+        expect(port.reader.released).toBe(true);
+        expect(port.closes).toBe(1);
+    });
+
     it('surfaces a role refusal the same way', async () => {
         const ws = await connect();
 
         await act(async () => {
-            ws.remoteClose(4403, 'Operator PIN required');
+            await ws.remoteClose(4403, 'Operator PIN required');
         });
 
         expect(screen.getByTestId('status')).toHaveTextContent('error');
@@ -264,7 +309,69 @@ describe('a server-initiated close', () => {
         const ws = await connect();
         await ws.deliver(MICROWIZARD_FRAMING);
 
-        await act(async () => { ws.close(); });
+        await act(async () => { await ws.close(); });
+
+        expect(screen.getByTestId('status')).toHaveTextContent('disconnected');
+        expect(screen.getByTestId('error')).toHaveTextContent('');
+    });
+});
+
+describe('disconnecting (#331)', () => {
+    // Turning the proxy off used to close the port while the read loop's
+    // reader still held its lock — the same trap the reopen path (above)
+    // exists to avoid. The port stayed open and locked, and the next
+    // connect() got the same SerialPort object back with no way to open it.
+    const DisconnectConsumer = () => {
+        const { connect, disconnect, status, errorMsg } = useSerialProxy();
+        return (
+            <div>
+                <span data-testid="status">{status}</span>
+                <span data-testid="error">{errorMsg}</span>
+                <button onClick={() => connect(1)}>connect</button>
+                <button onClick={() => disconnect()}>disconnect</button>
+            </div>
+        );
+    };
+
+    const connectWithDisconnect = async () => {
+        render(<SerialProxyProvider><DisconnectConsumer /></SerialProxyProvider>);
+        await act(async () => { screen.getByText('connect').click(); });
+        await waitFor(() => expect(FakeSocket.last).not.toBeNull());
+        return FakeSocket.last!;
+    };
+
+    it('cancels the reader before closing the port', async () => {
+        const ws = await connectWithDisconnect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        await act(async () => { screen.getByText('disconnect').click(); });
+
+        expect(port.reader.released).toBe(true);
+        expect(port.closes).toBe(1);
+        expect(screen.getByTestId('status')).toHaveTextContent('disconnected');
+    });
+
+    it('lets the next connect() reopen the same port, rather than stranding it locked', async () => {
+        const ws = await connectWithDisconnect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        await act(async () => { screen.getByText('disconnect').click(); });
+        await act(async () => { screen.getByText('connect').click(); });
+        await waitFor(() => expect(FakeSocket.last).not.toBe(ws));
+        await FakeSocket.last!.deliver(MICROWIZARD_FRAMING);
+
+        expect(port.opened).toHaveLength(2);
+        expect(screen.getByTestId('status')).toHaveTextContent('connected');
+    });
+
+    it('does not also run the close-reason handling for its own socket close', async () => {
+        // disconnect() detaches onclose before closing the socket, so this
+        // does not also fall through to the "server closed it" branch and
+        // report an error for what is an ordinary, requested disconnect.
+        const ws = await connectWithDisconnect();
+        await ws.deliver(MICROWIZARD_FRAMING);
+
+        await act(async () => { screen.getByText('disconnect').click(); });
 
         expect(screen.getByTestId('status')).toHaveTextContent('disconnected');
         expect(screen.getByTestId('error')).toHaveTextContent('');

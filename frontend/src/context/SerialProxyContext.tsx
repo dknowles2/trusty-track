@@ -9,7 +9,7 @@ interface SerialProxyContextType {
     errorMsg: string | null;
     activeTrackId: number | null;
     connect: (trackId: number) => Promise<void>;
-    disconnect: () => void;
+    disconnect: () => Promise<void>;
     isSupported: boolean;
 }
 
@@ -132,15 +132,30 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
         readLoopRef.current = null;
     }, []);
 
-    const disconnect = useCallback(() => {
-        readingRef.current = false;
-        wsRef.current?.close();
+    const disconnect = useCallback(async () => {
+        // Same trap as reopening for the next probe candidate below: close()
+        // rejects while a reader holds the lock, and the loop only lets go once
+        // its stream ends. Without this the port stayed open and locked, and the
+        // next connect() got the same SerialPort object back with no way to open
+        // it (#331) — the operator's only way out was to unplug the timer.
+        await stopReading();
+        if (wsRef.current) {
+            // We are already doing this teardown ourselves; detach onclose so it
+            // does not repeat it — the two are otherwise reading and clearing the
+            // same refs at once with no ordering between them.
+            wsRef.current.onclose = null;
+            wsRef.current.close();
+        }
         wsRef.current = null;
-        portRef.current?.close();
+        try {
+            await portRef.current?.close();
+        } catch {
+            // Already gone, or never got past requestPort().
+        }
         portRef.current = null;
         setStatus('disconnected');
         setActiveTrackId(null);
-    }, []);
+    }, [stopReading]);
 
     const connect = useCallback(async (trackId: number) => {
         if (!isSupported) return;
@@ -150,7 +165,7 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         // If connected to a different track, disconnect first
         if (status !== 'disconnected') {
-            disconnect();
+            await disconnect();
         }
 
         try {
@@ -217,16 +232,27 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 }
             };
 
-            ws.onclose = (event: CloseEvent) => {
-                portRef.current?.close();
+            ws.onclose = async (event: CloseEvent) => {
+                // Same ordering as disconnect() and the reopen path: the reader
+                // has to let go of the port before close() can succeed. This
+                // path is a device unplugged mid-read or the server closing the
+                // socket (a role refusal, a track problem, or #301's takeover),
+                // none of which routes through disconnect()'s own teardown.
+                await stopReading();
+                try {
+                    await portRef.current?.close();
+                } catch {
+                    // The device is already gone; nothing left to release.
+                }
                 portRef.current = null;
                 setActiveTrackId(null);
                 // The server closes this socket with a reason for the role
                 // check, a track problem, or a second connection taking the
                 // timer over (#301) — surfaced here rather than discarded, so
                 // a demoted or refused tab says so instead of just reading
-                // "disconnected". A reason-less close is this tab's own
-                // disconnect() call.
+                // "disconnected". A reason-less close is the device going away,
+                // or this tab's own WebSocket.close() outside disconnect()
+                // (which detaches this handler before it closes the socket).
                 if (event.reason) {
                     setErrorMsg(event.reason);
                     setStatus('error');
@@ -252,12 +278,27 @@ export const SerialProxyProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     }, [isSupported, status, activeTrackId, disconnect, startReading, stopReading]);
 
-    // Clean up on app unmount
+    // Clean up on app unmount. Same ordering as disconnect() and onclose, for
+    // the same reason — close() rejects while a reader holds the lock. React
+    // cannot await a cleanup function, so this fires the teardown and does not
+    // wait on it; the provider is unmounting for good, so nothing here reads
+    // the result.
     useEffect(() => {
         return () => {
             readingRef.current = false;
-            wsRef.current?.close();
-            portRef.current?.close();
+            void (async () => {
+                try {
+                    await readerRef.current?.cancel();
+                } catch {
+                    // Nothing to release.
+                }
+                wsRef.current?.close();
+                try {
+                    await portRef.current?.close();
+                } catch {
+                    // Already gone.
+                }
+            })();
         };
     }, []);
 
