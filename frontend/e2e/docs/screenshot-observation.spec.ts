@@ -269,7 +269,14 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // 02: the race navigation, which is what the section around it is about —
     // finding the Live tab. It used to be a second copy of 01, captioned as
     // showing a URL that a Playwright screenshot cannot contain (#144).
-    const raceNav = page.locator('nav').last();
+    //
+    // `page.locator('nav').last()` used to be `.first()` too, since the page
+    // has exactly one `<nav>` element — the top header bar with the logo and
+    // the race picker. The row holding the Live tab is a `<div
+    // data-testid="race-nav">` underneath it (Navigation.tsx), so that lookup
+    // always captured the header and never the tabs the caption points at.
+    const raceNav = page.getByTestId('race-nav');
+    await expect(raceNav.getByRole('link', { name: /Live/i })).toBeVisible();
     const navBox = await raceNav.boundingBox();
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '02-observation-url.png'),
@@ -349,8 +356,17 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // 07 as well.
     await page.goto(`/race/${raceId}/observation?view=timing`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByTestId('timing-record-banner')).toBeVisible();
-    const recordBanner = await page.getByTestId('timing-record-banner').boundingBox();
+    const bannerLocator = page.getByTestId('timing-record-banner');
+    await expect(bannerLocator).toBeVisible();
+    // The banner sits below the fold on this viewport (the lane results above
+    // it push it past 800px), so `boundingBox()` reported a y past the bottom
+    // of what `page.screenshot()` actually captures — the clip below was
+    // computed correctly against coordinates the screenshot never rendered,
+    // which is what clipped the banner out entirely. Scroll it into view
+    // first, matching what every other clipped shot in this spec does through
+    // `scrollIntoViewIfNeeded` or by construction.
+    await bannerLocator.scrollIntoViewIfNeeded();
+    const recordBanner = await bannerLocator.boundingBox();
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '10-record-banner.png'),
         ...(recordBanner

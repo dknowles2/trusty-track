@@ -85,6 +85,19 @@ test('screenshot free race', async ({ page }) => {
     await page.waitForTimeout(700);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '01-lane-setup-random.png') });
 
+    // 06: the lane toggle row (#303), for "Turning a lane off for a few
+    // heats" — that section had no picture at all, because 01-03 predate the
+    // row and simply showing it unmodified in one of them would not
+    // illustrate what "click one to switch it off" means. Lane 2 off, so the
+    // row shows both states at once; toggled back on afterwards so 01-05
+    // still depict every lane enabled, as their own captions assume.
+    const laneToggleRow = page.getByTestId('lane-toggle-row');
+    await laneToggleRow.getByLabel(/Lane 2/).click();
+    await expect(laneToggleRow.getByLabel(/Lane 2/)).not.toBeChecked();
+    await laneToggleRow.screenshot({ path: path.join(SCREENSHOT_DIR, '06-lane-toggle.png') });
+    await laneToggleRow.getByLabel(/Lane 2/).click();
+    await expect(laneToggleRow.getByLabel(/Lane 2/)).toBeChecked();
+
     await page.getByRole('button', { name: /Manual/ }).click();
     await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02-lane-setup-manual.png') });

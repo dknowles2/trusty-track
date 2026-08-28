@@ -12,7 +12,8 @@ To enable the Fake Timer, navigate to the **System Settings** page (shown automa
 3.  Select **Fake Timer (Manual Control)**.
 4.  Click **Save Settings**.
 
-![System Settings with Fake Timer selected](assets/screenshots/getting-started/02-system-settings.png)
+![Timer Type dropdown with Fake Timer selected](assets/screenshots/settings/06-fake-timer-selected.png)
+_The timer section of a track's card in System Settings, with **Fake Timer (Manual Control)** chosen from the Timer Type dropdown._
 
 ## 2. Running a Race with Fake Timer
 

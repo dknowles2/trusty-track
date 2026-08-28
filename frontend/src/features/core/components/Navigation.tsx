@@ -462,7 +462,7 @@ export default function Navigation() {
 
       {/* Secondary Header: Race Navigation (Hidden on Mobile) */}
       {raceId && !isMobile && (
-        <div style={{
+        <div data-testid="race-nav" style={{
           backgroundColor: 'white',
           borderBottom: '1px solid #ddd',
           padding: '0.75rem 0',

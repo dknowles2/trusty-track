@@ -1,16 +1,17 @@
 /**
  * Screenshots of the System Settings panels that other pages send you to:
- * the lanes-in-service control (docs/hardware-timer.md) and the backup panel
- * (docs/backup-and-restore.md).
+ * the timer-type dropdown (docs/fake-timer.md), the lanes-in-service control
+ * (docs/hardware-timer.md) and the backup panel (docs/backup-and-restore.md).
  *
  * Run with:
  *   npx playwright test --config=playwright.screenshots.config.ts \
  *     e2e/docs/screenshot-settings.spec.ts
  *
- * The lanes and records panels live inside a track's own card rather than in a
- * section of their own, which is the thing those pictures are there to show —
- * the prose can say "Settings → Tracks" and still leave somebody hunting for
- * the card. Backup is a section in its own right, and is photographed as one.
+ * The timer, lanes and records panels live inside a track's own card rather
+ * than in a section of their own, which is the thing those pictures are there
+ * to show — the prose can say "Settings → Tracks" and still leave somebody
+ * hunting for the card. Backup is a section in its own right, and is
+ * photographed as one.
  *
  * The Access panel and the activity log are *not* here, though their pictures
  * are filed alongside these. They belong to the install rather than to a track,
@@ -57,6 +58,15 @@ test('screenshot the settings panels', async ({ page }) => {
         .getByTestId(/track-card-\d+/)
         .filter({ has: page.locator(`input[value="${TRACK_NAME}"]`) });
     await expect(trackCard.getByLabel('Lane 1 works')).toBeVisible();
+
+    // The timer section, for docs/fake-timer.md — ownTrack() creates every
+    // track with timerType FAKE, so this is the dropdown's default state, not
+    // one this spec has to switch to. Cropped to "The timer" rather than the
+    // whole card: the fake-timer guide's picture is about the dropdown, not
+    // the track's name or lane count.
+    const timerSection = trackCard.getByTestId('track-timer');
+    await expect(timerSection.getByLabel('Timer Type')).toHaveValue('FAKE');
+    await timerSection.screenshot({ path: path.join(SCREENSHOT_DIR, '06-fake-timer-selected.png') });
 
     // Lane 3 out of service. It saves on click rather than on Save Settings,
     // which is what the caption in the docs claims, so the screenshot has to

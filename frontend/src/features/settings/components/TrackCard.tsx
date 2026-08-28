@@ -191,6 +191,7 @@ export default function TrackCard({
         />
       )}
 
+      <div data-testid="track-timer">
       <h3 style={{ ...subheading, marginTop: '1.5rem' }}>The timer</h3>
 
       <div>
@@ -312,6 +313,7 @@ export default function TrackCard({
           <Link to={`/timer-check#timer-${track.id}`}>Check this timer &rarr;</Link>
         </p>
       )}
+      </div>
     </div>
   );
 }
