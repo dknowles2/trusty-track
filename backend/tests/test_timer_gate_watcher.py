@@ -243,6 +243,41 @@ async def test_a_polled_open_gate_does_not_start_a_race():
     await manager.stop()
 
 
+async def test_a_device_with_no_start_signal_reads_gate_open_as_the_race_starting():
+    """The Champ's shape (issue #340): nothing in its matchers ever produces
+    RACE_STARTED, so ``gate_open_starts_race`` routes a polled gate-open
+    observed from READY through the same handling as a matched one — stop
+    polling, RUNNING, the on-start commands — rather than back to ARMED.
+    """
+    profile = replace(POLLED, key="gate-starts-race", gate_open_starts_race=True)
+    manager = armed(profile)
+    manager._start_gate_polling()
+    manager._gate_window_until = asyncio.get_event_loop().time() + 5
+    await manager.receive_bytes(b".\n")
+    assert manager._state is TimerState.READY
+
+    manager._gate_window_until = asyncio.get_event_loop().time() + 5
+    await manager.receive_bytes(b"O\n")
+
+    assert manager._state is TimerState.RUNNING
+    assert manager._gate_poll_task is None
+    await manager.stop()
+
+
+async def test_gate_open_starts_race_does_nothing_from_armed():
+    """The flag only changes the READY→open reading. A gate opening while
+    merely ARMED (never having closed) is unaffected — there is no start to
+    infer without a closed gate first."""
+    profile = replace(POLLED, key="gate-starts-race-armed", gate_open_starts_race=True)
+    manager = armed(profile)
+    manager._gate_window_until = asyncio.get_event_loop().time() + 5
+
+    await manager.receive_bytes(b"O\n")
+
+    assert manager._state is TimerState.ARMED
+    await manager.stop()
+
+
 async def test_the_debounce_applies_to_polled_answers():
     manager = armed(instant=False)
     manager._gate.min_change_seconds = 10.0

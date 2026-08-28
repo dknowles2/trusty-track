@@ -301,6 +301,13 @@ class TimerProfile:
     #: False when the timer cannot say whether the start gate is closed, which
     #: makes READY unreachable for it — see ``TimerManager._handle_event``.
     gate_state_is_knowable: bool = False
+    #: True for a poll-only device with no matcher of its own for a race
+    #: starting — the gate opening *is* the only start signal. A polled
+    #: gate-open observed while READY is then read as ``RaceStarted`` (stop
+    #: polling, transition to RUNNING, send the on-start commands) instead of
+    #: falling back to ARMED. Ignored unless ``gate_state_is_knowable`` and
+    #: ``gate_watcher`` are both set — see ``TimerManager._handle_gate_reading``.
+    gate_open_starts_race: bool = False
     #: False for the fake timer, which has no port to open.
     requires_serial: bool = True
     #: How lanes are numbered by the mask commands, when the real lane count is
