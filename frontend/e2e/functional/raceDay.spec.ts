@@ -236,13 +236,18 @@ test('a skipped heat is passed over rather than left to run', async ({ page }) =
     const { raceId } = await seedRace(page, 'Race Day Skip');
     await createSchedule(page, raceId);
 
-    page.on('dialog', (dialog) => dialog.accept());
-
     await page.goto(`/race/${raceId}/control/race`);
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
     await expect(page.getByRole('heading', { name: 'Heat 1' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Skip Heat' }).click();
+    // The confirmation is `showConfirm`'s own dialog, not a native
+    // `window.confirm` — scope to it, since its confirm button shares the
+    // "Skip Heat" label with the toolbar button that opened it.
+    await page
+        .getByRole('dialog', { name: 'Skip Heat' })
+        .getByRole('button', { name: 'Skip Heat' })
+        .click();
 
     // The running order moved on, without the skipped heat recording anything.
     await expect(page.getByRole('heading', { name: 'Heat 2' })).toBeVisible({
