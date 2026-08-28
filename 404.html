@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Moved to trusty-track.com</title>
+<meta name="robots" content="noindex">
+<script>
+  // GitHub Pages has no server-side redirects, but it does serve 404.html for
+  // every path it cannot find — and this branch now contains nothing but this
+  // file, so that is every path. Rebuilding the destination here keeps the
+  // links already in the wild working: a README, a forum post, or a search
+  // result for /trusty-track/race-day/ lands on /docs/race-day/ rather than on
+  // a 404 page apologising.
+  //
+  // The project site is served from /trusty-track/, so that prefix comes off
+  // and /docs/ goes on. The query string and fragment come along, because a
+  // link into a heading is the kind people share.
+  (function () {
+    var path = location.pathname.replace(/^\/trusty-track/, '');
+    location.replace('https://trusty-track.com/docs' + path + location.search + location.hash);
+  })();
+</script>
+<meta http-equiv="refresh" content="1; url=https://trusty-track.com/docs/">
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; margin: 4rem auto; max-width: 34rem; padding: 0 1.5rem; color: #16202e; }
+  a { color: #003F87; }
+</style>
+</head>
+<body>
+<h1>Trusty Track has moved</h1>
+<p>The documentation now lives at <a href="https://trusty-track.com/docs/">trusty-track.com/docs</a>. Taking you there now.</p>
+</body>
+</html>
