@@ -7,6 +7,8 @@ import { MemoryRouter } from 'react-router-dom';
 import Leaderboard from './Leaderboard';
 import { useQuery, useSubscription } from 'urql';
 import { tiedLeaderboardEntries, twoRacerLeaderboardEntries } from '../testFixtures';
+import { filenameFor } from '../../../utils/csv';
+import { standingsRows, standingsSuffix } from '../standingsExport';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -17,6 +19,15 @@ vi.mock('urql', async (importOriginal) => {
     useSubscription: vi.fn(),
   };
 });
+
+// `downloadCsv` hands the browser a Blob and clicks a synthetic anchor — real
+// enough in jsdom, but nothing worth exercising here. Mocked so the export
+// test can assert on what was handed to it instead.
+vi.mock('../../../utils/csv', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../utils/csv')>();
+  return { ...actual, downloadCsv: vi.fn() };
+});
+import { downloadCsv } from '../../../utils/csv';
 
 // Cleanup after each test
 afterEach(() => {
@@ -265,5 +276,68 @@ describe('Leaderboard round scope (issue #17)', () => {
     expect(screen.queryByText('Pre Lim')).toBeNull();
     // The explanatory note belongs to the overall view only.
     expect(screen.queryByText(/cover the qualifying rounds/i)).toBeNull();
+  });
+});
+
+describe('export and print actions (#173)', () => {
+  const race = {
+    id: 7,
+    name: 'Pack 42 Derby',
+    scoringStrategy: 'TIMED',
+    rounds: [
+      { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
+      { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'PACK' },
+    ],
+  };
+  const overall = [
+    { racerId: 1, firstName: 'Pre', lastName: 'Lim', carNumber: 1, denName: 'Tigers', score: 3.2, heatsCompleted: 4, rank: 1 },
+  ];
+  const champ = [
+    { racerId: 2, firstName: 'Champ', lastName: 'Winner', carNumber: 2, denName: 'Wolves', score: 2.9, heatsCompleted: 1, rank: 1 },
+  ];
+
+  function mockRoundAwareQuery() {
+    (useQuery as any).mockImplementation(({ pause }: { pause?: boolean }) =>
+      pause === true || pause === undefined
+        ? [{ data: { race }, fetching: false, error: null }, vi.fn()]
+        : [{ data: { race: { id: race.id, leaderboard: champ } }, fetching: false, error: null }, vi.fn()]
+    );
+    (useSubscription as any).mockReturnValue([{ data: { leaderboard: overall }, error: null }, vi.fn()]);
+  }
+
+  it('exports the overall standings under a filename naming the race', async () => {
+    const user = userEvent.setup();
+    mockRoundAwareQuery();
+    render(<MemoryRouter><Leaderboard raceId={7} /></MemoryRouter>);
+
+    await user.click(screen.getByTestId('export-standings'));
+
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+    const [filename, rows] = (downloadCsv as any).mock.calls[0];
+    expect(filename).toBe(filenameFor('Pack 42 Derby', 'standings'));
+    expect(rows).toEqual(standingsRows(overall, 'TIMED'));
+  });
+
+  it('exports the selected round\'s own standings once one is picked', async () => {
+    const user = userEvent.setup();
+    mockRoundAwareQuery();
+    render(<MemoryRouter><Leaderboard raceId={7} /></MemoryRouter>);
+
+    await user.selectOptions(screen.getByLabelText('Standings scope'), '2');
+    await user.click(screen.getByTestId('export-standings'));
+
+    expect(downloadCsv).toHaveBeenCalledTimes(1);
+    const [filename, rows] = (downloadCsv as any).mock.calls[0];
+    // The filename names the round rather than saying "standings" for both —
+    // the overall and a championship round's standings disagree on purpose (#17).
+    expect(filename).toBe(filenameFor('Pack 42 Derby', standingsSuffix('Finals')));
+    expect(rows).toEqual(standingsRows(champ, 'TIMED'));
+  });
+
+  it('points "Print results" at this race\'s printable results page', () => {
+    mockRoundAwareQuery();
+    render(<MemoryRouter><Leaderboard raceId={7} /></MemoryRouter>);
+
+    expect(screen.getByTestId('print-results')).toHaveAttribute('href', '/race/7/print/results');
   });
 });
