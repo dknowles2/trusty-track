@@ -3071,6 +3071,13 @@ class Mutation:
         if heat is None:
             return None
         results = _lanes_from_input(lanes_input)
+        # This is the boundary a client's malformed input actually crosses
+        # (#307): an empty list, a partial lane set, a duplicate lane number
+        # or a racer from another race used to reach `crud.set_heat_lanes`
+        # untouched.
+        problem = crud.validate_lane_replacement(db, heat, results)
+        if problem:
+            raise ValueError(problem)
         # A person typed this: Edit, Override, or a skipped heat. The timer's
         # own results come by a different route entirely (#219).
         updated_heat = typing.cast(
@@ -3628,6 +3635,10 @@ class Mutation:
         if heat is None:
             return None
         lane_results = _lanes_from_input(lanes_input)
+        # Same guard, same reason as `update_heat_result` (#307).
+        problem = crud.validate_lane_replacement(db, heat, lane_results)
+        if problem:
+            raise ValueError(problem)
         updated = typing.cast(
             Any,
             crud.update_free_race_heat_result(

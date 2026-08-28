@@ -167,6 +167,26 @@ def test_the_scheduler_s_negative_ids_are_decoded_at_one_boundary():
     assert empty.is_empty
 
 
+def test_duplicate_lane_numbers_finds_a_repeat():
+    """Two rows claiming lane 1 (#307) — what a valid heat never has."""
+    parsed = _lanes({"lane": 1, "racer_id": 5}, {"lane": 1, "racer_id": 9}, {"lane": 2})
+    assert lanes.duplicate_lane_numbers(parsed) == [1]
+
+
+def test_duplicate_lane_numbers_names_each_repeat_once():
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5},
+        {"lane": 1, "racer_id": 9},
+        {"lane": 1, "racer_id": 3},
+    )
+    assert lanes.duplicate_lane_numbers(parsed) == [1]
+
+
+def test_duplicate_lane_numbers_empty_for_a_clean_set():
+    parsed = _lanes({"lane": 1, "racer_id": 5}, {"lane": 2, "racer_id": 9})
+    assert lanes.duplicate_lane_numbers(parsed) == []
+
+
 def test_real_racer_ids_is_dense():
     """It drops unused lanes and undecided slots rather than yielding None."""
     assert lanes.real_racer_ids(

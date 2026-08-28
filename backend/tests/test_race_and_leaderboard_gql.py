@@ -1,5 +1,24 @@
-from backend.db import crud, schemas
+from backend.db import crud, models, schemas
 from backend.tests.helpers import record_heat_result
+
+
+def _full_results(db, heat_id: int, overrides: dict[int, dict]) -> list[dict]:
+    """A heat's whole lane set, with a result filled in for some of them.
+
+    `updateHeatResult` replaces a heat's entire lane set (#307): a two-racer
+    PPC schedule on a four-lane track leaves two lanes of every heat empty,
+    and sending results for only the raced lanes would now be refused as a
+    partial write. Every real client resends the lanes it did not touch
+    unchanged, which is what this does too.
+    """
+    heat = db.query(models.Heat).filter(models.Heat.id == heat_id).one()
+    results = []
+    for lane in crud.heat_lanes_of(db, heat):
+        if lane.lane in overrides:
+            results.append({"lane": lane.lane, **overrides[lane.lane]})
+        else:
+            results.append({"lane": lane.lane, "racer_id": lane.racer_id})
+    return results
 
 
 def test_race_mutations_and_leaderboard(client, db):
@@ -89,10 +108,14 @@ def test_race_mutations_and_leaderboard(client, db):
     ]["heats"][0]["id"]
 
     # Record results (TIMED strategy by default)
-    results_data = [
-        {"lane": 1, "racer_id": racer_ids[0], "time": 3.45, "place": 1},
-        {"lane": 2, "racer_id": racer_ids[1], "time": 3.50, "place": 2},
-    ]
+    results_data = _full_results(
+        db,
+        heat_id,
+        {
+            1: {"racer_id": racer_ids[0], "time": 3.45, "place": 1},
+            2: {"racer_id": racer_ids[1], "time": 3.50, "place": 2},
+        },
+    )
     record_heat_result(client, heat_id, results_data)
 
     # 5. Query Leaderboard
@@ -218,10 +241,14 @@ def test_leaderboard_den_rank(client, db):
         "race"
     ]["heats"][0]["id"]
 
-    results_data = [
-        {"lane": 1, "racer_id": racer_id, "time": 3.45, "place": 1},
-        {"lane": 2, "racer_id": unranked_racer_id, "time": 3.50, "place": 2},
-    ]
+    results_data = _full_results(
+        db,
+        heat_id,
+        {
+            1: {"racer_id": racer_id, "time": 3.45, "place": 1},
+            2: {"racer_id": unranked_racer_id, "time": 3.50, "place": 2},
+        },
+    )
     record_heat_result(client, heat_id, results_data)
 
     query_leaderboard = f"""
