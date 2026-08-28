@@ -376,8 +376,10 @@ describe('ScheduleManagement', () => {
         expect(screen.queryByText('Round 1')).not.toBeInTheDocument();
     });
 
-    it('disables add round button if final round exists', () => {
-        // The check for "final" in name is simple string match as per component logic
+    it('keeps add round enabled when a round is named "Final Round" (#327)', () => {
+        // A round's name must never disable Add Round — chaining another
+        // championship round off a final, or adding a Slowest Race bracket
+        // after it, are both intended workflows. See issue #327.
         const finalHeats: Heat[] = [
             { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Final Round' },
         ];
@@ -406,7 +408,7 @@ describe('ScheduleManagement', () => {
             </MemoryRouter>
         );
         const addBtn = screen.getByRole('button', { name: /Add Round/i });
-        expect(addBtn).toBeDisabled();
+        expect(addBtn).not.toBeDisabled();
     });
 
     it('calls onDeleteRound when delete button is clicked', async () => {
