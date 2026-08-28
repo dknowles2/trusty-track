@@ -6,17 +6,27 @@ import RaceControl from './RaceControl';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AlertProvider } from '../../../context/AlertContext';
 
+// Captures the real (unmocked) onReorderHeats function RaceControl hands
+// down, so a test can call it directly the way ScheduleManagement's own
+// drag-end handler does — without mocking ScheduleManagement's own
+// catch/toast/revert, which is exercised separately in
+// ScheduleManagement.test.tsx.
+let capturedOnReorderHeats: ((updates: { heat_id: number, new_heat_number: number }[]) => Promise<void>) | undefined;
+
 // Mock child components
 vi.mock('../components/ScheduleManagement', () => ({
-    ScheduleManagement: ({ onRunHeat, heats }: any) => (
-        <div data-testid="schedule-management">
-            {heats.map((heat: any) => (
-                <button key={heat.id} onClick={() => onRunHeat(heat, true)}>
-                    Run Heat {heat.id}
-                </button>
-            ))}
-        </div>
-    )
+    ScheduleManagement: ({ onRunHeat, onReorderHeats, heats }: any) => {
+        capturedOnReorderHeats = onReorderHeats;
+        return (
+            <div data-testid="schedule-management">
+                {heats.map((heat: any) => (
+                    <button key={heat.id} onClick={() => onRunHeat(heat, true)}>
+                        Run Heat {heat.id}
+                    </button>
+                ))}
+            </div>
+        );
+    }
 }));
 
 vi.mock('../components/RaceExecution', () => ({
@@ -58,6 +68,7 @@ describe('RaceControl Reordering on Run', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        capturedOnReorderHeats = undefined;
         (useQuery as any).mockReturnValue([{ data: mockRaceData, fetching: false }, vi.fn()]);
         (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
     });
@@ -125,5 +136,40 @@ describe('RaceControl Reordering on Run', () => {
 
         // Reorder mutation should NOT have been called
         expect(mockMutation).not.toHaveBeenCalled();
+    });
+
+    it('rejects the onReorderHeats prop passed to ScheduleManagement on a failed mutation (#443)', async () => {
+        // Regression test for the drag-reorder toast being dead code: the
+        // wrapper handed to ScheduleManagement used to `await` the internal
+        // helper and discard its success/failure result, so it always
+        // resolved and ScheduleManagement's own catch/toast/revert never
+        // ran. It must now propagate the failure.
+        const mockMutation = vi.fn().mockResolvedValue({ error: new Error('reorder failed') });
+        (useMutation as any).mockImplementation((query: any) => {
+            const qStr = JSON.stringify(query);
+            if (qStr.includes('reorderHeats')) {
+                return [{ fetching: false }, mockMutation];
+            }
+            return [{ fetching: false }, vi.fn().mockResolvedValue({ data: {} })];
+        });
+
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control/schedule`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        await waitFor(() => expect(screen.getByTestId('schedule-management')).toBeInTheDocument());
+        expect(capturedOnReorderHeats).toBeDefined();
+
+        await expect(
+            capturedOnReorderHeats!([{ heat_id: 2, new_heat_number: 1 }])
+        ).rejects.toBeTruthy();
+
+        expect(mockMutation).toHaveBeenCalled();
     });
 });
