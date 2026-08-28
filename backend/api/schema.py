@@ -2197,6 +2197,19 @@ async def _admit_late_racers(info: Info, race_id: int) -> None:
     await _revalidate_timers(info)
 
 
+def _race_id_for_racers(db: Session, racer_ids: list[int]) -> int | None:
+    """The race a bulk mutation's racers belong to, or ``None`` if there are none.
+
+    Five bulk resolvers each re-derived this from ``racer_ids[0]`` — to know
+    which race's state to publish — with three different null-guard styles
+    for the same lookup. Naming it once ends the drift.
+    """
+    if not racer_ids:
+        return None
+    racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
+    return racer.race_id if racer else None
+
+
 def _device_for(track: Any) -> TimerProfile:
     """The profile a track should run on.
 
@@ -3284,27 +3297,21 @@ class Mutation:
     async def bulk_auto_number(self, info: Info, racer_ids: list[int]) -> int:
         """Bulk auto-number racers."""
         db = info.context["db"]
-        if not racer_ids:
+        race_id = _race_id_for_racers(db, racer_ids)
+        if race_id is None:
             return 0
-        racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
-        if not racer:
-            return 0
-        count = crud.auto_number_racers(db, racer.race_id, racer_ids)
-        await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
+        count = crud.auto_number_racers(db, race_id, racer_ids)
+        await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return count
 
     @strawberry.mutation
     async def bulk_clear_numbers(self, info: Info, racer_ids: list[int]) -> bool:
         """Bulk clear car numbers."""
         db = info.context["db"]
-        racer = (
-            db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
-            if racer_ids
-            else None
-        )
+        race_id = _race_id_for_racers(db, racer_ids)
         crud.bulk_clear_car_numbers(db, racer_ids)
-        if racer:
-            await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
+        if race_id is not None:
+            await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return True
 
     @strawberry.mutation
@@ -3313,10 +3320,8 @@ class Mutation:
     ) -> bool:
         """Bulk check-in racers."""
         db = info.context["db"]
-        if not racer_ids:
-            return False
-        racer = db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
-        if not racer:
+        race_id = _race_id_for_racers(db, racer_ids)
+        if race_id is None:
             return False
         crud.bulk_check_in_racers(db, racer_ids, passed_inspection)
         # Once for the batch, not once per racer: both directions are
@@ -3324,8 +3329,8 @@ class Mutation:
         # regenerate an unraced round sixty times over a desk queue. Runs for
         # un-checks too — that is how a bulk withdrawal reaches the schedule
         # (#228).
-        await _admit_late_racers(info, racer.race_id)
-        await _publish_race_state(racer.race_id, kind=RaceChangeKind.RACER)
+        await _admit_late_racers(info, race_id)
+        await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return True
 
     @strawberry.mutation
@@ -3334,28 +3339,19 @@ class Mutation:
     ) -> bool:
         """Bulk move racers to a den."""
         db = info.context["db"]
-        racer = (
-            db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
-            if racer_ids
-            else None
-        )
+        race_id = _race_id_for_racers(db, racer_ids)
         crud.bulk_move_racers_to_den(db, racer_ids, den_id)
-        if racer:
-            await _publish_race_state(racer.race_id, kind=RaceChangeKind.ROSTER)
+        if race_id is not None:
+            await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return True
 
     @strawberry.mutation
     async def bulk_delete_racers(self, info: Info, racer_ids: list[int]) -> bool:
         """Bulk delete racers."""
         db = info.context["db"]
-        racer = (
-            db.query(models.Racer).filter(models.Racer.id == racer_ids[0]).first()
-            if racer_ids
-            else None
-        )
-        race_id = racer.race_id if racer else None
+        race_id = _race_id_for_racers(db, racer_ids)
         crud.bulk_delete_racers(db, racer_ids)
-        if race_id:
+        if race_id is not None:
             # Same #50 risk as a single delete, and this is the desk's bulk
             # path onto it (#309).
             await _revalidate_timers(info)

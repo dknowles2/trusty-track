@@ -1249,13 +1249,9 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
         rounds = db.query(models.Round).filter(models.Round.race_id == race.id).all()
 
         for round_obj in rounds:
-            heats = [
-                h
-                for h in db.query(models.Heat)
-                .filter(models.Heat.round_id == round_obj.id)
-                .all()
-                if h.kind is models.HeatKind.OFFICIAL
-            ]
+            heats = models.official_heats(
+                db.query(models.Heat).filter(models.Heat.round_id == round_obj.id)
+            ).all()
             if not heats:
                 continue
 
@@ -1336,13 +1332,9 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
     disrupted_round_ids: list[int] = []
 
     for round_obj in rounds:
-        heats = [
-            h
-            for h in db.query(models.Heat)
-            .filter(models.Heat.round_id == round_obj.id)
-            .all()
-            if h.kind is models.HeatKind.OFFICIAL
-        ]
+        heats = models.official_heats(
+            db.query(models.Heat).filter(models.Heat.round_id == round_obj.id)
+        ).all()
         if not heats:
             # Not generated yet; whenever it is, it will field whoever has
             # checked in by then.
@@ -1445,13 +1437,9 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
 
     rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
     for round_obj in rounds:
-        heats = [
-            h
-            for h in db.query(models.Heat)
-            .filter(models.Heat.round_id == round_obj.id)
-            .all()
-            if h.kind is models.HeatKind.OFFICIAL
-        ]
+        heats = models.official_heats(
+            db.query(models.Heat).filter(models.Heat.round_id == round_obj.id)
+        ).all()
         if not heats:
             continue
         heat_lanes = lanes_for_heats(db, heats)
