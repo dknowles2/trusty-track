@@ -33,6 +33,22 @@ class TrackBase(BaseModel):
     timer_profile: str | None = None
     remote_start_installed: bool = False
 
+    @field_validator("lane_count")
+    @classmethod
+    def lane_count_is_plausible(cls, value: int) -> int:
+        """Refuse a lane count nothing downstream can act on.
+
+        Zero silently schedules nothing (`generate_ppc` refuses an empty
+        lane set). Negative is worse: `prepare_heat` and `startTimerTest`
+        both compute `(1 << lane_count) - 1` as a lane mask, and a negative
+        shift count raises rather than returning a heat sheet — an
+        unhandled 500 far from the mistake that caused it. The upper bound
+        matches the settings form's own `max="8"`.
+        """
+        if not 1 <= value <= 8:
+            raise ValueError("lane_count must be between 1 and 8")
+        return value
+
 
 class HistoricalTrackRecordBase(BaseModel):
     """A record from before Trusty Track was keeping them, as typed in."""
