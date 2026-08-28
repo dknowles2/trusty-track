@@ -4,6 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import DisplaysPanel from './DisplaysPanel';
 import { useQuery, useMutation } from 'urql';
+import { ADVANCE_DISPLAY, ASSIGN_DISPLAY } from '../graphql/queries';
 
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
@@ -16,6 +17,7 @@ vi.mock('urql', async (importOriginal) => {
 });
 
 const assignDisplay = vi.fn().mockResolvedValue({ data: {} });
+const advanceDisplay = vi.fn().mockResolvedValue({ data: {} });
 
 function renderPanel(view: string, cycleSeconds = 10, connected = true, awards = 2) {
     // Two queries, and they answer different questions: the list of screens,
@@ -61,12 +63,14 @@ function renderPanel(view: string, cycleSeconds = 10, connected = true, awards =
             vi.fn(),
         ];
     });
-    // Every useMutation in the component gets the same spy; the assertions
-    // below read the variables, which name the mutation unambiguously.
-    (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockReturnValue([
-        { fetching: false },
-        assignDisplay,
-    ]);
+    // Discriminated by document: `assignDisplay` and `advanceDisplay` send
+    // different variable shapes (`{ view, cycleSeconds }` vs. `{ delta }`), and
+    // a single shared spy could not tell which mutation actually fired.
+    (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation((query: unknown) => {
+        if (query === ASSIGN_DISPLAY) return [{ fetching: false }, assignDisplay];
+        if (query === ADVANCE_DISPLAY) return [{ fetching: false }, advanceDisplay];
+        return [{ fetching: false }, vi.fn()];
+    });
     render(<DisplaysPanel raceId={1} />);
 }
 
@@ -116,10 +120,13 @@ describe('driving a ceremony from the operator’s list', () => {
     it('sends a step, never a slide number — only the screen knows that', () => {
         renderPanel('AWARDS');
         fireEvent.click(screen.getByLabelText('Next award on Gym north'));
-        expect(assignDisplay).toHaveBeenCalledWith({ displayId: 'd-1', delta: 1 });
+        expect(advanceDisplay).toHaveBeenCalledWith({ displayId: 'd-1', delta: 1 });
 
         fireEvent.click(screen.getByLabelText('Previous award on Gym north'));
-        expect(assignDisplay).toHaveBeenCalledWith({ displayId: 'd-1', delta: -1 });
+        expect(advanceDisplay).toHaveBeenCalledWith({ displayId: 'd-1', delta: -1 });
+
+        // Never through assignDisplay, which is a different mutation entirely.
+        expect(assignDisplay).not.toHaveBeenCalled();
     });
 
     it('is dead for a screen that is not there', () => {
