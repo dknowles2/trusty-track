@@ -9,7 +9,7 @@
  * backend is reachable (the Vite proxy handles the SSL tunnel to port 8005).
  */
 
-import { test } from './screenshots-setup';
+import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -212,6 +212,10 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
     await page.waitForTimeout(300);
 
     // ── Screenshot 6: modal with 2 photos assigned, Apply button active ─────
+    // The caption's claims: two of the three uploaded photos are assigned,
+    // and Apply is enabled rather than greyed out.
+    await expect(page.getByText('2 of 3 uploaded photo(s) assigned')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Apply 2 Assignment/ })).toBeEnabled();
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '24-bulk-upload-assigned.png'),
     });
