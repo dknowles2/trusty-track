@@ -37,13 +37,18 @@ awards. What it will not do:
 - **set a PIN.** An install with no operator PIN treats every caller as the
   operator, so without this the first visitor to open System Settings would own
   the demo until somebody reset it;
+- **create or edit a track.** Both can point a track's timer at a real serial
+  port, which is the same door back into probing USB devices that booting the
+  demo otherwise closes;
 - **accept a photograph.** Uploads are refused outright, which keeps the demo
   from holding a picture of somebody's child;
 - **populate, import or create a practice race.** These make rows in bulk with
   no credential, on an instance other people are looking at;
 - **download or restore a backup**, or connect a timer over the browser.
 
-Everything else works, including deleting a race — the reset undoes it.
+Everything else works, including deleting a race — the reset undoes it. Track
+setup is the one exception beyond the PIN itself: System Settings is otherwise
+read-only for tracks on the demo.
 
 ## What it keeps
 

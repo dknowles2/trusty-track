@@ -49,6 +49,7 @@ For the full documentation and user guides, visit: **[https://dknowles2.github.i
 | [Getting Started](https://dknowles2.github.io/trusty-track/getting-started/)           | First-time setup: system settings and creating your first race    |
 | [Race Setup Guide](https://dknowles2.github.io/trusty-track/race-setup/)               | Managing dens, registering racers, and preparing the roster       |
 | [Race Day Operations](https://dknowles2.github.io/trusty-track/race-day/)              | Check-in, scheduling heats, running the race, and final standings |
+| [Scoring & Championships](https://dknowles2.github.io/trusty-track/scoring-and-championships/) | How scores are worked out, and how championship rounds pick their field |
 | [Awards](https://dknowles2.github.io/trusty-track/awards/)                             | Speed trophies, and the judged ones the timer cannot decide       |
 | [Printables](https://dknowles2.github.io/trusty-track/printables/)                     | Pit passes, driver's licences, and scannable check-in codes       |
 | [Free Race](https://dknowles2.github.io/trusty-track/free-race/)                       | Practice and exhibition heats that count for nothing              |
@@ -83,7 +84,7 @@ Not sure which to pick? See [Which method should I use?](https://dknowles2.githu
 ./scripts/serve.sh
 ```
 
-Then open `http://localhost:8005` in your browser.
+Then open `https://localhost:8005` in your browser. `serve.sh` always runs over HTTPS with a self-signed certificate it generates on first run, so your browser will warn that the certificate isn't trusted — that's expected for a local install; accept it to continue.
 
 ---
 

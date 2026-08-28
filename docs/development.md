@@ -90,9 +90,9 @@ uv run mypy backend
 
 `mypy` is configured with an **exemption list** in `pyproject.toml` rather than
 a list of modules to check — a new module is covered from the day it is
-written, and the list can only shrink. Three modules are exempt; everything
-else, including all of `backend/domain/` (held to `disallow_untyped_defs`), is
-checked.
+written, and the list can only shrink. It is down to one module,
+`backend.api.schema`; everything else, including all of `backend/domain/`
+(held to `disallow_untyped_defs`), is checked.
 
 ### 5. Database
 
