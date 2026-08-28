@@ -270,6 +270,7 @@ type LeaderboardEntry {
   carNumber: Int
   denId: Int
   denName: String!
+  denRank: String
   score: Float!
   heatsCompleted: Int!
   racerImageUrl: String

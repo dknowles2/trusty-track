@@ -44,6 +44,7 @@ The "Now Racing" panel shows which cars are on the track right now. For each rac
 - Racer name
 - Car number
 - Lane number
+- Den rank (if the racer's den has one set)
 - Racer photo (if a photo was uploaded during check-in)
 
 ![Now Racing Panel](assets/screenshots/observation/03-now-racing-panel.png)
@@ -66,7 +67,7 @@ _Mid-round: the heat on the track, the one on deck, and the one after that. Each
 
 ### Live Leaderboard
 
-The **Standings** tab shows the current leaderboard for all racers, updated after each completed heat. It is deliberately narrow for reading at a distance — rank, racer, average time, and runs. The fuller table, with car number and den, is on the Standings page — the **Standings** tab in the race navigation bar.
+The **Standings** tab shows the current leaderboard for all racers, updated after each completed heat. It is deliberately narrow for reading at a distance — rank, racer, average time, and runs. A racer's den rank shows beneath their name when their den has one. The fuller table, with car number and den, is on the Standings page — the **Standings** tab in the race navigation bar.
 
 Switch to the **Timing Stats** tab to see the results of the most recently recorded heat: every car that ran it, in finishing order, with its place and its time.
 
