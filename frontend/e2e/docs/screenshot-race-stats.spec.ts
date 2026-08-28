@@ -253,6 +253,15 @@ test('screenshot the race stats page', async ({ page }) => {
     // 08: the whole page.
     await page.evaluate(() => window.scrollTo(0, 0));
     await expect(overviewCards).toBeVisible();
+    // The caption's claim: an in-progress race, with the Heats Completed card
+    // showing partial completion — not every heat run, and not none of them.
+    const heatsCompletedText = await page
+        .locator('.race-stats__overview-card-value')
+        .nth(2)
+        .innerText();
+    const [completed, scheduled] = heatsCompletedText.split('/').map((n) => Number(n.trim()));
+    expect(completed).toBeGreaterThan(0);
+    expect(completed).toBeLessThan(scheduled);
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '08-stats-live-partial.png'),
         fullPage: true,
