@@ -43,8 +43,14 @@ What the scanner may say, and what each message means:
 
 Scanning uses a browser feature only Chrome and Edge have. In Safari and
 Firefox the scanner opens without a viewfinder, and the **Car number** box
-is the way in. The box works everywhere, and only matches when exactly one
-racer holds that number.
+is the way in. The box works everywhere, but it only resolves a number that
+belongs to exactly one racer — manual numbering allows duplicates, so it
+says which case it hit:
+
+| What it says | What happened |
+| --- | --- |
+| No racer has car number *N* | Nobody on the roster holds that number |
+| More than one racer has car number *N* — find them by name | Manual numbering allows duplicates; look the racer up on the roster instead |
 
 ## The heat sheet
 

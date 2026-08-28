@@ -90,7 +90,8 @@ Use it when a code is creased, the camera will not focus, or there is a queue.
 
 If the scanner refuses a code, it says why — a code that is not Trusty
 Track's, one from a different race, or one for a racer no longer on the
-roster. Each message is explained in
+roster. Typing a car number nobody holds, or one that more than one racer
+holds, says so too. Each message is explained in
 [Printed documents](reference/printing.md#check-in-codes).
 
 ## Printing
