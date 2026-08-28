@@ -29,6 +29,7 @@ import { useChrome } from '../../../context/ChromeContext';
 import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
 import { errorText } from '../../../utils/errors';
+import { forBallot } from '../awardText';
 import { CAST_VOTE_MUTATION, VOTING_BALLOT_QUERY } from '../graphql/queries';
 
 type BallotCar = {
@@ -65,20 +66,6 @@ function newBallotKey(): string {
   // A browser old enough to lack `randomUUID` still needs *a* fresh key per
   // vote — this is not a security boundary, only an idempotency token.
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-/** Car number ascending, unnumbered last — the same shape
- * `printables/documents.ts`'s `inPrintOrder` uses, but with nothing to fall
- * back to but the id: this page never has a racer's name to sort by. */
-function forBallot(cars: BallotCar[]): BallotCar[] {
-  return [...cars].sort((a, b) => {
-    const hasA = a.carNumber != null;
-    const hasB = b.carNumber != null;
-    if (hasA && hasB) return (a.carNumber as number) - (b.carNumber as number);
-    if (hasA) return -1;
-    if (hasB) return 1;
-    return a.id - b.id;
-  });
 }
 
 export default function VotingBallot() {

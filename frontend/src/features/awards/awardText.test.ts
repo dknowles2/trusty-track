@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   PACK_SOURCE,
+  carLabel,
   describeSpeedAward,
+  forBallot,
   ordinal,
   racerLabel,
   roundLabel,
@@ -146,5 +148,56 @@ describe('naming a racer', () => {
     expect(racerLabel({ firstName: 'Ada', lastName: 'Lovelace', carNumber: null })).toBe(
       'Ada Lovelace',
     );
+  });
+});
+
+describe('naming a car in a vote tally', () => {
+  it('never names the child, only the car', () => {
+    // The whole point of this function: the tally shows who won, not whose
+    // kid did.
+    expect(carLabel({ carNumber: 7, carName: 'Blue Streak' })).toBe('#7 — Blue Streak');
+  });
+
+  it('copes with a car that has no name', () => {
+    expect(carLabel({ carNumber: 7, carName: null })).toBe('#7');
+  });
+
+  it('copes with a car that has no number yet', () => {
+    expect(carLabel({ carNumber: null, carName: 'Blue Streak' })).toBe(
+      'Unnumbered car — Blue Streak',
+    );
+  });
+
+  it('says so when the racer behind the vote has since been removed', () => {
+    expect(carLabel(undefined)).toBe('A car that has since been removed');
+  });
+});
+
+describe('ordering the ballot', () => {
+  it('sorts by car number ascending', () => {
+    const cars = [
+      { id: 1, carNumber: 12 },
+      { id: 2, carNumber: 3 },
+      { id: 3, carNumber: 7 },
+    ];
+    expect(forBallot(cars).map((c) => c.id)).toEqual([2, 3, 1]);
+  });
+
+  it('puts unnumbered cars last, ordered by id', () => {
+    const cars = [
+      { id: 1, carNumber: null },
+      { id: 2, carNumber: 5 },
+      { id: 3, carNumber: null },
+    ];
+    expect(forBallot(cars).map((c) => c.id)).toEqual([2, 1, 3]);
+  });
+
+  it('does not mutate the array it was given', () => {
+    const cars = [
+      { id: 1, carNumber: 2 },
+      { id: 2, carNumber: 1 },
+    ];
+    forBallot(cars);
+    expect(cars.map((c) => c.id)).toEqual([1, 2]);
   });
 });

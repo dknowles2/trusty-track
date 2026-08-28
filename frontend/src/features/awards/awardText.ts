@@ -109,3 +109,39 @@ export function racerLabel(racer: {
   const name = `${racer.firstName} ${racer.lastName}`.trim();
   return racer.carNumber ? `${name} (#${racer.carNumber})` : name;
 }
+
+export interface TalliedCar {
+  carNumber?: number | null;
+  carName?: string | null;
+}
+
+/**
+ * What a car in a vote tally is called, for the operator screen — never a
+ * child's name, the same anonymity the ballot page itself keeps.
+ */
+export function carLabel(racer?: TalliedCar | null): string {
+  if (!racer) return 'A car that has since been removed';
+  const number = racer.carNumber != null ? `#${racer.carNumber}` : 'Unnumbered car';
+  return racer.carName ? `${number} — ${racer.carName}` : number;
+}
+
+export interface BallotCar {
+  id: number;
+  carNumber?: number | null;
+}
+
+/**
+ * Car number ascending, unnumbered last — the same shape
+ * `printables/documents.ts`'s `inPrintOrder` uses, but with nothing to fall
+ * back to but the id: the ballot never has a racer's name to sort by.
+ */
+export function forBallot<T extends BallotCar>(cars: T[]): T[] {
+  return [...cars].sort((a, b) => {
+    const hasA = a.carNumber != null;
+    const hasB = b.carNumber != null;
+    if (hasA && hasB) return (a.carNumber as number) - (b.carNumber as number);
+    if (hasA) return -1;
+    if (hasB) return 1;
+    return a.id - b.id;
+  });
+}
