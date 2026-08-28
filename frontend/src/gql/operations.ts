@@ -153,6 +153,11 @@ export type CacheTestCreateRaceMutationVariables = Exact<{ [key: string]: never;
 
 export type CacheTestCreateRaceMutation = { createRace: { id: number } };
 
+export type CacheTestCreatePracticeRaceMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type CacheTestCreatePracticeRaceMutation = { createPracticeRace: { id: number } };
+
 export type GetInitialConfigQueryVariables = Exact<{ [key: string]: never; }>;
 
 
