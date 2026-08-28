@@ -15,6 +15,7 @@ import { Icon } from '@mdi/react';
 import { mdiArrowDown, mdiArrowUp, mdiPencil, mdiTrashCan, mdiTrophyOutline } from '@mdi/js';
 import Modal from '../../../components/ui/Modal';
 import { useAlert } from '../../../context/AlertContext';
+import { useRunMutation } from '../../../context/runMutation';
 import { errorText } from '../../../utils/errors';
 import AwardArtwork from '../artwork';
 import { describeSpeedAward, racerLabel } from '../awardText';
@@ -66,7 +67,8 @@ function carLabel(racer?: VoteTallyRow['racer']): string {
 export default function Awards() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
-  const { showConfirm, showToast } = useAlert();
+  const { showConfirm } = useAlert();
+  const runMutation = useRunMutation();
 
   const [result, refetch] = useQuery({
     query: RACE_AWARDS_QUERY,
@@ -116,49 +118,53 @@ export default function Awards() {
   });
 
   const toggleVoting = async () => {
-    const response = await updateRaceVoting({ id, race: { votingOpen: !votingOpen } });
-    if (response.error) {
-      showToast(errorText(response.error, 'Voting could not be changed.'), 'error');
-      return;
-    }
+    const response = await runMutation(
+      updateRaceVoting,
+      { id, race: { votingOpen: !votingOpen } },
+      'Voting could not be changed.',
+    );
+    if (!response) return;
     refetch({ requestPolicy: 'network-only' });
   };
 
   const applyTallyWinner = async (award: AwardRow, racerId: number) => {
-    const response = await updateAward({
-      id: award.id,
-      award: {
-        name: award.name,
-        kind: 'SPECIAL',
-        racerId,
-        artworkKey: award.artworkKey ?? null,
-        votable: award.votable ?? false,
+    const response = await runMutation(
+      updateAward,
+      {
+        id: award.id,
+        award: {
+          name: award.name,
+          kind: 'SPECIAL',
+          racerId,
+          artworkKey: award.artworkKey ?? null,
+          votable: award.votable ?? false,
+        },
       },
-    });
-    if (response.error) {
-      showToast(errorText(response.error, 'The winner could not be set.'), 'error');
-      return;
-    }
+      'The winner could not be set.',
+    );
+    if (!response) return;
     refetch({ requestPolicy: 'network-only' });
   };
 
   const handleCreate = async (draft: AwardDraft) => {
-    const response = await createAward({ raceId: id, award: asInput(draft) });
-    if (response.error) {
-      showToast(errorText(response.error, 'The award could not be added.'), 'error');
-      return;
-    }
+    const response = await runMutation(
+      createAward,
+      { raceId: id, award: asInput(draft) },
+      'The award could not be added.',
+    );
+    if (!response) return;
     setAdding(false);
     refetch({ requestPolicy: 'network-only' });
   };
 
   const handleUpdate = async (draft: AwardDraft) => {
     if (!editing) return;
-    const response = await updateAward({ id: editing.id, award: asInput(draft) });
-    if (response.error) {
-      showToast(errorText(response.error, 'The award could not be saved.'), 'error');
-      return;
-    }
+    const response = await runMutation(
+      updateAward,
+      { id: editing.id, award: asInput(draft) },
+      'The award could not be saved.',
+    );
+    if (!response) return;
     setEditing(null);
     refetch({ requestPolicy: 'network-only' });
   };
@@ -171,11 +177,12 @@ export default function Awards() {
       'danger',
     );
     if (!confirmed) return;
-    const response = await deleteAward({ id: award.id });
-    if (response.error) {
-      showToast(errorText(response.error, 'The award could not be removed.'), 'error');
-      return;
-    }
+    const response = await runMutation(
+      deleteAward,
+      { id: award.id },
+      'The award could not be removed.',
+    );
+    if (!response) return;
     refetch({ requestPolicy: 'network-only' });
   };
 
@@ -184,11 +191,12 @@ export default function Awards() {
     if (target < 0 || target >= awards.length) return;
     const order = awards.map((a) => a.id);
     [order[index], order[target]] = [order[target], order[index]];
-    const response = await reorderAwards({ raceId: id, awardIds: order });
-    if (response.error) {
-      showToast(errorText(response.error, 'The awards could not be reordered.'), 'error');
-      return;
-    }
+    const response = await runMutation(
+      reorderAwards,
+      { raceId: id, awardIds: order },
+      'The awards could not be reordered.',
+    );
+    if (!response) return;
     refetch({ requestPolicy: 'network-only' });
   };
 

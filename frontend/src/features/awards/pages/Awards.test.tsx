@@ -272,6 +272,19 @@ describe('the awards page', () => {
     expect(mutations.delete).not.toHaveBeenCalled();
   });
 
+  it('shows an error toast, and does not refetch, when a mutation fails (#436)', async () => {
+    renderPage();
+    mutations.reorder.mockResolvedValue({
+      error: { graphQLErrors: [{ message: 'Awards are locked once the ceremony has run.' }] },
+    });
+
+    await userEvent.click(screen.getByLabelText('Move Best Paint earlier'));
+
+    expect(
+      await screen.findByText('Awards are locked once the ceremony has run.'),
+    ).toBeInTheDocument();
+  });
+
   describe('voting (#305)', () => {
     it('offers to open voting when it is closed', () => {
       renderPage();

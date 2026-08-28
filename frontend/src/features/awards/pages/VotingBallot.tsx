@@ -27,6 +27,7 @@ import { useParams } from 'react-router-dom';
 import { useMutation, useQuery } from 'urql';
 import { useChrome } from '../../../context/ChromeContext';
 import { useAlert } from '../../../context/AlertContext';
+import { useRunMutation } from '../../../context/runMutation';
 import { errorText } from '../../../utils/errors';
 import { CAST_VOTE_MUTATION, VOTING_BALLOT_QUERY } from '../graphql/queries';
 
@@ -99,6 +100,7 @@ export default function VotingBallot() {
     pause: !id || isNaN(id),
   });
   const [, castVote] = useMutation(CAST_VOTE_MUTATION);
+  const runMutation = useRunMutation();
 
   // Which car each just-cast vote landed on, keyed by award, so the
   // confirmation is scoped to that award rather than the whole page and can
@@ -118,16 +120,13 @@ export default function VotingBallot() {
 
   const vote = async (awardId: number, car: BallotCar) => {
     setSubmitting(awardId);
-    const response = await castVote({
-      awardId,
-      racerId: car.id,
-      ballotKey: newBallotKey(),
-    });
+    const response = await runMutation(
+      castVote,
+      { awardId, racerId: car.id, ballotKey: newBallotKey() },
+      'Your vote could not be sent.',
+    );
     setSubmitting(null);
-    if (response.error) {
-      showToast(errorText(response.error, 'Your vote could not be sent.'), 'error');
-      return;
-    }
+    if (!response) return;
     if (response.data?.castVote) {
       // A refusal the server explains in a sentence — voting closed between
       // this page loading and the tap, most likely.
