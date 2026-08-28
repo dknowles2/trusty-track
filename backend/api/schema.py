@@ -2986,6 +2986,21 @@ class Mutation:
         ``is_free_race`` is accepted and ignored: heat ids are unique across
         both kinds since #6, so the kind is read off the heat rather than
         trusted from the caller. Callers still pass it.
+
+        Refused while a *different* heat is running or its results are
+        overdue (#337): cars are on the track and the finish-line results
+        still to arrive belong to that heat. Arming another one instead
+        would swap ``_active_heat_id`` out from under them, and the
+        ARMED→RUNNING transition `LaneResult` handling exists for (needed for
+        timers with no start signal) would then read the old run's times as
+        the new heat's own — the staleness guard in `_record_results` cannot
+        catch it, because the new heat's lanes really do match what it was
+        armed with. Re-preparing the *same* heat is untouched — that is
+        "Reset Heat", the operator's deliberate way to abandon a stuck run
+        and retry it, and preparing while merely ARMED or READY is untouched
+        too: nothing is pending yet, so switching the operator's choice
+        before the gate opens is the ordinary "wrong heat selected"
+        correction.
         """
         timer_managers = info.context.get("timer_managers", {})
         db = info.context["db"]
@@ -2998,6 +3013,11 @@ class Mutation:
             return False
         mgr = timer_managers.get(race.track_id)
         if mgr is None:
+            return False
+        if (
+            mgr._state in (TimerState.RUNNING, TimerState.RESULTS_OVERDUE)
+            and mgr._active_heat_id != heat_id
+        ):
             return False
 
         lane_mask = 0
