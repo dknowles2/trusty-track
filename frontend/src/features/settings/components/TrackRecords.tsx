@@ -15,7 +15,7 @@
 import { useState } from 'react';
 import { gql, useMutation } from 'urql';
 import { useAlert } from '../../../context/AlertContext';
-import { errorText } from '../../../utils/errors';
+import { useRunMutation } from '../../../context/runMutation';
 
 const CREATE_TRACK_RECORD = gql`
   mutation CreateTrackRecord($trackId: Int!, $record: HistoricalTrackRecordInput!) {
@@ -78,6 +78,7 @@ const inputStyle = {
 
 export default function TrackRecords({ trackId, records, onChange }: Props) {
   const { showToast } = useAlert();
+  const runMutation = useRunMutation();
   const [, createRecord] = useMutation(CREATE_TRACK_RECORD);
   const [, updateRecord] = useMutation(UPDATE_TRACK_RECORD);
   const [, deleteRecord] = useMutation(DELETE_TRACK_RECORD);
@@ -123,13 +124,10 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
     };
     setBusy(true);
     const response = editingId
-      ? await updateRecord({ recordId: editingId, record })
-      : await createRecord({ trackId, record });
+      ? await runMutation(updateRecord, { recordId: editingId, record }, 'The record could not be saved.')
+      : await runMutation(createRecord, { trackId, record }, 'The record could not be saved.');
     setBusy(false);
-    if (response.error) {
-      showToast(errorText(response.error, 'The record could not be saved.'), 'error');
-      return;
-    }
+    if (!response) return;
     const saved: HistoricalRecord = editingId
       ? response.data.updateTrackRecord
       : response.data.createTrackRecord;
@@ -142,12 +140,13 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
 
   const remove = async (recordId: number) => {
     setBusy(true);
-    const response = await deleteRecord({ recordId });
+    const response = await runMutation(
+      deleteRecord,
+      { recordId },
+      'The record could not be removed.',
+    );
     setBusy(false);
-    if (response.error) {
-      showToast(errorText(response.error, 'The record could not be removed.'), 'error');
-      return;
-    }
+    if (!response) return;
     if (editingId === recordId) stopEditing();
     onChange(records.filter((r) => r.id !== recordId));
   };

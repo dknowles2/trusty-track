@@ -96,6 +96,20 @@ describe('TrackRecords', () => {
         expect(executeMutation).not.toHaveBeenCalled();
     });
 
+    it('shows an error toast, and does not call onChange, when saving fails (#436)', async () => {
+        executeMutation.mockResolvedValue({
+            error: { graphQLErrors: [{ message: 'A record time must be positive.' }] },
+        });
+        const onChange = renderRecords([jimmy]);
+
+        await userEvent.type(screen.getByLabelText(/record time/i), '3.2');
+        await userEvent.type(screen.getByLabelText(/who set the record/i), 'New Kid');
+        await userEvent.click(screen.getByRole('button', { name: /add record/i }));
+
+        expect(await screen.findByText('A record time must be positive.')).toBeInTheDocument();
+        expect(onChange).not.toHaveBeenCalled();
+    });
+
     it('removes a record on its ✕', async () => {
         executeMutation.mockResolvedValue({ data: { deleteTrackRecord: true } });
         const onChange = renderRecords([jimmy]);

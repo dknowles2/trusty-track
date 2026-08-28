@@ -146,6 +146,21 @@ describe('the voting ballot page (#305)', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows an error toast when the vote request itself fails (#436)', async () => {
+    renderPage();
+    castVote.mockResolvedValue({ error: { networkError: new Error('offline') } });
+
+    await userEvent.click(screen.getByText('#42'));
+
+    expect(
+      await screen.findByText(
+        'Trusty Track could not be reached. Check the network connection and try again.',
+      ),
+    ).toBeInTheDocument();
+    // A failed request never reaches the "thanks for voting" confirmation.
+    expect(screen.queryByText(/thanks for voting/i)).toBeNull();
+  });
+
   it('shows the reason a vote was refused rather than a raw error', async () => {
     castVote = vi
       .fn()

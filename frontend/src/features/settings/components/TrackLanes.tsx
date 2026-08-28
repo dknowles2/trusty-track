@@ -14,8 +14,7 @@
 
 import { useState } from 'react';
 import { gql, useMutation } from 'urql';
-import { useAlert } from '../../../context/AlertContext';
-import { errorText } from '../../../utils/errors';
+import { useRunMutation } from '../../../context/runMutation';
 import { lanesOf, outageSummary, toggleLane } from '../laneOutages';
 
 const SET_LANE_OUTAGES_MUTATION = gql`
@@ -32,22 +31,20 @@ interface Props {
 }
 
 export default function TrackLanes({ trackId, laneCount, outages, onChange }: Props) {
-  const { showToast } = useAlert();
   const [, setLaneOutages] = useMutation(SET_LANE_OUTAGES_MUTATION);
+  const runMutation = useRunMutation();
   const [busy, setBusy] = useState(false);
 
   const toggle = async (lane: number) => {
     const next = toggleLane(outages, lane);
     setBusy(true);
-    const response = await setLaneOutages({ trackId, lanes: next });
+    const response = await runMutation(
+      setLaneOutages,
+      { trackId, lanes: next },
+      'The lane change could not be saved.',
+    );
     setBusy(false);
-    if (response.error) {
-      showToast(
-        errorText(response.error, 'The lane change could not be saved.'),
-        'error',
-      );
-      return;
-    }
+    if (!response) return;
     // The server drops lanes the track does not have, so take its answer
     // rather than assuming ours was accepted whole.
     onChange(response.data?.setLaneOutages ?? next);
