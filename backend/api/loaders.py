@@ -49,6 +49,7 @@ class RequestLoaders:
         self._lane_values: dict[tuple[int, int], list[lanes.Lane]] = {}
         self._awards_by_race: dict[int, list[models.Award]] = {}
         self._award_recipients: dict[int, dict[int, int | None]] = {}
+        self._award_vote_tallies: dict[int, dict[int, list[tuple[int, int]]]] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -69,6 +70,7 @@ class RequestLoaders:
         self._lane_values.clear()
         self._awards_by_race.clear()
         self._award_recipients.clear()
+        self._award_vote_tallies.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -241,6 +243,19 @@ class RequestLoaders:
                 self._db, race_id, self.awards_for_race(race_id)
             )
         return self._award_recipients[race_id]
+
+    def award_vote_tallies(self, race_id: int) -> dict[int, list[tuple[int, int]]]:
+        """Memoised ``{award_id: [(racer_id, vote_count), ...]}`` (#305).
+
+        Whole-race, the same shape as :meth:`award_recipients` and for the
+        same reason: a tally screen showing every votable award asks for all
+        of them at once.
+        """
+        if race_id not in self._award_vote_tallies:
+            self._award_vote_tallies[race_id] = awards_service.vote_tallies_for(
+                self._db, self.awards_for_race(race_id)
+            )
+        return self._award_vote_tallies[race_id]
 
     def global_heat_number(self, race_id: int, heat_id: int) -> int | None:
         """Position of a heat across the whole race, 1-indexed.

@@ -57,6 +57,8 @@ export type Award = {
   recipient?: Maybe<Racer>;
   sortOrder: Scalars['Int']['output'];
   source?: Maybe<Scalars['String']['output']>;
+  votable: Scalars['Boolean']['output'];
+  voteTally: Array<AwardVoteTally>;
 };
 
 export type AwardInput = {
@@ -69,6 +71,14 @@ export type AwardInput = {
   racerId?: InputMaybe<Scalars['Int']['input']>;
   sortOrder?: InputMaybe<Scalars['Int']['input']>;
   source?: InputMaybe<Scalars['String']['input']>;
+  votable?: Scalars['Boolean']['input'];
+};
+
+export type AwardVoteTally = {
+  raceId: Scalars['Int']['output'];
+  racer?: Maybe<Racer>;
+  racerId: Scalars['Int']['output'];
+  voteCount: Scalars['Int']['output'];
 };
 
 export type Den = {
@@ -309,6 +319,7 @@ export type Mutation = {
   bulkClearNumbers: Scalars['Boolean']['output'];
   bulkDeleteRacers: Scalars['Boolean']['output'];
   bulkMoveToDen: Scalars['Boolean']['output'];
+  castVote?: Maybe<Scalars['String']['output']>;
   checkInRacer?: Maybe<Racer>;
   createAward: Award;
   createDen: Den;
@@ -412,6 +423,13 @@ export type MutationBulkDeleteRacersArgs = {
 export type MutationBulkMoveToDenArgs = {
   denId?: InputMaybe<Scalars['Int']['input']>;
   racerIds: Array<Scalars['Int']['input']>;
+};
+
+
+export type MutationCastVoteArgs = {
+  awardId: Scalars['Int']['input'];
+  ballotKey: Scalars['String']['input'];
+  racerId: Scalars['Int']['input'];
 };
 
 
@@ -809,6 +827,7 @@ export type Race = {
   scoringStrategy: Scalars['String']['output'];
   track?: Maybe<Track>;
   trackId?: Maybe<Scalars['Int']['output']>;
+  votingOpen: Scalars['Boolean']['output'];
   weightLimitOz?: Maybe<Scalars['Float']['output']>;
 };
 
@@ -874,6 +893,7 @@ export type RaceUpdateInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
   trackId?: InputMaybe<Scalars['Int']['input']>;
+  votingOpen?: InputMaybe<Scalars['Boolean']['input']>;
   weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
 };
 

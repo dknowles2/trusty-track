@@ -34,6 +34,9 @@ export interface AwardDraft {
   denId: number | null;
   racerId: number | null;
   artworkKey: string | null;
+  // SPECIAL only; ignored (forced false) for SPEED — see
+  // `crud._clear_fields_of_other_kind` (#305).
+  votable: boolean;
 }
 
 export interface AwardFormRacer {
@@ -62,6 +65,9 @@ const EMPTY: AwardDraft = {
   denId: null,
   racerId: null,
   artworkKey: null,
+  // On by default for a new judged award — most of the ones a pack adds are
+  // exactly the ones people vote for (#305).
+  votable: true,
 };
 
 const inputStyle = {
@@ -280,6 +286,19 @@ export default function AwardForm({
               ))}
             </select>
           </div>
+
+          <label style={{ display: 'block' }}>
+            <input
+              type="checkbox"
+              checked={draft.votable}
+              onChange={(e) => set('votable', e.target.checked)}
+            />{' '}
+            Let people vote for this
+            <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
+              Turn off for an award your pack's leaders would rather decide
+              privately.
+            </small>
+          </label>
         </>
       )}
 

@@ -72,6 +72,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `rules_configuration` (JSON string, optional — vestigial; nothing reads or writes it)
     -   `weight_limit_oz` (Float, optional — the pack's weight limit; null means the race does not check weights)
     -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)
+    -   `voting_open` (Boolean, default `false`) — whether a phone holding no PIN may vote for a `SPECIAL` award right now (#305); an operator toggle, not tied to racing progress
     -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
 -   **`Den`**: Sub-divisions within a race. Called `RacingGroup` in the early design; the implementation uses `Den` throughout, and the vestigial `racing_groups` table was dropped once it turned out to be written on every racer save and read by nothing.
     -   `id` (PK)
@@ -131,7 +132,15 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `den_id` (`SPEED` only, FK to Den, `ON DELETE CASCADE` — narrows the standings to one den, which is how "fastest Wolf" is expressed rather than a third kind of source)
     -   `racer_id` (`SPECIAL` only, FK to Racer, `ON DELETE SET NULL` — deleting a racer un-assigns the award rather than deleting the trophy)
     -   `artwork_key` (nullable — which clipart the ceremony slide and the printed certificate draw; null prints a plain certificate. A `SPEED` award has this defaulted from its rule rather than offered as a picker; a `SPECIAL` award gets it from the ready-made superlative picker, or free text over it (#306))
+    -   `votable` (`SPECIAL` only, Boolean, default `false`) — whether this award takes ballots while the race's `voting_open` is true (#305); always forced false for `SPEED`
     -   A `SPEED` recipient is **computed on demand and never stored**, like the leaderboard: an award defined before the racing stays correct when a time is corrected after it. Storing one would make this the first thing in the app able to disagree with the standings (#17).
+-   **`AwardVote`**: One ballot for a `SPECIAL` award (table `award_votes`, #305).
+    -   `id` (PK)
+    -   `award_id` (FK to Award, `ON DELETE CASCADE`)
+    -   `racer_id` (FK to Racer, `ON DELETE CASCADE`)
+    -   `ballot_key` — a client-generated token, unique per award (`uq_award_ballot`). It makes one *submission* idempotent against a doubled click or a retried request; it does not limit how many times a device may vote — a shared iPad at the event casts many ballots on purpose.
+    -   `cast_at` — ISO 8601 UTC, the same shape as `Heat.recorded_at`.
+    -   A ballot is **primary data, stored, and never recomputed** — the opposite of a recipient, which is worked out fresh from the standings on every read. `services/awards.vote_tallies_for` counts them; `crud.cast_vote` writes them, and is the only place one is created. Closing voting never writes `Award.racer_id` on its own — the operator applies the tally's winner with an ordinary award edit.
 
 **Authentication** is implemented — see `backend/api/auth.py` and issue #15.
 Three roles (`VIEWER`, `CHECKIN`, `OPERATOR`) derived from a PIN, enforced by a
@@ -148,7 +157,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 **GraphQL Queries:**
 
 -   `races(skip, limit)` — List all races.
--   `race(raceId)` — Get a single race with nested `racers`, `dens`, `rounds`, `heats`, `leaderboard`, `awards`.
+-   `race(raceId)` — Get a single race with nested `racers`, `dens`, `rounds`, `heats`, `leaderboard`, `awards`. Carries `votingOpen` (#305); each `Award` carries `votable` and `voteTally` (ranked `(racer, voteCount)` pairs, from `services/awards.vote_tallies_for` — one query for the whole race, not one per award).
 -   `racers(raceId, skip, limit)` — List racers.
 -   `auditLog(raceId, limit, beforeId)` — The activity timeline, newest first. Operator-only, and it enforces that itself: the role policy guards mutations, and this is the query a wall display must never be able to run (#219).
 -   `racer(racerId)` — Get a single racer.
@@ -172,6 +181,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 -   Den: `createDen`, `updateDen`, `deleteDen`
 -   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored; `artworkKey` is accepted but overwritten server-side for a `SPEED` award — see `crud._set_speed_artwork_key` — since only `SPECIAL` offers a picker for it, #306)
+-   Voting (#305): `castVote(awardId, racerId, ballotKey)` — returns null on success or a sentence saying why the vote was refused, the same shape as `releaseStartGate`. The **one mutation `VIEWER` may run** (`api.auth.VOTE_MUTATIONS`): a phone with no PIN can cast a ballot only while the award's `votable` and the race's `votingOpen` are both true — `crud.cast_vote` checks both, and the role policy only says the attempt is allowed. Toggling `votingOpen` is an ordinary field on `updateRace`, not a separate mutation; applying a tally's winner is an ordinary `updateAward` setting `racerId`.
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
 -   Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord` — the hand-entered historical records (`HistoricalTrackRecord`), merged into `raceStats.trackRecords` beside the computed ones
 -   Audience displays: `assignDisplay`, `advanceDisplay`, `renameDisplay`, `forgetDisplay` (operator-only — a display is a `VIEWER` and is *told*, never asks) (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line)

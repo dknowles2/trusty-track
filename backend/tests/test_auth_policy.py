@@ -53,7 +53,9 @@ def test_every_mutation_is_classified():
     policy table quietly stops describing the schema.
     """
     declared = _mutation_names()
-    classified = auth.CHECKIN_MUTATIONS | auth.OPERATOR_ONLY_MUTATIONS
+    classified = (
+        auth.CHECKIN_MUTATIONS | auth.OPERATOR_ONLY_MUTATIONS | auth.VOTE_MUTATIONS
+    )
 
     assert declared - classified == set(), (
         "mutations exist that no role can run — classify them in api/auth.py"
@@ -68,10 +70,13 @@ def test_the_operator_can_run_everything():
     assert POLICY[Role.OPERATOR] == _mutation_names()
 
 
-def test_a_viewer_can_run_nothing():
-    """The wall displays. An empty set is what makes the second enforcement
-    layer the design sketch proposed unnecessary."""
-    assert POLICY[Role.VIEWER] == frozenset()
+def test_a_viewer_can_run_only_cast_vote():
+    """The wall displays, and a phone with nobody's PIN (#305).
+
+    `castVote` is the one deliberate exception to an otherwise-empty set —
+    gated by `Race.voting_open`, not by this policy, which only says a
+    caller with no PIN may attempt it at all."""
+    assert POLICY[Role.VIEWER] == frozenset({"castVote"})
 
 
 def test_check_in_cannot_touch_the_race():
@@ -230,6 +235,99 @@ def test_check_in_can_register_a_racer(client, db, secured):
     assert (
         db.query(models.Racer).filter(models.Racer.race_id == secured.id).count() == 1
     )
+
+
+CAST_VOTE = """
+mutation Vote($awardId: Int!, $racerId: Int!, $ballotKey: String!) {
+  castVote(awardId: $awardId, racerId: $racerId, ballotKey: $ballotKey)
+}
+"""
+
+
+def test_a_viewer_can_cast_a_vote_while_voting_is_open(client, db, secured):
+    """The one deliberate exception, end to end (#305).
+
+    A phone with no PIN — nothing in `_post` sets one — reaching a mutation
+    at all is the failure every other test in this file exists to prevent.
+    Here it is the intended behaviour, gated by `Race.votingOpen` and
+    `Award.votable` rather than by a credential.
+    """
+    racer = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Ada", last_name="A", race_id=secured.id, car_number=7
+        ),
+    )
+    award = crud.create_award(
+        db,
+        secured.id,
+        schemas.AwardCreate(
+            name="Best Paint", kind=models.AwardKind.SPECIAL, votable=True
+        ),
+    )
+    secured.voting_open = True
+    db.commit()
+
+    body = _post(
+        client,
+        CAST_VOTE,
+        {"awardId": award.id, "racerId": racer.id, "ballotKey": "abc-123"},
+    ).json()
+
+    assert "errors" not in body, body
+    assert body["data"]["castVote"] is None  # null means the vote was recorded
+    assert (
+        db.query(models.AwardVote).filter(models.AwardVote.award_id == award.id).count()
+        == 1
+    )
+
+
+def test_a_viewer_cannot_vote_while_voting_is_closed(client, db, secured):
+    """`Race.votingOpen` is what gates it — the role policy only says a
+    caller with no PIN may attempt the mutation at all."""
+    racer = crud.create_racer(
+        db, schemas.RacerCreate(first_name="Ada", last_name="A", race_id=secured.id)
+    )
+    award = crud.create_award(
+        db,
+        secured.id,
+        schemas.AwardCreate(
+            name="Best Paint", kind=models.AwardKind.SPECIAL, votable=True
+        ),
+    )
+    # secured.voting_open defaults False.
+
+    body = _post(
+        client,
+        CAST_VOTE,
+        {"awardId": award.id, "racerId": racer.id, "ballotKey": "abc-123"},
+    ).json()
+
+    assert "errors" not in body, body
+    assert body["data"]["castVote"] == "Voting is closed."
+    assert (
+        db.query(models.AwardVote).filter(models.AwardVote.award_id == award.id).count()
+        == 0
+    )
+
+
+def test_a_viewer_still_cannot_run_any_other_mutation(client, db, secured):
+    """`castVote` is the exception, not a crack in the wall around the rest."""
+    racer = crud.create_racer(
+        db, schemas.RacerCreate(first_name="Ada", last_name="A", race_id=secured.id)
+    )
+    body = _post(
+        client,
+        """
+        mutation Edit($id: Int!, $racer: RacerInput!) {
+          updateRacer(id: $id, racer: $racer) { id }
+        }
+        """,
+        {"id": racer.id, "racer": {"firstName": "Bea", "lastName": "A"}},
+    ).json()
+
+    assert body.get("errors")
+    assert "VIEWER is not allowed" in body["errors"][0]["message"]
 
 
 def test_the_operator_can_delete_a_race(client, db, secured):

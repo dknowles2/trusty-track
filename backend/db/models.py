@@ -263,6 +263,16 @@ class Race(Base):
     # person had already passed. New races are offered 5.0 by the form instead.
     weight_limit_oz: Mapped[float | None] = mapped_column(Float, nullable=True)
     auto_advance_heat: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: Whether a phone holding no PIN may vote for a `SPECIAL` award right now
+    #: (#305). The one exception to `Role.VIEWER: frozenset()` in `api/auth.py`
+    #: rides on this being true — see `crud.cast_vote`. An operator toggle, not
+    #: coupled to racing progress: closing it before the ceremony is judgment,
+    #: not something this column enforces. Off by default, like every other
+    #: install-wide switch here (the PIN, the chime) — an upgraded install does
+    #: not suddenly start accepting ballots.
+    voting_open: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     group: Mapped["Group"] = relationship("Group", back_populates="races")
     track: Mapped[Optional["Track"]] = relationship("Track", back_populates="races")
@@ -601,7 +611,67 @@ class Award(Base):
     #: not recognise should print blank, not fail to save.
     artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    #: SPECIAL only. Whether this award takes ballots while `Race.voting_open`
+    #: is true (#305) — a pack deciding an award privately switches it off.
+    #: Always false for `SPEED`; `crud._clear_fields_of_other_kind` forces it,
+    #: the same way it forces `racer_id` null for the other kind. Off by
+    #: default at the database, so an award that existed before this shipped
+    #: does not suddenly start collecting ballots; `AwardInput` defaults new
+    #: judged awards to on, the same "form offers a sensible default, the
+    #: column stays conservative" shape as the weight limit (#205).
+    votable: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+
     race: Mapped["Race"] = relationship("Race", back_populates="awards")
+    votes: Mapped[list["AwardVote"]] = relationship(
+        "AwardVote", back_populates="award", cascade="all, delete-orphan"
+    )
+
+
+class AwardVote(Base):
+    """One ballot for a `SPECIAL` award (#305).
+
+    A vote has nothing to recompute it from — unlike a recipient, which
+    `services/awards.py` works out fresh from the standings on every read
+    (#170), a ballot *is* the record, so it is a row rather than a computed
+    answer. See `services/awards.vote_tallies_for` for the count and
+    `crud.cast_vote` for the write, which is the only place one of these is
+    created.
+
+    ``ballot_key`` is a client-generated token, unique per award
+    (``uq_award_ballot``). It exists only to make one *submission* idempotent
+    against a doubled click or a retried request — never to limit how many
+    times a device may vote. A shared iPad at the event casts many ballots on
+    purpose, and stuffing that box is accepted as a possibility rather than
+    guarded against: whether it is a problem is a decision about what the
+    trophy is worth, and it is the pack's to make, not the app's to enforce.
+
+    Both foreign keys cascade. Deleting the award deletes its ballots — a vote
+    for a trophy that no longer exists names nothing worth keeping; deleting
+    the racer does the same, because an anonymous vote for a car that is gone
+    from the roster has nothing left for the tally to attribute it to.
+    """
+
+    __tablename__ = "award_votes"
+    __table_args__ = (
+        UniqueConstraint("award_id", "ballot_key", name="uq_award_ballot"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    award_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("awards.id", ondelete="CASCADE"), index=True
+    )
+    racer_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("racers.id", ondelete="CASCADE"), index=True
+    )
+    ballot_key: Mapped[str] = mapped_column(String, nullable=False)
+    # ISO 8601 UTC, the same shape and reason as `Heat.recorded_at`: a string
+    # sorts lexicographically the same as chronologically, so there is no
+    # SQLite-specific datetime type to round-trip.
+    cast_at: Mapped[str] = mapped_column(String, nullable=False)
+
+    award: Mapped["Award"] = relationship("Award", back_populates="votes")
 
 
 class HeatLaneBlobArchive(Base):

@@ -80,6 +80,36 @@ It has no effect on a speed-based award. Those get their artwork worked out
 automatically from what they are — first place, second and third, or the
 slowest car — with nothing to choose.
 
+## Letting people vote
+
+For a judged award, you can let people vote from their own phones instead of
+walking the cars around with a clipboard.
+
+1. On the award, turn on **Let people vote for this**. It is on by default
+   for a new judged award — turn it off for one your pack's leaders would
+   rather decide privately.
+2. When you are ready, turn on **Voting is open** for the race (near the top
+   of this page). Share the address it shows — a phone on the venue wifi
+   that opens it sees every car's number, name and photo, and can vote for
+   any award you have left on.
+3. Turn **Voting is open** back off before the ceremony. Nothing does this
+   for you — it is your call, the same way starting the ceremony itself is.
+
+**Nobody's name or photo appears on the voting page.** Voting is about the
+cars, and only the cars: a car's number, its name if it has one, and its
+photo. Whoever is voting never sees who built it.
+
+**One shared phone or tablet can be used all day.** Nothing stops someone
+voting more than once from the same device — the assumption is a single
+iPad by the cars, passed from hand to hand, not a ballot tied to a person.
+What your pack decides that is worth is your call, not the app's.
+
+**A vote never fills in the winner by itself.** Once you close voting, the
+award's editor shows the tally — how many votes each car got — and a
+**Use this result** button that fills in the winner exactly as if you had
+picked it from the list. A tie, a car that shouldn't count, or a lopsided
+result stays yours to look at and decide on before anything is announced.
+
 ## The running order
 
 Awards are listed in the order you will announce them, and the arrows on the

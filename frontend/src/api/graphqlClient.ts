@@ -61,6 +61,7 @@ export function closeLiveConnection(): void {
 export const EMBEDDED_TYPES = [
   'AdvancementRacer',
   'AdvancementStatus',
+  'AwardVoteTally',
   'DenStat',
   'FreeRaceLaneAssignment',
   'HeatHighlight',

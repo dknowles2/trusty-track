@@ -10,10 +10,14 @@ from backend.domain.advancement import Standing
 from backend.domain.awards import (
     MEDAL,
     PACK,
+    SPECIAL,
+    SPEED,
     TORTOISE,
     TROPHY,
     SpeedRule,
+    can_be_voted_on,
     default_artwork_key,
+    rank_tally,
     recipient_of,
     sources_for,
 )
@@ -158,3 +162,29 @@ class TestDefaultArtworkKey:
         # who is eligible, not what kind of award it is.
         rule = SpeedRule(source=PACK, place=1, den_id=3)
         assert default_artwork_key(rule) == TROPHY
+
+
+class TestCanBeVotedOn:
+    """A `SPEED` award has a computed recipient — a ballot for one is
+    nonsense, regardless of what `votable` happens to hold (#305)."""
+
+    def test_a_special_award_flagged_votable_can_be_voted_on(self) -> None:
+        assert can_be_voted_on(SPECIAL, True) is True
+
+    def test_a_special_award_not_flagged_cannot(self) -> None:
+        assert can_be_voted_on(SPECIAL, False) is False
+
+    def test_a_speed_award_never_can_even_if_flagged(self) -> None:
+        assert can_be_voted_on(SPEED, True) is False
+
+
+class TestRankTally:
+    def test_the_most_votes_come_first(self) -> None:
+        assert rank_tally({7: 2, 8: 5, 9: 1}) == [(8, 5), (7, 2), (9, 1)]
+
+    def test_ties_are_broken_by_racer_id(self) -> None:
+        # Deterministic order, not whatever the database happens to return.
+        assert rank_tally({9: 3, 7: 3, 8: 3}) == [(7, 3), (8, 3), (9, 3)]
+
+    def test_an_empty_tally_is_an_empty_list(self) -> None:
+        assert rank_tally({}) == []

@@ -44,8 +44,10 @@ type Award {
   fromBottom: Boolean!
   denId: Int
   artworkKey: String
+  votable: Boolean!
   recipient: Racer
   den: Den
+  voteTally: [AwardVoteTally!]!
 }
 
 input AwardInput {
@@ -58,6 +60,14 @@ input AwardInput {
   racerId: Int = null
   artworkKey: String = null
   sortOrder: Int = null
+  votable: Boolean! = true
+}
+
+type AwardVoteTally {
+  raceId: Int!
+  racerId: Int!
+  voteCount: Int!
+  racer: Racer
 }
 
 type Den {
@@ -312,6 +322,7 @@ type Mutation {
   updateAward(id: Int!, award: AwardInput!): Award
   deleteAward(id: Int!): Boolean!
   reorderAwards(raceId: Int!, awardIds: [Int!]!): [Award!]!
+  castVote(awardId: Int!, racerId: Int!, ballotKey: String!): String
   createTrack(track: TrackInput!): Track!
   updateTrack(id: Int!, track: TrackInput!): Track
   deleteTrack(id: Int!): Boolean!
@@ -398,6 +409,7 @@ type Race {
   scoringStrategy: String!
   autoAdvanceHeat: Boolean!
   weightLimitOz: Float
+  votingOpen: Boolean!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
   registeredCount: Int!
@@ -468,6 +480,7 @@ input RaceUpdateInput {
   championshipTrophies: Int = null
   autoAdvanceHeat: Boolean = null
   weightLimitOz: Float = null
+  votingOpen: Boolean = null
   clearWeightLimit: Boolean! = false
 }
 

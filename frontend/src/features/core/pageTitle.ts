@@ -41,6 +41,7 @@ function raceView(rest: string): string {
     if (rest.startsWith('/standings')) return 'Standings';
     if (rest.startsWith('/awards/present')) return 'Awards Ceremony';
     if (rest.startsWith('/awards')) return 'Awards';
+    if (rest.startsWith('/vote')) return 'Vote';
     if (rest.startsWith('/stats')) return 'Stats';
     if (rest.startsWith('/print/heat-sheet')) return 'Heat Sheet';
     if (rest.startsWith('/print/results')) return 'Results Sheet';
