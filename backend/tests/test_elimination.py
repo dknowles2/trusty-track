@@ -518,3 +518,79 @@ class TestTheRound:
         assert board[0]["rank"] == 1
         # Everyone else went out with exactly one loss; ties are visible.
         assert all(entry["score"] == 1.0 for entry in board[1:])
+
+
+class TestAWithdrawnCarThatNeverRaced:
+    """#313: a car whose lanes are always skipped never loses, so it stays
+    "alive" at zero losses forever. Un-checking it is the operator's only
+    escape — and the round must actually reach a decision afterwards, both
+    for `is_round_complete` and for the round's own leaderboard."""
+
+    def test_the_round_completes_once_the_car_is_withdrawn(self, db):
+        race, ids, round_obj = _elimination_round(
+            db, "Withdrawal Elim Derby", racer_count=2, max_losses=1
+        )
+        winner, broken = ids
+
+        def run(heat):
+            stored = crud.heat_lanes_of(db, heat)
+            recorded = [
+                lanes_module.Lane(lane=lane.lane, racer_id=broken, skipped=True)
+                if lane.racer_id == broken
+                else lanes_module.Lane(
+                    lane=lane.lane, racer_id=winner, time=3.0, place=1
+                )
+                if lane.racer_id == winner
+                else lane
+                for lane in stored
+            ]
+            crud.record_heat_result(db, heat.id, recorded, source=ResultSource.OPERATOR)
+
+        # Wave one: the winner races for real; the broken car's lane is
+        # skipped. Neither loses — a skip is not a loss, and a lone finisher
+        # has nobody to beat — so the cascade re-fields both for wave two.
+        (heat,) = _pending_heats(db, round_obj.id)
+        run(heat)
+        assert not crud.is_round_complete(db, round_obj.id)
+
+        # The operator's escape: un-check the broken car. Its lane in the
+        # still-pending wave-two heat is vacated; the finished wave-one heat
+        # is left as history, skipped lane and all.
+        crud.update_racer(db, broken, schemas.RacerUpdate(car_passed_inspection=False))
+        crud.withdraw_absent_racers(db, race.id)
+
+        # The winner races the now-solo wave-two heat to close it out.
+        (heat,) = _pending_heats(db, round_obj.id)
+        run(heat)
+
+        # Every heat is finished, and the withdrawn car must not keep the
+        # round "not decided" on the strength of a skipped lane it can never
+        # be checked back into.
+        assert crud.is_round_complete(db, round_obj.id)
+
+    def test_the_leaderboard_does_not_tie_it_with_the_winner(self, db):
+        from backend.services import scoring
+
+        race, ids, round_obj = _elimination_round(
+            db, "Withdrawal Leaderboard Elim Derby", racer_count=2, max_losses=1
+        )
+        winner, broken = ids
+
+        (heat,) = _pending_heats(db, round_obj.id)
+        stored = crud.heat_lanes_of(db, heat)
+        recorded = [
+            lanes_module.Lane(lane=lane.lane, racer_id=broken, skipped=True)
+            if lane.racer_id == broken
+            else lanes_module.Lane(lane=lane.lane, racer_id=winner, time=3.0, place=1)
+            for lane in stored
+        ]
+        crud.record_heat_result(db, heat.id, recorded, source=ResultSource.OPERATOR)
+
+        crud.update_racer(db, broken, schemas.RacerUpdate(car_passed_inspection=False))
+        crud.withdraw_absent_racers(db, race.id)
+
+        board = scoring.get_leaderboard(db, race.id, round_id=round_obj.id)
+        # A withdrawn car with nothing but a skipped lane must not rank
+        # alongside — let alone tie with — the car that actually raced.
+        assert [entry["racer_id"] for entry in board] == [winner]
+        assert board[0]["rank"] == 1
