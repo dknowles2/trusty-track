@@ -2567,7 +2567,12 @@ class Mutation:
     async def update_track(
         self, info: Info, id: int, track: TrackInput
     ) -> Track | None:
-        """Update an existing track."""
+        """Update an existing track.
+
+        Shrinking `lane_count` is brought into line the same way `setLaneOutages`
+        brings a newly out-of-service lane into line (#325): existing heats can
+        hold racers on lanes that no longer exist, and nothing else notices.
+        """
         db = info.context["db"]
         db_track = crud.get_track(db, id)
         if not db_track:
@@ -2576,9 +2581,19 @@ class Mutation:
         old_timer_type = db_track.timer_type
         old_serial_port = db_track.serial_port
         old_profile = db_track.timer_profile
+        old_lane_count = db_track.lane_count
 
         track_update = schemas.TrackBase(**typing.cast(Any, strawberry.asdict(track)))
         updated_track = typing.cast(Any, crud.update_track(db, db_track, track_update))
+
+        if track.lane_count < old_lane_count:
+            crud.apply_outages_to_scheduled_heats(db, id)
+            # Regenerating a round replaces its heats, so anything armed
+            # against the old ids has to be told (#50) — the same call
+            # `setLaneOutages` makes for the same reason.
+            await _revalidate_timers(info)
+            for race in db.query(models.Race).filter(models.Race.track_id == id):
+                await _publish_race_state(race.id)
 
         # Handle TimerManager updates
         timer_managers = info.context.get("timer_managers", {})

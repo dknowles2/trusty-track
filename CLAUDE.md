@@ -438,6 +438,8 @@ That makes a heat's **position** in the schedule and its **lane number** differe
 
 **Ids survive.** The pending heats are rewritten through `set_heat_lanes` rather than deleted and regenerated, so an armed heat is not swapped underneath the operator (#50) — and `setLaneOutages` awaits `_revalidate_timers` for the round it *does* regenerate. That await is not decorative: it was missing on the first attempt, the tests passed, and the only evidence was a `coroutine was never awaited` warning.
 
+**Turning a track's `lane_count` down is the same problem by a second route** (#325) — `updateTrack` used to write the new count and stop, leaving heats holding racers on lanes that no longer exist. `apply_outages_to_scheduled_heats` reads `usable_lanes_for_race` rather than the `LaneOutage` rows directly, which is what lets the one function cover both: a shrunk `lane_count` changes what counts as usable without adding an outage row for the old logic to have noticed. `updateTrack` calls it, awaits `_revalidate_timers` and publishes race state, exactly as `setLaneOutages` does — only when the count went down; growing it or leaving it unchanged touches nothing.
+
 ### A racer who arrives after the racing has started
 
 Rule in `domain/latecomers.py`, database wiring in `crud.admit_late_racers` (#172). **The same three cases as a lane going out of service, and deliberately so** — both are "a round already under way has to change, and the heats people ran must survive it":

@@ -1194,7 +1194,14 @@ def delete_historical_track_record(db: Session, record_id: int) -> bool:
 
 
 def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
-    """Bring existing heats into line with a lane going out of service (#171).
+    """Bring existing heats into line with a track's usable lanes shrinking.
+
+    Two callers, one rule: a lane marked out of service (#171) and a track's
+    `lane_count` being turned down (#325) both leave `usable_lanes_for_race`
+    reporting fewer lanes than an existing schedule was built for. Reading
+    *that* rather than the `LaneOutage` rows directly is what lets one
+    function cover both — a shrunk `lane_count` adds no outage row for this
+    to notice otherwise.
 
     Returns the ids of rounds that were disrupted — those already under way.
 
@@ -1216,15 +1223,11 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
     Free race heats are skipped: an exhibition run is not scheduled, not scored,
     and the operator picks its lanes when they start it.
     """
-    out_of_service = set(lane_outages_for_track(db, track_id))
-    if not out_of_service:
-        return []
-
     disrupted_round_ids: list[int] = []
     races = db.query(models.Race).filter(models.Race.track_id == track_id).all()
 
     for race in races:
-        usable = usable_lanes_for_race(db, race.id)
+        usable = set(usable_lanes_for_race(db, race.id))
         rounds = db.query(models.Round).filter(models.Round.race_id == race.id).all()
 
         for round_obj in rounds:
@@ -1253,11 +1256,11 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
             vacated = False
             for heat in pending:
                 current = heat_lanes_of(db, heat)
-                if not any(lane.lane in out_of_service for lane in current):
+                if all(lane.lane in usable for lane in current):
                     continue
                 set_heat_lanes(
                     heat,
-                    [lane for lane in current if lane.lane not in out_of_service],
+                    [lane for lane in current if lane.lane in usable],
                 )
                 vacated = True
 
