@@ -2616,6 +2616,18 @@ class Mutation:
         if existing_rounds:
             raise ValueError("Cannot use wizard: rounds already exist for this race.")
 
+        # Validated up front, before anything is created: a bad value partway
+        # through would leave the earlier rounds needing the same rollback as
+        # a scheduling failure, for a check that costs nothing to do first
+        # (#321, mirroring `createRound`'s checks).
+        if config.general_round.runs_per_lane < 1:
+            raise ValueError("A round needs at least one run per lane.")
+        for champ_cfg in config.championship_rounds:
+            if champ_cfg.runs_per_lane < 1:
+                raise ValueError("A round needs at least one run per lane.")
+            if champ_cfg.num_top_racers < 1:
+                raise ValueError("num_top_racers must be at least 1.")
+
         created_rounds = []
         current_round_number = 1
 
@@ -3496,6 +3508,12 @@ class Mutation:
             raise ValueError("Race not found")
 
         try:
+            # `runs_per_lane` becomes `HeatPlan` heats: zero or negative
+            # schedules nothing and a championship round with no heats is
+            # stuck `NOT_READY` with no rebuild path out (#321).
+            if round_data.runs_per_lane < 1:
+                raise ValueError("A round needs at least one run per lane.")
+
             existing_rounds = crud.get_rounds(db, race_id)
             # From the highest number, not the count: deleting a middle round
             # leaves fewer rounds than the numbering reaches, and a reused
@@ -3559,6 +3577,16 @@ class Mutation:
                         "An elimination or balanced round cannot also be a "
                         "championship round."
                     )
+                if (
+                    round_data.advancement_num_racers is not None
+                    and round_data.advancement_num_racers < 1
+                ):
+                    # `ordered[:num_racers]` with a negative is Python's "all
+                    # but the last N", which silently advances the wrong end
+                    # of the standings and disagrees with `field_size` — the
+                    # round's heats and its advancing field cannot agree
+                    # (#321).
+                    raise ValueError("advancement_num_racers must be at least 1.")
                 default_name = (
                     "Slowest Race"
                     if round_data.advancement_from_bottom
