@@ -211,6 +211,35 @@ def test_an_overdue_race_is_told_to_give_up(profile: TimerProfile, command: byte
     assert profile.commands_for(Event.RESULTS_OVERDUE) == [command]
 
 
+@pytest.mark.parametrize(
+    ("profile", "command"),
+    [
+        (DERBY_TIMER, b"F"),
+        (BERT_DRAKE, b"F"),
+        (PDT, b"F"),
+        (THE_JUDGE, b"*"),
+        (CHAMP, b"ra"),
+    ],
+)
+def test_force_results_sends_the_same_give_up_command(
+    profile: TimerProfile, command: bytes
+):
+    """Before issue #339, only the MicroWizard had a `force_results` command.
+    The `forceResults` mutation sends `force_results_commands()`, and these
+    five had none -- the manual Force Results button sent nothing at all to
+    the device and just recorded whatever partial times had already arrived."""
+    assert profile.force_results_commands() == [command]
+
+
+@pytest.mark.parametrize("profile", [DERBY_TIMER, BERT_DRAKE, PDT, THE_JUDGE, CHAMP])
+def test_a_result_timeout_lets_the_watchdog_reach_overdue(profile: TimerProfile):
+    """Without `result_timeout_seconds`, the state machine can never leave
+    RUNNING for RESULTS_OVERDUE (``TimerManager._watchdog_loop``), so the
+    `on_event[RESULTS_OVERDUE]` command these profiles declare was
+    unreachable dead code (issue #339)."""
+    assert profile.result_timeout_seconds is not None
+
+
 def test_the_champ_is_told_to_report_when_the_race_starts():
     from backend.services.timer.devices.base import Event
 

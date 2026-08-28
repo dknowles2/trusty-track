@@ -827,6 +827,15 @@ class TimerManager:
                 TimerState.READY,
                 TimerState.RESULTS_OVERDUE,
             ):
+                if self._state == TimerState.RESULTS_OVERDUE:
+                    # The device gave up and reported what it had, but the
+                    # heat is still short a lane (a partial force-results, or
+                    # a give-up command that only flushed one straggler).
+                    # Restart the clock so the watchdog can time this run out
+                    # a second time rather than believing it already has,
+                    # forever, because `_running_since` was cleared on the
+                    # first RESULTS_OVERDUE transition below.
+                    self._running_since = asyncio.get_event_loop().time()
                 await self._transition(TimerState.RUNNING)
 
             if self._state != TimerState.RUNNING:
