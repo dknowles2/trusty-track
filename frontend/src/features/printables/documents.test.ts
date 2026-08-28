@@ -10,6 +10,7 @@ import {
     racersToPrint,
     sheetCount,
     specFor,
+    type DocumentSpec,
     type PrintableRacer,
 } from './documents';
 
@@ -135,6 +136,23 @@ describe('sheet geometry', () => {
 
     it('counts a full sheet of business cards', () => {
         expect(perSheet(specFor('drivers-license'))).toBe(10);
+    });
+
+    it('clamps to the page rather than trusting a spec that would overflow it', () => {
+        // Every real DocumentSpec has columns exactly equal to the page's
+        // physical capacity, so a spec that claims more columns than the
+        // page can hold is the case the Math.min guard exists for. At
+        // widthIn 3.5, only 2 columns fit a 7.5in-wide page — this spec
+        // claims 5.
+        const overflowing: DocumentSpec = {
+            kind: 'pit-pass',
+            label: 'Overflowing spec',
+            blurb: 'test fixture',
+            widthIn: 3.5,
+            heightIn: 2,
+            columns: 5,
+        };
+        expect(perSheet(overflowing)).toBe(10); // 2 columns (not 5) x 5 rows
     });
 
     it('rounds a part-used sheet up', () => {

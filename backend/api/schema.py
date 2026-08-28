@@ -3686,6 +3686,7 @@ class Mutation:
         if not race:
             raise ValueError("Race not found")
 
+        round_obj: models.Round | None = None
         try:
             # `runs_per_lane` becomes `HeatPlan` heats: zero or negative
             # schedules nothing and a championship round with no heats is
@@ -3795,8 +3796,15 @@ class Mutation:
                 crud.populate_round_if_decided(db, round_obj)
                 await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
                 return [typing.cast(Any, round_obj)]
-        except ValueError as e:
-            raise ValueError(str(e)) from None
+        except ValueError:
+            # `create_round` commits immediately (backend/db/crud.py), so a
+            # round joins the rollback the moment its row exists — the
+            # wizard's rule (#249), applied to its single-round sibling
+            # (#415): a failure in heat generation must not leave a
+            # committed, heat-less round behind.
+            if round_obj is not None:
+                crud.delete_round(db, round_obj.id)
+            raise
 
     @strawberry.mutation
     async def reorder_heats(

@@ -828,6 +828,8 @@ If you add a race view, it goes in `links` in `Navigation.tsx`. Don't reintroduc
 
 Move-to-den is still a menu, because six dens will not fit on the bar — but it opens **downward** now rather than flying out sideways, which retired `denMenuSide`, `denMenuContainerRef`, `moveDenTimeoutRef` and the two hover handlers that measured which side had room.
 
+**Only the actions that remove something clear the selection** ([#420](https://github.com/dknowles2/trusty-track/issues/420)). The desk works a queue: select everyone, Auto number, then Check In — and until now the first click cleared the selection along with everything else, so the second landed on nothing, silently, because the bar it would have used had just disappeared. Check In, Auto number and Move to den now leave `selectedRacerIds` standing after they succeed, so that sequence is one selection rather than two. Clear numbers and Delete still clear it — both remove data (numbers, or the rows themselves) rather than adding to it, so a selection surviving them is a chance to repeat a destructive action by mistake, not a convenience. The explicit **✕** is unaffected either way.
+
 ### The settings page is sectioned, except the first time
 
 `SystemSettings.tsx`, with the vocabulary in `features/settings/sections.ts`

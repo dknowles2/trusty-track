@@ -13,6 +13,8 @@ These tests hold the invariant that made the class of bug impossible, rather
 than the workaround that made it survivable.
 """
 
+import ast
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -141,8 +143,30 @@ async def test_a_free_race_run_leaves_official_heats_alone(db):
     untouched = db.query(models.Heat).filter(models.Heat.id == official.id).first()
     results = lane_dicts(db, untouched)
     assert all(r["time"] is None for r in results), (
-        f"free-race results leaked into an official heat: {untouched.lane_results}"
+        f"free-race results leaked into an official heat: {results}"
     )
+
+
+def test_the_leak_diagnostic_does_not_reference_a_dropped_column():
+    """Pin the fix for #422.
+
+    The failure message above used to interpolate ``Heat.lane_results``, a
+    column migration 0013 dropped (#72). ``lane_results`` no longer exists on
+    the model, so if the leak this file exists to catch ever recurred, building
+    the diagnostic would raise ``AttributeError`` and bury the real assertion
+    failure under an unrelated crash — exactly wrong at the moment it matters.
+    Guard it structurally rather than trusting nobody restores the reference.
+    """
+    tree = ast.parse(Path(__file__).read_text())
+    attrs_accessed = {
+        node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
+    }
+    assert "lane_results" not in attrs_accessed, (
+        "test_heat_id_collision.py accesses .lane_results, a column dropped "
+        "in migration 0013 — its failure diagnostics must read live lane "
+        "values (e.g. via lane_dicts) instead"
+    )
+    assert not hasattr(models.Heat, "lane_results")
 
 
 @pytest.mark.anyio

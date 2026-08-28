@@ -24,6 +24,12 @@ vi.mock('../components/RaceExecution', () => ({
                 id: 1,
                 heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }]
             }, true)}>Run Heat 1</button>
+            {/* Jumps ahead of an uncompleted heat, which is what triggers the
+                reorder-then-navigate path in handleRunHeat (issue #416). */}
+            <button onClick={() => onRunHeat({
+                id: 3, roundId: 5,
+                heatNumber: 3, lanes: [{ lane: 1, racerId: 3, placeholderSlot: null, time: null, place: null, skipped: false }]
+            }, true)}>Run Heat 3 (jump ahead)</button>
             <button onClick={() => {
                 // Simulate finishing heat
                 onUpdateResult(1, [{ lane: 1, racerId: 1, placeholderSlot: null, time: 4.5, place: 1, skipped: false }]);
@@ -282,6 +288,48 @@ describe('RaceControl Page', () => {
             heatId: 1,
             lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: null, place: null, skipped: false }],
         });
+    });
+
+    // -----------------------------------------------------------------------
+    // A failed reorder must not move the operator on (#416)
+    // -----------------------------------------------------------------------
+    //
+    // Pressing Run on a heat further along than the first uncompleted one
+    // reorders the schedule to bring it forward. If that reorder fails on the
+    // server, the operator must see why and must not be dropped onto the Race
+    // tab believing the schedule moved — the timer would then arm whatever
+    // heat is actually next, not the one they meant to run.
+
+    it('shows an alert and does not select the heat when the run-button reorder fails', async () => {
+        const mockMutate = vi.fn().mockResolvedValue({ error: new Error('Reorder failed') });
+        (useMutation as any).mockImplementation(() => [{ fetching: false }, mockMutate]);
+
+        withHeats([
+            { id: 1, roundId: 5, heatNumber: 1, lanes: [{ lane: 1, racerId: 1, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] },
+            { id: 2, roundId: 5, heatNumber: 2, lanes: [{ lane: 1, racerId: 2, placeholderSlot: null, time: null, place: null, skipped: false }] },
+            { id: 3, roundId: 5, heatNumber: 3, lanes: [{ lane: 1, racerId: 3, placeholderSlot: null, time: null, place: null, skipped: false }] },
+        ]);
+
+        await openRaceTab();
+
+        // The fallback selection is the first heat not yet run.
+        expect(screen.getByTestId('active-heat-id')).toHaveTextContent('2');
+
+        fireEvent.click(screen.getByText('Run Heat 3 (jump ahead)'));
+
+        await waitFor(() => {
+            expect(mockMutate).toHaveBeenCalled();
+        });
+
+        // The alert from the failed reorder, surfaced the same way every
+        // other mutation handler in this file surfaces one.
+        await waitFor(() => {
+            expect(screen.getByText('Reorder failed')).toBeInTheDocument();
+        });
+
+        // Still showing heat 2 — the run button must not have selected heat 3
+        // or navigated to the Race tab on a failed reorder.
+        expect(screen.getByTestId('active-heat-id')).toHaveTextContent('2');
     });
 
     it('sends the finished heat\'s results to the server', async () => {
