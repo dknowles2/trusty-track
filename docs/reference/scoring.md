@@ -61,9 +61,10 @@ races. Left out, each for its own reason:
 ## Rounds that are set aside
 
 In a **points** race, a round where some cars raced fewer heats than others
-is left out of the overall standings, and the Standings page says so. The
-round still runs, and picking it from the selector still shows its results —
-it just does not decide the trophies.
+is left out of the overall standings. The round still runs — its heats show
+on the schedule and are recorded as normal — but it does not get a page of
+its own in the round selector; the Standings page instead shows a banner
+naming the round and explaining why it isn't counted.
 
 Three things cause it:
 

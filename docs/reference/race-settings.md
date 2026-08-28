@@ -28,7 +28,7 @@ the limit is typed at check-in, the box turns red and says so.
 - **It is a warning, never a refusal.** The car can still be checked in.
   The inspector at the table decides; the app makes the rule visible at the
   moment it matters.
-- **Weights within a hundredth of an ounce pass.** Desk scales disagree in
+- **The tolerance is half a hundredth of an ounce.** Desk scales disagree in
   the last decimal place: a car displaying 5.00 always passes a 5.0 limit,
   and one displaying 5.01 never does.
 - **A weight of zero means "not weighed"**, not "very light" — no tick, no
