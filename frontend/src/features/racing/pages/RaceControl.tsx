@@ -372,9 +372,11 @@ export default function RaceControl() {
       const result = await reorderHeatsMutation({ heatUpdates: formattedUpdates });
       if (result.error) throw result.error;
       reExecute({ requestPolicy: 'network-only' });
+      return true;
     } catch (e) {
       console.error("Failed to reorder heats", e);
-      showAlert("Failed to reorder heats.", "Error");
+      showAlert(errorText(e, "Failed to reorder heats."), "Error");
+      return false;
     }
   }, [reorderHeatsMutation, reExecute, showAlert]);
 
@@ -417,10 +419,11 @@ export default function RaceControl() {
                 new_heat_number: idx + 1
             }));
 
-            try {
-                await handleReorderHeats(updates);
-            } catch (e) {
-                console.error("Failed to reorder heats for Run button", e);
+            const reorderSucceeded = await handleReorderHeats(updates);
+            if (!reorderSucceeded) {
+                // handleReorderHeats already showed the alert; don't move the
+                // operator to the Race tab believing the schedule changed.
+                return;
             }
         }
 
@@ -834,7 +837,7 @@ export default function RaceControl() {
           onDeleteHeat={handleDeleteHeat}
           onRefetchHeats={async () => { reExecute({ requestPolicy: 'network-only' }); }}
           onRunHeat={handleRunHeat}
-          onReorderHeats={handleReorderHeats}
+          onReorderHeats={async (updates) => { await handleReorderHeats(updates); }}
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}
           racerCount={race?.racers?.length || 0}
