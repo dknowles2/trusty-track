@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import contextlib
 import csv
 import enum
 import io
@@ -605,6 +604,11 @@ class TrackInput:
     Input type for creating or updating a physical track configuration.
     """
 
+    #: Which database row this is, so `updateInitialConfig` can match tracks
+    #: by identity rather than by their position in the list (#318). Absent
+    #: (or null) means a track the operator just added on this screen, which
+    #: has no row yet.
+    id: int | None = None
     name: str = "Main Track"
     lane_count: int = 4
     length_feet: int | None = None
@@ -3333,47 +3337,20 @@ class Mutation:
             _apply_pins(group, config)
             db.commit()
 
-        # Update Tracks by index (setup wizard style)
+        # Tracks are matched to database rows by id, not by list position
+        # (#318): the form can reorder or remove a track from the middle of
+        # the list, and matching by index would then update the wrong row —
+        # renaming and reconfiguring it into whichever track happened to
+        # follow, and deleting the track actually meant to survive.
         db_tracks = crud.get_tracks(db)
+        db_tracks_by_id = {t.id: t for t in db_tracks}
         input_tracks = config.tracks
         timer_managers = info.context.get("timer_managers", {})
 
-        for i, input_track in enumerate(input_tracks):
-            if i < len(db_tracks):
-                # Update existing track inline
-                db_track = db_tracks[i]
-                old_timer_type = db_track.timer_type
-                old_serial_port = db_track.serial_port
-                old_profile = db_track.timer_profile
-                track_update = schemas.TrackBase(
-                    **typing.cast(Any, strawberry.asdict(input_track))
-                )
-                crud.update_track(db, db_track, track_update)
-                mgr = timer_managers.get(db_track.id)
-                if mgr:
-                    await mgr.set_remote_start_installed(
-                        input_track.remote_start_installed
-                    )
-                    device = _device_for(db_track)
-                    if (
-                        input_track.timer_type != old_timer_type
-                        or input_track.timer_profile != old_profile
-                    ):
-                        await mgr.set_device(device)
-                    if input_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
-                        if (
-                            input_track.serial_port != old_serial_port
-                            or input_track.timer_type != old_timer_type
-                            or input_track.timer_profile != old_profile
-                        ):
-                            _start_backend_direct(
-                                mgr,
-                                input_track.serial_port,
-                                device if input_track.timer_profile else None,
-                            )
-                    elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
-                        await mgr.stop()
-            else:
+        matched_ids: set[int] = set()
+
+        for input_track in input_tracks:
+            if input_track.id is None:
                 # Add new track
                 track_in = schemas.TrackCreate(
                     **typing.cast(Any, strawberry.asdict(input_track))
@@ -3385,18 +3362,70 @@ class Mutation:
                 timer_managers[new_track.id] = mgr
                 if new_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                     _start_backend_direct(mgr, new_track.serial_port)
+                continue
 
-        # Delete extra tracks
-        if len(db_tracks) > len(input_tracks):
-            for i in range(len(input_tracks), len(db_tracks)):
-                track_id = db_tracks[i].id
-                mgr = timer_managers.get(track_id)
-                if mgr:
+            db_track = db_tracks_by_id.get(input_track.id)
+            if db_track is None:
+                raise ValueError(
+                    f"Track {input_track.id} no longer exists; reload the page "
+                    "and try again."
+                )
+            matched_ids.add(db_track.id)
+
+            # Update existing track inline
+            old_timer_type = db_track.timer_type
+            old_serial_port = db_track.serial_port
+            old_profile = db_track.timer_profile
+            track_update = schemas.TrackBase(
+                **typing.cast(Any, strawberry.asdict(input_track))
+            )
+            crud.update_track(db, db_track, track_update)
+            mgr = timer_managers.get(db_track.id)
+            if mgr:
+                await mgr.set_remote_start_installed(input_track.remote_start_installed)
+                device = _device_for(db_track)
+                if (
+                    input_track.timer_type != old_timer_type
+                    or input_track.timer_profile != old_profile
+                ):
+                    await mgr.set_device(device)
+                if input_track.timer_type == models.TimerType.AUTO_DETECT_BACKEND:
+                    if (
+                        input_track.serial_port != old_serial_port
+                        or input_track.timer_type != old_timer_type
+                        or input_track.timer_profile != old_profile
+                    ):
+                        _start_backend_direct(
+                            mgr,
+                            input_track.serial_port,
+                            device if input_track.timer_profile else None,
+                        )
+                elif old_timer_type == models.TimerType.AUTO_DETECT_BACKEND:
                     await mgr.stop()
-                    if track_id in timer_managers:
-                        del timer_managers[track_id]
-                with contextlib.suppress(ValueError):
-                    crud.delete_track(db, track_id)
+
+        # Delete tracks the operator removed from the list. The manager is
+        # stopped only once `crud.delete_track` actually succeeds — stopping
+        # it first left a track that survived a refused delete (it has races
+        # against it) with no running TimerManager until the server
+        # restarted, while the mutation reported success either way.
+        delete_failures: list[str] = []
+        for db_track in db_tracks:
+            if db_track.id in matched_ids:
+                continue
+            try:
+                crud.delete_track(db, db_track.id)
+            except ValueError:
+                delete_failures.append(db_track.name)
+                continue
+            mgr = timer_managers.pop(db_track.id, None)
+            if mgr:
+                await mgr.stop()
+
+        if delete_failures:
+            names = ", ".join(f'"{name}"' for name in delete_failures)
+            raise ValueError(
+                f"Could not remove {names}: still has races recorded against it."
+            )
 
         db.commit()
         tracks = crud.get_tracks(db)

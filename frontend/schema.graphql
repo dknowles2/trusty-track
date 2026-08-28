@@ -634,6 +634,7 @@ type Track {
 }
 
 input TrackInput {
+  id: Int = null
   name: String! = "Main Track"
   laneCount: Int! = 4
   lengthFeet: Int = null

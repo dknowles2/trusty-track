@@ -248,7 +248,13 @@ export default function SystemConfig() {
           // anyone renames a track, and no way to send `''` locks an operator
           // out of their own event with no recovery.
           ...pinInput(operatorPin, checkinPin),
-          tracks: tracks.map(({ name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
+          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
+            // Absent for a track just added on this screen, which has no row
+            // yet; present for a saved one, so the server matches it to its
+            // database row by id rather than by its position in this list
+            // (#318) — matching by position renamed and reconfigured
+            // whichever track happened to follow one removed from the middle.
+            id: id ?? null,
             name,
             laneCount,
             lengthFeet: lengthFeet || DEFAULT_LENGTH_FEET,
