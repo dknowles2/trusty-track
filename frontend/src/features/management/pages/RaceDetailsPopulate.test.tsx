@@ -7,6 +7,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { AlertProvider } from '../../../context/AlertContext';
 import { useQuery, useMutation, useSubscription } from 'urql';
+import * as GQL from '../graphql/queries';
 
 // Mock urql
 vi.mock('urql', async (importOriginal) => {
@@ -18,6 +19,19 @@ vi.mock('urql', async (importOriginal) => {
         useSubscription: vi.fn(),
     };
 });
+
+/**
+ * Discriminate `useMutation` by document, as `RaceDetailsBulkActions.test.tsx`
+ * does. A blanket `mockReturnValue` makes every one of `RaceDetails.tsx`'s ten
+ * `useMutation` calls the same spy, so a "calls populate" assertion would pass
+ * even if the button were wired to a different mutation entirely.
+ */
+function mockMutations(overrides: [unknown, ReturnType<typeof vi.fn>][] = []) {
+    (useMutation as any).mockImplementation((query: unknown) => {
+        const match = overrides.find(([doc]) => doc === query);
+        return [{ fetching: false }, match ? match[1] : vi.fn()];
+    });
+}
 
 const mockShowAlert = vi.fn();
 const mockShowToast = vi.fn();
@@ -77,7 +91,7 @@ describe('RaceDetails Populate', () => {
         }, vi.fn()]);
 
         const genericMutationMock = vi.fn().mockResolvedValue({ data: {} });
-        (useMutation as any).mockReturnValue([{ fetching: false }, genericMutationMock]);
+        mockMutations([[GQL.POPULATE_RACE, genericMutationMock]]);
 
         render(
             <AlertProvider>
@@ -148,7 +162,7 @@ describe('RaceDetails Populate', () => {
         }, vi.fn()]);
         
         const genericMutationMock = vi.fn().mockResolvedValue({ data: {} });
-        (useMutation as any).mockReturnValue([{ fetching: false }, genericMutationMock]);
+        mockMutations([[GQL.POPULATE_RACE, genericMutationMock]]);
 
         render(
             <AlertProvider>
