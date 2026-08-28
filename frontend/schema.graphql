@@ -43,6 +43,7 @@ type Award {
   place: Int
   fromBottom: Boolean!
   denId: Int
+  artworkKey: String
   recipient: Racer
   den: Den
 }
@@ -55,6 +56,7 @@ input AwardInput {
   fromBottom: Boolean! = false
   denId: Int = null
   racerId: Int = null
+  artworkKey: String = null
   sortOrder: Int = null
 }
 

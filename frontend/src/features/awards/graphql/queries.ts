@@ -21,6 +21,7 @@ export const RACE_AWARDS_QUERY = gql`
         place
         fromBottom
         denId
+        artworkKey
         den {
           id
           name

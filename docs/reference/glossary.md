@@ -61,7 +61,7 @@ operator PIN (if one is set). See
 [Roles and permissions](roles-and-permissions.md).
 
 **Pit pass** — a lanyard-sized printed card with the racer's photo, name,
-den, and car. See [Printed documents](printing.md#the-five-documents).
+den, and car. See [Printed documents](printing.md#the-six-documents).
 
 **Points** — the scoring choice for racing without a timer: finishing places
 added up, lowest total wins. See [Scoring](scoring.md#points).

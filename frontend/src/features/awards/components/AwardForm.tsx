@@ -6,9 +6,16 @@
  * place and optionally a den; a `SPECIAL` award needs a person. Showing both
  * halves at once and letting the server sort it out would put the operator in
  * front of four controls that do nothing.
+ *
+ * The ready-made superlative picker (#306) only appears on the judged half: a
+ * `SPEED` award's artwork is worked out from its rule server-side, with no
+ * control offered for it here. Choosing a template just writes an ordinary
+ * name and `artworkKey` into the draft — nothing downstream learns a new
+ * concept, and both fields stay free text afterward.
  */
 
 import { useState } from 'react';
+import { AWARD_TEMPLATES, templateById } from '../awardTemplates';
 import {
   NamedDen,
   NamedRound,
@@ -26,6 +33,7 @@ export interface AwardDraft {
   fromBottom: boolean;
   denId: number | null;
   racerId: number | null;
+  artworkKey: string | null;
 }
 
 export interface AwardFormRacer {
@@ -53,6 +61,7 @@ const EMPTY: AwardDraft = {
   fromBottom: false,
   denId: null,
   racerId: null,
+  artworkKey: null,
 };
 
 const inputStyle = {
@@ -75,6 +84,26 @@ export default function AwardForm({
 
   const set = <K extends keyof AwardDraft>(key: K, value: AwardDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
+
+  // Writes an ordinary name and artwork key into the draft. Nothing tracks
+  // "which template is currently applied" — both fields stay free text the
+  // moment this runs, exactly as if the operator had typed them and picked
+  // artwork some other way. Choosing the blank option is the explicit way to
+  // drop artwork without also clearing a name the operator may have already
+  // customised.
+  const applyTemplate = (id: string) => {
+    if (!id) {
+      set('artworkKey', null);
+      return;
+    }
+    const template = templateById(id);
+    if (!template) return;
+    setDraft((current) => ({
+      ...current,
+      name: template.name,
+      artworkKey: template.artworkKey,
+    }));
+  };
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -205,24 +234,53 @@ export default function AwardForm({
           </div>
         </>
       ) : (
-        <div>
-          <label htmlFor="award-racer" style={{ display: 'block', fontSize: '0.9rem' }}>
-            Winner
-          </label>
-          <select
-            id="award-racer"
-            value={draft.racerId ?? ''}
-            onChange={(e) => set('racerId', e.target.value ? Number(e.target.value) : null)}
-            style={inputStyle}
-          >
-            <option value="">Not decided yet</option>
-            {racers.map((racer) => (
-              <option key={racer.id} value={racer.id}>
-                {racerLabel(racer)}
-              </option>
-            ))}
-          </select>
-        </div>
+        <>
+          <div>
+            <label
+              htmlFor="award-template"
+              style={{ display: 'block', fontSize: '0.9rem' }}
+            >
+              Start from a ready-made award
+            </label>
+            <select
+              id="award-template"
+              defaultValue=""
+              onChange={(e) => applyTemplate(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Choose one, or type your own name below</option>
+              {AWARD_TEMPLATES.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+            <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
+              Fills in the name and its artwork — both stay editable afterward.
+            </small>
+          </div>
+
+          <div>
+            <label htmlFor="award-racer" style={{ display: 'block', fontSize: '0.9rem' }}>
+              Winner
+            </label>
+            <select
+              id="award-racer"
+              value={draft.racerId ?? ''}
+              onChange={(e) =>
+                set('racerId', e.target.value ? Number(e.target.value) : null)
+              }
+              style={inputStyle}
+            >
+              <option value="">Not decided yet</option>
+              {racers.map((racer) => (
+                <option key={racer.id} value={racer.id}>
+                  {racerLabel(racer)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
       )}
 
       <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>

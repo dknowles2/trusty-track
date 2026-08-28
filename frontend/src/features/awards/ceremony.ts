@@ -25,6 +25,7 @@ export interface CeremonyAward {
   place?: number | null;
   denId?: number | null;
   fromBottom?: boolean | null;
+  artworkKey?: string | null;
   recipient?: {
     id: number;
     firstName: string;
@@ -43,6 +44,8 @@ export interface Slide {
   /** The winner's name, or null when there is nobody to announce. */
   winner: string | null;
   racerImageUrl: string | null;
+  /** Which clipart to draw, or null for a plain slide (#306). */
+  artworkKey: string | null;
   /** "3 of 8", for the operator's benefit rather than the audience's. */
   position: string;
 }
@@ -85,6 +88,7 @@ export function slideFor(
         : 'Chosen by the judges',
     winner: award.recipient ? racerLabel(award.recipient) : null,
     racerImageUrl: award.recipient?.racerImageUrl ?? null,
+    artworkKey: award.artworkKey ?? null,
     position: `${index + 1} of ${awards.length}`,
   };
 }

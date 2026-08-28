@@ -5,6 +5,7 @@ export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' |
 import * as Types from './schema';
 
 export type AwardInput = {
+  artworkKey?: string | null | undefined;
   denId?: number | null | undefined;
   fromBottom?: boolean;
   kind?: string;
@@ -178,7 +179,7 @@ export type RaceAwardsQueryVariables = Exact<{
 }>;
 
 
-export type RaceAwardsQuery = { race: { id: number, name: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, fromBottom: boolean, denId: number | null, den: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null }>, rounds: Array<{ id: number, name: string | null, roundNumber: number }>, dens: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null }> } | null };
+export type RaceAwardsQuery = { race: { id: number, name: string, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, source: string | null, place: number | null, fromBottom: boolean, denId: number | null, artworkKey: string | null, den: { id: number, name: string } | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null } | null }>, rounds: Array<{ id: number, name: string | null, roundNumber: number }>, dens: Array<{ id: number, name: string, color: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null }> } | null };
 
 export type CreateAwardMutationVariables = Exact<{
   raceId: number;
@@ -511,6 +512,13 @@ export type GetResultsSheetQueryVariables = Exact<{
 
 
 export type GetResultsSheetQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, scoringStrategy: string, leaderboard: Array<{ racerId: number, rank: number, firstName: string, lastName: string, carNumber: number | null, denName: string, score: number, heatsCompleted: number }>, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null } | null }> } | null };
+
+export type GetCertificatesQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetCertificatesQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, awards: Array<{ id: number, name: string, kind: string, sortOrder: number, artworkKey: string | null, recipient: { id: number, firstName: string, lastName: string, carNumber: number | null } | null }> } | null };
 
 export type CreateRoundWizardMutationVariables = Exact<{
   raceId: number;

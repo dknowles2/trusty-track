@@ -25,6 +25,7 @@ const RACE = {
       source: 'PACK',
       place: 1,
       denId: 5,
+      artworkKey: 'trophy',
       den: { id: 5, name: 'Wolves' },
       recipient: {
         id: 100,
@@ -42,6 +43,7 @@ const RACE = {
       source: null,
       place: null,
       denId: null,
+      artworkKey: null,
       den: null,
       recipient: null,
     },
@@ -53,6 +55,7 @@ const RACE = {
       source: null,
       place: null,
       denId: null,
+      artworkKey: null,
       den: null,
       recipient: {
         id: 101,
@@ -114,7 +117,15 @@ describe('the awards page', () => {
     // component reads rather than what the query selects, which is how a field
     // ends up rendering as undefined against a real backend.
     const document = print(RACE_AWARDS_QUERY);
-    for (const field of ['kind', 'source', 'place', 'denId', 'recipient', 'racerImageUrl']) {
+    for (const field of [
+      'kind',
+      'source',
+      'place',
+      'denId',
+      'artworkKey',
+      'recipient',
+      'racerImageUrl',
+    ]) {
       expect(document).toContain(field);
     }
   });
@@ -140,6 +151,23 @@ describe('the awards page', () => {
 
     const row = screen.getByText('Judges’ Choice').closest('li')!;
     expect(within(row).getByText('Grace Hopper (#7)')).toBeInTheDocument();
+  });
+
+  it('draws artwork next to an award that has some', () => {
+    renderPage();
+    const row = screen.getByText('Fastest Wolf').closest('li')!;
+    expect(within(row).getByRole('img', { hidden: true })).toBeInTheDocument();
+
+    const paintRow = screen.getByText('Best Paint').closest('li')!;
+    expect(within(paintRow).queryByRole('img', { hidden: true })).toBeNull();
+  });
+
+  it('links to the certificate print page', () => {
+    renderPage();
+    expect(screen.getByRole('link', { name: 'Print certificates' })).toHaveAttribute(
+      'href',
+      '/race/1/print/certificates',
+    );
   });
 
   it('has something to say when a race has no awards', () => {

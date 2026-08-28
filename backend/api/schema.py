@@ -976,6 +976,11 @@ class Award:
     #: true the slowest.
     from_bottom: bool
     den_id: int | None
+    #: Which clipart the ceremony slide and the certificate draw, or null for a
+    #: plain certificate (#306). `SPEED` awards get this defaulted from their
+    #: rule; `SPECIAL` awards get it from the ready-made superlative picker or
+    #: whatever the operator typed over it.
+    artwork_key: str | None
 
     @strawberry.field
     def recipient(self, info: Info) -> "Racer | None":
@@ -1010,6 +1015,8 @@ class AwardInput:
     from_bottom: bool = False
     den_id: int | None = None
     racer_id: int | None = None
+    #: Ignored server-side for a `SPEED` award — see `crud._set_speed_artwork_key`.
+    artwork_key: str | None = None
     sort_order: int | None = None
 
 

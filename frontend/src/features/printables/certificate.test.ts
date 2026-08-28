@@ -1,0 +1,71 @@
+import { describe, expect, it } from 'vitest';
+import { certificatesFor } from './certificate';
+
+const RACE = { name: 'Pack 42 Derby', dateTime: '2026-03-14T09:00:00', location: 'The gym' };
+
+describe('certificatesFor', () => {
+  it('builds one certificate per award', () => {
+    const certificates = certificatesFor(RACE, [
+      { id: 1, name: 'Best Paint', kind: 'SPECIAL', sortOrder: 0, artworkKey: 'paintbrush' },
+      { id: 2, name: 'Fastest Car', kind: 'SPEED', sortOrder: 1, artworkKey: 'trophy' },
+    ]);
+    expect(certificates).toHaveLength(2);
+    expect(certificates[0].awardName).toBe('Best Paint');
+    expect(certificates[1].awardName).toBe('Fastest Car');
+  });
+
+  it('fills in the recipient when there is one', () => {
+    const certificates = certificatesFor(RACE, [
+      {
+        id: 1,
+        name: 'Best Paint',
+        kind: 'SPECIAL',
+        recipient: { firstName: 'Ada', lastName: 'Lovelace', carNumber: 42 },
+      },
+    ]);
+    expect(certificates[0].recipientName).toBe('Ada Lovelace (#42)');
+  });
+
+  it('prints an undecided award with a blank line rather than skipping it', () => {
+    // Most awards stay undecided right up until the ceremony. Skipping them
+    // here would mean reprinting the whole batch the moment judging finishes.
+    const certificates = certificatesFor(RACE, [
+      { id: 1, name: 'Best Paint', kind: 'SPECIAL', recipient: null },
+    ]);
+    expect(certificates).toHaveLength(1);
+    expect(certificates[0].recipientName).toBeNull();
+  });
+
+  it('carries the artwork key through, or null for a plain certificate', () => {
+    const certificates = certificatesFor(RACE, [
+      { id: 1, name: 'Best Paint', kind: 'SPECIAL', artworkKey: 'paintbrush' },
+      { id: 2, name: 'Best in Show', kind: 'SPECIAL', artworkKey: null },
+    ]);
+    expect(certificates[0].artworkKey).toBe('paintbrush');
+    expect(certificates[1].artworkKey).toBeNull();
+  });
+
+  it('carries the race name onto every certificate', () => {
+    const certificates = certificatesFor(RACE, [
+      { id: 1, name: 'Best Paint', kind: 'SPECIAL' },
+    ]);
+    expect(certificates[0].raceName).toBe('Pack 42 Derby');
+  });
+
+  it('orders by sortOrder then id, the ceremony’s own running order', () => {
+    const certificates = certificatesFor(RACE, [
+      { id: 5, name: 'Second, higher id', kind: 'SPECIAL', sortOrder: 1 },
+      { id: 1, name: 'First', kind: 'SPECIAL', sortOrder: 0 },
+      { id: 2, name: 'Third, same order as second but lower id', kind: 'SPECIAL', sortOrder: 1 },
+    ]);
+    expect(certificates.map((c) => c.awardName)).toEqual([
+      'First',
+      'Third, same order as second but lower id',
+      'Second, higher id',
+    ]);
+  });
+
+  it('produces nothing for a race with no awards', () => {
+    expect(certificatesFor(RACE, [])).toEqual([]);
+  });
+});

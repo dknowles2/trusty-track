@@ -150,3 +150,18 @@ so — the championship trophies are in the awards table at the top. Each
 den's table is numbered from 1, and an undecided award prints as **Not
 awarded**. The rest of the rules are in
 [Printed documents](reference/printing.md#the-results-sheet).
+
+## Certificates
+
+One certificate per award, in the ceremony's own running order — a scout's
+take-home, where the results sheet is the noticeboard's copy.
+
+**Race → Awards → Print certificates.**
+
+An award nobody has decided yet still gets a certificate, with a blank line
+to write a name on rather than being left out of the batch — most awards
+stay undecided right up until the ceremony, and reprinting the whole run the
+moment the last one is announced would be worse than a blank line. A
+ready-made superlative or a speed award (Fastest Car, Fastest Wolf, and so
+on) prints its artwork; anything else prints a plain certificate. More in
+[Printed documents](reference/printing.md#certificates).
