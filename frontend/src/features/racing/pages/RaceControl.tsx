@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery, useMutation, gql } from 'urql';
+import { useQuery, useMutation, useSubscription, gql } from 'urql';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useAlert } from '../../../context/AlertContext';
@@ -10,6 +10,7 @@ import DisplaysPanel from '../../observation/components/DisplaysPanel';
 import { RaceExecution } from '../components/RaceExecution';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
+import { HEAT_SESSION_SUBSCRIPTION } from '../graphql/queries';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
@@ -152,7 +153,6 @@ export default function RaceControl() {
   const navigate = useNavigate();
   const id = parseInt(raceId || '0');
 
-  const [activeHeatId, setActiveHeatId] = useState<number | null>(null);
   const [selectedHeatId, setSelectedHeatId] = useState<number | null>(null);
   const [generating, setGenerating] = useState(false);
   const [roundSummary, setRoundSummary] = useState<AdvancementStatus | null>(null);
@@ -200,6 +200,25 @@ export default function RaceControl() {
     return map;
   }, [race?.racers]);
 
+  /**
+   * The heat armed or running on this track right now, or null (#345).
+   *
+   * `heatId` omitted is the tell: `_build_heat_session` in `schema.py` then
+   * falls back to the timer manager's own `active_heat_id`, which is exactly
+   * "whatever is on the track", not the heat this screen happens to be
+   * showing. That is what makes it self-clearing — it goes back to null the
+   * moment the heat is aborted or its result is recorded, with no local
+   * bookkeeping to fall out of step. `ScheduleManagement` reads it to protect
+   * that heat from being dragged, reordered or deleted out from under the
+   * operator; a local `useState` here could only ever be set to null.
+   */
+  const trackId = race?.track?.id ?? null;
+  const [heatSessionResult] = useSubscription({
+    query: HEAT_SESSION_SUBSCRIPTION,
+    variables: { trackId: trackId ?? 0, heatId: null },
+    pause: trackId === null,
+  });
+  const activeHeatId: number | null = heatSessionResult.data?.heatSession?.heatId ?? null;
 
   useEffect(() => {
     if (fetching || !race?.rounds) return;
@@ -337,15 +356,11 @@ export default function RaceControl() {
 
           // Round completion check logic can be simplified or moved to sub-component
           // For now we'll just re-fetch and let the user decide
-
-          if (activeHeatId === heatId) {
-              setActiveHeatId(null);
-          }
       } catch (e) {
           console.error("Failed to update results", e);
           showAlert("Failed to update results.", "Error");
       }
-  }, [heats, updateHeatResultMutation, reExecute, activeHeatId, showAlert]);
+  }, [heats, updateHeatResultMutation, reExecute, showAlert]);
 
   const handleReorderHeats = useCallback(async (updates: { heat_id: number, new_heat_number: number }[]) => {
     try {
@@ -410,12 +425,8 @@ export default function RaceControl() {
 
         setSelectedHeatId(heat.id);
         navigate(`/race/${id}/control/race`);
-    } else {
-        if (activeHeatId === heat.id) {
-            setActiveHeatId(null);
-        }
     }
-  }, [heats, updateHeatResultMutation, reExecute, handleReorderHeats, activeHeatId, navigate, id, showToast]);
+  }, [heats, updateHeatResultMutation, reExecute, handleReorderHeats, navigate, id, showToast]);
 
 
   // Rounds whose field comes from the bottom of the standings — a Slowest
