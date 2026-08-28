@@ -59,9 +59,12 @@ wrong. Ties happen a lot with points and only rarely with times.
 The overall standings cover the rounds that **everyone** races. A final does
 not feed back into them — the cars in the final were *chosen from* those
 standings, so its times are shown separately: use the dropdown above the
-table to look at any final on its own. Elimination rounds and rounds set
-aside in a points race also keep their results out — each has its own page
-in the dropdown. The full list of what counts and what does not is in
+table to look at any final on its own. Elimination rounds get the same
+treatment, each with its own page in the dropdown. A round set aside in a
+points race — where some cars ran fewer heats than others — is different:
+it stays folded into Overall rather than getting a page of its own, and the
+Standings page shows a banner explaining why it isn't counted. The full list
+of what counts and what does not is in
 [Scoring](reference/scoring.md#what-the-overall-standings-cover).
 
 ## Choosing how a round is raced

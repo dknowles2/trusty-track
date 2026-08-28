@@ -40,7 +40,7 @@ _The Roster page at the start of race day. Every racer has a gold **Check In** b
 4. Optionally enter or update the **Car Name** if not already provided.
 5. Optionally enter the **Car Weight (oz)**. If the race has a weight limit set, the box turns red and says so when the car is over it.
 
-    This is a warning, not a refusal — you can still check the car in. The inspector at the table decides what happens next; the app is only making the rule visible at the moment it matters. Weights within a hundredth of an ounce of the limit pass, because desk scales disagree in the last decimal place and that is a fact about the equipment rather than about the car.
+    This is a warning, not a refusal — you can still check the car in. The inspector at the table decides what happens next; the app is only making the rule visible at the moment it matters. There is a small tolerance for the last decimal place, where desk scales disagree — see [the weight check](reference/race-settings.md#the-weight-check) for exactly how close is close enough.
 6. Optionally upload or capture a **Racer Photo** and/or **Car Photo** — each has an **Upload File** button and a **Camera** button.
 7. Click **Save Check-in**.
 
@@ -498,7 +498,7 @@ one down the track wins.
 > are left out — are in [Scoring](reference/scoring.md).
 
 ![Final Standings Page](assets/screenshots/race-day/18-final-standings.png)
-_The standings show rank, car number, name, den, heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
+_The standings show rank, car number, name, den — with the den's rank in parentheses when one is set, like "Wolves (Wolf)" — heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
 
 > [!NOTE]
 > **A tie shares a rank** — 1st, 1st, 3rd. The app deliberately does not
