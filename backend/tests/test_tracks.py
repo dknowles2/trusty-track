@@ -197,3 +197,98 @@ def test_update_track_serial_port(client):
     data = resp.json()["data"]["updateTrack"]
     assert data["timerType"] == "AUTO_DETECT_BACKEND"
     assert data["serialPort"] == "/dev/ttyUSB99"
+
+
+class TestLaneCountBounds:
+    """#320: a lane count nothing downstream can act on is refused at the edge.
+
+    Zero silently schedules no heats; negative crashes ``prepare_heat`` and
+    ``startTimerTest``'s ``(1 << lane_count) - 1`` lane mask with a "negative
+    shift count" ``ValueError`` — an unhandled 500 far from the mistake.
+    """
+
+    def test_create_track_refuses_zero_lanes(self, client, db):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "Bad Track", laneCount: 0}) {
+                        id
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        assert crud.get_tracks(db) == []
+
+    def test_create_track_refuses_negative_lanes(self, client, db):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "Bad Track", laneCount: -3}) {
+                        id
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        assert crud.get_tracks(db) == []
+
+    def test_create_track_refuses_too_many_lanes(self, client, db):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "Bad Track", laneCount: 9}) {
+                        id
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        assert crud.get_tracks(db) == []
+
+    def test_update_track_refuses_zero_lanes(self, client, db):
+        track = crud.create_track(db, schemas.TrackCreate(name="Good Track"))
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateTrack(id: {track.id}, track: {{laneCount: 0}}) {{
+                        laneCount
+                    }}
+                }}
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        db.refresh(track)
+        assert track.lane_count == 4
+
+    def test_update_track_refuses_negative_lanes(self, client, db):
+        track = crud.create_track(db, schemas.TrackCreate(name="Good Track"))
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateTrack(id: {track.id}, track: {{laneCount: -3}}) {{
+                        laneCount
+                    }}
+                }}
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        db.refresh(track)
+        assert track.lane_count == 4
