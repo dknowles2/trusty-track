@@ -79,8 +79,14 @@ const RACE = {
   rounds: [{ id: 4, name: 'Finals', roundNumber: 2 }],
   dens: [{ id: 5, name: 'Wolves', color: '#888' }],
   racers: [
-    { id: 100, firstName: 'Ada', lastName: 'Lovelace', carNumber: 42 },
-    { id: 101, firstName: 'Grace', lastName: 'Hopper', carNumber: 7 },
+    { id: 100, firstName: 'Ada', lastName: 'Lovelace', carNumber: 42, carImageUrl: null },
+    {
+      id: 101,
+      firstName: 'Grace',
+      lastName: 'Hopper',
+      carNumber: 7,
+      carImageUrl: '/static/car-101.jpg',
+    },
   ],
 };
 
@@ -139,6 +145,7 @@ describe('the awards page', () => {
       'votingOpen',
       'votable',
       'voteTally',
+      'carImageUrl',
     ]) {
       expect(document).toContain(field);
     }
@@ -321,6 +328,30 @@ describe('the awards page', () => {
           }),
         ),
       );
+    });
+  });
+
+  describe('the no-photo warning (#419)', () => {
+    it('warns how many cars have no photo, with a link to the roster', () => {
+      renderPage();
+      expect(screen.getByText(/1 of 2 cars have no photo/)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Upload photos' })).toHaveAttribute(
+        'href',
+        '/race/1',
+      );
+    });
+
+    it('says nothing when every car has a photo', () => {
+      renderPage({
+        ...RACE,
+        racers: RACE.racers.map((racer) => ({ ...racer, carImageUrl: '/static/photo.jpg' })),
+      });
+      expect(screen.queryByText(/cars have no photo/)).toBeNull();
+    });
+
+    it('shows the warning whether or not voting is open', () => {
+      renderPage({ ...RACE, votingOpen: true });
+      expect(screen.getByText(/1 of 2 cars have no photo/)).toBeInTheDocument();
     });
   });
 });

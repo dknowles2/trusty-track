@@ -60,6 +60,7 @@ export const RACE_AWARDS_QUERY = gql`
         firstName
         lastName
         carNumber
+        carImageUrl
       }
     }
   }
