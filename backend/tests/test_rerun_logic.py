@@ -1,7 +1,27 @@
+"""Correcting a general-round result invalidates a raced championship round.
+
+Exercised through the mutations an operator actually uses, rather than
+`invalidate_future_rounds` directly, so this pins the same GraphQL round trip
+`test_championship_chains.py::TestTheResolverPaths` uses for the fill side of
+the cascade.
+"""
+
 import uuid
 
 from backend.db import crud, schemas
 from backend.tests.helpers import lane_dicts, record_heat_result
+
+CREATE_ROUND = """
+mutation Create($raceId: Int!, $roundData: RoundCreateInput!) {
+    createRound(raceId: $raceId, roundData: $roundData) { id }
+}
+"""
+
+ADVANCE_ROUND = """
+mutation Advance($raceId: Int!, $roundId: Int!) {
+    advanceRound(raceId: $raceId, roundId: $roundId)
+}
+"""
 
 
 def get_unique_name(prefix: str) -> str:
@@ -34,38 +54,43 @@ def test_rerun_last_heat_clears_next_round(client, db):
         crud.create_racer(db, r_in)
 
     # 3. Create General Round (Round 1)
-    mutation_r1 = f"""
-    mutation {{
-        createRound(raceId: {race_id}, roundData: {{
-            name: "General",
-            schedulingStrategy: "PPC",
-            runsPerLane: 1,
-            generalType: "PACK"
-        }}) {{
-            id
-        }}
-    }}
-    """
-    client.post("/graphql", json={"query": mutation_r1})
+    response = client.post(
+        "/graphql",
+        json={
+            "query": CREATE_ROUND,
+            "variables": {
+                "raceId": race_id,
+                "roundData": {
+                    "name": "General",
+                    "schedulingStrategy": "PPC",
+                    "runsPerLane": 1,
+                    "generalType": "PACK",
+                },
+            },
+        },
+    )
+    assert "errors" not in response.json(), response.json()
     rounds = crud.get_rounds(db, race_id)
     gen_round_id = rounds[0].id
 
     # 4. Create Championship Round (Round 2)
-    mutation_r2 = f"""
-    mutation {{
-        createRound(raceId: {race_id}, roundData: {{
-            name: "Championship",
-            schedulingStrategy: "PPC",
-            runsPerLane: 1,
-            advancementSource: "PACK",
-            advancementNumRacers: 2
-        }}) {{
-            id
-        }}
-    }}
-    """
-    client.post("/graphql", json={"query": mutation_r2})
-    # Need to refresh rounds to get ID
+    response = client.post(
+        "/graphql",
+        json={
+            "query": CREATE_ROUND,
+            "variables": {
+                "raceId": race_id,
+                "roundData": {
+                    "name": "Championship",
+                    "schedulingStrategy": "PPC",
+                    "runsPerLane": 1,
+                    "advancementSource": "PACK",
+                    "advancementNumRacers": 2,
+                },
+            },
+        },
+    )
+    assert "errors" not in response.json(), response.json()
     db.expire_all()
     rounds = crud.get_rounds(db, race_id)
     champ_round_id = rounds[1].id
@@ -74,7 +99,6 @@ def test_rerun_last_heat_clears_next_round(client, db):
     heats = crud.get_heats(db, race_id)
     gen_heats = [h for h in heats if h.round_id == gen_round_id]
 
-    # Fill results
     for heat in gen_heats:
         results = []
         lane_assignment = lane_dicts(db, heat)
@@ -85,20 +109,23 @@ def test_rerun_last_heat_clears_next_round(client, db):
         record_heat_result(client, heat.id, results)
 
     # 6. Verify Championship Round is Populated - Manually Advance
-    mutation_advance = f"""
-    mutation {{
-        advanceRound(raceId: {race_id}, roundId: {champ_round_id})
-    }}
-    """
-    res = client.post("/graphql", json={"query": mutation_advance})
-    assert res.json()["data"]["advanceRound"] == 2
+    response = client.post(
+        "/graphql",
+        json={
+            "query": ADVANCE_ROUND,
+            "variables": {"raceId": race_id, "roundId": champ_round_id},
+        },
+    )
+    assert response.json()["data"]["advanceRound"] == 2
 
-    # Check
     db.expire_all()
     heats = crud.get_heats(db, race_id)
     champ_heats = [h for h in heats if h.round_id == champ_round_id]
-    first_heat_results = lane_dicts(db, champ_heats[0])
-    assert any(r["racer_id"] > 0 for r in first_heat_results)
+    assert champ_heats, "the championship round should have scheduled heats"
+    champ_lanes = [lane for heat in champ_heats for lane in lane_dicts(db, heat)]
+    assert any(r["racer_id"] > 0 for r in champ_lanes), (
+        "advancing should have filled at least one lane with a real racer"
+    )
 
     # 7. Rerun Last Heat of General Round
     last_heat = gen_heats[-1]
@@ -108,15 +135,21 @@ def test_rerun_last_heat_clears_next_round(client, db):
 
     record_heat_result(client, last_heat.id, results)
 
-    # 8. Assert Championship Round is Cleared
+    # 8. Assert the whole Championship Round reverted to placeholders, not
+    # merely its first heat -- a correction to any general-round result
+    # invalidates every heat drawn from those standings.
     db.expire_all()
     heats = crud.get_heats(db, race_id)
     champ_heats_after = [h for h in heats if h.round_id == champ_round_id]
-    first_heat_results_after = lane_dicts(db, champ_heats_after[0])
+    assert champ_heats_after, "the championship round must still exist"
+    champ_lanes_after = [
+        lane for heat in champ_heats_after for lane in lane_dicts(db, heat)
+    ]
+    assert champ_lanes_after, "the championship round must still have lanes"
 
     has_actual_racers = any(
-        r["racer_id"] is not None and r["racer_id"] > 0
-        for r in first_heat_results_after
+        r["racer_id"] is not None and r["racer_id"] > 0 for r in champ_lanes_after
     )
-
-    assert not has_actual_racers, "Championship round should be cleared"
+    assert not has_actual_racers, (
+        "every lane of every championship heat should be back to a placeholder"
+    )
