@@ -342,6 +342,42 @@ describe('RaceExecution', () => {
         expect(within(modal).getByText('Top 1 racers advance to the next round.')).toBeInTheDocument();
     });
 
+    it('uses the shared rank rather than renumbering ties in the Round Complete table (#329)', () => {
+        // #226: a tie shares a rank (1, 1, 3). The screen used to number rows
+        // 1, 2, 3 by position, which contradicts the operator's own Standings
+        // page and the audience display for a tie the operator settled with
+        // a race-off.
+        const mockSummary = {
+            isReady: true,
+            requiresAdvancement: false,
+            alreadyAdvanced: false,
+            advancingRacers: [
+                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true },
+                { racerId: 102, firstName: 'Jane', lastName: 'Roe', carNumber: 2, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true },
+                { racerId: 103, firstName: 'Sam', lastName: 'Poe', carNumber: 3, denName: 'Lions', score: 4.0, rank: 3, isAdvancing: false },
+            ],
+            source: 'PACK',
+            numRacers: 3,
+            fromBottom: false,
+            fieldIsStale: false
+        };
+
+        render(
+            <RaceExecution
+                {...defaultProps}
+                roundSummary={mockSummary}
+            />
+        );
+
+        const modal = screen.getByTestId('mock-modal');
+        const johnRow = within(modal).getByText('John Doe').closest('tr');
+        const janeRow = within(modal).getByText('Jane Roe').closest('tr');
+        const samRow = within(modal).getByText('Sam Poe').closest('tr');
+        expect(within(johnRow!).getByText('1')).toBeInTheDocument();
+        expect(within(janeRow!).getByText('1')).toBeInTheDocument();
+        expect(within(samRow!).getByText('3')).toBeInTheDocument();
+    });
+
     it('says the slowest cars race next when the round feeds a Slowest Race bracket', () => {
         const mockSummary = {
             isReady: true,

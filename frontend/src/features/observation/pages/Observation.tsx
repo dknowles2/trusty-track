@@ -25,6 +25,7 @@ const GET_INITIAL_DATA = `
   query GetInitialData($id: Int!) {
     race(raceId: $id) {
       id
+      scoringStrategy
       track {
         id
       }
@@ -277,6 +278,16 @@ export default function Observation() {
   const standings = (leaderboardData?.leaderboard || []) as Standing[];
   const lastHeatResults = timingStatsData?.timingStats;
   const activeFreeRace = activeFreeRaceData?.activeFreeRaceHeat;
+
+  // Mirrors Leaderboard.tsx's scoreLabel/formatScore: a POINTS race sums
+  // placements, not seconds, so the wall must say what it means and never
+  // print a POINTS total as though it were a time (#329).
+  const scoringStrategy = initialData?.race?.scoringStrategy || 'TIMED';
+  const scoreLabel = scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
+  const formatScore = (score: number) =>
+    scoringStrategy === 'TIMED' ? `${score.toFixed(4)}s` : score.toString();
+  const formatProjectorScore = (score: number) =>
+    scoringStrategy === 'TIMED' ? score.toFixed(3) : score.toString();
 
   /** Is the thing on the track an exhibition run? (#142)
    *
@@ -603,17 +614,17 @@ export default function Observation() {
                 <tr>
                   <th style={{ padding: '15px' }}>Rank</th>
                   <th style={{ padding: '15px' }}>Racer</th>
-                  <th style={{ padding: '15px', textAlign: 'right' }}>Avg Time</th>
+                  <th style={{ padding: '15px', textAlign: 'right' }}>{scoreLabel}</th>
                   <th style={{ padding: '15px', textAlign: 'right' }}>Runs</th>
                 </tr>
               </thead>
               <tbody>
-                {standings.map((s: Standing, idx: number) => {
+                {standings.map((s: Standing) => {
                   const racer = racersMap[s.racerId];
                   return (
                     <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid #eee' }}>
-                      <td className="standing-rank" style={{ padding: '15px', fontSize: '1.5rem', fontWeight: 'bold', color: idx === 0 ? '#d4af37' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#333' }}>
-                        {idx + 1}
+                      <td className="standing-rank" style={{ padding: '15px', fontSize: '1.5rem', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : '#333' }}>
+                        {s.rank}
                       </td>
                       <td className="standing-racer" style={{ padding: '15px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -640,7 +651,7 @@ export default function Observation() {
                           </div>
                         </div>
                       </td>
-                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>{s.score.toFixed(4)}s</td>
+                      <td className="standing-time" style={{ padding: '15px', textAlign: 'right', fontFamily: 'monospace', fontSize: '1.4rem', fontWeight: 'bold' }}>{formatScore(s.score)}</td>
                       <td className="standing-runs" style={{ padding: '15px', textAlign: 'right', fontSize: '1.1rem' }}>{s.heatsCompleted}</td>
                     </tr>
                   );
@@ -832,8 +843,8 @@ export default function Observation() {
                     return (
                       <tr key={s.racerId} style={{ borderBottom: idx < top5Standings.length - 1 ? '1px solid #333' : 'none' }}>
                         <td className="projector-standings-rank-col" style={{ padding: '1.5vmin 0', width: '15%' }}>
-                          <span style={{ fontSize: '4vmin', fontWeight: 'bold', color: idx === 0 ? '#d4af37' : idx === 1 ? '#c0c0c0' : idx === 2 ? '#cd7f32' : '#888' }}>
-                            {idx + 1}
+                          <span style={{ fontSize: '4vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : '#888' }}>
+                            {s.rank}
                           </span>
                         </td>
                         <td className="projector-standings-racer-col" style={{ padding: '1.5vmin', width: '55%' }}>
@@ -861,10 +872,10 @@ export default function Observation() {
                         <td className="projector-standings-time-col" style={{ padding: '1.5vmin 0', width: '30%', textAlign: 'right' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
                             <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--cub-scouting-gold)', lineHeight: '1' }}>
-                              {s.score.toFixed(3)}
+                              {formatProjectorScore(s.score)}
                             </span>
                             <span style={{ fontSize: '1.5vmin', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
-                              Avg Time
+                              {scoreLabel}
                             </span>
                           </div>
                         </td>

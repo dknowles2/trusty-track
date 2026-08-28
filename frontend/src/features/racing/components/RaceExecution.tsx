@@ -815,12 +815,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             <tbody>
                                 {roundSummary.advancingRacers
                                     .filter(ar => !roundSummary.requiresAdvancement || ar.isAdvancing)
-                                    .map((ar, idx) => (
+                                    .map((ar) => (
                                     <tr key={ar.racerId} style={{ borderBottom: '1px solid #eee', background: ar.isAdvancing ? '#fff8e1' : 'white' }}>
                                         <td style={{ padding: '10px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                {idx < 3 && <Icon path={mdiTrophy} size={0.7} color={idx === 0 ? 'gold' : idx === 1 ? 'silver' : '#cd7f32'} />}
-                                                {idx + 1}
+                                                {ar.rank <= 3 && <Icon path={mdiTrophy} size={0.7} color={ar.rank === 1 ? 'gold' : ar.rank === 2 ? 'silver' : '#cd7f32'} />}
+                                                {ar.rank}
                                             </div>
                                         </td>
                                         <td style={{ padding: '10px' }}>
