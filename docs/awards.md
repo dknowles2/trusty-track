@@ -107,6 +107,11 @@ voting more than once from the same device — the assumption is a single
 iPad by the cars, passed from hand to hand, not a ballot tied to a person.
 What your pack decides that is worth is your call, not the app's.
 
+**A tap casts the vote right away**, with no "are you sure?" step — the
+confirmation names the car ("Thanks for voting for #7 Blue Streak!") so an
+accidental tap while scrolling is at least visible to whoever is holding the
+phone, rather than a silent vote for the wrong car.
+
 **A vote never fills in the winner by itself.** As soon as an award has any
 votes, its tally — how many votes each car got — appears right on its row in
 the award list, with a **Use this result** button next to each car that

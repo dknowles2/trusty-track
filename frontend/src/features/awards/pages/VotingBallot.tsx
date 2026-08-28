@@ -44,6 +44,19 @@ type BallotAward = {
   votable?: boolean | null;
 };
 
+/** How to name a car back to the voter — the label for "Thanks for voting
+ * for ___!". A stray tap is invisible without this: the confirmation is the
+ * only thing that tells the voter (or a stray-tap victim) which car the vote
+ * landed on, so it has to identify the car even when there is no number and
+ * no name to go on. */
+function votedCarLabel(car: BallotCar): string {
+  const number = car.carNumber != null ? `#${car.carNumber}` : null;
+  if (number && car.carName) return `${number} ${car.carName}`;
+  if (number) return number;
+  if (car.carName) return car.carName;
+  return 'this car';
+}
+
 function newBallotKey(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
@@ -87,10 +100,12 @@ export default function VotingBallot() {
   });
   const [, castVote] = useMutation(CAST_VOTE_MUTATION);
 
-  // Which award each just-cast vote landed on, so the confirmation is scoped
-  // to that award rather than the whole page. Not persisted anywhere — a
-  // reload, or picking a different award, is a clean slate.
-  const [justVoted, setJustVoted] = useState<Record<number, boolean>>({});
+  // Which car each just-cast vote landed on, keyed by award, so the
+  // confirmation is scoped to that award rather than the whole page and can
+  // name the car the tap actually hit (#418) — a stray tap is invisible
+  // otherwise. Not persisted anywhere — a reload, or picking a different
+  // award, is a clean slate.
+  const [justVoted, setJustVoted] = useState<Record<number, BallotCar>>({});
   const [submitting, setSubmitting] = useState<number | null>(null);
 
   const race = result.data?.race;
@@ -101,11 +116,11 @@ export default function VotingBallot() {
 
   if (!raceId || isNaN(id)) return <div style={{ padding: '2rem' }}>Invalid race.</div>;
 
-  const vote = async (awardId: number, carId: number) => {
+  const vote = async (awardId: number, car: BallotCar) => {
     setSubmitting(awardId);
     const response = await castVote({
       awardId,
-      racerId: carId,
+      racerId: car.id,
       ballotKey: newBallotKey(),
     });
     setSubmitting(null);
@@ -119,7 +134,7 @@ export default function VotingBallot() {
       showToast(response.data.castVote, 'error');
       return;
     }
-    setJustVoted((current) => ({ ...current, [awardId]: true }));
+    setJustVoted((current) => ({ ...current, [awardId]: car }));
   };
 
   return (
@@ -178,7 +193,7 @@ export default function VotingBallot() {
                   gap: '1rem',
                 }}
               >
-                <span>Thanks for voting!</span>
+                <span>Thanks for voting for {votedCarLabel(justVoted[award.id])}!</span>
                 <button
                   type="button"
                   className="secondary-btn"
@@ -206,7 +221,7 @@ export default function VotingBallot() {
                     key={car.id}
                     type="button"
                     disabled={submitting === award.id}
-                    onClick={() => vote(award.id, car.id)}
+                    onClick={() => vote(award.id, car)}
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
