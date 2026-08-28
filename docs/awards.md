@@ -90,11 +90,12 @@ walking the cars around with a clipboard.
 1. On the award, turn on **Let people vote for this**. It is on by default
    for a new judged award — turn it off for one your pack's leaders would
    rather decide privately.
-2. When you are ready, turn on **Voting is open** for the race (near the top
-   of this page). Share the address it shows — a phone on the venue wifi
-   that opens it sees every car's number, name and photo, and can vote for
-   any award you have left on.
-3. Turn **Voting is open** back off before the ceremony. Nothing does this
+2. When you are ready, click **Open voting** (near the top of this page). The
+   button's label flips to **Close voting**, and the text beside it says
+   "Voting is open." Share the address that appears next to it — a phone on
+   the venue wifi that opens it sees every car's number, name and photo, and
+   can vote for any award you have left on.
+3. Click **Close voting** before the ceremony. Nothing does this
    for you — it is your call, the same way starting the ceremony itself is.
 
 **Nobody's name or photo appears on the voting page.** Voting is about the
@@ -106,11 +107,14 @@ voting more than once from the same device — the assumption is a single
 iPad by the cars, passed from hand to hand, not a ballot tied to a person.
 What your pack decides that is worth is your call, not the app's.
 
-**A vote never fills in the winner by itself.** Once you close voting, the
-award's editor shows the tally — how many votes each car got — and a
-**Use this result** button that fills in the winner exactly as if you had
-picked it from the list. A tie, a car that shouldn't count, or a lopsided
-result stays yours to look at and decide on before anything is announced.
+**A vote never fills in the winner by itself.** As soon as an award has any
+votes, its tally — how many votes each car got — appears right on its row in
+the award list, with a **Use this result** button next to each car that
+fills in the winner exactly as if you had picked it from the list. Both show
+up while voting is still open, so you can watch the count as it comes in; you
+do not need to close voting first. A tie, a car that shouldn't count, or a
+lopsided result stays yours to look at and decide on before anything is
+announced.
 
 ## The running order
 
