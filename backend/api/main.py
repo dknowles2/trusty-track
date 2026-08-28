@@ -720,8 +720,8 @@ _UPLOAD_CHUNK = 1024 * 1024
 #: allowlist ``uploadImage`` (schema.py) already enforces for its GraphQL
 #: twin. `convert_to_browser_safe_png` re-encodes anything outside this set
 #: to PNG, so a format reaching `_sniffed_extension` unconverted is already
-#: guaranteed to be one of these four — the `KeyError` branch below is
-#: defence in depth, not a path either caller expects to take.
+#: guaranteed to be one of these four — the refusal below is defence in
+#: depth, not a path either caller expects to take.
 _EXTENSION_FOR_FORMAT = {
     "JPEG": ".jpg",
     "PNG": ".png",
