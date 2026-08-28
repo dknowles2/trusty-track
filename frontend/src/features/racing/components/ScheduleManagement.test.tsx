@@ -594,6 +594,52 @@ describe('ScheduleManagement', () => {
     expect(runButtons[1]).toHaveAttribute('title', 'Complete previous rounds first');
   });
 
+  it('does not block a later round when an earlier heat was skipped (#333)', () => {
+    const skippedHeatFollowedByRound2: Heat[] = [
+      {
+        id: 1,
+        roundNumber: 1,
+        roundId: 1,
+        heatNumber: 1,
+        roundName: 'Round 1',
+        lanes: [lane({ lane: 1, skipped: true }), lane({ lane: 2, skipped: true })],
+      },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 1, lanes: [], roundName: 'Round 2' },
+    ];
+
+    render(
+      <MemoryRouter>
+      <AlertProvider>
+        <ScheduleManagement
+          raceId={1}
+          heats={skippedHeatFollowedByRound2}
+          generating={false}
+          activeHeatId={null}
+          onAddRound={mockOnAddRound}
+          onRegenerateRound={mockOnRegenerateRound}
+          onDeleteRound={mockOnDeleteRound}
+          onDeleteHeat={mockOnDeleteHeat}
+          onRunHeat={mockOnRunHeat}
+          onReorderHeats={mockOnReorderHeats}
+          getRacerName={mockGetRacerName}
+          onRefetchHeats={vi.fn()}
+          laneCount={4}
+          racerCount={10}
+          denCount={3}
+          championshipTrophies={3}
+        />
+      </AlertProvider>
+      </MemoryRouter>
+    );
+
+    // A skipped heat is finished, not stuck "uncompleted" forever — so Round
+    // 2's Run button must not be disabled behind an instruction ("complete
+    // previous rounds") the operator can never satisfy.
+    const runButtons = screen.getAllByText('Run');
+    expect(runButtons[0]).not.toBeDisabled();
+    expect(runButtons[1]).not.toBeDisabled();
+  });
+
   it('marks a round whose raced field has gone stale (#229)', () => {
     render(
       <MemoryRouter>
