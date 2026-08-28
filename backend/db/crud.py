@@ -796,6 +796,52 @@ def extend_balanced_round(db: Session, round_id: int) -> list[models.Heat]:
     return new_heats
 
 
+def _participant_ids_for_round(
+    db: Session,
+    round_obj: models.Round,
+    num_placeholders: int,
+    racer_ids: list[int] | None,
+) -> list[int]:
+    """Decide who is in the field for a round about to be scheduled.
+
+    Four cases, in priority order: explicit placeholders, an explicit racer
+    list, a championship round falling back to its already-advanced racers or
+    fresh placeholders, and otherwise the checked-in roster (the whole race,
+    or one den). Reads nothing but its own arguments, so it says nothing about
+    *when* it runs relative to clearing existing heats — that ordering is
+    ``generate_heats_for_round``'s to keep.
+    """
+    if num_placeholders > 0:
+        return scheduling.placeholder_ids(num_placeholders)
+    if racer_ids is not None:
+        return racer_ids
+    if round_obj.advancement_source:
+        # Championship round without explicit racer_ids/placeholders:
+        # Use existing racers if advanced, otherwise use placeholders.
+        current_racers = set()
+        for h_lanes in lanes_for_heats(db, round_obj.heats):
+            current_racers.update(lanes.real_racer_ids(h_lanes))
+        if current_racers:
+            # Sorted because set iteration order is not a promise, and the
+            # PPC shuffle downstream may be seeded (`demo_seed`).
+            return sorted(current_racers)
+        return scheduling.placeholder_ids(round_obj.total_participants)
+
+    query = db.query(models.Racer).filter(
+        models.Racer.race_id == round_obj.race_id, models.Racer.car_passed_inspection
+    )
+    if round_obj.den_id:
+        query = query.filter(models.Racer.den_id == round_obj.den_id)
+    # Ordered because the PPC shuffle downstream may be seeded (`demo_seed`),
+    # and it is only as repeatable as its input order.
+    racers = query.order_by(models.Racer.id).all()
+    if not racers or len(racers) < 2:
+        raise ValueError(
+            "Not enough racers to generate a schedule (minimum 2 required)"
+        )
+    return [r.id for r in racers]
+
+
 def generate_heats_for_round(
     db: Session,
     round_id: int,
@@ -868,36 +914,7 @@ def generate_heats_for_round(
         db.flush()  # Ensure deletions are reflected before new generation
         cleared = True
 
-    if num_placeholders > 0:
-        p_ids = scheduling.placeholder_ids(num_placeholders)
-    elif racer_ids is not None:
-        p_ids = racer_ids
-    elif round_obj.advancement_source:
-        # Championship round without explicit racer_ids/placeholders:
-        # Use existing racers if advanced, otherwise use placeholders.
-        current_racers = set()
-        for h_lanes in lanes_for_heats(db, round_obj.heats):
-            current_racers.update(lanes.real_racer_ids(h_lanes))
-        if current_racers:
-            # Sorted because set iteration order is not a promise, and the
-            # PPC shuffle downstream may be seeded (`demo_seed`).
-            p_ids = sorted(current_racers)
-        else:
-            p_ids = scheduling.placeholder_ids(round_obj.total_participants)
-    else:
-        query = db.query(models.Racer).filter(
-            models.Racer.race_id == race_id, models.Racer.car_passed_inspection
-        )
-        if round_obj.den_id:
-            query = query.filter(models.Racer.den_id == round_obj.den_id)
-        # Ordered because the PPC shuffle downstream may be seeded
-        # (`demo_seed`), and it is only as repeatable as its input order.
-        racers = query.order_by(models.Racer.id).all()
-        if not racers or len(racers) < 2:
-            raise ValueError(
-                "Not enough racers to generate a schedule (minimum 2 required)"
-            )
-        p_ids = [r.id for r in racers]
+    p_ids = _participant_ids_for_round(db, round_obj, num_placeholders, racer_ids)
 
     # Continue numbering after heats that are still there ("stacking"), but
     # start again at 1 for heats we just deleted. `existing_heats` is the list
