@@ -33,7 +33,7 @@ Once installed, you can start the application with a single command:
 ./scripts/serve.sh
 ```
 
-The application will be available at [http://localhost:8005](http://localhost:8005).
+The application will be available at [https://localhost:8005](https://localhost:8005). `serve.sh` always runs over HTTPS with a self-signed certificate it generates on first run, so your browser will warn that the certificate isn't trusted — that's expected for a local install; accept it to continue.
 
 ## Configuration
 
@@ -51,4 +51,4 @@ TRUSTYTRACK_DATA_DIR=/opt/trusty-data ./scripts/serve.sh
 ## Health Check
 
 You can verify that the server is running by visiting the health check endpoint:
-[http://localhost:8005/health](http://localhost:8005/health)
+[https://localhost:8005/health](https://localhost:8005/health)
