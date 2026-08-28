@@ -362,7 +362,7 @@ Defined entirely in `backend/api/schema.py`.
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`, `createPracticeRace`
 
-**Subscriptions:** `raceStateChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`
+**Subscriptions:** `raceStateChanged`, `racesChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`
 
 ### Adding a mutation
 
@@ -779,6 +779,8 @@ If you add a race view, it goes in `links` in `Navigation.tsx`. Don't reintroduc
 
 **The browser tab's name is `features/core/pageTitle.ts`**, applied by `PageTitle` — a component rendering nothing, mounted once inside the router. Every page was called "Trusty Track" until then, which on race day is several identical tabs. A component rather than a hook each page calls, for #48's reason: fourteen routes, and a rule depending on every page remembering reaches only some. Two things about the wording, both about how a tab strip is read: **what distinguishes this tab comes first**, since a tab truncates from the right and the app's name is the part every tab shares; and the second half names **what the page is about** — the race for a race page, the application otherwise ("Standings — 2026 Pinewood Derby", "Settings — Trusty Track"). The words are the navigation's labels and Race Control's own tab labels, so a title traces back to something the operator clicked. A race whose name has not arrived yet is the view alone rather than "Standings — undefined". The name costs no request: it comes off `GET_RACES_NAV`, which the navigation has already fetched.
 
+**The race list survives a second tab** ([#300](https://github.com/dknowles2/trusty-track/issues/300)). `Navigation.tsx` fetched `GET_RACES_NAV` once on mount, so a race created, renamed or deleted in another tab — or another device on the same LAN — left every other tab's selector, and the browser tab's title behind it, stale until a reload. `racesChanged` is an **argument-free** subscription — the one exception to every other subscription in the schema being scoped to a race, a track or a display, because the navigation's race list is not scoped to one race — and its payload is a bare `true` rather than the list itself: the client already holds `GET_RACES_NAV`, and shipping the list down the socket a second way would need to be kept in step with the query rather than just triggering it. `createRace`, `updateRace`, `deleteRace` and `createPracticeRace` all publish it — the fourth because it inserts into `races` the same as the first, and #48's lesson is that a rule reaching only the obvious call sites reaches only some of them. Deliberately **not** folded into `raceStateChanged`: that channel is per-race, and a sentinel race id on it would mean every existing subscriber — scoped to a race that may not be the one on screen — filtering out an event that was never theirs. `Navigation.tsx` re-executes `GET_RACES_NAV` with `requestPolicy: 'network-only'` on the signal; `PageTitle` needs no change, since it reads the same query through the normalized cache and updates when the cache does.
+
 ### The roster toolbar
 
 `RaceDetails.tsx`. Six buttons competed for one row and four of them wrapped their labels at 1280px. The rule now: **the first row holds Add Racer, Scan and an overflow menu, and nothing else.** Manage dens, upload photos and print are things an operator does once before an event, so they live behind the `⋯`; add and scan are the two reached for repeatedly. Search and the group-by-den toggle sit on their own row beneath.
@@ -1004,7 +1006,7 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 | --- | --- |
 | [#112](https://github.com/dknowles2/trusty-track/issues/112) | SuperTimer II timer profile. **Needs hardware** — two-part results, a binary lane mask and a 10000 scale factor, none reusable, and a test written from the same notes as the profile would agree with its mistakes. Not engineering work |
 | [#301](https://github.com/dknowles2/trusty-track/issues/301) | A second proxy WebSocket silently takes over the timer — the manager's write function is repointed and neither screen says so |
-| [#299](https://github.com/dknowles2/trusty-track/issues/299), [#300](https://github.com/dknowles2/trusty-track/issues/300) | Two screens that never got a subscription: the roster across devices, and the navigation's race list |
+| [#299](https://github.com/dknowles2/trusty-track/issues/299) | A screen that never got a subscription: the roster across devices |
 | [#296](https://github.com/dknowles2/trusty-track/issues/296), [#297](https://github.com/dknowles2/trusty-track/issues/297) | The demo: a private instance per visitor, and a reset timer an always-on host would need |
 
 **Closed, and load-bearing — don't undo them:**

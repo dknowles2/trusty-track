@@ -221,6 +221,11 @@ export type GetRacesNavQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type GetRacesNavQuery = { races: Array<{ id: number, name: string }> };
 
+export type RacesChangedSubscriptionVariables = Exact<{ [key: string]: never; }>;
+
+
+export type RacesChangedSubscription = { racesChanged: boolean };
+
 export type GetRaceDetailsQueryVariables = Exact<{
   raceId: number;
 }>;

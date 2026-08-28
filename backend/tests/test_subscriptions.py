@@ -10,10 +10,11 @@ from typing import Any
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from backend.api.pubsub import _PubSub
 from backend.api.schema import RaceStateChangedEvent
-from backend.db import crud
+from backend.db import crud, schemas
 from backend.db.models import Base
 from backend.tests.helpers import as_lanes
 
@@ -24,9 +25,17 @@ from backend.tests.helpers import as_lanes
 
 @pytest.fixture()
 def db_session():
-    """Provide an in-memory SQLite session for each test."""
+    """Provide an in-memory SQLite session for each test.
+
+    `StaticPool` pins every checkout to one connection — without it, a
+    request driven through `client` (a real ASGI call, which may run on a
+    different thread than the test) gets its own private `:memory:`
+    database and finds none of the tables the fixture just created.
+    """
     engine = create_engine(
-        "sqlite:///:memory:", connect_args={"check_same_thread": False}
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     Base.metadata.create_all(bind=engine)
     session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -210,3 +219,184 @@ async def test_pubsub_multiple_subscribers() -> None:
     await asyncio.wait_for(asyncio.gather(*tasks), timeout=1.0)
 
     assert sorted(results) == ["a:hello", "b:hello"]
+
+
+# ---------------------------------------------------------------------------
+# racesChanged (#300) — the navigation's race list going stale in another tab
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+async def test_races_changed_subscription_forwards_the_signal() -> None:
+    """The resolver itself, not a re-implementation of it, emits on a signal.
+
+    `races_changed` takes no arguments, so — unlike every other subscription
+    here — it can be driven directly rather than mirrored by hand.
+    """
+    from backend.api.schema import Subscription, _publish_races_list
+
+    local_pubsub = _PubSub()
+    import backend.api.schema as schema_mod
+
+    original_pubsub = schema_mod.pubsub
+    schema_mod.pubsub = local_pubsub
+
+    collected: list[bool] = []
+
+    async def _subscribe_task() -> None:
+        async for value in Subscription().races_changed():
+            collected.append(value)
+            break
+
+    async def _publish_task() -> None:
+        await asyncio.sleep(0.05)
+        await _publish_races_list()
+
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(_subscribe_task(), _publish_task()),
+            timeout=2.0,
+        )
+    except asyncio.TimeoutError:
+        pytest.fail("racesChanged did not receive a signal within 2 seconds")
+    finally:
+        schema_mod.pubsub = original_pubsub
+
+    assert collected == [True]
+
+
+def _spy_on_publish(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Any]]:
+    """Record every ``pubsub.publish`` call the mutation under test makes.
+
+    Wraps the real method rather than replacing it, so every other publish a
+    mutation makes (``race_state:<id>``) still reaches its own subscribers —
+    a swapped-in fake `_PubSub`, as the tests above use, would also work but
+    would mean building a second in-memory GraphQL request path instead of
+    driving the real one through `client`.
+    """
+    import backend.api.schema as schema_mod
+
+    calls: list[tuple[str, Any]] = []
+    original_publish = schema_mod.pubsub.publish
+
+    async def _spy(channel: str, payload: Any) -> None:
+        calls.append((channel, payload))
+        await original_publish(channel, payload)
+
+    monkeypatch.setattr(schema_mod.pubsub, "publish", _spy)
+    return calls
+
+
+def _configure(db: Any) -> tuple[int, int]:
+    """A group and a track — the state System Settings guarantees before a
+    race can be created."""
+    group = crud.create_group(db, schemas.GroupCreate(name="Nav Test Pack"))
+    track = crud.create_track(
+        db, schemas.TrackCreate(name="Nav Test Track", lane_count=4)
+    )
+    return group.id, track.id
+
+
+def test_create_race_publishes_races_changed(client, db, monkeypatch) -> None:
+    """Without the signal, a race created in one tab never appears in another's
+    navigation until it reloads (#300)."""
+    from backend.api.schema import RACES_LIST_CHANNEL
+
+    calls = _spy_on_publish(monkeypatch)
+    group_id, track_id = _configure(db)
+
+    mutation = f"""
+    mutation {{
+        createRace(
+            race: {{name: "Nav Race", groupId: {group_id}, trackId: {track_id}}}
+        ) {{
+            id
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation})
+    assert response.status_code == 200
+    assert response.json()["data"]["createRace"]["id"] is not None
+
+    assert (RACES_LIST_CHANNEL, None) in calls
+
+
+def test_create_practice_race_publishes_races_changed(client, db, monkeypatch) -> None:
+    """Inserts a race the same as `createRace` (#361's lesson: it was missed
+    once already, for the client-side cache update this signal mirrors)."""
+    from backend.api.schema import RACES_LIST_CHANNEL
+
+    calls = _spy_on_publish(monkeypatch)
+    _configure(db)
+
+    response = client.post(
+        "/graphql", json={"query": "mutation { createPracticeRace { id } }"}
+    )
+    assert response.status_code == 200
+    assert response.json()["data"]["createPracticeRace"]["id"] is not None
+
+    assert (RACES_LIST_CHANNEL, None) in calls
+
+
+def test_update_race_publishes_races_changed(client, db, monkeypatch) -> None:
+    """A rename is exactly what the browser tab's title reads (#300)."""
+    from backend.api.schema import RACES_LIST_CHANNEL
+
+    group_id, track_id = _configure(db)
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(name="Before", group_id=group_id, track_id=track_id),
+    )
+
+    calls = _spy_on_publish(monkeypatch)
+
+    mutation = f"""
+    mutation {{
+        updateRace(id: {race.id}, race: {{name: "After"}}) {{
+            id
+            name
+        }}
+    }}
+    """
+    response = client.post("/graphql", json={"query": mutation})
+    assert response.status_code == 200
+    assert response.json()["data"]["updateRace"]["name"] == "After"
+
+    assert (RACES_LIST_CHANNEL, None) in calls
+
+
+def test_update_race_does_not_publish_for_a_missing_race(client, monkeypatch) -> None:
+    """No race was actually changed, so no tab needs to hear about one."""
+    calls = _spy_on_publish(monkeypatch)
+
+    mutation = """
+    mutation {
+        updateRace(id: 999999, race: {name: "Nobody"}) {
+            id
+        }
+    }
+    """
+    response = client.post("/graphql", json={"query": mutation})
+    assert response.status_code == 200
+    assert response.json()["data"]["updateRace"] is None
+
+    assert not any(channel == "races_list" for channel, _ in calls)
+
+
+def test_delete_race_publishes_races_changed(client, db, monkeypatch) -> None:
+    from backend.api.schema import RACES_LIST_CHANNEL
+
+    group_id, track_id = _configure(db)
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(name="Doomed", group_id=group_id, track_id=track_id),
+    )
+
+    calls = _spy_on_publish(monkeypatch)
+
+    mutation = f"mutation {{ deleteRace(id: {race.id}) }}"
+    response = client.post("/graphql", json={"query": mutation})
+    assert response.status_code == 200
+    assert response.json()["data"]["deleteRace"] is True
+
+    assert (RACES_LIST_CHANNEL, None) in calls

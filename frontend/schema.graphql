@@ -550,6 +550,7 @@ type Subscription {
   timerStatus(trackId: Int!): TimerStateChangedEvent!
   heatSession(trackId: Int!, heatId: Int = null): HeatSession!
   raceStateChanged(raceId: Int!): RaceStateChangedEvent!
+  racesChanged: Boolean!
   leaderboard(raceId: Int!): [LeaderboardEntry!]!
   displayAssignment(displayId: String!, raceId: Int!, name: String = null): Display!
   displays(raceId: Int!): [Display!]!
