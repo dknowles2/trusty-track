@@ -366,6 +366,95 @@ describe('Observation Page', () => {
         expect(container).toHaveClass('projector-mode');
     });
 
+    it('labels a POINTS race by points rather than seconds, and keeps the shared rank instead of renumbering it (#329)', async () => {
+        const racersData = {
+            race: {
+                id: 1,
+                scoringStrategy: 'POINTS',
+                racers: [
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null },
+                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null },
+                    { id: 3, firstName: 'Mater', lastName: 'Tow', carNumber: 1, racerImageUrl: null },
+                ],
+            }
+        };
+
+        setupMocks({
+            leaderboard: [
+                // #226: two racers tied for first share rank 1; Mater is 3rd,
+                // not 2nd — the audience display must not renumber them.
+                { racerId: 1, score: 12, heatsCompleted: 4, rank: 1 },
+                { racerId: 2, score: 12, heatsCompleted: 4, rank: 1 },
+                { racerId: 3, score: 20, heatsCompleted: 4, rank: 3 },
+            ],
+        }, racersData);
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Points')).toBeInTheDocument();
+        });
+
+        // A POINTS total is not a time — the header must not still say
+        // "Avg Time", and the score must not carry a fabricated "s" suffix.
+        expect(screen.queryByText('Avg Time')).not.toBeInTheDocument();
+        expect(screen.queryByText('12.0000s')).not.toBeInTheDocument();
+        expect(screen.getAllByText('12').length).toBe(2);
+        expect(screen.getByText('20')).toBeInTheDocument();
+
+        const mcqueenRow = screen.getByText('Speedy McQueen').closest('tr');
+        const docRow = screen.getByText('Doc Hudson').closest('tr');
+        const materRow = screen.getByText('Mater Tow').closest('tr');
+        expect(mcqueenRow?.querySelector('.standing-rank')?.textContent).toBe('1');
+        expect(docRow?.querySelector('.standing-rank')?.textContent).toBe('1');
+        expect(materRow?.querySelector('.standing-rank')?.textContent).toBe('3');
+    });
+
+    it('projector standings label a POINTS race by points and keep the shared rank (#329)', async () => {
+        const racersData = {
+            race: {
+                id: 1,
+                scoringStrategy: 'POINTS',
+                racers: [
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null },
+                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null },
+                ],
+            }
+        };
+
+        setupMocks({
+            leaderboard: [
+                { racerId: 1, score: 12, heatsCompleted: 4, rank: 1 },
+                { racerId: 2, score: 12, heatsCompleted: 4, rank: 1 },
+            ],
+        }, racersData);
+
+        render(
+            <MemoryRouter initialEntries={['/race/1/observation?projector=true']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => {
+            expect(screen.getAllByText('Points').length).toBeGreaterThan(0);
+        });
+
+        expect(screen.queryByText('Avg Time')).not.toBeInTheDocument();
+        expect(screen.getAllByText('12').length).toBe(2);
+
+        // Both racers tied for first — neither is renumbered to 2nd.
+        const rankCells = document.querySelectorAll('.projector-standings-rank-col');
+        expect(Array.from(rankCells).map((el) => el.textContent)).toEqual(['1', '1']);
+    });
+
     it("shows a racer's den rank as a label when their den has one (#298)", async () => {
         const racersWithDens = {
             race: {
