@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiAccountGroup, mdiInformation } from '@mdi/js';
@@ -49,6 +49,25 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   const [fromBottom, setFromBottom] = useState(false);
   const [runsPerLane, setRunsPerLane] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  /** The modal stays mounted across a close/reopen (it is the parent that
+   * toggles `isOpen`), so nothing above resets on its own. A general round
+   * can be deleted while it is closed, and without this a `type` of
+   * CHAMPIONSHIP chosen last time it was open would survive into a reopen
+   * where `hasGeneralRound` is now false — briefly true (the tab reads
+   * `effectiveType`, so it never *shows* CHAMPIONSHIP), but the moment an
+   * operator schedules a new general round and reopens, the stale tab
+   * silently comes back. Reset on the open transition, not on every render
+   * while open, or a mid-session change to `hasGeneralRound` would bounce an
+   * operator mid-edit back to General. */
+  const wasOpen = useRef(isOpen);
+  useEffect(() => {
+    if (isOpen && !wasOpen.current) {
+      setType('GENERAL');
+      setName('');
+    }
+    wasOpen.current = isOpen;
+  }, [isOpen]);
 
   /** Switch tab, and give the round the default name for its kind.
    *
@@ -172,7 +191,12 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
           </div>
         </div>
 
-        {!hasGeneralRound && effectiveType === 'CHAMPIONSHIP' && (
+        {/* This reads the raw `type`, not `effectiveType` — the point of the
+            banner is to explain why the operator was bounced back to the
+            General tab. `effectiveType` is General exactly when this
+            condition would need to hold, so testing it here made the banner
+            unreachable. */}
+        {!hasGeneralRound && type === 'CHAMPIONSHIP' && (
            <div style={{ padding: '10px', background: '#fff3e0', border: '1px solid #ffe0b2', borderRadius: '4px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
              <Icon path={mdiInformation} size={0.7} color="#f57c00" />
              Championship rounds require an existing general round as a source.
@@ -186,7 +210,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             <input
               id="roundName"
               type="text"
-              placeholder={type === 'GENERAL' ? "e.g. Quality Round" : "e.g. Finals"}
+              placeholder={effectiveType === 'GENERAL' ? "e.g. Quality Round" : "e.g. Finals"}
               value={name}
               onChange={(e) => setName(e.target.value)}
               style={inputStyle}
@@ -194,7 +218,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             />
           </div>
 
-          {type === 'GENERAL' ? (
+          {effectiveType === 'GENERAL' ? (
             <>
               {/* How the round is raced. */}
               <div>
@@ -389,7 +413,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
 
           {/* Runs Per Lane — only for PPC. The growing styles have their own
               count: losses for elimination, phases for balanced. */}
-          {!(type === 'GENERAL' && raceStyle !== 'PPC') && (
+          {!(effectiveType === 'GENERAL' && raceStyle !== 'PPC') && (
           <div style={{ width: '50%' }}>
             <label style={labelStyle}>Runs per lane</label>
             <input
