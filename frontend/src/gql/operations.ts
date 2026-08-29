@@ -468,21 +468,21 @@ export type DisplayAssignmentSubscriptionVariables = Exact<{
 }>;
 
 
-export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number } };
+export type DisplayAssignmentSubscription = { displayAssignment: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number } };
 
 export type DisplaysSubscriptionVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number }> };
+export type DisplaysSubscription = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
 
 export type GetDisplaysQueryVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number }> };
+export type GetDisplaysQuery = { displays: Array<{ displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number }> };
 
 export type RaceAwardCountQueryVariables = Exact<{
   raceId: number;
@@ -508,13 +508,20 @@ export type AdvanceDisplayMutationVariables = Exact<{
 
 export type AdvanceDisplayMutation = { advanceDisplay: { displayId: string, slideSeq: number, slideDelta: number } | null };
 
+export type IdentifyDisplayMutationVariables = Exact<{
+  displayId: string;
+}>;
+
+
+export type IdentifyDisplayMutation = { identifyDisplay: { displayId: string, identifySeq: number } | null };
+
 export type RenameDisplayMutationVariables = Exact<{
   displayId: string;
   name: string;
 }>;
 
 
-export type RenameDisplayMutation = { renameDisplay: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number } | null };
+export type RenameDisplayMutation = { renameDisplay: { displayId: string, name: string, view: Types.DisplayView, cycleSeconds: number, description: string, pacedByAPerson: boolean, connected: boolean, assigned: boolean, raceId: number, slideSeq: number, slideDelta: number, identifySeq: number } | null };
 
 export type ForgetDisplayMutationVariables = Exact<{
   displayId: string;

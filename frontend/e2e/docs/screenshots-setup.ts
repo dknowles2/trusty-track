@@ -16,7 +16,15 @@
  * `populateRace` makes up — is dealt with on the backend, by the
  * `TRUSTYTRACK_DEMO_SEED` the config sets. What is left is the version stamp
  * in the navigation bar, which is built from the git hash and so changes on
- * literally every commit. That is handled here, by hiding it.
+ * literally every commit, and the audience display's own id, which a fresh
+ * Playwright browser profile mints a new UUID for on every run. Both are
+ * handled here.
+ *
+ * The display id matters because #495's default name is *derived* from it
+ * (`domain/display_names.whimsical_name`) — deterministic given the id, but
+ * the id itself is not, so `observation/08-displays-panel.png` and
+ * `11-ceremony-controls.png` would show a different animal every run without
+ * this.
  *
  * Import `test` and `expect` from this file rather than from `@playwright/test`.
  */
@@ -25,6 +33,18 @@ import { test as base, expect } from '@playwright/test';
 
 /** Hidden rather than removed, so nothing reflows around the gap it leaves. */
 const HIDE_UNSTABLE = `[data-testid="app-version"] { visibility: hidden !important; }`;
+
+/**
+ * The key `displayIdentity.ts` reads and writes — kept in step with it here
+ * rather than imported, since this file runs outside the app's build.
+ */
+const DISPLAY_ID_KEY = 'trustytrack.displayId';
+
+/**
+ * Fixed rather than left to mint itself, so the default name #495 derives
+ * from it (`whimsical_name`) is the same animal on every run.
+ */
+const FIXED_DISPLAY_ID = 'trustytrack-docs-screenshot-display';
 
 export const test = base.extend({
     page: async ({ page }, use) => {
@@ -42,6 +62,25 @@ export const test = base.extend({
             if (document.head) inject();
             else document.addEventListener('DOMContentLoaded', inject);
         }, HIDE_UNSTABLE);
+
+        // Seeded before the app ever asks `displayIdentity.displayId()` for
+        // one, so it never mints its own UUID. `localStorage.setItem` is a
+        // no-op the first time — nothing has navigated to the app's origin
+        // yet — so this alone would not survive; `addInitScript` runs again
+        // on every navigation, which is what makes it stick.
+        await page.addInitScript(
+            ({ key, id }: { key: string; id: string }) => {
+                try {
+                    window.localStorage.setItem(key, id);
+                } catch {
+                    // Some browser profiles refuse storage; the app already
+                    // tolerates that (see `displayIdentity.ts`), and a
+                    // screenshot spec that never opens a display panel does
+                    // not care either way.
+                }
+            },
+            { key: DISPLAY_ID_KEY, id: FIXED_DISPLAY_ID },
+        );
 
         // Every screenshot waits for the pictures and freezes the animation.
         //

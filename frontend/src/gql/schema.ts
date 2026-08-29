@@ -115,6 +115,7 @@ export type Display = {
   cycleSeconds: Scalars['Int']['output'];
   description: Scalars['String']['output'];
   displayId: Scalars['String']['output'];
+  identifySeq: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   pacedByAPerson: Scalars['Boolean']['output'];
   raceId: Scalars['Int']['output'];
@@ -344,6 +345,7 @@ export type Mutation = {
   fakeTimerStart: Scalars['Boolean']['output'];
   forceResults: Scalars['Boolean']['output'];
   forgetDisplay: Scalars['Boolean']['output'];
+  identifyDisplay?: Maybe<Display>;
   importRacers: Scalars['Int']['output'];
   populateRace: Scalars['String']['output'];
   prepareHeat: Scalars['Boolean']['output'];
@@ -555,6 +557,11 @@ export type MutationForceResultsArgs = {
 
 
 export type MutationForgetDisplayArgs = {
+  displayId: Scalars['String']['input'];
+};
+
+
+export type MutationIdentifyDisplayArgs = {
   displayId: Scalars['String']['input'];
 };
 

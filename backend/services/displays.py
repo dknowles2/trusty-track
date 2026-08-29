@@ -24,6 +24,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field, replace
 
+from backend.domain.display_names import whimsical_name
 from backend.domain.displays import DEFAULT_VIEW, Assignment, DisplayView
 
 __all__ = ["Display", "DisplayRegistry", "registry"]
@@ -74,6 +75,16 @@ class Display:
     #: from a new one — and every payload carries these fields.
     slide_seq: int = 0
     slide_delta: int = 0
+    #: The operator's last "flash your name" command, as a counter rather
+    #: than a boolean — the same shape as `slide_seq` and for the same
+    #: reason (#495). A boolean could not tell a second Identify from the
+    #: first; a rising counter is what makes it an *event* a screen can
+    #: compare itself against, rather than a state it might already be in.
+    #: The screen ignores the value it arrives holding, on connect or
+    #: reconnect, for `roundCompletion.ts`'s `seen === null` reason: an
+    #: opening payload is a reconnection, not an instruction, and obeying it
+    #: would flash the name on every wifi hiccup.
+    identify_seq: int = 0
 
     @property
     def connected(self) -> bool:
@@ -114,7 +125,7 @@ class DisplayRegistry:
         display = Display(
             display_id=display_id,
             race_id=race_id,
-            name=name or self._auto_name(race_id),
+            name=name or self._auto_name(display_id, race_id),
             last_seen=time.monotonic(),
             connections=1,
         )
@@ -135,12 +146,9 @@ class DisplayRegistry:
         display.connections = max(0, display.connections - 1)
         display.last_seen = time.monotonic()
 
-    def _auto_name(self, race_id: int) -> str:
+    def _auto_name(self, display_id: str, race_id: int) -> str:
         taken = {d.name for d in self._displays.values() if d.race_id == race_id}
-        n = 1
-        while f"Display {n}" in taken:
-            n += 1
-        return f"Display {n}"
+        return whimsical_name(display_id, taken)
 
     # -- reading ----------------------------------------------------------
 
@@ -198,6 +206,22 @@ class DisplayRegistry:
             return None
         display.slide_seq += 1
         display.slide_delta = delta
+        return display
+
+    def identify(self, display_id: str) -> Display | None:
+        """Ask a screen to flash its own name (#495).
+
+        A memorable name is only half of it — the operator still has to
+        learn which row on the list is the projector at the back. Bumping the
+        counter is the whole of it; the screen does the flashing, the same
+        split as `advance` and the ceremony's steps, and for the same reason:
+        this is an event the display reacts to, not a state the registry
+        holds a picture of.
+        """
+        display = self._displays.get(display_id)
+        if display is None:
+            return None
+        display.identify_seq += 1
         return display
 
     def rename(self, display_id: str, name: str) -> Display | None:

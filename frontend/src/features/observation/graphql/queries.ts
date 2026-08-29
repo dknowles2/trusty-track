@@ -113,6 +113,7 @@ export const DisplayAssignmentSubscription = gql`
       raceId
       slideSeq
       slideDelta
+      identifySeq
     }
   }
 `;
@@ -132,6 +133,7 @@ export const DisplaysSubscription = gql`
       raceId
       slideSeq
       slideDelta
+      identifySeq
     }
   }
 `;
@@ -150,6 +152,7 @@ export const DISPLAYS_QUERY = gql`
       raceId
       slideSeq
       slideDelta
+      identifySeq
     }
   }
 `;
@@ -199,6 +202,20 @@ export const ADVANCE_DISPLAY = gql`
   }
 `;
 
+/**
+ * Ask a display to flash its own name (#495) — the operator's row-level
+ * "which screen is this" button. A step, not a state: `identifySeq` is what
+ * the screen compares itself against, the same shape as `ADVANCE_DISPLAY`.
+ */
+export const IDENTIFY_DISPLAY = gql`
+  mutation IdentifyDisplay($displayId: String!) {
+    identifyDisplay(displayId: $displayId) {
+      displayId
+      identifySeq
+    }
+  }
+`;
+
 export const RENAME_DISPLAY = gql`
   mutation RenameDisplay($displayId: String!, $name: String!) {
     renameDisplay(displayId: $displayId, name: $name) {
@@ -213,6 +230,7 @@ export const RENAME_DISPLAY = gql`
       raceId
       slideSeq
       slideDelta
+      identifySeq
     }
   }
 `;

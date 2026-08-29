@@ -10,7 +10,8 @@ import {
     OnDeckSubscription,
     CurrentlyRacingSubscription,
     TimingStatsSubscription,
-    ActiveFreeRaceHeatSubscription
+    ActiveFreeRaceHeatSubscription,
+    DisplayAssignmentSubscription
 } from '../graphql/queries';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 
@@ -55,6 +56,10 @@ describe('Observation Page', () => {
             // which is what makes a free race an exhibition only when it is
             // actually on the track (#142).
             armedHeatId: null,
+            // What this screen has been told, including its own name and the
+            // identify counter (#495). `null` is "no payload yet", which is
+            // what most tests below the naming ones want.
+            displayAssignment: null,
             ...overrides
         };
 
@@ -65,6 +70,7 @@ describe('Observation Page', () => {
             if (query === TimingStatsSubscription) return [{ data: { timingStats: defaultSubs.timingStats } }];
             if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: defaultSubs.activeFreeRaceHeat } }];
             if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: defaultSubs.armedHeatId } } } }];
+            if (query === DisplayAssignmentSubscription) return [{ data: { displayAssignment: defaultSubs.displayAssignment } }];
             return [{ data: null }];
         });
     };
@@ -604,5 +610,92 @@ describe('Observation Page', () => {
         expect(screen.getByText('Heat Results')).toBeInTheDocument();
 
         vi.useRealTimers();
+    });
+
+    describe('naming this screen (#495)', () => {
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        it('shows a small badge naming the screen on its first payload, not the flash', async () => {
+            setupMocks({
+                displayAssignment: { name: 'Plucky Puffin', identifySeq: 3, assigned: false, view: 'STANDINGS', cycleSeconds: 10 },
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('identify-connect-badge')).toHaveTextContent('Plucky Puffin');
+            });
+            expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+        });
+
+        it('flashes the name across the screen when identifySeq rises after the opening payload', async () => {
+            let displayAssignment: any = {
+                name: 'Plucky Puffin',
+                identifySeq: 3,
+                assigned: false,
+                view: 'STANDINGS',
+                cycleSeconds: 10,
+            };
+            (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats: null } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                if (query === DisplayAssignmentSubscription) return [{ data: { displayAssignment } }];
+                return [{ data: null }];
+            });
+
+            const { rerender } = render(renderTree());
+            await waitFor(() => {
+                expect(screen.getByTestId('identify-connect-badge')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+
+            // The operator presses Identify: the seq this display already
+            // holds rises.
+            displayAssignment = { ...displayAssignment, identifySeq: 4 };
+            act(() => {
+                rerender(renderTree());
+            });
+
+            expect(screen.getByTestId('identify-flash')).toHaveTextContent('Plucky Puffin');
+        });
+
+        it('ignores the seq a reconnect arrives holding — must not flash on a wifi hiccup', async () => {
+            // A fresh mount with no prior `seen` gets the connect badge for
+            // whatever seq it opens with, never the full-screen flash — the
+            // same `seen === null` rule `resultsOverlay.ts` uses.
+            setupMocks({
+                displayAssignment: { name: 'Plucky Puffin', identifySeq: 7, assigned: false, view: 'STANDINGS', cycleSeconds: 10 },
+            });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('identify-connect-badge')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+        });
+
+        it('shows nothing when this display has not been told a name yet', async () => {
+            setupMocks({ displayAssignment: null });
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('identify-connect-badge')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+        });
     });
 });
