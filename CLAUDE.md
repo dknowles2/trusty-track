@@ -1331,6 +1331,17 @@ Two things follow from sharing an origin, and both are the point of it:
   build — it maps each `/docs/<path>/` back to the Markdown file mkdocs built it
   from, and checks every borrowed image exists.
 
+**Two copy mistakes the landing page has already made, both from adding rather
+than editing.** A note appended to the nearest paragraph rather than given its
+own: the hero's fine print ended up explaining the demo button *and* listing
+supported platforms in one blurb, because the demo sentence was added to the
+line that was already there. Fine print under a row of buttons is about the
+product; a note about one button is a second line. And a detail pitched at the
+wrong reader: the Race Control block led with the keyboard shortcuts, which are
+a pleasure to discover in your second season and no reason at all to choose the
+software in your first. The bullets there are about the day going wrong and
+being recoverable, which is what a volunteer is actually worried about.
+
 **The landing page's timer list is held to `ALL_PROFILES`, in both directions.**
 Each row carries `data-timer-key`, so the page states which profiles it is
 naming rather than being matched on wording — the display names differ
