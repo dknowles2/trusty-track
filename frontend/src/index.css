@@ -51,6 +51,38 @@
   /* Spacing & Layout */
   --border-radius: 12px;
   --spacing-unit: 8px;
+
+  /*
+   * Display surface tokens (#498's groundwork — "Themes: three configurable
+   * surfaces"). The audience/projector views (`Observation.tsx`,
+   * `AwardCeremony.tsx`) are their own surface, independent of the App
+   * surface above. These defaults equal today's hardcoded `.projector-mode`
+   * dark palette exactly — no rendered colour moves in this change — so that
+   * a later Display theme can redefine this handful of names at the Display
+   * root instead of a future theme needing to touch every selector below
+   * that currently repeats the same literal.
+   */
+  --display-bg-color: #0A0A0A;
+  --display-surface-color: #1a1a1a;
+  --display-surface-alt-color: #111111;
+  --display-text-color: #ffffff;
+  --display-text-muted-color: #aaaaaa;
+  --display-border-color: #333333;
+  --display-accent-color: #FCD116;
+  --display-overlay-bg-color: rgba(0, 0, 0, 0.95);
+
+  /*
+   * Printables surface tokens (#498's groundwork). Pit passes, licences and
+   * certificates are their own surface too. Defaults equal today's card
+   * palette — `PrintSheet.css` and `PrintDecor.tsx` used to read
+   * `--scouting-blue` / `--cub-scouting-gold` (the App surface's own
+   * tokens) directly, which is exactly what would have kept a Printables
+   * theme from ever actually looking different.
+   */
+  --print-primary-color: #003F87;
+  --print-accent-color: #FCD116;
+  --print-header-gradient-start: #002a5c;
+  --print-header-gradient-end: #0b4f9e;
 }
 
 body {
@@ -417,8 +449,8 @@ input:checked + .slider:before {
 
 /* Projector Mode Styling */
 .projector-mode {
-  background-color: #0A0A0A !important;
-  color: #FFFFFF !important;
+  background-color: var(--display-bg-color) !important;
+  color: var(--display-text-color) !important;
   min-height: 100vh;
   /* Reset base font size to use viewport units */
   font-size: 1.2vmin;
@@ -427,7 +459,7 @@ input:checked + .slider:before {
 .projector-mode h1,
 .projector-mode h2,
 .projector-mode h3 {
-  color: var(--cub-scouting-gold) !important;
+  color: var(--display-accent-color) !important;
   text-transform: uppercase;
   letter-spacing: 0.15vmin;
 }
@@ -457,8 +489,8 @@ input:checked + .slider:before {
 /* Heat Cards in Projector Mode */
 .projector-mode .heat-card,
 .projector-mode .heat-card-racer {
-  background-color: #1a1a1a !important;
-  color: #fff !important;
+  background-color: var(--display-surface-color) !important;
+  color: var(--display-text-color) !important;
   border-radius: 1.5vmin !important;
   box-shadow: 0 0.5vmin 1.5vmin rgba(0,0,0,0.5) !important;
 }
@@ -466,7 +498,7 @@ input:checked + .slider:before {
 /* Ensure empty heat card also follows theme */
 .projector-mode .heat-card[style*="background: rgb(245, 245, 245)"],
 .projector-mode .heat-card[style*="background: #f5f5f5"] {
-  background-color: #111 !important;
+  background-color: var(--display-surface-alt-color) !important;
   opacity: 0.5 !important;
 }
 
@@ -479,14 +511,14 @@ input:checked + .slider:before {
 /* Lane Label */
 .projector-mode .heat-card-lane {
   font-size: 1.8vmin !important;
-  color: #aaa !important;
+  color: var(--display-text-muted-color) !important;
 }
 
 /* Heat Card Racers */
 .projector-mode .heat-card-racer-name {
   font-size: 2.2vmin !important; /* Racer Name */
   margin-top: 0.8vmin !important;
-  color: #fff !important;
+  color: var(--display-text-color) !important;
 }
 
 .projector-mode .heat-card-car-number {
@@ -499,18 +531,18 @@ input:checked + .slider:before {
 .projector-mode .heat-card-racer div[style*="border-radius: 50%"] {
   width: 12vmin !important;
   height: 12vmin !important;
-  border-color: #333 !important;
+  border-color: var(--display-border-color) !important;
   font-size: 5vmin !important; /* For Initials fallback */
 }
 
 
 /* Standings Table in Projector Mode */
 .projector-mode .standings-table {
-  background-color: #111 !important;
+  background-color: var(--display-surface-alt-color) !important;
 }
 
 .projector-mode .standings-table thead {
-  background-color: var(--cub-scouting-gold) !important;
+  background-color: var(--display-accent-color) !important;
   color: #000 !important;
 }
 
@@ -521,7 +553,7 @@ input:checked + .slider:before {
 
 .projector-mode .standings-table tbody td {
   padding: 1.8vmin !important;
-  border-bottom: 1px solid #333 !important;
+  border-bottom: 1px solid var(--display-border-color) !important;
 }
 
 /* Rank Number in Standings */
@@ -618,7 +650,7 @@ input:checked + .slider:before {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.95);
+  background-color: var(--display-overlay-bg-color);
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -630,7 +662,7 @@ input:checked + .slider:before {
 
 .overlay-title {
   font-size: 8vmin !important;
-  color: var(--cub-scouting-gold) !important;
+  color: var(--display-accent-color) !important;
   margin-bottom: 4vmin !important;
   text-shadow: 0 0 2vmin rgba(252, 209, 22, 0.3);
   text-align: center;
@@ -640,7 +672,10 @@ input:checked + .slider:before {
    Gold on the dark overlay so it reads as a different kind of news than the
    results beneath it — this is the line the room photographs. */
 .overlay-record-banner {
-  background: var(--cub-scouting-gold);
+  /* color stays --scouting-blue (#498 groundwork, stage 1): there is no
+     Display "text on accent" token in the spec's vocabulary, and guessing
+     one here risks a mismatch a later theme would have to unpick. */
+  background: var(--display-accent-color);
   color: var(--scouting-blue);
   border-radius: 2vmin;
   padding: 2vmin 4vmin;
@@ -677,7 +712,7 @@ input:checked + .slider:before {
 .overlay-result-item {
   display: flex;
   align-items: center;
-  background: #1a1a1a;
+  background: var(--display-surface-color);
   border-radius: 2vmin;
   padding: 2vmin 3vmin;
   border-left: 1.5vmin solid #ddd;
@@ -686,8 +721,8 @@ input:checked + .slider:before {
 }
 
 .overlay-result-item.first-place {
-  border-left-color: var(--cub-scouting-gold);
-  background: linear-gradient(90deg, rgba(252, 209, 22, 0.1) 0%, #1a1a1a 100%);
+  border-left-color: var(--display-accent-color);
+  background: linear-gradient(90deg, rgba(252, 209, 22, 0.1) 0%, var(--display-surface-color) 100%);
   transform: scale(1.03);
 }
 
@@ -703,7 +738,7 @@ input:checked + .slider:before {
   font-size: 5.5vmin;
   font-weight: 900;
   width: 12vmin;
-  color: #fff;
+  color: var(--display-text-color);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -724,19 +759,19 @@ input:checked + .slider:before {
 .overlay-racer-name {
   font-size: 4.5vmin;
   font-weight: 800;
-  color: #fff;
+  color: var(--display-text-color);
 }
 
 .overlay-car-name {
   font-size: 2.5vmin;
-  color: #aaa;
+  color: var(--display-text-muted-color);
 }
 
 .overlay-time {
   font-size: 7vmin;
   font-weight: 900;
   font-family: monospace;
-  color: var(--cub-scouting-gold);
+  color: var(--display-accent-color);
 }
 
 /* Overlay Avatar */

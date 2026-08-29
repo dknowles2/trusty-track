@@ -124,6 +124,13 @@ export default function AwardCeremony() {
         // ceremony that is on a projector in front of the whole pack. Found by
         // loading the page rather than by any test.
         zIndex: 3000,
+        // Still the App surface's navy rather than --display-bg-color
+        // (#498's groundwork, stage 1): the Display token's own default is
+        // Observation's projector black, not this navy, so converting this
+        // one would move a real, currently-shipped colour rather than just
+        // decouple a name. Left for the theme work that actually decides
+        // whether the ceremony slide's background joins the projector's
+        // black or keeps its own value.
         background: 'var(--scouting-blue, #003F87)',
         color: 'white',
         display: 'flex',
@@ -146,7 +153,7 @@ export default function AwardCeremony() {
             style={{
               fontSize: 'clamp(2rem, 8vh, 6rem)',
               margin: 0,
-              color: 'var(--cub-scouting-gold, #FCD116)',
+              color: 'var(--display-accent-color, #FCD116)',
             }}
           >
             {slide.title}
@@ -161,10 +168,20 @@ export default function AwardCeremony() {
               the slide is exactly as it was before this existed. */}
           {slide.artworkKey && (
             <div style={{ margin: '3vh 0 1vh' }}>
-              {/* dark: the slide's background is the same navy the artwork's
+              {/* dark: the slide's background is dark, the colour the artwork's
                   outlines default to (#400) — without this every line in the
-                  icon matches the wall behind it. */}
-              <AwardArtwork artworkKey={slide.artworkKey} size={140} variant="dark" />
+                  icon matches the wall behind it. The palette is the Display
+                  surface's own accent (#498's groundwork), not the App's gold
+                  read directly. */}
+              <AwardArtwork
+                artworkKey={slide.artworkKey}
+                size={140}
+                variant="dark"
+                palette={{
+                  line: 'var(--display-text-color, #ffffff)',
+                  fill: 'var(--display-accent-color, #FCD116)',
+                }}
+              />
             </div>
           )}
 
@@ -178,7 +195,7 @@ export default function AwardCeremony() {
                 borderRadius: '50%',
                 objectFit: 'cover',
                 margin: '4vh 0 2vh',
-                border: '4px solid var(--cub-scouting-gold, #FCD116)',
+                border: '4px solid var(--display-accent-color, #FCD116)',
               }}
             />
           )}

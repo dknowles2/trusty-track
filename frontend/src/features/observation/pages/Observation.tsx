@@ -425,7 +425,7 @@ export default function Observation() {
           <span>{title}</span>
           {exhibition && (
             <span style={{
-              background: 'var(--cub-scouting-gold)',
+              background: 'var(--display-accent-color)',
               color: '#333',
               fontSize: '0.75rem',
               fontWeight: 'bold',
@@ -597,7 +597,7 @@ export default function Observation() {
   // the photographs, on a screen across a room.
   if (behaviour.slideshow) {
     return (
-      <div className="container projector-mode" style={{ maxWidth: '100%', padding: 0, background: '#111' }}>
+      <div className="container projector-mode" style={{ maxWidth: '100%', padding: 0, background: 'var(--display-surface-alt-color)' }}>
         {renderIdentifyBadge()}
         {renderIdentifyFlash()}
         <PhotoSlideshow
@@ -685,7 +685,7 @@ export default function Observation() {
               padding: '10px 20px',
               borderRadius: '20px',
               border: 'none',
-              background: activeTab === 'standings' ? 'var(--cub-scouting-gold)' : '#eee',
+              background: activeTab === 'standings' ? 'var(--display-accent-color)' : '#eee',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -703,7 +703,7 @@ export default function Observation() {
               padding: '10px 20px',
               borderRadius: '20px',
               border: 'none',
-              background: activeTab === 'timing' ? 'var(--cub-scouting-gold)' : '#eee',
+              background: activeTab === 'timing' ? 'var(--display-accent-color)' : '#eee',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -719,7 +719,7 @@ export default function Observation() {
         {activeTab === 'standings' ? (
           <div className="standings-table-wrapper" style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: 'var(--cub-scouting-gold)', color: '#333' }}>
+              <thead style={{ backgroundColor: 'var(--display-accent-color)', color: '#333' }}>
                 <tr>
                   <th style={{ padding: '15px' }}>Rank</th>
                   <th style={{ padding: '15px' }}>Racer</th>
@@ -790,7 +790,7 @@ export default function Observation() {
                       marginBottom: '25px',
                       padding: '15px 20px',
                       borderRadius: '12px',
-                      background: 'var(--cub-scouting-gold, #FCD116)',
+                      background: 'var(--display-accent-color, #FCD116)',
                       color: 'var(--scouting-blue, #003F87)',
                       fontWeight: 'bold',
                       fontSize: '1.3rem',
@@ -860,7 +860,7 @@ export default function Observation() {
         {entries.map(({ lane, racer }: LaneEntry) => (
           <div key={lane} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#222', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
             {/* Priority 1: Racer Name */}
-            <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: '#fff', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
+            <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: 'var(--display-text-color)', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
               {racer.firstName} {racer.lastName}
             </div>
 
@@ -912,12 +912,12 @@ export default function Observation() {
         <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '3vmin', boxSizing: 'border-box' }}>
 
           {/* Now Racing */}
-          <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #d32f2f', boxSizing: 'border-box' }}>
-            <h2 style={{ fontSize: '4vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid #333', marginBottom: '2vmin' }}>
+          <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #d32f2f', boxSizing: 'border-box' }}>
+            <h2 style={{ fontSize: '4vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin' }}>
               <Icon path={mdiFire} size="4vmin" color="#d32f2f" />
               Now Racing
               {nowRacingHeatInfo && <span style={{ color: '#888', fontSize: '2.5vmin', marginLeft: 'auto', fontWeight: 'normal' }}>({nowRacingHeatInfo})</span>}
-              {isExhibition && <span style={{ background: 'var(--cub-scouting-gold)', color: '#000', fontSize: '2vmin', padding: '0.5vmin 1.5vmin', borderRadius: '2vmin', marginLeft: 'auto' }}>EXHIBITION</span>}
+              {isExhibition && <span style={{ background: 'var(--display-accent-color)', color: '#000', fontSize: '2vmin', padding: '0.5vmin 1.5vmin', borderRadius: '2vmin', marginLeft: 'auto' }}>EXHIBITION</span>}
               {initialData?.race?.track?.id && (
                 <TimerStatusBadge trackId={initialData.race.track.id} />
               )}
@@ -928,9 +928,9 @@ export default function Observation() {
           </div>
 
           {/* On Deck */}
-          <div className="projector-heat-panel" style={{ flex: '2', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #999', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box' }}>
-            <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid #333', marginBottom: '2vmin', color: '#aaa' }}>
-              <Icon path={mdiChevronDoubleRight} size="3.5vmin" color="#aaa" />
+          <div className="projector-heat-panel" style={{ flex: '2', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #999', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box' }}>
+            <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin', color: 'var(--display-text-muted-color)' }}>
+              <Icon path={mdiChevronDoubleRight} size="3.5vmin" color="var(--display-text-muted-color)" />
               On Deck
             </h2>
             <div style={{ flex: 1 }}>
@@ -940,9 +940,9 @@ export default function Observation() {
         </div>
 
         {/* Right Column: Top 5 Standings */}
-        <div className="projector-right-col" style={{ flex: '0 0 calc(35% - 3vmin)', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: '1.5vmin', overflow: 'hidden', padding: '2.5vmin', borderTop: '1vmin solid var(--cub-scouting-gold)', boxSizing: 'border-box' }}>
-          <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5vmin', borderBottom: '2px solid #333', marginBottom: '2vmin' }}>
-            <Icon path={mdiTrophy} size="3.5vmin" color="var(--cub-scouting-gold)" />
+        <div className="projector-right-col" style={{ flex: '0 0 calc(35% - 3vmin)', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', overflow: 'hidden', padding: '2.5vmin', borderTop: '1vmin solid var(--display-accent-color)', boxSizing: 'border-box' }}>
+          <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin' }}>
+            <Icon path={mdiTrophy} size="3.5vmin" color="var(--display-accent-color)" />
             Current Standings
           </h2>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -952,7 +952,7 @@ export default function Observation() {
                   {top5Standings.map((s: Standing, idx: number) => {
                     const racer = racersMap[s.racerId];
                     return (
-                      <tr key={s.racerId} style={{ borderBottom: idx < top5Standings.length - 1 ? '1px solid #333' : 'none' }}>
+                      <tr key={s.racerId} style={{ borderBottom: idx < top5Standings.length - 1 ? '1px solid var(--display-border-color)' : 'none' }}>
                         <td className="projector-standings-rank-col" style={{ padding: '1.5vmin 0', width: '15%' }}>
                           <span style={{ fontSize: '4vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : '#888' }}>
                             {s.rank}
@@ -971,7 +971,7 @@ export default function Observation() {
                               style={{ border: '0.2vmin solid #555', flexShrink: 0 }}
                             />
                             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                              <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                              <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
                                 {racer ? `${racer.firstName}` : `Racer`}
                               </span>
                               <span style={{ fontSize: '2vmin', fontWeight: 'bold', color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
@@ -982,7 +982,7 @@ export default function Observation() {
                         </td>
                         <td className="projector-standings-time-col" style={{ padding: '1.5vmin 0', width: '30%', textAlign: 'right' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--cub-scouting-gold)', lineHeight: '1' }}>
+                            <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--display-accent-color)', lineHeight: '1' }}>
                               {formatProjectorScore(s.score)}
                             </span>
                             <span style={{ fontSize: '1.5vmin', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
@@ -1003,7 +1003,7 @@ export default function Observation() {
 
             {/* Empty rows filler if less than 5 to keep height consistent */}
             {top5Standings.length > 0 && top5Standings.length < 5 && Array.from({ length: 5 - top5Standings.length }).map((_, i) => (
-               <div key={`empty-${i}`} style={{ flex: 1, borderTop: '1px dashed #333', minHeight: '8vmin' }}></div>
+               <div key={`empty-${i}`} style={{ flex: 1, borderTop: '1px dashed var(--display-border-color)', minHeight: '8vmin' }}></div>
             ))}
           </div>
         </div>

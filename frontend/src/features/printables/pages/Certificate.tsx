@@ -54,7 +54,7 @@ export default function Certificate() {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px',
-                            color: 'var(--scouting-blue)',
+                            color: 'var(--print-primary-color)',
                             fontSize: '0.85rem',
                             marginBottom: '0.5rem',
                         }}
@@ -127,7 +127,14 @@ export default function Certificate() {
                                 award saved before this feature existed prints. */}
                             {certificate.artworkKey && (
                                 <div className="certificate-artwork">
-                                    <AwardArtwork artworkKey={certificate.artworkKey} size={110} />
+                                    <AwardArtwork
+                                        artworkKey={certificate.artworkKey}
+                                        size={110}
+                                        palette={{
+                                            line: 'var(--print-primary-color, #003F87)',
+                                            fill: 'var(--print-accent-color, #FCD116)',
+                                        }}
+                                    />
                                 </div>
                             )}
 
