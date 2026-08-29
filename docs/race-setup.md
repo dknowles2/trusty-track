@@ -35,7 +35,7 @@ The overflow menu holds the things you do once before an event — managing dens
 2. Enter the **Name** (e.g., "Lions").
 3. Check the **Start Number** and **End Number**. They arrive filled in with a block of a hundred that no other den is using, and **Auto number** hands out numbers from that block when the race is set to Per Den numbering. Clear them if you number cars some other way.
 4. Select a **Color** to identify the den. It is the colour of the den's tag in the roster, on printed pit passes and licences, and in the den comparison on the Stats page.
-5. (Optional) Pick the den's **Rank** — Lion, Tiger, Wolf, Bear, Webelos or Arrow of Light. It is shown beside the den's name in the list, beside the den's name in the Den column on the Standings page, and beneath a racer's name on the audience displays, where their den is not otherwise shown.
+5. (Optional) Set the den's **Category** — a dropdown offers the traditional Cub Scout ranks (Lion, Tiger, Wolf, Bear, Webelos, Arrow of Light) to fill the box, or type anything you like. It is shown beside the den's name in the list, beside the den's name in the Den column on the Standings page, and beneath a racer's name on the audience displays, where their den is not otherwise shown.
 6. Click **Add Den**.
 
 ![Add Den Form](assets/screenshots/race-setup/03-add-den-form.png)

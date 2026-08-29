@@ -253,7 +253,7 @@ type LeaderboardEntry {
   carNumber: Int
   racingGroupId: Int
   racingGroupName: String!
-  racingGroupRank: String
+  racingGroupDivision: String
   score: Float!
   heatsCompleted: Int!
   racerImageUrl: String
@@ -510,7 +510,7 @@ type RacingGroup {
   id: Int!
   name: String!
   color: String!
-  rank: String
+  division: String
   raceId: Int!
   carNumberRangeStart: Int
   carNumberRangeEnd: Int
@@ -520,7 +520,7 @@ type RacingGroup {
 input RacingGroupInput {
   name: String!
   color: String! = "#000000"
-  rank: String = null
+  division: String = null
   carNumberRangeStart: Int = null
   carNumberRangeEnd: Int = null
 }

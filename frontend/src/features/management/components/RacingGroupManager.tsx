@@ -6,7 +6,7 @@ import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
 import { CREATE_RACING_GROUP, UPDATE_RACING_GROUP, DELETE_RACING_GROUP, GET_RACE_DETAILS } from '../graphql/queries';
-import { RANKS, rankLabel } from '../rankText';
+import { CATEGORY_PRESETS } from '../categoryPresets';
 
 const RACING_GROUP_COLORS = COMMON_COLORS;
 
@@ -27,14 +27,14 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
         id: number;
         name: string;
         color: string;
-        rank?: string;
+        division?: string;
         carNumberRangeStart?: number;
         carNumberRangeEnd?: number;
     }) => ({
         id: d.id,
         name: d.name,
         color: d.color,
-        rank: d.rank,
+        division: d.division,
         car_number_range_start: d.carNumberRangeStart,
         car_number_range_end: d.carNumberRangeEnd
     }));
@@ -49,7 +49,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
     const [isAddingRacingGroup, setIsAddingRacingGroup] = useState(false);
     const [newRacingGroupName, setNewRacingGroupName] = useState('');
     const [newRacingGroupColor, setNewRacingGroupColor] = useState(RACING_GROUP_COLORS[0]);
-    const [newRacingGroupRank, setNewRacingGroupRank] = useState<string | undefined>(undefined);
+    const [newRacingGroupDivision, setNewRacingGroupDivision] = useState('');
     const [newRacingGroupStart, setNewRacingGroupStart] = useState<number | undefined>(undefined);
     const [newRacingGroupEnd, setNewRacingGroupEnd] = useState<number | undefined>(undefined);
 
@@ -57,7 +57,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
     const [editingRacingGroupId, setEditingRacingGroupId] = useState<number | null>(null);
     const [editRacingGroupName, setEditRacingGroupName] = useState('');
     const [editRacingGroupColor, setEditRacingGroupColor] = useState(RACING_GROUP_COLORS[0]);
-    const [editRacingGroupRank, setEditRacingGroupRank] = useState<string | undefined>(undefined);
+    const [editRacingGroupDivision, setEditRacingGroupDivision] = useState('');
     const [editRacingGroupStart, setEditRacingGroupStart] = useState<number | undefined>(undefined);
     const [editRacingGroupEnd, setEditRacingGroupEnd] = useState<number | undefined>(undefined);
 
@@ -75,7 +75,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                 racingGroup: {
                     name: newRacingGroupName,
                     color: newRacingGroupColor,
-                    rank: newRacingGroupRank,
+                    division: newRacingGroupDivision || undefined,
                     carNumberRangeStart: newRacingGroupStart,
                     carNumberRangeEnd: newRacingGroupEnd
                 }
@@ -84,7 +84,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
 
             setNewRacingGroupName('');
             setNewRacingGroupColor(RACING_GROUP_COLORS[0]);
-            setNewRacingGroupRank(undefined);
+            setNewRacingGroupDivision('');
             setNewRacingGroupStart(undefined);
             setNewRacingGroupEnd(undefined);
             setIsAddingRacingGroup(false);
@@ -122,7 +122,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
         setEditingRacingGroupId(racingGroup.id);
         setEditRacingGroupName(racingGroup.name);
         setEditRacingGroupColor(racingGroup.color);
-        setEditRacingGroupRank(racingGroup.rank);
+        setEditRacingGroupDivision(racingGroup.division ?? '');
         setEditRacingGroupStart(racingGroup.car_number_range_start);
         setEditRacingGroupEnd(racingGroup.car_number_range_end);
     };
@@ -136,7 +136,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                 racingGroup: {
                     name: editRacingGroupName,
                     color: editRacingGroupColor,
-                    rank: editRacingGroupRank,
+                    division: editRacingGroupDivision || undefined,
                     carNumberRangeStart: editRacingGroupStart,
                     carNumberRangeEnd: editRacingGroupEnd
                 }
@@ -265,19 +265,26 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                         </div>
                     </div>
                     <div style={{ marginBottom: '10px' }}>
-                            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Rank (optional)</label>
+                            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Category (optional)</label>
                             <select
-                            value={newRacingGroupRank || ''}
-                            onChange={e => setNewRacingGroupRank(e.target.value || undefined)}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                            value=""
+                            onChange={e => { if (e.target.value) setNewRacingGroupDivision(e.target.value); }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', marginBottom: '6px' }}
                         >
-                            <option value="">None</option>
-                            {RANKS.map((rank) => (
-                                <option key={rank.value} value={rank.value}>
-                                    {rank.label}
+                            <option value="">Choose a Cub Scout rank, or type your own below</option>
+                            {CATEGORY_PRESETS.map((preset) => (
+                                <option key={preset} value={preset}>
+                                    {preset}
                                 </option>
                             ))}
                             </select>
+                            <input
+                                type="text"
+                                value={newRacingGroupDivision}
+                                onChange={e => setNewRacingGroupDivision(e.target.value)}
+                                placeholder="e.g. Wolf, 3rd Grade"
+                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                            />
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                             <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
@@ -337,15 +344,26 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                                     </div>
 
                                 <div>
-                                        <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Rank</label>
-                                        <select value={editRacingGroupRank || ''} onChange={e => setEditRacingGroupRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-                                    <option value="">None</option>
-                                    {RANKS.map((rank) => (
-                                        <option key={rank.value} value={rank.value}>
-                                            {rank.label}
+                                        <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Category</label>
+                                        <select
+                                            value=""
+                                            onChange={e => { if (e.target.value) setEditRacingGroupDivision(e.target.value); }}
+                                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)', marginBottom: '6px' }}
+                                        >
+                                    <option value="">Choose a Cub Scout rank, or type your own below</option>
+                                    {CATEGORY_PRESETS.map((preset) => (
+                                        <option key={preset} value={preset}>
+                                            {preset}
                                         </option>
                                     ))}
                                 </select>
+                                <input
+                                    type="text"
+                                    value={editRacingGroupDivision}
+                                    onChange={e => setEditRacingGroupDivision(e.target.value)}
+                                    placeholder="e.g. Wolf, 3rd Grade"
+                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
+                                />
                                 </div>
 
                                 <div style={{ display: 'flex', gap: '10px' }}>
@@ -362,11 +380,10 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: racingGroup.color, border: '1px solid var(--border-color)' }}></div>
                                     <b>{racingGroup.name}</b>
-                                    {/* The rank as a pack says it. This showed
-                                        the stored value, so a racingGroup of Arrow of
-                                        Light scouts was labelled
-                                        "(ARROW_OF_LIGHT)". */}
-                                    {racingGroup.rank && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>({rankLabel(racingGroup.rank)})</span>}
+                                    {/* The stored value is already the label
+                                        an operator typed or picked (#496 stage
+                                        2) — nothing left to translate. */}
+                                    {racingGroup.division && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>({racingGroup.division})</span>}
                                     {(racingGroup.car_number_range_start || racingGroup.car_number_range_end) && (
                                         <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--divider-color)', padding: '2px 6px', borderRadius: '4px' }}>
                                             #{racingGroup.car_number_range_start || '?'}-{racingGroup.car_number_range_end || '?'}

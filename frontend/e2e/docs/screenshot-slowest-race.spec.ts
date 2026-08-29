@@ -23,8 +23,8 @@ const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots
 // three at the bottom are the field the Slowest Race picks — which is what
 // lets the standings screenshot be asserted rather than hoped for.
 const DENS = [
-    { name: 'Wolves', color: '#8B4513', rank: 'WOLF' },
-    { name: 'Bears', color: '#1E5631', rank: 'BEAR' },
+    { name: 'Wolves', color: '#8B4513', division: 'Wolf' },
+    { name: 'Bears', color: '#1E5631', division: 'Bear' },
 ];
 
 const RACERS = [

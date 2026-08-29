@@ -20,8 +20,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
 
 const DENS = [
-    { name: 'Wolves', color: '#8B4513', rank: 'WOLF' },
-    { name: 'Bears', color: '#1E5631', rank: 'BEAR' },
+    { name: 'Wolves', color: '#8B4513', division: 'Wolf' },
+    { name: 'Bears', color: '#1E5631', division: 'Bear' },
 ];
 
 // Listed strongest first: whoever appears earlier wins any heat they share,

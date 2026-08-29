@@ -153,7 +153,7 @@ Race            id, name, date_time, location, organization_id, track_id,
   ├─ Round[]          (cascade delete)
   └─ Heat[]           (both kinds; see `Heat.kind`)
 
-RacingGroup     id, race_id, name, color, rank,
+RacingGroup     id, race_id, name, color, division?,
                 car_number_range_start, car_number_range_end
 
 Racer           id, race_id, racing_group_id?,
@@ -178,7 +178,6 @@ Heat            id, race_id, round_id?, kind, heat_number,
 | ---------------------- | ---------------------------------------------------------------------------- |
 | `CarNumberingStrategy` | `PER_GROUP`, `GLOBAL`, `MANUAL`                                              |
 | `HeatKind`             | `OFFICIAL`, `FREE`                                                           |
-| `Rank`                 | `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER`        |
 | `SchedulingStrategy`   | `PPC`, `ELIMINATION`, `BALANCED`                                             |
 | `ScoringStrategy`      | `TIMED` (avg time), `POINTS` (sum of placements) — lower is better for both  |
 | `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`, `NONE`                   |
@@ -507,7 +506,9 @@ Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` 
 
 **A tie shares a rank** ([#226](https://github.com/dknowles2/trusty-track/issues/226)). `rank_key` still breaks ties by racer id so the *order* is deterministic, but `standings_ranks` stamps competition ranks (1, 1, 3) over it — otherwise a tie for a trophy or the last championship slot was resolved by registration order and no screen ever said so. Racers who have not raced keep strictly increasing positions; tying them would make a pre-race leaderboard a wall of rank 1. Advancement and awards still cut by position (`standings[:n]`, `standings[place-1]`), which is unchanged and now *visible*: the operator sees the shared rank and settles it with a race-off or a corrected time.
 
-**`LeaderboardEntry.racingGroupRank` is the racing group's Cub Scout rank, riding along for branding** ([#298](https://github.com/dknowles2/trusty-track/issues/298)) — `RacingGroup.rank` was assignable and stored since the app's first spec but shown nowhere. Named `racingGroupRank` rather than `rank`, because `rank` on a standings row already means the finishing position; the two would otherwise collide on the same type. `Leaderboard.tsx`'s Racing Group column and `Observation.tsx`'s heat cards and live standings both read it through `rankLabel()` (`features/management/rankText.ts`), the same formatter the Racing Group Manager uses, so a racing group's rank reads the same word everywhere it appears.
+**`LeaderboardEntry.racingGroupDivision` is the racing group's category, riding along for branding** ([#298](https://github.com/dknowles2/trusty-track/issues/298)) — `RacingGroup.division` was assignable and stored since the app's first spec but shown nowhere. Named `racingGroupDivision` rather than `division`, because `rank` on a standings row already means the finishing position and the same collision would recur under any name sharing that row; the two would otherwise be mistaken for the same field on the same type. `Leaderboard.tsx`'s Racing Group column and `Observation.tsx`'s heat cards and live standings all read `racingGroupDivision`/`division` straight off the payload — no formatter, since the stored text already is the label.
+
+**`RacingGroup.division` is free text, where it was a seven-value `Rank` enum** (`LION` through `ARROW_OF_LIGHT`) — [#496](https://github.com/dknowles2/trusty-track/issues/496) stage 2. Nothing server-side ever read the enum to decide anything, so nothing structural was lost making it text; the frontend's `RacingGroupManager` offers the traditional Cub Scout ranks as picker *suggestions* (`categoryPresets.ts`'s `CATEGORY_PRESETS`, the same "fill an ordinary field" pattern `awardTemplates.ts` uses for ready-made awards) rather than a constraint, so a school typing "3rd Grade" is exactly as valid as a pack picking "Wolf" from the list. The field's UI label is the fixed word **Category**, not a configurable term — narrower than the issue's open question about a third configurable vocabulary slot, resolved that way because the field is branding-only and a third term was judged not worth eight more columns. Migration `0030_racing_group_division` carries every stored enum code to the display string `rankLabel()` used to compute (`LION` to `"Lion"`); `rankLabel()` itself is gone, since a stored value is now already its own label. The downgrade reverses by exact label match and sends anything else to `OTHER` — lossy, and said so in the migration's docstring, the same tradeoff the enum-era `rankLabel()` made for a code it did not recognise.
 
 ### Track records
 

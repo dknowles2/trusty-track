@@ -12,7 +12,6 @@ import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import { observeIdentify, type SeenIdentifySeq } from '../identifyOverlay';
-import { rankLabel } from '../../management/rankText';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
@@ -47,7 +46,7 @@ const GET_INITIAL_DATA = `
         id
         name
         color
-        rank
+        division
       }
     }
     initialConfig {
@@ -58,7 +57,7 @@ const GET_INITIAL_DATA = `
 
 interface Standing {
   racerId: number;
-  racingGroupRank?: string | null;
+  racingGroupDivision?: string | null;
   score: number;
   heatsCompleted: number;
   rank: number;
@@ -68,7 +67,7 @@ interface RacingGroupInfo {
   id: number;
   name: string;
   color: string;
-  rank?: string | null;
+  division?: string | null;
 }
 
 export default function Observation() {
@@ -319,17 +318,18 @@ export default function Observation() {
     return map;
   }, [initialData]);
 
-  // Racing group rank, for the branding SPEC.md asked for (#298) — a racing group's rank shown
-  // as a label wherever a racer's racingGroup is otherwise implicit on this screen.
+  // Racing group category, for the branding SPEC.md asked for (#298) — a
+  // racing group's category shown as a label wherever a racer's racingGroup
+  // is otherwise implicit on this screen.
   const racingGroupsMap = useMemo(() => {
     const map: Record<number, RacingGroupInfo> = {};
     initialData?.race?.racingGroups?.forEach((d: RacingGroupInfo) => map[d.id] = d);
     return map;
   }, [initialData]);
 
-  const racingGroupRankFor = (racer: Racer | undefined): string | null => {
+  const racingGroupDivisionFor = (racer: Racer | undefined): string | null => {
     if (!racer || racer.racingGroupId == null) return null;
-    return racingGroupsMap[racer.racingGroupId]?.rank ?? null;
+    return racingGroupsMap[racer.racingGroupId]?.division ?? null;
   };
 
   const officialCurrentHeat = currentlyRacingData?.currentlyRacing;
@@ -480,9 +480,9 @@ export default function Observation() {
                   {racer.firstName} {racer.lastName}
                 </div>
                 {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>Car #{racer.carNumber}</div>}
-                {racingGroupRankFor(racer) && (
-                  <div className="heat-card-racing-group-rank" style={{ fontSize: '0.75rem', color: 'var(--text-subtle-color)' }}>
-                    {rankLabel(racingGroupRankFor(racer))}
+                {racingGroupDivisionFor(racer) && (
+                  <div className="heat-card-racing-group-division" style={{ fontSize: '0.75rem', color: 'var(--text-subtle-color)' }}>
+                    {racingGroupDivisionFor(racer)}
                   </div>
                 )}
               </div>
@@ -778,8 +778,8 @@ export default function Observation() {
                             {racer?.carNumber && (
                               <div className="standing-car-number" style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>Car #{racer.carNumber}</div>
                             )}
-                            {s.racingGroupRank && (
-                              <div className="standing-racing-group-rank" style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{rankLabel(s.racingGroupRank)}</div>
+                            {s.racingGroupDivision && (
+                              <div className="standing-racing-group-division" style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{s.racingGroupDivision}</div>
                             )}
                           </div>
                         </div>
@@ -915,9 +915,9 @@ export default function Observation() {
                   Car #{racer.carNumber}
                 </div>
               )}
-              {racingGroupRankFor(racer) && (
+              {racingGroupDivisionFor(racer) && (
                 <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
-                  {rankLabel(racingGroupRankFor(racer))}
+                  {racingGroupDivisionFor(racer)}
                 </div>
               )}
             </div>

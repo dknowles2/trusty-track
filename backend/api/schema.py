@@ -593,7 +593,7 @@ class RacingGroupInput:
 
     name: str
     color: str = "#000000"
-    rank: str | None = None
+    division: str | None = None
     car_number_range_start: int | None = None
     car_number_range_end: int | None = None
 
@@ -887,7 +887,7 @@ class LeaderboardEntry:
     car_number: int | None
     racing_group_id: int | None
     racing_group_name: str
-    racing_group_rank: str | None
+    racing_group_division: str | None
     score: float
     heats_completed: int
     racer_image_url: str | None
@@ -896,12 +896,15 @@ class LeaderboardEntry:
 
 @strawberry.type
 class RacingGroup:
-    """Represents a RacingGroup (sub-organization of racers), usually by rank or age."""
+    """A RacingGroup: sub-organization of racers, usually by category.
+
+    A Cub Scout rank by default, but any free text an operator chooses.
+    """
 
     id: int
     name: str
     color: str
-    rank: str | None
+    division: str | None
     race_id: int
     car_number_range_start: int | None
     car_number_range_end: int | None

@@ -80,7 +80,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `race_id` (FK to Race)
     -   `name`
     -   `color` (hex color for branding)
-    -   `rank` (Enum: `LION`, `TIGER`, `WOLF`, `BEAR`, `WEBELOS`, `ARROW_OF_LIGHT`, `OTHER`, optional)
+    -   `division` (free text, optional — a category, usually a Cub Scout rank; #496 stage 2 replaced a seven-value enum with this, and the frontend offers the traditional ranks as picker suggestions rather than a constraint)
     -   `car_number_range_start` (if PER_GROUP)
     -   `car_number_range_end` (if PER_GROUP)
 

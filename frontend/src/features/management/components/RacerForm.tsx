@@ -22,7 +22,7 @@ export interface RacingGroup {
     id: number;
     name: string;
     color: string;
-    rank?: string;
+    division?: string;
     car_number_range_start?: number;
     car_number_range_end?: number;
 }

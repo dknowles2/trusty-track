@@ -159,22 +159,23 @@ def test_race_mutations_and_leaderboard(client, db):
     assert response.json()["data"]["race"] is None
 
 
-def test_leaderboard_den_rank(client, db):
-    """A racing group's rank rides along on the leaderboard as `racingGroupRank` (#298).
+def test_leaderboard_racing_group_division(client, db):
+    """A racing group's category rides along on the leaderboard as
+    `racingGroupDivision` (#298, #496 stage 2).
 
     Named to avoid colliding with the standings' own `rank` field, which is a
-    racer's finishing position rather than their racing group's Cub Scout rank.
+    racer's finishing position rather than their racing group's category.
     """
-    group_in = schemas.OrganizationCreate(name="RacingGroup Rank Organization")
+    group_in = schemas.OrganizationCreate(name="RacingGroup Division Organization")
     group = crud.create_organization(db, group_in)
 
-    track_in = schemas.TrackCreate(name="RacingGroup Rank Track", lane_count=4)
+    track_in = schemas.TrackCreate(name="RacingGroup Division Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
     mutation_create_race = f"""
     mutation {{
         createRace(race: {{
-            name: "RacingGroup Rank Race"
+            name: "RacingGroup Division Race"
             organizationId: {group.id}
             trackId: {track.id}
         }}) {{ id }}
@@ -188,7 +189,7 @@ def test_leaderboard_den_rank(client, db):
     mutation {{
         createRacingGroup(
             raceId: {race_id}
-            racingGroup: {{ name: "Wolves", rank: "WOLF" }}
+            racingGroup: {{ name: "Wolves", division: "Wolf" }}
         ) {{
             id
         }}
@@ -262,7 +263,7 @@ def test_leaderboard_den_rank(client, db):
             leaderboard {{
                 racerId
                 racingGroupName
-                racingGroupRank
+                racingGroupDivision
             }}
         }}
     }}
@@ -274,11 +275,11 @@ def test_leaderboard_den_rank(client, db):
 
     ranked = next(r for r in lb if r["racerId"] == racer_id)
     assert ranked["racingGroupName"] == "Wolves"
-    assert ranked["racingGroupRank"] == "WOLF"
+    assert ranked["racingGroupDivision"] == "Wolf"
 
     unranked = next(r for r in lb if r["racerId"] == unranked_racer_id)
     assert unranked["racingGroupName"] == "Unknown"
-    assert unranked["racingGroupRank"] is None
+    assert unranked["racingGroupDivision"] is None
 
 
 def test_bulk_move_to_den_null(client, db):

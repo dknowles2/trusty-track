@@ -17,7 +17,6 @@ from pydantic import BaseModel, field_validator
 from .models import (
     AwardKind,
     CarNumberingStrategy,
-    Rank,
     ScoringStrategy,
     TimerType,
 )
@@ -88,7 +87,7 @@ class HistoricalTrackRecordCreate(HistoricalTrackRecordBase):
 class RacingGroupBase(BaseModel):
     name: str
     color: str = "#000000"
-    rank: Rank | None = None
+    division: str | None = None
     car_number_range_start: int | None = None
     car_number_range_end: int | None = None
 
@@ -100,7 +99,7 @@ class RacingGroupCreate(RacingGroupBase):
 class RacingGroupUpdate(BaseModel):
     name: str | None = None
     color: str | None = None
-    rank: Rank | None = None
+    division: str | None = None
     car_number_range_start: int | None = None
     car_number_range_end: int | None = None
 

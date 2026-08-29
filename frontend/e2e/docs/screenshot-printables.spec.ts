@@ -65,7 +65,7 @@ test('screenshot the print sheets', async ({ page }) => {
     const racingGroup = await gql(
         page,
         `mutation RacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) { createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id } }`,
-        { raceId, racingGroup: { name: 'Wolves', color: '#8B4513', rank: 'WOLF' } },
+        { raceId, racingGroup: { name: 'Wolves', color: '#8B4513', division: 'Wolf' } },
     );
 
     for (const racer of RACERS) {
@@ -165,7 +165,7 @@ test('screenshot the print sheets', async ({ page }) => {
         `mutation SecondRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
             createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id }
         }`,
-        { raceId, racingGroup: { name: 'Bears', color: '#1F4E79', rank: 'BEAR' } },
+        { raceId, racingGroup: { name: 'Bears', color: '#1F4E79', division: 'Bear' } },
     );
     const half = roster.race.racers.slice(3).map((r: { id: number }) => r.id);
     await gql(

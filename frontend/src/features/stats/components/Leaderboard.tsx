@@ -7,7 +7,6 @@ import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
 import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
-import { rankLabel } from '../../management/rankText';
 
 export interface LeaderboardEntry {
   racerId: number;
@@ -15,7 +14,7 @@ export interface LeaderboardEntry {
   lastName: string;
   carNumber: number;
   racingGroupName: string;
-  racingGroupRank?: string | null;
+  racingGroupDivision?: string | null;
   score: number;
   heatsCompleted: number;
   rank: number;
@@ -54,7 +53,7 @@ const GET_ROUND_STANDINGS = `
         lastName
         carNumber
         racingGroupName
-        racingGroupRank
+        racingGroupDivision
         score
         heatsCompleted
         rank
@@ -342,8 +341,8 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                 </td>
                 <td style={{ padding: '12px', color: 'var(--text-muted-color)' }}>
                   {entry.racingGroupName}
-                  {entry.racingGroupRank && (
-                    <span style={{ fontSize: '0.8rem' }}> ({rankLabel(entry.racingGroupRank)})</span>
+                  {entry.racingGroupDivision && (
+                    <span style={{ fontSize: '0.8rem' }}> ({entry.racingGroupDivision})</span>
                   )}
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted-color)' }}>

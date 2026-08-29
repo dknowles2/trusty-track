@@ -19,7 +19,7 @@ export const GET_RACE_DETAILS = gql`
         id
         name
         color
-        rank
+        division
         carNumberRangeStart
         carNumberRangeEnd
       }
@@ -71,7 +71,7 @@ export const GET_RACE_RACING_GROUPS = gql`
         id
         name
         color
-        rank
+        division
         carNumberRangeStart
         carNumberRangeEnd
       }

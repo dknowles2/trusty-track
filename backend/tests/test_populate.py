@@ -75,7 +75,7 @@ def test_populate_respects_per_den_numbering(db):
         schemas.RacingGroupCreate(
             name="Lions",
             color="#F4D03F",
-            rank=models.Rank.LION,
+            division="Lion",
             car_number_range_start=100,
             car_number_range_end=199,
         ),
@@ -87,7 +87,7 @@ def test_populate_respects_per_den_numbering(db):
         schemas.RacingGroupCreate(
             name="Tigers",
             color="#E67E22",
-            rank=models.Rank.TIGER,
+            division="Tiger",
             car_number_range_start=200,
             car_number_range_end=299,
         ),
