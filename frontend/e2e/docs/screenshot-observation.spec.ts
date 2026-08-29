@@ -249,9 +249,18 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // instead of it — 08 is the panel's ordinary look, and a row parked on the
     // ceremony is not it. Assigning navigates the audience screen to the
     // ceremony route, which is fine: it is closed a moment later.
-    const displayRow = page.locator('[data-testid^="display-"]').first();
+    // By name, not `.first()`: assigning the ceremony navigates the audience
+    // screen to its own route, and while its subscription crosses that gap the
+    // row briefly counts as disconnected — the list re-sorts (connected first,
+    // then name) and "By the doors" takes the top slot for a beat. A `.first()`
+    // locator re-resolves at every use, so the screenshot could clip whichever
+    // row had just landed there.
+    const displayRow = page.locator('[data-testid^="display-"]', { hasText: 'Gym north' });
     await displayRow.getByRole('combobox').selectOption('AWARDS');
     await expect(displayRow.getByRole('button', { name: /Next award/ })).toBeVisible();
+    // Wait for the reconnect to settle the ordering before measuring the clip,
+    // or the row can move between boundingBox() and the screenshot.
+    await expect(page.locator('[data-testid^="display-"]').first()).toContainText('Gym north');
     const rowBox = await displayRow.boundingBox();
     await page.screenshot({
         path: path.join(SCREENSHOT_DIR, '11-ceremony-controls.png'),
@@ -331,12 +340,22 @@ test('screenshot the audience displays', async ({ page, browser }) => {
             : {}),
     });
 
-    // 07: projector mode — opens in a new tab.
+    // 07: projector mode — opens in a new tab, caught with the heat-results
+    // overlay up, which is what the caption claims. The overlay is an *edge*,
+    // not a state (#335, #392): a freshly opened projector treats the
+    // subscription's opening payload as history and shows nothing — so the
+    // heat has to finish while this tab is watching. Record the next pending
+    // heat once the page has settled; its times are the seeded ones, all under
+    // the historical record, so the banner over the overlay says the same
+    // thing on every run.
     const newPagePromise = page.context().waitForEvent('page');
     await projectorButton.click();
     const projectorPage = await newPagePromise;
     await projectorPage.waitForLoadState('networkidle');
     await expect(projectorPage.locator('.heat-card, .projector-mode').first()).toBeVisible();
+    await recordEveryHeat(page, prelimHeats.slice(-3, -2), timeOf);
+    await expect(projectorPage.getByText('Heat Results')).toBeVisible();
+    await expect(projectorPage.getByText('New track record!')).toBeVisible();
     // `animations: 'disabled'` by hand: the fixture in `screenshots-setup.ts`
     // wraps the spec's own page, and this is a second tab the app opened.
     await projectorPage.screenshot({

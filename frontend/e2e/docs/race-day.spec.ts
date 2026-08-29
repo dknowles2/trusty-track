@@ -52,6 +52,9 @@ test('take screenshots', async ({ page }) => {
 
     await page.getByRole('button', { name: /Create New Race/i }).click();
     await expect(page.getByRole('heading', { name: 'Create New Race Event' })).toBeVisible();
+    // The Track / Timer field says "Loading tracks..." until the tracks query
+    // answers, and whether the picture catches that depends on the run.
+    await expect(page.getByText('Loading tracks...')).toBeHidden();
     await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/03-new-race-form.png') });
 
     await page.getByPlaceholder('e.g. 2024 Pinewood Derby').fill('2026 Pinewood Derby');
@@ -205,6 +208,12 @@ test('take screenshots', async ({ page }) => {
     const checkedInRows = page.locator('.racer-row').filter({ hasText: 'Checked In' });
     await expect(checkedInRows).toHaveCount(1);
 
+    // The setup checklist reads the race's checked-in count, which arrives by
+    // its own refetch a beat after the roster row updates — a screenshot taken
+    // between the two shows "Check in cars" still undone above a row that says
+    // Checked In, and whether it does depends on the machine's load that run.
+    await expect(page.getByText('3 of 4 done')).toBeVisible();
+
     // 04: the roster with one racer checked in.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/04-racer-list-after-check-in.png') });
 
@@ -223,6 +232,11 @@ test('take screenshots', async ({ page }) => {
     await page.getByRole('link', { name: 'Control' }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('button', { name: /Start Round Creation Wizard/i })).toBeVisible();
+
+    // The readiness strip's Timer row says "Checking…" until the first
+    // timerStatus payload lands; wait for the identified device so the
+    // picture is of the settled page rather than of that first beat.
+    await expect(page.getByText('Fake Timer')).toBeVisible();
 
     // 06: race control with no rounds yet.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/06-race-control-empty.png') });
@@ -282,6 +296,14 @@ test('take screenshots', async ({ page }) => {
     // The heat arms itself; "Ready to start" is the timer saying so.
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
 
+    // The racer and car pictures render a beat after the names: for roughly
+    // the first 50ms of this view the lanes show the initials fallback, and
+    // when the heat armed early enough "Ready to start" is already on screen
+    // inside that window — which is how this picture kept flipping between
+    // initials and photographs from run to run. Three racer portraits in the
+    // lanes plus three car photos on deck is this view's settled state.
+    await expect(page.locator('img[src*="/static/"]')).toHaveCount(6);
+
     // 12: the race execution view, with the lane assignments.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/12-race-execution-current-heat.png') });
 
@@ -312,6 +334,12 @@ test('take screenshots', async ({ page }) => {
     await page.getByRole('button', { name: 'Start Timer' }).click();
     await page.getByRole('button', { name: 'Finish Heat' }).click();
     await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
+
+    // The pre-flight readiness strip goes away once a heat is recorded, but
+    // only when the refetch behind it lands — until then the page still says
+    // "Ready to race" over a heat that has finished, and everything below it
+    // sits a banner's height lower than the settled page.
+    await expect(page.getByText('Ready to race')).toBeHidden();
 
     // 14: the finished heat, with times and placements.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/14-heat-results.png') });
@@ -474,6 +502,10 @@ test('take screenshots', async ({ page }) => {
     await page.goto(`/race/${raceId}/standings`);
     await page.waitForLoadState('networkidle');
     await expect(page.locator('table').first()).toBeVisible();
+    // The Avatar column's photographs render a beat after the rows do, and the
+    // fixture's image wait only covers `<img>` elements that already exist —
+    // same trap as picture 12.
+    await expect(page.locator('img[src*="/static/"]').first()).toBeVisible();
 
     // 18: the final standings.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/18-final-standings.png') });
