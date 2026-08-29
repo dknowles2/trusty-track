@@ -14,8 +14,8 @@
 <meta property="og:image" content="https://trusty-track.com/docs/assets/logo.png">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="icon" href="/docs/assets/logo.png">
-<link rel="apple-touch-icon" href="/docs/assets/logo.png">
+<link rel="icon" href="/docs/assets/favicon.png">
+<link rel="apple-touch-icon" href="/docs/assets/favicon.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,7 +48,7 @@
 <section class="hero">
   <div class="wrap hero-inner">
     <div class="hero-copy">
-      <p class="eyebrow">Free &amp; open source · Version 1.0</p>
+      <p class="eyebrow">Free &amp; open source</p>
       <h1>Run your pack's Pinewood Derby without the spreadsheet.</h1>
       <p class="lede">
         Trusty Track handles registration, check-in, the heat schedule, the finish-line
@@ -233,19 +233,30 @@
     <div class="timer-list">
       <p class="timer-list-head">Timers it knows about</p>
       <ul>
-        <li><strong>Micro Wizard K1 / K2 / K3</strong> <span class="tag tag-ok">Tested</span></li>
-        <li>NewBold DT, TURBO, DerbyStick</li>
-        <li>JIT Racemaster</li>
-        <li>Derby Timer (derbytimer.com)</li>
-        <li>Bert Drake timer</li>
-        <li>PDT (dfgtec.com)</li>
-        <li>The Judge (New Directions)</li>
-        <li>The Champ (SmartLine / BestTrack)</li>
+        <li data-timer-key="microwizard" data-timer-recording>
+          <strong>Micro Wizard K1 / K2 / K3</strong> <span class="tag tag-ok">Tested</span>
+        </li>
+        <li data-timer-key="derbytimer" data-timer-recording>
+          Derby Timer (derbytimer.com) <span class="tag tag-ok">Tested</span>
+        </li>
+        <li data-timer-key="pdt" data-timer-recording>
+          PDT (dfgtec.com) <span class="tag tag-ok">Tested</span>
+        </li>
+        <li data-timer-key="newbold">NewBold DT, TURBO, DerbyStick</li>
+        <li data-timer-key="jit-racemaster">JIT Racemaster</li>
+        <li data-timer-key="bert-drake">Bert Drake timer</li>
+        <li data-timer-key="the-judge">The Judge (New Directions)</li>
+        <li data-timer-key="champ">The Champ (SmartLine / BestTrack)</li>
       </ul>
       <p class="timer-note">
-        The seven below the Micro Wizard are adapted from DerbyNet's protocol notes and
-        haven't been run against the real hardware yet. If you have one, there's a test
-        report the app can generate — send it in and we'll get it confirmed.
+        <strong>Tested</strong> means we replay output captured from one of these devices
+        and check Trusty Track reads it correctly. Nobody here has had one on a bench —
+        the rest are built from DerbyNet's protocol notes and have never met their
+        hardware at all.
+      </p>
+      <p class="timer-note">
+        If you own any of them, the app can generate a test report from a bench run.
+        Send it in and we'll get that device confirmed properly.
       </p>
       <p class="timer-note">
         No timer at all? There's a fake one built in. It runs a whole event so you can
