@@ -1262,6 +1262,28 @@ Two things that changed in the process, both worth not undoing:
   a white flash. `mkdocs.yml` now carries Material's three-entry palette, with
   the system-following one first so it is the default.
 
+**`docs/comparison.md` sets Trusty Track beside the other derby programs, and
+its rules are about honesty rather than completeness.** A comparison page written
+by an author about their own project is not a neutral document, and a reader can
+tell. So: every claim about somebody else comes from *their* own site, linked,
+with the date it was checked stated at the top; a cell nobody could confirm is
+blank and the page says a blank means unknown rather than no; and there is a
+**Where Trusty Track is weakest** section naming the things that would send a
+reader elsewhere — seven months of history against DerbyNet's eleven years, five
+timer profiles that have never met their hardware, and no support desk. The
+short-answer section recommends a competitor first, because for most packs
+reading it that is the true answer. It also credits DerbyNet directly: seven of
+our eight profiles are adapted from theirs.
+
+Only one thing on that page is checkable, and it is checked. The "Timer models
+listed" count for Trusty Track is a fact about this repository, so
+`test_comparison_page.py` holds it to `ALL_PROFILES`. Overstating that row is the
+worst failure the page can have — a pack reads it, buys a timer, and finds
+nothing on the other end of the cable. Everything else is prose about other
+people's software and needs a person to re-check it; the page carries no other
+counts for that reason, an earlier draft's "eight models, three of them tested"
+being two more numbers to keep in step for no gain.
+
 **`dknowles2.github.io/trusty-track/` is not retired.** `gh-pages` now holds
 `deploy/ghpages-redirect/` — a 404 page that forwards every path to its
 equivalent under `/docs/`, keeping the query and fragment. Links to the old
