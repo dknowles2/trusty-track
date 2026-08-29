@@ -25,6 +25,7 @@ const seen = (overrides: Partial<Observation> = {}): Observation => ({
     heatId: 1,
     phase: 'WAITING',
     timerState: 'ARMED',
+    hasTimer: true,
     hasRecordedTimes: false,
     hasNextHeat: true,
     autoAdvanceEnabled: true,
@@ -88,6 +89,15 @@ describe('arming the next heat', () => {
 
     test('a heat whose field is undecided is not armed', () => {
         expect(commandsOf([observe(seen({ phase: 'NOT_READY', timerState: 'IDLE' }))])).toEqual([]);
+    });
+
+    test('a track with no timer is never armed (#490)', () => {
+        // `prepareHeat` is refused server-side for a track with no timer —
+        // there is nothing to arm — so calling it on every observation would
+        // be a mutation fired once per render, forever, for nothing.
+        expect(
+            commandsOf([observe(seen({ heatId: 7, timerState: 'IDLE', hasTimer: false }))]),
+        ).toEqual([]);
     });
 
     test('a heat that has already run is not armed', () => {

@@ -26,7 +26,7 @@ from backend.db.database import SessionLocal
 from backend.domain import audit
 
 from . import probe
-from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
+from .devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
 
 # Circular import handled by importing inside methods or using full module path
 # from backend.api.schema import _publish_race_state
@@ -1617,7 +1617,13 @@ async def initialize_timer_managers(
             # modes, replaced by whatever answers a probe: below for
             # backend-direct, and when the browser connects for proxy mode. It
             # survives only when nothing identifies itself (issue #89).
-            device = FAKE if timer_type == models.TimerType.FAKE else DEFAULT_PROFILE
+            device = (
+                FAKE
+                if timer_type == models.TimerType.FAKE
+                else NO_TIMER
+                if timer_type == models.TimerType.NONE
+                else DEFAULT_PROFILE
+            )
 
             manager = TimerManager(
                 track.id,

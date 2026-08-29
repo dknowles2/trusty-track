@@ -68,7 +68,7 @@ def test_an_undecided_slot_is_not_an_empty_lane():
     assert not lanes.is_complete([slot])
 
 
-def test_has_results_only_looks_at_times():
+def test_has_results_ignores_skipped():
     """It deliberately ignores `skipped` — see the note in lanes.has_results."""
     unrun = _lanes({"lane": 1, "racer_id": 1, "time": None})
     assert not lanes.has_results(unrun)
@@ -78,6 +78,22 @@ def test_has_results_only_looks_at_times():
 
     run = _lanes({"lane": 1, "racer_id": 1, "time": 3.1})
     assert lanes.has_results(run)
+
+
+def test_has_results_counts_a_place_with_no_time():
+    """A `POINTS` race entered by hand (#490) never has a time at all — the
+    place is the only record there is, and a round holding one must not be
+    regenerable as though nothing had happened."""
+    placed = _lanes({"lane": 1, "racer_id": 1, "time": None, "place": 1})
+    assert lanes.has_results(placed)
+    assert lanes.is_finished(placed)
+
+
+def test_a_placeholder_still_has_no_result_of_its_own():
+    """A slot cannot hold a hand-entered place any more than it can a time —
+    it has not been decided into a racer yet."""
+    slot = lanes.Lane(lane=1, placeholder_slot=1)
+    assert not slot.has_result
 
 
 def test_is_complete_requires_a_time_for_every_assigned_racer():

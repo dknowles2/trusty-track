@@ -40,7 +40,7 @@ Trusty Track needs to know about your physical race track:
 - **Track Name**: A descriptive name for the track.
 - **Lanes**: How many lanes your track has (e.g., 4).
 - **Length (Feet)**: The total length of the track in feet.
-- **Timer Type**: Select the device connected to your track. Use **Fake Timer (Manual Control)** for testing or practicing without physical hardware. If you have an electronic finish line, the [Hardware Timer guide](hardware-timer.md) covers plugging it in and checking it works — worth doing the week before, not on race morning.
+- **Timer Type**: Select the device connected to your track. Use **Fake Timer (Manual Control)** for testing or practicing without physical hardware, or **No timer — I'll enter results by hand** if your pack genuinely has no electronic timer. If you have an electronic finish line, the [Hardware Timer guide](hardware-timer.md) covers plugging it in and checking it works — worth doing the week before, not on race morning.
 
 If you run more than one track, **+ Add Another Track** adds another to the same form.
 

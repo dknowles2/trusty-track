@@ -201,10 +201,19 @@ def test_the_design_document_names_every_model(model):
 
 
 def _referenced_images() -> set[Path]:
+    """Every image path a doc page links to, resolved the way a reader's
+    browser resolves it — relative to *that page's own directory*, not to
+    ``DOCS_DIR``. The two agree for every page at the docs root, which was
+    every page that linked an image until `docs/reference/race-settings.md`
+    became the first page in a subdirectory to (`../assets/...`) — resolving
+    against ``DOCS_DIR`` instead would have read that as `docs/assets/...`
+    one level short of `docs/reference/assets/...`, and reported a real,
+    existing screenshot as an orphan.
+    """
     referenced: set[Path] = set()
     for page in DOCS_DIR.rglob("*.md"):
         for match in re.findall(r"\]\(([^)]+\.png)\)", page.read_text()):
-            referenced.add((DOCS_DIR / match).resolve())
+            referenced.add((page.parent / match).resolve())
     return referenced
 
 

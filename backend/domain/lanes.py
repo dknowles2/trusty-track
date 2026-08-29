@@ -70,7 +70,21 @@ class Lane:
 
     @property
     def has_result(self) -> bool:
-        return self.time is not None
+        """This lane holds a result — a time, or a hand-entered place.
+
+        Historically a lane never held a ``place`` without a ``time``: every
+        writer that set one set both, because the only way a place ever got
+        there was :func:`backend.domain.scoring` deriving it from a time.
+        Issue #490 adds the first exception — a ``POINTS`` race entered by
+        hand through the Override/Edit modal writes a place with no time at
+        all, because there is nothing to time. That is a result too, so this
+        broadened to match rather than leaving every caller that asks "has
+        this lane been decided" — :func:`has_results`, :func:`is_finished`,
+        ``heat_session.is_recorded`` — blind to it. Data recorded before
+        #490 never had a place without a time, so this changes nothing for
+        it.
+        """
+        return self.time is not None or self.place is not None
 
     @property
     def seconds(self) -> float | None:
@@ -131,10 +145,11 @@ def from_participant(lane: int, participant_id: int | None) -> Lane:
 
 
 def has_results(lanes: Sequence[Lane]) -> bool:
-    """True if any lane has a recorded time.
+    """True if any lane has a recorded result — a time, or a hand-entered place.
 
     This is the check that guards regeneration: a round that has been raced must
-    not be silently rebuilt underneath the operator.
+    not be silently rebuilt underneath the operator. A ``POINTS`` round entered
+    by hand (#490) has no times at all, and still must not be rebuildable.
 
     Note it does **not** consider :attr:`Lane.skipped` — see :func:`is_finished`
     for the predicate that does. Making this one stricter would change when

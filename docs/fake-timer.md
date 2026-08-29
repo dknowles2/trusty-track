@@ -1,6 +1,8 @@
 # Using the Fake Timer
 
-Trusty Track includes a **Fake Timer** — a pretend timer that starts heats and makes up finishing times, no hardware needed. It is ideal for a practice run the night before, trying the software out, or a race where you plan to type the times in by hand anyway.
+Trusty Track includes a **Fake Timer** — a pretend timer that starts heats and makes up finishing times, no hardware needed. It is ideal for a practice run the night before or trying the software out.
+
+If you actually plan to run your race with no timer — calling out finishing order by eye, say — the Fake Timer is the wrong choice: it invents a time a few seconds after every heat starts, which looks exactly like a real result. Use **No Timer** instead, covered in [Race and Track Settings](reference/race-settings.md#no-timer); it turns off arming entirely and makes hand-entering the result the main control on the Race screen.
 
 ## 1. Choosing the Fake Timer
 

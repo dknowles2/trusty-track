@@ -68,6 +68,16 @@ test('screenshot the settings panels', async ({ page }) => {
     await expect(timerSection.getByLabel('Timer Type')).toHaveValue('FAKE');
     await timerSection.screenshot({ path: path.join(SCREENSHOT_DIR, '06-fake-timer-selected.png') });
 
+    // No timer at all (#490), for docs/reference/race-settings.md#no-timer.
+    // Neither screenshot is followed by Save Settings — the dropdown's value
+    // is what the picture is of, and nothing downstream in this spec reads
+    // the track's actual timer type, so there is nothing to persist or put
+    // back.
+    await timerSection.getByLabel('Timer Type').selectOption('NONE');
+    await expect(timerSection.getByLabel('Timer Model')).toBeHidden();
+    await timerSection.screenshot({ path: path.join(SCREENSHOT_DIR, '07-no-timer-selected.png') });
+    await timerSection.getByLabel('Timer Type').selectOption('FAKE');
+
     // Lane 3 out of service. It saves on click rather than on Save Settings,
     // which is what the caption in the docs claims, so the screenshot has to
     // be taken after the click rather than before it.

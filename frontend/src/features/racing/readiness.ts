@@ -30,6 +30,9 @@ export interface ReadinessInput {
     timerDeviceName: string | null;
     /** The profile's provenance line, if the device was identified. */
     timerProvenance: string | null;
+    /** `Track.timerType` — `'NONE'` means this track has no timer at all
+     * (#490), which is not a fault and needs no link to go check. */
+    timerType: string | null;
     registeredCount: number;
     checkedInCount: number;
     /** Official heats that exist, in any round. */
@@ -60,8 +63,20 @@ export interface ReadinessItem {
 const USABLE_TIMER_STATES = new Set(['IDLE', 'ARMED', 'READY', 'RUNNING', 'RESULTS_OVERDUE']);
 
 function timerItem(input: ReadinessInput): ReadinessItem {
-    const { timerState, timerDeviceName, timerProvenance } = input;
+    const { timerState, timerDeviceName, timerProvenance, timerType } = input;
     const href = '/timer-check';
+
+    // Not a fault, and nothing to check: this track was deliberately
+    // configured with no timer (#490), so hand entry through Override is
+    // how every heat gets recorded.
+    if (timerType === 'NONE') {
+        return {
+            key: 'timer',
+            label: 'Timer',
+            detail: 'No timer — results are entered by hand.',
+            level: 'OK',
+        };
+    }
 
     if (timerState === null) {
         return {

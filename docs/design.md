@@ -46,7 +46,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `id` (PK)
     -   `lane_count`
     -   `length_feet`
-    -   `timer_type` (Enum: `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`) — the **transport**
+    -   `timer_type` (Enum: `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`, `NONE`) — the **transport**. `NONE` means the track has no timer at all (#490): arming is refused and hand entry through the Override/Edit modal is how every result is recorded
     -   `timer_profile` (optional) — the **model**. Separate from the transport because the same device can be on either, and knowing the model does not tell you which; null means detect it (#143)
     -   `serial_port` (for direct backend connection)
     -   `remote_start_installed` (a solenoid is fitted to the start gate)

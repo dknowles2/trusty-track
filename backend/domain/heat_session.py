@@ -44,8 +44,15 @@ def is_recorded(stored: Sequence[domain_lanes.Lane]) -> bool:
     ``skipped`` because it guards regeneration and a skipped round may still be
     rebuilt. Here a skipped heat is finished: the operator said so, and the
     screen must not offer to run it again as though nothing had happened.
+
+    That is exactly :func:`domain.lanes.is_finished`, kept as its own name here
+    because "recorded" reads better for what this module is answering — but it
+    used to be a second copy of the rule ("a time, or skipped"), written before
+    a lane could hold a place with no time at all. #490 taught
+    :attr:`domain.lanes.Lane.has_result` about that case; this delegates rather
+    than carrying its own copy that would have needed the same lesson twice.
     """
-    return any(lane.time is not None or lane.skipped for lane in stored)
+    return domain_lanes.is_finished(stored)
 
 
 class Phase(str, Enum):

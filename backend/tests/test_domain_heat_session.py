@@ -58,6 +58,13 @@ def test_one_time_is_enough():
     assert is_recorded([lane(1, 10, time=3.1), lane(2, 11)]) is True
 
 
+def test_a_place_with_no_time_is_enough():
+    """A `POINTS` race entered by hand through the Override/Edit modal (#490)
+    never has a time at all — the place is the whole result, and it must be
+    enough to move the heat off `WAITING`."""
+    assert is_recorded([lane(1, 10, place=1), lane(2, 11, place=2)]) is True
+
+
 def test_a_skipped_heat_counts_as_recorded():
     """The distinction from `lanes.has_results`, and the reason this function
     exists. The operator passed the heat over; the screen must not present it
@@ -188,17 +195,20 @@ def test_a_re_run_clears_last_time_s_results():
     assert all(not lane_.pending for lane_ in merge(stored))
 
 
-def test_the_live_branch_clears_a_stale_place():
-    """The clearing is observable through `place`, not `time`.
-
-    A lane cannot reach this branch holding a time — `is_recorded` would have
-    sent it to the other one — so `time=None` there is belt-and-braces. The
-    place is the half that can actually be stale, and last heat's finishing
-    order shown against this heat's blanks is worse than showing nothing.
+def test_a_place_with_no_time_is_shown_not_cleared():
+    """Before #490 this was `test_the_live_branch_clears_a_stale_place`: a
+    lane holding only a place used to be unreachable except as stale data,
+    because nothing wrote one without a time, and `is_recorded` looked at
+    time alone — so the *fixture* below described a data anomaly, and the
+    right answer was to hide it behind the clearing branch. A `POINTS` race
+    entered by hand writes exactly this shape as its real, current result, so
+    `is_recorded` now sees the place too (`Lane.has_result`) and this heat
+    never reaches the clearing branch at all — the finishing order is shown
+    for what it is.
     """
     assert merge([lane(1, 10, place=1), lane(2, 11, place=2)]) == [
-        LiveLane(lane=1, racer_id=10),
-        LiveLane(lane=2, racer_id=11),
+        LiveLane(lane=1, racer_id=10, place=1),
+        LiveLane(lane=2, racer_id=11, place=2),
     ]
 
 
@@ -319,6 +329,16 @@ def test_a_heat_with_results_is_recorded():
 
 def test_a_skipped_heat_is_recorded():
     assert phase([lane(1, 10, skipped=True)]) is Phase.RECORDED
+
+
+def test_a_hand_placed_heat_with_no_timer_is_recorded():
+    """The whole point of #490: a track with no timer never has a time to
+    report, and `timer_state` never leaves IDLE because arming is refused —
+    the place the operator typed by hand still has to move this off WAITING,
+    or the screen never offers Edit and never advances."""
+    stored = [lane(1, 10, place=1), lane(2, 11, place=2)]
+
+    assert phase(stored, timer_state="IDLE") is Phase.RECORDED
 
 
 def test_recorded_outranks_running():

@@ -30,6 +30,7 @@ import {
 interface Props {
     raceId: number;
     trackId: number | null;
+    timerType: string | null;
     registeredCount: number;
     checkedInCount: number;
     heatCount: number;
@@ -70,6 +71,7 @@ function Row({ item }: { item: ReadinessItem }) {
 export default function ReadinessStrip({
     raceId,
     trackId,
+    timerType,
     registeredCount,
     checkedInCount,
     heatCount,
@@ -94,6 +96,7 @@ export default function ReadinessStrip({
         timerState: trackId ? (status?.state ?? null) : null,
         timerDeviceName: status?.deviceName ?? null,
         timerProvenance: status?.deviceProvenance ?? null,
+        timerType,
         registeredCount,
         checkedInCount,
         heatCount,

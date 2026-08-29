@@ -34,7 +34,7 @@ from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
 from backend.services.image_processing import convert_to_browser_safe_png
-from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE
+from backend.services.timer.devices import ALL_PROFILES, DEFAULT_PROFILE, FAKE, NO_TIMER
 from backend.services.timer.devices import by_key as _profile_by_key
 from backend.services.timer.devices import fake as fake_timer
 from backend.services.timer.devices.base import (
@@ -2158,9 +2158,11 @@ def _race_id_for_racers(db: Session, racer_ids: list[int]) -> int | None:
 def _device_for(track: Any) -> TimerProfile:
     """The profile a track should run on.
 
-    ``FAKE`` is its own device. Otherwise it is the model the operator picked,
-    and ``DEFAULT_PROFILE`` only when they picked none — where it is an
-    assumption a probe is expected to replace, not an answer (#143).
+    ``FAKE`` and ``NONE`` are each their own device — neither is ever probed
+    or refined by anything a track's ``timer_profile`` names. Otherwise it is
+    the model the operator picked, and ``DEFAULT_PROFILE`` only when they
+    picked none — where it is an assumption a probe is expected to replace,
+    not an answer (#143).
 
     A key that names nothing, or names the fake timer on a transport that needs
     a real port, falls back rather than failing: a stale setting should leave
@@ -2168,6 +2170,8 @@ def _device_for(track: Any) -> TimerProfile:
     """
     if track.timer_type == models.TimerType.FAKE:
         return FAKE
+    if track.timer_type == models.TimerType.NONE:
+        return NO_TIMER
     chosen = _profile_by_key(track.timer_profile) if track.timer_profile else None
     return chosen if chosen in ALL_PROFILES else DEFAULT_PROFILE
 
@@ -3015,6 +3019,10 @@ class Mutation:
         track = crud.get_track(db, track_id)
         if track is None:
             return False
+        if track.timer_type == models.TimerType.NONE:
+            # A bench test exercises the device's own commands (#235) — there
+            # is no device on a track configured this way (#490).
+            return False
         await mgr.prepare_test_heat(track.lane_count)
         return True
 
@@ -3100,6 +3108,14 @@ class Mutation:
         if found is None:
             return False
         heat, race, mgr = found
+        track = crud.get_track(db, race.track_id)
+        if track is not None and track.timer_type == models.TimerType.NONE:
+            # There is nothing to arm (#490): this track has no timer, and
+            # hand entry through the Override/Edit modal is how every result
+            # gets recorded. `raceFlow.ts` already knows not to call this for
+            # a no-timer track; refusing here is what protects every other
+            # caller, present and future (#48).
+            return False
         if (
             mgr._state in (TimerState.RUNNING, TimerState.RESULTS_OVERDUE)
             and mgr._active_heat_id != heat_id

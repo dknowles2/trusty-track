@@ -3,8 +3,10 @@
 Trusty Track can read finish times directly from an electronic finish line, so
 nobody has to watch the lanes and write times down.
 
-If you have no timer, or you want to try the software first, use the
-[Fake Timer](fake-timer.md) instead.
+If you want to try the software first, use the [Fake Timer](fake-timer.md)
+instead. If you genuinely have no timer for race day, set the track's
+**Timer Type** to **No timer** rather than Fake — see
+[No timer](reference/race-settings.md#no-timer).
 
 > [!TIP]
 > Do this the week before the derby, not ten minutes before the first heat.

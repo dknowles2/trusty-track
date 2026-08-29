@@ -54,12 +54,34 @@ both.
 | **Track Name** | Names it in race forms and settings |
 | **Lanes** | How many lanes the track has. Schedules are built for this — lowering it mid-event brings existing heats into line, see [turning down a track's lane count](mid-race-changes.md#turning-down-a-tracks-lane-count) |
 | **Length (Feet)** | Recorded for reference |
-| **Timer Type** | Fake, plugged into this machine, or plugged into the laptop running the browser — see [Timers](timers.md#the-three-timer-types) |
+| **Timer Type** | Fake, plugged into this machine, plugged into the laptop running the browser, or no timer at all — see [Timers](timers.md#the-four-timer-types) and [No timer](#no-timer) below |
 | **Serial Port** | Almost always blank. Fill it only to force a specific port; it is then used exactly as typed |
 | **Timer Model** | Almost always *Detect automatically*. See [the model picker](timers.md#the-timer-model-picker) |
 | **This track has a remote start gate** | Enables the on-screen gate release, if the timer supports it — see [the remote start gate](timers.md#the-remote-start-gate) |
 | **Lanes in service** | Untick a lane that has stopped working. Unlike the rest of the card, this **saves the moment you click it** — see [a lane stops working](mid-race-changes.md#a-lane-stops-working) |
 | **Track records from past years** | Records from before Trusty Track, entered by hand for the Stats page's record board. Saves as soon as you add one — see [the track record](stats-and-exports.md#the-track-record) |
+
+### No timer
+
+Not every pack owns an electronic timer, and **No timer — I'll enter results
+by hand** is for that: choose it and the Race screen stops trying to arm a
+device at all. Instead of a "Waiting for Timer…" message, the main button on
+each heat is **Enter Results**, opening the same result screen the **Override**
+button always has — times for a Timed race, finishing order for a Points
+race (see [Scoring](scoring.md#points), which is what points-based scoring is
+for).
+
+This is different from the **Fake Timer**: the fake one starts heats and
+invents a finishing time a few seconds later, which is meant for a practice
+run or trying the software, not for recording a real result. **No timer**
+never invents anything — every result is exactly what was typed in.
+
+The **Timer Model**, **Serial Port** and **This track has a remote start
+gate** fields disappear once **No timer** is chosen; none of them mean
+anything without a device.
+
+![Timer Type dropdown with No Timer selected](../assets/screenshots/settings/07-no-timer-selected.png)
+_The timer section of a track's card, with **No timer — I'll enter results by hand** chosen from the Timer Type dropdown._
 
 ## The organization
 

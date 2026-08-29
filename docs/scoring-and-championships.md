@@ -33,7 +33,11 @@ morning of good ones.
 
 Every car's score is its **finishing places added up** — 1st place is 1
 point, 2nd is 2, and the lowest total wins. Pick this if you have no timer:
-all you need is somebody at the finish line calling the order.
+all you need is somebody at the finish line calling the order, typed
+straight into the race screen. Set the track's **Timer Type** to **No
+timer** (see [Race and Track Settings](reference/race-settings.md#no-timer))
+and that becomes the main way results are recorded, rather than a fallback
+behind a timer that never arms.
 
 Two things to know about points, both handled for you:
 
