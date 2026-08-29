@@ -34,7 +34,8 @@ When you enter a heat, you will see the **Fake Timer Controls** panel docked in 
     *   The results will be saved and displayed immediately.
     *   The heat is marked as complete.
 
-![Race Execution showing Fake Timer Controls](assets/screenshots/race-day/12-race-execution-current-heat.png)
+![The Fake Timer Controls panel, with Start Timer and Finish Heat](assets/screenshots/race-day/13-fake-timer-controls.png)
+_The panel docked in the bottom-right corner. It collapses to its title bar when you click it, which is how the other screenshots in these guides show Race Control._
 
 ## Tips
 

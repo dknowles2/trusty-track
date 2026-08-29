@@ -27,7 +27,7 @@ Click the **⋯** button at the top right of the roster and choose **Manage Dens
 
 The overflow menu holds the things you do once before an event — managing dens, uploading photos and printing. **Add Racer** and **Scan**, which you reach for repeatedly, stay on the toolbar itself.
 
-![Den Manager UI](assets/screenshots/race-setup/02-den-manager-ui.png)
+![Den Manager UI](assets/screenshots/race-setup/02-racing-group-manager-ui.png)
 
 ### Adding a New Den
 
@@ -38,7 +38,7 @@ The overflow menu holds the things you do once before an event — managing dens
 5. (Optional) Set the den's **Category** — a dropdown offers the traditional Cub Scout ranks (Lion, Tiger, Wolf, Bear, Webelos, Arrow of Light) to fill the box, or type anything you like. It is shown beside the den's name in the list, beside the den's name in the Den column on the Standings page, and beneath a racer's name on the audience displays, where their den is not otherwise shown.
 6. Click **Add Den**.
 
-![Add Den Form](assets/screenshots/race-setup/03-add-den-form.png)
+![Add Den Form](assets/screenshots/race-setup/03-add-racing-group-form.png)
 
 ---
 

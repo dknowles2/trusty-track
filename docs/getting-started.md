@@ -118,7 +118,7 @@ Before adding racers, you should define your racing groups, typically called "De
 2. Click **+ Add New Den** and enter the name (e.g., "Lions", "Tigers").
 3. Each den is offered a car number range to itself — 100–199 for the first den, 200–299 for the next. Change or clear those numbers if you number cars some other way.
 
-![Den Management](assets/screenshots/getting-started/04-den-management.png)
+![The racing group manager, listing each group with its colour and car number range](assets/screenshots/getting-started/04-racing-group-management.png)
 
 With your dens configured, your race is ready for racer registration and check-in!
 

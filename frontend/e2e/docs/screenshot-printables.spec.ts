@@ -14,7 +14,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, gql, organizationId } from './support';
+import { docsTrackId, ensureConfigured, gql, organizationId, photosFor } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/printables');
@@ -68,7 +68,7 @@ test('screenshot the print sheets', async ({ page }) => {
         { raceId, racingGroup: { name: 'Wolves', color: '#8B4513', division: 'Wolf' } },
     );
 
-    for (const racer of RACERS) {
+    for (const [index, racer] of RACERS.entries()) {
         await gql(
             page,
             `mutation Racer($racer: RacerInput!) { createRacer(racer: $racer) { id } }`,
@@ -80,6 +80,7 @@ test('screenshot the print sheets', async ({ page }) => {
                     lastName: racer.last,
                     carNumber: racer.car,
                     carName: racer.name,
+                    ...(await photosFor(page, index)),
                 },
             },
         );
