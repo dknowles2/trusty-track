@@ -1,10 +1,11 @@
 """The landing page's links into the documentation, and the pictures it borrows.
 
-`www/index.html` is the front door at trusty-track.com, and almost every link on
-it points at a guide: `/docs/getting-started/`, `/docs/user/install-mac/`,
-`/docs/reference/scoring/`. It also renders the logo and four screenshots
-straight out of `docs/assets/`, rather than keeping a second copy of images the
-Playwright specs in `frontend/e2e/docs/` regenerate.
+`www/` holds the pages served from the root of trusty-track.com — the landing
+page and the site's 404 — and almost every link on them points at a guide:
+`/docs/getting-started/`, `/docs/user/install-mac/`, `/docs/reference/scoring/`.
+They also render the logo and four screenshots straight out of `docs/assets/`,
+rather than keeping a second copy of images the Playwright specs in
+`frontend/e2e/docs/` regenerate.
 
 Neither of those is checked by anything else. `mkdocs build --strict` validates
 links *inside* the documentation and never looks at `www/`; the landing page has
@@ -23,7 +24,6 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-LANDING = REPO_ROOT / "www" / "index.html"
 WWW_DIR = REPO_ROOT / "www"
 DOCS_DIR = REPO_ROOT / "docs"
 
@@ -31,8 +31,17 @@ DOCS_DIR = REPO_ROOT / "docs"
 _ATTR = re.compile(r"""\b(?:href|src)\s*=\s*["']([^"']+)["']""")
 
 
+def _pages() -> list[Path]:
+    """Every page `www/` serves.
+
+    Discovered rather than listed: a page added here and forgotten is exactly
+    the staleness this file exists to catch.
+    """
+    return sorted(WWW_DIR.glob("*.html"))
+
+
 def _references() -> list[str]:
-    return _ATTR.findall(LANDING.read_text())
+    return [ref for page in _pages() for ref in _ATTR.findall(page.read_text())]
 
 
 def _root_relative() -> list[str]:
@@ -60,8 +69,9 @@ def _docs_pages_for(link: str) -> list[Path]:
     return [DOCS_DIR / f"{rest}.md", DOCS_DIR / rest / "index.md"]
 
 
-def test_the_landing_page_has_links_to_check():
+def test_there_are_pages_and_links_to_check():
     """Guard against the checks below passing because the regex found nothing."""
+    assert {page.name for page in _pages()} >= {"index.html", "404.html"}
     links = _root_relative()
     assert len([link for link in links if link.startswith("/docs/")]) > 10, links
 
@@ -108,9 +118,20 @@ def test_every_other_absolute_link_is_a_file_in_www(link: str):
     assert target.is_file(), f"{link} is not in www/"
 
 
-def test_every_in_page_link_lands_on_an_id():
-    html = LANDING.read_text()
+@pytest.mark.parametrize("page", _pages(), ids=lambda p: p.name)
+def test_every_in_page_link_lands_on_an_id(page: Path):
+    """A `#what` in the nav is only a link if something on that page has the id.
+
+    Per page, not across the set: the 404 page carries the same header as the
+    landing page, and a jump link that resolves on one and not the other is the
+    reason this is not checked against the union of every id in `www/`.
+    """
+    html = page.read_text()
     ids = set(re.findall(r"""\bid\s*=\s*["']([^"']+)["']""", html))
-    fragments = {r.removeprefix("#") for r in _references() if r.startswith("#")}
-    assert fragments, "the nav's jump links have gone"
+    fragments = {r.removeprefix("#") for r in _ATTR.findall(html) if r.startswith("#")}
     assert fragments <= ids, f"no element with id: {sorted(fragments - ids)}"
+
+
+def test_some_page_still_has_jump_links():
+    fragments = {r for r in _references() if r.startswith("#")}
+    assert fragments, "the nav's jump links have gone"

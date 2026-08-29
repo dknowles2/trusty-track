@@ -67,7 +67,13 @@
 html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
+/* A column so the footer sits at the bottom of a short page rather than
+   halfway down it, which is every 404. The landing page is far taller than a
+   viewport, so this changes nothing there. */
 body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   margin: 0;
   background: var(--paper);
   color: var(--ink);
@@ -76,6 +82,8 @@ body {
   line-height: 1.62;
   -webkit-font-smoothing: antialiased;
 }
+
+main { flex: 1 0 auto; }
 
 img { max-width: 100%; height: auto; display: block; }
 
@@ -649,4 +657,33 @@ kbd {
      "Pinewood Derby" across two of them, which is the one break the headline
      cannot afford. */
   .hero h1 { text-wrap: pretty; }
+}
+
+/* --------------------------------------------------------------- not found */
+
+.notfound {
+  padding: clamp(3rem, 9vw, 6.5rem) 0;
+  background:
+    radial-gradient(900px 460px at 80% -10%,
+      color-mix(in srgb, var(--gold) 20%, transparent), transparent 62%),
+    var(--cream);
+  border-bottom: 1px solid var(--cream-edge);
+}
+.notfound-inner {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: clamp(1.8rem, 4vw, 3.2rem);
+  align-items: center;
+}
+.notfound h1 {
+  font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+  font-weight: 800;
+  margin-bottom: .9rem;
+}
+
+@media (max-width: 900px) {
+  .notfound-inner { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .notfound-inner > img { width: 160px; }
+  .notfound .lede { margin-inline: auto; }
+  .notfound .cta-row { justify-content: center; }
 }

@@ -25,8 +25,16 @@ picture still renders.
 
 ## Setting the project up
 
-In the Cloudflare dashboard, **Workers & Pages → Create → Pages → Connect to
-Git**, pick this repository, and set:
+In the Cloudflare dashboard: **Workers & Pages → Create application → Pages →
+Connect to Git**. Take the **Pages** tab specifically — the dashboard leads with
+Workers, and "Import a repository" from that side creates a Worker with static
+assets instead, which is a different product with a different build form: it has
+no **Build output directory** field at all, because for a Worker that setting is
+`assets.directory` in a `wrangler.jsonc` committed to the repository. Either
+would serve this site; Pages is the one written up here, and it needs nothing in
+the repository.
+
+Pick this repository, and set:
 
 | Setting | Value |
 | --- | --- |
@@ -51,6 +59,10 @@ created for you; Pages redirects the `www` host to the apex.
   own fingerprinted bundles.
 - `robots.txt` — points crawlers at the sitemap mkdocs writes to
   `/docs/sitemap.xml`.
+- `404.html` — what Pages serves for an address that does not exist. mkdocs
+  writes its own to `dist/docs/`, and Pages prefers the nearest one, so a
+  mistyped guide address lands on a documentation page with the search box on it
+  rather than on this one.
 
 ## Building it yourself
 
