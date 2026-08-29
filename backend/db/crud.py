@@ -246,6 +246,14 @@ def create_initial_config(
 ) -> tuple[models.Group, list[models.Track]]:
     # Create Group
     group = models.Group(name=config.group_name, debug_mode=config.debug_mode)
+    # Only set when given, so a caller that omits them gets the column's own
+    # default (`"MATCH_APP"`) rather than an explicit `None` fighting the
+    # `NOT NULL` constraint — the same "absent means unset" the ORM already
+    # gives every other Python-side `default=`.
+    if config.display_theme is not None:
+        group.display_theme = config.display_theme
+    if config.printables_theme is not None:
+        group.printables_theme = config.printables_theme
     db.add(group)
 
     # Create Tracks

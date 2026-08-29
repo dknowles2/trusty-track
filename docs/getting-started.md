@@ -21,13 +21,21 @@ The first time you launch Trusty Track, or when you need to adjust your organiza
 
 The first time, everything below is on one page, in order — fill it in from top
 to bottom. Afterwards the page splits into sections listed down the left —
-**General**, **Access**, **Tracks** and **Backup** — and shows one at a time.
+**General**, **Appearance**, **Access**, **Tracks** and **Backup** — and shows one at a time.
 **Save Settings** saves the lot, whichever section you are looking at.
 
 ### Organization Details
 
 - **Organization Name**: The name of your Cub Scout Pack, school, or group (e.g., "Pack 123").
 - **Debugging Mode**: Off by default. Turning it on shows extra timer controls and logs during races — leave it off unless you're troubleshooting.
+
+### Appearance
+
+Every picker here already defaults to the app's usual look and to matching
+your own screen, so this section is entirely safe to skip on a first run —
+come back to it later if you want the wall display to look different for an
+evening race, a patriotic-themed derby, or a print run that needs to save
+ink. See [Themes](reference/themes.md) for the full list.
 
 ### Access
 

@@ -25,7 +25,7 @@ import { useQuery, useMutation } from 'urql';
  * (the first run does not — it is a wizard, and shows the lot). So a test
  * about a track, a lane or the backup panel has to say where it is looking.
  */
-const openSection = async (id: 'general' | 'access' | 'tracks' | 'backup') => {
+const openSection = async (id: 'general' | 'appearance' | 'access' | 'tracks' | 'backup') => {
     const user = (await import('@testing-library/user-event')).default.setup();
     await user.click(await screen.findByTestId(`settings-nav-${id}`));
 };
@@ -173,6 +173,10 @@ describe('SystemSettings', () => {
             config: {
                 groupName: 'Test Pack',
                 debugMode: false,
+                // Every picker's own default (#498) — Field Uniform never
+                // needing to be picked, and Display/Printables "Match App".
+                displayTheme: 'MATCH_APP',
+                printablesTheme: 'MATCH_APP',
                 tracks: [
                     // A fake timer carries no model: it is chosen by transport, and a model
                     // travelling with one would linger unseen if the operator switched back.
@@ -690,5 +694,103 @@ describe('the settings sections', () => {
         expect(await screen.findByText(/organization needs a name/i)).toBeInTheDocument();
         expect(screen.getByLabelText('Organization Name')).toBeInTheDocument();
         expect(mockUpdate).not.toHaveBeenCalled();
+    });
+});
+
+describe('the Appearance section (#498)', () => {
+    afterEach(() => {
+        cleanup();
+        window.localStorage.clear();
+    });
+
+    const configured = {
+        initialized: true,
+        groupName: 'Pack 42',
+        debugMode: false,
+        displayTheme: 'MATCH_APP',
+        printablesTheme: 'MATCH_APP',
+        tracks: [
+            { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+        ],
+    };
+
+    it('opens on Field Uniform / Match App by default, with a live preview', async () => {
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('appearance');
+
+        expect(screen.getByTestId('app-theme-option-field-uniform')).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByTestId('display-theme-option-MATCH_APP')).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByTestId('printables-theme-option-MATCH_APP')).toHaveAttribute('aria-pressed', 'true');
+        // The App picker itself has no "Match App theme" option — there is
+        // nothing for the App surface to match.
+        expect(screen.queryByTestId('app-theme-option-MATCH_APP')).toBeNull();
+        expect(screen.getByTestId('appearance-preview')).toBeInTheDocument();
+    });
+
+    it('seeds the pickers from a saved install-wide theme', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { ...configured, displayTheme: 'old-glory', printablesTheme: 'newsprint' } },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('appearance');
+
+        expect(screen.getByTestId('display-theme-option-old-glory')).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByTestId('printables-theme-option-newsprint')).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('sends the chosen Display/Printables theme on save, and stores the App theme only in localStorage', async () => {
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('appearance');
+        await user.click(screen.getByTestId('app-theme-option-old-glory'));
+        await user.click(screen.getByTestId('display-theme-option-under-the-lights'));
+        await user.click(screen.getByTestId('printables-theme-option-clear-sight'));
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        const sent = mockUpdate.mock.calls[0][0].config;
+        expect(sent.displayTheme).toBe('under-the-lights');
+        expect(sent.printablesTheme).toBe('clear-sight');
+        // Never sent — the App theme lives only on this device.
+        expect(sent.appTheme).toBeUndefined();
+        // Written after the mutation settles (there's a brief post-mutation
+        // wait in handleSubmit before it), so this has to wait too.
+        await waitFor(() =>
+            expect(window.localStorage.getItem('trustytrack.appTheme')).toBe('old-glory'),
+        );
     });
 });

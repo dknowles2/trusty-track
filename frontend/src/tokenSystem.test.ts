@@ -213,35 +213,85 @@ describe('AwardArtwork takes an explicit palette instead of a hardcoded module-l
     expect(ceremony).toMatch(/display-accent-color/);
   });
 
-  it('Awards.tsx (App) still needs no palette prop — the default already is the App surface\'s tokens', () => {
+  it('Awards.tsx (App) still needs no palette prop — the default already is the App surface\'s tokens, and derives variant from the App theme (#498)', () => {
     const awards = read('features/awards/pages/Awards.tsx');
-    expect(awards).toContain('<AwardArtwork artworkKey={award.artworkKey} size={32} />');
+    expect(awards).toContain(
+      "<AwardArtwork\n                artworkKey={award.artworkKey}\n                size={32}\n                variant={appIsDark ? 'dark' : 'light'}\n              />",
+    );
   });
 });
 
-describe('two direct App-token reads remain in the Display surface, deliberately, pending the theme work (#498)', () => {
-  // Both are cases where the spec's own 8-token Display vocabulary has no
-  // matching role (there is no "on-accent" or "primary" Display token), so
-  // converting either would either invent a token outside that vocabulary or
-  // silently move a colour that is shipped and screenshotted today. Left as
-  // literal reads rather than guessed at; each is commented at its call
-  // site. This test exists so the gap reads as "known and deferred" rather
-  // than "missed" the next time someone greps for `--scouting-blue`.
-  it('AwardCeremony.tsx keeps its navy background', () => {
+describe('the Display surface has been fully converged — no App-token colour reads remain (#498, stage 2)', () => {
+  // Stage 1's groundwork PR left two spots reading --scouting-blue directly,
+  // documented as deliberate and deferred to "the theme work that actually
+  // decides." This is that decision: both now join the rest of the Display
+  // surface, reading --display-bg-color instead — see each call site's own
+  // comment for why that specific token (there is still no "text on
+  // Display accent" role in the vocabulary) and themes.test.ts's contrast
+  // check pinning that every theme's pairing clears 4.5:1.
+  it('AwardCeremony.tsx\'s background joins the rest of the Display surface', () => {
     const ceremony = read('features/awards/pages/AwardCeremony.tsx');
-    expect(ceremony).toMatch(/background: 'var\(--scouting-blue, #003F87\)'/);
+    expect(ceremony).not.toMatch(/var\(--scouting-blue/);
+    expect(ceremony).toMatch(/background: 'var\(--display-bg-color, #0A0A0A\)'/);
   });
 
-  it('the record-break banner keeps --scouting-blue text on its gold fill', () => {
-    expect(read('index.css')).toMatch(/color: var\(--scouting-blue\);/);
+  it('the record-break banner (index.css) reads --display-bg-color, not --scouting-blue', () => {
+    const css = read('index.css');
+    expect(css).not.toMatch(/\.overlay-record-banner[^}]*--scouting-blue/s);
+    expect(css).toMatch(/color: var\(--display-bg-color\);/);
   });
 
-  it('Observation.tsx keeps --scouting-blue for its own "Launch Projector Mode" button and timing-record-banner text, for the same reason', () => {
+  it('Observation.tsx keeps --scouting-blue only for its "Launch Projector Mode" button — an operator control on the light standard-mode preview, not audience content', () => {
     const observation = read('features/observation/pages/Observation.tsx');
     const matches = observation.match(/var\(--scouting-blue/g) ?? [];
-    // The button's border+text colour, and the standard-view timing-record
-    // banner's text colour — three reads, none of them gold, none of them
-    // convertible without inventing a Display token the spec doesn't define.
-    expect(matches.length).toBe(3);
+    expect(matches.length).toBe(2);
+  });
+});
+
+describe('the new App/Printables tokens #498 stage 2 adds are defined (index.css)', () => {
+  it('the rest of the App surface\'s token vocabulary', () => {
+    const css = read('index.css');
+    for (const token of [
+      '--surface-color',
+      '--surface-alt-color',
+      '--border-color',
+      '--text-muted-color',
+      '--on-primary-color',
+      '--on-accent-color',
+      '--focus-ring-color',
+    ]) {
+      expect(css, `missing ${token}`).toContain(`${token}:`);
+    }
+  });
+
+  it('the rest of the Printables surface\'s token vocabulary', () => {
+    const css = read('index.css');
+    for (const token of [
+      '--print-surface-color',
+      '--print-text-color',
+      '--print-text-muted-color',
+      '--print-decor-strength',
+    ]) {
+      expect(css, `missing ${token}`).toContain(`${token}:`);
+    }
+  });
+
+  it('.primary-btn / .secondary-btn read the new on-primary/on-accent tokens', () => {
+    const css = read('index.css');
+    expect(css).toMatch(/\.primary-btn\s*\{[^}]*var\(--on-primary-color/s);
+    expect(css).toMatch(/\.secondary-btn\s*\{[^}]*var\(--on-accent-color/s);
+  });
+});
+
+describe('theme-conditional structural CSS exists for Clear Sight and Newsprint (#498)', () => {
+  it('index.css has Clear Sight rules', () => {
+    expect(read('index.css')).toContain("[data-theme='clear-sight']");
+  });
+
+  it('PrintSheet.css has Newsprint rules for the header, the checker/wash/guilloche opacity, and the single-ink override', () => {
+    const css = read('features/printables/PrintSheet.css');
+    expect(css).toContain("[data-theme='newsprint']");
+    expect(css).toMatch(/opacity: var\(--print-decor-strength/);
+    expect(css).toMatch(/var\(--print-decor-color\)/);
   });
 });

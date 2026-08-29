@@ -247,6 +247,8 @@ input InitialConfigInput {
   tracks: [TrackInput!]!
   operatorPin: String = null
   checkinPin: String = null
+  displayTheme: String = null
+  printablesTheme: String = null
 }
 
 type InitialConfigStatus {
@@ -260,6 +262,8 @@ type InitialConfigStatus {
   pinRequired: Boolean!
   checkinPinSet: Boolean!
   isOperator: Boolean!
+  displayTheme: String!
+  printablesTheme: String!
 }
 
 type LaneResult {

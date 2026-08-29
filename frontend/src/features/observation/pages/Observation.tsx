@@ -14,6 +14,8 @@ import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import { observeIdentify, type SeenIdentifySeq } from '../identifyOverlay';
 import { rankLabel } from '../../management/rankText';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
+import { resolveDisplayTheme } from '../../../theming/applyTheme';
+import type { SurfaceThemeSetting } from '../../../theming/themes';
 import {
   LeaderboardSubscription,
   OnDeckSubscription,
@@ -47,6 +49,9 @@ const GET_INITIAL_DATA = `
         color
         rank
       }
+    }
+    initialConfig {
+      displayTheme
     }
   }
 `;
@@ -190,6 +195,17 @@ export default function Observation() {
   });
 
   const { data: initialData } = initialResult;
+
+  // The Display surface's theme (#498) — this whole page, projector mode or
+  // not, is the audience-facing surface the spec means by "Display". Every
+  // screen resolves "Match App theme" the same way regardless of what any
+  // one device's own App theme happens to be — see `resolveSurfaceKey`'s own
+  // comment for why that is the only resolution that can be the same on
+  // every wall display in the room.
+  const displayThemeSetting: SurfaceThemeSetting =
+    (initialData?.initialConfig?.displayTheme as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
+  const { key: displayThemeKey, theme: displayTheme } = resolveDisplayTheme(displayThemeSetting);
+  const displayThemeStyle = displayTheme.tokens as React.CSSProperties;
 
   // Subscriptions for real-time data
   const [{ data: leaderboardData }] = useSubscription({
@@ -487,7 +503,7 @@ export default function Observation() {
         {overlayData.recordBreak && (
           <div className="overlay-record-banner" data-testid="record-banner">
             <div className="overlay-record-headline">
-              <Icon path={mdiTrophy} size={2} color="#003F87" /> New track record!
+              <Icon path={mdiTrophy} size={2} color="var(--display-bg-color, #0A0A0A)" /> New track record!
             </div>
             <div className="overlay-record-detail">
               {recordBreakDetail(overlayData.recordBreak)}
@@ -597,7 +613,11 @@ export default function Observation() {
   // the photographs, on a screen across a room.
   if (behaviour.slideshow) {
     return (
-      <div className="container projector-mode" style={{ maxWidth: '100%', padding: 0, background: 'var(--display-surface-alt-color)' }}>
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{ maxWidth: '100%', padding: 0, background: 'var(--display-surface-alt-color)', ...displayThemeStyle }}
+      >
         {renderIdentifyBadge()}
         {renderIdentifyFlash()}
         <PhotoSlideshow
@@ -613,7 +633,11 @@ export default function Observation() {
   // --- STANDARD MODE RENDER ---
   if (!isProjectorMode) {
     return (
-      <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
+      <div
+        className="container"
+        data-theme={displayThemeKey}
+        style={{ maxWidth: '100%', padding: '20px', ...displayThemeStyle }}
+      >
         {renderResultsOverlay()}
         {renderIdentifyBadge()}
         {renderIdentifyFlash()}
@@ -791,13 +815,18 @@ export default function Observation() {
                       padding: '15px 20px',
                       borderRadius: '12px',
                       background: 'var(--display-accent-color, #FCD116)',
-                      color: 'var(--scouting-blue, #003F87)',
+                      // No "text on Display accent" role exists in the token
+                      // vocabulary (#498); --display-bg-color is dark enough
+                      // against every theme's own accent to clear 4.5:1 —
+                      // see themes.test.ts's "display-bg-color reads as text
+                      // on the display accent fill" check.
+                      color: 'var(--display-bg-color, #0A0A0A)',
                       fontWeight: 'bold',
                       fontSize: '1.3rem',
                       textAlign: 'center',
                     }}
                   >
-                    <Icon path={mdiTrophy} size={1.4} color="#003F87" />
+                    <Icon path={mdiTrophy} size={1.4} color="var(--display-bg-color, #0A0A0A)" />
                     <span>
                       New track record! {recordBreakDetail(lastHeatResults.recordBreak)}
                     </span>
@@ -902,7 +931,11 @@ export default function Observation() {
   const nowRacingHeatInfo = officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}` : undefined;
 
   return (
-    <div className="container projector-mode" style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
+    <div
+      className="container projector-mode"
+      data-theme={displayThemeKey}
+      style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', ...displayThemeStyle }}
+    >
       {renderResultsOverlay()}
       {renderIdentifyBadge()}
       {renderIdentifyFlash()}

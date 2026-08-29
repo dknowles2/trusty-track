@@ -74,8 +74,10 @@ Switch to the **Timing Stats** tab to see the results of the most recently recor
 ### When the track record falls
 
 If a heat beats the track record, both audience views say so on their own —
-a gold banner over the projector's results overlay, and one above the Timing
+a banner over the projector's results overlay, and one above the Timing
 Stats results — naming the new time, who set it, and the record it beat.
+Gold is Field Uniform's own accent colour; a different
+[Display theme](reference/themes.md) gives it a different one.
 
 ![The record banner on the Timing Stats view](assets/screenshots/observation/10-record-banner.png)
 _The banner names the new time and the record it beat — including records

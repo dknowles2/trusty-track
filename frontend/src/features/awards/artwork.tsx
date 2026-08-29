@@ -80,11 +80,21 @@ interface ArtworkProps {
 /** The one line/detail colour and one fill colour a shape uses, resolved
  *  from the caller's palette and its background. Every shape below reads
  *  `LINE`/`FILL`, never a palette or a module constant directly, so a
- *  background-aware or surface-aware palette cannot be half-applied. */
+ *  background-aware or surface-aware palette cannot be half-applied.
+ *
+ *  `variant="dark"` prefers the *caller's own* palette.line over the
+ *  hardcoded white (#498) — AwardCeremony passes `--display-text-color`,
+ *  which is white in five of the seven themes but a warm off-white under
+ *  Sawdust & Pine and Trail Colors. A caller that passes `variant="dark"`
+ *  with no palette at all (nothing in this codebase does, but the type
+ *  allows it) still gets the hardcoded white, so a background-aware caller
+ *  never has to supply one just to avoid a colour that would not contrast
+ *  against the App surface's own tokens. */
 function resolvePalette(props: ArtworkProps): ArtworkPalette {
   const palette = props.palette ?? DEFAULT_PALETTE;
+  const darkLine = props.palette ? props.palette.line : WHITE;
   return {
-    line: props.variant === 'dark' ? WHITE : palette.line,
+    line: props.variant === 'dark' ? darkLine : palette.line,
     fill: palette.fill,
   };
 }

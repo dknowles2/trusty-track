@@ -105,7 +105,9 @@ setting the first time:
 
     In the print dialogue, under **More settings**, tick **Background
     graphics** (Chrome) or **Print backgrounds** (Safari, Firefox). Without it
-    the blue header bars and den colours print white.
+    the header bars and den colours print white. (The header colour itself
+    depends on which [theme](reference/themes.md) is set for Printables —
+    blue is only Field Uniform's own.)
 
 !!! tip "Set margins to Default, not None"
 
