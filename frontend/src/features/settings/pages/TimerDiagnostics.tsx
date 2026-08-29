@@ -115,46 +115,46 @@ const disconnectedDetail = (timerType: string): string =>
 const STATE_HELP: Record<string, StateHelp> = {
     DISCONNECTED: {
         label: 'Not connected',
-        tone: '#9e9e9e',
+        tone: 'var(--neutral-accent-color)',
         detail: disconnectedDetail,
     },
     CONNECTED: {
         label: 'Port open, waiting for the timer to answer',
-        tone: '#ff9800',
+        tone: 'var(--active-accent-color)',
         detail:
             'Something is plugged in, but it has not said what it is. Trusty Track keeps asking ' +
             'every few seconds. If this never clears, whatever is plugged in is probably not the timer.',
     },
     IDLE: {
         label: 'Ready',
-        tone: '#4caf50',
+        tone: 'var(--success-accent-color)',
         detail: 'The timer answered and is waiting for a heat.',
     },
     ARMED: {
         label: 'Armed',
-        tone: '#2196f3',
+        tone: 'var(--info-accent-color)',
         detail: 'Lanes have been set and the timer is waiting for the start gate.',
     },
     READY: {
         label: 'Staged',
-        tone: '#2196f3',
+        tone: 'var(--info-accent-color)',
         detail: 'The start gate is closed with cars behind it.',
     },
     RUNNING: {
         label: 'Racing',
-        tone: '#673ab7',
+        tone: 'var(--running-accent-color)',
         detail: 'The gate has opened and the timer is counting.',
     },
     RESULTS_OVERDUE: {
         label: 'Results overdue',
-        tone: '#f44336',
+        tone: 'var(--danger-accent-color)',
         detail:
             'The race started but the finish was never reported. Force the results from the race ' +
             'screen, or check the finish-line sensors.',
     },
     FAULT: {
         label: 'Fault',
-        tone: '#f44336',
+        tone: 'var(--danger-accent-color)',
         detail: 'The connection failed. The reason is shown below.',
     },
 };
@@ -166,13 +166,13 @@ function renderData(data: string): React.ReactNode {
         if (part === '\\r\\n' || part === '\\n') {
             return (
                 <React.Fragment key={i}>
-                    <span style={{ color: '#bbb' }}>{part}</span>
+                    <span style={{ color: 'var(--text-placeholder-color)' }}>{part}</span>
                     <br />
                 </React.Fragment>
             );
         }
         if (part === '\\r') {
-            return <span key={i} style={{ color: '#bbb' }}>{part}</span>;
+            return <span key={i} style={{ color: 'var(--text-placeholder-color)' }}>{part}</span>;
         }
         return <span key={i}>{part}</span>;
     });
@@ -240,14 +240,14 @@ const TimerTestPanel: React.FC<{
         <div
             data-testid={`timer-test-panel-${trackId}`}
             style={{
-                border: '1px solid #e0e0e0',
+                border: '1px solid var(--surface-strong-color)',
                 borderRadius: '8px',
                 padding: '0.75rem 1rem',
                 margin: '0 0 0.75rem',
             }}
         >
             <h3 style={{ fontSize: '0.95rem', margin: '0 0 0.4rem' }}>Test this timer</h3>
-            <p style={{ color: '#555', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
+            <p style={{ color: 'var(--text-strong-muted-color)', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
                 Runs the timer through a pretend heat — no race needed, and nothing is
                 recorded. You work the gate and trip the finish sensors by hand; the
                 report you can download afterwards is what a fix gets built from.
@@ -299,8 +299,8 @@ const TimerTestPanel: React.FC<{
                 <p
                     data-testid={`timer-test-instruction-${trackId}`}
                     style={{
-                        background: '#e3f2fd',
-                        border: '1px solid #90caf9',
+                        background: 'var(--info-panel-bg-color)',
+                        border: '1px solid var(--info-panel-border-color)',
                         borderRadius: '8px',
                         padding: '0.5rem 0.75rem',
                         margin: '0.6rem 0 0',
@@ -336,7 +336,7 @@ const TimerTestPanel: React.FC<{
                 </table>
             )}
             {testFinished && (
-                <p style={{ color: '#2e7d32', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+                <p style={{ color: 'var(--success-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
                     Test finished. If anything above looks wrong — times missing, lanes
                     swapped, nothing at all — download the report and use{' '}
                     <strong>Report a problem</strong> to send it to us.
@@ -367,10 +367,10 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
     // label replaces the device-state one rather than trying to make that
     // table say something true about a device that does not exist.
     const help = isNoTimer
-        ? { label: 'No timer', tone: '#9e9e9e', detail: '' }
+        ? { label: 'No timer', tone: 'var(--neutral-accent-color)', detail: '' }
         : (STATE_HELP[state] ?? {
               label: state,
-              tone: '#9e9e9e',
+              tone: 'var(--neutral-accent-color)',
               detail: '',
           });
     const detail = typeof help.detail === 'function' ? help.detail(track.timerType) : help.detail;
@@ -403,7 +403,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                 borderRadius: '12px',
                 padding: '1rem 1.25rem',
                 marginBottom: '1.5rem',
-                background: 'white',
+                background: 'var(--surface-color)',
                 // Arrived here from this track's settings card. Scrolling to
                 // the section is not enough on its own — a page whose panels
                 // all fit does not scroll at all, and then nothing on screen
@@ -415,13 +415,13 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
             <header style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <h2 style={{ margin: 0, fontSize: '1.15rem' }}>{track.name}</h2>
                 <span style={{ color: help.tone, fontWeight: 600 }}>{help.label}</span>
-                <span style={{ marginLeft: 'auto', color: '#666', fontSize: '0.85rem' }}>
+                <span style={{ marginLeft: 'auto', color: 'var(--text-muted-color)', fontSize: '0.85rem' }}>
                     {track.laneCount} lanes
                 </span>
             </header>
 
             {detail && (
-                <p style={{ margin: '0.5rem 0 0.75rem', color: '#555', fontSize: '0.9rem' }}>
+                <p style={{ margin: '0.5rem 0 0.75rem', color: 'var(--text-strong-muted-color)', fontSize: '0.9rem' }}>
                     {detail}
                 </p>
             )}
@@ -435,7 +435,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                     fontSize: '0.9rem',
                 }}
             >
-                <dt style={{ color: '#666' }}>Connection</dt>
+                <dt style={{ color: 'var(--text-muted-color)' }}>Connection</dt>
                 <dd style={{ margin: 0 }}>
                     {isFake
                         ? 'Fake timer (no hardware)'
@@ -448,14 +448,14 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
 
                 {!isNoTimer && (
                     <>
-                        <dt style={{ color: '#666' }}>Device</dt>
+                        <dt style={{ color: 'var(--text-muted-color)' }}>Device</dt>
                         <dd style={{ margin: 0 }}>{status?.deviceName ?? 'unknown'}</dd>
 
-                        <dt style={{ color: '#666' }}>Port</dt>
+                        <dt style={{ color: 'var(--text-muted-color)' }}>Port</dt>
                         <dd style={{ margin: 0, fontFamily: MONO }}>
                             {status?.port ?? (track.serialPort || 'none yet')}
                             {!track.serialPort && status?.port && (
-                                <span style={{ fontFamily: 'inherit', color: '#4caf50', marginLeft: '0.5rem' }}>
+                                <span style={{ fontFamily: 'inherit', color: 'var(--success-accent-color)', marginLeft: '0.5rem' }}>
                                     found automatically
                                 </span>
                             )}
@@ -472,13 +472,13 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
             {status?.deviceProvenance && (
                 <p
                     style={{
-                        background: '#fff8e1',
-                        border: '1px solid #ffe082',
+                        background: 'var(--warning-bg-color)',
+                        border: '1px solid var(--warning-alt-border-color)',
                         borderRadius: '8px',
                         padding: '0.5rem 0.75rem',
                         margin: '0 0 0.75rem',
                         fontSize: '0.85rem',
-                        color: '#5d4037',
+                        color: 'var(--warning-brown-color)',
                     }}
                 >
                     {status.deviceProvenance}
@@ -488,8 +488,8 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
             {status?.lastError && (
                 <p
                     style={{
-                        background: '#fdecea',
-                        border: '1px solid #f5c6c3',
+                        background: 'var(--danger-notice-bg-color)',
+                        border: '1px solid var(--danger-notice-border-color)',
                         borderRadius: '8px',
                         padding: '0.5rem 0.75rem',
                         margin: '0 0 0.75rem',
@@ -537,19 +537,19 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
             )}
 
             {isFake ? (
-                <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
+                <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', margin: 0 }}>
                     This track is set to the fake timer, so there is no hardware to check. Change it
                     on the <Link to="/system-settings">System Settings</Link> page.
                 </p>
             ) : isNoTimer ? (
-                <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
+                <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', margin: 0 }}>
                     This track has no timer configured, so there is no hardware to check. Every
                     heat's result is entered by hand from the race screen. Add a timer on the{' '}
                     <Link to="/system-settings">System Settings</Link> page if you get one later.
                 </p>
             ) : (
                 <div>
-                    <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.4rem', color: '#666' }}>
+                    <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.4rem', color: 'var(--text-muted-color)' }}>
                         Serial traffic
                     </h3>
                     <div
@@ -565,7 +565,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                         }}
                     >
                         {lines.length === 0 ? (
-                            <span style={{ color: '#888' }}>Nothing yet.</span>
+                            <span style={{ color: 'var(--text-subtle-color)' }}>Nothing yet.</span>
                         ) : (
                             lines.map((line, i) => (
                                 <div key={i} style={{ whiteSpace: 'pre-wrap' }}>
@@ -578,7 +578,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                                     </span>
                                     {renderData(line.data)}
                                     {line.description && (
-                                        <span style={{ color: '#888' }}> {line.description}</span>
+                                        <span style={{ color: 'var(--text-subtle-color)' }}> {line.description}</span>
                                     )}
                                 </div>
                             ))
@@ -609,7 +609,7 @@ const TimerDiagnostics: React.FC = () => {
     return (
         <div style={{ padding: '1.5rem', maxWidth: '820px', margin: '0 auto' }}>
             <h1 style={{ marginTop: 0 }}>Timer check</h1>
-            <p style={{ color: '#555' }}>
+            <p style={{ color: 'var(--text-strong-muted-color)' }}>
                 Live view of every track's timer. Use this before the event to confirm the timer is
                 plugged in and talking, without setting up a race first. The{' '}
                 <a
@@ -624,7 +624,7 @@ const TimerDiagnostics: React.FC = () => {
 
             {fetching && <p>Loading…</p>}
             {error && (
-                <p style={{ color: '#c00' }}>
+                <p style={{ color: 'var(--danger-plain-color)' }}>
                     {errorText(error, 'The timers could not be loaded.')}
                 </p>
             )}

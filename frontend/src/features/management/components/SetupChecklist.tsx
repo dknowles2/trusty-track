@@ -36,8 +36,8 @@ export default function SetupChecklist({ progress, onAction }: Props) {
             data-testid="setup-checklist"
             style={{
                 marginBottom: '2rem',
-                background: '#fff',
-                border: '1px solid #e4e4e4',
+                background: 'var(--surface-color)',
+                border: '1px solid var(--border-faint-color)',
                 borderLeft: '4px solid var(--cub-scouting-gold)',
                 borderRadius: '12px',
                 padding: '1rem 1.25rem',
@@ -54,7 +54,7 @@ export default function SetupChecklist({ progress, onAction }: Props) {
                 }}
             >
                 <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Setting up this race</h3>
-                <span style={{ fontSize: '0.85rem', color: '#666' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
                     {doneCount} of {steps.length} done
                 </span>
             </div>
@@ -81,19 +81,19 @@ export default function SetupChecklist({ progress, onAction }: Props) {
                             <Icon
                                 path={step.done ? mdiCheckCircle : mdiCircleOutline}
                                 size={0.8}
-                                color={step.done ? '#2e7d32' : '#bbb'}
+                                color={step.done ? 'var(--success-color)' : 'var(--text-placeholder-color)'}
                             />
                             <span
                                 style={{
                                     fontWeight: isNext ? 600 : 400,
-                                    color: step.done ? '#666' : '#222',
+                                    color: step.done ? 'var(--text-muted-color)' : 'var(--text-strong-color)',
                                     textDecoration: step.done ? 'line-through' : undefined,
                                 }}
                             >
                                 {step.label}
                             </span>
                             {isNext && (
-                                <span style={{ fontSize: '0.85rem', color: '#666' }}>{step.hint}</span>
+                                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>{step.hint}</span>
                             )}
                             {isNext && step.action && handler && (
                                 <button

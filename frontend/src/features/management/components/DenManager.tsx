@@ -208,7 +208,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                     <Icon path={mdiPlus} size={0.8} /> Add New Den
                     </button>
             ) : (
-                <form onSubmit={handleAddDen} style={{ marginBottom: '20px', padding: '15px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' }}>
+                <form onSubmit={handleAddDen} style={{ marginBottom: '20px', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', border: '1px solid var(--divider-color)' }}>
                     <h4 style={{ marginTop: 0 }}>Add New Den</h4>
                     <div style={{ marginBottom: '10px' }}>
                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Name</label>
@@ -217,7 +217,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                 value={newDenName}
                                 onChange={e => setNewDenName(e.target.value)}
                                 required
-                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                             />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
@@ -228,7 +228,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                 placeholder="e.g. 100"
                                 value={newDenStart || ''}
                                 onChange={e => setNewDenStart(e.target.value ? parseInt(e.target.value) : undefined)}
-                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                             />
                         </div>
                         <div>
@@ -238,7 +238,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                 placeholder="e.g. 199"
                                 value={newDenEnd || ''}
                                 onChange={e => setNewDenEnd(e.target.value ? parseInt(e.target.value) : undefined)}
-                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                             />
                         </div>
                     </div>
@@ -255,8 +255,8 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                         height: '24px',
                                         borderRadius: '50%',
                                         backgroundColor: color,
-                                        border: newDenColor === color ? '2px solid white' : '1px solid transparent',
-                                        boxShadow: newDenColor === color ? '0 0 0 2px #333' : 'none',
+                                        border: newDenColor === color ? '2px solid var(--on-primary-color)' : '1px solid transparent',
+                                        boxShadow: newDenColor === color ? '0 0 0 2px var(--text-color)' : 'none',
                                         cursor: 'pointer',
                                         padding: 0
                                     }}
@@ -269,7 +269,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                             <select
                             value={newDenRank || ''}
                             onChange={e => setNewDenRank(e.target.value || undefined)}
-                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                            style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                         >
                             <option value="">None</option>
                             {RANKS.map((rank) => (
@@ -283,7 +283,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                             <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
                             {loading ? 'Adding...' : 'Add Den'}
                         </button>
-                        <button type="button" onClick={() => setIsAddingDen(false)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>
+                        <button type="button" onClick={() => setIsAddingDen(false)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>
                             Cancel
                         </button>
                     </div>
@@ -295,22 +295,22 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
             {!isAddingDen && (
             <ul style={{ listStyle: 'none', padding: 0 }}>
                 {visibleDens.map(den => (
-                    <li key={den.id} style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                    <li key={den.id} style={{ padding: '10px', borderBottom: '1px solid var(--divider-color)' }}>
                         {editingDenId === den.id ? (
                             <form onSubmit={handleUpdateDen} style={{ display: 'grid', gap: '10px' }}>
 
                                     <div>
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Name</label>
-                                        <input type="text" value={editDenName} onChange={e => setEditDenName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} required />
+                                        <input type="text" value={editDenName} onChange={e => setEditDenName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} required />
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
                                         <div>
                                             <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Start #</label>
-                                            <input type="number" value={editDenStart || ''} onChange={e => setEditDenStart(e.target.value ? parseInt(e.target.value) : undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
+                                            <input type="number" value={editDenStart || ''} onChange={e => setEditDenStart(e.target.value ? parseInt(e.target.value) : undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>End #</label>
-                                            <input type="number" value={editDenEnd || ''} onChange={e => setEditDenEnd(e.target.value ? parseInt(e.target.value) : undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
+                                            <input type="number" value={editDenEnd || ''} onChange={e => setEditDenEnd(e.target.value ? parseInt(e.target.value) : undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
                                         </div>
                                     </div>
                                     <div>
@@ -326,8 +326,8 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                                         height: '20px',
                                                         borderRadius: '50%',
                                                         backgroundColor: color,
-                                                        border: editDenColor === color ? '2px solid white' : '1px solid transparent',
-                                                        boxShadow: editDenColor === color ? '0 0 0 1px #333' : 'none',
+                                                        border: editDenColor === color ? '2px solid var(--on-primary-color)' : '1px solid transparent',
+                                                        boxShadow: editDenColor === color ? '0 0 0 1px var(--text-color)' : 'none',
                                                         cursor: 'pointer',
                                                         padding: 0
                                                     }}
@@ -338,7 +338,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
 
                                 <div>
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Rank</label>
-                                        <select value={editDenRank || ''} onChange={e => setEditDenRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                        <select value={editDenRank || ''} onChange={e => setEditDenRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
                                     <option value="">None</option>
                                     {RANKS.map((rank) => (
                                         <option key={rank.value} value={rank.value}>
@@ -352,7 +352,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                     <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
                                         {loading ? 'Saving...' : 'Save Changes'}
                                     </button>
-                                    <button type="button" onClick={handleCancelEdit} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>
+                                    <button type="button" onClick={handleCancelEdit} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>
                                         Cancel
                                     </button>
                                 </div>
@@ -360,15 +360,15 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                         ) : (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: den.color, border: '1px solid #ddd' }}></div>
+                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: den.color, border: '1px solid var(--border-color)' }}></div>
                                     <b>{den.name}</b>
                                     {/* The rank as a pack says it. This showed
                                         the stored value, so a den of Arrow of
                                         Light scouts was labelled
                                         "(ARROW_OF_LIGHT)". */}
-                                    {den.rank && <span style={{ fontSize: '0.8rem', color: '#666' }}>({rankLabel(den.rank)})</span>}
+                                    {den.rank && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>({rankLabel(den.rank)})</span>}
                                     {(den.car_number_range_start || den.car_number_range_end) && (
-                                        <span style={{ fontSize: '0.75rem', backgroundColor: '#eee', padding: '2px 6px', borderRadius: '4px' }}>
+                                        <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--divider-color)', padding: '2px 6px', borderRadius: '4px' }}>
                                             #{den.car_number_range_start || '?'}-{den.car_number_range_end || '?'}
                                         </span>
                                     )}
@@ -376,14 +376,14 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                                 <div>
                                     <button
                                         onClick={() => handleEditDenClick(den)}
-                                        style={{ marginRight: '10px', background: 'none', border: 'none', color: '#1a73e8', cursor: 'pointer', padding: '4px' }}
+                                        style={{ marginRight: '10px', background: 'none', border: 'none', color: 'var(--link-color)', cursor: 'pointer', padding: '4px' }}
                                         title="Edit Den"
                                     >
                                         <Icon path={mdiPencil} size={0.7} />
                                     </button>
                                     <button
                                         onClick={() => handleDeleteDen(den.id)}
-                                        style={{ color: '#d32f2f', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                                        style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
                                         title="Delete Den"
                                     >
                                         <Icon path={mdiDelete} size={0.7} />
@@ -393,7 +393,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                         )}
                     </li>
                 ))}
-                {visibleDens.length === 0 && <li style={{ padding: '10px', color: '#999', textAlign: 'center' }}>No dens found.</li>}
+                {visibleDens.length === 0 && <li style={{ padding: '10px', color: 'var(--text-faint-color)', textAlign: 'center' }}>No dens found.</li>}
             </ul>
             )}
         </div>

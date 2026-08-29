@@ -138,7 +138,7 @@ export default function AwardForm({
         />
       </div>
 
-      <fieldset style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '0.75rem' }}>
+      <fieldset style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem' }}>
         <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem' }}>Who wins it</legend>
         <label style={{ display: 'block', marginBottom: '0.6rem' }}>
           <input
@@ -148,7 +148,7 @@ export default function AwardForm({
             onChange={() => set('kind', 'SPECIAL')}
           />{' '}
           Somebody we choose
-          <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
+          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem' }}>
             For awards nothing can measure — paint, design, spirit. You can leave it
             undecided for now.
           </small>
@@ -161,7 +161,7 @@ export default function AwardForm({
             onChange={() => set('kind', 'SPEED')}
           />{' '}
           Speed-based
-          <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
+          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem' }}>
             Worked out from the standings — fastest or slowest — so it stays right if
             you correct a time later.
           </small>
@@ -266,7 +266,7 @@ export default function AwardForm({
                 </option>
               ))}
             </select>
-            <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
+            <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem' }}>
               {selectedTemplate
                 ? selectedTemplate.blurb
                 : 'Fills in the name and its artwork — both stay editable afterward.'}
@@ -301,7 +301,7 @@ export default function AwardForm({
               onChange={(e) => set('votable', e.target.checked)}
             />{' '}
             Let people vote for this
-            <small style={{ color: '#666', display: 'block', marginTop: '0.15rem' }}>
+            <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem' }}>
               Turn off for an award your pack's leaders would rather decide
               privately.
             </small>

@@ -102,7 +102,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
 
     if (displays.length === 0) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+            <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted-color)' }}>
                 <p style={{ margin: 0 }}>No audience displays are open yet.</p>
                 <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
                     Open <strong>Live</strong> on a screen anywhere on this network and it will
@@ -119,10 +119,10 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                     key={display.displayId}
                     data-testid={`display-${display.displayId}`}
                     style={{
-                        border: '1px solid #ddd',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '12px',
                         padding: '0.85rem 1rem',
-                        background: display.connected ? 'white' : '#fafafa',
+                        background: display.connected ? 'var(--surface-color)' : 'var(--surface-faint-color)',
                         display: 'flex',
                         flexWrap: 'wrap',
                         gap: '0.75rem',
@@ -132,7 +132,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                     <Icon
                         path={display.connected ? mdiCheckCircle : mdiCircleOutline}
                         size={0.8}
-                        color={display.connected ? '#2e7d32' : '#bbb'}
+                        color={display.connected ? 'var(--success-color)' : 'var(--text-placeholder-color)'}
                     />
 
                     <div style={{ flex: 1, minWidth: '180px' }}>
@@ -150,7 +150,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                                     value={draftName}
                                     onChange={(e) => setDraftName(e.target.value)}
                                     placeholder="e.g. Gym north"
-                                    style={{ flex: 1, padding: '0.3rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                                    style={{ flex: 1, padding: '0.3rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                                 />
                                 {/* Covers the case where the room has a real
                                     Badger on it and the coincidence is
@@ -182,9 +182,9 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                                     }}
                                     style={{ background: 'none', border: 'none', padding: '2px', cursor: 'pointer' }}
                                 >
-                                    <Icon path={mdiPencil} size={0.6} color="#888" />
+                                    <Icon path={mdiPencil} size={0.6} color="var(--text-subtle-color)" />
                                 </button>
-                                <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
                                     {display.connected ? display.description : 'Not connected'}
                                 </div>
                             </>
@@ -200,7 +200,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                                 view: e.target.value as DisplayView,
                             })
                         }
-                        style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid #ccc' }}
+                        style={{ padding: '0.35rem 0.5rem', borderRadius: '8px', border: '1px solid var(--input-border-color)' }}
                     >
                         {/* The ceremony is missing from a race with no awards
                             — it would send the screen to a page with nothing
@@ -220,7 +220,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                         slideshow cycled at an interval nothing offered to
                         change. */}
                     {viewCycles(display.view) && (
-                        <label style={{ fontSize: '0.85rem', color: '#666' }}>
+                        <label style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
                             every{' '}
                             <input
                                 type="number"
@@ -240,7 +240,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                                         });
                                     }
                                 }}
-                                style={{ width: '4rem', padding: '0.25rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                                style={{ width: '4rem', padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                             />{' '}
                             s
                         </label>
@@ -264,7 +264,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                             >
                                 ‹
                             </button>
-                            <span style={{ fontSize: '0.8rem', color: '#7a5b00', background: '#fff3cd', border: '1px solid #ffe08a', borderRadius: '20px', padding: '2px 8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--warning-strong-color)', background: 'var(--warning-strong-bg-color)', border: '1px solid var(--warning-strong-border-color)', borderRadius: '20px', padding: '2px 8px' }}>
                                 You advance this one
                             </span>
                             <button

@@ -104,7 +104,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         display: 'block',
         fontSize: '0.9rem',
         marginBottom: '0.5rem',
-        color: '#555',
+        color: 'var(--text-strong-muted-color)',
         fontWeight: 'bold'
     };
 
@@ -173,7 +173,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         className="form-control"
                         style={inputStyle}
                     />
-                    <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
                         Number of trophies to award for the championship.
                     </p>
                 </div>
@@ -214,7 +214,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         />
                     </>
                 )}
-                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
                     Check-in warns when a car is over this. It is a warning, not a refusal —
                     the inspector decides.
                 </p>
@@ -222,9 +222,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
             <div>
                 <label style={labelStyle} htmlFor="race-track">Track / Timer</label>
                 {fetchingTracks ? (
-                    <p style={{ fontSize: '0.8rem', color: '#666' }}>Loading tracks...</p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>Loading tracks...</p>
                 ) : !hasTrack ? (
-                    <p data-testid="no-tracks" style={{ fontSize: '0.9rem', color: '#c62828' }}>
+                    <p data-testid="no-tracks" style={{ fontSize: '0.9rem', color: 'var(--danger-strong-color)' }}>
                         You have no tracks yet. Add one in System Settings, then come back
                         and create your race.
                     </p>
@@ -282,7 +282,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         type="button"
                         onClick={onCancel}
                         className="secondary-btn"
-                        style={{ background: 'transparent', border: '1px solid #ddd', color: '#666' }}
+                        style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted-color)' }}
                     >
                         Cancel
                     </button>
@@ -294,9 +294,9 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         onClick={onDelete}
                         className="secondary-btn"
                         style={{
-                            backgroundColor: '#ffebee',
-                            color: '#c62828',
-                            border: '1px solid #ffcdd2',
+                            backgroundColor: 'var(--danger-bg-color)',
+                            color: 'var(--danger-strong-color)',
+                            border: '1px solid var(--danger-border-color)',
                             marginLeft: 'auto'
                         }}
                     >

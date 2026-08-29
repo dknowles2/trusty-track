@@ -106,7 +106,7 @@ export default function HeatSheet() {
                         {/* The same car that rides the pit passes, so a sheet
                             on the announcer's table and a pass round a scout's
                             neck read as one event. */}
-                        <DerbyCar size={54} className="heat-sheet-mark" color="#ffffff" />
+                        <DerbyCar size={54} className="heat-sheet-mark" color="var(--print-surface-color)" />
                         <div>
                         <h1>{race.name}</h1>
                         <p>

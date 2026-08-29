@@ -67,8 +67,8 @@ export default function TrackLanes({ trackId, laneCount, outages, onChange }: Pr
                 gap: '0.3rem',
                 padding: '0.25rem 0.55rem',
                 borderRadius: '20px',
-                border: '1px solid #ccc',
-                background: out ? '#ffe6e6' : 'white',
+                border: '1px solid var(--input-border-color)',
+                background: out ? 'var(--danger-soft-bg-color)' : 'var(--surface-color)',
                 fontSize: '0.9rem',
                 cursor: busy ? 'wait' : 'pointer',
               }}
@@ -85,7 +85,7 @@ export default function TrackLanes({ trackId, laneCount, outages, onChange }: Pr
           );
         })}
       </div>
-      <small style={{ color: '#666' }}>
+      <small style={{ color: 'var(--text-muted-color)' }}>
         {outageSummary(laneCount, outages)}. Turning a lane off applies straight
         away, and affects rounds generated from now on.
       </small>

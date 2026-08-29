@@ -63,6 +63,113 @@
   --on-accent-color: #003F87;
   --focus-ring-color: #003F87;
 
+  /*
+   * Added by #501's app-surface sweep. Same reasoning as the block above —
+   * Field Uniform's values, redefined per-theme by `applyTheme`, kept in
+   * step with `THEMES.find(t => t.key === 'field-uniform')`.
+   */
+  --divider-color: #eeeeee;
+  --input-border-color: #cccccc;
+  --text-subtle-color: #888888;
+  --text-faint-color: #999999;
+  --text-placeholder-color: #bbbbbb;
+  --text-quiet-color: #777777;
+  --text-faintest-color: #aaaaaa;
+  --text-strong-color: #222222;
+  --text-heading-alt-color: #444444;
+  --text-strong-muted-color: #555555;
+  --text-emphasis-color: #000000;
+  --surface-tint-color: #f9f9f9;
+  --surface-hover-color: #f0f7ff;
+  --surface-soft-color: #f0f0f0;
+  --surface-faint-color: #fafafa;
+  --surface-strong-color: #e0e0e0;
+  --border-faint-color: #e4e4e4;
+  --success-color: #2e7d32;
+  --success-bg-color: #e8f5e9;
+  --success-accent-color: #4caf50;
+  --warning-color: #8a6d00;
+  --warning-bg-color: #fff8e1;
+  --warning-strong-color: #7a5b00;
+  --warning-strong-bg-color: #fff3cd;
+  --warning-strong-border-color: #ffe08a;
+  --danger-strong-color: #c62828;
+  --danger-bg-color: #ffebee;
+  --danger-border-color: #ffcdd2;
+  --danger-accent-color: #f44336;
+  --info-accent-color: #2196f3;
+  --active-accent-color: #ff9800;
+  --overlay-backdrop-color: rgba(0, 0, 0, 0.5);
+  --overlay-backdrop-soft-color: rgba(0, 0, 0, 0.4);
+  --overlay-backdrop-strong-color: rgba(0, 0, 0, 0.8);
+  --overlay-backdrop-demo-color: rgba(0, 0, 0, 0.72);
+  --link-color: #1a73e8;
+  --banner-active-bg-color: #fffbea;
+  --banner-success-bg-color: #f0f9f0;
+  --banner-success-color: #256029;
+
+  /* Round 2 (#501) — residual literals found sweeping the remaining ~140
+   * files. Same value on every theme (see themes.ts). */
+  --scouting-blue-hover-color: #002d6b;
+  --table-row-hover-color: #f8faff;
+  --highlight-card-bg-color: #f7f9fc;
+  --record-highlight-bg-color: #fffaf0;
+  --neutral-accent-color: #9e9e9e;
+  --running-accent-color: #673ab7;
+  --hardware-connect-color: #4a148c;
+  --hardware-connect-hover-color: #6a1b9a;
+  --danger-accent-bg-color: #ffeeee;
+  --caution-bg-color: #fff3e0;
+  --caution-text-color: #e65100;
+  --caution-border-color: #ffe0b2;
+  --caution-icon-color: #f57c00;
+  --warning-alt-border-color: #ffe082;
+  --info-panel-bg-color: #e3f2fd;
+  --info-panel-border-color: #90caf9;
+  --info-notice-bg-color: #f3f6fb;
+  --warning-notice-border-color: #f0d98c;
+  --warning-notice-text-color: #5b4a00;
+  --highlight-gold-tint-color: rgba(252, 209, 22, 0.1);
+  --selection-accent-color: #3b82f6;
+  --accent-blue-color: #2563eb;
+  --accent-blue-bg-color: #eff6ff;
+  --accent-blue-strong-color: #1d4ed8;
+  --accent-blue-emphasis-color: #1e3a8a;
+  --wizard-heading-color: #111827;
+  --wizard-text-color: #374151;
+  --wizard-text-muted-color: #6b7280;
+  --wizard-text-subtle-color: #4b5563;
+  --wizard-border-color: #e5e7eb;
+  --wizard-border-muted-color: #d1d5db;
+  --wizard-icon-muted-color: #9ca3af;
+  --wizard-surface-alt-color: #f9fafb;
+  --wizard-chip-bg-color: #f3f4f6;
+  --surface-removed-color: #f2f2f2;
+  --danger-soft-bg-color: #ffe6e6;
+  --preview-border-color: #dfe3e8;
+  --progress-track-color: #e6e6e6;
+  --attention-accent-color: #ef6c00;
+  --neutral-info-color: #78909c;
+  --info-highlight-bg-color: #e6f1fb;
+  --info-highlight-border-color: #85b7eb;
+  --warning-alt-color: #8a6d3b;
+  --danger-faint-bg-color: #fff5f5;
+  --danger-plain-color: #cc0000;
+  --warning-soft-color: #8a5a00;
+  --warning-soft-bg-color: #fff4d6;
+  --warning-soft-border-color: #e6c66e;
+  --danger-tint-bg-color: #fff0f0;
+  --rank-bronze-color: #d7a48d;
+  --rank-silver-icon-color: #757575;
+  --rank-bronze-icon-color: #8d6e63;
+  --progress-panel-border-color: #e9ecef;
+  --progress-label-color: #6c757d;
+  --progress-value-color: #495057;
+  --highlight-blue-tint-color: rgba(0, 63, 135, 0.05);
+  --warning-brown-color: #5d4037;
+  --danger-notice-bg-color: #fdecea;
+  --danger-notice-border-color: #f5c6c3;
+
   /* Typography */
   --font-header: 'Roboto Condensed', sans-serif;
   --font-body: 'Roboto', sans-serif;
@@ -86,6 +193,19 @@
   --display-border-color: #333333;
   --display-accent-color: #FCD116;
   --display-overlay-bg-color: rgba(0, 0, 0, 0.95);
+  --display-badge-bg-color: rgba(0, 0, 0, 0.75);
+  --display-flash-bg-color: rgba(0, 0, 0, 0.88);
+  --display-text-subtle-color: #cccccc;
+  --display-text-faint-color: #dddddd;
+  --display-text-faintest-color: #888888;
+  --display-highlight-gold-tint-color: rgba(212, 175, 55, 0.1);
+  --display-placeholder-color: #666666;
+  --display-on-accent-color: #000000;
+  --display-text-dim-color: #bbbbbb;
+  --display-text-quiet-color: #777777;
+  --display-border-subtle-color: #555555;
+  --display-card-bg-color: #222222;
+  --display-accent-muted-color: #999999;
 
   /*
    * Printables surface tokens (#498). Pit passes, licences and certificates
@@ -98,6 +218,23 @@
   --print-surface-color: #ffffff;
   --print-text-color: #222222;
   --print-text-muted-color: #666666;
+  /* Round 2 (#501) — the remaining card/document neutrals PrintSheet.css
+   * still hardcoded. Printables is always light, so there is no dark
+   * variant to design (see themes.ts). */
+  --print-divider-color: #eeeeee;
+  --print-border-color: #dddddd;
+  --print-highlight-bg-color: #f0f7ff;
+  --print-cut-line-color: #bbbbbb;
+  --print-photo-placeholder-bg-color: #eef2f7;
+  --print-text-secondary-color: #333333;
+  --print-label-color: #444444;
+  --print-panel-bg-color: #f7faff;
+  --print-muted-alt-color: #7a8899;
+  --print-table-border-color: #b9c3cf;
+  --print-row-alt-bg-color: #f2f6fb;
+  --print-rule-line-color: #c8d2de;
+  --print-text-tertiary-color: #555555;
+  --print-header-subtitle-color: rgba(255, 255, 255, 0.85);
   /* A 0-1 opacity multiplier for the large-area decorative gradients only
    * (the chequered band, the licence's security wash, the certificate's
    * guilloche) — see `PrintSheet.css`. Field Uniform's value is 1: full
@@ -862,7 +999,7 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.72);
+  background: var(--overlay-backdrop-demo-color);
   padding: 1.5rem;
 }
 

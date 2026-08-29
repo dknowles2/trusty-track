@@ -64,8 +64,8 @@ describe('the voting-open and vote-confirmed banners share one StatusBanner (#43
 
   it('StatusBanner is the one place the two tones are defined', () => {
     const banner = read('components/ui/StatusBanner.tsx');
-    expect(banner).toMatch(/fffbea/i);
-    expect(banner).toMatch(/f0f9f0/i);
+    expect(banner).toMatch(/var\(--banner-active-bg-color\)/);
+    expect(banner).toMatch(/var\(--banner-success-bg-color\)/);
   });
 });
 
@@ -293,5 +293,155 @@ describe('theme-conditional structural CSS exists for Clear Sight and Newsprint 
     expect(css).toContain("[data-theme='newsprint']");
     expect(css).toMatch(/opacity: var\(--print-decor-strength/);
     expect(css).toMatch(/var\(--print-decor-color\)/);
+  });
+});
+
+/**
+ * Regression guard for #501 — the app-wide sweep that converted the ~140
+ * files #498 left reading inline colour literals. Converted in five
+ * reviewed batches (App, Racing, Observation/Printables, Settings/Stats,
+ * and a residual round that added the tokens below). This does not re-walk
+ * every file; it pins that the files the sweep touched cannot quietly
+ * regrow a raw literal — the same shape as the #439 and #498 guards above,
+ * generalised to every migrated file at once instead of one string per
+ * file, because there are ~140 tokens' worth of them.
+ *
+ * A literal surviving here is not an oversight: it is one of the sweep's
+ * own exempt categories (an elevation box-shadow, a medal colour, the
+ * getContrastColor() fallback — that function does hex math, so it keeps
+ * a real hex string), a var() fallback (documentation of the token's own
+ * default, not a bypass of it), or a residual the sweep found no exact
+ * ledger match for and reported rather than guessed (a decorative
+ * PrintSheet gradient, a translucent white overlay on a coloured surface,
+ * the serial-log terminal readout — theme-invariant the same way
+ * TimerStatusBadge.css already is). ALLOWED_LITERAL is a category
+ * allowlist, not a per-line one: it is deliberately as permissive as the
+ * exemption it encodes (any elevation shadow, any medal hex) so a new use
+ * of an already-exempt category does not need a test edit — only a
+ * genuinely new, unmapped literal fails the build.
+ */
+
+const MIGRATED_FILES = [
+  'components/ui/CameraCapture.tsx',
+  'components/ui/Modal.tsx',
+  'components/ui/StatusBanner.tsx',
+  'context/AlertContext.tsx',
+  'features/awards/artwork.tsx',
+  'features/awards/components/AwardForm.tsx',
+  'features/awards/components/BallotShare.tsx',
+  'features/awards/pages/Awards.tsx',
+  'features/awards/pages/VotingBallot.tsx',
+  'features/core/components/Navigation.tsx',
+  'features/core/components/UnlockButton.tsx',
+  'features/management/components/BulkPhotoUploadModal.tsx',
+  'features/management/components/CheckInProgress.tsx',
+  'features/management/components/DenManager.tsx',
+  'features/management/components/ImportRacersModal.tsx',
+  'features/management/components/NoHeatsBadge.tsx',
+  'features/management/components/RaceForm.tsx',
+  'features/management/components/RacerCombobox.tsx',
+  'features/management/components/RacerForm.tsx',
+  'features/management/components/SetupChecklist.tsx',
+  'features/management/pages/Home.tsx',
+  'features/management/pages/RaceDetails.tsx',
+  'features/observation/components/DisplaysPanel.tsx',
+  'features/observation/components/PhotoSlideshow.tsx',
+  'features/observation/pages/Observation.tsx',
+  'features/printables/PrintSheet.css',
+  'features/printables/components/CheckInScanner.tsx',
+  'features/printables/components/PrintDecor.tsx',
+  'features/printables/pages/HeatSheet.tsx',
+  'features/printables/pages/ResultsSheet.tsx',
+  'features/racing/components/FakeTimerMole.tsx',
+  'features/racing/components/FreeRaceExecution.tsx',
+  'features/racing/components/FreeRaceLaneSetup.tsx',
+  'features/racing/components/FreeRaceTab.tsx',
+  'features/racing/components/HardwareTimerMole.tsx',
+  'features/racing/components/RaceExecution.tsx',
+  'features/racing/components/ReadinessStrip.tsx',
+  'features/racing/components/RoundConfigModal.tsx',
+  'features/racing/components/RoundWizard.tsx',
+  'features/racing/components/ScheduleManagement.tsx',
+  'features/racing/components/SerialProxyConnector.css',
+  'features/racing/components/SerialProxyConnector.tsx',
+  'features/racing/pages/RaceControl.tsx',
+  'features/settings/components/AppearancePreview.tsx',
+  'features/settings/components/BackupPanel.tsx',
+  'features/settings/components/PinFieldRow.tsx',
+  'features/settings/components/ThemePicker.tsx',
+  'features/settings/components/TrackCard.tsx',
+  'features/settings/components/TrackLanes.tsx',
+  'features/settings/components/TrackRecords.tsx',
+  'features/settings/pages/ActivityLog.tsx',
+  'features/settings/pages/SystemSettings.tsx',
+  'features/settings/pages/TimerDiagnostics.tsx',
+  'features/stats/components/Leaderboard.tsx',
+  'features/stats/pages/RaceStats.css',
+  'features/stats/pages/RaceStats.tsx',
+];
+
+/** Strips comments and var() fallback arguments, so neither an issue
+ * reference in prose ("#439") nor a token's own documented default
+ * ("var(--print-primary-color, #003F87)") is mistaken for a literal that
+ * bypasses the token system. */
+function stripNoise(content: string): string {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '')
+    .replace(/var\((--[\w-]+),\s*[^()]*\)/g, 'var($1)');
+}
+
+function hexAndRgbaLiterals(content: string): string[] {
+  const cleaned = stripNoise(content);
+  return [...cleaned.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g)].map((m) => m[0]);
+}
+
+function namedColorLiterals(content: string): string[] {
+  const cleaned = stripNoise(content);
+  const pattern =
+    /'(white|black|red|orange|gold|silver|blue|green|purple|pink|yellow|gray|grey)'|:\s*(white|black|red|orange|gold|silver|blue|green|purple|pink|yellow|gray|grey)\s*;/g;
+  return [...cleaned.matchAll(pattern)].map((m) => m[1] ?? m[2]);
+}
+
+const ALLOWED_HEX_OR_RGBA =
+  /^(?:rgba\(0,\s*0,\s*0,\s*0\.\d+\)|#(?:d4af37|c0c0c0|cd7f32|ffd700)|#eee|#ffffff|#8a5a2b|#(?:d32f2f|2e7d32|003F87|FCD116|0A0A0A)|rgba\(255,\s*255,\s*255,\s*0\.\d+\)|rgba\(0,\s*63,\s*135,\s*0\.0(?:5|55)\)|rgba\(252,\s*209,\s*22,\s*0\.09\)|#000|#ef9a9a|#f2f2f2|#1e1e1e|#dcdcdc|#6fbcff|#a6e22e)$/i;
+
+const ALLOWED_NAMED = new Set(['red', 'orange', 'gold', 'silver']);
+
+describe('issue #501: the app-wide token sweep does not regrow raw colour literals', () => {
+  for (const file of MIGRATED_FILES) {
+    it(`${file}: every remaining literal is an already-reported, exempt residual`, () => {
+      const content = read(file);
+      const unexpectedHex = hexAndRgbaLiterals(content).filter((l) => !ALLOWED_HEX_OR_RGBA.test(l));
+      const unexpectedNamed = namedColorLiterals(content).filter((c) => !ALLOWED_NAMED.has(c));
+      expect(
+        [...unexpectedHex, ...unexpectedNamed],
+        `${file} has a colour literal outside the sweep's exempt categories — use a token, or if it ` +
+          `is genuinely a new exempt case (elevation shadow, medal colour, getContrastColor() hex ` +
+          `math, var() fallback, or a reported unmapped residual) extend ALLOWED_HEX_OR_RGBA / ` +
+          `ALLOWED_NAMED above rather than the per-file allowlist.`,
+      ).toEqual([]);
+    });
+  }
+
+  it('the round-2 residual tokens this sweep added are all actually referenced (no orphan token, no missed substitution)', () => {
+    const css = read('index.css');
+    const themes = read('theming/themes.ts');
+    for (const token of [
+      '--scouting-blue-hover-color',
+      '--table-row-hover-color',
+      '--highlight-card-bg-color',
+      '--record-highlight-bg-color',
+      '--highlight-blue-tint-color',
+      '--display-text-quiet-color',
+      '--display-card-bg-color',
+      '--display-accent-muted-color',
+      '--overlay-backdrop-demo-color',
+    ]) {
+      expect(css, `index.css is missing ${token}`).toContain(`${token}:`);
+      expect(themes, `themes.ts is missing ${token}`).toContain(`'${token}'`);
+      const usedSomewhere = MIGRATED_FILES.some((f) => read(f).includes(`var(${token})`)) || css.includes(`var(${token})`);
+      expect(usedSomewhere, `${token} is defined but never read anywhere`).toBe(true);
+    }
   });
 });

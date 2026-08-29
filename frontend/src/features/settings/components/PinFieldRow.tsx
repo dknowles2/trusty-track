@@ -41,7 +41,7 @@ export default function PinFieldRow({
     <div style={{ flex: 1 }}>
       <label htmlFor={id} style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
         {label}{' '}
-        {optional && <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span>}
+        {optional && <span style={{ fontWeight: 'normal', color: 'var(--text-muted-color)' }}>(optional)</span>}
       </label>
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <input
@@ -56,8 +56,8 @@ export default function PinFieldRow({
             flex: 1,
             padding: '0.4rem',
             borderRadius: '4px',
-            border: '1px solid #ccc',
-            background: field.remove ? '#f2f2f2' : 'white',
+            border: '1px solid var(--input-border-color)',
+            background: field.remove ? 'var(--surface-removed-color)' : 'var(--surface-color)',
           }}
         />
         {canRemove(isSet) && (
@@ -68,8 +68,8 @@ export default function PinFieldRow({
             style={{
               padding: '0.4rem 0.7rem',
               borderRadius: '4px',
-              border: '1px solid #ccc',
-              background: field.remove ? 'var(--cub-scouting-gold)' : 'white',
+              border: '1px solid var(--input-border-color)',
+              background: field.remove ? 'var(--cub-scouting-gold)' : 'var(--surface-color)',
               color: field.remove ? 'var(--scouting-blue)' : 'var(--error)',
               fontSize: '0.85rem',
               whiteSpace: 'nowrap',
@@ -79,7 +79,7 @@ export default function PinFieldRow({
           </button>
         )}
       </div>
-      <small style={{ color: field.remove ? 'var(--error)' : '#666' }}>
+      <small style={{ color: field.remove ? 'var(--error)' : 'var(--text-muted-color)' }}>
         {pinHelp(field, isSet, what)}
       </small>
     </div>

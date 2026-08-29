@@ -295,7 +295,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-      <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scouting-blue)' }}>
+      <div style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scouting-blue)' }}>
         {showProxyControls && trackId != null && (
           <SerialProxyConnector trackId={trackId} />
         )}
@@ -307,7 +307,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
               <Icon path={mdiRacingHelmet} size={1.2} color="var(--scouting-blue)" />
             </div>
             <div style={{
-              background: '#e3f2fd',
+              background: 'var(--info-panel-bg-color)',
               borderRadius: '12px',
               padding: '4px 12px',
               fontSize: '0.85rem',
@@ -328,9 +328,9 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   style={{
                     padding: '4px 12px',
                     fontSize: '0.9rem',
-                    background: '#fff3e0',
-                    color: '#e65100',
-                    border: '1px solid #ffe0b2',
+                    background: 'var(--caution-bg-color)',
+                    color: 'var(--caution-text-color)',
+                    border: '1px solid var(--caution-border-color)',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
@@ -346,9 +346,9 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   style={{
                     padding: '4px 12px',
                     fontSize: '0.9rem',
-                    background: '#f0f0f0',
-                    color: 'black',
-                    border: '1px solid #ccc',
+                    background: 'var(--surface-soft-color)',
+                    color: 'var(--text-emphasis-color)',
+                    border: '1px solid var(--input-border-color)',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
@@ -366,7 +366,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                     padding: '4px 12px',
                     fontSize: '0.9rem',
                     background: 'var(--scouting-blue)',
-                    color: 'white',
+                    color: 'var(--on-primary-color)',
                     border: 'none',
                     borderRadius: '4px',
                     cursor: 'pointer',
@@ -391,7 +391,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   padding: '6px 16px',
                   fontSize: '0.95rem',
                   background: 'var(--cub-scouting-gold)',
-                  color: 'black',
+                  color: 'var(--text-emphasis-color)',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
@@ -408,23 +408,23 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                 <div style={{
                   padding: '8px 20px',
                   fontSize: '1.15rem',
-                  background: isRunning ? '#ff9800' : '#f5f5f5',
-                  color: isRunning ? 'white' : '#666',
+                  background: isRunning ? 'var(--active-accent-color)' : 'var(--background-color)',
+                  color: isRunning ? 'var(--on-primary-color)' : 'var(--text-muted-color)',
                   borderRadius: '4px',
                   fontWeight: 'bold',
-                  border: isRunning ? 'none' : '1px solid #ddd',
+                  border: isRunning ? 'none' : '1px solid var(--border-color)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px'
                 }}>
-                  {isRunning && <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />}
+                  {isRunning && <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'var(--surface-color)', borderRadius: '50%' }} />}
                   {isRunning ? `Racing... ${elapsedSeconds.toFixed(1)}s` : 'Waiting for Timer...'}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={handleResetHeat}
                     className="secondary-btn"
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#fff3e0', color: '#e65100', border: '1px solid #ffe0b2', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'var(--caution-bg-color)', color: 'var(--caution-text-color)', border: '1px solid var(--caution-border-color)', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
                     <Icon path={mdiRefresh} size={0.6} /> Reset Heat
                   </button>
@@ -456,17 +456,17 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 padding: '15px',
-                background: '#f9f9f9',
+                background: 'var(--surface-tint-color)',
                 borderRadius: '8px',
                 borderLeft: '5px solid var(--scouting-blue)',
                 opacity: isEmpty ? 0.6 : 1
               }}>
-                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {a.lane}</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}>Lane {a.lane}</div>
 
                 <div style={{
                   flex: 1,
                   padding: '10px 15px',
-                  background: r?.place === 1 ? 'rgba(0, 63, 135, 0.05)' : 'transparent',
+                  background: r?.place === 1 ? 'var(--highlight-blue-tint-color)' : 'transparent',
                   border: r?.place === 1 ? '1px solid var(--scouting-blue)' : '1px solid transparent',
                   borderRadius: '8px',
                   display: 'flex',
@@ -486,11 +486,11 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
 
                   <div style={{ flex: 1 }}>
                     {isEmpty ? (
-                      <em style={{ color: '#999', fontSize: '1.3rem' }}>(empty)</em>
+                      <em style={{ color: 'var(--text-faint-color)', fontSize: '1.3rem' }}>(empty)</em>
                     ) : (
                       <>
                         <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{racer?.firstName} {racer?.lastName}</div>
-                        {racer?.carNumber != null && <div style={{ fontSize: '0.9rem', color: '#666' }}>Car #{racer.carNumber}</div>}
+                        {racer?.carNumber != null && <div style={{ fontSize: '0.9rem', color: 'var(--text-muted-color)' }}>Car #{racer.carNumber}</div>}
                       </>
                     )}
                   </div>
@@ -508,17 +508,17 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                         padding: '5px',
                         borderRadius: '8px',
                         background: r.place === 1 ? 'var(--scouting-blue)' :
-                          r.place === 2 ? '#e0e0e0' :
-                            r.place === 3 ? '#d7a48d' : 'transparent',
-                        color: r.place === 1 ? 'white' : 'inherit',
+                          r.place === 2 ? 'var(--surface-strong-color)' :
+                            r.place === 3 ? 'var(--rank-bronze-color)' : 'transparent',
+                        color: r.place === 1 ? 'var(--on-primary-color)' : 'inherit',
                         boxShadow: r.place <= 3 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
                       }}>
                         {r.place <= 3 ? (
                           <Icon
                             path={mdiTrophy}
                             size={1}
-                            color={r.place === 1 ? 'white' :
-                              r.place === 2 ? '#757575' : '#8d6e63'}
+                            color={r.place === 1 ? 'var(--on-primary-color)' :
+                              r.place === 2 ? 'var(--rank-silver-icon-color)' : 'var(--rank-bronze-icon-color)'}
                           />
                         ) : (
                           <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{r.place}th</span>
@@ -551,9 +551,9 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {editingResults.map((r, idx) => (
             <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ minWidth: '60px', fontWeight: 'bold', color: '#666' }}>Lane {r.lane}</span>
+              <span style={{ minWidth: '60px', fontWeight: 'bold', color: 'var(--text-muted-color)' }}>Lane {r.lane}</span>
               <span style={{ flex: 1 }}>
-                {r.racerId == null ? <em style={{ color: '#999' }}>(empty)</em> : getRacerDisplay(r.racerId)}
+                {r.racerId == null ? <em style={{ color: 'var(--text-faint-color)' }}>(empty)</em> : getRacerDisplay(r.racerId)}
               </span>
               <input
                 type="number"
@@ -567,16 +567,16 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   );
                 }}
                 placeholder="Time (s)"
-                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc', width: '120px', textAlign: 'right' }}
+                style={{ padding: '6px', borderRadius: '4px', border: '1px solid var(--input-border-color)', width: '120px', textAlign: 'right' }}
                 disabled={r.racerId == null}
               />
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
-            <button onClick={() => setIsEditModalOpen(false)} style={{ padding: '8px 18px', borderRadius: '6px', border: '1px solid #ccc', background: 'white', cursor: 'pointer' }}>
+            <button onClick={() => setIsEditModalOpen(false)} style={{ padding: '8px 18px', borderRadius: '6px', border: '1px solid var(--input-border-color)', background: 'var(--surface-color)', cursor: 'pointer' }}>
               Cancel
             </button>
-            <button onClick={handleSaveEdit} style={{ padding: '8px 18px', borderRadius: '6px', border: 'none', background: '#d32f2f', color: 'white', fontWeight: 'bold', cursor: 'pointer' }}>
+            <button onClick={handleSaveEdit} style={{ padding: '8px 18px', borderRadius: '6px', border: 'none', background: 'var(--error)', color: 'var(--on-primary-color)', fontWeight: 'bold', cursor: 'pointer' }}>
               Save Results
             </button>
           </div>

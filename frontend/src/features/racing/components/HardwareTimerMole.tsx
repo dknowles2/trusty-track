@@ -13,13 +13,13 @@ function renderData(data: string): React.ReactNode {
         if (part === '\\r\\n' || part === '\\n') {
             return (
                 <React.Fragment key={i}>
-                    <span style={{ color: '#bbb' }}>{part}</span>
+                    <span style={{ color: 'var(--text-placeholder-color)' }}>{part}</span>
                     <br />
                 </React.Fragment>
             );
         }
         if (part === '\\r') {
-            return <span key={i} style={{ color: '#bbb' }}>{part}</span>;
+            return <span key={i} style={{ color: 'var(--text-placeholder-color)' }}>{part}</span>;
         }
         return <span key={i}>{part}</span>;
     });
@@ -55,7 +55,7 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
 
     const isDisconnected = ['DISCONNECTED', 'FAULT'].includes(timerState);
     const isConnected = !isDisconnected;
-    const borderColor = isConnected ? '#2196f3' : '#9e9e9e';
+    const borderColor = isConnected ? 'var(--info-accent-color)' : 'var(--neutral-accent-color)';
     const showConnectButton = isDisconnected && timerType === 'AUTO_DETECT_BACKEND';
 
     // Only with a heat armed. The server refuses otherwise and says why, but a
@@ -90,7 +90,7 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
                 position: 'fixed',
                 bottom: '30px',
                 right: '30px',
-                background: 'white',
+                background: 'var(--surface-color)',
                 padding: '20px',
                 borderRadius: '12px',
                 boxShadow: '0 5px 20px rgba(0,0,0,0.2)',
@@ -119,7 +119,7 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
                 }}>
                     {timerState}
                 </span>
-                <Icon path={isExpanded ? mdiChevronDown : mdiChevronUp} size={0.7} color="#666" />
+                <Icon path={isExpanded ? mdiChevronDown : mdiChevronUp} size={0.7} color="var(--text-muted-color)" />
             </h3>
 
             {showConnectButton && (
@@ -128,7 +128,7 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
                     style={{
                         width: '100%',
                         padding: '10px',
-                        background: '#e0e0e0',
+                        background: 'var(--surface-strong-color)',
                         border: 'none',
                         borderRadius: '4px',
                         fontWeight: 'bold',
@@ -150,7 +150,7 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
                         width: '100%',
                         padding: '12px',
                         background: 'var(--cub-scouting-gold)',
-                        color: '#333',
+                        color: 'var(--text-color)',
                         border: 'none',
                         borderRadius: '4px',
                         fontWeight: 'bold',
@@ -170,7 +170,7 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
             {isExpanded && (
                 <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
                     {serialLog.length === 0 ? (
-                        <div style={{ color: '#999', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                        <div style={{ color: 'var(--text-faint-color)', fontSize: '0.8rem', fontStyle: 'italic' }}>
                             No serial data yet.
                         </div>
                     ) : (
@@ -183,22 +183,22 @@ export const HardwareTimerMole: React.FC<HardwareTimerMoleProps> = ({ trackId, t
                                         display: 'flex',
                                         gap: '8px',
                                         alignItems: 'baseline',
-                                        borderLeft: `3px solid ${line.direction === 'RX' ? '#4caf50' : '#2196f3'}`,
+                                        borderLeft: `3px solid ${line.direction === 'RX' ? 'var(--success-accent-color)' : 'var(--info-accent-color)'}`,
                                         marginBottom: '1px',
                                     }}
                                 >
                                     <span style={{
-                                        color: line.direction === 'RX' ? '#4caf50' : '#2196f3',
+                                        color: line.direction === 'RX' ? 'var(--success-accent-color)' : 'var(--info-accent-color)',
                                         fontWeight: 'bold',
                                         minWidth: '22px',
                                         fontSize: '0.7rem',
                                     }}>
                                         {line.direction}
                                     </span>
-                                    <span style={{ color: '#333', wordBreak: 'break-all' }}>
+                                    <span style={{ color: 'var(--text-color)', wordBreak: 'break-all' }}>
                                         {renderData(line.data)}
                                         {line.description && (
-                                            <span style={{ color: '#aaa', fontStyle: 'italic', marginLeft: '6px' }}>
+                                            <span style={{ color: 'var(--text-faintest-color)', fontStyle: 'italic', marginLeft: '6px' }}>
                                                 {line.description}
                                             </span>
                                         )}

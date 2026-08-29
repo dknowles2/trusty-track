@@ -214,7 +214,7 @@ export default function Awards() {
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: '2rem',
-          borderBottom: '1px solid #eee',
+          borderBottom: '1px solid var(--divider-color)',
           paddingBottom: '1rem',
         }}
       >
@@ -250,7 +250,7 @@ export default function Awards() {
           <strong>Voting is {votingOpen ? 'open' : 'closed'}</strong>
           {votingOpen && <BallotShare raceId={id} />}
           {missingPhotoCount > 0 && (
-            <span style={{ flexBasis: '100%', color: '#8a6d3b' }}>
+            <span style={{ flexBasis: '100%', color: 'var(--warning-alt-color)' }}>
               {missingPhotoCount} of {racers.length} cars have no photo — voters will see a
               gray square instead. <Link to={`/race/${id}`}>Upload photos</Link> from the
               roster.
@@ -267,8 +267,8 @@ export default function Awards() {
       )}
 
       {!result.fetching && awards.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#666' }}>
-          <Icon path={mdiTrophyOutline} size={2} color="#ccc" />
+        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted-color)' }}>
+          <Icon path={mdiTrophyOutline} size={2} color="var(--input-border-color)" />
           <p style={{ marginTop: '1rem' }}>
             No awards yet. Add the ones your pack hands out — Best Paint and Most
             Original as well as the fast ones.
@@ -285,9 +285,9 @@ export default function Awards() {
               flexDirection: 'column',
               gap: '0.6rem',
               padding: '0.85rem 1rem',
-              border: '1px solid #ddd',
+              border: '1px solid var(--border-color)',
               borderRadius: '12px',
-              background: '#fff',
+              background: 'var(--surface-color)',
             }}
           >
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -324,7 +324,7 @@ export default function Awards() {
 
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong>{award.name}</strong>
-              <div style={{ color: '#666', fontSize: '0.9rem' }}>
+              <div style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
                 {award.kind === 'SPEED'
                   ? describeSpeedAward(award, rounds, dens)
                   : 'Chosen by the judges'}
@@ -349,7 +349,7 @@ export default function Awards() {
                   <span>{racerLabel(award.recipient)}</span>
                 </>
               ) : (
-                <em style={{ color: '#999' }}>
+                <em style={{ color: 'var(--text-faint-color)' }}>
                   {award.kind === 'SPEED' ? 'Not decided by the racing yet' : 'Nobody yet'}
                 </em>
               )}
@@ -376,7 +376,7 @@ export default function Awards() {
           {award.votable && award.voteTally && award.voteTally.length > 0 && (
             <div
               style={{
-                borderTop: '1px solid #eee',
+                borderTop: '1px solid var(--divider-color)',
                 paddingTop: '0.6rem',
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -384,7 +384,7 @@ export default function Awards() {
                 gap: '0.6rem 1rem',
               }}
             >
-              <strong style={{ fontSize: '0.85rem', color: '#666' }}>Votes:</strong>
+              <strong style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>Votes:</strong>
               {award.voteTally.map((row) => (
                 <span key={row.racerId} style={{ fontSize: '0.9rem' }}>
                   {carLabel(row.racer)} — {row.voteCount}

@@ -493,8 +493,8 @@ export default function RaceDetails() {
 
     return (
       <div key={racer.id} className="racer-card" style={{
-          backgroundColor: isSelected ? '#f0f7ff' : 'white',
-          borderColor: isSelected ? '#3b82f6' : '#eee'
+          backgroundColor: isSelected ? 'var(--surface-hover-color)' : 'var(--surface-color)',
+          borderColor: isSelected ? 'var(--selection-accent-color)' : 'var(--divider-color)'
       }}>
               <div className="racer-card-header">
                   <RacerAvatar
@@ -522,7 +522,7 @@ export default function RaceDetails() {
                       <span style={{
                           padding: '2px 8px',
                           borderRadius: '12px',
-                          backgroundColor: den?.color || '#eee',
+                          backgroundColor: den?.color || 'var(--divider-color)',
                           color: getContrastColor(den?.color || '#eee'),
                           fontSize: '0.75rem',
                           fontWeight: 'bold'
@@ -538,9 +538,9 @@ export default function RaceDetails() {
                   onClick={() => handleCheckInClick(racer)}
                   className="secondary-btn"
                   style={{
-                      background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)',
-                      borderColor: racer.car_passed_inspection ? '#4caf50' : '#ddd',
-                      color: racer.car_passed_inspection ? '#2e7d32' : 'var(--scouting-blue)',
+                      background: racer.car_passed_inspection ? 'var(--success-bg-color)' : 'var(--cub-scouting-gold)',
+                      borderColor: racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)',
+                      color: racer.car_passed_inspection ? 'var(--success-color)' : 'var(--scouting-blue)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -586,7 +586,7 @@ export default function RaceDetails() {
       />
 
       {/* Race Settings Summary (Read-Only for now, can be expanded) */}
-      <div style={{ marginBottom: '2rem', background: '#f9f9f9', padding: '1rem', borderRadius: '8px' }}>
+      <div style={{ marginBottom: '2rem', background: 'var(--surface-tint-color)', padding: '1rem', borderRadius: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0 }}>Race Settings</h3>
               <button onClick={() => setIsEditingRace(true)} className="secondary-btn" style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.85rem' }}>
@@ -634,10 +634,10 @@ export default function RaceDetails() {
           of the day disabled, which is space spent saying "not yet". What it
           held is now a selection bar that exists only when something is
           selected. */}
-      <div className="roster-header" style={{ marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '0.75rem' }}>
+      <div className="roster-header" style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--divider-color)', paddingBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: '1.4rem' }}>
-                Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: '#666', marginLeft: '8px' }}>({filteredRacers.length})</span>
+                Racer Roster <span style={{ fontSize: '0.9rem', fontWeight: 'normal', color: 'var(--text-muted-color)', marginLeft: '8px' }}>({filteredRacers.length})</span>
             </h2>
 
             {/* How far check-in has got (#204). It lives here rather than only
@@ -656,12 +656,12 @@ export default function RaceDetails() {
             <div className="roster-controls" style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
                 <div className="dropdown" style={{ position: 'relative' }}>
                     <div className="split-btn-container">
-                        <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px', whiteSpace: 'nowrap' }}>
+                        <button className="secondary-btn split-btn-main" onClick={handleAddRacerClick} style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', height: '32px', whiteSpace: 'nowrap' }}>
                             <Icon path={mdiPlus} size={0.7} /> Add Racer
                         </button>
                         <button
                             className="secondary-btn split-btn-arrow"
-                            style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', padding: '6px 8px', height: '32px' }}
+                            style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)', padding: '6px 8px', height: '32px' }}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsAddRacerDropdownOpen(!isAddRacerDropdownOpen);
@@ -685,7 +685,7 @@ export default function RaceDetails() {
                                 title="Populate Test Data"
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
-                                <Icon path={mdiLightningBolt} size={0.7} color="#fcd116" /> Populate Test Data
+                                <Icon path={mdiLightningBolt} size={0.7} color="var(--cub-scouting-gold)" /> Populate Test Data
                             </button>
                             <button
                                 onClick={() => {
@@ -759,7 +759,7 @@ export default function RaceDetails() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '0.75rem' }}>
             <div className="search-container" style={{ display: 'flex', alignItems: 'center', position: 'relative', flex: '1 1 200px', maxWidth: '340px' }}>
-                <Icon path={mdiMagnify} size={0.7} style={{ position: 'absolute', left: '10px', color: '#999' }} />
+                <Icon path={mdiMagnify} size={0.7} style={{ position: 'absolute', left: '10px', color: 'var(--text-faint-color)' }} />
                 <input
                     type="text"
                     placeholder="Search racers..."
@@ -768,7 +768,7 @@ export default function RaceDetails() {
                     style={{
                         padding: '6px 12px 6px 30px',
                         borderRadius: '20px',
-                        border: '1px solid #ddd',
+                        border: '1px solid var(--border-color)',
                         fontSize: '0.85rem',
                         width: '100%',
                         height: '32px'
@@ -777,7 +777,7 @@ export default function RaceDetails() {
             </div>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 500, whiteSpace: 'nowrap' }}>Group by Den</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', fontWeight: 500, whiteSpace: 'nowrap' }}>Group by Den</span>
                 <span className="toggle-switch small">
                     <input
                         type="checkbox"
@@ -800,8 +800,8 @@ export default function RaceDetails() {
                     marginTop: '0.75rem',
                     padding: '8px 12px',
                     borderRadius: '8px',
-                    background: '#e6f1fb',
-                    border: '1px solid #85b7eb'
+                    background: 'var(--info-highlight-bg-color)',
+                    border: '1px solid var(--info-highlight-border-color)'
                 }}
             >
                 <strong style={{ fontSize: '0.85rem', color: 'var(--scouting-blue)', whiteSpace: 'nowrap' }}>
@@ -868,7 +868,7 @@ export default function RaceDetails() {
                 <button
                     className="secondary-btn"
                     onClick={handleBulkDelete}
-                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px', color: '#d32f2f' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px', color: 'var(--error)' }}
                     data-testid="bulk-delete-btn"
                 >
                     Delete
@@ -888,8 +888,8 @@ export default function RaceDetails() {
       </div>
 
       <div style={{ overflowX: 'auto' }} className="desktop-only-table">
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden' }} className="responsive-table">
-                <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }} className="responsive-table">
+                <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)' }}>
                     <tr>
                         <th style={{ padding: '12px', textAlign: 'center', width: '40px' }}>
                             <input
@@ -928,7 +928,7 @@ export default function RaceDetails() {
                                 // to be siblings of the other groups' rows for
                                 // the table to be valid.
                                 <Fragment key={`group-${group.denId}`}>
-                                    <tr className="group-row" style={{ backgroundColor: '#f9f9f9', borderTop: '2px solid #ddd' }}>
+                                    <tr className="group-row" style={{ backgroundColor: 'var(--surface-tint-color)', borderTop: '2px solid var(--border-color)' }}>
                                         <td colSpan={7} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{
                                                 display: 'inline-block',
@@ -946,8 +946,8 @@ export default function RaceDetails() {
                                             key={racer.id}
                                             className="racer-row"
                                             style={{
-                                                borderBottom: '1px solid #eee',
-                                                backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined
+                                                borderBottom: '1px solid var(--divider-color)',
+                                                backgroundColor: selectedRacerIds.includes(racer.id) ? 'var(--surface-hover-color)' : undefined
                                             }}
                                          >
                                              <td data-label="Select" style={{ padding: '12px', textAlign: 'center' }}>
@@ -968,7 +968,7 @@ export default function RaceDetails() {
                                                 <RacerAvatar
                                                     racer={racer}
                                                     size="40px"
-                                                    style={{ margin: '0 auto', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                                    style={{ margin: '0 auto', border: '2px solid var(--surface-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                                                 />
                                             </td>
                                             <td data-label="First Name" style={{ padding: '12px' }}>{racer.first_name}</td>
@@ -978,7 +978,7 @@ export default function RaceDetails() {
                                                     <span style={{
                                                         padding: '4px 8px',
                                                         borderRadius: '12px',
-                                                        backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
+                                                        backgroundColor: dens.find(d => d.id === racer.den_id)?.color || 'var(--divider-color)',
                                                         color: getContrastColor(dens.find(d => d.id === racer.den_id)?.color || '#eee'),
                                                         fontSize: '0.85rem',
                                                         fontWeight: 'bold'
@@ -991,12 +991,12 @@ export default function RaceDetails() {
                                                 <button
                                                     onClick={() => handleCheckInClick(racer)}
                                                     style={{
-                                                        background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)',
-                                                        border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`,
+                                                        background: racer.car_passed_inspection ? 'var(--success-bg-color)' : 'var(--cub-scouting-gold)',
+                                                        border: `1px solid ${racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)'}`,
                                                         borderRadius: '20px',
                                                         padding: '6px 12px',
                                                         cursor: 'pointer',
-                                                        color: racer.car_passed_inspection ? '#2e7d32' : 'var(--scouting-blue)',
+                                                        color: racer.car_passed_inspection ? 'var(--success-color)' : 'var(--scouting-blue)',
                                                         fontSize: '0.85rem',
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
@@ -1029,8 +1029,8 @@ export default function RaceDetails() {
                                 key={racer.id}
                                 className="racer-row"
                                 style={{
-                                    borderBottom: '1px solid #eee',
-                                    backgroundColor: selectedRacerIds.includes(racer.id) ? '#f0f7ff' : undefined
+                                    borderBottom: '1px solid var(--divider-color)',
+                                    backgroundColor: selectedRacerIds.includes(racer.id) ? 'var(--surface-hover-color)' : undefined
                                 }}
                             >
                                 <td data-label="Select" style={{ padding: '12px', textAlign: 'center' }}>
@@ -1054,7 +1054,7 @@ export default function RaceDetails() {
                                         <RacerAvatar
                                             racer={racer}
                                             size="40px"
-                                            style={{ margin: '0 auto', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                                            style={{ margin: '0 auto', border: '2px solid var(--surface-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                                         />
                                     </span>
                                 </td>
@@ -1066,7 +1066,7 @@ export default function RaceDetails() {
                                             <span style={{
                                                 padding: '4px 8px',
                                                 borderRadius: '12px',
-                                                backgroundColor: dens.find(d => d.id === racer.den_id)?.color || '#eee',
+                                                backgroundColor: dens.find(d => d.id === racer.den_id)?.color || 'var(--divider-color)',
                                                 color: getContrastColor(dens.find(d => d.id === racer.den_id)?.color || '#eee'),
                                                 fontSize: '0.85rem',
                                                 fontWeight: 'bold'
@@ -1081,12 +1081,12 @@ export default function RaceDetails() {
                                         <button
                                             onClick={() => handleCheckInClick(racer)}
                                             style={{
-                                                background: racer.car_passed_inspection ? '#e8f5e9' : 'var(--cub-scouting-gold)',
-                                                border: `1px solid ${racer.car_passed_inspection ? '#4caf50' : '#ddd'}`,
+                                                background: racer.car_passed_inspection ? 'var(--success-bg-color)' : 'var(--cub-scouting-gold)',
+                                                border: `1px solid ${racer.car_passed_inspection ? 'var(--success-accent-color)' : 'var(--border-color)'}`,
                                                 borderRadius: '20px',
                                                 padding: '6px 12px',
                                                 cursor: 'pointer',
-                                                color: racer.car_passed_inspection ? '#2e7d32' : 'var(--scouting-blue)',
+                                                color: racer.car_passed_inspection ? 'var(--success-color)' : 'var(--scouting-blue)',
                                                 fontSize: '0.85rem',
                                                 display: 'inline-flex',
                                                 alignItems: 'center',
@@ -1118,7 +1118,7 @@ export default function RaceDetails() {
       {/* Mobile Card Layout */}
       <div className="mobile-only-cards">
           {filteredRacers.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px solid #eee' }}>
+              <div style={{ padding: '20px', textAlign: 'center', background: 'var(--surface-color)', borderRadius: '12px', border: '1px solid var(--divider-color)' }}>
                   {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
               </div>
           ) : isGroupedByDen ? (
@@ -1215,7 +1215,7 @@ export default function RaceDetails() {
         title="Populate Test Data"
       >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <p style={{ color: '#666', lineHeight: '1.5' }}>
+              <p style={{ color: 'var(--text-muted-color)', lineHeight: '1.5' }}>
                   Generate fake racers to test your race setup. You can specify how many racers to add.
                   They will be assigned random names, ranks, and images.
               </p>
@@ -1229,7 +1229,7 @@ export default function RaceDetails() {
                       max="100"
                       value={populateCount}
                       onChange={(e) => setPopulateCount(parseInt(e.target.value) || 0)}
-                      style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      style={{ padding: '8px', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                   />
               </div>
 
@@ -1307,13 +1307,13 @@ export default function RaceDetails() {
                         }
                     }}
                     id="do-populate-btn"
-                    style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                    style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
                   >
                       Generate
                   </button>
                   <button
                     onClick={() => setShowPopulateModal(false)}
-                    style={{ backgroundColor: '#e0e0e0', color: '#666', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                    style={{ backgroundColor: 'var(--surface-strong-color)', color: 'var(--text-muted-color)', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
                   >
                     Cancel
                   </button>

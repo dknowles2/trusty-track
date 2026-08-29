@@ -60,7 +60,7 @@ const subheading: React.CSSProperties = {
   fontSize: '0.8rem',
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
-  color: '#666',
+  color: 'var(--text-muted-color)',
 };
 
 const fieldLabel: React.CSSProperties = {
@@ -73,7 +73,7 @@ const textInput: React.CSSProperties = {
   width: '100%',
   padding: '0.4rem',
   borderRadius: '4px',
-  border: '1px solid #ccc',
+  border: '1px solid var(--input-border-color)',
 };
 
 export default function TrackCard({
@@ -100,9 +100,9 @@ export default function TrackCard({
       style={{
         marginBottom: '1.5rem',
         padding: '1rem',
-        border: '1px solid #ddd',
+        border: '1px solid var(--border-color)',
         borderRadius: '12px',
-        background: '#f9f9f9',
+        background: 'var(--surface-tint-color)',
         position: 'relative',
       }}
     >
@@ -210,7 +210,7 @@ export default function TrackCard({
       </div>
 
       {track.timerType === 'NONE' && (
-        <p style={{ color: '#666', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+        <p style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
           Race Execution won't try to arm a timer. Enter Results becomes the main way
           to record a heat's result — times for a Timed race, finishing order for Points.
         </p>
@@ -219,7 +219,7 @@ export default function TrackCard({
       {track.timerType !== 'FAKE' && track.timerType !== 'NONE' && (
         <div>
           <label htmlFor={`track-model-${index}`} style={fieldLabel}>
-            Timer Model <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span>
+            Timer Model <span style={{ fontWeight: 'normal', color: 'var(--text-muted-color)' }}>(optional)</span>
           </label>
           <select
             id={`track-model-${index}`}
@@ -234,7 +234,7 @@ export default function TrackCard({
               </option>
             ))}
           </select>
-          <small style={{ color: '#666', display: 'block', marginTop: '0.25rem' }}>
+          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.25rem' }}>
             {chosen
               ? chosen.provenance
               : 'Leave this alone and the app asks each timer it knows about who it is. Pick a model if yours is not found, or to stop it asking.'}{' '}
@@ -247,12 +247,12 @@ export default function TrackCard({
             </a>
           </small>
           {chosen && !chosen.detectable && (
-            <small style={{ color: '#8a6d00', display: 'block', marginTop: '0.25rem' }}>
+            <small style={{ color: 'var(--warning-color)', display: 'block', marginTop: '0.25rem' }}>
               This model cannot answer an identifying question, so choosing it here is the only way to use it.
             </small>
           )}
           {unusualFraming && (
-            <small style={{ color: '#8a6d00', display: 'block', marginTop: '0.25rem' }}>
+            <small style={{ color: 'var(--warning-color)', display: 'block', marginTop: '0.25rem' }}>
               Uses {chosen.baudRate} baud, {chosen.dataBits} data bits, {chosen.stopBits} stop bit
               {chosen.stopBits === 1 ? '' : 's'}, parity {chosen.parity} — not the usual 9600 8-N-1.
             </small>
@@ -263,7 +263,7 @@ export default function TrackCard({
       {track.timerType === 'AUTO_DETECT_BACKEND' && (
         <div style={{ marginTop: '1rem' }}>
           <label htmlFor={`track-serial-${index}`} style={fieldLabel}>
-            Serial Port <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span>
+            Serial Port <span style={{ fontWeight: 'normal', color: 'var(--text-muted-color)' }}>(optional)</span>
           </label>
           {/*
             Deliberately not `required`. Leaving it blank is now the normal
@@ -279,7 +279,7 @@ export default function TrackCard({
             placeholder="Leave blank to detect automatically"
             style={textInput}
           />
-          <small style={{ color: '#666' }}>
+          <small style={{ color: 'var(--text-muted-color)' }}>
             Leave this blank and Trusty Track finds the timer by itself. Fill it in only if
             your timer is on a built-in serial port, or you need to point at one particular
             device — for example <code>/dev/ttyUSB0</code> or <code>COM3</code>.
@@ -304,7 +304,7 @@ export default function TrackCard({
             />
             This track has a remote start gate
           </label>
-          <small style={{ color: '#666' }}>
+          <small style={{ color: 'var(--text-muted-color)' }}>
             Tick this only if a solenoid is fitted to the start gate and wired to the timer.
             With it on, an armed heat can be launched from the race screen instead of by hand.
           </small>

@@ -105,7 +105,7 @@ export default function Navigation() {
 
   return (
     <>
-      <nav style={{ backgroundColor: 'var(--scouting-blue)', color: 'white', position: 'relative', zIndex: 1000, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+      <nav style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)', position: 'relative', zIndex: 1000, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 1rem' }}>
 
           {/* Left: Logo & Home */}
@@ -122,7 +122,7 @@ export default function Navigation() {
               style={{
                 background: 'rgba(255,255,255,0.1)',
                 border: '1px solid rgba(255,255,255,0.2)',
-                color: 'white',
+                color: 'var(--on-primary-color)',
                 padding: '5px 16px',
                 borderRadius: '20px',
                 fontSize: '0.9rem',
@@ -136,9 +136,9 @@ export default function Navigation() {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             >
-              <Icon path={mdiFlagCheckered} size={0.8} color="white" />
+              <Icon path={mdiFlagCheckered} size={0.8} color="var(--on-primary-color)" />
               {activeRace ? activeRace.name : 'Select a Race'}
-              <Icon path={isRaceDropdownOpen ? mdiChevronUp : mdiChevronDown} size={0.6} color="white" style={{ opacity: 0.8 }} />
+              <Icon path={isRaceDropdownOpen ? mdiChevronUp : mdiChevronDown} size={0.6} color="var(--on-primary-color)" style={{ opacity: 0.8 }} />
             </button>
 
             {isRaceDropdownOpen && (
@@ -152,14 +152,14 @@ export default function Navigation() {
                   top: '120%',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--surface-color)',
                   borderRadius: '10px',
                   boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
                   minWidth: '220px',
                   zIndex: 1002,
                   overflow: 'hidden',
                   padding: '6px',
-                  border: '1px solid #eee'
+                  border: '1px solid var(--divider-color)'
                 }}>
                   <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                     {races.map((r: { id: number; name: string }) => (
@@ -171,26 +171,26 @@ export default function Navigation() {
                           display: 'block',
                           padding: '10px 18px',
                           textDecoration: 'none',
-                          color: raceId === r.id.toString() ? 'var(--scouting-blue)' : '#444',
-                          backgroundColor: raceId === r.id.toString() ? '#f0f7ff' : 'transparent',
+                          color: raceId === r.id.toString() ? 'var(--scouting-blue)' : 'var(--text-heading-alt-color)',
+                          backgroundColor: raceId === r.id.toString() ? 'var(--surface-hover-color)' : 'transparent',
                           fontWeight: raceId === r.id.toString() ? 'bold' : '500',
                           fontSize: '0.9rem',
                           borderRadius: '6px',
                           transition: 'background 0.2s'
                         }}
-                        onMouseEnter={(e) => ! (raceId === r.id.toString()) && (e.currentTarget.style.backgroundColor = '#f8f9fa')}
+                        onMouseEnter={(e) => ! (raceId === r.id.toString()) && (e.currentTarget.style.backgroundColor = 'var(--surface-alt-color)')}
                         onMouseLeave={(e) => ! (raceId === r.id.toString()) && (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         {r.name}
                       </Link>
                     ))}
                     {races.length === 0 && (
-                      <div style={{ padding: '15px', color: '#999', fontStyle: 'italic', fontSize: '0.9rem', textAlign: 'center' }}>No races found</div>
+                      <div style={{ padding: '15px', color: 'var(--text-faint-color)', fontStyle: 'italic', fontSize: '0.9rem', textAlign: 'center' }}>No races found</div>
                     )}
                   </div>
 
                   {/* New Race Option */}
-                  <div style={{ borderTop: '1px solid #eee', marginTop: '4px', paddingTop: '4px' }}>
+                  <div style={{ borderTop: '1px solid var(--divider-color)', marginTop: '4px', paddingTop: '4px' }}>
                     <button
                       onClick={() => {
                         setIsRaceDropdownOpen(false);
@@ -212,7 +212,7 @@ export default function Navigation() {
                         gap: '8px',
                         transition: 'background 0.2s'
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f7ff'}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--surface-hover-color)'}
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <Icon path={mdiPlus} size={0.7} /> New Race...
@@ -244,7 +244,7 @@ export default function Navigation() {
                 title="System Settings"
                 style={{
                   textDecoration: 'none',
-                  color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'white',
+                  color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'var(--on-primary-color)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
@@ -270,7 +270,7 @@ export default function Navigation() {
               style={{
                 background: 'none',
                 border: 'none',
-                color: 'white',
+                color: 'var(--on-primary-color)',
                 padding: '8px',
                 cursor: 'pointer',
                 display: 'flex',
@@ -296,7 +296,7 @@ export default function Navigation() {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.5)',
+                backgroundColor: 'var(--overlay-backdrop-color)',
                 zIndex: 2000,
                 opacity: isMobileMenuOpen ? 1 : 0,
                 visibility: isMobileMenuOpen ? 'visible' : 'hidden',
@@ -311,7 +311,7 @@ export default function Navigation() {
               right: 0,
               bottom: 0,
               width: '280px',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--surface-color)',
               zIndex: 2001,
               boxShadow: '-5px 0 25px rgba(0,0,0,0.1)',
               transform: isMobileMenuOpen ? 'translateX(0)' : 'translateX(100%)',
@@ -323,12 +323,12 @@ export default function Navigation() {
               {/* Drawer Header */}
               <div style={{
                 padding: '1.5rem',
-                borderBottom: '1px solid #eee',
+                borderBottom: '1px solid var(--divider-color)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 backgroundColor: 'var(--scouting-blue)',
-                color: 'white'
+                color: 'var(--on-primary-color)'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                   <img src={logoUrl} alt="Logo" style={{ height: '24px' }} />
@@ -337,7 +337,7 @@ export default function Navigation() {
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   aria-label="Close Menu"
-                  style={{ background: 'none', border: 'none', color: 'white', padding: '4px', cursor: 'pointer' }}
+                  style={{ background: 'none', border: 'none', color: 'var(--on-primary-color)', padding: '4px', cursor: 'pointer' }}
                 >
                   <Icon path={mdiClose} size={1} />
                 </button>
@@ -345,7 +345,7 @@ export default function Navigation() {
 
               {/* Drawer Content */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
-                <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: '#999', margin: '1rem 0 0.5rem 0.5rem', letterSpacing: '1px' }}>Races</h3>
+                <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-faint-color)', margin: '1rem 0 0.5rem 0.5rem', letterSpacing: '1px' }}>Races</h3>
                 {races.map((r: { id: number; name: string }) => (
                   <div key={r.id}>
                     <Link
@@ -356,8 +356,8 @@ export default function Navigation() {
                         alignItems: 'center',
                         padding: '12px 16px',
                         textDecoration: 'none',
-                        color: raceId === r.id.toString() ? 'var(--scouting-blue)' : '#444',
-                        backgroundColor: raceId === r.id.toString() ? '#f0f7ff' : 'transparent',
+                        color: raceId === r.id.toString() ? 'var(--scouting-blue)' : 'var(--text-heading-alt-color)',
+                        backgroundColor: raceId === r.id.toString() ? 'var(--surface-hover-color)' : 'transparent',
                         fontWeight: raceId === r.id.toString() ? 'bold' : '500',
                         borderRadius: '8px',
                         marginBottom: '4px'
@@ -367,7 +367,7 @@ export default function Navigation() {
                     </Link>
                     {/* If this is the active race, show its sub-links */}
                     {raceId === r.id.toString() && (
-                      <div style={{ marginLeft: '1rem', borderLeft: '2px solid #f0f7ff', paddingLeft: '0.5rem' }}>
+                      <div style={{ marginLeft: '1rem', borderLeft: '2px solid var(--surface-hover-color)', paddingLeft: '0.5rem' }}>
                         {links.map(link => {
                           const isActive = link.to === activeNavLink(location.pathname, links);
                           return (
@@ -381,7 +381,7 @@ export default function Navigation() {
                               gap: '10px',
                               padding: '10px 16px',
                               textDecoration: 'none',
-                              color: isActive ? 'var(--scouting-blue)' : '#666',
+                              color: isActive ? 'var(--scouting-blue)' : 'var(--text-muted-color)',
                               fontSize: '0.9rem',
                               fontWeight: isActive ? 'bold' : '500'
                             }}
@@ -421,7 +421,7 @@ export default function Navigation() {
               </div>
 
               {/* Drawer Footer - Pinned Settings */}
-              <div style={{ borderTop: '1px solid #eee', padding: '1rem' }}>
+              <div style={{ borderTop: '1px solid var(--divider-color)', padding: '1rem' }}>
                 {/* The drawer is a second navigation surface, not a mirror of
                     the header — a phone at the check-in desk only ever sees
                     this one, so the lock has to be reachable from here too. */}
@@ -440,7 +440,7 @@ export default function Navigation() {
                     padding: '14px 16px',
                     textDecoration: 'none',
                     color: location.pathname === '/system-settings' ? 'var(--cub-scouting-gold)' : 'var(--scouting-blue)',
-                    backgroundColor: location.pathname === '/system-settings' ? 'rgba(0,63,135,0.05)' : 'transparent',
+                    backgroundColor: location.pathname === '/system-settings' ? 'var(--highlight-blue-tint-color)' : 'transparent',
                     fontWeight: 'bold',
                     borderRadius: '8px'
                   }}
@@ -450,7 +450,7 @@ export default function Navigation() {
                 </Link>
                 <div
                   data-testid="app-version"
-                  style={{ marginTop: '0.8rem', textAlign: 'center', fontSize: '0.75rem', color: '#999' }}
+                  style={{ marginTop: '0.8rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-faint-color)' }}
                 >
                   v{version}
                 </div>
@@ -463,8 +463,8 @@ export default function Navigation() {
       {/* Secondary Header: Race Navigation (Hidden on Mobile) */}
       {raceId && !isMobile && (
         <div data-testid="race-nav" style={{
-          backgroundColor: 'white',
-          borderBottom: '1px solid #ddd',
+          backgroundColor: 'var(--surface-color)',
+          borderBottom: '1px solid var(--border-color)',
           padding: '0.75rem 0',
           display: 'flex',
           justifyContent: 'center',
@@ -481,7 +481,7 @@ export default function Navigation() {
                 to={link.to}
                 style={{
                   textDecoration: 'none',
-                  color: isActive ? 'var(--scouting-blue)' : '#666',
+                  color: isActive ? 'var(--scouting-blue)' : 'var(--text-muted-color)',
                   fontWeight: 'bold',
                   fontSize: '0.85rem',
                   textTransform: 'uppercase',
@@ -493,8 +493,8 @@ export default function Navigation() {
                   alignItems: 'center',
                   gap: '0.4rem'
                 }}
-                onMouseEnter={(e) => !isActive && (e.currentTarget.style.color = '#333')}
-                onMouseLeave={(e) => !isActive && (e.currentTarget.style.color = '#666')}
+                onMouseEnter={(e) => !isActive && (e.currentTarget.style.color = 'var(--text-color)')}
+                onMouseLeave={(e) => !isActive && (e.currentTarget.style.color = 'var(--text-muted-color)')}
                >
                 <Icon path={link.icon} size={0.7} />
                 {link.label}

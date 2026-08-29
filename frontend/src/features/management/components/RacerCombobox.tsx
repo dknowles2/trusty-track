@@ -129,7 +129,7 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
           fontSize: '1rem',
           padding: '10px',
           borderRadius: '4px',
-          border: `1px solid ${isOpen ? 'var(--scouting-blue)' : '#ccc'}`,
+          border: `1px solid ${isOpen ? 'var(--scouting-blue)' : 'var(--input-border-color)'}`,
           outline: 'none',
         }}
       />
@@ -145,8 +145,8 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
             margin: '2px 0 0',
             padding: 0,
             listStyle: 'none',
-            background: 'white',
-            border: '1px solid #ccc',
+            background: 'var(--surface-color)',
+            border: '1px solid var(--input-border-color)',
             borderRadius: '4px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
             maxHeight: '300px',
@@ -154,7 +154,7 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
           }}
         >
           {filtered.length === 0 ? (
-            <li style={{ padding: '10px', color: '#888' }}>No matches</li>
+            <li style={{ padding: '10px', color: 'var(--text-subtle-color)' }}>No matches</li>
           ) : (
             <>
               <li
@@ -165,8 +165,8 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
                 style={{
                   padding: '10px',
                   cursor: 'pointer',
-                  borderBottom: '1px solid #eee',
-                  color: '#888',
+                  borderBottom: '1px solid var(--divider-color)',
+                  color: 'var(--text-subtle-color)',
                   fontStyle: 'italic',
                 }}
               >
@@ -183,8 +183,8 @@ export const RacerCombobox: React.FC<ComboboxProps> = ({ racers, value, onChange
                   style={{
                     padding: '10px',
                     cursor: 'pointer',
-                    background: i === activeIndex ? 'var(--scouting-blue)' : 'white',
-                    color: i === activeIndex ? 'white' : 'inherit',
+                    background: i === activeIndex ? 'var(--scouting-blue)' : 'var(--surface-color)',
+                    color: i === activeIndex ? 'var(--on-primary-color)' : 'inherit',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',

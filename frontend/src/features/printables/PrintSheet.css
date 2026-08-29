@@ -29,7 +29,7 @@
     justify-content: space-between;
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--print-divider-color);
 }
 
 .printables-kinds {
@@ -45,15 +45,15 @@
     align-items: flex-start;
     text-align: left;
     padding: 10px 14px;
-    border: 2px solid #ddd;
+    border: 2px solid var(--print-border-color);
     border-radius: var(--border-radius);
-    background: white;
+    background: var(--print-surface-color);
     max-width: 260px;
 }
 
 .printables-kind[aria-pressed='true'] {
     border-color: var(--print-primary-color);
-    background: #f0f7ff;
+    background: var(--print-highlight-bg-color);
 }
 
 .printables-kind-label {
@@ -64,12 +64,12 @@
 .printables-kind-blurb {
     font-family: var(--font-body);
     font-size: 0.78rem;
-    color: #666;
+    color: var(--print-text-muted-color);
     font-weight: normal;
 }
 
 .printables-summary {
-    color: #666;
+    color: var(--print-text-muted-color);
     font-size: 0.9rem;
 }
 
@@ -86,8 +86,8 @@
     height: var(--card-h);
     box-sizing: border-box;
     overflow: hidden;
-    background: white;
-    border: 1px dashed #bbb; /* A cut line; see the print rule below. */
+    background: var(--print-surface-color);
+    border: 1px dashed var(--print-cut-line-color); /* A cut line; see the print rule below. */
     border-radius: 8px;
     display: flex;
     flex-direction: column;
@@ -104,7 +104,7 @@
     /* A hint of depth across the bar, so the navy does not read as a flat
        block of toner on a laser printer. */
     background-image: linear-gradient(100deg, var(--print-header-gradient-start) 0%, var(--print-primary-color) 55%, var(--print-header-gradient-end) 100%);
-    color: white;
+    color: var(--print-surface-color);
     padding: 5px 9px;
     display: flex;
     justify-content: space-between;
@@ -158,7 +158,7 @@
     flex-shrink: 0;
     background-image: repeating-conic-gradient(
         var(--print-primary-color) 0% 25%,
-        #ffffff 0% 50%
+        var(--print-surface-color) 0% 50%
     );
     background-size: 10px 10px;
     border-bottom: 2px solid var(--print-accent-color);
@@ -194,14 +194,14 @@
 
 .print-photo {
     object-fit: cover;
-    background: #eee;
+    background: var(--print-divider-color);
 }
 
 .print-photo-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #eef2f7;
+    background: var(--print-photo-placeholder-bg-color);
     color: var(--print-primary-color);
     font-family: var(--font-header);
     font-weight: bold;
@@ -239,7 +239,7 @@
        of those colours is the gold this ring is made of — without a white gap
        the ring vanishes on exactly those cards. */
     box-shadow:
-        0 0 0 2px #ffffff,
+        0 0 0 2px var(--print-surface-color),
         0 0 0 5px var(--print-accent-color),
         0 0 0 6px var(--print-primary-color);
     display: block;
@@ -259,7 +259,7 @@
     /* Lifted off whatever the portrait is by a white ring, for the same
        reason the portrait has one: a gold roundel on a gold placeholder is
        one shape, not two. */
-    box-shadow: 0 0 0 2px #ffffff;
+    box-shadow: 0 0 0 2px var(--print-surface-color);
     color: var(--print-primary-color);
     font-family: var(--font-header);
     font-weight: bold;
@@ -279,7 +279,7 @@
     margin-bottom: auto;
     font-family: var(--font-header);
     font-size: 0.76rem;
-    color: #333;
+    color: var(--print-text-secondary-color);
     font-style: italic;
 }
 
@@ -288,7 +288,7 @@
     width: 100%;
     padding-top: 4px;
     font-size: 0.62rem;
-    color: #444;
+    color: var(--print-label-color);
     line-height: 1.35;
     display: flex;
     align-items: center;
@@ -316,7 +316,7 @@
     gap: 8px;
     padding: 7px 9px;
     align-items: center;
-    background-color: #f7faff;
+    background-color: var(--print-panel-bg-color);
 }
 
 /* The security wash's cross-hatch, as its own layer (rather than
@@ -377,7 +377,7 @@
     flex-shrink: 0;
     font-size: 1.1rem;
     box-shadow:
-        0 0 0 1px #ffffff,
+        0 0 0 1px var(--print-surface-color),
         0 0 0 3px var(--print-accent-color),
         0 0 0 4px var(--print-primary-color);
 }
@@ -399,12 +399,12 @@
     font-size: 0.54rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #7a8899;
+    color: var(--print-muted-alt-color);
 }
 
 .print-field-value {
     font-size: 0.76rem;
-    color: #222;
+    color: var(--print-text-color);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -421,7 +421,7 @@
     padding: 2px 11px 4px;
     border: 2px solid var(--print-primary-color);
     border-radius: 5px;
-    background: #ffffff;
+    background: var(--print-surface-color);
     position: relative;
 }
 
@@ -460,7 +460,7 @@
     align-items: flex-end;
     gap: 6px;
     padding: 0 9px 5px;
-    background-color: #f7faff;
+    background-color: var(--print-panel-bg-color);
 }
 
 .drivers-license-signature-line {
@@ -474,7 +474,7 @@
     font-size: 0.5rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #7a8899;
+    color: var(--print-muted-alt-color);
     white-space: nowrap;
 }
 
@@ -552,7 +552,7 @@
     }
 
     body:has(.print-sheets) {
-        background: white;
+        background: var(--print-surface-color);
     }
 
     .printables-page {
@@ -604,7 +604,7 @@
     margin-bottom: 0.9rem;
     background: var(--print-primary-color);
     background-image: linear-gradient(100deg, var(--print-header-gradient-start) 0%, var(--print-primary-color) 55%, var(--print-header-gradient-end) 100%);
-    color: white;
+    color: var(--print-surface-color);
     padding: 0.5rem 0.75rem;
     border-radius: 6px 6px 0 0;
     border-bottom: 3px solid var(--print-accent-color);
@@ -616,12 +616,12 @@
 .heat-sheet-header h1 {
     margin: 0;
     font-size: 16pt;
-    color: white;
+    color: var(--print-surface-color);
 }
 
 .heat-sheet-header p {
     margin: 0.15rem 0 0;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--print-header-subtitle-color);
     font-size: 10pt;
 }
 
@@ -653,7 +653,7 @@
 
 .heat-sheet th,
 .heat-sheet td {
-    border: 1px solid #b9c3cf;
+    border: 1px solid var(--print-table-border-color);
     padding: 4px 6px;
     text-align: left;
     vertical-align: top;
@@ -661,7 +661,7 @@
 
 .heat-sheet thead th {
     background: var(--print-primary-color);
-    color: white;
+    color: var(--print-surface-color);
     font-family: var(--font-header);
     font-size: 10pt;
     letter-spacing: 0.05em;
@@ -679,7 +679,7 @@
    eight lanes of names. Every other row rather than every row: a fully ruled
    grid is heavier and reads slower. */
 .heat-sheet tbody tr:nth-child(even) {
-    background: #f2f6fb;
+    background: var(--print-row-alt-bg-color);
 }
 
 .heat-sheet tbody tr {
@@ -714,7 +714,7 @@
 .heat-sheet tbody td.heat-sheet-result {
     background-image: repeating-linear-gradient(
         transparent 0 0.62em,
-        #c8d2de 0.62em calc(0.62em + 1px)
+        var(--print-rule-line-color) 0.62em calc(0.62em + 1px)
     );
 }
 
@@ -730,7 +730,7 @@
 .results-note {
     margin: 0 0 0.35rem;
     font-size: 9pt;
-    color: #555;
+    color: var(--print-text-tertiary-color);
     font-style: italic;
 }
 
@@ -741,7 +741,7 @@
     }
 
     body:has(.heat-sheet) {
-        background: white;
+        background: var(--print-surface-color);
     }
 
     /* Same reasoning as the cards: the masthead, the column heads and the
@@ -773,7 +773,7 @@
        the ornaments then read as a fourth frame rather than as ornament. The
        gold now appears once, in the corners and under the recipient's name. */
     border: 4px double var(--print-primary-color);
-    background: white;
+    background: var(--print-surface-color);
     border-radius: var(--border-radius);
     position: relative;
     display: flex;
@@ -955,7 +955,7 @@
 .certificate-race {
     font-family: var(--font-header);
     font-size: 13pt;
-    color: #444;
+    color: var(--print-label-color);
     letter-spacing: 0.03em;
 }
 
@@ -973,7 +973,7 @@
 
 .certificate-presented-to {
     font-size: 12pt;
-    color: #444;
+    color: var(--print-label-color);
     margin-top: 0.2rem;
     font-style: italic;
 }
@@ -981,7 +981,7 @@
 .certificate-recipient {
     font-family: var(--font-header);
     font-size: 24pt;
-    color: #222;
+    color: var(--print-text-color);
     border-bottom: 2px solid var(--print-accent-color);
     padding: 0.1rem 1.5rem 0.15rem;
     min-width: 4.5in;
@@ -1015,13 +1015,13 @@
     font-size: 8.5pt;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #666;
+    color: var(--print-text-muted-color);
 }
 
 .certificate-date {
     margin-top: 0.4rem;
     font-size: 10pt;
-    color: #666;
+    color: var(--print-text-muted-color);
 }
 
 @media print {
@@ -1031,7 +1031,7 @@
     }
 
     body:has(.certificates) {
-        background: white;
+        background: var(--print-surface-color);
     }
 
     .certificates {

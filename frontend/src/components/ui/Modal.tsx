@@ -42,7 +42,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
             }}
             style={{
                 position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000,
+                backgroundColor: 'var(--overlay-backdrop-color)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000,
                 backdropFilter: 'blur(2px)' // Premium feel
             }}
         >
@@ -55,7 +55,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
                 aria-modal="true"
                 aria-label={title}
                 style={{
-                    background: 'white',
+                    background: 'var(--surface-color)',
                     padding: '2rem',
                     borderRadius: '12px',
                     width: '100%',
@@ -76,7 +76,7 @@ export default function Modal({ isOpen, onClose, title, children, maxWidth = '50
                             border: 'none',
                             fontSize: '1.5rem',
                             cursor: 'pointer',
-                            color: '#999',
+                            color: 'var(--text-faint-color)',
                             padding: '0 5px'
                         }}
                     >

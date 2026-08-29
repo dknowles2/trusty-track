@@ -37,10 +37,10 @@ interface Props {
 }
 
 const APPEARANCE: Record<ReadinessLevel, { icon: string; colour: string }> = {
-    BLOCKED: { icon: mdiAlertCircle, colour: '#c62828' },
-    ATTENTION: { icon: mdiAlertOutline, colour: '#ef6c00' },
-    OK: { icon: mdiCheckCircle, colour: '#2e7d32' },
-    INFO: { icon: mdiInformationOutline, colour: '#78909c' },
+    BLOCKED: { icon: mdiAlertCircle, colour: 'var(--danger-strong-color)' },
+    ATTENTION: { icon: mdiAlertOutline, colour: 'var(--attention-accent-color)' },
+    OK: { icon: mdiCheckCircle, colour: 'var(--success-color)' },
+    INFO: { icon: mdiInformationOutline, colour: 'var(--neutral-info-color)' },
 };
 
 function Row({ item }: { item: ReadinessItem }) {
@@ -53,14 +53,14 @@ function Row({ item }: { item: ReadinessItem }) {
         >
             <Icon path={icon} size={0.7} color={colour} style={{ alignSelf: 'center' }} />
             <strong style={{ minWidth: '5.5rem' }}>{item.label}</strong>
-            <span style={{ color: '#444' }}>{item.detail}</span>
+            <span style={{ color: 'var(--text-heading-alt-color)' }}>{item.detail}</span>
             {item.href && (
                 <Link to={item.href} style={{ fontSize: '0.85rem' }}>
                     Check it
                 </Link>
             )}
             {item.note && (
-                <span style={{ width: '100%', paddingLeft: '6.4rem', fontSize: '0.8rem', color: '#777' }}>
+                <span style={{ width: '100%', paddingLeft: '6.4rem', fontSize: '0.8rem', color: 'var(--text-quiet-color)' }}>
                     {item.note}
                 </span>
             )}
@@ -115,8 +115,8 @@ export default function ReadinessStrip({
                 margin: '0 auto 1.25rem',
                 maxWidth: '900px',
                 width: '100%',
-                background: '#fff',
-                border: '1px solid #e4e4e4',
+                background: 'var(--surface-color)',
+                border: '1px solid var(--border-faint-color)',
                 borderLeft: `4px solid ${colour}`,
                 borderRadius: '12px',
                 padding: compact ? '0.6rem 1rem' : '0.9rem 1.15rem',
@@ -127,7 +127,7 @@ export default function ReadinessStrip({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <Icon path={icon} size={0.75} color={colour} />
                     <strong>Ready to race</strong>
-                    <span style={{ color: '#666' }}>{summaryLine(items)}</span>
+                    <span style={{ color: 'var(--text-muted-color)' }}>{summaryLine(items)}</span>
                 </div>
             ) : (
                 <>

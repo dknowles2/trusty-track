@@ -214,7 +214,7 @@ function Palette(props: ArtworkProps) {
       />
       <circle cx="38" cy="30" r="4" fill={LINE} />
       <circle cx="52" cy="24" r="4" fill="var(--error, #d32f2f)" />
-      <circle cx="64" cy="32" r="4" fill="#2e7d32" />
+      <circle cx="64" cy="32" r="4" fill="var(--success-color, #2e7d32)" />
       <circle cx="30" cy="44" r="4" fill={LINE} />
     </Frame>
   );

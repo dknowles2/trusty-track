@@ -40,7 +40,7 @@ export default function ThemePicker({ id, label, blurb, surface, value, onChange
       <p id={`${id}-label`} style={{ margin: '0 0 0.25rem', fontWeight: 'bold' }}>
         {label}
       </p>
-      <p style={{ color: '#666', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>{blurb}</p>
+      <p style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>{blurb}</p>
       <div
         role="group"
         aria-labelledby={`${id}-label`}

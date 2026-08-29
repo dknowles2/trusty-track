@@ -122,8 +122,8 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    background: isDragging ? '#f5f5f5' : 'white',
-    borderLeft: isRunning ? '5px solid orange' : (isSkipped && !hasRecordedTimes) ? '5px solid #f44336' : isCompleted ? '5px solid green' : '5px solid transparent',
+    background: isDragging ? 'var(--background-color)' : 'var(--surface-color)',
+    borderLeft: isRunning ? '5px solid orange' : (isSkipped && !hasRecordedTimes) ? '5px solid var(--danger-accent-color)' : isCompleted ? '5px solid green' : '5px solid transparent',
   };
 
   const isRunDisabled = isRunning || hasPlaceholders || isUpcoming;
@@ -147,19 +147,19 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
         }}
         title={hasRecordedTimes ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
       >
-        <Icon path={mdiDragVertical} size={0.8} color="#999" />
+        <Icon path={mdiDragVertical} size={0.8} color="var(--text-faint-color)" />
       </td>
       <td style={{ padding: '12px', fontWeight: 'bold', width: '80px' }}>
         Heat {heat.globalHeatNumber ?? heat.heatNumber}
         {isSkipped && !hasRecordedTimes && (
-          <div style={{ color: '#c62828', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold' }}>Skipped</div>
+          <div style={{ color: 'var(--danger-strong-color)', fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 'bold' }}>Skipped</div>
         )}
       </td>
       {Array.from({ length: laneCount }).map((_, i) => {
         const laneNum = i + 1;
         const result = lanes.find((l) => l.lane === laneNum);
         return (
-          <td key={laneNum} style={{ padding: '8px 12px', borderLeft: '1px solid #f0f0f0' }}>
+          <td key={laneNum} style={{ padding: '8px 12px', borderLeft: '1px solid var(--surface-soft-color)' }}>
             {result ? (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{getDisplayName(result, getRacerName)}</span>
@@ -170,7 +170,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
                 )}
               </div>
             ) : (
-              <span style={{ color: '#ccc' }}>-</span>
+              <span style={{ color: 'var(--input-border-color)' }}>-</span>
             )}
           </td>
         );
@@ -184,7 +184,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#d32f2f',
+                color: 'var(--error)',
                 cursor: 'pointer',
                 padding: '4px',
                 display: 'flex',
@@ -393,7 +393,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
         <div style={{ display: 'flex', justifyContent: sortedRoundIds.length > 0 ? 'space-between' : 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '20px' }}>
           {sortedRoundIds.length > 0 && (
             <div style={{ flex: 1 }}>
-              <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#333' }}>
+              <span style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--text-color)' }}>
                 {sortedRoundIds.length} Round{sortedRoundIds.length > 1 ? 's' : ''} Scheduled
               </span>
             </div>
@@ -459,17 +459,17 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           <div style={{
             textAlign: 'center',
             padding: '60px 40px',
-            background: '#f9f9f9',
+            background: 'var(--surface-tint-color)',
             borderRadius: '8px',
-            border: '2px dashed #ddd',
-            color: '#666'
+            border: '2px dashed var(--border-color)',
+            color: 'var(--text-muted-color)'
           }}>
             <p style={{ fontSize: '1.1rem', margin: '0 0 10px 0' }}>No rounds yet</p>
             <p style={{ fontSize: '0.9rem', margin: '0 0 20px 0' }}>Creating your race schedule is easy. Use the wizard to generate all rounds in seconds.</p>
             <button
                 className="primary-btn"
                 onClick={() => setIsWizardOpen(true)}
-                style={{ background: '#4caf50', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
+                style={{ background: 'var(--success-accent-color)', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
             >
                 <Icon path={mdiAutoFix} size={0.9} /> Start Round Creation Wizard
             </button>
@@ -493,11 +493,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
 
               return (
                 <div key={roundId} style={{
-                  background: 'white',
+                  background: 'var(--surface-color)',
                   borderRadius: '12px',
                   padding: '20px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                  border: '1px solid #eee'
+                  border: '1px solid var(--divider-color)'
                 }}>
                   <div style={{
                     display: 'flex',
@@ -506,7 +506,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     marginBottom: '20px',
                     width: '100%',
                     gap: '20px',
-                    borderBottom: '2px solid #f0f0f0',
+                    borderBottom: '2px solid var(--surface-soft-color)',
                     paddingBottom: '15px'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
@@ -518,9 +518,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                       }}>
                         {roundHeats[0]?.roundName || `Round ${roundNum}`}
                       </h2>
-                      <span style={{ fontSize: '0.9rem', color: '#666', fontWeight: 500 }}>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--text-muted-color)', fontWeight: 500 }}>
                         {uncompletedHeats === 0 ? (
-                          <span style={{ color: '#2e7d32' }}>Completed</span>
+                          <span style={{ color: 'var(--success-color)' }}>Completed</span>
                         ) : (
                           <>
                             {uncompletedHeats < totalHeats ? `${heatsEstimate(uncompletedHeats)} remaining` : `${heatsEstimate(totalHeats)} duration`}
@@ -534,9 +534,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           style={{
                             fontSize: '0.8rem',
                             fontWeight: 600,
-                            color: '#8a5a00',
-                            background: '#fff4d6',
-                            border: '1px solid #e6c66e',
+                            color: 'var(--warning-soft-color)',
+                            background: 'var(--warning-soft-bg-color)',
+                            border: '1px solid var(--warning-soft-border-color)',
                             borderRadius: '10px',
                             padding: '2px 10px',
                             whiteSpace: 'nowrap',
@@ -584,8 +584,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
-                            color: '#d32f2f',
-                            background: '#fff0f0'
+                            color: 'var(--error)',
+                            background: 'var(--danger-tint-bg-color)'
                           }}
                         >
                           <Icon path={mdiDelete} size={0.7} /> Delete
@@ -603,13 +603,13 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                     >
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
-                          <tr style={{ background: '#f8f9fa' }}>
+                          <tr style={{ background: 'var(--surface-alt-color)' }}>
                             <th style={{ padding: '12px 8px', width: '40px' }}></th>
-                            <th style={{ padding: '12px', width: '100px', fontWeight: 'bold', color: '#666', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Heat</th>
+                            <th style={{ padding: '12px', width: '100px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Heat</th>
                             {Array.from({ length: laneCount }).map((_, i) => (
-                              <th key={i} style={{ padding: '12px', fontWeight: 'bold', color: '#666', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Lane {i + 1}</th>
+                              <th key={i} style={{ padding: '12px', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Lane {i + 1}</th>
                             ))}
-                            <th style={{ padding: '12px', width: '120px', textAlign: 'right', fontWeight: 'bold', color: '#666', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Actions</th>
+                            <th style={{ padding: '12px', width: '120px', textAlign: 'right', fontWeight: 'bold', color: 'var(--text-muted-color)', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>Actions</th>
                           </tr>
                         </thead>
                         <SortableContext

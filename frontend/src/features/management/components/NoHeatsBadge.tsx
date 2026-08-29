@@ -29,9 +29,9 @@ export default function NoHeatsBadge({ racer, scheduledRacerIds, anyHeatsSchedul
         marginLeft: '6px',
         padding: '2px 8px',
         borderRadius: '20px',
-        background: '#fff3cd',
-        border: '1px solid #ffe08a',
-        color: '#7a5b00',
+        background: 'var(--warning-strong-bg-color)',
+        border: '1px solid var(--warning-strong-border-color)',
+        color: 'var(--warning-strong-color)',
         fontSize: '0.75rem',
         whiteSpace: 'nowrap',
       }}

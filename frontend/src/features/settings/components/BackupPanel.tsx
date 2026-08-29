@@ -70,13 +70,13 @@ export default function BackupPanel() {
       style={{
         marginTop: '2rem',
         padding: '1rem',
-        border: '1px solid #ddd',
+        border: '1px solid var(--border-color)',
         borderRadius: '12px',
-        background: '#f9f9f9',
+        background: 'var(--surface-tint-color)',
       }}
     >
       <h2 style={{ marginTop: 0, marginBottom: '0.5rem', fontSize: '1.1rem' }}>Backup</h2>
-      <p style={{ color: '#666', fontSize: '0.9rem', marginTop: 0 }}>
+      <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', marginTop: 0 }}>
         One file holding the whole event: every racer, every result and every photo.
         Worth taking once when check-in closes and once when the racing is over.
       </p>

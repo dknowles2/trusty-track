@@ -154,7 +154,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
               value={formData.first_name}
               onChange={handleChange}
               required
-              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+              style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
             />
           </div>
           <div>
@@ -166,7 +166,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                value={formData.last_name}
                onChange={handleChange}
                required
-               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
              />
           </div>
         </div>
@@ -180,7 +180,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                    id="racer-car-number"
                    value={formData.car_number || ''}
                    onChange={handleChange}
-                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                  />
             </div>
             <div>
@@ -201,14 +201,14 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                      // The border carries the warning as well as the text. The
                      // person reading this is holding a car with a queue behind
                      // them, and the field is what they are looking at.
-                     border: overweightNotice ? '2px solid #c62828' : '1px solid #ddd',
+                     border: overweightNotice ? '2px solid var(--danger-strong-color)' : '1px solid var(--border-color)',
                    }}
                  />
                  {overweightNotice && (
                    <p
                      id="racer-car-weight-notice"
                      data-testid="weight-warning"
-                     style={{ margin: '4px 0 0', color: '#c62828', fontSize: '0.8rem' }}
+                     style={{ margin: '4px 0 0', color: 'var(--danger-strong-color)', fontSize: '0.8rem' }}
                    >
                      {overweightNotice}
                    </p>
@@ -225,7 +225,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                value={formData.car_name || ''}
                onChange={handleChange}
                placeholder="e.g. Blue Streak"
-               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
              />
         </div>
 
@@ -236,7 +236,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                    id="racer-den"
                value={formData.den_id || ''}
                onChange={handleChange}
-               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+               style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
              >
                 <option value="">Select a Den...</option>
                 {dens.map((den: Den) => (
@@ -267,7 +267,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             <div>
                 <label style={{ display: 'block', marginBottom: '5px' }}>Racer Photo</label>
                 {formData.racer_image_url && (
-                    <img src={formData.racer_image_url} alt="Racer" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: '#eee' }} />
+                    <img src={formData.racer_image_url} alt="Racer" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
                 )}
                 <div style={{ display: 'flex', gap: '5px' }}>
                     <input
@@ -281,7 +281,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                             }
                         }}
                     />
-                    <label htmlFor="racer-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid #ccc', borderRadius: '4px' }}>
+                    <label htmlFor="racer-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px' }}>
                          Upload File
                     </label>
                     <button
@@ -298,7 +298,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
              <div>
                 <label style={{ display: 'block', marginBottom: '5px' }}>Car Photo</label>
                 {formData.car_image_url && (
-                    <img src={formData.car_image_url} alt="Car" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: '#eee' }} />
+                    <img src={formData.car_image_url} alt="Car" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
                 )}
                 <div style={{ display: 'flex', gap: '5px' }}>
                     <input
@@ -312,7 +312,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                             }
                         }}
                     />
-                    <label htmlFor="car-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid #ccc', borderRadius: '4px' }}>
+                    <label htmlFor="car-file" className="secondary-btn" style={{ flex: 1, textAlign: 'center', cursor: 'pointer', padding: '5px', fontSize: '0.8rem', border: '1px solid var(--input-border-color)', borderRadius: '4px' }}>
                          Upload File
                     </label>
                     <button
@@ -328,7 +328,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button type="button" onClick={onCancel} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
+          <button type="button" onClick={onCancel} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
           {onSubmitAndContinue && (
             <button
               type="button"
