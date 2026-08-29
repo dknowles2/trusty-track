@@ -151,8 +151,8 @@ describe('Leaderboard', () => {
     expect(screen.queryByText('5.000s')).not.toBeInTheDocument();
   });
 
-  it('shows a racingGroup rank beside the racingGroup name when the racingGroup has one (#298)', () => {
-    const withRacingGroupRank = {
+  it('shows a racingGroup category beside the racingGroup name when the racingGroup has one (#298, #496 stage 2)', () => {
+    const withRacingGroupDivision = {
       race: {
         id: 1,
         scoringStrategy: 'TIMED',
@@ -163,7 +163,7 @@ describe('Leaderboard', () => {
             lastName: 'Doe',
             carNumber: 101,
             racingGroupName: 'Wolves',
-            racingGroupRank: 'WOLF',
+            racingGroupDivision: 'Wolf',
             score: 3.5,
             heatsCompleted: 1,
             rank: 1,
@@ -174,7 +174,7 @@ describe('Leaderboard', () => {
             lastName: 'Smith',
             carNumber: 102,
             racingGroupName: 'Unassigned',
-            racingGroupRank: null,
+            racingGroupDivision: null,
             score: 4.2,
             heatsCompleted: 1,
             rank: 2,
@@ -184,13 +184,13 @@ describe('Leaderboard', () => {
     };
 
     (useQuery as any).mockReturnValue([{
-      data: { race: withRacingGroupRank.race },
+      data: { race: withRacingGroupDivision.race },
       fetching: false,
       error: null
     }, vi.fn()]);
 
     (useSubscription as any).mockReturnValue([{
-      data: { leaderboard: withRacingGroupRank.race.leaderboard },
+      data: { leaderboard: withRacingGroupDivision.race.leaderboard },
       fetching: false,
       error: null
     }, vi.fn()]);
@@ -198,7 +198,7 @@ describe('Leaderboard', () => {
     render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
 
     expect(screen.getByText('(Wolf)')).toBeInTheDocument();
-    // A racingGroup with no rank stored gets no label — no stray parentheses.
+    // A racingGroup with no division stored gets no label — no stray parentheses.
     expect(screen.queryByText('()')).not.toBeInTheDocument();
   });
 });

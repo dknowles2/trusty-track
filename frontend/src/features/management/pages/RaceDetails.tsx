@@ -131,7 +131,7 @@ export default function RaceDetails() {
       id: d.id,
       name: d.name,
       color: d.color,
-      rank: d.rank ?? undefined,
+      division: d.division ?? undefined,
       car_number_range_start: d.carNumberRangeStart ?? undefined,
       car_number_range_end: d.carNumberRangeEnd ?? undefined,
     }));

@@ -49,25 +49,25 @@ class HeatKind(str, enum.Enum):
     FREE = "FREE"
 
 
-class Rank(str, enum.Enum):
-    LION = "LION"
-    TIGER = "TIGER"
-    WOLF = "WOLF"
-    BEAR = "BEAR"
-    WEBELOS = "WEBELOS"
-    ARROW_OF_LIGHT = "ARROW_OF_LIGHT"
-    OTHER = "OTHER"
-
-
 class RacingGroup(Base):
     __tablename__ = "racing_groups"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, index=True)
     color: Mapped[str] = mapped_column(String, default="#000000")
-    rank: Mapped[Rank | None] = mapped_column(
-        SAEnum(Rank), default=Rank.OTHER, nullable=True
-    )
+    # Free text (#496 stage 2), where it was a seven-value `Rank` enum. Nothing
+    # server-side reads this value to decide anything — `services/scoring.py`
+    # passes it straight through onto the leaderboard for branding (#298) — so
+    # there is no backend-owned vocabulary to constrain it against, the same
+    # reasoning `Track.timer_profile` and `Race.appearance_theme` already
+    # follow. The frontend's racing-group form offers the traditional Cub
+    # Scout ranks as picker suggestions (`categoryPresets.ts`) rather than a
+    # constraint, so a school typing "3rd Grade" is exactly as valid as a pack
+    # picking "Wolf". The migration that dropped the enum carried every stored
+    # value to the display string `rankLabel()` used to compute (`LION` to
+    # "Lion"), so a value already on a racer's record needs no further lookup
+    # here — the stored text is the label.
+    division: Mapped[str | None] = mapped_column(String, nullable=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
     car_number_range_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
     car_number_range_end: Mapped[int | None] = mapped_column(Integer, nullable=True)

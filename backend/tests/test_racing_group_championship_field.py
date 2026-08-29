@@ -52,7 +52,7 @@ def _race(
         crud.create_racing_group(
             db,
             schemas.RacingGroupCreate(
-                name=f"{label}RacingGroup{i}", color="#000000", rank="WOLF"
+                name=f"{label}RacingGroup{i}", color="#000000", division="Wolf"
             ),
             race.id,
         )
@@ -344,7 +344,9 @@ def test_a_round_whose_shape_changed_is_regenerated(db: Session):
 
     crud.create_racing_group(
         db,
-        schemas.RacingGroupCreate(name="reshapeDenExtra", color="#000000", rank="WOLF"),
+        schemas.RacingGroupCreate(
+            name="reshapeDenExtra", color="#000000", division="Wolf"
+        ),
         race.id,
     )
     db.commit()

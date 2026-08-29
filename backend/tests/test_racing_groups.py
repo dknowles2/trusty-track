@@ -31,7 +31,9 @@ def test_delete_den_logic(client, db):
     mutation_create = f"""
     mutation {{
         createRacingGroup(
-            racingGroup: {{name: "{racing_group_name}", color: "#000000", rank: "LION"}}
+            racingGroup: {{
+                name: "{racing_group_name}", color: "#000000", division: "Lion"
+            }}
             raceId: {race_id}
         ) {{
             id
@@ -87,7 +89,9 @@ def test_delete_den_refused_when_round_is_scoped_to_it(client, db):
     mutation_create = f"""
     mutation {{
         createRacingGroup(
-            racingGroup: {{name: "{racing_group_name}", color: "#000000", rank: "LION"}}
+            racingGroup: {{
+                name: "{racing_group_name}", color: "#000000", division: "Lion"
+            }}
             raceId: {race_id}
         ) {{
             id
@@ -125,7 +129,9 @@ def test_edit_den_logic(client, db):
     mutation_create = f"""
     mutation {{
         createRacingGroup(
-            racingGroup: {{name: "{racing_group_name}", color: "#111111", rank: "WOLF"}}
+            racingGroup: {{
+                name: "{racing_group_name}", color: "#111111", division: "Wolf"
+            }}
             raceId: {race_id}
         ) {{
             id
@@ -142,11 +148,13 @@ def test_edit_den_logic(client, db):
     mutation {{
         updateRacingGroup(
             id: {racing_group_id}
-            racingGroup: {{name: "{new_name}", color: "#222222", rank: "WOLF"}}
+            racingGroup: {{
+                name: "{new_name}", color: "#222222", division: "Wolf"
+            }}
         ) {{
             name
             color
-            rank
+            division
         }}
     }}
     """
@@ -154,7 +162,7 @@ def test_edit_den_logic(client, db):
     updated_den = resp.json()["data"]["updateRacingGroup"]
     assert updated_den["name"] == new_name
     assert updated_den["color"] == "#222222"
-    assert updated_den["rank"] == "WOLF"
+    assert updated_den["division"] == "Wolf"
 
     # 3. Verify changes persist
     racing_group = crud.get_racing_group(db, racing_group_id)

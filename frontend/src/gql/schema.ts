@@ -262,9 +262,9 @@ export type LeaderboardEntry = {
   lastName: Scalars['String']['output'];
   racerId: Scalars['Int']['output'];
   racerImageUrl?: Maybe<Scalars['String']['output']>;
+  racingGroupDivision?: Maybe<Scalars['String']['output']>;
   racingGroupId?: Maybe<Scalars['Int']['output']>;
   racingGroupName: Scalars['String']['output'];
-  racingGroupRank?: Maybe<Scalars['String']['output']>;
   rank: Scalars['Int']['output'];
   score: Scalars['Float']['output'];
 };
@@ -928,19 +928,19 @@ export type RacingGroup = {
   carNumberRangeEnd?: Maybe<Scalars['Int']['output']>;
   carNumberRangeStart?: Maybe<Scalars['Int']['output']>;
   color: Scalars['String']['output'];
+  division?: Maybe<Scalars['String']['output']>;
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   raceId: Scalars['Int']['output'];
   racers: Array<Racer>;
-  rank?: Maybe<Scalars['String']['output']>;
 };
 
 export type RacingGroupInput = {
   carNumberRangeEnd?: InputMaybe<Scalars['Int']['input']>;
   carNumberRangeStart?: InputMaybe<Scalars['Int']['input']>;
   color?: Scalars['String']['input'];
+  division?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
-  rank?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type RacingGroupStat = {

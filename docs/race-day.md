@@ -505,7 +505,7 @@ one down the track wins.
 > are left out — are in [Scoring](reference/scoring.md).
 
 ![Final Standings Page](assets/screenshots/race-day/18-final-standings.png)
-_The standings show rank, car number, name, den — with the den's rank in parentheses when one is set, like "Wolves (Wolf)" — heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
+_The standings show rank, car number, name, den — with the den's category in parentheses when one is set, like "Wolves (Wolf)" — heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
 
 > [!NOTE]
 > **A tie shares a rank** — 1st, 1st, 3rd. The app deliberately does not

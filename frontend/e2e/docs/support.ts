@@ -177,7 +177,7 @@ export async function seedRace(page: Page, race: RaceSeed): Promise<number> {
 export interface RacingGroupSeed {
     name: string;
     color: string;
-    rank?: string;
+    division?: string;
 }
 
 export async function seedRacingGroups(

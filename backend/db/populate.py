@@ -73,12 +73,12 @@ LAST_NAMES = [
 ]
 
 RACING_GROUPS = [
-    {"name": "Lion", "color": "#F4D03F", "rank": models.Rank.LION},
-    {"name": "Tiger", "color": "#E67E22", "rank": models.Rank.TIGER},
-    {"name": "Wolf", "color": "#AAB7B8", "rank": models.Rank.WOLF},
-    {"name": "Bear", "color": "#85C1E9", "rank": models.Rank.BEAR},
-    {"name": "Webelos", "color": "#2E86C1", "rank": models.Rank.WEBELOS},
-    {"name": "Arrow of Light", "color": "#CB4335", "rank": models.Rank.ARROW_OF_LIGHT},
+    {"name": "Lion", "color": "#F4D03F", "division": "Lion"},
+    {"name": "Tiger", "color": "#E67E22", "division": "Tiger"},
+    {"name": "Wolf", "color": "#AAB7B8", "division": "Wolf"},
+    {"name": "Bear", "color": "#85C1E9", "division": "Bear"},
+    {"name": "Webelos", "color": "#2E86C1", "division": "Webelos"},
+    {"name": "Arrow of Light", "color": "#CB4335", "division": "Arrow of Light"},
 ]
 
 
@@ -87,12 +87,10 @@ def ensure_racing_groups(db: Session, race_id: int):
     if not existing_racing_groups:
         created_racing_groups = []
         for racing_group_data in RACING_GROUPS:
-            # Explicitly cast rank to help mypy if needed, or rely on runtime type.
-            # RACING_GROUPS has Rank enum members now.
             racing_group_in = schemas.RacingGroupCreate(
                 name=str(racing_group_data["name"]),
                 color=str(racing_group_data["color"]),
-                rank=racing_group_data["rank"],  # type: ignore
+                division=str(racing_group_data["division"]),
             )
             created_racing_groups.append(
                 crud.create_racing_group(db, racing_group_in, race_id=race_id)

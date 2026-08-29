@@ -60,8 +60,8 @@ function sampleImage(kind: 'racers' | 'cars'): string {
 }
 
 const DENS = [
-    { name: 'Wolves', color: '#8B4513', rank: 'WOLF' },
-    { name: 'Bears', color: '#1E5631', rank: 'BEAR' },
+    { name: 'Wolves', color: '#8B4513', division: 'Wolf' },
+    { name: 'Bears', color: '#1E5631', division: 'Bear' },
 ];
 
 // Listed fastest first; the times below are assigned in this order, so the
