@@ -1269,14 +1269,21 @@ Two things that changed in the process, both worth not undoing:
 its rules are about honesty rather than completeness.** A comparison page written
 by an author about their own project is not a neutral document, and a reader can
 tell. So: every claim about somebody else comes from *their* own site, linked,
-with the date it was checked stated at the top; a cell nobody could confirm is
-blank and the page says a blank means unknown rather than no; and there is a
-**Where Trusty Track is weakest** section naming the things that would send a
-reader elsewhere — seven months of history against DerbyNet's eleven years, five
-timer profiles that have never met their hardware, and no support desk. The
-short-answer section recommends a competitor first, because for most packs
-reading it that is the true answer. It also credits DerbyNet directly: seven of
-our eight profiles are adapted from theirs.
+with the date it was checked stated near the top; a cell nobody could confirm is
+blank and the page says a blank means unknown rather than no; and **When to pick
+something else** comes before **When to pick this one**, naming seven months of
+history against DerbyNet's eleven years, five timer profiles that have never met
+their hardware, and no support desk. It credits DerbyNet directly — seven of our
+eight profiles are adapted from theirs.
+
+**It is written as prose, and the first draft was not.** That draft had a callout
+box titled "The honest headline", five parallel `**Choose X** if…` blocks, and a
+bolded lead-in on almost every paragraph; the section announcing the project's
+weaknesses opened by explaining how honest it was being. All of that reads as
+generated, which on a page whose only asset is credibility is the one thing it
+cannot afford. Keep it plain: ordinary paragraphs, no admonition boxes, no
+repeated sentence frames, and no line that congratulates the page on its own
+candour.
 
 Only one thing on that page is checkable, and it is checked. The "Timer models
 listed" count for Trusty Track is a fact about this repository, so
@@ -1286,6 +1293,12 @@ nothing on the other end of the cable. Everything else is prose about other
 people's software and needs a person to re-check it; the page carries no other
 counts for that reason, an earlier draft's "eight models, three of them tested"
 being two more numbers to keep in step for no gain.
+
+**The landing page links to it and does not summarise it.** A comparison table in
+a selling position is a different genre from the same table in the documentation:
+the honest version recommends a competitor, which is not what a front page is
+for, and a dishonest one would undo the page it links to. One sentence in the
+closing section is the whole of it.
 
 **`dknowles2.github.io/trusty-track/` is not retired.** `gh-pages` now holds
 `deploy/ghpages-redirect/` — a 404 page that forwards every path to its
