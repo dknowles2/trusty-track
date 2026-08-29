@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 
 import { DEFAULT_LIMIT_OZ, formatOunces } from '../weightCheck';
+import { DEFAULT_TERMINOLOGY } from '../../settings/terminologyDefaults';
 
 export interface RaceFormData {
     name: string;
@@ -18,6 +19,16 @@ export interface RaceFormData {
     championship_trophies: number;
     /** The pack's weight limit in ounces, or null for no check (#205). */
     weight_limit_oz?: number | null;
+    /**
+     * A per-race terminology override, null where this race inherits the
+     * organization's word (#496 stage 3). All four travel together — the
+     * checkbox below is on when any is non-null, and turning it off clears
+     * all four rather than leaving a partial override behind.
+     */
+    racing_group_singular?: string | null;
+    racing_group_plural?: string | null;
+    organization_singular?: string | null;
+    organization_plural?: string | null;
 }
 
 
@@ -27,12 +38,19 @@ interface RaceFormProps {
     onCancel: () => void;
     onDelete?: () => void;
     submitLabel?: string;
+    /**
+     * Whether this is editing an existing race rather than creating one.
+     * The terminology override only exists on `updateRace` — a race being
+     * created has nothing yet to override, and always inherits the
+     * organization's default until edited afterward.
+     */
+    isEditing?: boolean;
 }
 
 import { useQuery } from 'urql';
 import { GET_TRACKS } from '../../core/graphql/queries';
 
-export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save' }: RaceFormProps) {
+export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', isEditing = false }: RaceFormProps) {
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
         date_time: '',
@@ -219,6 +237,95 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     the inspector decides.
                 </p>
             </div>
+
+            {/* A per-race terminology override (#496 stage 3). Only offered
+                once a race exists to override — `updateRace` is the only
+                mutation that accepts these fields, so there is nothing to
+                submit while creating. Same checkbox-plus-fields shape as the
+                weight limit above, and the same reason: "inherited" and "set
+                to the same word" are different answers. */}
+            {isEditing && (
+                <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                        <input
+                            type="checkbox"
+                            id="race-custom-terminology"
+                            checked={formData.racing_group_singular != null}
+                            onChange={e =>
+                                setFormData(prev => ({
+                                    ...prev,
+                                    ...(e.target.checked
+                                        ? {
+                                            racing_group_singular: DEFAULT_TERMINOLOGY.racingGroupSingular,
+                                            racing_group_plural: DEFAULT_TERMINOLOGY.racingGroupPlural,
+                                            organization_singular: DEFAULT_TERMINOLOGY.organizationSingular,
+                                            organization_plural: DEFAULT_TERMINOLOGY.organizationPlural,
+                                        }
+                                        : {
+                                            racing_group_singular: null,
+                                            racing_group_plural: null,
+                                            organization_singular: null,
+                                            organization_plural: null,
+                                        }),
+                                }))
+                            }
+                        />
+                        <span>Use different words for this race</span>
+                    </label>
+                    {formData.racing_group_singular != null && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.5rem' }}>
+                            <div>
+                                <label style={labelStyle} htmlFor="race-racing-group-singular">One racing group</label>
+                                <input
+                                    id="race-racing-group-singular"
+                                    type="text"
+                                    value={formData.racing_group_singular ?? ''}
+                                    onChange={e => handleChange('racing_group_singular', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle} htmlFor="race-racing-group-plural">More than one</label>
+                                <input
+                                    id="race-racing-group-plural"
+                                    type="text"
+                                    value={formData.racing_group_plural ?? ''}
+                                    onChange={e => handleChange('racing_group_plural', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle} htmlFor="race-organization-singular">The organization itself</label>
+                                <input
+                                    id="race-organization-singular"
+                                    type="text"
+                                    value={formData.organization_singular ?? ''}
+                                    onChange={e => handleChange('organization_singular', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle} htmlFor="race-organization-plural">More than one</label>
+                                <input
+                                    id="race-organization-plural"
+                                    type="text"
+                                    value={formData.organization_plural ?? ''}
+                                    onChange={e => handleChange('organization_plural', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: 0, marginBottom: '1rem' }}>
+                        Overrides the install-wide default from System Settings, for this race only.
+                    </p>
+                </div>
+            )}
+
             <div>
                 <label style={labelStyle} htmlFor="race-track">Track / Timer</label>
                 {fetchingTracks ? (

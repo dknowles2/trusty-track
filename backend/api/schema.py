@@ -30,6 +30,7 @@ from backend.domain import advancement, audit, lanes
 from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import scoring as domain_scoring
+from backend.domain import terminology as domain_terminology
 from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
@@ -503,6 +504,75 @@ class TimerModel:
 
 
 @strawberry.type
+class Terminology:
+    """The words a screen should use, fully resolved (#496 stage 3).
+
+    Never null — `domain.terminology.resolve_terminology` always falls back
+    to the built-in Scouting words. Served on `Race` (organization default
+    layered under a race override) and on `InitialConfigStatus` (organization
+    default alone, for the screens with no race — Home, System Settings).
+    There are no consumers of this yet; the frontend keeps saying "Den" and
+    "Pack" until stage 4.
+    """
+
+    racing_group_singular: str
+    racing_group_plural: str
+    organization_singular: str
+    organization_plural: str
+
+
+def _terminology_overrides(row: Any) -> domain_terminology.TerminologyOverrides:
+    """Read one layer's four override columns off an ORM row.
+
+    Works for both `models.Organization` and `models.Race` — they carry the
+    same four column names for exactly this reason.
+    """
+    return domain_terminology.TerminologyOverrides(
+        racing_group_singular=row.racing_group_singular,
+        racing_group_plural=row.racing_group_plural,
+        organization_singular=row.organization_singular,
+        organization_plural=row.organization_plural,
+    )
+
+
+def _terminology_type(t: domain_terminology.Terminology) -> Terminology:
+    return Terminology(
+        racing_group_singular=t.racing_group_singular,
+        racing_group_plural=t.racing_group_plural,
+        organization_singular=t.organization_singular,
+        organization_plural=t.organization_plural,
+    )
+
+
+def _terminology_status_kwargs(organization: Any) -> dict[str, Any]:
+    """The raw override fields plus the resolved `terminology`, for building
+    an `InitialConfigStatus`.
+
+    Four call sites build one of these (create, update, the query, and the
+    unconfigured branch), and #48 is the standing reminder of what happens
+    when a rule like this lands on only some of them.
+    """
+    overrides = _terminology_overrides(organization) if organization else None
+    return {
+        "racing_group_singular": organization.racing_group_singular
+        if organization
+        else None,
+        "racing_group_plural": organization.racing_group_plural
+        if organization
+        else None,
+        "organization_singular": organization.organization_singular
+        if organization
+        else None,
+        "organization_plural": organization.organization_plural
+        if organization
+        else None,
+        "terminology": _terminology_type(
+            domain_terminology.resolve_terminology(organization=overrides)
+        ),
+    }
+
+
+@strawberry.type
 class InitialConfigStatus:
     """
     Represents the system initialization state.
@@ -540,6 +610,22 @@ class InitialConfigStatus:
     #: device's own `localStorage` and never reaches the server.
     display_theme: str = "MATCH_APP"
     printables_theme: str = "MATCH_APP"
+    #: The organization's raw terminology overrides, null where it has not
+    #: renamed that word (#496 stage 3) — what the settings form reads back
+    #: to populate its inputs, distinct from `terminology` below which is
+    #: always filled in.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    #: The resolved words — organization default over the built-in Scouting
+    #: ones, with no race in play here. Defaulted so the unconfigured branch
+    #: (no organization yet) still returns something rather than nothing.
+    terminology: Terminology = strawberry.field(
+        default_factory=lambda: _terminology_type(
+            domain_terminology.DEFAULT_TERMINOLOGY
+        )
+    )
 
 
 @strawberry.input
@@ -565,6 +651,17 @@ class InitialConfigInput:
     #: bare-null sentinel disambiguated by a boolean.
     display_theme: str | None = None
     printables_theme: str | None = None
+    #: The install-wide default words for a racing group and for the
+    #: organization itself (#496 stage 3). Absent means leave alone, the same
+    #: shape as the PINs above — but unlike them (and unlike the themes,
+    #: which have a non-null "off" sentinel), there is no value that already
+    #: means "reset to Den and Pack", so `clearTerminology` is the explicit
+    #: way back to null, following `RaceUpdateInput.clearWeightLimit` (#205).
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    clear_terminology: bool = False
 
 
 @strawberry.input
@@ -644,6 +741,17 @@ class RaceUpdateInput:
     # on and never off again. Same shape as the PIN's removal control (#192),
     # and for the same reason.
     clear_weight_limit: bool = False
+    #: A per-race override of the organization's terminology (#496 stage 3) —
+    #: absent means leave alone, following the same shape as
+    #: `weight_limit_oz`/`clear_weight_limit` above.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    #: The explicit way back to "inherit the organization's word", for the
+    #: same reason `clear_weight_limit` exists: absent already means leave
+    #: alone, so nothing else can ask for null.
+    clear_terminology: bool = False
 
 
 @strawberry.input
@@ -1142,6 +1250,32 @@ class Race:
     #: Whether a phone with no PIN may vote for a `SPECIAL` award right now
     #: (#305). An operator toggle, not tied to racing progress.
     voting_open: bool
+    #: This race's raw terminology overrides, null where it inherits the
+    #: organization's word (#496 stage 3) — what the race edit form reads
+    #: back to populate its inputs, distinct from `terminology` below.
+    racing_group_singular: str | None
+    racing_group_plural: str | None
+    organization_singular: str | None
+    organization_plural: str | None
+
+    @strawberry.field
+    def terminology(self, info: Info) -> Terminology:
+        """The words this race should use, fully resolved (#496 stage 3).
+
+        A race override layered over the organization's own default, layered
+        over the built-in Scouting words — see
+        `domain.terminology.resolve_terminology`. No consumer reads this yet;
+        stage 4 is the frontend actually saying "Class" instead of "Den".
+        """
+        organization = _loaders(info).organization_by_id(self.organization_id)
+        return _terminology_type(
+            domain_terminology.resolve_terminology(
+                organization=_terminology_overrides(organization)
+                if organization
+                else None,
+                race=_terminology_overrides(self),
+            )
+        )
 
     @strawberry.field
     def leaderboard(
@@ -1303,6 +1437,25 @@ class Organization:
 
     id: int
     name: str
+    #: This organization's raw terminology overrides, null where it has not
+    #: renamed that word (#496 stage 3) — what the settings form reads back
+    #: to populate its inputs, distinct from `terminology` below.
+    racing_group_singular: str | None
+    racing_group_plural: str | None
+    organization_singular: str | None
+    organization_plural: str | None
+
+    @strawberry.field
+    def terminology(self) -> Terminology:
+        """The install-wide default words, fully resolved (#496 stage 3).
+
+        No race in play here — see `Race.terminology` for the layer on top.
+        """
+        return _terminology_type(
+            domain_terminology.resolve_terminology(
+                organization=_terminology_overrides(self)
+            )
+        )
 
     @strawberry.field
     def races(self, info: Info) -> list[Race]:
@@ -1979,13 +2132,17 @@ class Query:
                 printables_theme=organization.printables_theme
                 if organization
                 else "MATCH_APP",
+                **_terminology_status_kwargs(organization),
             )
         # Reported on the unconfigured branch too. A demo seeds itself before
         # it serves, so this is only reachable if seeding failed — and a first
         # -run wizard is the one screen that must not be idled out from under
         # somebody halfway through it.
         return InitialConfigStatus(
-            initialized=False, version=_version, demo_mode=demo_mode.enabled()
+            initialized=False,
+            version=_version,
+            demo_mode=demo_mode.enabled(),
+            **_terminology_status_kwargs(None),
         )
 
     @strawberry.field
@@ -2289,6 +2446,34 @@ def _apply_themes(organization: Any, config: "InitialConfigInput") -> None:
         setattr(organization, field, value)
 
 
+_TERMINOLOGY_FIELDS = (
+    "racing_group_singular",
+    "racing_group_plural",
+    "organization_singular",
+    "organization_plural",
+)
+
+
+def _apply_terminology(organization: Any, config: "InitialConfigInput") -> None:
+    """Store whichever custom terminology the settings page sent (#496 stage 3).
+
+    Absent means *leave alone*, same shape as `_apply_pins` — but unlike
+    `_apply_themes`, there is no non-null sentinel meaning "off": the built-in
+    Scouting words *are* the null state, so `clearTerminology` is the explicit
+    way back to it, the same trap `clear_weight_limit` (#205) and the PIN's
+    removal control (#192) already solved.
+    """
+    if config.clear_terminology:
+        for field in _TERMINOLOGY_FIELDS:
+            setattr(organization, field, None)
+        return
+    for field in _TERMINOLOGY_FIELDS:
+        value = getattr(config, field, None)
+        if value is None:
+            continue
+        setattr(organization, field, value)
+
+
 @strawberry.type
 class Mutation:
     """
@@ -2312,11 +2497,18 @@ class Mutation:
         db = info.context["db"]
         data = strawberry.asdict(race)
         clear_weight_limit = data.pop("clear_weight_limit", False)
+        clear_terminology = data.pop("clear_terminology", False)
         filtered_data = {k: v for k, v in data.items() if v is not None}
         # Explicit removal beats an absent field, which means "leave alone"
         # here for every other column (#205, following #192).
         if clear_weight_limit:
             filtered_data["weight_limit_oz"] = None
+        # Same trap, for the per-race terminology override (#496 stage 3):
+        # absent already means "inherit whatever this race had", so getting
+        # back to null needs its own explicit flag.
+        if clear_terminology:
+            for field in _TERMINOLOGY_FIELDS:
+                filtered_data[field] = None
         race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
         updated = typing.cast(
             Any, crud.update_race(db, race_id=id, race_update=race_update)
@@ -3440,6 +3632,7 @@ class Mutation:
         config_in = schemas.InitialConfigCreate(**config_dict)
         organization, tracks = crud.create_initial_config(db, config_in)
         _apply_pins(organization, config)
+        _apply_terminology(organization, config)
         db.commit()
         db.refresh(organization)
 
@@ -3472,6 +3665,7 @@ class Mutation:
             is_operator=True,
             display_theme=organization.display_theme,
             printables_theme=organization.printables_theme,
+            **_terminology_status_kwargs(organization),
         )
 
     @strawberry.mutation
@@ -3509,6 +3703,7 @@ class Mutation:
         if organization:
             _apply_pins(organization, config)
             _apply_themes(organization, config)
+            _apply_terminology(organization, config)
             db.commit()
 
         # Tracks are matched to database rows by id, not by list position
@@ -3624,6 +3819,7 @@ class Mutation:
             printables_theme=organization.printables_theme
             if organization
             else "MATCH_APP",
+            **_terminology_status_kwargs(organization),
         )
 
     @strawberry.mutation

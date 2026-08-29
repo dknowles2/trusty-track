@@ -78,6 +78,7 @@ export const EMBEDDED_TYPES = [
   'RaceStats',
   'RacerStat',
   'SerialLogEntry',
+  'Terminology',
   'TimerModel',
   'TimerStateChangedEvent',
   'TimerStatus',

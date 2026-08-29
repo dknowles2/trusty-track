@@ -106,6 +106,13 @@ export default function RaceDetails() {
       global_start_number: data.race.globalStartNumber,
       championship_trophies: data.race.championshipTrophies,
       weight_limit_oz: data.race.weightLimitOz,
+      // Raw overrides, null where this race inherits the organization's
+      // word (#496 stage 3) — `RaceForm`'s checkbox is on exactly when
+      // these are non-null.
+      racing_group_singular: data.race.racingGroupSingular ?? null,
+      racing_group_plural: data.race.racingGroupPlural ?? null,
+      organization_singular: data.race.organizationSingular ?? null,
+      organization_plural: data.race.organizationPlural ?? null,
     } satisfies Race;
   }, [data]);
 
@@ -238,6 +245,14 @@ export default function RaceDetails() {
               // Absent means "leave alone" for every field here, so turning
               // the weight check off has to be said explicitly (#205).
               clearWeightLimit: updateInput.weight_limit_oz == null,
+              racingGroupSingular: updateInput.racing_group_singular ?? undefined,
+              racingGroupPlural: updateInput.racing_group_plural ?? undefined,
+              organizationSingular: updateInput.organization_singular ?? undefined,
+              organizationPlural: updateInput.organization_plural ?? undefined,
+              // Same trap as the weight limit above, for the per-race
+              // terminology override (#496 stage 3): absent means leave
+              // alone, so going back to inheriting needs its own flag.
+              clearTerminology: updateInput.racing_group_singular == null,
           };
           const result = await updateRaceMutation({ id: parsedRaceId, race: raceInput });
           if (result.error) throw result.error;
@@ -621,6 +636,7 @@ export default function RaceDetails() {
                 onCancel={() => setIsEditingRace(false)}
                 onDelete={handleDeleteRace}
                 submitLabel="Save Changes"
+                isEditing
             />
           )}
       </Modal>

@@ -215,6 +215,11 @@ input InitialConfigInput {
   checkinPin: String = null
   displayTheme: String = null
   printablesTheme: String = null
+  racingGroupSingular: String = null
+  racingGroupPlural: String = null
+  organizationSingular: String = null
+  organizationPlural: String = null
+  clearTerminology: Boolean! = false
 }
 
 type InitialConfigStatus {
@@ -230,6 +235,11 @@ type InitialConfigStatus {
   isOperator: Boolean!
   displayTheme: String!
   printablesTheme: String!
+  racingGroupSingular: String
+  racingGroupPlural: String
+  organizationSingular: String
+  organizationPlural: String
+  terminology: Terminology!
 }
 
 type LaneResult {
@@ -335,6 +345,11 @@ type Mutation {
 type Organization {
   id: Int!
   name: String!
+  racingGroupSingular: String
+  racingGroupPlural: String
+  organizationSingular: String
+  organizationPlural: String
+  terminology: Terminology!
   races: [Race!]!
 }
 
@@ -389,6 +404,11 @@ type Race {
   autoAdvanceHeat: Boolean!
   weightLimitOz: Float
   votingOpen: Boolean!
+  racingGroupSingular: String
+  racingGroupPlural: String
+  organizationSingular: String
+  organizationPlural: String
+  terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
   registeredCount: Int!
@@ -461,6 +481,11 @@ input RaceUpdateInput {
   weightLimitOz: Float = null
   votingOpen: Boolean = null
   clearWeightLimit: Boolean! = false
+  racingGroupSingular: String = null
+  racingGroupPlural: String = null
+  organizationSingular: String = null
+  organizationPlural: String = null
+  clearTerminology: Boolean! = false
 }
 
 type Racer {
@@ -582,6 +607,13 @@ type Subscription {
   heats(raceId: Int!): [Round!]!
   freeRaceHeat(heatId: Int!): FreeRaceHeat
   activeFreeRaceHeat(raceId: Int!): FreeRaceHeat
+}
+
+type Terminology {
+  racingGroupSingular: String!
+  racingGroupPlural: String!
+  organizationSingular: String!
+  organizationPlural: String!
 }
 
 type TimerModel {

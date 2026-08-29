@@ -218,11 +218,16 @@ export type HistoricalTrackRecordInput = {
 
 export type InitialConfigInput = {
   checkinPin?: InputMaybe<Scalars['String']['input']>;
+  clearTerminology?: Scalars['Boolean']['input'];
   debugMode?: Scalars['Boolean']['input'];
   displayTheme?: InputMaybe<Scalars['String']['input']>;
   operatorPin?: InputMaybe<Scalars['String']['input']>;
   organizationName: Scalars['String']['input'];
+  organizationPlural?: InputMaybe<Scalars['String']['input']>;
+  organizationSingular?: InputMaybe<Scalars['String']['input']>;
   printablesTheme?: InputMaybe<Scalars['String']['input']>;
+  racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
+  racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
 };
 
@@ -235,8 +240,13 @@ export type InitialConfigStatus = {
   initialized: Scalars['Boolean']['output'];
   isOperator: Scalars['Boolean']['output'];
   organizationName?: Maybe<Scalars['String']['output']>;
+  organizationPlural?: Maybe<Scalars['String']['output']>;
+  organizationSingular?: Maybe<Scalars['String']['output']>;
   pinRequired: Scalars['Boolean']['output'];
   printablesTheme: Scalars['String']['output'];
+  racingGroupPlural?: Maybe<Scalars['String']['output']>;
+  racingGroupSingular?: Maybe<Scalars['String']['output']>;
+  terminology: Terminology;
   tracks: Array<Track>;
   version: Scalars['String']['output'];
 };
@@ -668,7 +678,12 @@ export type MutationUploadImageArgs = {
 export type Organization = {
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
+  organizationPlural?: Maybe<Scalars['String']['output']>;
+  organizationSingular?: Maybe<Scalars['String']['output']>;
   races: Array<Race>;
+  racingGroupPlural?: Maybe<Scalars['String']['output']>;
+  racingGroupSingular?: Maybe<Scalars['String']['output']>;
+  terminology: Terminology;
 };
 
 export type PhotoAssignmentInput = {
@@ -803,12 +818,17 @@ export type Race = {
   name: Scalars['String']['output'];
   organization: Organization;
   organizationId: Scalars['Int']['output'];
+  organizationPlural?: Maybe<Scalars['String']['output']>;
+  organizationSingular?: Maybe<Scalars['String']['output']>;
   racers: Array<Racer>;
+  racingGroupPlural?: Maybe<Scalars['String']['output']>;
+  racingGroupSingular?: Maybe<Scalars['String']['output']>;
   racingGroups: Array<RacingGroup>;
   registeredCount: Scalars['Int']['output'];
   rounds: Array<Round>;
   scheduledRacerIds: Array<Scalars['Int']['output']>;
   scoringStrategy: Scalars['String']['output'];
+  terminology: Terminology;
   track?: Maybe<Track>;
   trackId?: Maybe<Scalars['Int']['output']>;
   votingOpen: Scalars['Boolean']['output'];
@@ -870,11 +890,16 @@ export type RaceUpdateInput = {
   autoAdvanceHeat?: InputMaybe<Scalars['Boolean']['input']>;
   carNumberingStrategy?: InputMaybe<Scalars['String']['input']>;
   championshipTrophies?: InputMaybe<Scalars['Int']['input']>;
+  clearTerminology?: Scalars['Boolean']['input'];
   clearWeightLimit?: Scalars['Boolean']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  organizationPlural?: InputMaybe<Scalars['String']['input']>;
+  organizationSingular?: InputMaybe<Scalars['String']['input']>;
+  racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
+  racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
   trackId?: InputMaybe<Scalars['Int']['input']>;
   votingOpen?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1063,6 +1088,13 @@ export type SubscriptionTimerStatusArgs = {
 
 export type SubscriptionTimingStatsArgs = {
   raceId: Scalars['Int']['input'];
+};
+
+export type Terminology = {
+  organizationPlural: Scalars['String']['output'];
+  organizationSingular: Scalars['String']['output'];
+  racingGroupPlural: Scalars['String']['output'];
+  racingGroupSingular: Scalars['String']['output'];
 };
 
 export type TimerModel = {

@@ -14,6 +14,7 @@ import { errorText } from '../../../utils/errors';
 import { applyStoredAppTheme, readAppTheme, writeAppTheme } from '../../../theming/appTheme';
 import type { SurfaceThemeSetting, ThemeKey } from '../../../theming/themes';
 import type { HistoricalRecord } from '../components/TrackRecords';
+import { DEFAULT_TERMINOLOGY } from '../terminologyDefaults';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -27,6 +28,10 @@ const GET_INITIAL_CONFIG = `
       isOperator
       displayTheme
       printablesTheme
+      racingGroupSingular
+      racingGroupPlural
+      organizationSingular
+      organizationPlural
       tracks {
         id
         name
@@ -71,6 +76,10 @@ const CREATE_INITIAL_CONFIG = `
       checkinPinSet
       displayTheme
       printablesTheme
+      racingGroupSingular
+      racingGroupPlural
+      organizationSingular
+      organizationPlural
       tracks {
         id
         name
@@ -89,6 +98,10 @@ const UPDATE_INITIAL_CONFIG = `
       checkinPinSet
       displayTheme
       printablesTheme
+      racingGroupSingular
+      racingGroupPlural
+      organizationSingular
+      organizationPlural
     }
   }
 `;
@@ -154,6 +167,18 @@ export default function SystemConfig() {
   const [displayTheme, setDisplayTheme] = useState<SurfaceThemeSetting>('MATCH_APP');
   const [printablesTheme, setPrintablesTheme] = useState<SurfaceThemeSetting>('MATCH_APP');
 
+  // The install-wide terminology default (#496 stage 3) — what every screen
+  // and printout calls a racing group and the organization itself, "Den" and
+  // "Pack" until an operator renames them here. `customTerminology` is
+  // whether the four inputs are shown at all: off means every field is null,
+  // which is what `clearTerminology` sends back on save. There is no
+  // consumer of the resolved words yet — this is only where they are set.
+  const [customTerminology, setCustomTerminology] = useState(false);
+  const [racingGroupSingular, setRacingGroupSingular] = useState<string>(DEFAULT_TERMINOLOGY.racingGroupSingular);
+  const [racingGroupPlural, setRacingGroupPlural] = useState<string>(DEFAULT_TERMINOLOGY.racingGroupPlural);
+  const [organizationSingular, setOrganizationSingular] = useState<string>(DEFAULT_TERMINOLOGY.organizationSingular);
+  const [organizationPlural, setOrganizationPlural] = useState<string>(DEFAULT_TERMINOLOGY.organizationPlural);
+
   const [tracks, setTracks] = useState<TrackFields[]>([blankTrack('Main Track')]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -188,6 +213,25 @@ export default function SystemConfig() {
       // server — they are install-wide, not this device's own (#498).
       setDisplayTheme((data.initialConfig.displayTheme || 'MATCH_APP') as SurfaceThemeSetting);
       setPrintablesTheme((data.initialConfig.printablesTheme || 'MATCH_APP') as SurfaceThemeSetting);
+      // Seeded from the *raw* override fields, not the resolved `terminology`
+      // — seeding from the resolved words would show "Den" as this
+      // install's own custom word and offer no way to tell it apart from
+      // never having set one.
+      const {
+        racingGroupSingular: savedRacingGroupSingular,
+        racingGroupPlural: savedRacingGroupPlural,
+        organizationSingular: savedOrganizationSingular,
+        organizationPlural: savedOrganizationPlural,
+      } = data.initialConfig;
+      const hasCustomTerminology = !!(
+        savedRacingGroupSingular || savedRacingGroupPlural ||
+        savedOrganizationSingular || savedOrganizationPlural
+      );
+      setCustomTerminology(hasCustomTerminology);
+      setRacingGroupSingular(savedRacingGroupSingular || DEFAULT_TERMINOLOGY.racingGroupSingular);
+      setRacingGroupPlural(savedRacingGroupPlural || DEFAULT_TERMINOLOGY.racingGroupPlural);
+      setOrganizationSingular(savedOrganizationSingular || DEFAULT_TERMINOLOGY.organizationSingular);
+      setOrganizationPlural(savedOrganizationPlural || DEFAULT_TERMINOLOGY.organizationPlural);
       if (initialized) {
         setIsEditing(true);
         setOrganizationName(savedOrganizationName || '');
@@ -278,6 +322,18 @@ export default function SystemConfig() {
           // lives only in this device's own localStorage.
           displayTheme,
           printablesTheme,
+          // Unlike the themes, there is no non-null "off" value here — the
+          // built-in Scouting words *are* the null state — so turning the
+          // customization off has to be said explicitly (#496 stage 3),
+          // the same shape as `clearWeightLimit` (#205).
+          ...(customTerminology
+            ? {
+                racingGroupSingular,
+                racingGroupPlural,
+                organizationSingular,
+                organizationPlural,
+              }
+            : { clearTerminology: true }),
           tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
             // Absent for a track just added on this screen, which has no row
             // yet; present for a saved one, so the server matches it to its
@@ -392,6 +448,75 @@ export default function SystemConfig() {
                       placeholder="e.g. Pack 123"
                       style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                     />
+                  </div>
+
+                  {/* Custom terminology (#496 stage 3). A checkbox as well as
+                      four inputs, the same shape as the weight limit above:
+                      "off" and "on but blank" have to be different answers,
+                      and an empty box cannot tell them apart. Nothing reads
+                      the resolved words yet — this is only where they are
+                      set. */}
+                  <div style={{ marginBottom: '2rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
+                      <input
+                        type="checkbox"
+                        id="custom_terminology"
+                        checked={customTerminology}
+                        onChange={(e) => setCustomTerminology(e.target.checked)}
+                      />
+                      <span style={{ fontWeight: 'bold' }}>Use different words for &ldquo;Den&rdquo; and &ldquo;Pack&rdquo;</span>
+                    </label>
+                    <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: customTerminology ? '0.75rem' : 0 }}>
+                      For a school, a club, or anyone racing the same format under a different name. A race can override this on its own settings too.
+                    </small>
+                    {customTerminology && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                          <label htmlFor="racing_group_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>One racing group (was &ldquo;Den&rdquo;)</label>
+                          <input
+                            type="text"
+                            id="racing_group_singular"
+                            value={racingGroupSingular}
+                            onChange={(e) => setRacingGroupSingular(e.target.value)}
+                            required
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="racing_group_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Dens&rdquo;)</label>
+                          <input
+                            type="text"
+                            id="racing_group_plural"
+                            value={racingGroupPlural}
+                            onChange={(e) => setRacingGroupPlural(e.target.value)}
+                            required
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="organization_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>The organization itself (was &ldquo;Pack&rdquo;)</label>
+                          <input
+                            type="text"
+                            id="organization_singular"
+                            value={organizationSingular}
+                            onChange={(e) => setOrganizationSingular(e.target.value)}
+                            required
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="organization_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Packs&rdquo;)</label>
+                          <input
+                            type="text"
+                            id="organization_plural"
+                            value={organizationPlural}
+                            onChange={(e) => setOrganizationPlural(e.target.value)}
+                            required
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>

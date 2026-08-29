@@ -124,6 +124,16 @@ class InitialConfigCreate(BaseModel):
     # directly; there is nothing to hash.
     display_theme: str | None = None
     printables_theme: str | None = None
+    # Accepted and ignored here, like the PINs above: the install-wide
+    # terminology default is applied in `schema._apply_terminology` straight
+    # onto the ORM row, not through this pydantic schema. Declared so
+    # `strawberry.asdict(config)` can be handed over whole without the extra
+    # keys raising.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
+    clear_terminology: bool = False
 
 
 class RacerBase(BaseModel):
@@ -197,6 +207,14 @@ class RaceUpdate(BaseModel):
     #: drops absent fields, so a screen can send just this without touching
     #: anything else about the race.
     voting_open: bool | None = None
+    #: A per-race override of the organization's terminology (#496 stage 3).
+    #: Absent means leave alone; `schema.update_race` pops `clearTerminology`
+    #: off the input before constructing this and, when set, fills these back
+    #: in as explicit `None` — the same shape as `weight_limit_oz` above.
+    racing_group_singular: str | None = None
+    racing_group_plural: str | None = None
+    organization_singular: str | None = None
+    organization_plural: str | None = None
 
 
 class OrganizationBase(BaseModel):

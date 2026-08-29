@@ -153,6 +153,28 @@ class Organization(Base):
         String, default="MATCH_APP", server_default=sa_text("'MATCH_APP'")
     )
 
+    # The install-wide default words for a racing group and for the
+    # organization itself (#496 stage 3) — what every screen and printout
+    # called "Den" and "Pack" before this existed. Each stored as a singular
+    # and a plural, because English plurals are irregular and deriving
+    # "Classes" from "Class" is a rule nobody should own.
+    #
+    # Null means "use the built-in Scouting word" — there is deliberately no
+    # non-null sentinel the way `display_theme` has `"MATCH_APP"`, because an
+    # organization's own name for this concept could legitimately *be* any
+    # string a `"DEFAULT"` sentinel might otherwise claim. That makes this
+    # column shaped like `weight_limit_oz` and the PIN, not like the themes
+    # above: absent on the input means leave alone, and there has to be a
+    # separate `clearTerminology` flag to get back to null (see
+    # `InitialConfigInput` in `api/schema.py`).
+    #
+    # `domain/terminology.py` is the one place that resolves these into what
+    # a screen should actually show — never read directly for display.
+    racing_group_singular: Mapped[str | None] = mapped_column(String, nullable=True)
+    racing_group_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    organization_singular: Mapped[str | None] = mapped_column(String, nullable=True)
+    organization_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+
     races: Mapped[list["Race"]] = relationship("Race", back_populates="organization")
 
 
@@ -311,6 +333,16 @@ class Race(Base):
     voting_open: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    # A per-race override of the organization's terminology (#496 stage 3) —
+    # the venue running the pack derby in March and the school science fair
+    # in May under one install and one organization. Null means "inherit the
+    # organization's word", the same layering as `Organization`'s own
+    # columns above, and needs the same `clearTerminology` flag to get back
+    # to null once set — see `RaceUpdateInput` in `api/schema.py`.
+    racing_group_singular: Mapped[str | None] = mapped_column(String, nullable=True)
+    racing_group_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    organization_singular: Mapped[str | None] = mapped_column(String, nullable=True)
+    organization_plural: Mapped[str | None] = mapped_column(String, nullable=True)
 
     organization: Mapped["Organization"] = relationship(
         "Organization", back_populates="races"
