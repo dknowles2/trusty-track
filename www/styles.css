@@ -568,6 +568,15 @@ kbd {
 .install-card h3 { font-size: 1.22rem; font-weight: 700; margin-bottom: .45rem; }
 .install-card p { color: var(--ink-soft); font-size: .94rem; }
 
+/* The macOS/Windows cards hold two separate targets — the card text links to
+   the guide, the button below downloads the installer directly — so they
+   can't share one outer <a> (a nested anchor is invalid, and a click has to
+   mean one thing). `.install-card` is a plain <div> for these two; the
+   whole-card hover lift still applies to it, same as the Docker/Pi cards
+   that are still a single <a>. */
+.install-card-link { display: block; text-decoration: none; color: inherit; }
+.install-download { width: 100%; margin-top: 1.1rem; padding: .68rem 1rem; font-size: .92rem; }
+
 .install-more {
   text-align: center;
   margin-top: 2rem;
