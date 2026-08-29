@@ -43,9 +43,9 @@ def test_graphql_introspection(client):
 
 def test_create_and_query_race(client, db):
     # 1. Create a group first
-    group_in = schemas.GroupCreate(name="GraphQL Group")
-    group = crud.create_group(db, group_in)
-    group_id = group.id
+    group_in = schemas.OrganizationCreate(name="GraphQL Organization")
+    group = crud.create_organization(db, group_in)
+    organization_id = group.id
 
     # 1.5 Create a track
     track_in = schemas.TrackCreate(name="GraphQL Track", lane_count=4)
@@ -56,11 +56,15 @@ def test_create_and_query_race(client, db):
     mutation = f"""
     mutation {{
         createRace(
-            race: {{ name: "GraphQL Race", groupId: {group_id}, trackId: {track_id} }}
+            race: {{
+                name: "GraphQL Race"
+                organizationId: {organization_id}
+                trackId: {track_id}
+            }}
         ) {{
             id
             name
-            groupId
+            organizationId
             trackId
         }}
     }}
@@ -78,7 +82,7 @@ def test_create_and_query_race(client, db):
         race(raceId: {race_id}) {{
             id
             name
-            group {{
+            organization {{
                 name
             }}
         }}
@@ -88,4 +92,4 @@ def test_create_and_query_race(client, db):
     assert response.status_code == 200
     data = response.json()
     assert data["data"]["race"]["name"] == "GraphQL Race"
-    assert data["data"]["race"]["group"]["name"] == "GraphQL Group"
+    assert data["data"]["race"]["organization"]["name"] == "GraphQL Organization"

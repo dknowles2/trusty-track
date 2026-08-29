@@ -2,7 +2,7 @@
  * The App theme this device holds (#498).
  *
  * Per *device*, not per install — the opposite of Display and Printables,
- * which are columns on `Group` and so the same everywhere. This is a
+ * which are columns on `Organization` and so the same everywhere. This is a
  * personal preference about the screen in front of one person, costs
  * nothing to change, and never touches anything another device or a
  * printed page shows. Same shape as the operator PIN (`api/pin.ts`) and the

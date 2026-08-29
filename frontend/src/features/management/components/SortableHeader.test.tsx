@@ -11,8 +11,8 @@ const header = (props: Partial<React.ComponentProps<typeof SortableHeader>> = {}
             <thead>
                 <tr>
                     <SortableHeader
-                        label="Den"
-                        sortKey="den"
+                        label="RacingGroup"
+                        sortKey="racingGroup"
                         sort={DEFAULT_SORT}
                         onSort={vi.fn()}
                         {...props}
@@ -28,27 +28,27 @@ describe('SortableHeader', () => {
         // nothing.
         header();
 
-        expect(screen.getByRole('button', { name: /Den/ })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /RacingGroup/ })).toBeInTheDocument();
     });
 
     it('announces nothing when it is not the sorted column', () => {
         header();
 
-        expect(screen.getByTestId('sort-den')).toHaveAttribute('aria-sort', 'none');
+        expect(screen.getByTestId('sort-racingGroup')).toHaveAttribute('aria-sort', 'none');
     });
 
     it('announces the direction when it is', () => {
-        header({ sort: { key: 'den', direction: 'desc' } });
+        header({ sort: { key: 'racingGroup', direction: 'desc' } });
 
-        expect(screen.getByTestId('sort-den')).toHaveAttribute('aria-sort', 'descending');
+        expect(screen.getByTestId('sort-racingGroup')).toHaveAttribute('aria-sort', 'descending');
     });
 
     it('asks for its own column when clicked', async () => {
         const onSort = vi.fn();
         header({ onSort });
 
-        await userEvent.click(screen.getByRole('button', { name: /Den/ }));
+        await userEvent.click(screen.getByRole('button', { name: /RacingGroup/ }));
 
-        expect(onSort).toHaveBeenCalledWith('den');
+        expect(onSort).toHaveBeenCalledWith('racingGroup');
     });
 });

@@ -166,7 +166,7 @@ def test_a_wrong_or_absent_pin_is_a_viewer():
 @pytest.fixture
 def secured(db):
     """A configured install with both PINs set, so enforcement is on."""
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     group.operator_pin_hash = auth.hash_pin("1111")
     group.checkin_pin_hash = auth.hash_pin("2222")
     db.commit()
@@ -175,7 +175,7 @@ def secured(db):
         db,
         schemas.RaceCreate(
             name="Derby",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),
@@ -348,13 +348,13 @@ def test_a_viewer_can_still_read(client, secured):  # noqa: ARG001
 def test_an_unsecured_install_still_lets_anyone_operate(client, db):
     """No PIN set: exactly today's behaviour, so an upgrade mid-season does not
     lock the operator out of their own event."""
-    group = crud.create_group(db, schemas.GroupCreate(name="Open Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Open Pack"))
     track = crud.create_track(db, schemas.TrackCreate(name="T", lane_count=4))
     race = crud.create_race(
         db,
         schemas.RaceCreate(
             name="Open Derby",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),
@@ -408,7 +408,7 @@ CONFIG_STATUS = "query { initialConfig { pinRequired checkinPinSet isOperator } 
 
 def _config(name="Pack", **extra):
     return {
-        "groupName": name,
+        "organizationName": name,
         "debugMode": False,
         "tracks": [{"name": "Track", "laneCount": 4, "timerType": "FAKE"}],
         **extra,
@@ -417,7 +417,7 @@ def _config(name="Pack", **extra):
 
 def test_setting_an_operator_pin_turns_enforcement_on(client, db):
     """Start open, set a PIN, and the same anonymous caller loses the race."""
-    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
 
     before = _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]
@@ -440,12 +440,12 @@ def test_setting_an_operator_pin_turns_enforcement_on(client, db):
 
 
 def test_the_pin_is_not_stored_in_the_clear(client, db):
-    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
 
     _post(client, SET_CONFIG, {"config": _config(operatorPin="1234")})
 
-    stored = db.query(models.Group).first().operator_pin_hash
+    stored = db.query(models.Organization).first().operator_pin_hash
     assert stored and "1234" not in stored
     assert auth.verify_pin("1234", stored)
 
@@ -457,7 +457,7 @@ def test_saving_settings_without_a_pin_leaves_it_alone(client, db):
     it cannot send back a PIN it is never given. If "absent" meant "clear", then
     renaming a track would unlock the install.
     """
-    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
     _post(client, SET_CONFIG, {"config": _config(operatorPin="1234")})
 
@@ -474,7 +474,7 @@ def test_an_explicit_empty_pin_clears_it(client, db):
     """The escape hatch: an operator who has forgotten the PIN and can reach the
     machine can turn enforcement off again, which is why empty and absent are
     different."""
-    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
     _post(client, SET_CONFIG, {"config": _config(operatorPin="1234")})
 
@@ -498,7 +498,7 @@ def test_the_status_says_whether_a_checkin_pin_is_set(client, db):
     about the optional check-in PIN there was no way to tell "no PIN" from
     "a PIN you cannot see", and a blank field means "leave it alone" (#192).
     """
-    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
 
     before = _post(client, CONFIG_STATUS).json()["data"]["initialConfig"]
@@ -516,7 +516,7 @@ def test_the_status_says_whether_a_checkin_pin_is_set(client, db):
 def test_an_explicit_empty_checkin_pin_clears_it(client, db):
     """The check-in PIN is optional, so a pack that sets one for a busy year
     and not the next needs the same way out as the operator PIN."""
-    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
     _post(client, SET_CONFIG, {"config": _config(checkinPin="5678")})
 
@@ -536,7 +536,7 @@ def test_an_explicit_empty_checkin_pin_clears_it(client, db):
 @pytest.fixture
 def proxy_track(db):
     """A configured install with a proxy-mode track and an operator PIN."""
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     group.operator_pin_hash = auth.hash_pin("1111")
     group.checkin_pin_hash = auth.hash_pin("2222")
     db.commit()
@@ -586,7 +586,7 @@ def test_the_timer_socket_accepts_the_operator(client, proxy_track):
 def test_an_unsecured_install_leaves_the_timer_socket_open(client, db):
     """No PIN set is no enforcement, here as everywhere — a proxied timer must
     keep working through an upgrade that nobody has configured."""
-    crud.create_group(db, schemas.GroupCreate(name="Open Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Open Pack"))
     track = crud.create_track(
         db,
         schemas.TrackCreate(name="T", lane_count=4, timer_type="AUTO_DETECT_PROXY"),
@@ -603,7 +603,7 @@ def test_a_viewer_cannot_assign_a_display(client, db):
     else what to show. Anyone who could would be able to put the awards
     ceremony on the projector mid-heat.
     """
-    crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     crud.create_track(db, schemas.TrackCreate(name="Track", lane_count=4))
     _post(client, SET_CONFIG, {"config": _config(operatorPin="1234")})
 

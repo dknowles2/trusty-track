@@ -14,7 +14,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, gql, groupId } from './support';
+import { docsTrackId, ensureConfigured, gql, organizationId } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
@@ -28,12 +28,12 @@ const DENS = [
 ];
 
 const RACERS = [
-    { first: 'Ada', last: 'Lovelace', car: 3, name: 'Blue Streak', den: 'Bears' },
-    { first: 'Katherine', last: 'Johnson', car: 14, name: 'Red Comet', den: 'Bears' },
-    { first: 'Grace', last: 'Hopper', car: 7, name: 'Thunderbolt', den: 'Wolves' },
-    { first: 'Alan', last: 'Turing', car: 11, name: 'Silver Arrow', den: 'Wolves' },
-    { first: 'Chien-Shiung', last: 'Wu', car: 22, name: 'Green Machine', den: 'Bears' },
-    { first: 'Mae', last: 'Jemison', car: 18, name: 'Night Owl', den: 'Wolves' },
+    { first: 'Ada', last: 'Lovelace', car: 3, name: 'Blue Streak', racingGroup: 'Bears' },
+    { first: 'Katherine', last: 'Johnson', car: 14, name: 'Red Comet', racingGroup: 'Bears' },
+    { first: 'Grace', last: 'Hopper', car: 7, name: 'Thunderbolt', racingGroup: 'Wolves' },
+    { first: 'Alan', last: 'Turing', car: 11, name: 'Silver Arrow', racingGroup: 'Wolves' },
+    { first: 'Chien-Shiung', last: 'Wu', car: 22, name: 'Green Machine', racingGroup: 'Bears' },
+    { first: 'Mae', last: 'Jemison', car: 18, name: 'Night Owl', racingGroup: 'Wolves' },
 ];
 
 test('screenshot the slowest race bracket', async ({ page }) => {
@@ -42,7 +42,7 @@ test('screenshot the slowest race bracket', async ({ page }) => {
 
     await ensureConfigured(page);
 
-    const raceGroupId = await groupId(page);
+    const raceOrganizationId = await organizationId(page);
     const raceTrackId = await docsTrackId(page);
 
     const race = await gql(
@@ -53,7 +53,7 @@ test('screenshot the slowest race bracket', async ({ page }) => {
                 name: 'Pack 42 Turtle Night',
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
-                groupId: raceGroupId,
+                organizationId: raceOrganizationId,
                 trackId: raceTrackId,
                 scoringStrategy: 'TIMED',
                 carNumberingStrategy: 'MANUAL',
@@ -62,14 +62,14 @@ test('screenshot the slowest race bracket', async ({ page }) => {
     );
     const raceId = race.createRace.id;
 
-    const denIds: Record<string, number> = {};
-    for (const den of DENS) {
+    const racingGroupIds: Record<string, number> = {};
+    for (const racingGroup of DENS) {
         const created = await gql(
             page,
-            `mutation Den($raceId: Int!, $den: DenInput!) { createDen(raceId: $raceId, den: $den) { id } }`,
-            { raceId, den },
+            `mutation RacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) { createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id } }`,
+            { raceId, racingGroup },
         );
-        denIds[den.name] = created.createDen.id;
+        racingGroupIds[racingGroup.name] = created.createRacingGroup.id;
     }
 
     const racerIds: Record<number, number> = {};
@@ -80,7 +80,7 @@ test('screenshot the slowest race bracket', async ({ page }) => {
             {
                 racer: {
                     raceId,
-                    denId: denIds[racer.den],
+                    racingGroupId: racingGroupIds[racer.racingGroup],
                     firstName: racer.first,
                     lastName: racer.last,
                     carNumber: racer.car,
@@ -102,7 +102,7 @@ test('screenshot the slowest race bracket', async ({ page }) => {
         {
             raceId,
             config: {
-                generalRound: { type: 'PACK', runsPerLane: 1 },
+                generalRound: { type: 'ALL', runsPerLane: 1 },
                 championshipRounds: [],
             },
         },

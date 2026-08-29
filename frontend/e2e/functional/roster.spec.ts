@@ -27,9 +27,9 @@ const RACERS = [
 async function seed(page: Page, raceName: string): Promise<number> {
     await ensureConfigured(page);
 
-    const config = await gql<{ groups: { id: number }[]; tracks: { id: number }[] }>(
+    const config = await gql<{ organizations: { id: number }[]; tracks: { id: number }[] }>(
         page,
-        `query { groups { id } tracks { id } }`,
+        `query { organizations { id } tracks { id } }`,
     );
     const race = await gql<{ createRace: { id: number } }>(
         page,
@@ -37,7 +37,7 @@ async function seed(page: Page, raceName: string): Promise<number> {
         {
             race: {
                 name: raceName,
-                groupId: config.groups[0].id,
+                organizationId: config.organizations[0].id,
                 trackId: config.tracks[0].id,
                 carNumberingStrategy: 'MANUAL',
             },
@@ -177,51 +177,51 @@ test('editing a race keeps it on the track it was on', async ({ page }) => {
     expect(after.race.trackId).toBe(createTrack.id);
 });
 
-test('a den created through the UI groups the roster', async ({ page }) => {
-    // Found in a coverage audit: den management had no functional coverage at
-    // all — the docs spec opens the modal and cancels, so creating a den
+test('a racing group created through the UI groups the roster', async ({ page }) => {
+    // Found in a coverage audit: racing group management had no functional coverage at
+    // all — the docs spec opens the modal and cancels, so creating a racing group
     // through the UI was exercised by nothing.
-    const raceId = await seed(page, 'Roster Dens Add');
+    const raceId = await seed(page, 'Roster RacingGroups Add');
     await page.goto(`/race/${raceId}`);
     await expect(page.getByText('Alpha', { exact: true })).toBeVisible();
 
     await page.getByTestId('roster-more-menu').click();
-    await page.getByRole('button', { name: /Manage Dens/ }).click();
-    const modal = page.getByRole('dialog', { name: 'Manage Dens' });
-    await modal.getByRole('button', { name: /Add New Den/ }).click();
-    // The den form's labels are not wired to their inputs, so the name field
+    await page.getByRole('button', { name: /Manage Racing Groups/ }).click();
+    const modal = page.getByRole('dialog', { name: 'Manage Racing Groups' });
+    await modal.getByRole('button', { name: /Add New Racing Group/ }).click();
+    // The racing group form's labels are not wired to their inputs, so the name field
     // is the form's only text input.
     await modal.locator('input[type="text"]').first().fill('Wolves');
-    await modal.getByRole('button', { name: 'Add Den', exact: true }).click();
+    await modal.getByRole('button', { name: 'Add Racing Group', exact: true }).click();
 
-    // The new den appears in the list, and closing the modal leaves the
+    // The new racing group appears in the list, and closing the modal leaves the
     // roster able to group by it.
     await expect(modal.getByText('Wolves', { exact: true })).toBeVisible();
 });
 
-test('renaming and deleting a den through the UI', async ({ page }) => {
-    const raceId = await seed(page, 'Roster Dens Edit');
+test('renaming and deleting a racing group through the UI', async ({ page }) => {
+    const raceId = await seed(page, 'Roster RacingGroups Edit');
     await gql(
         page,
-        `mutation Den($raceId: Int!, $den: DenInput!) { createDen(raceId: $raceId, den: $den) { id } }`,
-        { raceId, den: { name: 'Tigers', color: '#8B4513' } },
+        `mutation RacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) { createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id } }`,
+        { raceId, racingGroup: { name: 'Tigers', color: '#8B4513' } },
     );
     await page.goto(`/race/${raceId}`);
     await expect(page.getByText('Alpha', { exact: true })).toBeVisible();
 
     await page.getByTestId('roster-more-menu').click();
-    await page.getByRole('button', { name: /Manage Dens/ }).click();
-    const modal = page.getByRole('dialog', { name: 'Manage Dens' });
+    await page.getByRole('button', { name: /Manage Racing Groups/ }).click();
+    const modal = page.getByRole('dialog', { name: 'Manage Racing Groups' });
     await expect(modal.getByText('Tigers', { exact: true })).toBeVisible();
 
-    await modal.getByTitle('Edit Den').click();
+    await modal.getByTitle('Edit Racing Group').click();
     await modal.locator('input[type="text"]').first().fill('Tiger Cubs');
     await modal.getByRole('button', { name: 'Save Changes' }).click();
     await expect(modal.getByText('Tiger Cubs', { exact: true })).toBeVisible();
 
-    await modal.getByTitle('Delete Den').click();
+    await modal.getByTitle('Delete Racing Group').click();
     await page
-        .getByRole('dialog', { name: 'Delete Den' })
+        .getByRole('dialog', { name: 'Delete Racing Group' })
         .getByRole('button', { name: 'Confirm' })
         .click();
     await expect(modal.getByText('Tiger Cubs', { exact: true })).toBeHidden();

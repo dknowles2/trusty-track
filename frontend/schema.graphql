@@ -3,7 +3,7 @@ type AdvancementRacer {
   firstName: String!
   lastName: String!
   carNumber: Int
-  denName: String!
+  racingGroupName: String!
   score: Float!
   rank: Int!
   isAdvancing: Boolean!
@@ -42,11 +42,11 @@ type Award {
   source: String
   place: Int
   fromBottom: Boolean!
-  denId: Int
+  racingGroupId: Int
   artworkKey: String
   votable: Boolean!
   recipient: Racer
-  den: Den
+  racingGroup: RacingGroup
   voteTally: [AwardVoteTally!]!
 }
 
@@ -56,7 +56,7 @@ input AwardInput {
   source: String = null
   place: Int = null
   fromBottom: Boolean! = false
-  denId: Int = null
+  racingGroupId: Int = null
   racerId: Int = null
   artworkKey: String = null
   sortOrder: Int = null
@@ -68,34 +68,6 @@ type AwardVoteTally {
   racerId: Int!
   voteCount: Int!
   racer: Racer
-}
-
-type Den {
-  id: Int!
-  name: String!
-  color: String!
-  rank: String
-  raceId: Int!
-  carNumberRangeStart: Int
-  carNumberRangeEnd: Int
-  racers: [Racer!]!
-}
-
-input DenInput {
-  name: String!
-  color: String! = "#000000"
-  rank: String = null
-  carNumberRangeStart: Int = null
-  carNumberRangeEnd: Int = null
-}
-
-type DenStat {
-  denId: Int!
-  denName: String!
-  denColor: String!
-  racerCount: Int!
-  avgScore: Float
-  bestRacerName: String
 }
 
 type Display {
@@ -138,12 +110,6 @@ type FreeRaceLaneAssignment {
 input FreeRaceLaneAssignmentInput {
   lane: Int!
   racerId: Int = null
-}
-
-type Group {
-  id: Int!
-  name: String!
-  races: [Race!]!
 }
 
 type Heat {
@@ -242,7 +208,7 @@ input HistoricalTrackRecordInput {
 }
 
 input InitialConfigInput {
-  groupName: String!
+  organizationName: String!
   debugMode: Boolean! = false
   tracks: [TrackInput!]!
   operatorPin: String = null
@@ -254,7 +220,7 @@ input InitialConfigInput {
 type InitialConfigStatus {
   initialized: Boolean!
   version: String!
-  groupName: String
+  organizationName: String
   debugMode: Boolean!
   tracks: [Track!]!
   currentRaceId: Int
@@ -285,9 +251,9 @@ type LeaderboardEntry {
   firstName: String!
   lastName: String!
   carNumber: Int
-  denId: Int
-  denName: String!
-  denRank: String
+  racingGroupId: Int
+  racingGroupName: String!
+  racingGroupRank: String
   score: Float!
   heatsCompleted: Int!
   racerImageUrl: String
@@ -317,9 +283,9 @@ type Mutation {
   updateRacer(id: Int!, racer: RacerInput!): Racer
   deleteRacer(id: Int!): Boolean!
   checkInRacer(id: Int!, passedInspection: Boolean!, weight: Float, racerImageUrl: String = null, carImageUrl: String = null): Racer
-  createDen(raceId: Int!, den: DenInput!): Den!
-  updateDen(id: Int!, den: DenInput!): Den
-  deleteDen(id: Int!): Boolean!
+  createRacingGroup(raceId: Int!, racingGroup: RacingGroupInput!): RacingGroup!
+  updateRacingGroup(id: Int!, racingGroup: RacingGroupInput!): RacingGroup
+  deleteRacingGroup(id: Int!): Boolean!
   setLaneOutages(trackId: Int!, lanes: [Int!]!): [Int!]!
   createTrackRecord(trackId: Int!, record: HistoricalTrackRecordInput!): HistoricalTrackRecord!
   updateTrackRecord(recordId: Int!, record: HistoricalTrackRecordInput!): HistoricalTrackRecord!
@@ -350,7 +316,7 @@ type Mutation {
   bulkAutoNumber(racerIds: [Int!]!): Int!
   bulkClearNumbers(racerIds: [Int!]!): Boolean!
   bulkCheckIn(racerIds: [Int!]!, passedInspection: Boolean! = true): Boolean!
-  bulkMoveToDen(racerIds: [Int!]!, denId: Int): Boolean!
+  bulkMoveToRacingGroup(racerIds: [Int!]!, racingGroupId: Int): Boolean!
   bulkDeleteRacers(racerIds: [Int!]!): Boolean!
   bulkAssignPhotos(assignments: [PhotoAssignmentInput!]!): Int!
   createInitialConfig(config: InitialConfigInput!): InitialConfigStatus!
@@ -366,6 +332,12 @@ type Mutation {
   uploadImage(dataUrl: String!): String!
 }
 
+type Organization {
+  id: Int!
+  name: String!
+  races: [Race!]!
+}
+
 input PhotoAssignmentInput {
   racerId: Int!
   url: String!
@@ -376,7 +348,7 @@ input PopulateTestDataInput {
   count: Int! = 10
   addRacerPhotos: Boolean! = true
   addCarPhotos: Boolean! = true
-  assignDens: Boolean! = true
+  assignRacingGroups: Boolean! = true
   checkIn: Boolean! = false
 }
 
@@ -391,7 +363,7 @@ type Query {
   racers(raceId: Int = null, skip: Int! = 0, limit: Int! = 100): [Racer!]!
   racer(racerId: Int!): Racer
   tracks: [Track!]!
-  groups: [Group!]!
+  organizations: [Organization!]!
   initialConfig: InitialConfigStatus!
   rounds(raceId: Int!): [Round!]!
   advancementStatus(raceId: Int!, roundId: Int!): AdvancementStatus!
@@ -408,7 +380,7 @@ type Race {
   name: String!
   dateTime: String
   location: String
-  groupId: Int!
+  organizationId: Int!
   trackId: Int
   carNumberingStrategy: String!
   globalStartNumber: Int!
@@ -421,10 +393,10 @@ type Race {
   awards: [Award!]!
   registeredCount: Int!
   checkedInCount: Int!
-  dens: [Den!]!
+  racingGroups: [RacingGroup!]!
   racers: [Racer!]!
   scheduledRacerIds: [Int!]!
-  group: Group!
+  organization: Organization!
   rounds: [Round!]!
   heats: [Heat!]!
   track: Track
@@ -443,7 +415,7 @@ input RaceInput {
   name: String!
   dateTime: String = null
   location: String = null
-  groupId: Int! = 1
+  organizationId: Int! = 1
   trackId: Int!
   scoringStrategy: String! = "TIMED"
   carNumberingStrategy: String! = "MANUAL"
@@ -471,7 +443,7 @@ type RaceStats {
   laneStats: [LaneTimeStat!]!
   racerStats: [RacerStat!]!
   highlights: [HeatHighlight!]!
-  denStats: [DenStat!]!
+  racingGroupStats: [RacingGroupStat!]!
   heatResults: [HeatResultRow!]!
   trackRecords: [TrackRecord!]!
 }
@@ -501,16 +473,16 @@ type Racer {
   carWeight: Float
   racerImageUrl: String
   carImageUrl: String
-  denId: Int
+  racingGroupId: Int
   raceId: Int!
-  den: Den
+  racingGroup: RacingGroup
 }
 
 input RacerInput {
   firstName: String!
   lastName: String!
   carNumber: Int = null
-  denId: Int = null
+  racingGroupId: Int = null
   carName: String = null
   carPassedInspection: Boolean! = false
   carWeight: Float = null
@@ -524,7 +496,7 @@ type RacerStat {
   firstName: String!
   lastName: String!
   carNumber: Int
-  denName: String!
+  racingGroupName: String!
   heatsCompleted: Int!
   heatsScheduled: Int!
   minTime: Float
@@ -532,6 +504,34 @@ type RacerStat {
   meanTime: Float
   stdDev: Float
   timesPerLane: [TimesPerLane!]!
+}
+
+type RacingGroup {
+  id: Int!
+  name: String!
+  color: String!
+  rank: String
+  raceId: Int!
+  carNumberRangeStart: Int
+  carNumberRangeEnd: Int
+  racers: [Racer!]!
+}
+
+input RacingGroupInput {
+  name: String!
+  color: String! = "#000000"
+  rank: String = null
+  carNumberRangeStart: Int = null
+  carNumberRangeEnd: Int = null
+}
+
+type RacingGroupStat {
+  racingGroupId: Int!
+  racingGroupName: String!
+  racingGroupColor: String!
+  racerCount: Int!
+  avgScore: Float
+  bestRacerName: String
 }
 
 type Round {
@@ -556,7 +556,7 @@ input RoundCreateInput {
   advancementSource: String = null
   advancementNumRacers: Int = null
   runsPerLane: Int! = 1
-  generalType: String! = "PACK"
+  generalType: String! = "ALL"
   advancementFromBottom: Boolean! = false
   eliminationLosses: Int = null
   balancedPhases: Int = null
@@ -684,7 +684,7 @@ type TrackRecordBreak {
 
 input WizardChampionshipRoundInput {
   name: String! = "Championship Round"
-  source: String! = "PACK"
+  source: String! = "ALL"
   numTopRacers: Int! = 3
   runsPerLane: Int! = 1
 }

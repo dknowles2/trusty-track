@@ -22,7 +22,7 @@ const RACE = {
     name: 'Pack 42 Derby',
     dateTime: '2026-03-14T09:30:00',
     location: 'St Anne’s Hall',
-    dens: [{ id: 5, name: 'Wolves', color: '#8b4513' }],
+    racingGroups: [{ id: 5, name: 'Wolves', color: '#8b4513' }],
     racers: [
         {
             id: 11,
@@ -30,7 +30,7 @@ const RACE = {
             lastName: 'Rivera',
             carNumber: 7,
             carName: 'Blue Streak',
-            denId: 5,
+            racingGroupId: 5,
             racerImageUrl: '/static/alex.png',
         },
         {
@@ -39,7 +39,7 @@ const RACE = {
             lastName: 'Okafor',
             carNumber: 3,
             carName: null,
-            denId: null,
+            racingGroupId: null,
             racerImageUrl: null,
         },
     ],

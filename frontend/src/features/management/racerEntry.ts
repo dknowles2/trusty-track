@@ -3,7 +3,7 @@
  *
  * CSV import covers packs that already have a spreadsheet. Plenty of rosters
  * are typed in instead, sixty of them in a sitting, and that was one modal
- * round trip each: open, fill, save, reopen, pick the den again.
+ * round trip each: open, fill, save, reopen, pick the racingGroup again.
  */
 
 import type { RacerData } from './components/RacerForm';
@@ -11,8 +11,8 @@ import type { RacerData } from './components/RacerForm';
 /**
  * The form to show after saving, ready for the next racer.
  *
- * **The den carries over and nothing else does.** Rosters are entered den by
- * den, from a sheet that is grouped that way, so it is the one field where
+ * **The racingGroup carries over and nothing else does.** Rosters are entered racingGroup by
+ * racingGroup, from a sheet that is grouped that way, so it is the one field where
  * repeating the last answer is right far more often than it is wrong.
  *
  * **The car number deliberately does not increment.** It is tempting, and it
@@ -36,6 +36,6 @@ export function carryOver(previous: RacerData): RacerData {
         racer_image_url: undefined,
         car_image_url: undefined,
         car_passed_inspection: false,
-        den_id: previous.den_id,
+        racing_group_id: previous.racing_group_id,
     };
 }

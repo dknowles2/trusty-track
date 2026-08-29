@@ -23,13 +23,15 @@ def entries(db, action: str | None = None) -> list[models.AuditEntry]:
 
 @pytest.fixture
 def race(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Audit Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Audit Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Audit Track", lane_count=2, timer_type="FAKE")
     )
     return crud.create_race(
         db,
-        schemas.RaceCreate(name="Audit Derby", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Audit Derby", organization_id=group.id, track_id=track.id
+        ),
     )
 
 
@@ -40,13 +42,15 @@ class TestTheMutationSeam:
             json={
                 "query": f"""
                 mutation {{
-                    createDen(raceId: {race.id}, den: {{name: "Wolves"}}) {{ id }}
+                    createRacingGroup(
+                        raceId: {race.id}, racingGroup: {{name: "Wolves"}}
+                    ) {{ id }}
                 }}
                 """
             },
         )
 
-        recorded = entries(db, "createDen")
+        recorded = entries(db, "createRacingGroup")
         assert len(recorded) == 1
         assert recorded[0].outcome == audit.Outcome.OK.value
 
@@ -56,13 +60,15 @@ class TestTheMutationSeam:
             json={
                 "query": f"""
                 mutation {{
-                    createDen(raceId: {race.id}, den: {{name: "Bears"}}) {{ id }}
+                    createRacingGroup(
+                        raceId: {race.id}, racingGroup: {{name: "Bears"}}
+                    ) {{ id }}
                 }}
                 """
             },
         )
 
-        assert entries(db, "createDen")[0].race_id == race.id
+        assert entries(db, "createRacingGroup")[0].race_id == race.id
 
     def test_a_mutation_that_raises_is_recorded_as_failed(self, client, db):
         """An audit log that only recorded successes would be silent about the
@@ -99,7 +105,7 @@ class TestTheMutationSeam:
                 "query": """
                 mutation {
                     createInitialConfig(config: {
-                        groupName: "Pack 42",
+                        organizationName: "Pack 42",
                         operatorPin: "8531",
                         tracks: [{name: "T", laneCount: 4}]
                     }) { initialized }
@@ -121,7 +127,7 @@ def locked_install(client, db):
             "query": """
             mutation {
                 createInitialConfig(config: {
-                    groupName: "Locked Pack",
+                    organizationName: "Locked Pack",
                     operatorPin: "1111",
                     checkinPin: "2222",
                     tracks: [{name: "Locked Track", laneCount: 4}]
@@ -130,7 +136,7 @@ def locked_install(client, db):
             """
         },
     )
-    return db.query(models.Group).order_by(models.Group.id.desc()).first()
+    return db.query(models.Organization).order_by(models.Organization.id.desc()).first()
 
 
 @pytest.mark.usefixtures("locked_install")

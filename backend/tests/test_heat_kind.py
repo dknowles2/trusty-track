@@ -17,7 +17,7 @@ from backend.tests.helpers import as_lanes
 
 @pytest.fixture
 def race(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Track", lane_count=4, timer_type="FAKE")
     )
@@ -25,7 +25,7 @@ def race(db):
         db,
         schemas.RaceCreate(
             name="Derby",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",
@@ -140,7 +140,7 @@ def test_the_leaderboard_ignores_free_heats(db, race, racers):
 def test_advancement_ignores_free_heats(db, race, racers):
     """Who advances is drawn from the standings, so a leak here picks the field
     for a championship round out of exhibition runs."""
-    advancing = scoring.get_advancing_racers(db, race.id, "PACK", 1)
+    advancing = scoring.get_advancing_racers(db, race.id, "ALL", 1)
     assert advancing == [racers[0].id]
 
 

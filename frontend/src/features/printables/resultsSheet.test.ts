@@ -15,7 +15,7 @@ const entry = (over: Partial<ResultsEntry> & { racerId: number }): ResultsEntry 
     firstName: 'Ada',
     lastName: 'Ant',
     carNumber: 1,
-    denName: 'Wolves',
+    racingGroupName: 'Wolves',
     score: 3.5,
     heatsCompleted: 4,
     ...over,
@@ -34,11 +34,11 @@ describe('resultsSections', () => {
         expect(first.title).toBe(OVERALL);
     });
 
-    it('adds a table per den', () => {
+    it('adds a table per racingGroup', () => {
         const sections = resultsSections(
             [
-                entry({ racerId: 1, denName: 'Wolves' }),
-                entry({ racerId: 2, denName: 'Bears' }),
+                entry({ racerId: 1, racingGroupName: 'Wolves' }),
+                entry({ racerId: 2, racingGroupName: 'Bears' }),
             ],
             'TIMED',
         );
@@ -46,12 +46,12 @@ describe('resultsSections', () => {
         expect(titles(sections)).toEqual([OVERALL, 'Wolves', 'Bears']);
     });
 
-    it('orders the dens by their fastest racer, not alphabetically', () => {
+    it('orders the racingGroups by their fastest racer, not alphabetically', () => {
         // The sheet is about results; alphabetical would be arbitrary here.
         const sections = resultsSections(
             [
-                entry({ racerId: 1, denName: 'Wolves', score: 3.1 }),
-                entry({ racerId: 2, denName: 'Bears', score: 3.2 }),
+                entry({ racerId: 1, racingGroupName: 'Wolves', score: 3.1 }),
+                entry({ racerId: 2, racingGroupName: 'Bears', score: 3.2 }),
             ],
             'TIMED',
         );
@@ -59,9 +59,9 @@ describe('resultsSections', () => {
         expect(titles(sections).slice(1)).toEqual(['Wolves', 'Bears']);
     });
 
-    it('does not repeat the pack as a den when there is only one', () => {
+    it('does not repeat the pack as a racingGroup when there is only one', () => {
         const sections = resultsSections(
-            [entry({ racerId: 1, denName: 'Wolves' }), entry({ racerId: 2, denName: 'Wolves' })],
+            [entry({ racerId: 1, racingGroupName: 'Wolves' }), entry({ racerId: 2, racingGroupName: 'Wolves' })],
             'TIMED',
         );
 
@@ -69,13 +69,13 @@ describe('resultsSections', () => {
     });
 
     it('numbers each section from one rather than carrying the pack rank', () => {
-        // A den table headed 4, 9, 17 is a table of pack ranks; the person
-        // reading it wants to know who won the den.
+        // A racingGroup table headed 4, 9, 17 is a table of pack ranks; the person
+        // reading it wants to know who won the racingGroup.
         const sections = resultsSections(
             [
-                entry({ racerId: 1, rank: 1, denName: 'Wolves' }),
-                entry({ racerId: 2, rank: 2, denName: 'Bears' }),
-                entry({ racerId: 3, rank: 3, denName: 'Wolves' }),
+                entry({ racerId: 1, rank: 1, racingGroupName: 'Wolves' }),
+                entry({ racerId: 2, rank: 2, racingGroupName: 'Bears' }),
+                entry({ racerId: 3, rank: 3, racingGroupName: 'Wolves' }),
             ],
             'TIMED',
         );
@@ -84,13 +84,13 @@ describe('resultsSections', () => {
         expect(wolves.rows.map((r) => r.place)).toEqual([1, 2]);
     });
 
-    it('keeps a racer in no den out of the per-den tables', () => {
-        // "No den" is not a den anybody wins, and they are in the table above.
+    it('keeps a racer in no racingGroup out of the per-racing-group tables', () => {
+        // "No racingGroup" is not a racingGroup anybody wins, and they are in the table above.
         const sections = resultsSections(
             [
-                entry({ racerId: 1, denName: 'Wolves' }),
-                entry({ racerId: 2, denName: null }),
-                entry({ racerId: 3, denName: 'Bears' }),
+                entry({ racerId: 1, racingGroupName: 'Wolves' }),
+                entry({ racerId: 2, racingGroupName: null }),
+                entry({ racerId: 3, racingGroupName: 'Bears' }),
             ],
             'TIMED',
         );
@@ -98,11 +98,11 @@ describe('resultsSections', () => {
         expect(titles(sections)).toEqual([OVERALL, 'Wolves', 'Bears']);
     });
 
-    it('still lists a racer in no den in the overall table', () => {
-        const [overall] = resultsSections([entry({ racerId: 2, denName: null })], 'TIMED');
+    it('still lists a racer in no racingGroup in the overall table', () => {
+        const [overall] = resultsSections([entry({ racerId: 2, racingGroupName: null })], 'TIMED');
 
         expect(overall.rows).toHaveLength(1);
-        expect(overall.rows[0].denName).toBe(NO_DEN);
+        expect(overall.rows[0].racingGroupName).toBe(NO_DEN);
     });
 
     it('keeps the milliseconds on a timed score', () => {

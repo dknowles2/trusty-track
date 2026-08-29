@@ -46,7 +46,7 @@ def _run(client, query, race_id):
 
 @pytest.fixture
 def race(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Track", lane_count=4, timer_type="FAKE")
     )
@@ -54,7 +54,7 @@ def race(db):
         db,
         schemas.RaceCreate(
             name="Derby",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),

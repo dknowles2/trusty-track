@@ -16,8 +16,8 @@ from backend.api.schema import Subscription
 from backend.db import crud
 from backend.db.models import (
     Base,
-    Group,
     Heat,
+    Organization,
     Race,
     Racer,
     Round,
@@ -48,7 +48,7 @@ def _seed_race(db_session: Any) -> tuple[int, int, int]:
 
     Returns (race_id, heat1_id, heat2_id).
     """
-    group = Group(name="Test Pack")
+    group = Organization(name="Test Pack")
     db_session.add(group)
     db_session.flush()
 
@@ -58,7 +58,7 @@ def _seed_race(db_session: Any) -> tuple[int, int, int]:
 
     race = Race(
         name="Test Race",
-        group_id=group.id,
+        organization_id=group.id,
         track_id=track.id,
         car_numbering_strategy="MANUAL",
         scoring_strategy="TIMED",

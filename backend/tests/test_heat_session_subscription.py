@@ -42,8 +42,10 @@ def isolated_pubsub(monkeypatch):
 
 
 def _race(db, lane_count=2, label="Sub"):
-    """`label` because `groups.name` is unique and one test seeds two races."""
-    group = crud.create_group(db, schemas.GroupCreate(name=f"{label} Group"))
+    """`label` because `organizations.name` is unique and one test seeds two races."""
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"{label} Organization")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(
@@ -54,7 +56,7 @@ def _race(db, lane_count=2, label="Sub"):
         db,
         schemas.RaceCreate(
             name=f"{label} Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),

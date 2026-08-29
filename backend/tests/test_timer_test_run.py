@@ -20,14 +20,16 @@ from backend.services.timer.state_machine import TimerState
 
 
 def _seed(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Bench Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Bench Pack"))
     track = crud.create_track(
         db,
         schemas.TrackCreate(name="Bench Track", lane_count=2, timer_type="FAKE"),
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Bench Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Bench Race", organization_id=group.id, track_id=track.id
+        ),
     )
     return group, track, race
 
@@ -184,7 +186,7 @@ class TestTheReportEndpoint:
                 "query": """
                 mutation {
                     createInitialConfig(config: {
-                        groupName: "Locked Bench Pack",
+                        organizationName: "Locked Bench Pack",
                         operatorPin: "1111",
                         tracks: [{name: "Locked Bench Track", laneCount: 2}]
                     }) { initialized }

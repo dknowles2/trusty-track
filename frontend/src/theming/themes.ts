@@ -23,7 +23,7 @@
  */
 
 /** Every theme this build ships, by key. Never renamed once shipped — it is
- *  API, stored on `Group.display_theme` / `Group.printables_theme` and in
+ *  API, stored on `Organization.display_theme` / `Organization.printables_theme` and in
  *  each device's `localStorage`. */
 export type ThemeKey =
   | 'field-uniform'
@@ -1235,7 +1235,7 @@ export const THEMES: readonly Theme[] = [
     name: 'Trail Colors',
     description: "Green and gold-orange, for a day that's more about fun than formality.",
     occasion:
-      'A pack fun day, a Lion/Tiger-heavy den’s first derby, or any pack that finds the corporate navy-and-gold a little stiff for a Saturday morning with juice boxes.',
+      'A pack fun day, a Lion/Tiger-heavy racingGroup’s first derby, or any pack that finds the corporate navy-and-gold a little stiff for a Saturday morning with juice boxes.',
     // Both role tokens move away from the corporate navy/lemon pairing
     // toward warmer, more natural hues. App text #23301F on #F4F7F1:
     // ~14:1. On-primary #ffffff on #2F6B3A: ~6.4:1. On-accent #2b1c05 on

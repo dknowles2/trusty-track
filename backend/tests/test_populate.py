@@ -9,8 +9,8 @@ from backend.db import crud, models, populate, schemas
 def _race(db, **overrides) -> models.Race:
     """A race on its own track, in a group that really exists.
 
-    The group is not scenery. ``races.group_id`` is a foreign key and SQLite
-    enforces it now (#125), so a race hung off a bare ``group_id=1`` cannot be
+    The group is not scenery. ``races.organization_id`` is a foreign key and SQLite
+    enforces it now (#125), so a race hung off a bare ``organization_id=1`` cannot be
     inserted at all — these tests used to get away with it because nothing was
     checking.
 
@@ -19,7 +19,9 @@ def _race(db, **overrides) -> models.Race:
     about.
     """
     name = overrides.pop("name", "Test Race")
-    group = crud.create_group(db, schemas.GroupCreate(name=f"Test Pack for {name}"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"Test Pack for {name}")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(
@@ -29,7 +31,7 @@ def _race(db, **overrides) -> models.Race:
     return crud.create_race(
         db,
         schemas.RaceCreate(
-            group_id=group.id,
+            organization_id=group.id,
             name=name,
             date_time="2024-01-01T10:00:00",
             location="Test Location",
@@ -64,13 +66,13 @@ def test_populate_respects_global_numbering(db):
 
 
 def test_populate_respects_per_den_numbering(db):
-    """Test that populate respects PER_GROUP (Per Den) car numbering strategy."""
+    """Test that populate respects PER_GROUP (Per Racing Group) numbering."""
     race = _race(db, car_numbering_strategy=models.CarNumberingStrategy.PER_GROUP)
 
-    # Create dens with number ranges
-    den1 = crud.create_den(
+    # Create racing_groups with number ranges
+    den1 = crud.create_racing_group(
         db,
-        schemas.DenCreate(
+        schemas.RacingGroupCreate(
             name="Lions",
             color="#F4D03F",
             rank=models.Rank.LION,
@@ -80,9 +82,9 @@ def test_populate_respects_per_den_numbering(db):
         race_id=race.id,
     )
 
-    den2 = crud.create_den(
+    den2 = crud.create_racing_group(
         db,
-        schemas.DenCreate(
+        schemas.RacingGroupCreate(
             name="Tigers",
             color="#E67E22",
             rank=models.Rank.TIGER,
@@ -92,7 +94,7 @@ def test_populate_respects_per_den_numbering(db):
         race_id=race.id,
     )
 
-    # Populate with 10 racers (will be distributed across dens)
+    # Populate with 10 racers (will be distributed across racing_groups)
     populate.generate_fake_racers(db, race.id, count=10)
 
     # Get all racers
@@ -104,13 +106,13 @@ def test_populate_respects_per_den_numbering(db):
     # Verify all racers have car numbers assigned
     assert all(r.car_number is not None for r in racers)
 
-    # Verify car numbers are within den ranges
+    # Verify car numbers are within racing_group ranges
     for racer in racers:
-        if racer.den_id == den1.id:
+        if racer.racing_group_id == den1.id:
             assert 100 <= racer.car_number <= 199, (
                 f"Racer {racer.id} has car number {racer.car_number} outside den1 range"
             )
-        elif racer.den_id == den2.id:
+        elif racer.racing_group_id == den2.id:
             assert 200 <= racer.car_number <= 299, (
                 f"Racer {racer.id} has car number {racer.car_number} outside den2 range"
             )

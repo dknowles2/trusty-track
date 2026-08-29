@@ -20,7 +20,7 @@ query RaceAwards($raceId: Int!) {
       place
       source
       sortOrder
-      den { id name }
+      racingGroup { id name }
       recipient { id firstName }
     }
   }
@@ -44,38 +44,42 @@ query Tally($raceId: Int!) {
 """
 
 
-def build_race(db, *, dens=("Wolves",), racers_per_den=3):
-    """A race with dens, racers and one general round, ready to be raced."""
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack 42"))
+def build_race(db, *, racing_groups=("Wolves",), racers_per_den=3):
+    """A race with racing_groups, racers and one general round, ready to be raced."""
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack 42"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Awards Track", lane_count=4)
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Awards Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Awards Race", organization_id=group.id, track_id=track.id
+        ),
     )
 
-    den_ids = []
+    racing_group_ids = []
     racer_ids = []
     number = 100
-    for den_name in dens:
-        den = crud.create_den(db, schemas.DenCreate(name=den_name), race.id)
-        den_ids.append(den.id)
+    for racing_group_name in racing_groups:
+        racing_group = crud.create_racing_group(
+            db, schemas.RacingGroupCreate(name=racing_group_name), race.id
+        )
+        racing_group_ids.append(racing_group.id)
         for _ in range(racers_per_den):
             number += 1
             racer = crud.create_racer(
                 db,
                 schemas.RacerCreate(
                     first_name=f"Racer{number}",
-                    last_name=den_name,
+                    last_name=racing_group_name,
                     car_number=number,
-                    den_id=den.id,
+                    racing_group_id=racing_group.id,
                     race_id=race.id,
                     car_passed_inspection=True,
                 ),
             )
             racer_ids.append(racer.id)
-    return race.id, den_ids, racer_ids
+    return race.id, racing_group_ids, racer_ids
 
 
 def race_everyone(client, db, race_id, times_by_racer):
@@ -109,7 +113,7 @@ class TestSpeedAwardsReadTheStandings:
             db,
             race_id,
             schemas.AwardCreate(
-                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
             ),
         )
 
@@ -126,7 +130,7 @@ class TestSpeedAwardsReadTheStandings:
             db,
             race_id,
             schemas.AwardCreate(
-                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
             ),
         )
         assert awards_service.recipients_for(db, race_id)[award.id] == racers[0]
@@ -148,8 +152,8 @@ class TestSpeedAwardsReadTheStandings:
         assert awards_service.recipients_for(db, race_id)[award.id] == slowest
 
     def test_a_den_award_reads_only_that_den(self, client, db):
-        race_id, dens, racers = build_race(
-            db, dens=("Wolves", "Bears"), racers_per_den=3
+        race_id, racing_groups, racers = build_race(
+            db, racing_groups=("Wolves", "Bears"), racers_per_den=3
         )
         # Wolves are racers[0:3] and are slower than the Bears.
         times = {racer_id: 4.0 + i for i, racer_id in enumerate(racers[:3])}
@@ -162,9 +166,9 @@ class TestSpeedAwardsReadTheStandings:
             schemas.AwardCreate(
                 name="Fastest Wolf",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
-                den_id=dens[0],
+                racing_group_id=racing_groups[0],
             ),
         )
         recipients = awards_service.recipients_for(db, race_id)
@@ -177,7 +181,7 @@ class TestSpeedAwardsReadTheStandings:
             db,
             race_id,
             schemas.AwardCreate(
-                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
             ),
         )
         # Nothing has been raced, so the standings are empty.
@@ -216,7 +220,7 @@ class TestSlowestCarAwards:
             schemas.AwardCreate(
                 name="Slowest Car",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
                 from_bottom=True,
             ),
@@ -263,7 +267,7 @@ class TestSlowestCarAwards:
             schemas.AwardCreate(
                 name="Slowest Car",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
                 from_bottom=True,
             ),
@@ -273,8 +277,8 @@ class TestSlowestCarAwards:
         assert awards_service.recipients_for(db, race_id)[award.id] == slowest_so_far
 
     def test_a_den_slowest_award_reads_only_that_den(self, client, db):
-        race_id, dens, racers = build_race(
-            db, dens=("Wolves", "Bears"), racers_per_den=3
+        race_id, racing_groups, racers = build_race(
+            db, racing_groups=("Wolves", "Bears"), racers_per_den=3
         )
         # Wolves are racers[0:3] and are all faster than the Bears, so the
         # slowest car in the race is a Bear.
@@ -288,9 +292,9 @@ class TestSlowestCarAwards:
             schemas.AwardCreate(
                 name="Slowest Wolf",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
-                den_id=dens[0],
+                racing_group_id=racing_groups[0],
                 from_bottom=True,
             ),
         )
@@ -314,7 +318,7 @@ class TestSlowestCarAwards:
                     "award": {
                         "name": "Slowest Car",
                         "kind": "SPEED",
-                        "source": "PACK",
+                        "source": "ALL",
                         "place": 1,
                         "fromBottom": True,
                     },
@@ -339,7 +343,7 @@ class TestSlowestCarAwards:
                     "award": {
                         "name": "Fastest Car",
                         "kind": "SPEED",
-                        "source": "PACK",
+                        "source": "ALL",
                         "place": 1,
                         "fromBottom": False,
                     },
@@ -396,7 +400,7 @@ class TestTheTwoKindsDoNotBleed:
             schemas.AwardCreate(
                 name="Best Paint",
                 kind=models.AwardKind.SPECIAL,
-                source="PACK",
+                source="ALL",
                 place=1,
             ),
         )
@@ -411,7 +415,7 @@ class TestTheTwoKindsDoNotBleed:
             schemas.AwardCreate(
                 name="Fastest Car",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
                 racer_id=racers[0],
             ),
@@ -428,7 +432,7 @@ class TestTheTwoKindsDoNotBleed:
             schemas.AwardCreate(
                 name="Fastest Car",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
                 votable=True,
             ),
@@ -443,7 +447,7 @@ class TestTheTwoKindsDoNotBleed:
             db,
             race_id,
             schemas.AwardCreate(
-                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
             ),
         )
         crud.update_award(
@@ -503,7 +507,7 @@ class TestVoting:
             db,
             race_id,
             schemas.AwardCreate(
-                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
             ),
         )
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
@@ -523,14 +527,18 @@ class TestVoting:
 
         # A second, unrelated race with a racer of its own — same shape as
         # `build_race`, but with names that do not collide with it.
-        other_group = crud.create_group(db, schemas.GroupCreate(name="Pack 99"))
+        other_group = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Pack 99")
+        )
         other_track = crud.create_track(
             db, schemas.TrackCreate(name="Other Track", lane_count=4)
         )
         other_race = crud.create_race(
             db,
             schemas.RaceCreate(
-                name="Other Race", group_id=other_group.id, track_id=other_track.id
+                name="Other Race",
+                organization_id=other_group.id,
+                track_id=other_track.id,
             ),
         )
         other_racer = crud.create_racer(
@@ -649,7 +657,7 @@ class TestVoting:
             db,
             race_id,
             schemas.AwardCreate(
-                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
             ),
         )
 
@@ -695,7 +703,7 @@ class TestArtwork:
             schemas.AwardCreate(
                 name="Fastest Car",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
                 artwork_key="paintbrush",
             ),
@@ -710,7 +718,7 @@ class TestArtwork:
             schemas.AwardCreate(
                 name="Turtle Award",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
                 from_bottom=True,
             ),
@@ -734,7 +742,7 @@ class TestArtwork:
             db,
             race_id,
             schemas.AwardCreate(
-                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
             ),
         )
         assert award.artwork_key == "trophy"
@@ -752,7 +760,7 @@ class TestArtwork:
             db,
             race_id,
             schemas.AwardCreate(
-                name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+                name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
             ),
         )
         assert award.artwork_key == "trophy"
@@ -815,7 +823,7 @@ class TestOrdering:
                 kind=models.AwardKind.SPECIAL,
                 source=None,
                 place=None,
-                den_id=None,
+                racing_group_id=None,
                 racer_id=racers[0],
                 sort_order=None,
             ),
@@ -859,7 +867,7 @@ class TestOrdering:
 
 class TestOverGraphQL:
     def test_a_race_reports_its_awards_with_recipients(self, client, db):
-        race_id, dens, racers = build_race(db, racers_per_den=4)
+        race_id, racing_groups, racers = build_race(db, racers_per_den=4)
         times = {racer_id: 3.0 + i for i, racer_id in enumerate(racers)}
         race_everyone(client, db, race_id, times)
 
@@ -869,9 +877,9 @@ class TestOverGraphQL:
             schemas.AwardCreate(
                 name="Fastest Wolf",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
-                den_id=dens[0],
+                racing_group_id=racing_groups[0],
             ),
         )
         crud.create_award(
@@ -895,7 +903,7 @@ class TestOverGraphQL:
         assert [a["name"] for a in awards] == ["Fastest Wolf", "Best Paint"]
         assert awards[0]["kind"] == "SPEED"
         assert int(awards[0]["recipient"]["id"]) == racers[0]
-        assert awards[0]["den"]["name"] == "Wolves"
+        assert awards[0]["racingGroup"]["name"] == "Wolves"
         assert int(awards[1]["recipient"]["id"]) == racers[2]
 
     def test_creating_and_deleting_an_award(self, client, db):
@@ -950,7 +958,7 @@ class TestOverGraphQL:
                     "award": {
                         "name": "Nonsense",
                         "kind": "SPEED",
-                        "source": "PACK",
+                        "source": "ALL",
                         "place": 0,
                     },
                 },

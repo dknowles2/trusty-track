@@ -56,7 +56,7 @@ describe('RaceControl Reordering on Run', () => {
             id: 1,
             name: 'Test Race',
             track: { id: 1, laneCount: 4, timerType: 'FAKE' },
-            dens: [],
+            racingGroups: [],
             racers: [],
             heats: [
                 { id: 1, roundId: 10, roundNumber: 1, heatNumber: 1, lanes: [{ lane: 1, racerId: null, placeholderSlot: null, time: 3.5, place: 1, skipped: false }] }, // Completed

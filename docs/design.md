@@ -39,7 +39,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
 
 **Key Entities:**
 
--   **`Group`**: Represents the racing organization (e.g., Cub Scout Pack).
+-   **`Organization`**: Represents the racing organization (e.g., Cub Scout Pack).
     -   `id` (PK)
     -   `name`
     -   `display_theme`, `printables_theme` (`varchar`, default `"MATCH_APP"`) — which theme the Display and Printables surfaces render, install-wide (#498). A `ThemeKey` (`frontend/src/theming/themes.ts` — the frontend holds the one canonical copy of what a theme is) or the sentinel `"MATCH_APP"`; never validated server-side, since nothing here branches on the value. The App theme is not a column — it lives only in each device's own `localStorage` and never reaches the server.
@@ -61,7 +61,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   Merged into `raceStats.trackRecords` beside the computed entries, sorted by time; a null `race_id` in that payload marks the historical ones.
 -   **`Race`**: Specific race event instance.
     -   `id` (PK)
-    -   `group_id` (FK to Group)
+    -   `organization_id` (FK to Organization)
     -   `track_id` (FK to Track, optional)
     -   `name` (unique)
     -   `date_time` (optional)
@@ -75,7 +75,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)
     -   `voting_open` (Boolean, default `false`) — whether a phone holding no PIN may vote for a `SPECIAL` award right now (#305); an operator toggle, not tied to racing progress
     -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
--   **`Den`**: Sub-divisions within a race. Called `RacingGroup` in the early design; the implementation uses `Den` throughout, and the vestigial `racing_groups` table was dropped once it turned out to be written on every racer save and read by nothing.
+-   **`RacingGroup`**: Sub-divisions within a race (table `racing_groups`; called `Den` before #496). A *different* table of the same name, a vestigial shadow of this concept, briefly existed early on and was dropped (`0008_drop_racing_groups`) once it turned out to be written on every racer save and read by nothing — this table is the rename, not a resurrection of that one.
     -   `id` (PK)
     -   `race_id` (FK to Race)
     -   `name`
@@ -87,7 +87,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
 -   **`Racer`**: Participant details.
     -   `id` (PK)
     -   `race_id` (FK to Race)
-    -   `den_id` (FK to Den, optional) — the primary grouping
+    -   `racing_group_id` (FK to RacingGroup, optional) — the primary grouping
     -   `first_name`
     -   `last_name`
     -   `car_number` (unique per race)
@@ -96,17 +96,17 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `car_passed_inspection` (Boolean, default `false`)
     -   `racer_image_url` (optional)
     -   `car_image_url` (optional)
--   **`Round`**: A collection of heats within a race (e.g., "Den Round", "Championship").
+-   **`Round`**: A collection of heats within a race (e.g., "Wolves Round", "Championship").
     -   `id` (PK)
     -   `race_id` (FK to Race)
-    -   `den_id` (FK to Den, optional — a round scoped to one den)
+    -   `racing_group_id` (FK to RacingGroup, optional — a round scoped to one racing group)
     -   `round_number`
     -   `name` (optional display name)
     -   `scheduling_strategy` (Enum: `PPC`, `ELIMINATION`, `BALANCED`) — `BALANCED` is GPRM's "Dynamic" method: the first phase is random, each later phase matches cars with similar records (most heat wins, then fewest points per heat), and the round ends after `balanced_phases` phases. Everyone races once per phase, so balanced heats feed the ordinary standings; a latecomer joining mid-round marks it `disrupted` for the same reason as #172. `ELIMINATION` is ladderless elimination: losses are counted per car (a loss is any heat not won), a car is out at `elimination_losses`, and the schedule grows a wave at a time from the recorded-result cascade rather than being generated up front. Elimination heats are excluded from the aggregate standings — heat counts are uneven by design — and the round's own leaderboard reads survival: score is the loss count, survivors first, then the eliminated by how long they lasted.
     -   `elimination_losses` (optional) — the loss limit; null for every other strategy
     -   `balanced_phases` (optional) — how many phases a `BALANCED` round runs; null for every other strategy
-    -   `advancement_source` (optional: `PACK`, `DEN`, or `ROUND:<id>`)
-    -   `advancement_num_racers` (optional — **per den** when the source is `DEN`, absolute otherwise)
+    -   `advancement_source` (optional: `ALL`, `EACH_GROUP`, or `ROUND:<id>`)
+    -   `advancement_num_racers` (optional — **per racing group** when the source is `EACH_GROUP`, absolute otherwise)
     -   `advancement_from_bottom` (Boolean, default `false`) — a "Slowest Race" bracket: the field is drawn from the *bottom* of the source standings rather than the top, slowest first, and cars with no recorded result are never picked. The source vocabulary is unchanged; only the end of the standings changes.
     -   `disrupted` — set when the round was raced on an uneven field: a lane went out of service part-way through (#171), or a latecomer was admitted and heats were appended (#172). Either way some racers ran more often than others, which `TIMED` tolerates (an average is scale-free) and `POINTS` does not (a sum where lower is better). Disrupted rounds are dropped from `POINTS` standings only. The same asymmetry has two more routes — a skipped heat and a DNF — which `POINTS` handles by scoring the lane as last place in its heat rather than by dropping the round (#225); equal scores share a rank rather than being split by registration order (#226).
 
@@ -127,10 +127,10 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `race_id` (FK to Race, `ON DELETE CASCADE`)
     -   `name`, `sort_order` (presentation order)
     -   `kind` (Enum: `SPEED`, `SPECIAL`)
-    -   `source` (`SPEED` only: `PACK` or `ROUND:<id>` — the same vocabulary `Round.advancement_source` uses, but never `DEN`)
+    -   `source` (`SPEED` only: `ALL` or `ROUND:<id>` — the same vocabulary `Round.advancement_source` uses, but never `EACH_GROUP`)
     -   `place` (`SPEED` only, 1-based: the winner is 1)
     -   `from_bottom` (`SPEED` only: which end `place` counts from — false is the fastest car, true the slowest. The same flip `Round.advancement_from_bottom` makes for a Slowest Race bracket, and a car that has not raced is never picked)
-    -   `den_id` (`SPEED` only, FK to Den, `ON DELETE CASCADE` — narrows the standings to one den, which is how "fastest Wolf" is expressed rather than a third kind of source)
+    -   `racing_group_id` (`SPEED` only, FK to RacingGroup, `ON DELETE CASCADE` — narrows the standings to one racing group, which is how "fastest Wolf" is expressed rather than a third kind of source)
     -   `racer_id` (`SPECIAL` only, FK to Racer, `ON DELETE SET NULL` — deleting a racer un-assigns the award rather than deleting the trophy)
     -   `artwork_key` (nullable — which clipart the ceremony slide and the printed certificate draw; null prints a plain certificate. A `SPEED` award has this defaulted from its rule rather than offered as a picker; a `SPECIAL` award gets it from the ready-made superlative picker, or free text over it (#306))
     -   `votable` (`SPECIAL` only, Boolean, default `false`) — whether this award takes ballots while the race's `voting_open` is true (#305); always forced false for `SPEED`
@@ -158,16 +158,16 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 **GraphQL Queries:**
 
 -   `races(skip, limit)` — List all races.
--   `race(raceId)` — Get a single race with nested `racers`, `dens`, `rounds`, `heats`, `leaderboard`, `awards`. Carries `votingOpen` (#305); each `Award` carries `votable` and `voteTally` (ranked `(racer, voteCount)` pairs, from `services/awards.vote_tallies_for` — one query for the whole race, not one per award).
+-   `race(raceId)` — Get a single race with nested `racers`, `racingGroups`, `rounds`, `heats`, `leaderboard`, `awards`. Carries `votingOpen` (#305); each `Award` carries `votable` and `voteTally` (ranked `(racer, voteCount)` pairs, from `services/awards.vote_tallies_for` — one query for the whole race, not one per award).
 -   `racers(raceId, skip, limit)` — List racers.
 -   `auditLog(raceId, limit, beforeId)` — The activity timeline, newest first. Operator-only, and it enforces that itself: the role policy guards mutations, and this is the query a wall display must never be able to run (#219).
 -   `racer(racerId)` — Get a single racer.
 -   `tracks()` — List configured tracks.
--   `groups()` — List organization groups.
--   `initialConfig()` — Initial configuration status (group + track).
+-   `organizations()` — List organizations.
+-   `initialConfig()` — Initial configuration status (organization + track).
 -   `rounds(raceId)` — List rounds for a race.
 -   `advancementStatus(raceId, roundId)` — Check round advancement eligibility.
--   `raceStats(raceId)` — Lane fairness, per-racer aggregates, top moments, den comparison, and the track's all-time records (`trackRecords`: the fastest cars across every race on this race's track, computed on read by `services/records.py`).
+-   `raceStats(raceId)` — Lane fairness, per-racer aggregates, top moments, racing group comparison, and the track's all-time records (`trackRecords`: the fastest cars across every race on this race's track, computed on read by `services/records.py`).
 -   `timerStatus(trackId)` — Device state for a track's timer.
 -   `displays(raceId)` — Audience displays known for this race, connected or not. Presence is in-memory (see below), so this is not a database read.
 -   `timerModels()` — The timer models an operator can pick from, with the provenance of each profile. The fake timer is deliberately absent: it is reachable by `timer_type`, and offering it as a *model* would let a track ask for a fake timer over a real serial port.
@@ -180,8 +180,8 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 
 -   Race: `createRace`, `updateRace`, `deleteRace`
 -   Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
--   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
--   Den: `createDen`, `updateDen`, `deleteDen`
+-   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToRacingGroup`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
+-   RacingGroup: `createRacingGroup`, `updateRacingGroup`, `deleteRacingGroup`
 -   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored; `artworkKey` is accepted but overwritten server-side for a `SPEED` award — see `crud._set_speed_artwork_key` — since only `SPECIAL` offers a picker for it, #306)
 -   Voting (#305): `castVote(awardId, racerId, ballotKey)` — returns null on success or a sentence saying why the vote was refused, the same shape as `releaseStartGate`. The **one mutation `VIEWER` may run** (`api.auth.VOTE_MUTATIONS`): a phone with no PIN can cast a ballot only while the award's `votable` and the race's `votingOpen` are both true — `crud.cast_vote` checks both, and the role policy only says the attempt is allowed. Toggling `votingOpen` is an ordinary field on `updateRace`, not a separate mutation; applying a tally's winner is an ordinary `updateAward` setting `racerId`.
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`

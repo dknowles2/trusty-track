@@ -12,7 +12,7 @@ const entry = (over: Partial<StandingsEntry> = {}): StandingsEntry => ({
     carNumber: 3,
     firstName: 'Ada',
     lastName: 'Lovelace',
-    denName: 'Wolves',
+    racingGroupName: 'Wolves',
     score: 3.2016,
     heatsCompleted: 4,
     ...over,
@@ -48,7 +48,7 @@ describe('standingsRows', () => {
             'Car #',
             'First Name',
             'Last Name',
-            'Den',
+            'Racing Group',
             'Points',
             'Heats',
         ]);

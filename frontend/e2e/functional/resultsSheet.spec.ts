@@ -33,7 +33,7 @@ test('the results sheet prints the standings and the trophies together', async (
         }`,
         {
             raceId,
-            award: { name: 'Fastest Car', kind: 'SPEED', source: 'PACK', place: 1 },
+            award: { name: 'Fastest Car', kind: 'SPEED', source: 'ALL', place: 1 },
         },
     );
 

@@ -16,20 +16,22 @@ from backend.domain import lanes
 
 
 def create_test_race(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Participant Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Participant Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Participant Track", lane_count=4)
     )
     race = crud.create_race(
         db,
         schemas.RaceCreate(
-            name="Participant Race", group_id=group.id, track_id=track.id
+            name="Participant Race", organization_id=group.id, track_id=track.id
         ),
     )
     return race.id
 
 
-def make_racer(db, race_id, *, den_id=None, passed=True, car_number=1):
+def make_racer(db, race_id, *, racing_group_id=None, passed=True, car_number=1):
     return crud.create_racer(
         db,
         schemas.RacerCreate(
@@ -37,7 +39,7 @@ def make_racer(db, race_id, *, den_id=None, passed=True, car_number=1):
             last_name="Test",
             car_number=car_number,
             race_id=race_id,
-            den_id=den_id,
+            racing_group_id=racing_group_id,
             car_passed_inspection=passed,
         ),
     )
@@ -72,7 +74,7 @@ def test_championship_round_falls_back_to_placeholders_with_no_field_yet(db):
         db,
         race_id,
         round_number=2,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=4,
     )
 
@@ -91,7 +93,7 @@ def test_championship_round_reads_its_already_advanced_field(db):
         db,
         race_id,
         round_number=2,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=2,
     )
     heat = models.Heat(race_id=race_id, round_id=round_obj.id, heat_number=1)
@@ -132,12 +134,18 @@ def test_general_round_uses_the_checked_in_roster(db):
 
 def test_general_round_scoped_to_a_den(db):
     race_id = create_test_race(db)
-    den_a = crud.create_den(db, schemas.DenCreate(name="Wolves"), race_id=race_id)
-    den_b = crud.create_den(db, schemas.DenCreate(name="Bears"), race_id=race_id)
-    a1 = make_racer(db, race_id, den_id=den_a.id, car_number=1)
-    a2 = make_racer(db, race_id, den_id=den_a.id, car_number=2)
-    make_racer(db, race_id, den_id=den_b.id, car_number=3)
-    round_obj = crud.create_round(db, race_id, round_number=1, den_id=den_a.id)
+    racing_group_a = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Wolves"), race_id=race_id
+    )
+    racing_group_b = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="Bears"), race_id=race_id
+    )
+    a1 = make_racer(db, race_id, racing_group_id=racing_group_a.id, car_number=1)
+    a2 = make_racer(db, race_id, racing_group_id=racing_group_a.id, car_number=2)
+    make_racer(db, race_id, racing_group_id=racing_group_b.id, car_number=3)
+    round_obj = crud.create_round(
+        db, race_id, round_number=1, racing_group_id=racing_group_a.id
+    )
 
     p_ids = crud._participant_ids_for_round(
         db, round_obj, num_placeholders=0, racer_ids=None

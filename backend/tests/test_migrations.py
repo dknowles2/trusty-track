@@ -139,10 +139,10 @@ def test_fresh_database_is_fully_migrated(tmp_path):
     db = tmp_path / "trusty-track.db"
     tables = _table_names(db)
     assert {
-        "groups",
+        "organizations",
         "tracks",
         "races",
-        "dens",
+        "racing_groups",
         "racers",
         "rounds",
         "heats",
@@ -150,9 +150,9 @@ def test_fresh_database_is_fully_migrated(tmp_path):
         "alembic_version",
     } <= tables
     assert "free_race_heats" not in tables, "folded into heats by #6"
-    assert "racing_groups" not in tables, "a shadow of dens, dropped by 0008"
-    assert "racing_group_id" not in _column_names(db, "racers")
-    assert "debug_mode" in _column_names(db, "groups")
+    assert "dens" not in tables, "renamed to racing_groups (issue #496)"
+    assert "den_id" not in _column_names(db, "racers")
+    assert "debug_mode" in _column_names(db, "organizations")
 
 
 def test_init_db_is_idempotent(tmp_path):
@@ -184,13 +184,16 @@ def test_legacy_database_is_adopted_without_data_loss(tmp_path, already_has_debu
 
     # Stamped and upgraded rather than left unversioned.
     assert "alembic_version" in _table_names(db)
-    assert "debug_mode" in _column_names(db, "groups")
+    assert "debug_mode" in _column_names(db, "organizations")
 
     # Pre-existing data survived.
     engine = create_engine(f"sqlite:///{db}")
     try:
         with engine.connect() as conn:
-            assert conn.execute(text("select name from groups")).scalar() == "Pack 42"
+            assert (
+                conn.execute(text("select name from organizations")).scalar()
+                == "Pack 42"
+            )
     finally:
         engine.dispose()
 
@@ -216,12 +219,15 @@ def test_legacy_database_with_empty_alembic_version_is_adopted(tmp_path):
     assert result.returncode == 0, result.stderr
 
     assert _revision(db) is not None, "database was left unversioned"
-    assert "debug_mode" in _column_names(db, "groups")
+    assert "debug_mode" in _column_names(db, "organizations")
 
     engine = create_engine(f"sqlite:///{db}")
     try:
         with engine.connect() as conn:
-            assert conn.execute(text("select name from groups")).scalar() == "Pack 7"
+            assert (
+                conn.execute(text("select name from organizations")).scalar()
+                == "Pack 7"
+            )
     finally:
         engine.dispose()
 
@@ -319,7 +325,10 @@ def test_an_adopted_database_ends_up_with_the_same_schema(
     engine = create_engine(f"sqlite:///{db}")
     try:
         with engine.connect() as conn:
-            assert conn.execute(text("select name from groups")).scalar() == "Pack 42"
+            assert (
+                conn.execute(text("select name from organizations")).scalar()
+                == "Pack 42"
+            )
     finally:
         engine.dispose()
 
@@ -341,7 +350,9 @@ def test_a_null_debug_mode_is_settled_before_the_column_is_tightened(tmp_path):
     engine = create_engine(f"sqlite:///{db}")
     try:
         with engine.connect() as conn:
-            assert conn.execute(text("select debug_mode from groups")).scalar() == 0
+            assert (
+                conn.execute(text("select debug_mode from organizations")).scalar() == 0
+            )
     finally:
         engine.dispose()
 
@@ -433,7 +444,7 @@ def _seed_a_small_race(conn) -> None:
     a time, the `skipped` key nothing in the backend reads, and the negative
     racer ids standing in for racers who have not advanced yet.
     """
-    conn.execute(text("INSERT INTO groups (id, name) VALUES (1, 'Pack 42')"))
+    conn.execute(text("INSERT INTO organizations (id, name) VALUES (1, 'Pack 42')"))
     conn.execute(
         text(
             "INSERT INTO tracks (id, name, lane_count, timer_type,"
@@ -442,7 +453,8 @@ def _seed_a_small_race(conn) -> None:
     )
     conn.execute(
         text(
-            "INSERT INTO races (id, group_id, track_id, name, car_numbering_strategy,"
+            "INSERT INTO races"
+            " (id, organization_id, track_id, name, car_numbering_strategy,"
             " global_start_number, championship_trophies, scoring_strategy,"
             " auto_advance_heat)"
             " VALUES (1, 1, 1, 'Derby', 'MANUAL', 1, 3, 'TIMED', 0)"

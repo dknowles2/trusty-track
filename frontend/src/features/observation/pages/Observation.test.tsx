@@ -461,16 +461,16 @@ describe('Observation Page', () => {
         expect(Array.from(rankCells).map((el) => el.textContent)).toEqual(['1', '1']);
     });
 
-    it("shows a racer's den rank as a label when their den has one (#298)", async () => {
-        const racersWithDens = {
+    it("shows a racer's racingGroup rank as a label when their racingGroup has one (#298)", async () => {
+        const racersWithRacingGroups = {
             race: {
                 id: 1,
                 racers: [
-                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null, denId: 1 },
-                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null, denId: 2 },
-                    { id: 3, firstName: 'Mater', lastName: 'Tow', carNumber: 1, racerImageUrl: null, denId: null },
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null, racingGroupId: 1 },
+                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null, racingGroupId: 2 },
+                    { id: 3, firstName: 'Mater', lastName: 'Tow', carNumber: 1, racerImageUrl: null, racingGroupId: null },
                 ],
-                dens: [
+                racingGroups: [
                     { id: 1, name: 'Wolves', color: '#000', rank: 'WOLF' },
                     { id: 2, name: 'Unassigned', color: '#111', rank: null },
                 ],
@@ -483,10 +483,10 @@ describe('Observation Page', () => {
                 lanes: [{ lane: 1, racerId: 1, placeholderSlot: null }],
             },
             leaderboard: [
-                { racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1, denRank: 'WOLF' },
-                { racerId: 2, score: 3.5, heatsCompleted: 2, rank: 2, denRank: null },
+                { racerId: 1, score: 3.2, heatsCompleted: 2, rank: 1, racingGroupRank: 'WOLF' },
+                { racerId: 2, score: 3.5, heatsCompleted: 2, rank: 2, racingGroupRank: null },
             ],
-        }, racersWithDens);
+        }, racersWithRacingGroups);
 
         render(
             <MemoryRouter initialEntries={['/race/1/observation']}>
@@ -500,10 +500,10 @@ describe('Observation Page', () => {
             expect(screen.getByText('Now Racing')).toBeInTheDocument();
         });
 
-        // The racer in "Now Racing" is in the Wolves den, which has a rank —
+        // The racer in "Now Racing" is in the Wolves racingGroup, which has a rank —
         // shown on the heat card, and again on the live standings below it.
         expect(screen.getAllByText('Wolf').length).toBeGreaterThan(0);
-        // Doc's den has no rank, so his standings row names none.
+        // Doc's racingGroup has no rank, so his standings row names none.
         const docRow = screen.getByText('Doc Hudson').closest('tr');
         expect(docRow?.textContent).not.toMatch(/Wolf/);
     });

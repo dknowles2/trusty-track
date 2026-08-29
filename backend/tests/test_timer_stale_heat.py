@@ -22,7 +22,7 @@ from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
-    """A race with a preliminary round and a top-4 `PACK` final.
+    """A race with a preliminary round and a top-4 `ALL` final.
 
     ``racer_count`` matters to any test that needs correcting a preliminary to
     actually re-field the final. With 6 racers and 4 finalists, no correction can
@@ -33,7 +33,7 @@ def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
     crud.create_initial_config(
         db,
         schemas.InitialConfigCreate(
-            group_name=f"G{label}",
+            organization_name=f"G{label}",
             tracks=[
                 schemas.TrackCreate(
                     name=f"T{label}",
@@ -44,11 +44,17 @@ def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
             ],
         ),
     )
-    group = db.query(models.Group).filter(models.Group.name == f"G{label}").one()
+    group = (
+        db.query(models.Organization)
+        .filter(models.Organization.name == f"G{label}")
+        .one()
+    )
     track = db.query(models.Track).filter(models.Track.name == f"T{label}").one()
     crud.create_race(
         db,
-        schemas.RaceCreate(name=f"R{label}", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name=f"R{label}", organization_id=group.id, track_id=track.id
+        ),
     )
     race = db.query(models.Race).filter(models.Race.name == f"R{label}").one()
     for i in range(racer_count):
@@ -73,7 +79,7 @@ def _setup(db: Session, label: str, extra_round: bool, racer_count: int = 6):
         2,
         models.SchedulingStrategy.PPC,
         "Finals",
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=4,
     )
     db.flush()

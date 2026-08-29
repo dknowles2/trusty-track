@@ -100,10 +100,10 @@ export interface Problem {
  * length used to block the whole page with nothing on it saying which).
  */
 export function firstProblem(
-  groupName: string,
+  organizationName: string,
   tracks: readonly TrackForValidation[],
 ): Problem | null {
-  if (!groupName.trim()) {
+  if (!organizationName.trim()) {
     return {
       section: 'general',
       message: 'Your organization needs a name — for example Pack 123.',

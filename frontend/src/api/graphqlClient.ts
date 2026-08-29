@@ -62,7 +62,7 @@ export const EMBEDDED_TYPES = [
   'AdvancementRacer',
   'AdvancementStatus',
   'AwardVoteTally',
-  'DenStat',
+  'RacingGroupStat',
   'FreeRaceLaneAssignment',
   'HeatHighlight',
   'HeatLane',

@@ -17,7 +17,9 @@ from backend.db import crud, models, schemas
 
 
 def _race(db, lane_count=3, racer_count=6, label="Runs"):
-    group = crud.create_group(db, schemas.GroupCreate(name=f"{label} Pack"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"{label} Pack")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name=f"{label} Track", lane_count=lane_count),
@@ -26,7 +28,7 @@ def _race(db, lane_count=3, racer_count=6, label="Runs"):
         db,
         schemas.RaceCreate(
             name=f"{label} Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),
@@ -71,11 +73,11 @@ def test_the_wizard_gives_a_championship_the_runs_it_was_asked_for(db, client):
             "variables": {
                 "raceId": race.id,
                 "config": {
-                    "generalRound": {"type": "PACK", "runsPerLane": 1},
+                    "generalRound": {"type": "ALL", "runsPerLane": 1},
                     "championshipRounds": [
                         {
                             "name": "Grand Finals",
-                            "source": "PACK",
+                            "source": "ALL",
                             "numTopRacers": 3,
                             "runsPerLane": 2,
                         }
@@ -113,7 +115,7 @@ def test_create_round_gives_a_championship_the_runs_it_was_asked_for(db, client)
     create(name="All Pack", runsPerLane=1)
     create(
         name="Finals",
-        advancementSource="PACK",
+        advancementSource="ALL",
         advancementNumRacers=3,
         runsPerLane=2,
     )
@@ -141,11 +143,11 @@ def test_regenerating_a_multi_run_championship_keeps_its_runs(db, client):
             "variables": {
                 "raceId": race.id,
                 "config": {
-                    "generalRound": {"type": "PACK", "runsPerLane": 1},
+                    "generalRound": {"type": "ALL", "runsPerLane": 1},
                     "championshipRounds": [
                         {
                             "name": "Grand Finals",
-                            "source": "PACK",
+                            "source": "ALL",
                             "numTopRacers": 3,
                             "runsPerLane": 2,
                         }
@@ -186,11 +188,11 @@ def test_one_run_is_still_one_run(db, client):
             "variables": {
                 "raceId": race.id,
                 "config": {
-                    "generalRound": {"type": "PACK", "runsPerLane": 1},
+                    "generalRound": {"type": "ALL", "runsPerLane": 1},
                     "championshipRounds": [
                         {
                             "name": "Grand Finals",
-                            "source": "PACK",
+                            "source": "ALL",
                             "numTopRacers": 3,
                             "runsPerLane": 1,
                         }

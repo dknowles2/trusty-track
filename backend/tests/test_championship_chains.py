@@ -13,7 +13,9 @@ from backend.domain.audit import ResultSource
 
 
 def _race(db, name) -> models.Race:
-    group = crud.create_group(db, schemas.GroupCreate(name=f"Pack for {name}"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"Pack for {name}")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name=f"Track for {name}", lane_count=4, timer_type="FAKE"),
@@ -21,7 +23,7 @@ def _race(db, name) -> models.Race:
     return crud.create_race(
         db,
         schemas.RaceCreate(
-            group_id=group.id,
+            organization_id=group.id,
             name=name,
             track_id=track.id,
             scoring_strategy=models.ScoringStrategy.TIMED,
@@ -91,7 +93,7 @@ def _chained_race(db, name):
         db,
         race_id=race.id,
         round_number=2,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=4,
     )
     crud.generate_heats_for_round(db, semi.id, num_placeholders=4)
@@ -154,7 +156,7 @@ class TestTheChain:
             db,
             race_id=race.id,
             round_number=2,
-            advancement_source="PACK",
+            advancement_source="ALL",
             advancement_num_racers=3,
         )
         crud.generate_heats_for_round(db, late.id, num_placeholders=3)
@@ -184,7 +186,7 @@ class TestTheResolverPaths:
                   createRound(raceId: $raceId, roundData: {
                     name: "Finals",
                     schedulingStrategy: "PPC",
-                    advancementSource: "PACK",
+                    advancementSource: "ALL",
                     advancementNumRacers: 3,
                     runsPerLane: 1
                   }) { id }
@@ -215,7 +217,7 @@ class TestTheResolverPaths:
                       createRound(raceId: $raceId, roundData: {
                         name: $name,
                         schedulingStrategy: "PPC",
-                        advancementSource: "PACK",
+                        advancementSource: "ALL",
                         advancementNumRacers: 3,
                         runsPerLane: 1
                       }) { id }
@@ -263,9 +265,9 @@ class TestTheResolverPaths:
         wizard = """
         mutation($raceId: Int!) {
           createRoundWizard(raceId: $raceId, config: {
-            generalRound: { type: "PACK", runsPerLane: 1 },
+            generalRound: { type: "ALL", runsPerLane: 1 },
             championshipRounds: [
-              { name: "Final", source: "PACK", numTopRacers: 3, runsPerLane: 1 }
+              { name: "Final", source: "ALL", numTopRacers: 3, runsPerLane: 1 }
             ]
           }) { id }
         }

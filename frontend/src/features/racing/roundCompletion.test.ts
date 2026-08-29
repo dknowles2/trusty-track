@@ -93,7 +93,7 @@ describe('which rounds have a decided field', () => {
 
     test('a championship round whose field has arrived is decided', () => {
         expect(decidedRoundIds([
-            { id: 7, advancementSource: 'PACK', advancementStatus: status() },
+            { id: 7, advancementSource: 'ALL', advancementStatus: status() },
         ])).toEqual([7]);
     });
 
@@ -110,13 +110,13 @@ describe('which rounds have a decided field', () => {
 
     test('a championship round still holding placeholders is not decided', () => {
         expect(decidedRoundIds([
-            { id: 7, advancementSource: 'PACK', advancementStatus: status({ alreadyAdvanced: false }) },
+            { id: 7, advancementSource: 'ALL', advancementStatus: status({ alreadyAdvanced: false }) },
         ])).toEqual([]);
     });
 
     test('a championship round whose earlier rounds are unfinished is not decided', () => {
         expect(decidedRoundIds([
-            { id: 7, advancementSource: 'PACK', advancementStatus: status({ isReady: false }) },
+            { id: 7, advancementSource: 'ALL', advancementStatus: status({ isReady: false }) },
         ])).toEqual([]);
     });
 });

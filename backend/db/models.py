@@ -59,8 +59,8 @@ class Rank(str, enum.Enum):
     OTHER = "OTHER"
 
 
-class Den(Base):
-    __tablename__ = "dens"
+class RacingGroup(Base):
+    __tablename__ = "racing_groups"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, index=True)
@@ -72,8 +72,8 @@ class Den(Base):
     car_number_range_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
     car_number_range_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    race: Mapped["Race"] = relationship("Race", back_populates="dens")
-    racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="den")
+    race: Mapped["Race"] = relationship("Race", back_populates="racing_groups")
+    racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="racing_group")
 
 
 class AwardKind(str, enum.Enum):
@@ -104,8 +104,8 @@ class ScoringStrategy(str, enum.Enum):
     POINTS = "POINTS"
 
 
-class Group(Base):
-    __tablename__ = "groups"
+class Organization(Base):
+    __tablename__ = "organizations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String, unique=True, index=True)
@@ -117,7 +117,7 @@ class Group(Base):
 
     # Operator and check-in PINs, as `salt$hash` (#15). Null means unset, and an
     # unset *operator* PIN means no enforcement at all — see `api/auth.py`.
-    # There is one Group per install, so this is where install-wide settings
+    # There is one Organization per install, so this is where install-wide settings
     # live; it is not a per-race setting.
     operator_pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     checkin_pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -153,7 +153,7 @@ class Group(Base):
         String, default="MATCH_APP", server_default=sa_text("'MATCH_APP'")
     )
 
-    races: Mapped[list["Race"]] = relationship("Race", back_populates="group")
+    races: Mapped[list["Race"]] = relationship("Race", back_populates="organization")
 
 
 class Track(Base):
@@ -269,7 +269,9 @@ class Race(Base):
     __tablename__ = "races"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    group_id: Mapped[int] = mapped_column(Integer, ForeignKey("groups.id"))
+    organization_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("organizations.id")
+    )
     track_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("tracks.id"), nullable=True
     )
@@ -310,11 +312,13 @@ class Race(Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
 
-    group: Mapped["Group"] = relationship("Group", back_populates="races")
+    organization: Mapped["Organization"] = relationship(
+        "Organization", back_populates="races"
+    )
     track: Mapped[Optional["Track"]] = relationship("Track", back_populates="races")
     racers: Mapped[list["Racer"]] = relationship("Racer", back_populates="race")
-    dens: Mapped[list["Den"]] = relationship(
-        "Den", back_populates="race", cascade="all, delete-orphan"
+    racing_groups: Mapped[list["RacingGroup"]] = relationship(
+        "RacingGroup", back_populates="race", cascade="all, delete-orphan"
     )
     rounds: Mapped[list["Round"]] = relationship(
         "Round", back_populates="race", cascade="all, delete-orphan"
@@ -339,12 +343,14 @@ class Racer(Base):
     car_weight: Mapped[float | None] = mapped_column(Float, nullable=True)
     racer_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     car_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    den_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("dens.id"), nullable=True
+    racing_group_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("racing_groups.id"), nullable=True
     )
 
     race: Mapped["Race"] = relationship("Race", back_populates="racers")
-    den: Mapped[Optional["Den"]] = relationship("Den", back_populates="racers")
+    racing_group: Mapped[Optional["RacingGroup"]] = relationship(
+        "RacingGroup", back_populates="racers"
+    )
 
 
 class Round(Base):
@@ -359,8 +365,8 @@ class Round(Base):
     )
     advancement_source: Mapped[str | None] = mapped_column(String, nullable=True)
     advancement_num_racers: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    den_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("dens.id"), nullable=True
+    racing_group_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("racing_groups.id"), nullable=True
     )
     #: A lane went out of service part-way through this round (#171).
     #:
@@ -380,7 +386,7 @@ class Round(Base):
     )
     #: The field is drawn from the *bottom* of the standings — a "Slowest
     #: Race" bracket, the just-for-fun mirror of a championship round. The
-    #: source vocabulary is unchanged (`PACK`, `DEN`, `ROUND:<id>`); this flag
+    #: source vocabulary is unchanged (`ALL`, `EACH_GROUP`, `ROUND:<id>`); this flag
     #: only flips which end of those standings the slots are filled from.
     #: Cars that have not recorded a result are never picked — a car that
     #: never ran is not the slowest car, it is an absent one.
@@ -400,7 +406,7 @@ class Round(Base):
     heats: Mapped[list["Heat"]] = relationship(
         "Heat", back_populates="round", cascade="all, delete-orphan"
     )
-    den: Mapped[Optional["Den"]] = relationship("Den")
+    racing_group: Mapped[Optional["RacingGroup"]] = relationship("RacingGroup")
 
     @property
     def total_participants(self) -> int:
@@ -439,8 +445,8 @@ class Round(Base):
         rule = advancement.AdvancementRule(
             source=self.advancement_source, num_racers=self.advancement_num_racers
         )
-        den_count = len(self.race.dens) if self.race else 0
-        return advancement.field_size(rule, den_count)
+        racing_group_count = len(self.race.racing_groups) if self.race else 0
+        return advancement.field_size(rule, racing_group_count)
 
 
 class Heat(Base):
@@ -573,7 +579,7 @@ class Award(Base):
 
     ``SPEED``
         Names a **source** rather than a winner — ``source`` plus ``place``,
-        optionally narrowed to one den. The recipient is computed from the
+        optionally narrowed to one racing group. The recipient is computed from the
         standings every time it is asked for, so it stays correct when a time
         is corrected after the award was defined. Storing the racer id here
         would make this the first thing in the app able to disagree with the
@@ -612,9 +618,10 @@ class Award(Base):
         Integer, nullable=False, default=0, server_default="0"
     )
 
-    #: SPEED only. ``"PACK"`` or ``"ROUND:<id>"``, the same vocabulary
-    #: `Round.advancement_source` uses — but never ``"DEN"``; see
-    #: `domain/awards.py` for why a den-scoped award sets `den_id` instead.
+    #: SPEED only. ``"ALL"`` or ``"ROUND:<id>"``, the same vocabulary
+    #: `Round.advancement_source` uses — but never ``"EACH_GROUP"``; see
+    #: `domain/awards.py` for why a racing-group-scoped award sets
+    #: `racing_group_id` instead.
     source: Mapped[str | None] = mapped_column(String, nullable=True)
     #: SPEED only, 1-based: 1 is the winner.
     place: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -626,10 +633,10 @@ class Award(Base):
     from_bottom: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
-    #: SPEED only. Narrows the standings to one den, so "fastest Wolf" is the
+    #: SPEED only. Narrows the standings to one racing group, so "fastest Wolf" is the
     #: ordinary standings filtered rather than a third kind of source.
-    den_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("dens.id", ondelete="CASCADE"), nullable=True
+    racing_group_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("racing_groups.id", ondelete="CASCADE"), nullable=True
     )
 
     #: SPECIAL only. Null until somebody decides.

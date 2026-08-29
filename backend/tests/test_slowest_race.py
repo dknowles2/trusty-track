@@ -2,7 +2,7 @@
 
 ``Round.advancement_from_bottom`` flips which end of the standings a
 championship round's field is filled from. The source vocabulary is unchanged
-(``PACK``, ``DEN``, ``ROUND:<id>``); what changes is the pick — slowest first,
+(``ALL``, ``EACH_GROUP``, ``ROUND:<id>``); what changes is the pick — slowest first,
 and never a car with no recorded result, because a car that never ran is not
 the slowest car, it is an absent one.
 """
@@ -13,26 +13,24 @@ from backend.domain import lanes as lanes_module
 from backend.domain.audit import ResultSource
 
 
-def _standing(racer_id, den_id=None, has_raced=True):
-    return advancement.Standing(racer_id=racer_id, den_id=den_id, has_raced=has_raced)
+def _standing(racer_id, racing_group_id=None, has_raced=True):
+    return advancement.Standing(
+        racer_id=racer_id, racing_group_id=racing_group_id, has_raced=has_raced
+    )
 
 
 class TestThePickingRule:
     """Pure rule: `advancing_racer_ids` with `from_bottom`."""
 
     def test_pack_picks_the_slowest_first(self):
-        rule = advancement.AdvancementRule(
-            source="PACK", num_racers=2, from_bottom=True
-        )
+        rule = advancement.AdvancementRule(source="ALL", num_racers=2, from_bottom=True)
         standings = [_standing(1), _standing(2), _standing(3), _standing(4)]
         # Best-first input, so 4 is the slowest — and slot 1 is the slowest
         # car, the mirror of slot 1 being the fastest in an ordinary round.
         assert advancement.advancing_racer_ids(rule, standings) == [4, 3]
 
     def test_a_car_that_never_ran_is_not_the_slowest(self):
-        rule = advancement.AdvancementRule(
-            source="PACK", num_racers=2, from_bottom=True
-        )
+        rule = advancement.AdvancementRule(source="ALL", num_racers=2, from_bottom=True)
         # The leaderboard sorts the unraced below everyone with a result, so
         # the raw bottom of the standings is exactly the wrong answer.
         standings = [
@@ -44,12 +42,14 @@ class TestThePickingRule:
         assert advancement.advancing_racer_ids(rule, standings) == [3, 2]
 
     def test_den_picks_the_slowest_of_each_den(self):
-        rule = advancement.AdvancementRule(source="DEN", num_racers=1, from_bottom=True)
+        rule = advancement.AdvancementRule(
+            source="EACH_GROUP", num_racers=1, from_bottom=True
+        )
         standings = [
-            _standing(1, den_id=10),
-            _standing(2, den_id=20),
-            _standing(3, den_id=10),
-            _standing(4, den_id=20),
+            _standing(1, racing_group_id=10),
+            _standing(2, racing_group_id=20),
+            _standing(3, racing_group_id=10),
+            _standing(4, racing_group_id=20),
         ]
         assert advancement.advancing_racer_ids(rule, standings, [10, 20]) == [3, 4]
 
@@ -61,7 +61,7 @@ class TestThePickingRule:
         assert advancement.advancing_racer_ids(rule, standings) == [3]
 
     def test_the_default_direction_is_unchanged(self):
-        rule = advancement.AdvancementRule(source="PACK", num_racers=2)
+        rule = advancement.AdvancementRule(source="ALL", num_racers=2)
         standings = [_standing(1), _standing(2), _standing(3)]
         assert advancement.advancing_racer_ids(rule, standings) == [1, 2]
 
@@ -72,7 +72,9 @@ class TestThePickingRule:
 
 
 def _race(db, name) -> models.Race:
-    group = crud.create_group(db, schemas.GroupCreate(name=f"Pack for {name}"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"Pack for {name}")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name=f"Track for {name}", lane_count=4, timer_type="FAKE"),
@@ -80,7 +82,7 @@ def _race(db, name) -> models.Race:
     return crud.create_race(
         db,
         schemas.RaceCreate(
-            group_id=group.id,
+            organization_id=group.id,
             name=name,
             track_id=track.id,
             scoring_strategy=models.ScoringStrategy.TIMED,
@@ -160,7 +162,7 @@ def _slowest_race(db, name, racer_count=6, bracket_size=3):
         db,
         race_id=race.id,
         round_number=2,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=bracket_size,
         advancement_from_bottom=True,
     )
@@ -251,7 +253,7 @@ class TestTheResolver:
                 "variables": {
                     "raceId": race.id,
                     "roundData": {
-                        "advancementSource": "PACK",
+                        "advancementSource": "ALL",
                         "advancementNumRacers": 2,
                         "advancementFromBottom": True,
                     },

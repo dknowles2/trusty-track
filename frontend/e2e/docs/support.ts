@@ -111,12 +111,12 @@ export async function docsTrackId(page: Page): Promise<number> {
     return track.id;
 }
 
-export async function groupId(page: Page): Promise<number> {
-    const config = await gql<{ groups: Array<{ id: number }> }>(
+export async function organizationId(page: Page): Promise<number> {
+    const config = await gql<{ organizations: Array<{ id: number }> }>(
         page,
-        `query DocsGroup { groups { id } }`,
+        `query DocsOrganization { organizations { id } }`,
     );
-    return config.groups[0].id;
+    return config.organizations[0].id;
 }
 
 /**
@@ -167,34 +167,34 @@ export async function seedRace(page: Page, race: RaceSeed): Promise<number> {
                 scoringStrategy: 'TIMED',
                 carNumberingStrategy: 'MANUAL',
                 ...race,
-                groupId: await groupId(page),
+                organizationId: await organizationId(page),
             },
         },
     );
     return created.createRace.id;
 }
 
-export interface DenSeed {
+export interface RacingGroupSeed {
     name: string;
     color: string;
     rank?: string;
 }
 
-export async function seedDens(
+export async function seedRacingGroups(
     page: Page,
     raceId: number,
-    dens: DenSeed[],
+    racingGroups: RacingGroupSeed[],
 ): Promise<Record<string, number>> {
     const ids: Record<string, number> = {};
-    for (const den of dens) {
-        const created = await gql<{ createDen: { id: number } }>(
+    for (const racingGroup of racingGroups) {
+        const created = await gql<{ createRacingGroup: { id: number } }>(
             page,
-            `mutation SeedDen($raceId: Int!, $den: DenInput!) {
-                createDen(raceId: $raceId, den: $den) { id }
+            `mutation SeedRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
+                createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id }
             }`,
-            { raceId, den },
+            { raceId, racingGroup },
         );
-        ids[den.name] = created.createDen.id;
+        ids[racingGroup.name] = created.createRacingGroup.id;
     }
     return ids;
 }
@@ -204,7 +204,7 @@ export interface RacerSeed {
     last: string;
     car: number;
     carName: string;
-    den?: string;
+    racingGroup?: string;
 }
 
 /**
@@ -215,7 +215,7 @@ export async function seedRacers(
     page: Page,
     raceId: number,
     racers: RacerSeed[],
-    denIds: Record<string, number> = {},
+    racingGroupIds: Record<string, number> = {},
 ): Promise<Record<number, number>> {
     const ids: Record<number, number> = {};
     for (const racer of racers) {
@@ -225,7 +225,7 @@ export async function seedRacers(
             {
                 racer: {
                     raceId,
-                    denId: racer.den ? denIds[racer.den] : null,
+                    racingGroupId: racer.racingGroup ? racingGroupIds[racer.racingGroup] : null,
                     firstName: racer.first,
                     lastName: racer.last,
                     carNumber: racer.car,
@@ -249,7 +249,7 @@ export async function runRoundWizard(
         ? [
               {
                   name: 'Championship Round',
-                  source: 'PACK',
+                  source: 'ALL',
                   numTopRacers: options.championshipRacers,
                   runsPerLane: 1,
               },
@@ -263,7 +263,7 @@ export async function runRoundWizard(
         {
             raceId,
             config: {
-                generalRound: { type: 'PACK', runsPerLane: 1 },
+                generalRound: { type: 'ALL', runsPerLane: 1 },
                 championshipRounds,
             },
         },

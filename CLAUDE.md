@@ -137,31 +137,31 @@ Each `features/<area>/` slice holds its own `pages/`, `components/`, and `graphq
 ## Data model
 
 ```
-Group           id, name, debug_mode
+Organization    id, name, debug_mode
   └─ Race[]
 
 Track           id, name, lane_count, length_feet, timer_type, serial_port,
                 timer_profile?, remote_start_installed
   └─ Race[]
 
-Race            id, name, date_time, location, group_id, track_id,
+Race            id, name, date_time, location, organization_id, track_id,
                 car_numbering_strategy, global_start_number, scoring_strategy,
                 championship_trophies, rules_configuration, auto_advance_heat,
                 weight_limit_oz?
-  ├─ Den[]            (cascade delete)
+  ├─ RacingGroup[]     (cascade delete)
   ├─ Racer[]
   ├─ Round[]          (cascade delete)
   └─ Heat[]           (both kinds; see `Heat.kind`)
 
-Den             id, race_id, name, color, rank,
+RacingGroup     id, race_id, name, color, rank,
                 car_number_range_start, car_number_range_end
 
-Racer           id, race_id, den_id?,
+Racer           id, race_id, racing_group_id?,
                 first_name, last_name, car_number, car_name, car_weight,
                 car_passed_inspection, racer_image_url, car_image_url
 
 Round           id, race_id, round_number, name, scheduling_strategy,
-                advancement_source, advancement_num_racers, den_id?,
+                advancement_source, advancement_num_racers, racing_group_id?,
                 advancement_from_bottom, elimination_losses?,
                 balanced_phases?
 
@@ -349,14 +349,14 @@ Databases created before Alembic are detected at startup (app tables present, no
 
 Defined entirely in `backend/api/schema.py`.
 
-**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `groups`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `version`, `networkAddresses`
+**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `organizations`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `version`, `networkAddresses`
 
 **Mutations:**
 
 - Race: `createRace`, `updateRace`, `deleteRace`
 - Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
-- Bulk: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToDen`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
-- Den: `createDen`, `updateDen`, `deleteDen`
+- Bulk: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToRacingGroup`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
+- RacingGroup: `createRacingGroup`, `updateRacingGroup`, `deleteRacingGroup`
 - Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
 - Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord`
 - Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`
@@ -392,7 +392,7 @@ Defined entirely in `backend/api/schema.py`.
 - **The domain layer (`backend/domain/`) imports no SQLAlchemy and no Strawberry.** Scheduling, scoring, and advancement are plain functions over plain values; `crud.py` and `services/` load rows, call them, and persist the answer. Put a *rule* there and its *I/O* in the caller. Keep it importable without a database — that is what lets `test_domain_scheduling.py` run every racer count from 2 to 20 against every lane count from 2 to 8 in under a second, which is how issue #26 was found.
   - Enum-ish values cross the boundary as plain strings. `ScoringStrategy` and friends are `str` enums whose values equal their names, so they pass through unchanged and there is no second copy of the vocabulary.
   - **`mypy` gates it, and only it, strictly** (`disallow_untyped_defs`). `uv run mypy backend` runs over the whole tree in CI; the modules not yet clean are listed as *exemptions* in `pyproject.toml`, so a new module is checked from the day it is written and that list can only shrink — it is down to **one**, `api.schema`, where resolvers return ORM rows and `self` is not the type it is declared on, so most of what is left wants a `type: ignore` with a reason rather than a fix. `db.crud` and `services.timer.manager` came off once somebody counted: the list was described as all duck-typing, and between them they had seven errors, none of which were — two were real bugs. Keeping `domain/` clean is cheap because it has no ORM rows or framework shells in it — which is also why a wrong type there is worth catching. `Lane.placeholder_slot` and `Lane.real_racer_id` exist so the sign convention has one home and a checker can see through it; prefer them to `is_placeholder` / `is_real_racer` when you need the value.
-- **Cascade deletes:** deleting a `Race` cascades to `Den` and `Round`, and removes its heats of both kinds; deleting a `Round` cascades to its `Heat`s.
+- **Cascade deletes:** deleting a `Race` cascades to `RacingGroup` and `Round`, and removes its heats of both kinds; deleting a `Round` cascades to its `Heat`s.
 - **Scoring is always computed on demand** in `services/scoring.py`. There is no stored leaderboard.
 - **Data directory** defaults to `~/.trustytrack`; override with `TRUSTYTRACK_DATA_DIR`. Images land in `uploads/` there and are served from `/static/<filename>`.
 - **The unified server** serves `frontend/dist` with an SPA catch-all. Health check at `/health`.
@@ -507,7 +507,7 @@ Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` 
 
 **A tie shares a rank** ([#226](https://github.com/dknowles2/trusty-track/issues/226)). `rank_key` still breaks ties by racer id so the *order* is deterministic, but `standings_ranks` stamps competition ranks (1, 1, 3) over it — otherwise a tie for a trophy or the last championship slot was resolved by registration order and no screen ever said so. Racers who have not raced keep strictly increasing positions; tying them would make a pre-race leaderboard a wall of rank 1. Advancement and awards still cut by position (`standings[:n]`, `standings[place-1]`), which is unchanged and now *visible*: the operator sees the shared rank and settles it with a race-off or a corrected time.
 
-**`LeaderboardEntry.denRank` is the den's Cub Scout rank, riding along for branding** ([#298](https://github.com/dknowles2/trusty-track/issues/298)) — `Den.rank` was assignable and stored since the app's first spec but shown nowhere. Named `denRank` rather than `rank`, because `rank` on a standings row already means the finishing position; the two would otherwise collide on the same type. `Leaderboard.tsx`'s Den column and `Observation.tsx`'s heat cards and live standings both read it through `rankLabel()` (`features/management/rankText.ts`), the same formatter Den Manager uses, so a den's rank reads the same word everywhere it appears.
+**`LeaderboardEntry.racingGroupRank` is the racing group's Cub Scout rank, riding along for branding** ([#298](https://github.com/dknowles2/trusty-track/issues/298)) — `RacingGroup.rank` was assignable and stored since the app's first spec but shown nowhere. Named `racingGroupRank` rather than `rank`, because `rank` on a standings row already means the finishing position; the two would otherwise collide on the same type. `Leaderboard.tsx`'s Racing Group column and `Observation.tsx`'s heat cards and live standings both read it through `rankLabel()` (`features/management/rankText.ts`), the same formatter the Racing Group Manager uses, so a racing group's rank reads the same word everywhere it appears.
 
 ### Track records
 
@@ -525,8 +525,8 @@ Rules in `domain/scoring.py`, database wiring in `services/scoring.py`. `TIMED` 
 
 Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.get_advancing_racers()`.
 
-- `advancement_source = "PACK"` — top N overall
-- `advancement_source = "DEN"` — top N from each den
+- `advancement_source = "ALL"` — top N overall
+- `advancement_source = "EACH_GROUP"` — top N from each racing group
 - `advancement_source = "ROUND:<id>"` — top N from that round
 
 **`Round.advancement_from_bottom` flips which end of those standings the field comes from — the Slowest Race bracket.** The source vocabulary is deliberately unchanged; `AdvancementRule.from_bottom` reverses the pick in `domain/advancement._picking_order`, slowest first (slot 1 is the slowest car, mirroring slot 1 being the fastest). Two rules ride on it: a racer with no recorded result is never picked (`Standing.has_raced` — the leaderboard sorts the unraced *below* everyone, so the naive bottom of the list is cars that never ran), and the round's standings view is reversed **on display only** (`features/stats/slowestFirst.ts` — the stored leaderboard stays lower-is-better, so anything chaining off the round reads it unchanged). Everything else — invalidation, `should_populate`, `field_is_short`, withdrawal — is direction-agnostic and needed no change. The operator reaches it from the add-round dialog's "Which cars race" control; placeholder slots and the round-summary sentence read "Slowest N" via `AdvancementStatus.fromBottom` and `Round.advancementFromBottom`.
@@ -539,7 +539,7 @@ Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.g
 
 **The rebuild paths preserve runs-per-lane** ([#230](https://github.com/dknowles2/trusty-track/issues/230)). `generate_heats_for_round` takes `runs`, and `runs=None` — what every rebuild passes — means *preserve what the round had*, derived from the heats about to be cleared (heat count over the field those heats actually hold, floor). The derivation lives there and nowhere else because it used to live in exactly one caller (`regenerateRound`, from #143) while `invalidate_future_rounds` and `populate_round_field` had nothing — so a two-run final quietly became a one-run final on the first recorded prelim result. `_reset_heats_in_place` checks divisibility, not equality, for the same reason. `test_multi_run_rounds.py` holds it, and contains the first tests in the tree with `runs > 1`.
 
-**The divisor is the heats' actual field, not the round's requested one** ([#311](https://github.com/dknowles2/trusty-track/issues/311)). The first cut divided by `Round.total_participants`, which for a championship round is `advancement.field_size(rule, den_count)` — the *requested* slot count, constant regardless of what the heats hold. That agrees with the heats the first time a field comes up short (#48): the round was still built from the request, so the two coincide. It stops agreeing on any *later* rebuild — once a short field has already shrunk a round to its real size, `invalidate_future_rounds` divides the existing heat count by the request again, not by the smaller field the heats actually hold, and silently drops a run. `domain.advancement.scheduled_participant_count` fixes the divisor by counting distinct participants — real racers and placeholder slots, kept in separate identity spaces — straight off the existing heats, the same move `placeholder_slots` already made for `field_is_short` and for the same reason.
+**The divisor is the heats' actual field, not the round's requested one** ([#311](https://github.com/dknowles2/trusty-track/issues/311)). The first cut divided by `Round.total_participants`, which for a championship round is `advancement.field_size(rule, racing_group_count)` — the *requested* slot count, constant regardless of what the heats hold. That agrees with the heats the first time a field comes up short (#48): the round was still built from the request, so the two coincide. It stops agreeing on any *later* rebuild — once a short field has already shrunk a round to its real size, `invalidate_future_rounds` divides the existing heat count by the request again, not by the smaller field the heats actually hold, and silently drops a run. `domain.advancement.scheduled_participant_count` fixes the divisor by counting distinct participants — real racers and placeholder slots, kept in separate identity spaces — straight off the existing heats, the same move `placeholder_slots` already made for `field_is_short` and for the same reason.
 
 **A withdrawal is the mirror of an admission** ([#228](https://github.com/dknowles2/trusty-track/issues/228)): un-checking a racer runs `crud.withdraw_absent_racers` from the same `_admit_late_racers` hook, withdrawal before admission, both idempotent — which is what lets a mistaken un-check heal on re-check. Same three cases as #172: unraced rounds regenerate without them, part-raced rounds keep every finished heat and vacate their pending lanes (no `disrupted` flag — an absent car empties a lane, it does not give anyone extra runs), finished rounds stand. An unraced championship round naming a withdrawn racer is re-fielded so the next qualifier steps up, and `get_advancing_racers` skips racers who are not checked in — their results stay on the leaderboard, but a slot in a race yet to run never goes to a car that has left the building.
 
@@ -551,9 +551,9 @@ Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.g
 
 **A new round's number comes from `max(round_number) + 1`, not the count** ([#250](https://github.com/dknowles2/trusty-track/issues/250)). Deleting a middle round makes the two disagree, and two rounds sharing a number are invisible to each other in advancement's strict `<`/`>` ordering.
 
-**`advancement_num_racers` is per *den* when the source is `DEN`**, and absolute otherwise. The rule is `domain/advancement.field_size`, wrapped by `crud.round_field_size` which counts the dens — use those, never the raw column. It had grown five copies, two of them wrong, and the wrong ones shrank a DEN final to a fraction of its field on every preliminary result (#52).
+**`advancement_num_racers` is per *racing group* when the source is `EACH_GROUP`**, and absolute otherwise. The rule is `domain/advancement.field_size`, wrapped by `crud.round_field_size` which counts the racing groups — use those, never the raw column. It had grown five copies, two of them wrong, and the wrong ones shrank an `EACH_GROUP` final to a fraction of its field on every preliminary result (#52).
 
-`advancement_num_racers` is also a **request**, not a guarantee: "top four" from a den of three can only ever supply three. Heats are generated from the request, before anyone qualifies, so a round can hold more slots than the race can fill. Left alone the surplus is fatal rather than untidy — `phase` reports `NOT_READY` while any placeholder remains, and the operator screen has no controls in that state, so the round cannot be run, edited or skipped. `domain/advancement.field_is_short` detects it and the round is rebuilt for the field that actually qualified. A round that has already been raced is filled in place regardless, following the same rule as invalidation.
+`advancement_num_racers` is also a **request**, not a guarantee: "top four" from a racing group of three can only ever supply three. Heats are generated from the request, before anyone qualifies, so a round can hold more slots than the race can fill. Left alone the surplus is fatal rather than untidy — `phase` reports `NOT_READY` while any placeholder remains, and the operator screen has no controls in that state, so the round cannot be run, edited or skipped. `domain/advancement.field_is_short` detects it and the round is rebuilt for the field that actually qualified. A round that has already been raced is filled in place regardless, following the same rule as invalidation.
 
 ### Awards
 
@@ -561,16 +561,16 @@ Rules in `domain/awards.py`, database wiring in `services/awards.py`, storage in
 
 | Kind | Recipient | Fields |
 | --- | --- | --- |
-| `SPEED` | computed from the standings | `source` + `place`, optionally `den_id` |
+| `SPEED` | computed from the standings | `source` + `place`, optionally `racing_group_id` |
 | `SPECIAL` | chosen by a person | `racer_id` |
 
 **A speed award names a source, never a winner**, and the recipient is resolved on every read. An award defined before the racing has to stay correct when a time is corrected after it; storing the racer id would make this the first thing in the app able to disagree with the leaderboard, which is the loop #17 closed. Same principle as the standings themselves: computed on demand, never stored.
 
-**`DEN` is not a source, and that is the one departure from advancement's vocabulary.** For advancement `DEN` means "the top N of *each* den", which yields a set — right for filling a field, wrong for an award, which has exactly one recipient. A den-scoped award is an ordinary source with `den_id` set, so "fastest Wolf" is the pack standings narrowed. Six of them is six awards, which is also how they are announced.
+**`EACH_GROUP` is not a source, and that is the one departure from advancement's vocabulary.** For advancement `EACH_GROUP` means "the top N of *each* racing group", which yields a set — right for filling a field, wrong for an award, which has exactly one recipient. A racing-group-scoped award is an ordinary source with `racing_group_id` set, so "fastest Wolf" is the pack standings narrowed. Six of them is six awards, which is also how they are announced.
 
 **`place` is 1-based and refused below 1** in both `SpeedRule.__post_init__` and the Pydantic schema. `standings[place - 1]` with a place of 0 indexes from the end and hands the trophy to the slowest car.
 
-**`Award.from_bottom` flips which end `place` counts from — the slowest-car trophy.** Deliberately the same word and the same idea as `Round.advancement_from_bottom`: a pack that gives one is reading the standings it already has from the other end, not asking a different question, so there is no new source vocabulary. It carries the same rider, for the same reason — **a car that has not raced never wins it** (`Standing.has_raced`), because the leaderboard sorts racers with no result *below* everyone who ran, so the raw bottom of the standings is cars that stayed home. That field was defaulted-true and unread by awards until now; `services/awards._standings_cache` had to start supplying it from `heats_completed`, and a mutation there survives every test that does not race a *partial* round — four racers on a four-lane track all run in heat one, so the test needs a field wider than the track. `recipient_of` narrows to the den **before** reversing: "slowest Wolf" is the Wolves read backwards, not the pack read backwards and then filtered.
+**`Award.from_bottom` flips which end `place` counts from — the slowest-car trophy.** Deliberately the same word and the same idea as `Round.advancement_from_bottom`: a pack that gives one is reading the standings it already has from the other end, not asking a different question, so there is no new source vocabulary. It carries the same rider, for the same reason — **a car that has not raced never wins it** (`Standing.has_raced`), because the leaderboard sorts racers with no result *below* everyone who ran, so the raw bottom of the standings is cars that stayed home. That field was defaulted-true and unread by awards until now; `services/awards._standings_cache` had to start supplying it from `heats_completed`, and a mutation there survives every test that does not race a *partial* round — four racers on a four-lane track all run in heat one, so the test needs a field wider than the track. `recipient_of` narrows to the racing group **before** reversing: "slowest Wolf" is the Wolves read backwards, not the pack read backwards and then filtered.
 
 On the frontend the kind is called **Speed-based** rather than "Whoever is fastest" — the old label stopped being true the moment an award could name the slowest car. `awardText.positionLabel` is the shared rule for saying a position in either direction, and it names first place in both ("Fastest", "Slowest") rather than numbering it: nobody announces "1st slowest".
 
@@ -582,7 +582,7 @@ On the frontend the kind is called **Speed-based** rather than "Whoever is faste
 
 **`Race.championship_trophies` is not this.** It means how many cars advance to the final — a scheduling input. An award is an outcome.
 
-On the frontend, `/race/:raceId/awards` is a fourth tab on `RaceModeToggle` beside Roster, Standings and Stats. `features/awards/awardText.ts` turns a stored rule into the sentence both the operator screen and (later) the presentation display show — `{source: "ROUND:4", place: 1, denId: 3}` is exactly the wrong thing to put in front of somebody choosing trophies. It is pure, and it holds the ordinal edge cases (11th, not 11st) and the two "that no longer exists" messages for a round or den deleted out from under an award. **Editing a speed award must not seed the racer picker from its computed recipient** — switching it to judged would then freeze the trophy on whoever happened to be fastest at that moment.
+On the frontend, `/race/:raceId/awards` is a fourth tab on `RaceModeToggle` beside Roster, Standings and Stats. `features/awards/awardText.ts` turns a stored rule into the sentence both the operator screen and (later) the presentation display show — `{source: "ROUND:4", place: 1, racingGroupId: 3}` is exactly the wrong thing to put in front of somebody choosing trophies. It is pure, and it holds the ordinal edge cases (11th, not 11st) and the two "that no longer exists" messages for a round or racing group deleted out from under an award. **Editing a speed award must not seed the racer picker from its computed recipient** — switching it to judged would then freeze the trophy on whoever happened to be fastest at that moment.
 
 **The ceremony is its own route** (`/race/:raceId/awards/present`), not another tab on the audience display. The observation views rotate on a timer because nobody is driving them; a ceremony is paced by whoever is holding the microphone, and a screen that advanced on its own would announce the next trophy over the applause for the last one. `ceremony.ts` holds the stepping rules: it **clamps rather than wraps**, because putting the first award back up reads as "we are starting again" and the last slide is the one people photograph, and it shows an award with no recipient rather than skipping it, because most are undecided right up until they are announced. It sits at `zIndex: 3000` — the navigation is 1000 and painted its Details/Control/Standings menu across the top of a projector until somebody loaded the page.
 
@@ -614,7 +614,7 @@ Rules in `domain/awards.can_be_voted_on` and `domain/awards.rank_tally`, databas
 
 ### Car numbering
 
-`PER_GROUP` fills within each den's range; `GLOBAL` numbers sequentially from `global_start_number`; `MANUAL` disables auto-numbering.
+`PER_GROUP` fills within each racing group's range; `GLOBAL` numbers sequentially from `global_start_number`; `MANUAL` disables auto-numbering.
 
 ### The practice race
 
@@ -715,7 +715,7 @@ Three things about that header, each of which has a wrong-looking alternative:
 
 **A heat id used to stop being a stable handle** (#50). `invalidate_future_rounds` rewrites the heats of every later championship round on *every* earlier result; when it did that by deleting and re-inserting, an armed heat could vanish — or, since SQLite reuses rowids, come back as a different heat holding a different field. Three things now hold:
 
-- **`_reset_heats_in_place` rewrites the existing rows** when the shape has not changed, so ids survive. It falls back to full regeneration only when the heat count differs (a den added to a `DEN` round, say).
+- **`_reset_heats_in_place` rewrites the existing rows** when the shape has not changed, so ids survive. It falls back to full regeneration only when the heat count differs (a racing group added to an `EACH_GROUP` round, say).
 - **`_record_results` verifies before writing.** It compares the heat's current lane assignment against the `racer_by_lane` it was armed with and calls `_abandon_run` on a mismatch. `racer_by_lane` absent means *unknown*, not *no racers*, so the check sits out when the caller did not supply one.
 - **`_revalidate_timers(info)` disarms proactively.** Call it from any mutation that regenerates, deletes or re-fields heats — it is already on `updateHeatResult`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `deleteRacer`, `bulkDeleteRacers` and `deleteRace`. Without it the operator only finds out after a run, holding times they must key in by hand. `deleteRacer` and `bulkDeleteRacers` were the last two rebuild paths without it, reachable from the lower-privileged check-in desk — `bulk_delete_racers` can regenerate an unraced round out from under an armed heat exactly like any other rebuild (#309); `deleteRace` closes the same gap for a heat armed on a shared track when a practice or second race sharing it is deleted.
 
@@ -833,13 +833,13 @@ If you add a race view, it goes in `links` in `Navigation.tsx`. Don't reintroduc
 
 ### The roster toolbar
 
-`RaceDetails.tsx`. Six buttons competed for one row and four of them wrapped their labels at 1280px. The rule now: **the first row holds Add Racer, Scan and an overflow menu, and nothing else.** Manage dens, upload photos and print are things an operator does once before an event, so they live behind the `⋯`; add and scan are the two reached for repeatedly. Search and the group-by-den toggle sit on their own row beneath.
+`RaceDetails.tsx`. Six buttons competed for one row and four of them wrapped their labels at 1280px. The rule now: **the first row holds Add Racer, Scan and an overflow menu, and nothing else.** Manage racing groups, upload photos and print are things an operator does once before an event, so they live behind the `⋯`; add and scan are the two reached for repeatedly. Search and the group-by-racing-group toggle sit on their own row beneath.
 
 **There is no Bulk Actions button.** It was disabled for most of the day — space spent saying "not yet" — and what it held is now a selection bar that exists only while rows are ticked, with a clear-selection ✕. `roster-selection-bar` and `roster-more-menu` are the test ids; the individual `bulk-*-btn` ids survived the move, so what changed for a test is only that the actions no longer need a menu opened first.
 
-Move-to-den is still a menu, because six dens will not fit on the bar — but it opens **downward** now rather than flying out sideways, which retired `denMenuSide`, `denMenuContainerRef`, `moveDenTimeoutRef` and the two hover handlers that measured which side had room.
+Move-to-racing-group is still a menu, because six racing groups will not fit on the bar — but it opens **downward** now rather than flying out sideways, which retired `denMenuSide`, `denMenuContainerRef`, `moveDenTimeoutRef` and the two hover handlers that measured which side had room.
 
-**Only the actions that remove something clear the selection** ([#420](https://github.com/dknowles2/trusty-track/issues/420)). The desk works a queue: select everyone, Auto number, then Check In — and until now the first click cleared the selection along with everything else, so the second landed on nothing, silently, because the bar it would have used had just disappeared. Check In, Auto number and Move to den now leave `selectedRacerIds` standing after they succeed, so that sequence is one selection rather than two. Clear numbers and Delete still clear it — both remove data (numbers, or the rows themselves) rather than adding to it, so a selection surviving them is a chance to repeat a destructive action by mistake, not a convenience. The explicit **✕** is unaffected either way.
+**Only the actions that remove something clear the selection** ([#420](https://github.com/dknowles2/trusty-track/issues/420)). The desk works a queue: select everyone, Auto number, then Check In — and until now the first click cleared the selection along with everything else, so the second landed on nothing, silently, because the bar it would have used had just disappeared. Check In, Auto number and Move to racing group now leave `selectedRacerIds` standing after they succeed, so that sequence is one selection rather than two. Clear numbers and Delete still clear it — both remove data (numbers, or the rows themselves) rather than adding to it, so a selection surviving them is a chance to repeat a destructive action by mistake, not a convenience. The explicit **✕** is unaffected either way.
 
 ### The settings page is sectioned, except the first time
 
@@ -955,8 +955,8 @@ picker's current (unsaved) selection — so previewing "Match App theme" for
 Display/Printables shows *that* theme's own Display/Printables definition,
 not always Field Uniform's.
 
-**Per-device App theme, per-install Display and Printables.** `Group.
-display_theme` / `Group.printables_theme` are `varchar` columns, server
+**Per-device App theme, per-install Display and Printables.** `Organization.
+display_theme` / `Organization.printables_theme` are `varchar` columns, server
 default `'MATCH_APP'`, exposed on `initialConfig` and set through
 `updateInitialConfig` alongside the org name and PINs — the same reasoning as
 the Displays system already pushing view state from the operator's own list
@@ -1056,7 +1056,7 @@ Two rules there, both about what paper needs that a screen does not: a lane's th
 
 `backend/api/auth.py`. Three roles — `VIEWER` (the wall displays, no credential, **no mutations at all**), `CHECKIN` (the registration desk: racers, photos, check-in), `OPERATOR` (everything). Derived from who is physically in the room, not from an abstract permission model.
 
-**Off until a PIN is set.** An install with no `Group.operator_pin_hash` treats every caller as `OPERATOR`, which is exactly what every install did before #15. That is what lets this land without locking an operator out of their own event mid-season, and it is why the deferral's concern — nobody wants a login prompt on race morning — is met: the prompt exists only if they choose to set a PIN.
+**Off until a PIN is set.** An install with no `Organization.operator_pin_hash` treats every caller as `OPERATOR`, which is exactly what every install did before #15. That is what lets this land without locking an operator out of their own event mid-season, and it is why the deferral's concern — nobody wants a login prompt on race morning — is met: the prompt exists only if they choose to set a PIN.
 
 **One enforcement seam, not the two the design sketch proposed.** `RolePolicyExtension.resolve` checks `info.field_name` against `POLICY[role]` for any field whose parent is `Mutation`. The sketch's second layer (`allowed_operation_types` for `VIEWER`) is *not* here, for three measured reasons: `AsyncBaseHTTPView.execute_single` recomputes that set from the HTTP method, so overriding `execute_operation` — the seam the sketch names — misses the ordinary path; `VIEWER` holds an empty set so every mutation is refused anyway; and `resolve` fires on the **WebSocket** too, which closes the gap the sketch flagged (`graphql-ws` permits a mutation on the socket a subscription arrived on, and observation is almost all subscriptions).
 
@@ -1110,7 +1110,7 @@ Before `AuditExtension`, so a demo refusal is recorded like any other (#219's ru
 
 **Seeded from code, not from a baked-in archive.** The plan chose an archive so that reset could reuse `restore_archive`'s teardown; at boot there is nothing to tear down — that teardown exists because a restore replaces a *running* event. A committed binary would also be regenerated by hand and stale by default, where code is always at the current schema. The reset half is the other side of that: on Cloud Run scale-to-zero *is* the reset, and an always-on host would need a timer instead ([#297](https://github.com/dknowles2/trusty-track/issues/297)).
 
-**`is_seeded` asks whether a `Group` exists**, which is the question the first-run gate asks, so there is no marker column — #201 declined one for the practice race for the same reason. The consequence is deliberate: a demo container that somehow starts against a database holding somebody's real event seeds nothing on top of it.
+**`is_seeded` asks whether an `Organization` exists**, which is the question the first-run gate asks, so there is no marker column — #201 declined one for the practice race for the same reason. The consequence is deliberate: a demo container that somehow starts against a database holding somebody's real event seeds nothing on top of it.
 
 **A migration failure stops a demo and not an install.** `init_db()` raising has always been logged and stepped over, which is right for an operator — they can read the log and the app is still there. The demo has nobody to read it and ephemeral storage, so carrying on means serving an empty or half-migrated database to every visitor with nothing to say so.
 
@@ -1184,7 +1184,7 @@ Four rules, each of which is a way of getting it wrong:
 
 ### First-run gate
 
-`App.tsx` queries `initialConfig()`; if the system is unconfigured, all routes redirect to `/system-settings`, which creates the `Group` and `Track`.
+`App.tsx` queries `initialConfig()`; if the system is unconfigured, all routes redirect to `/system-settings`, which creates the `Organization` and `Track`.
 
 ---
 
@@ -1494,7 +1494,7 @@ They come from Playwright specs in `frontend/e2e/docs/`, each building its own d
 
 **Ask what a picture is *of*, not which page it is on.** Those last two are System Settings pictures filed in `docs/assets/screenshots/settings/`, and leaving them with the rest of that page cost a whole serial phase — the settings spec had to run alone for the two seconds its PIN existed. Moving them let `screenshot-settings.spec.ts` join the pool, which also meant giving it a **track of its own**: it takes a lane out of service, and six specs schedule races on the shared track, where two lanes instead of three is a wrong picture with no error behind it.
 
-**`e2e/docs/support.ts` is where the seeding lives** — `gql`, `ensureConfigured`, `seedRace`, `seedDens`, `seedRacers`, `runRoundWizard`, `readHeats`, `recordEveryHeat`, `raceToFinish`. Nine specs each carried a private copy of `gql` and of the first-run gate before it existed, which is why "seed through the API, drive the one screen under test with the browser" had to be re-derived by every new spec. Its `gql` defaults `T` to `any` rather than to `unknown`, which is the opposite of `e2e/functional/support.ts` and is deliberate: the functional specs reach GraphQL through typed helpers, where a docs spec builds its fixture out of raw one-off queries.
+**`e2e/docs/support.ts` is where the seeding lives** — `gql`, `ensureConfigured`, `seedRace`, `seedRacingGroups`, `seedRacers`, `runRoundWizard`, `readHeats`, `recordEveryHeat`, `raceToFinish`. Nine specs each carried a private copy of `gql` and of the first-run gate before it existed, which is why "seed through the API, drive the one screen under test with the browser" had to be re-derived by every new spec. Its `gql` defaults `T` to `any` rather than to `unknown`, which is the opposite of `e2e/functional/support.ts` and is deliberate: the functional specs reach GraphQL through typed helpers, where a docs spec builds its fixture out of raw one-off queries.
 
 **A spec whose pictures are about *track records* takes a track of its own** (`support.ownTrack`), and `screenshot-observation` and `screenshot-race-stats` both do. A record is the fastest car the **track** has ever seen across every race on it, so on the shared track the record board and the record-break banner would show whatever the other specs had raced — which under a parallel run is not even stable between runs. `docsTrackId` is for everything else: somewhere to race, with no view on records.
 
@@ -1523,7 +1523,7 @@ They write to `docs/assets/screenshots/`. That path was wrong in all three origi
 
 **The seed is opt-in and stays that way.** Left on in ordinary use, re-running a heat would report the identical time to three decimal places and a practice race would introduce the operator to the same thirty children every evening — which reads as the app being broken rather than as the data being invented. `domain/scheduling.generate_ppc` therefore takes an injectable `rng` and reads no environment; `crud._schedule_rng` does the I/O, which is the usual split.
 
-**A query feeding a seeded draw carries an `ORDER BY`, and a set is `sorted` first** ([#240](https://github.com/dknowles2/trusty-track/issues/240)). A seeded shuffle is only as repeatable as the order of what it shuffles, and a query without `ORDER BY` promises none — SQLite usually returns rowid order, which is why the seeding *measured* stable and then intermittently was not: same seed, same key, different field on the free-race screenshots. The failure mode is invisible in the code and unreproducible on demand, so the rule is structural: the free-race pool, the heat-generation roster and `get_dens`/`get_racers` are ordered by id, the championship field is `sorted(current_racers)`, and `test_seeded_draw_inputs.py` recomputes each draw from a hand-ordered copy of its input.
+**A query feeding a seeded draw carries an `ORDER BY`, and a set is `sorted` first** ([#240](https://github.com/dknowles2/trusty-track/issues/240)). A seeded shuffle is only as repeatable as the order of what it shuffles, and a query without `ORDER BY` promises none — SQLite usually returns rowid order, which is why the seeding *measured* stable and then intermittently was not: same seed, same key, different field on the free-race screenshots. The failure mode is invisible in the code and unreproducible on demand, so the rule is structural: the free-race pool, the heat-generation roster and `get_racing_groups`/`get_racers` are ordered by id, the championship field is `sorted(current_racers)`, and `test_seeded_draw_inputs.py` recomputes each draw from a hand-ordered copy of its input.
 
 **Every screenshot waits for the images and freezes the animation**, in the `page` fixture in `screenshots-setup.ts` rather than at seventy call sites. Both were being handled by sleeping — `waitForTimeout(500)` after opening a modal, `waitForTimeout(3000)` after populating a roster — and a sleep is a guess about a machine, too short on a loaded runner and always too long on a laptop. `animations: 'disabled'` fast-forwards a CSS transition to its end state, so a modal is photographed where it is going to settle. Note the fixture wraps *this spec's* page: a second tab the app opens (projector mode) needs the option passed by hand.
 

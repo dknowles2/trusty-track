@@ -13,7 +13,9 @@ from backend.db import crud, models, schemas
 @pytest.fixture
 def configured(db):
     """The state the first-run gate guarantees before any route works."""
-    group = crud.create_group(db, schemas.GroupCreate(name="Practice Pack"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Practice Pack")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(
@@ -34,7 +36,7 @@ class TestTheTrackItRunsOn:
         assert race.track_id == track.id
 
     def test_it_makes_one_when_every_track_is_real_hardware(self, db):
-        crud.create_group(db, schemas.GroupCreate(name="Hardware Pack"))
+        crud.create_organization(db, schemas.OrganizationCreate(name="Hardware Pack"))
         crud.create_track(
             db,
             schemas.TrackCreate(
@@ -53,7 +55,9 @@ class TestTheTrackItRunsOn:
     def test_it_never_puts_a_practice_race_on_real_hardware(self, db):
         """Arming a heat on a real timer sends a signal to a device in a room
         somebody may be standing in."""
-        crud.create_group(db, schemas.GroupCreate(name="Hardware Only Pack"))
+        crud.create_organization(
+            db, schemas.OrganizationCreate(name="Hardware Only Pack")
+        )
         crud.create_track(
             db,
             schemas.TrackCreate(
@@ -69,7 +73,7 @@ class TestTheTrackItRunsOn:
         assert track.timer_type == models.TimerType.FAKE
 
     def test_a_second_rehearsal_adds_no_further_track(self, db):
-        crud.create_group(db, schemas.GroupCreate(name="Twice Pack"))
+        crud.create_organization(db, schemas.OrganizationCreate(name="Twice Pack"))
         crud.create_track(
             db,
             schemas.TrackCreate(
@@ -110,8 +114,10 @@ class TestWhatItBuilds:
     def test_the_racers_are_in_dens(self, db):
         race = crud.create_practice_race(db)
 
-        assert crud.get_dens(db, race.id)
-        assert all(r.den_id is not None for r in crud.get_racers(db, race_id=race.id))
+        assert crud.get_racing_groups(db, race.id)
+        assert all(
+            r.racing_group_id is not None for r in crud.get_racers(db, race_id=race.id)
+        )
 
     def test_there_are_heats_to_run(self, db):
         """ "Ready to arm a heat" is the whole ask; a rehearsal that lands on an
@@ -126,7 +132,7 @@ class TestWhatItBuilds:
         race = crud.create_practice_race(db)
 
         rounds = crud.get_rounds(db, race.id)
-        assert [r.advancement_source for r in rounds] == [None, "PACK"]
+        assert [r.advancement_source for r in rounds] == [None, "ALL"]
 
     def test_the_final_is_scheduled_too(self, db):
         race = crud.create_practice_race(db)
@@ -170,7 +176,7 @@ class TestItsName:
             db,
             schemas.RaceCreate(
                 name=f"{crud.PRACTICE_RACE_NAME} for Pack 42",
-                group_id=group.id,
+                organization_id=group.id,
                 track_id=track.id,
             ),
         )

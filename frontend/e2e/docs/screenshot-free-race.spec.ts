@@ -13,7 +13,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ensureConfigured, gql, groupId } from './support';
+import { ensureConfigured, gql, organizationId } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/free-race');
@@ -33,7 +33,7 @@ test('screenshot free race', async ({ page }) => {
 
     await ensureConfigured(page);
 
-    const raceGroupId = await groupId(page);
+    const raceOrganizationId = await organizationId(page);
     // Its own track, created through the API so the backend spins up a timer
     // manager for it — that is what puts the fake timer mole on screen.
     const track = await gql(
@@ -53,7 +53,7 @@ test('screenshot free race', async ({ page }) => {
                 name: 'Pack 42 Free Race Night',
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
-                groupId: raceGroupId,
+                organizationId: raceOrganizationId,
                 trackId: track.createTrack.id,
                 scoringStrategy: 'TIMED',
                 carNumberingStrategy: 'MANUAL',

@@ -13,7 +13,7 @@ from backend.domain import lanes
 
 
 def _round(db: Session) -> models.Round:
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack 1"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack 1"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Track", lane_count=4, timer_type="FAKE")
     )
@@ -21,7 +21,7 @@ def _round(db: Session) -> models.Round:
         db,
         schemas.RaceCreate(
             name="Derby",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",

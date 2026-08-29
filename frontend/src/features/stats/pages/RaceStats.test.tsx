@@ -44,7 +44,7 @@ function statsPayload(overrides: object = {}) {
         laneStats: [],
         racerStats: [],
         highlights: [],
-        denStats: [],
+        racingGroupStats: [],
         heatResults: [],
         trackRecords: [],
         ...overrides,
@@ -144,11 +144,11 @@ describe('the race stats query', () => {
             'raceId', 'raceName', 'scoringStrategy',
             'totalHeatsScheduled', 'totalHeatsCompleted', 'totalRacers',
             'lane', 'avgTime', 'heatCount', 'relativeAdvantagePct',
-            'racerId', 'firstName', 'lastName', 'carNumber', 'denName',
+            'racerId', 'firstName', 'lastName', 'carNumber', 'racingGroupName',
             'heatsCompleted', 'minTime', 'maxTime', 'meanTime', 'stdDev',
             'type', 'roundName', 'heatNumber', 'globalHeatNumber', 'racerName',
             'time', 'margin',
-            'denId', 'denColor', 'racerCount', 'avgScore', 'bestRacerName',
+            'racingGroupId', 'racingGroupColor', 'racerCount', 'avgScore', 'bestRacerName',
             'racerFirstName', 'racerLastName', 'place',
             'timeSeconds', 'raceDate',
         ]) {
@@ -201,9 +201,9 @@ describe('loading, error and empty states', () => {
 
 describe('per-racer stats: sorting', () => {
     const racers = [
-        { racerId: 1, firstName: 'Ada', lastName: 'Lovelace', carNumber: 3, denName: 'Wolves', heatsCompleted: 4, heatsScheduled: 4, minTime: 3.1, maxTime: 3.9, meanTime: 3.5, stdDev: 0.3, timesPerLane: [] },
-        { racerId: 2, firstName: 'Bea', lastName: 'Swift', carNumber: 1, denName: 'Tigers', heatsCompleted: 4, heatsScheduled: 4, minTime: 2.8, maxTime: 3.2, meanTime: 3.0, stdDev: 0.15, timesPerLane: [] },
-        { racerId: 3, firstName: 'Cy', lastName: 'Quick', carNumber: 2, denName: 'Bears', heatsCompleted: 4, heatsScheduled: 4, minTime: 2.5, maxTime: 3.6, meanTime: 3.2, stdDev: 0.4, timesPerLane: [] },
+        { racerId: 1, firstName: 'Ada', lastName: 'Lovelace', carNumber: 3, racingGroupName: 'Wolves', heatsCompleted: 4, heatsScheduled: 4, minTime: 3.1, maxTime: 3.9, meanTime: 3.5, stdDev: 0.3, timesPerLane: [] },
+        { racerId: 2, firstName: 'Bea', lastName: 'Swift', carNumber: 1, racingGroupName: 'Tigers', heatsCompleted: 4, heatsScheduled: 4, minTime: 2.8, maxTime: 3.2, meanTime: 3.0, stdDev: 0.15, timesPerLane: [] },
+        { racerId: 3, firstName: 'Cy', lastName: 'Quick', carNumber: 2, racingGroupName: 'Bears', heatsCompleted: 4, heatsScheduled: 4, minTime: 2.5, maxTime: 3.6, meanTime: 3.2, stdDev: 0.4, timesPerLane: [] },
     ];
 
     // "Std Dev" is unique to this table — the lane-fairness table above it
@@ -292,7 +292,7 @@ describe('CSV exports', () => {
         const racerStats = [
             {
                 racerId: 1, firstName: 'Ada', lastName: 'Lovelace', carNumber: 3,
-                denName: 'Wolves', heatsCompleted: 4, heatsScheduled: 4,
+                racingGroupName: 'Wolves', heatsCompleted: 4, heatsScheduled: 4,
                 minTime: 3.1, maxTime: 3.9, meanTime: 3.5, stdDev: 0.3, timesPerLane: [],
             },
         ];
@@ -303,7 +303,7 @@ describe('CSV exports', () => {
         expect(downloadCsv).toHaveBeenCalledTimes(1);
         const [filename, rows] = (downloadCsv as any).mock.calls[0];
         expect(filename).toBe(filenameFor('This Derby', 'racer-stats'));
-        expect(rows[0]).toEqual(['Car #', 'First Name', 'Last Name', 'Den', 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev']);
+        expect(rows[0]).toEqual(['Car #', 'First Name', 'Last Name', 'Racing Group', 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev']);
         expect(rows[1]).toEqual([3, 'Ada', 'Lovelace', 'Wolves', 4, 3.1, 3.5, 3.9, 0.3]);
     });
 });
@@ -357,12 +357,12 @@ describe('highlights', () => {
     });
 });
 
-describe('den comparison', () => {
-    it('shows each den\'s racer count, average score and best racer', () => {
+describe('racingGroup comparison', () => {
+    it('shows each racingGroup\'s racer count, average score and best racer', () => {
         renderStats(statsPayload({
-            denStats: [
-                { denId: 1, denName: 'Wolves', denColor: '#ff0000', racerCount: 5, avgScore: 3.45, bestRacerName: 'Ada Lovelace' },
-                { denId: 2, denName: 'Tigers', denColor: '#00ff00', racerCount: 3, avgScore: null, bestRacerName: null },
+            racingGroupStats: [
+                { racingGroupId: 1, racingGroupName: 'Wolves', racingGroupColor: '#ff0000', racerCount: 5, avgScore: 3.45, bestRacerName: 'Ada Lovelace' },
+                { racingGroupId: 2, racingGroupName: 'Tigers', racingGroupColor: '#00ff00', racerCount: 3, avgScore: null, bestRacerName: null },
             ],
         }));
 
@@ -377,8 +377,8 @@ describe('den comparison', () => {
         expect(rows[2]).toHaveTextContent('—');
     });
 
-    it('is absent when the race has no dens', () => {
-        renderStats(statsPayload({ denStats: [] }));
-        expect(screen.queryByText('Den Comparison')).toBeNull();
+    it('is absent when the race has no racingGroups', () => {
+        renderStats(statsPayload({ racingGroupStats: [] }));
+        expect(screen.queryByText('Racing Group Comparison')).toBeNull();
     });
 });

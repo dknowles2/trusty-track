@@ -2,7 +2,7 @@
 Statistics computation functions for race results.
 
 This module provides functions to calculate per-racer stats, lane fairness,
-den comparisons, highlights, and exportable heat results for a race.
+racing group comparisons, highlights, and exportable heat results for a race.
 """
 
 import dataclasses
@@ -64,10 +64,12 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     rounds = db.query(models.Round).filter(models.Round.race_id == race_id).all()
     round_map = {r.id: r for r in rounds}
 
-    dens = db.query(models.Den).filter(models.Den.race_id == race_id).all()
+    racing_groups = (
+        db.query(models.RacingGroup).filter(models.RacingGroup.race_id == race_id).all()
+    )
     racers = db.query(models.Racer).filter(models.Racer.race_id == race_id).all()
     racer_map = {r.id: r for r in racers}
-    den_map = {d.id: d for d in dens}
+    racing_group_map = {d.id: d for d in racing_groups}
 
     track = (
         db.query(models.Track).filter(models.Track.id == race.track_id).first()
@@ -158,11 +160,11 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
         else str(race.scoring_strategy)
     )
 
-    # Computed once; `_den_id` is internal (see `_compute_racer_stats`) and is
-    # stripped from the public `racer_stats` list below, but `_compute_den_stats`
-    # still needs it.
+    # Computed once; `_racing_group_id` is internal (see `_compute_racer_stats`)
+    # and is stripped from the public `racer_stats` list below, but
+    # `_compute_racing_group_stats` still needs it.
     racer_stats = _compute_racer_stats(
-        all_results, racer_heat_counts, racer_map, den_map
+        all_results, racer_heat_counts, racer_map, racing_group_map
     )
 
     return {
@@ -174,10 +176,11 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
         "total_racers": len(racers),
         "lane_stats": _compute_lane_stats(all_results, lane_count),
         "racer_stats": [
-            {k: v for k, v in rs.items() if k != "_den_id"} for rs in racer_stats
+            {k: v for k, v in rs.items() if k != "_racing_group_id"}
+            for rs in racer_stats
         ],
         "highlights": _compute_highlights(heats_with_rounds, racer_map),
-        "den_stats": _compute_den_stats(racer_stats, dens),
+        "racing_group_stats": _compute_racing_group_stats(racer_stats, racing_groups),
         "heat_results": _compute_heat_results(heats_with_rounds, racer_map),
         # The record belongs to the track, not the race: every race ever run
         # on it competes. A race with no track has nothing to hold a record.
@@ -244,13 +247,13 @@ def _compute_racer_stats(
     all_results: list,
     racer_heat_counts: dict,
     racer_map: dict,
-    den_map: dict,
+    racing_group_map: dict,
 ) -> list:
     """
     Compute per-racer statistics.
 
     Includes min/mean/max/std_dev of non-DNF times, plus per-lane breakdowns.
-    Internal dicts carry _den_id for use by _compute_den_stats.
+    Internal dicts carry _racing_group_id for use by _compute_racing_group_stats.
     Sorted by mean_time ascending (None last).
     """
     racer_times: dict[int, list[float]] = {}
@@ -284,8 +287,12 @@ def _compute_racer_stats(
         if not racer:
             continue
 
-        den = den_map.get(racer.den_id) if racer.den_id else None
-        den_name = den.name if den else "Unassigned"
+        racing_group = (
+            racing_group_map.get(racer.racing_group_id)
+            if racer.racing_group_id
+            else None
+        )
+        racing_group_name = racing_group.name if racing_group else "Unassigned"
 
         valid = [t for t in times if t < DNF_PENALTY]
         heats_completed = len(times)
@@ -317,8 +324,8 @@ def _compute_racer_stats(
                 "first_name": racer.first_name,
                 "last_name": racer.last_name,
                 "car_number": racer.car_number,
-                "den_name": den_name,
-                "_den_id": racer.den_id,
+                "racing_group_name": racing_group_name,
+                "_racing_group_id": racer.racing_group_id,
                 "heats_completed": heats_completed,
                 "heats_scheduled": racer_heat_counts.get(racer_id, 0),
                 "min_time": min_time,
@@ -412,26 +419,26 @@ def _compute_highlights(heats_with_rounds: list, racer_map: dict) -> list:
     return highlights
 
 
-def _compute_den_stats(racer_stats: list, dens: list) -> list:
+def _compute_racing_group_stats(racer_stats: list, racing_groups: list) -> list:
     """
-    Compute per-den aggregate statistics.
-    Groups racer_stats by _den_id. Sorted by avg_score ascending.
+    Compute per-racing-group aggregate statistics.
+    Groups racer_stats by _racing_group_id. Sorted by avg_score ascending.
     """
-    den_racers: dict[int, list] = {}
+    racing_group_racers: dict[int, list] = {}
     for rs in racer_stats:
-        den_id = rs.get("_den_id")
-        if den_id is None:
+        racing_group_id = rs.get("_racing_group_id")
+        if racing_group_id is None:
             continue
-        if den_id not in den_racers:
-            den_racers[den_id] = []
-        den_racers[den_id].append(rs)
+        if racing_group_id not in racing_group_racers:
+            racing_group_racers[racing_group_id] = []
+        racing_group_racers[racing_group_id].append(rs)
 
-    den_map = {d.id: d for d in dens}
+    racing_group_map = {d.id: d for d in racing_groups}
 
     stats = []
-    for den_id, rs_list in den_racers.items():
-        den = den_map.get(den_id)
-        if not den:
+    for racing_group_id, rs_list in racing_group_racers.items():
+        racing_group = racing_group_map.get(racing_group_id)
+        if not racing_group:
             continue
 
         valid_means = [rs["mean_time"] for rs in rs_list if rs["mean_time"] is not None]
@@ -447,9 +454,9 @@ def _compute_den_stats(racer_stats: list, dens: list) -> list:
 
         stats.append(
             {
-                "den_id": den_id,
-                "den_name": den.name,
-                "den_color": den.color,
+                "racing_group_id": racing_group_id,
+                "racing_group_name": racing_group.name,
+                "racing_group_color": racing_group.color,
                 "racer_count": len(rs_list),
                 "avg_score": avg_score,
                 "best_racer_name": best_racer_name,

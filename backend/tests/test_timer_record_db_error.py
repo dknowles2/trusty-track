@@ -52,7 +52,7 @@ def _setup(db: Session, label: str):
     crud.create_initial_config(
         db,
         schemas.InitialConfigCreate(
-            group_name=f"G{label}",
+            organization_name=f"G{label}",
             tracks=[
                 schemas.TrackCreate(
                     name=f"T{label}",
@@ -63,11 +63,17 @@ def _setup(db: Session, label: str):
             ],
         ),
     )
-    group = db.query(models.Group).filter(models.Group.name == f"G{label}").one()
+    group = (
+        db.query(models.Organization)
+        .filter(models.Organization.name == f"G{label}")
+        .one()
+    )
     track = db.query(models.Track).filter(models.Track.name == f"T{label}").one()
     crud.create_race(
         db,
-        schemas.RaceCreate(name=f"R{label}", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name=f"R{label}", organization_id=group.id, track_id=track.id
+        ),
     )
     race = db.query(models.Race).filter(models.Race.name == f"R{label}").one()
     for i in range(4):
@@ -204,7 +210,7 @@ async def test_a_locked_database_recording_a_free_heat_does_not_tear_down_the_li
     crud.create_initial_config(
         db,
         schemas.InitialConfigCreate(
-            group_name="Gfree342",
+            organization_name="Gfree342",
             tracks=[
                 schemas.TrackCreate(
                     name="Tfree342",
@@ -215,11 +221,17 @@ async def test_a_locked_database_recording_a_free_heat_does_not_tear_down_the_li
             ],
         ),
     )
-    group = db.query(models.Group).filter(models.Group.name == "Gfree342").one()
+    group = (
+        db.query(models.Organization)
+        .filter(models.Organization.name == "Gfree342")
+        .one()
+    )
     track = db.query(models.Track).filter(models.Track.name == "Tfree342").one()
     crud.create_race(
         db,
-        schemas.RaceCreate(name="Rfree342", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Rfree342", organization_id=group.id, track_id=track.id
+        ),
     )
     race = db.query(models.Race).filter(models.Race.name == "Rfree342").one()
     free = crud.create_free_race_heat(

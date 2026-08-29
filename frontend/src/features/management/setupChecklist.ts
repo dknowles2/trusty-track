@@ -3,7 +3,7 @@
  *
  * The operator is a parent volunteer who uses this app once a year. After the
  * first-run settings page they land on an empty roster, and the rest of the
- * path — dens, racers, check-in, a schedule — was discoverable only by opening
+ * path — racing groups, racers, check-in, a schedule — was discoverable only by opening
  * screens to see what was on them, or by reading the getting-started guide
  * under pressure on race morning.
  *
@@ -13,13 +13,13 @@
  */
 
 export interface SetupProgress {
-    denCount: number;
+    racingGroupCount: number;
     racerCount: number;
     checkedInCount: number;
     roundCount: number;
 }
 
-export type StepKey = 'dens' | 'racers' | 'checkin' | 'schedule';
+export type StepKey = 'racingGroups' | 'racers' | 'checkin' | 'schedule';
 
 export interface ChecklistStep {
     key: StepKey;
@@ -42,12 +42,12 @@ export interface ChecklistStep {
 /**
  * The four steps, and whether each is behind us.
  *
- * **Dens are optional, and that is the trap.** A pack that numbers cars some
- * other way never creates one, so a step that is done only when a den exists
+ * **Racing groups are optional, and that is the trap.** A pack that numbers cars some
+ * other way never creates one, so a step that is done only when a racing group exists
  * would sit unfinished for the whole event — and a checklist that cannot be
  * completed is noise the operator learns to ignore, taking the other three
- * steps with it. So the dens step is also satisfied by having a roster: adding
- * racers without dens is a decision, and the checklist should not argue with
+ * steps with it. So the racing groups step is also satisfied by having a roster: adding
+ * racers without racing groups is a decision, and the checklist should not argue with
  * it.
  *
  * **Check-in is done at the first racer, not the last.** Check-in runs all
@@ -57,15 +57,15 @@ export interface ChecklistStep {
  * after the step is ticked.
  */
 export function checklistFor(progress: SetupProgress): ChecklistStep[] {
-    const { denCount, racerCount, checkedInCount, roundCount } = progress;
+    const { racingGroupCount, racerCount, checkedInCount, roundCount } = progress;
 
     return [
         {
-            key: 'dens',
-            label: 'Set up dens',
-            hint: 'Group racers into dens so they can be scored and awarded separately.',
-            done: denCount > 0 || racerCount > 0,
-            action: 'Set up dens',
+            key: 'racingGroups',
+            label: 'Set up racing groups',
+            hint: 'Group racers into racing groups so they can be scored and awarded separately.',
+            done: racingGroupCount > 0 || racerCount > 0,
+            action: 'Set up racing groups',
         },
         {
             key: 'racers',

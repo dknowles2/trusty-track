@@ -22,9 +22,9 @@ def _full_results(db, heat_id: int, overrides: dict[int, dict]) -> list[dict]:
 
 
 def test_race_mutations_and_leaderboard(client, db):
-    # 1. Setup: Group and Track
-    group_in = schemas.GroupCreate(name="Race Mutation Group")
-    group = crud.create_group(db, group_in)
+    # 1. Setup: Organization and Track
+    group_in = schemas.OrganizationCreate(name="Race Mutation Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Mutation Track", lane_count=4)
     track = crud.create_track(db, track_in)
@@ -33,7 +33,7 @@ def test_race_mutations_and_leaderboard(client, db):
     mutation_create_race = f"""
     mutation {{
         createRace(race: {{
-            name: "Original Race", groupId: {group.id}, trackId: {track.id}
+            name: "Original Race", organizationId: {group.id}, trackId: {track.id}
         }}) {{
             id
             name
@@ -83,7 +83,7 @@ def test_race_mutations_and_leaderboard(client, db):
     mutation {{
         createRoundWizard(raceId: {race_id}, config: {{
             generalRound: {{
-                type: "PACK",
+                type: "ALL",
                 runsPerLane: 1
             }},
             championshipRounds: []
@@ -160,21 +160,23 @@ def test_race_mutations_and_leaderboard(client, db):
 
 
 def test_leaderboard_den_rank(client, db):
-    """A den's rank rides along on the leaderboard as `denRank` (#298).
+    """A racing group's rank rides along on the leaderboard as `racingGroupRank` (#298).
 
     Named to avoid colliding with the standings' own `rank` field, which is a
-    racer's finishing position rather than their den's Cub Scout rank.
+    racer's finishing position rather than their racing group's Cub Scout rank.
     """
-    group_in = schemas.GroupCreate(name="Den Rank Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="RacingGroup Rank Organization")
+    group = crud.create_organization(db, group_in)
 
-    track_in = schemas.TrackCreate(name="Den Rank Track", lane_count=4)
+    track_in = schemas.TrackCreate(name="RacingGroup Rank Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
     mutation_create_race = f"""
     mutation {{
         createRace(race: {{
-            name: "Den Rank Race", groupId: {group.id}, trackId: {track.id}
+            name: "RacingGroup Rank Race"
+            organizationId: {group.id}
+            trackId: {track.id}
         }}) {{ id }}
     }}
     """
@@ -184,21 +186,24 @@ def test_leaderboard_den_rank(client, db):
 
     mutation_create_den = f"""
     mutation {{
-        createDen(raceId: {race_id}, den: {{ name: "Wolves", rank: "WOLF" }}) {{
+        createRacingGroup(
+            raceId: {race_id}
+            racingGroup: {{ name: "Wolves", rank: "WOLF" }}
+        ) {{
             id
         }}
     }}
     """
-    den_id = client.post("/graphql", json={"query": mutation_create_den}).json()[
-        "data"
-    ]["createDen"]["id"]
+    racing_group_id = client.post(
+        "/graphql", json={"query": mutation_create_den}
+    ).json()["data"]["createRacingGroup"]["id"]
 
     mutation_create_racer = f"""
     mutation {{
         createRacer(racer: {{
             firstName: "Ranked",
             lastName: "Racer",
-            denId: {den_id},
+            racingGroupId: {racing_group_id},
             raceId: {race_id},
             carPassedInspection: true
         }}) {{ id }}
@@ -225,7 +230,7 @@ def test_leaderboard_den_rank(client, db):
     mutation_wizard = f"""
     mutation {{
         createRoundWizard(raceId: {race_id}, config: {{
-            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            generalRound: {{ type: "ALL", runsPerLane: 1 }},
             championshipRounds: []
         }}) {{ id }}
     }}
@@ -256,8 +261,8 @@ def test_leaderboard_den_rank(client, db):
         race(raceId: {race_id}) {{
             leaderboard {{
                 racerId
-                denName
-                denRank
+                racingGroupName
+                racingGroupRank
             }}
         }}
     }}
@@ -268,26 +273,28 @@ def test_leaderboard_den_rank(client, db):
     assert len(lb) == 2
 
     ranked = next(r for r in lb if r["racerId"] == racer_id)
-    assert ranked["denName"] == "Wolves"
-    assert ranked["denRank"] == "WOLF"
+    assert ranked["racingGroupName"] == "Wolves"
+    assert ranked["racingGroupRank"] == "WOLF"
 
     unranked = next(r for r in lb if r["racerId"] == unranked_racer_id)
-    assert unranked["denName"] == "Unknown"
-    assert unranked["denRank"] is None
+    assert unranked["racingGroupName"] == "Unknown"
+    assert unranked["racingGroupRank"] is None
 
 
 def test_bulk_move_to_den_null(client, db):
     # Setup
-    group_in = schemas.GroupCreate(name="Bulk Den Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Bulk RacingGroup Organization")
+    group = crud.create_organization(db, group_in)
 
-    track_in = schemas.TrackCreate(name="Bulk Den Track", lane_count=4)
+    track_in = schemas.TrackCreate(name="Bulk RacingGroup Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
     mutation_create_race = f"""
     mutation {{
         createRace(race: {{
-            name: "Bulk Den Race", groupId: {group.id}, trackId: {track.id}
+            name: "Bulk RacingGroup Race"
+            organizationId: {group.id}
+            trackId: {track.id}
         }}) {{
             id
         }}
@@ -297,23 +304,23 @@ def test_bulk_move_to_den_null(client, db):
         "data"
     ]["createRace"]["id"]
 
-    # Create Den
+    # Create RacingGroup
     mutation_create_den = f"""
     mutation {{
-        createDen(raceId: {race_id}, den: {{ name: "Lions" }}) {{ id }}
+        createRacingGroup(raceId: {race_id}, racingGroup: {{ name: "Lions" }}) {{ id }}
     }}
     """
-    den_id = client.post("/graphql", json={"query": mutation_create_den}).json()[
-        "data"
-    ]["createDen"]["id"]
+    racing_group_id = client.post(
+        "/graphql", json={"query": mutation_create_den}
+    ).json()["data"]["createRacingGroup"]["id"]
 
-    # Create Racer in Den
+    # Create Racer in RacingGroup
     mutation_create_racer = f"""
     mutation {{
         createRacer(racer: {{
-            firstName: "Den",
+            firstName: "RacingGroup",
             lastName: "Racer",
-            denId: {den_id},
+            racingGroupId: {racing_group_id},
             raceId: {race_id}
         }}) {{ id }}
     }}
@@ -326,19 +333,19 @@ def test_bulk_move_to_den_null(client, db):
     # GraphQL null is null, no quotes
     mutation_move_null = f"""
     mutation {{
-        bulkMoveToDen(racerIds: [{racer_id}], denId: null)
+        bulkMoveToRacingGroup(racerIds: [{racer_id}], racingGroupId: null)
     }}
     """
     response = client.post("/graphql", json={"query": mutation_move_null})
-    assert response.json()["data"]["bulkMoveToDen"] is True
+    assert response.json()["data"]["bulkMoveToRacingGroup"] is True
 
     # Verify unassigned
     query_racer = f"""
     query {{
         racer(racerId: {racer_id}) {{
-            denId
+            racingGroupId
         }}
     }}
     """
     response = client.post("/graphql", json={"query": query_racer})
-    assert response.json()["data"]["racer"]["denId"] is None
+    assert response.json()["data"]["racer"]["racingGroupId"] is None

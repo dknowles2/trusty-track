@@ -11,7 +11,7 @@ import {
     racersToPrint,
     sheetCount,
     specFor,
-    type PrintableDen,
+    type PrintableRacingGroup,
     type PrintableRace,
     type PrintableRacer,
 } from '../documents';
@@ -28,7 +28,7 @@ interface GQLRacer {
     lastName: string;
     carNumber?: number | string;
     carName?: string;
-    denId?: number;
+    racingGroupId?: number;
     racerImageUrl?: string;
 }
 
@@ -63,7 +63,7 @@ export default function Printables() {
           }
         : null;
 
-    const dens: PrintableDen[] = useMemo(() => data?.race?.dens ?? [], [data]);
+    const racingGroups: PrintableRacingGroup[] = useMemo(() => data?.race?.racingGroups ?? [], [data]);
 
     const cards: PrintableRacer[] = useMemo(() => {
         const racers: PrintableRacer[] = (data?.race?.racers ?? []).map((r: GQLRacer) => ({
@@ -72,7 +72,7 @@ export default function Printables() {
             last_name: r.lastName,
             car_number: r.carNumber,
             car_name: r.carName,
-            den_id: r.denId,
+            racing_group_id: r.racingGroupId,
             racer_image_url: r.racerImageUrl,
         }));
         return racersToPrint(racers, parseIds(searchParams.get('racers')));
@@ -159,14 +159,14 @@ export default function Printables() {
                     }
                 >
                     {cards.map((racer) => {
-                        const den = dens.find((d) => d.id === racer.den_id);
+                        const racingGroup = racingGroups.find((d) => d.id === racer.racing_group_id);
                         if (spec.kind === 'pit-pass') {
                             return (
                                 <PitPass
                                     key={racer.id}
                                     racer={racer}
                                     race={race}
-                                    den={den}
+                                    racingGroup={racingGroup}
                                 />
                             );
                         }
@@ -176,7 +176,7 @@ export default function Printables() {
                                     key={racer.id}
                                     racer={racer}
                                     race={race}
-                                    den={den}
+                                    racingGroup={racingGroup}
                                 />
                             );
                         }

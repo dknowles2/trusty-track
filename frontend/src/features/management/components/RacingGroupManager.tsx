@@ -1,21 +1,21 @@
 import { useState } from 'react';
-import { Den } from './RacerForm';
+import { RacingGroup } from './RacerForm';
 import { COMMON_COLORS } from '../../../utils/colors';
 import { useAlert } from '../../../context/AlertContext';
 import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
-import { CREATE_DEN, UPDATE_DEN, DELETE_DEN, GET_RACE_DETAILS } from '../graphql/queries';
+import { CREATE_RACING_GROUP, UPDATE_RACING_GROUP, DELETE_RACING_GROUP, GET_RACE_DETAILS } from '../graphql/queries';
 import { RANKS, rankLabel } from '../rankText';
 
-const DEN_COLORS = COMMON_COLORS;
+const RACING_GROUP_COLORS = COMMON_COLORS;
 
-interface DenManagerProps {
+interface RacingGroupManagerProps {
     raceId: number;
     onUpdate: () => void;
 }
 
-export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
+export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupManagerProps) {
     const { showAlert, showConfirm } = useAlert();
 
     const [{ data }, reexecuteQuery] = useQuery({
@@ -23,7 +23,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
         variables: { raceId }
     });
 
-    const dens: Den[] = (data?.race?.dens || []).map((d: {
+    const racingGroups: RacingGroup[] = (data?.race?.racingGroups || []).map((d: {
         id: number;
         name: string;
         color: string;
@@ -39,132 +39,132 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
         car_number_range_end: d.carNumberRangeEnd
     }));
 
-    const [, createDenMutation] = useMutation(CREATE_DEN);
-    const [, updateDenMutation] = useMutation(UPDATE_DEN);
-    const [, deleteDenMutation] = useMutation(DELETE_DEN);
+    const [, createRacingGroupMutation] = useMutation(CREATE_RACING_GROUP);
+    const [, updateRacingGroupMutation] = useMutation(UPDATE_RACING_GROUP);
+    const [, deleteRacingGroupMutation] = useMutation(DELETE_RACING_GROUP);
 
     const [loading, setLoading] = useState(false);
 
-    // New Den Form
-    const [isAddingDen, setIsAddingDen] = useState(false);
-    const [newDenName, setNewDenName] = useState('');
-    const [newDenColor, setNewDenColor] = useState(DEN_COLORS[0]);
-    const [newDenRank, setNewDenRank] = useState<string | undefined>(undefined);
-    const [newDenStart, setNewDenStart] = useState<number | undefined>(undefined);
-    const [newDenEnd, setNewDenEnd] = useState<number | undefined>(undefined);
+    // New Racing Group Form
+    const [isAddingRacingGroup, setIsAddingRacingGroup] = useState(false);
+    const [newRacingGroupName, setNewRacingGroupName] = useState('');
+    const [newRacingGroupColor, setNewRacingGroupColor] = useState(RACING_GROUP_COLORS[0]);
+    const [newRacingGroupRank, setNewRacingGroupRank] = useState<string | undefined>(undefined);
+    const [newRacingGroupStart, setNewRacingGroupStart] = useState<number | undefined>(undefined);
+    const [newRacingGroupEnd, setNewRacingGroupEnd] = useState<number | undefined>(undefined);
 
-    // Edit Den State
-    const [editingDenId, setEditingDenId] = useState<number | null>(null);
-    const [editDenName, setEditDenName] = useState('');
-    const [editDenColor, setEditDenColor] = useState(DEN_COLORS[0]);
-    const [editDenRank, setEditDenRank] = useState<string | undefined>(undefined);
-    const [editDenStart, setEditDenStart] = useState<number | undefined>(undefined);
-    const [editDenEnd, setEditDenEnd] = useState<number | undefined>(undefined);
+    // Edit Racing Group State
+    const [editingRacingGroupId, setEditingRacingGroupId] = useState<number | null>(null);
+    const [editRacingGroupName, setEditRacingGroupName] = useState('');
+    const [editRacingGroupColor, setEditRacingGroupColor] = useState(RACING_GROUP_COLORS[0]);
+    const [editRacingGroupRank, setEditRacingGroupRank] = useState<string | undefined>(undefined);
+    const [editRacingGroupStart, setEditRacingGroupStart] = useState<number | undefined>(undefined);
+    const [editRacingGroupEnd, setEditRacingGroupEnd] = useState<number | undefined>(undefined);
 
-    const refreshDens = () => {
+    const refreshRacingGroups = () => {
         reexecuteQuery({ requestPolicy: 'network-only' });
         onUpdate();
     };
 
-    const handleAddDen = async (e: React.FormEvent) => {
+    const handleAddRacingGroup = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const result = await createDenMutation({
+            const result = await createRacingGroupMutation({
                 raceId,
-                den: {
-                    name: newDenName,
-                    color: newDenColor,
-                    rank: newDenRank,
-                    carNumberRangeStart: newDenStart,
-                    carNumberRangeEnd: newDenEnd
+                racingGroup: {
+                    name: newRacingGroupName,
+                    color: newRacingGroupColor,
+                    rank: newRacingGroupRank,
+                    carNumberRangeStart: newRacingGroupStart,
+                    carNumberRangeEnd: newRacingGroupEnd
                 }
             });
             if (result.error) throw result.error;
 
-            setNewDenName('');
-            setNewDenColor(DEN_COLORS[0]);
-            setNewDenRank(undefined);
-            setNewDenStart(undefined);
-            setNewDenEnd(undefined);
-            setIsAddingDen(false);
-            refreshDens();
+            setNewRacingGroupName('');
+            setNewRacingGroupColor(RACING_GROUP_COLORS[0]);
+            setNewRacingGroupRank(undefined);
+            setNewRacingGroupStart(undefined);
+            setNewRacingGroupEnd(undefined);
+            setIsAddingRacingGroup(false);
+            refreshRacingGroups();
         } catch (e) {
-            console.error("Failed to add den", e);
-            showAlert("Failed to add den", "Error");
+            console.error("Failed to add racing group", e);
+            showAlert("Failed to add racing group", "Error");
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDeleteDen = async (denId: number) => {
-        const confirmed = await showConfirm("Are you sure? Racers in this den will be unassigned.", "Delete Den");
+    const handleDeleteRacingGroup = async (racingGroupId: number) => {
+        const confirmed = await showConfirm("Are you sure? Racers in this racing group will be unassigned.", "Delete Racing Group");
         if (!confirmed) return;
 
         try {
-            const result = await deleteDenMutation({ id: denId });
+            const result = await deleteRacingGroupMutation({ id: racingGroupId });
             if (result.error) throw result.error;
-            if (!result.data?.deleteDen) {
+            if (!result.data?.deleteRacingGroup) {
                 showAlert(
-                    "This den can't be deleted while a round is scoped to it. Remove or reassign that round first.",
+                    "This racing group can't be deleted while a round is scoped to it. Remove or reassign that round first.",
                     "Error"
                 );
                 return;
             }
-            refreshDens();
+            refreshRacingGroups();
         } catch (e) {
-            console.error("Failed to delete den", e);
-            showAlert("Failed to delete den", "Error");
+            console.error("Failed to delete racing group", e);
+            showAlert("Failed to delete racing group", "Error");
         }
     };
 
-    const handleEditDenClick = (den: Den) => {
-        setEditingDenId(den.id);
-        setEditDenName(den.name);
-        setEditDenColor(den.color);
-        setEditDenRank(den.rank);
-        setEditDenStart(den.car_number_range_start);
-        setEditDenEnd(den.car_number_range_end);
+    const handleEditRacingGroupClick = (racingGroup: RacingGroup) => {
+        setEditingRacingGroupId(racingGroup.id);
+        setEditRacingGroupName(racingGroup.name);
+        setEditRacingGroupColor(racingGroup.color);
+        setEditRacingGroupRank(racingGroup.rank);
+        setEditRacingGroupStart(racingGroup.car_number_range_start);
+        setEditRacingGroupEnd(racingGroup.car_number_range_end);
     };
 
-    const handleUpdateDen = async (e: React.FormEvent) => {
+    const handleUpdateRacingGroup = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            const result = await updateDenMutation({
-                id: editingDenId,
-                den: {
-                    name: editDenName,
-                    color: editDenColor,
-                    rank: editDenRank,
-                    carNumberRangeStart: editDenStart,
-                    carNumberRangeEnd: editDenEnd
+            const result = await updateRacingGroupMutation({
+                id: editingRacingGroupId,
+                racingGroup: {
+                    name: editRacingGroupName,
+                    color: editRacingGroupColor,
+                    rank: editRacingGroupRank,
+                    carNumberRangeStart: editRacingGroupStart,
+                    carNumberRangeEnd: editRacingGroupEnd
                 }
             });
             if (result.error) throw result.error;
 
-            setEditingDenId(null);
-            refreshDens();
+            setEditingRacingGroupId(null);
+            refreshRacingGroups();
         } catch (e) {
-            console.error("Failed to update den", e);
-            showAlert("Failed to update den", "Error");
+            console.error("Failed to update racing group", e);
+            showAlert("Failed to update racing group", "Error");
         } finally {
             setLoading(false);
         }
     };
 
     const handleCancelEdit = () => {
-        setEditingDenId(null);
+        setEditingRacingGroupId(null);
     };
 
-    const getSuggestedRange = (dens: Den[]) => {
-        if (dens.length === 0) {
+    const getSuggestedRange = (racingGroups: RacingGroup[]) => {
+        if (racingGroups.length === 0) {
             return { start: 100, end: 199 };
         }
 
         // Find the maximum end number
         let maxEnd = 0;
-        dens.forEach(d => {
+        racingGroups.forEach(d => {
             if (d.car_number_range_end && d.car_number_range_end > maxEnd) {
                 maxEnd = d.car_number_range_end;
             }
@@ -186,36 +186,36 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
         return { start: nextStart, end: nextStart + 99 };
     };
 
-    const handleAddDenClick = () => {
-        const { start, end } = getSuggestedRange(dens);
-        setNewDenStart(start);
-        setNewDenEnd(end);
-        setIsAddingDen(true);
+    const handleAddRacingGroupClick = () => {
+        const { start, end } = getSuggestedRange(racingGroups);
+        setNewRacingGroupStart(start);
+        setNewRacingGroupEnd(end);
+        setIsAddingRacingGroup(true);
     };
 
-    const visibleDens = editingDenId ? dens.filter(d => d.id === editingDenId) : dens;
+    const visibleRacingGroups = editingRacingGroupId ? racingGroups.filter(d => d.id === editingRacingGroupId) : racingGroups;
 
     return (
         <div>
-            {/* Add New Den */}
-            {!editingDenId && (
-                !isAddingDen ? (
+            {/* Add New Racing Group */}
+            {!editingRacingGroupId && (
+                !isAddingRacingGroup ? (
                     <button
-                    onClick={handleAddDenClick}
+                    onClick={handleAddRacingGroupClick}
                     className="secondary-btn"
                     style={{ width: '100%', marginBottom: '20px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                    <Icon path={mdiPlus} size={0.8} /> Add New Den
+                    <Icon path={mdiPlus} size={0.8} /> Add New Racing Group
                     </button>
             ) : (
-                <form onSubmit={handleAddDen} style={{ marginBottom: '20px', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', border: '1px solid var(--divider-color)' }}>
-                    <h4 style={{ marginTop: 0 }}>Add New Den</h4>
+                <form onSubmit={handleAddRacingGroup} style={{ marginBottom: '20px', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', border: '1px solid var(--divider-color)' }}>
+                    <h4 style={{ marginTop: 0 }}>Add New Racing Group</h4>
                     <div style={{ marginBottom: '10px' }}>
                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Name</label>
                             <input
                                 type="text"
-                                value={newDenName}
-                                onChange={e => setNewDenName(e.target.value)}
+                                value={newRacingGroupName}
+                                onChange={e => setNewRacingGroupName(e.target.value)}
                                 required
                                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                             />
@@ -226,8 +226,8 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                              <input
                                 type="number"
                                 placeholder="e.g. 100"
-                                value={newDenStart || ''}
-                                onChange={e => setNewDenStart(e.target.value ? parseInt(e.target.value) : undefined)}
+                                value={newRacingGroupStart || ''}
+                                onChange={e => setNewRacingGroupStart(e.target.value ? parseInt(e.target.value) : undefined)}
                                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                             />
                         </div>
@@ -236,8 +236,8 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                              <input
                                 type="number"
                                 placeholder="e.g. 199"
-                                value={newDenEnd || ''}
-                                onChange={e => setNewDenEnd(e.target.value ? parseInt(e.target.value) : undefined)}
+                                value={newRacingGroupEnd || ''}
+                                onChange={e => setNewRacingGroupEnd(e.target.value ? parseInt(e.target.value) : undefined)}
                                 style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                             />
                         </div>
@@ -245,18 +245,18 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                     <div style={{ marginBottom: '10px' }}>
                         <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '5px' }}>Color</label>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            {DEN_COLORS.map(color => (
+                            {RACING_GROUP_COLORS.map(color => (
                                 <button
                                     key={color}
                                     type="button"
-                                    onClick={() => setNewDenColor(color)}
+                                    onClick={() => setNewRacingGroupColor(color)}
                                     style={{
                                         width: '24px',
                                         height: '24px',
                                         borderRadius: '50%',
                                         backgroundColor: color,
-                                        border: newDenColor === color ? '2px solid var(--on-primary-color)' : '1px solid transparent',
-                                        boxShadow: newDenColor === color ? '0 0 0 2px var(--text-color)' : 'none',
+                                        border: newRacingGroupColor === color ? '2px solid var(--on-primary-color)' : '1px solid transparent',
+                                        boxShadow: newRacingGroupColor === color ? '0 0 0 2px var(--text-color)' : 'none',
                                         cursor: 'pointer',
                                         padding: 0
                                     }}
@@ -267,8 +267,8 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                     <div style={{ marginBottom: '10px' }}>
                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Rank (optional)</label>
                             <select
-                            value={newDenRank || ''}
-                            onChange={e => setNewDenRank(e.target.value || undefined)}
+                            value={newRacingGroupRank || ''}
+                            onChange={e => setNewRacingGroupRank(e.target.value || undefined)}
                             style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                         >
                             <option value="">None</option>
@@ -281,9 +281,9 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                             <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
-                            {loading ? 'Adding...' : 'Add Den'}
+                            {loading ? 'Adding...' : 'Add Racing Group'}
                         </button>
-                        <button type="button" onClick={() => setIsAddingDen(false)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>
+                        <button type="button" onClick={() => setIsAddingRacingGroup(false)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>
                             Cancel
                         </button>
                     </div>
@@ -291,43 +291,43 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                 )
             )}
 
-            {/* List Dens */}
-            {!isAddingDen && (
+            {/* List RacingGroups */}
+            {!isAddingRacingGroup && (
             <ul style={{ listStyle: 'none', padding: 0 }}>
-                {visibleDens.map(den => (
-                    <li key={den.id} style={{ padding: '10px', borderBottom: '1px solid var(--divider-color)' }}>
-                        {editingDenId === den.id ? (
-                            <form onSubmit={handleUpdateDen} style={{ display: 'grid', gap: '10px' }}>
+                {visibleRacingGroups.map(racingGroup => (
+                    <li key={racingGroup.id} style={{ padding: '10px', borderBottom: '1px solid var(--divider-color)' }}>
+                        {editingRacingGroupId === racingGroup.id ? (
+                            <form onSubmit={handleUpdateRacingGroup} style={{ display: 'grid', gap: '10px' }}>
 
                                     <div>
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Name</label>
-                                        <input type="text" value={editDenName} onChange={e => setEditDenName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} required />
+                                        <input type="text" value={editRacingGroupName} onChange={e => setEditRacingGroupName(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} required />
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
                                         <div>
                                             <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Start #</label>
-                                            <input type="number" value={editDenStart || ''} onChange={e => setEditDenStart(e.target.value ? parseInt(e.target.value) : undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                                            <input type="number" value={editRacingGroupStart || ''} onChange={e => setEditRacingGroupStart(e.target.value ? parseInt(e.target.value) : undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
                                         </div>
                                         <div>
                                             <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>End #</label>
-                                            <input type="number" value={editDenEnd || ''} onChange={e => setEditDenEnd(e.target.value ? parseInt(e.target.value) : undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
+                                            <input type="number" value={editRacingGroupEnd || ''} onChange={e => setEditRacingGroupEnd(e.target.value ? parseInt(e.target.value) : undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
                                         </div>
                                     </div>
                                     <div>
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '5px' }}>Color</label>
                                         <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                                            {DEN_COLORS.map(color => (
+                                            {RACING_GROUP_COLORS.map(color => (
                                                 <button
                                                     key={color}
                                                     type="button"
-                                                    onClick={() => setEditDenColor(color)}
+                                                    onClick={() => setEditRacingGroupColor(color)}
                                                     style={{
                                                         width: '20px',
                                                         height: '20px',
                                                         borderRadius: '50%',
                                                         backgroundColor: color,
-                                                        border: editDenColor === color ? '2px solid var(--on-primary-color)' : '1px solid transparent',
-                                                        boxShadow: editDenColor === color ? '0 0 0 1px var(--text-color)' : 'none',
+                                                        border: editRacingGroupColor === color ? '2px solid var(--on-primary-color)' : '1px solid transparent',
+                                                        boxShadow: editRacingGroupColor === color ? '0 0 0 1px var(--text-color)' : 'none',
                                                         cursor: 'pointer',
                                                         padding: 0
                                                     }}
@@ -338,7 +338,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
 
                                 <div>
                                         <label style={{ fontSize: '0.8rem', display: 'block', marginBottom: '2px' }}>Rank</label>
-                                        <select value={editDenRank || ''} onChange={e => setEditDenRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                                        <select value={editRacingGroupRank || ''} onChange={e => setEditRacingGroupRank(e.target.value || undefined)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
                                     <option value="">None</option>
                                     {RANKS.map((rank) => (
                                         <option key={rank.value} value={rank.value}>
@@ -360,31 +360,31 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                         ) : (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: den.color, border: '1px solid var(--border-color)' }}></div>
-                                    <b>{den.name}</b>
+                                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: racingGroup.color, border: '1px solid var(--border-color)' }}></div>
+                                    <b>{racingGroup.name}</b>
                                     {/* The rank as a pack says it. This showed
-                                        the stored value, so a den of Arrow of
+                                        the stored value, so a racingGroup of Arrow of
                                         Light scouts was labelled
                                         "(ARROW_OF_LIGHT)". */}
-                                    {den.rank && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>({rankLabel(den.rank)})</span>}
-                                    {(den.car_number_range_start || den.car_number_range_end) && (
+                                    {racingGroup.rank && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>({rankLabel(racingGroup.rank)})</span>}
+                                    {(racingGroup.car_number_range_start || racingGroup.car_number_range_end) && (
                                         <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--divider-color)', padding: '2px 6px', borderRadius: '4px' }}>
-                                            #{den.car_number_range_start || '?'}-{den.car_number_range_end || '?'}
+                                            #{racingGroup.car_number_range_start || '?'}-{racingGroup.car_number_range_end || '?'}
                                         </span>
                                     )}
                                 </div>
                                 <div>
                                     <button
-                                        onClick={() => handleEditDenClick(den)}
+                                        onClick={() => handleEditRacingGroupClick(racingGroup)}
                                         style={{ marginRight: '10px', background: 'none', border: 'none', color: 'var(--link-color)', cursor: 'pointer', padding: '4px' }}
-                                        title="Edit Den"
+                                        title="Edit Racing Group"
                                     >
                                         <Icon path={mdiPencil} size={0.7} />
                                     </button>
                                     <button
-                                        onClick={() => handleDeleteDen(den.id)}
+                                        onClick={() => handleDeleteRacingGroup(racingGroup.id)}
                                         style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-                                        title="Delete Den"
+                                        title="Delete Racing Group"
                                     >
                                         <Icon path={mdiDelete} size={0.7} />
                                     </button>
@@ -393,7 +393,7 @@ export default function DenManager({ raceId, onUpdate }: DenManagerProps) {
                         )}
                     </li>
                 ))}
-                {visibleDens.length === 0 && <li style={{ padding: '10px', color: 'var(--text-faint-color)', textAlign: 'center' }}>No dens found.</li>}
+                {visibleRacingGroups.length === 0 && <li style={{ padding: '10px', color: 'var(--text-faint-color)', textAlign: 'center' }}>No racing groups found.</li>}
             </ul>
             )}
         </div>

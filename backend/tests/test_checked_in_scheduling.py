@@ -4,14 +4,14 @@ from backend.db import crud, schemas
 
 
 def create_test_race(db):
-    group_in = schemas.GroupCreate(name="Check-in Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Check-in Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Check-in Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
     race_in = schemas.RaceCreate(
-        name="Check-in Race", group_id=group.id, track_id=track.id
+        name="Check-in Race", organization_id=group.id, track_id=track.id
     )
     race = crud.create_race(db, race_in)
     return race.id
@@ -62,7 +62,7 @@ def test_generate_schedule_only_checked_in(client, db):
             name: "R1",
             schedulingStrategy: "PPC",
             runsPerLane: 1,
-            generalType: "PACK"
+            generalType: "ALL"
         }}) {{
             id
             heats {{
@@ -135,7 +135,7 @@ def test_generate_schedule_multiple_checked_in(client, db):
             name: "R1",
             schedulingStrategy: "PPC",
             runsPerLane: 1,
-            generalType: "PACK"
+            generalType: "ALL"
         }}) {{
             id
             heats {{

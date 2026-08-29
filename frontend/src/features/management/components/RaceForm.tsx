@@ -6,7 +6,7 @@ export interface RaceFormData {
     name: string;
     date_time: string;
     location: string;
-    group_id?: number;
+    organization_id?: number;
     // Optional because a race need not name a track, and because the form
     // itself supplies one when it does not. Declaring it required meant a
     // missing value had to be smuggled through as `undefined` anyway, which is
@@ -37,7 +37,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         name: '',
         date_time: '',
         location: '',
-        group_id: 1, // Default
+        organization_id: 1, // Default
         track_id: 0,
         scoring_strategy: 'TIMED',
         car_numbering_strategy: 'GLOBAL',
@@ -254,7 +254,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     style={inputStyle}
                 >
                     <option value="MANUAL">Manual</option>
-                    <option value="PER_GROUP">Per Den</option>
+                    <option value="PER_GROUP">Per Racing Group</option>
                     <option value="GLOBAL">Global</option>
                 </select>
             </div>

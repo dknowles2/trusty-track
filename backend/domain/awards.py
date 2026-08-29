@@ -33,7 +33,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from backend.domain.advancement import (
-    PACK,
+    ALL,
     ROUND_PREFIX,
     Standing,
     is_round_scoped,
@@ -42,7 +42,7 @@ from backend.domain.advancement import (
 
 __all__ = [
     "MEDAL",
-    "PACK",
+    "ALL",
     "ROUND_PREFIX",
     "SPECIAL",
     "SPEED",
@@ -74,17 +74,17 @@ TORTOISE = "tortoise"
 class SpeedRule:
     """Which position in which standings an award is for.
 
-    ``source`` is either ``"PACK"`` — the race's default prelim standings — or
+    ``source`` is either ``"ALL"`` — the race's default prelim standings — or
     ``"ROUND:<id>"`` for one round's. It is the same vocabulary
     :class:`backend.domain.advancement.AdvancementRule` uses, parsed by the same
     functions, deliberately: an operator who has set up a championship round
     already knows what "ROUND:4" means.
 
-    **``DEN`` is not a source here, and that is the one departure.** For
-    advancement it means "the top N of *each* den", which yields a set of
+    **``EACH_GROUP`` is not a source here, and that is the one departure.** For
+    advancement it means "the top N of *each* racing group", which yields a set of
     racers — right for filling a field, wrong for an award, which has exactly
-    one recipient. A den-scoped award is instead an ordinary source with
-    ``den_id`` set, so "fastest Wolf" is the pack standings narrowed to the
+    one recipient. A racing group-scoped award is instead an ordinary source with
+    ``racing_group_id`` set, so "fastest Wolf" is the pack standings narrowed to the
     Wolves. Six of them is six awards, which is also how they are presented.
 
     ``place`` is 1-based: 1 is the winner. Sub-1 places are refused rather than
@@ -101,7 +101,7 @@ class SpeedRule:
 
     source: str
     place: int
-    den_id: int | None = None
+    racing_group_id: int | None = None
     from_bottom: bool = False
 
     def __post_init__(self) -> None:
@@ -126,8 +126,8 @@ def recipient_of(rule: SpeedRule, standings: Sequence[Standing]) -> int | None:
     question. What is decided here is the narrowing and the position.
 
     ``None`` is the ordinary answer for most of an event, not an error: an award
-    for third place has no recipient until three cars have run, and a den award
-    has none until somebody in that den has. The presentation screen shows the
+    for third place has no recipient until three cars have run, and a racing-group award
+    has none until somebody in that racing group has. The presentation screen shows the
     award with no name against it, which is what the announcer is looking at
     anyway.
 
@@ -139,8 +139,8 @@ def recipient_of(rule: SpeedRule, standings: Sequence[Standing]) -> int | None:
     :func:`backend.domain.advancement._picking_order`.
     """
     eligible = standings
-    if rule.den_id is not None:
-        eligible = [s for s in standings if s.den_id == rule.den_id]
+    if rule.racing_group_id is not None:
+        eligible = [s for s in standings if s.racing_group_id == rule.racing_group_id]
 
     if rule.from_bottom:
         # Narrow first, then reverse: "slowest Wolf" is the Wolves read
@@ -159,7 +159,7 @@ def default_artwork_key(rule: SpeedRule) -> str:
     A speed award's rule already says what kind of trophy it is: first place,
     a lesser place, or the slowest car. Offering a picker on top of that would
     be asking the operator to describe an award they have already described,
-    the same reasoning that keeps `DEN` out of the source vocabulary above.
+    the same reasoning that keeps `EACH_GROUP` out of the source vocabulary above.
 
     `from_bottom` wins over `place`: a "3rd slowest" award is still a slowest-
     car award, not a bronze medal — there is no ladder of slowness worth six
@@ -199,4 +199,4 @@ def sources_for(round_ids: Sequence[int]) -> list[str]:
     screen and the validation agree on what is offerable without either
     rebuilding the `ROUND:<id>` spelling.
     """
-    return [PACK] + [f"{ROUND_PREFIX}{round_id}" for round_id in round_ids]
+    return [ALL] + [f"{ROUND_PREFIX}{round_id}" for round_id in round_ids]

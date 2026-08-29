@@ -1,7 +1,7 @@
 """Making the app's invented data repeatable, when something needs it to be.
 
 Two features make things up: the fake timer invents a time per lane, and
-``populateRace`` invents a roster of racers, photographs and dens. Both are
+``populateRace`` invents a roster of racers, photographs and racing groups. Both are
 meant to be random — that is what makes a rehearsal feel like an event rather
 than a fixture.
 

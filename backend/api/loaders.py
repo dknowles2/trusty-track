@@ -37,14 +37,14 @@ class RequestLoaders:
         self._db = db
         self._rounds_by_race: dict[int, list[models.Round]] = {}
         self._heats_by_race: dict[int, list[models.Heat]] = {}
-        self._dens_by_race: dict[int, list[models.Den]] = {}
+        self._racing_groups_by_race: dict[int, list[models.RacingGroup]] = {}
         self._racers_by_race: dict[int, list[models.Racer]] = {}
         self._leaderboards: dict[
             tuple[int, int | None, str], list[scoring.LeaderboardEntry]
         ] = {}
         self._global_heat_numbers: dict[int, dict[int, int]] = {}
         self._tracks: dict[int, models.Track | None] = {}
-        self._groups: dict[int, models.Group | None] = {}
+        self._organizations: dict[int, models.Organization | None] = {}
         self._lanes: dict[int, dict[int, list[models.HeatLane]]] = {}
         self._lane_values: dict[tuple[int, int], list[lanes.Lane]] = {}
         self._awards_by_race: dict[int, list[models.Award]] = {}
@@ -60,12 +60,12 @@ class RequestLoaders:
         """Drop everything cached. Call after the underlying data may have moved."""
         self._rounds_by_race.clear()
         self._heats_by_race.clear()
-        self._dens_by_race.clear()
+        self._racing_groups_by_race.clear()
         self._racers_by_race.clear()
         self._leaderboards.clear()
         self._global_heat_numbers.clear()
         self._tracks.clear()
-        self._groups.clear()
+        self._organizations.clear()
         self._lanes.clear()
         self._lane_values.clear()
         self._awards_by_race.clear()
@@ -111,23 +111,31 @@ class RequestLoaders:
             key=lambda h: h.heat_number,
         )
 
-    def dens_for_race(self, race_id: int) -> list[models.Den]:
-        if race_id not in self._dens_by_race:
-            self._dens_by_race[race_id] = (
-                self._db.query(models.Den).filter(models.Den.race_id == race_id).all()
+    def racing_groups_for_race(self, race_id: int) -> list[models.RacingGroup]:
+        if race_id not in self._racing_groups_by_race:
+            self._racing_groups_by_race[race_id] = (
+                self._db.query(models.RacingGroup)
+                .filter(models.RacingGroup.race_id == race_id)
+                .all()
             )
-        return self._dens_by_race[race_id]
+        return self._racing_groups_by_race[race_id]
 
-    def den_by_id(self, race_id: int, den_id: int) -> models.Den | None:
-        """Resolve a den from the race's already-loaded dens.
+    def racing_group_by_id(
+        self, race_id: int, racing_group_id: int
+    ) -> models.RacingGroup | None:
+        """Resolve a racing group from the race's already-loaded racing groups.
 
-        Falls back to a direct lookup for the rare case of a den belonging to a
+        Falls back to a direct lookup for the rare case of a racing group belonging to a
         different race than the one being resolved.
         """
-        for den in self.dens_for_race(race_id):
-            if den.id == den_id:
-                return den
-        return self._db.query(models.Den).filter(models.Den.id == den_id).first()
+        for racing_group in self.racing_groups_for_race(race_id):
+            if racing_group.id == racing_group_id:
+                return racing_group
+        return (
+            self._db.query(models.RacingGroup)
+            .filter(models.RacingGroup.id == racing_group_id)
+            .first()
+        )
 
     def awards_for_race(self, race_id: int) -> list[models.Award]:
         if race_id not in self._awards_by_race:
@@ -137,7 +145,7 @@ class RequestLoaders:
     def racer_by_id(self, race_id: int, racer_id: int) -> models.Racer | None:
         """Resolve a racer from the race's already-loaded roster.
 
-        Falls back to a direct lookup, as `den_by_id` does, for a racer who
+        Falls back to a direct lookup, as `racing_group_by_id` does, for a racer who
         belongs to a different race than the one being resolved.
         """
         for racer in self.racers_for_race(race_id):
@@ -198,12 +206,14 @@ class RequestLoaders:
             )
         return self._tracks[track_id]
 
-    def group_by_id(self, group_id: int) -> models.Group | None:
-        if group_id not in self._groups:
-            self._groups[group_id] = (
-                self._db.query(models.Group).filter(models.Group.id == group_id).first()
+    def organization_by_id(self, organization_id: int) -> models.Organization | None:
+        if organization_id not in self._organizations:
+            self._organizations[organization_id] = (
+                self._db.query(models.Organization)
+                .filter(models.Organization.id == organization_id)
+                .first()
             )
-        return self._groups[group_id]
+        return self._organizations[organization_id]
 
     # ------------------------------------------------------------------ #
     # Derived values                                                       #

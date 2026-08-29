@@ -48,15 +48,15 @@ vi.mock('../../../context/AlertContext', () => ({
 describe('RaceDetails Bulk Actions', () => {
     const mockRace = { id: 1, name: 'Test Race', date_time: '2024-03-15T10:00:00' };
     const mockRacers = [
-        { id: 1, first_name: 'Alpha', last_name: 'One', car_number: 101, den_id: 1 },
-        { id: 2, first_name: 'Beta', last_name: 'Two', car_number: 102, den_id: 1 },
+        { id: 1, first_name: 'Alpha', last_name: 'One', car_number: 101, racing_group_id: 1 },
+        { id: 2, first_name: 'Beta', last_name: 'Two', car_number: 102, racing_group_id: 1 },
     ];
-    const mockDens = [{ id: 1, name: 'Tigers', color: 'orange' }];
+    const mockRacingGroups = [{ id: 1, name: 'Tigers', color: 'orange' }];
 
     // Prepare mutation mocks
     const mockBulkAutoNumber = vi.fn().mockResolvedValue({ data: { bulkAutoNumber: 2 } });
     const mockBulkDelete = vi.fn().mockResolvedValue({ data: { bulkDeleteRacers: true } });
-    const mockBulkMoveToDen = vi.fn().mockResolvedValue({ data: { bulkMoveToDen: true } });
+    const mockBulkMoveToRacingGroup = vi.fn().mockResolvedValue({ data: { bulkMoveToRacingGroup: true } });
     const mockBulkCheckIn = vi.fn().mockResolvedValue({ data: { bulkCheckIn: true } });
     const mockBulkClearNumbers = vi.fn().mockResolvedValue({ data: { bulkClearNumbers: true } });
 
@@ -74,10 +74,10 @@ describe('RaceDetails Bulk Actions', () => {
                         firstName: r.first_name,
                         lastName: r.last_name,
                         carNumber: r.car_number,
-                        denId: r.den_id,
+                        racingGroupId: r.racing_group_id,
                         carPassedInspection: false,
                     })),
-                    dens: mockDens.map(d => ({ ...d, racerCount: 0 })),
+                    racingGroups: mockRacingGroups.map(d => ({ ...d, racerCount: 0 })),
                     leaderboard: []
                 },
                 tracks: []
@@ -89,7 +89,7 @@ describe('RaceDetails Bulk Actions', () => {
         (useMutation as any).mockImplementation((query: any) => {
             if (query === GQL.BULK_AUTO_NUMBER) return [{ fetching: false }, mockBulkAutoNumber];
             if (query === GQL.BULK_DELETE_RACERS) return [{ fetching: false }, mockBulkDelete];
-            if (query === GQL.BULK_MOVE_TO_DEN) return [{ fetching: false }, mockBulkMoveToDen];
+            if (query === GQL.BULK_MOVE_TO_RACING_GROUP) return [{ fetching: false }, mockBulkMoveToRacingGroup];
             if (query === GQL.BULK_CHECK_IN) return [{ fetching: false }, mockBulkCheckIn];
             if (query === GQL.BULK_CLEAR_NUMBERS) return [{ fetching: false }, mockBulkClearNumbers];
             return [{ fetching: false }, vi.fn()];
@@ -200,7 +200,7 @@ describe('RaceDetails Bulk Actions', () => {
         await waitFor(() => expect(screen.queryByTestId('roster-selection-bar')).toBeNull());
     });
 
-    it('renders den options in the Move to den menu', async () => {
+    it('renders racingGroup options in the Move to racingGroup menu', async () => {
         setupMocks();
         const user = (await import('@testing-library/user-event')).default.setup();
 
@@ -216,9 +216,9 @@ describe('RaceDetails Bulk Actions', () => {
 
         // A click, not a hover. The list used to fly out sideways on hover and
         // had to measure which side had room; it opens downward now.
-        await user.click(await screen.findByTestId('bulk-move-to-den-expand-btn'));
+        await user.click(await screen.findByTestId('bulk-move-to-racing-group-expand-btn'));
 
-        const tigerOption = await screen.findByTestId('bulk-move-to-den-1');
+        const tigerOption = await screen.findByTestId('bulk-move-to-racing-group-1');
         expect(tigerOption).toHaveTextContent('Tigers');
         expect(screen.getByTestId('bulk-move-to-unassigned')).toBeInTheDocument();
     });
@@ -256,8 +256,8 @@ describe('RaceDetails Bulk Actions', () => {
         expect(screen.getByText('2 selected')).toBeInTheDocument();
     });
 
-    it('keeps the selection after moving racers to a den', async () => {
-        // #420: move-to-den is the third additive action — the same rule as
+    it('keeps the selection after moving racers to a racingGroup', async () => {
+        // #420: move-to-racing-group is the third additive action — the same rule as
         // auto-number and check-in.
         setupMocks();
         const user = (await import('@testing-library/user-event')).default.setup();
@@ -273,12 +273,12 @@ describe('RaceDetails Bulk Actions', () => {
         const selectAllCheckbox = screen.getByTestId('select-all-header');
         await user.click(selectAllCheckbox);
 
-        await user.click(await screen.findByTestId('bulk-move-to-den-expand-btn'));
+        await user.click(await screen.findByTestId('bulk-move-to-racing-group-expand-btn'));
         await user.click(await screen.findByTestId('bulk-move-to-unassigned'));
 
-        expect(mockBulkMoveToDen).toHaveBeenCalledWith({
+        expect(mockBulkMoveToRacingGroup).toHaveBeenCalledWith({
             racerIds: [1, 2],
-            denId: null
+            racingGroupId: null
         });
 
         expect(screen.getByTestId('roster-selection-bar')).toBeInTheDocument();
@@ -315,7 +315,7 @@ describe('RaceDetails Bulk Actions', () => {
 
     it('keeps the first row to three controls', async () => {
         // The whole point of the reorganisation: six buttons competing for one
-        // row is what made their labels wrap. Manage dens, photos and print are
+        // row is what made their labels wrap. Manage racingGroups, photos and print are
         // set-up actions and live behind the overflow.
         setupMocks();
         render(
@@ -332,7 +332,7 @@ describe('RaceDetails Bulk Actions', () => {
         expect(screen.getByRole('button', { name: /^Scan$/i })).toBeInTheDocument();
         expect(screen.getByTestId('roster-more-menu')).toBeInTheDocument();
 
-        expect(screen.queryByRole('button', { name: /Manage Dens/i })).toBeNull();
+        expect(screen.queryByRole('button', { name: /Manage Racing Groups/i })).toBeNull();
         expect(screen.queryByRole('button', { name: /Upload Photos/i })).toBeNull();
         expect(screen.queryByRole('button', { name: /^Print/i })).toBeNull();
     });
@@ -349,7 +349,7 @@ describe('RaceDetails Bulk Actions', () => {
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
         await user.click(screen.getByTestId('roster-more-menu'));
 
-        expect(screen.getByRole('button', { name: /Manage Dens/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Manage Racing Groups/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Upload Photos/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /^Print/i })).toBeInTheDocument();
     });

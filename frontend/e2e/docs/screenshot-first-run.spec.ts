@@ -34,7 +34,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ORGANIZATION, docsTrackId, gql, groupId } from './support';
+import { ORGANIZATION, docsTrackId, gql, organizationId } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GETTING_STARTED_DIR = path.resolve(
@@ -117,7 +117,7 @@ test('screenshot the first run', async ({ page }) => {
         {
             race: {
                 name: 'Activity Shot Derby',
-                groupId: await groupId(page),
+                organizationId: await organizationId(page),
                 trackId: await docsTrackId(page),
                 carNumberingStrategy: 'GLOBAL',
             },
@@ -125,10 +125,10 @@ test('screenshot the first run', async ({ page }) => {
     );
     await gql(
         page,
-        `mutation ActivityShotDen($raceId: Int!, $den: DenInput!) {
-            createDen(raceId: $raceId, den: $den) { id }
+        `mutation ActivityShotRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
+            createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id }
         }`,
-        { raceId: race.createRace.id, den: { name: 'Wolves', color: '#8B4513' } },
+        { raceId: race.createRace.id, racingGroup: { name: 'Wolves', color: '#8B4513' } },
     );
     await gql(
         page,

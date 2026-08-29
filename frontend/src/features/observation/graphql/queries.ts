@@ -7,9 +7,9 @@ export const LeaderboardSubscription = gql`
       firstName
       lastName
       carNumber
-      denId
-      denName
-      denRank
+      racingGroupId
+      racingGroupName
+      racingGroupRank
       score
       heatsCompleted
       racerImageUrl

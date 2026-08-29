@@ -11,13 +11,15 @@ from backend.tests.helpers import as_lanes
 
 
 def _seed(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Loader Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Loader Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Loader Track", lane_count=2, timer_type="FAKE")
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Loader Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Loader Race", organization_id=group.id, track_id=track.id
+        ),
     )
     return race
 
@@ -25,13 +27,13 @@ def _seed(db):
 def test_repeated_reads_hit_the_cache(db):
     """The whole point: the second read must not query again."""
     race = _seed(db)
-    den = models.Den(name="Wolves", race_id=race.id)
-    db.add(den)
+    racing_group = models.RacingGroup(name="Wolves", race_id=race.id)
+    db.add(racing_group)
     db.commit()
 
     loaders = RequestLoaders(db)
-    first = loaders.dens_for_race(race.id)
-    second = loaders.dens_for_race(race.id)
+    first = loaders.racing_groups_for_race(race.id)
+    second = loaders.racing_groups_for_race(race.id)
     assert first is second, "expected the identical cached list object"
 
 
@@ -39,13 +41,13 @@ def test_clear_forces_a_reread(db):
     """After clear(), new rows become visible."""
     race = _seed(db)
     loaders = RequestLoaders(db)
-    assert loaders.dens_for_race(race.id) == []
+    assert loaders.racing_groups_for_race(race.id) == []
 
-    db.add(models.Den(name="Bears", race_id=race.id))
+    db.add(models.RacingGroup(name="Bears", race_id=race.id))
     db.commit()
 
     loaders.clear()
-    assert [d.name for d in loaders.dens_for_race(race.id)] == ["Bears"]
+    assert [d.name for d in loaders.racing_groups_for_race(race.id)] == ["Bears"]
 
 
 def test_commit_invalidates_the_cache(db):
@@ -57,12 +59,12 @@ def test_commit_invalidates_the_cache(db):
     """
     race = _seed(db)
     loaders = RequestLoaders(db)
-    assert loaders.dens_for_race(race.id) == []
+    assert loaders.racing_groups_for_race(race.id) == []
 
-    db.add(models.Den(name="Lions", race_id=race.id))
+    db.add(models.RacingGroup(name="Lions", race_id=race.id))
     db.commit()  # should fire after_commit -> clear()
 
-    assert [d.name for d in loaders.dens_for_race(race.id)] == ["Lions"]
+    assert [d.name for d in loaders.racing_groups_for_race(race.id)] == ["Lions"]
 
 
 def test_leaderboard_reflects_new_results_after_clear(db):

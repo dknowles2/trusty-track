@@ -50,7 +50,9 @@ def isolated_pubsub(monkeypatch):
 
 
 def _race(db, label):
-    group = crud.create_group(db, schemas.GroupCreate(name=f"{label} Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"{label} Organization")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name=f"{label} Track", lane_count=2, timer_type="FAKE"),
@@ -59,7 +61,7 @@ def _race(db, label):
         db,
         schemas.RaceCreate(
             name=f"{label} Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),

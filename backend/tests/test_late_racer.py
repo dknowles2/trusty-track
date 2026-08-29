@@ -14,7 +14,7 @@ from backend.tests.helpers import record_heat_result
 
 
 def build(db, *, racers=5, strategy=models.ScoringStrategy.TIMED, lane_count=4):
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack 42"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack 42"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Late Track", lane_count=lane_count)
     )
@@ -22,7 +22,7 @@ def build(db, *, racers=5, strategy=models.ScoringStrategy.TIMED, lane_count=4):
         db,
         schemas.RaceCreate(
             name="Late Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy=strategy,
         ),
@@ -41,7 +41,7 @@ def build(db, *, racers=5, strategy=models.ScoringStrategy.TIMED, lane_count=4):
     return track.id, race.id
 
 
-def arrive(db, race_id, *, name="Latecomer", checked_in=True, den_id=None):
+def arrive(db, race_id, *, name="Latecomer", checked_in=True, racing_group_id=None):
     """A child turning up after the schedule was built."""
     return crud.create_racer(
         db,
@@ -50,15 +50,15 @@ def arrive(db, race_id, *, name="Latecomer", checked_in=True, den_id=None):
             last_name="Late",
             car_number=900,
             race_id=race_id,
-            den_id=den_id,
+            racing_group_id=racing_group_id,
             car_passed_inspection=checked_in,
         ),
     )
 
 
-def start_round(db, race_id, number=1, den_id=None):
+def start_round(db, race_id, number=1, racing_group_id=None):
     round_obj = crud.create_round(
-        db, race_id=race_id, round_number=number, den_id=den_id
+        db, race_id=race_id, round_number=number, racing_group_id=racing_group_id
     )
     crud.generate_heats_for_round(db, round_obj.id)
     return round_obj
@@ -302,7 +302,7 @@ class TestWhoIsAdmitted:
             db,
             race_id=race_id,
             round_number=2,
-            advancement_source="PACK",
+            advancement_source="ALL",
             advancement_num_racers=4,
         )
         crud.generate_heats_for_round(db, final.id, num_placeholders=4)
@@ -322,20 +322,20 @@ class TestWhoIsAdmitted:
 
     def test_a_den_round_only_admits_its_own_den(self, db, client):
         _, race_id = build(db)
-        wolves = crud.create_den(
-            db, schemas.DenCreate(name="Wolves", color="#8B4513"), race_id
+        wolves = crud.create_racing_group(
+            db, schemas.RacingGroupCreate(name="Wolves", color="#8B4513"), race_id
         )
-        bears = crud.create_den(
-            db, schemas.DenCreate(name="Bears", color="#1E5631"), race_id
+        bears = crud.create_racing_group(
+            db, schemas.RacingGroupCreate(name="Bears", color="#1E5631"), race_id
         )
         for racer in db.query(models.Racer).filter(models.Racer.race_id == race_id):
-            racer.den_id = wolves.id
+            racer.racing_group_id = wolves.id
         db.commit()
 
-        round_obj = start_round(db, race_id, den_id=wolves.id)
+        round_obj = start_round(db, race_id, racing_group_id=wolves.id)
         run_heats(client, db, race_id, round_obj.id, count=2)
 
-        outsider = arrive(db, race_id, den_id=bears.id)
+        outsider = arrive(db, race_id, racing_group_id=bears.id)
         crud.admit_late_racers(db, race_id)
 
         assert outsider.id not in racers_in(db, race_id, round_obj.id)

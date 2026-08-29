@@ -64,7 +64,7 @@ beforeEach(() => {
                             carPassedInspection: false,
                         },
                     ],
-                    dens: [],
+                    racingGroups: [],
                     leaderboard: [],
                 },
                 tracks: [],

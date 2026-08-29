@@ -15,14 +15,14 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, gql, groupId } from './support';
+import { docsTrackId, ensureConfigured, gql, organizationId } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/awards');
 
-// Two dens, and the fastest car overall is deliberately not a Wolf — with one
-// den, "Fastest Car" and "Fastest Wolf" name the same child and the screenshot
-// stops explaining what a den-scoped award is for.
+// Two racingGroups, and the fastest car overall is deliberately not a Wolf — with one
+// racingGroup, "Fastest Car" and "Fastest Wolf" name the same child and the screenshot
+// stops explaining what a racing-group-scoped award is for.
 const DENS = [
     { name: 'Wolves', color: '#8B4513', rank: 'WOLF' },
     { name: 'Bears', color: '#1E5631', rank: 'BEAR' },
@@ -33,12 +33,12 @@ const DENS = [
 // which is what makes "Fastest Wolf" legible as a different thing from
 // "Fastest Car" rather than a second name for it.
 const RACERS = [
-    { first: 'Ada', last: 'Lovelace', car: 3, name: 'Blue Streak', den: 'Bears' },
-    { first: 'Katherine', last: 'Johnson', car: 14, name: 'Red Comet', den: 'Bears' },
-    { first: 'Grace', last: 'Hopper', car: 7, name: 'Thunderbolt', den: 'Wolves' },
-    { first: 'Alan', last: 'Turing', car: 11, name: 'Silver Arrow', den: 'Wolves' },
-    { first: 'Chien-Shiung', last: 'Wu', car: 22, name: 'Green Machine', den: 'Bears' },
-    { first: 'Mae', last: 'Jemison', car: 18, name: 'Night Owl', den: 'Wolves' },
+    { first: 'Ada', last: 'Lovelace', car: 3, name: 'Blue Streak', racingGroup: 'Bears' },
+    { first: 'Katherine', last: 'Johnson', car: 14, name: 'Red Comet', racingGroup: 'Bears' },
+    { first: 'Grace', last: 'Hopper', car: 7, name: 'Thunderbolt', racingGroup: 'Wolves' },
+    { first: 'Alan', last: 'Turing', car: 11, name: 'Silver Arrow', racingGroup: 'Wolves' },
+    { first: 'Chien-Shiung', last: 'Wu', car: 22, name: 'Green Machine', racingGroup: 'Bears' },
+    { first: 'Mae', last: 'Jemison', car: 18, name: 'Night Owl', racingGroup: 'Wolves' },
 ];
 
 test('screenshot the awards screens', async ({ page }) => {
@@ -47,7 +47,7 @@ test('screenshot the awards screens', async ({ page }) => {
 
     await ensureConfigured(page);
 
-    const raceGroupId = await groupId(page);
+    const raceOrganizationId = await organizationId(page);
     const raceTrackId = await docsTrackId(page);
     const trackId = raceTrackId;
 
@@ -59,7 +59,7 @@ test('screenshot the awards screens', async ({ page }) => {
                 name: 'Pack 42 Awards Night',
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
-                groupId: raceGroupId,
+                organizationId: raceOrganizationId,
                 trackId,
                 scoringStrategy: 'TIMED',
                 carNumberingStrategy: 'MANUAL',
@@ -68,16 +68,16 @@ test('screenshot the awards screens', async ({ page }) => {
     );
     const raceId = race.createRace.id;
 
-    const denIds: Record<string, number> = {};
-    for (const den of DENS) {
+    const racingGroupIds: Record<string, number> = {};
+    for (const racingGroup of DENS) {
         const created = await gql(
             page,
-            `mutation Den($raceId: Int!, $den: DenInput!) { createDen(raceId: $raceId, den: $den) { id } }`,
-            { raceId, den },
+            `mutation RacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) { createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id } }`,
+            { raceId, racingGroup },
         );
-        denIds[den.name] = created.createDen.id;
+        racingGroupIds[racingGroup.name] = created.createRacingGroup.id;
     }
-    const wolvesId = denIds['Wolves'];
+    const wolvesId = racingGroupIds['Wolves'];
 
     const racerIds: Record<number, number> = {};
     for (const racer of RACERS) {
@@ -87,7 +87,7 @@ test('screenshot the awards screens', async ({ page }) => {
             {
                 racer: {
                     raceId,
-                    denId: denIds[racer.den],
+                    racingGroupId: racingGroupIds[racer.racingGroup],
                     firstName: racer.first,
                     lastName: racer.last,
                     carNumber: racer.car,
@@ -110,7 +110,7 @@ test('screenshot the awards screens', async ({ page }) => {
         {
             raceId,
             config: {
-                generalRound: { type: 'PACK', runsPerLane: 1 },
+                generalRound: { type: 'ALL', runsPerLane: 1 },
                 championshipRounds: [],
             },
         },
@@ -125,7 +125,7 @@ test('screenshot the awards screens', async ({ page }) => {
 
     // A fixed time per racer rather than a spread per heat. Under TIMED scoring
     // everybody runs the same number of heats, so a constant makes the finishing
-    // order the order below — which is what lets the two den awards be asserted
+    // order the order below — which is what lets the two racingGroup awards be asserted
     // rather than hoped for.
     const timeOf = new Map<number, number>(
         RACERS.map((racer, index) => [racerIds[racer.car], 3.05 + index * 0.14]),
@@ -155,9 +155,9 @@ test('screenshot the awards screens', async ({ page }) => {
     }
 
     const awards = [
-        { name: 'Fastest Car', kind: 'SPEED', source: 'PACK', place: 1 },
-        { name: 'Second Fastest', kind: 'SPEED', source: 'PACK', place: 2 },
-        { name: 'Fastest Wolf', kind: 'SPEED', source: 'PACK', place: 1, denId: wolvesId },
+        { name: 'Fastest Car', kind: 'SPEED', source: 'ALL', place: 1 },
+        { name: 'Second Fastest', kind: 'SPEED', source: 'ALL', place: 2 },
+        { name: 'Fastest Wolf', kind: 'SPEED', source: 'ALL', place: 1, racingGroupId: wolvesId },
         { name: 'Best Paint', kind: 'SPECIAL' },
         { name: 'Most Original', kind: 'SPECIAL' },
     ];
@@ -176,7 +176,7 @@ test('screenshot the awards screens', async ({ page }) => {
     // operator sees for most of the day.
     await page.goto(`/race/${raceId}/awards`);
     await expect(page.getByText('Fastest Car')).toBeVisible();
-    // Assert the three winners rather than trusting the picture: a den-scoped
+    // Assert the three winners rather than trusting the picture: a racing-group-scoped
     // award that happened to resolve to the overall winner would still
     // screenshot fine and would still be a useless illustration.
     await expect(page.getByText('Ada Lovelace (#3)')).toBeVisible();
@@ -191,7 +191,7 @@ test('screenshot the awards screens', async ({ page }) => {
     await page.getByLabel('Award name').fill('Fastest Wolf');
     await page.getByText('Speed-based').click();
     await expect(page.getByLabel('Standings to use')).toBeVisible();
-    await page.getByLabel('Limited to a den').selectOption(String(wolvesId));
+    await page.getByLabel('Limited to a racingGroup').selectOption(String(wolvesId));
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02-speed-award-form.png') });
 

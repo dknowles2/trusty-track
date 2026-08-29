@@ -12,32 +12,32 @@
 import { test, expect } from '@playwright/test';
 import { ensureConfigured, gql, seedRace } from './support';
 
-test('save and add another keeps the den and clears the name', async ({ page }) => {
+test('save and add another keeps the racing group and clears the name', async ({ page }) => {
     await ensureConfigured(page);
     const { raceId } = await seedRace(page, 'Roster Desk Add Another Race');
     await gql(
         page,
-        `mutation DeskDen($raceId: Int!, $den: DenInput!) { createDen(raceId: $raceId, den: $den) { id } }`,
-        { raceId, den: { name: 'Wolves', color: '#8B4513' } },
+        `mutation DeskRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) { createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id } }`,
+        { raceId, racingGroup: { name: 'Wolves', color: '#8B4513' } },
     );
 
     await page.goto(`/race/${raceId}`);
     await page.getByRole('button', { name: /^Add Racer$/ }).click();
 
-    // Scoped to the form: "Den" also matches the roster's "Group by Den"
+    // Scoped to the form: "Racing Group" also matches the roster's "Group by Racing Group"
     // toggle, and "Name" matches the search box's placeholder neighbourhood.
     const form = page.locator('form');
     const first = form.getByLabel('First Name');
     const last = form.getByLabel('Last Name');
     await first.fill('Gus');
     await last.fill('Gull');
-    await form.getByLabel('Den', { exact: true }).selectOption({ label: 'Wolves' });
+    await form.getByLabel('Racing Group', { exact: true }).selectOption({ label: 'Wolves' });
     await page.getByRole('button', { name: 'Save and add another' }).click();
 
-    // Cleared for the next child, but still in the den we were working through.
+    // Cleared for the next child, but still in the racing group we were working through.
     await expect(first).toHaveValue('');
     await expect(last).toHaveValue('');
-    await expect(form.getByLabel('Den', { exact: true })).not.toHaveValue('');
+    await expect(form.getByLabel('Racing Group', { exact: true })).not.toHaveValue('');
 
     await first.fill('Hal');
     await last.fill('Hare');

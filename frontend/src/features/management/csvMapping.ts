@@ -18,7 +18,7 @@ export type Field =
   | 'lastName'
   | 'carNumber'
   | 'carName'
-  | 'den'
+  | 'racingGroup'
   | 'passedInspection';
 
 export const FIELDS: readonly Field[] = [
@@ -26,7 +26,7 @@ export const FIELDS: readonly Field[] = [
   'lastName',
   'carNumber',
   'carName',
-  'den',
+  'racingGroup',
   'passedInspection',
 ] as const;
 
@@ -35,7 +35,7 @@ export const FIELD_LABELS: Record<Field, string> = {
   lastName: 'Last Name',
   carNumber: 'Car Number',
   carName: 'Car Name',
-  den: 'Den',
+  racingGroup: 'Racing Group',
   passedInspection: 'Passed Inspection',
 };
 
@@ -45,7 +45,7 @@ const CANONICAL_HEADER: Record<Field, string> = {
   lastName: 'last_name',
   carNumber: 'car_number',
   carName: 'car_name',
-  den: 'den',
+  racingGroup: 'racing_group',
   passedInspection: 'car_passed_inspection',
 };
 
@@ -60,7 +60,10 @@ const HINTS: Record<Field, readonly string[]> = {
   lastName: ['lastname', 'last', 'surname', 'familyname'],
   carNumber: ['carnumber', 'carno', 'carnum', 'car', 'number', 'no'],
   carName: ['carname', 'nameofcar', 'cartitle'],
-  den: ['den', 'group', 'pack', 'rank', 'unit'],
+  // Header aliases a real-world roster CSV might use — kept as the literal
+  // words a Scouting-flavored spreadsheet contains, independent of what the
+  // app calls the concept internally (#496).
+  racingGroup: ['den', 'group', 'pack', 'rank', 'unit'],
   passedInspection: ['passedinspection', 'inspection', 'passed', 'inspected'],
 };
 
@@ -214,7 +217,7 @@ export interface RacerRow {
   lastName: string;
   carNumber: string;
   carName: string;
-  den: string;
+  racingGroup: string;
   passedInspection: string;
 }
 
@@ -230,7 +233,7 @@ export function applyMapping(parsed: ParsedCsv, mapping: Mapping): RacerRow[] {
     lastName: read(row, 'lastName'),
     carNumber: read(row, 'carNumber'),
     carName: read(row, 'carName'),
-    den: read(row, 'den'),
+    racingGroup: read(row, 'racingGroup'),
     passedInspection: read(row, 'passedInspection'),
   }));
 }
@@ -320,8 +323,8 @@ const quote = (value: string): string =>
 /**
  * The mapped rows as a CSV the backend already understands.
  *
- * Only mapped fields become columns, so an unmapped Den does not send a column
- * of empty strings that would otherwise create a den named "".
+ * Only mapped fields become columns, so an unmapped RacingGroup does not send a column
+ * of empty strings that would otherwise create a racingGroup named "".
  */
 export function toCanonicalCsv(rows: readonly RacerRow[], mapping: Mapping): string {
   const fields = FIELDS.filter((field) => mapping[field] !== UNMAPPED);
@@ -347,7 +350,7 @@ export function toCanonicalCsv(rows: readonly RacerRow[], mapping: Mapping): str
 export function templateCsv(): string {
   return [
     FIELDS.map((f) => CANONICAL_HEADER[f]).join(','),
-    'Alex,Rivera,101,Blue Streak,Wolf Den,yes',
-    'Sam,Okafor,102,Thunderbolt,Wolf Den,yes',
+    'Alex,Rivera,101,Blue Streak,Wolf RacingGroup,yes',
+    'Sam,Okafor,102,Thunderbolt,Wolf RacingGroup,yes',
   ].join('\n');
 }

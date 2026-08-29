@@ -41,14 +41,16 @@ query GetRaceStats($raceId: Int!) {
     totalRacers
     laneStats { lane avgTime heatCount relativeAdvantagePct }
     racerStats {
-      racerId firstName lastName carNumber denName
+      racerId firstName lastName carNumber racingGroupName
       heatsCompleted heatsScheduled minTime maxTime meanTime stdDev
       timesPerLane { lane avgTime }
     }
     highlights {
       type roundName heatNumber globalHeatNumber racerName time margin
     }
-    denStats { denId denName denColor racerCount avgScore bestRacerName }
+    racingGroupStats {
+      racingGroupId racingGroupName racingGroupColor racerCount avgScore bestRacerName
+    }
     heatResults {
       roundName heatNumber globalHeatNumber lane carNumber
       racerFirstName racerLastName time place
@@ -105,11 +107,11 @@ def test_race_stats_payload_matches_the_service_dict_field_for_field(client, db)
     """The GraphQL `raceStats` payload is exactly `compute_race_stats`'s dict.
 
     Builds a race with enough shape to populate every branch of the
-    payload — multiple dens, a recorded heat (so `racerStats`, `laneStats`,
-    `highlights`, `denStats` and `heatResults` are all non-empty) and a
+    payload — multiple racing_groups, a recorded heat (so `racerStats`, `laneStats`,
+    `highlights`, `racingGroupStats` and `heatResults` are all non-empty) and a
     positive time on the race's own track (so `trackRecords` is too).
     """
-    race_id, racer_ids, den_ids = _setup_race(client, db)
+    race_id, racer_ids, racing_group_ids = _setup_race(client, db)
     heats = _create_round_and_get_heats(client, race_id)
     assert heats
 
@@ -145,7 +147,7 @@ def test_race_stats_payload_matches_the_service_dict_field_for_field(client, db)
         "lane_stats",
         "racer_stats",
         "highlights",
-        "den_stats",
+        "racing_group_stats",
         "heat_results",
         "track_records",
     ):
@@ -157,12 +159,12 @@ def test_race_stats_payload_matches_the_service_dict_field_for_field(client, db)
 def test_race_stats_payload_matches_with_no_results_recorded(client, db):
     """The empty-payload branches are field-for-field equal too.
 
-    `racerStats`, `highlights`, `denStats` and `heatResults` are all empty
+    `racerStats`, `highlights`, `racingGroupStats` and `heatResults` are all empty
     lists before anything is recorded, and `trackRecords` has nothing to
     show either — the shape a mechanical mapping still has to get right, not
     just the populated one above.
     """
-    race_id, racer_ids, den_ids = _setup_race(client, db)
+    race_id, racer_ids, racing_group_ids = _setup_race(client, db)
     _create_round_and_get_heats(client, race_id)
 
     resp = client.post(

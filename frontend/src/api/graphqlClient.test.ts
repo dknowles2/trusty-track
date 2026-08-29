@@ -79,7 +79,7 @@ describe('the cached race list and the mutations that change it', () => {
 
   const CREATE_RACE = gql`
     mutation CacheTestCreateRace {
-      createRace(race: { name: "Derby", groupId: 1, trackId: 1 }) {
+      createRace(race: { name: "Derby", organizationId: 1, trackId: 1 }) {
         id
       }
     }
@@ -186,7 +186,7 @@ describe('config mutations and the cached answer to initialConfig', () => {
 
   const CREATE = gql`
     mutation CreateInitialConfig {
-      createInitialConfig(config: { groupName: "Pack 123", tracks: [] }) {
+      createInitialConfig(config: { organizationName: "Pack 123", tracks: [] }) {
         initialized
       }
     }
@@ -194,7 +194,7 @@ describe('config mutations and the cached answer to initialConfig', () => {
 
   const UPDATE = gql`
     mutation UpdateInitialConfig {
-      updateInitialConfig(config: { groupName: "Pack 123", tracks: [] }) {
+      updateInitialConfig(config: { organizationName: "Pack 123", tracks: [] }) {
         initialized
       }
     }

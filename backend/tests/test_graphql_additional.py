@@ -6,7 +6,9 @@ from backend.db import crud, models, schemas
 def test_populate_race(client, db):
     """Test the populateRace mutation."""
     # Setup
-    group = crud.create_group(db, schemas.GroupCreate(name="Populate Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Populate Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Populate Track", lane_count=4)
     )
@@ -14,7 +16,11 @@ def test_populate_race(client, db):
     mutation_create = f"""
     mutation {{
         createRace(
-            race: {{name: "Populate Race", groupId: {group.id}, trackId: {track.id}}}
+            race: {{
+                name: "Populate Race"
+                organizationId: {group.id}
+                trackId: {track.id}
+            }}
         ) {{
             id
         }}
@@ -30,7 +36,7 @@ def test_populate_race(client, db):
             count: 5,
             addRacerPhotos: false,
             addCarPhotos: false,
-            assignDens: true,
+            assignRacingGroups: true,
             checkIn: true
         }})
     }}
@@ -48,17 +54,22 @@ def test_populate_race(client, db):
 def test_import_racers(client, db):
     """Test the importRacers mutation."""
     # Setup
-    group = crud.create_group(db, schemas.GroupCreate(name="Import Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Import Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Import Track", lane_count=4)
     )
     race = crud.create_race(
-        db, schemas.RaceCreate(name="Import Race", group_id=group.id, track_id=track.id)
+        db,
+        schemas.RaceCreate(
+            name="Import Race", organization_id=group.id, track_id=track.id
+        ),
     )
     race_id = race.id
 
     csv_content = (
-        "first_name,last_name,car_number,den\n"
+        "first_name,last_name,car_number,racing_group\n"
         "Alice,Smith,101,Lions\n"
         "Bob,Jones,102,Tigers"
     )
@@ -73,12 +84,14 @@ def test_import_racers(client, db):
     assert response.status_code == 200
     assert response.json()["data"]["importRacers"] == 2
 
-    # Verify racers and dens
+    # Verify racers and racing_groups
     racers = crud.get_racers(db, race_id=race_id)
     assert len(racers) == 2
-    dens = db.query(models.Den).filter(models.Den.race_id == race_id).all()
-    assert len(dens) == 2
-    names = [d.name for d in dens]
+    racing_groups = (
+        db.query(models.RacingGroup).filter(models.RacingGroup.race_id == race_id).all()
+    )
+    assert len(racing_groups) == 2
+    names = [d.name for d in racing_groups]
     assert "Lions" in names
     assert "Tigers" in names
 
@@ -86,10 +99,15 @@ def test_import_racers(client, db):
 def test_create_round_regular(client, db):
     """Test the createRound mutation."""
     # Setup
-    group = crud.create_group(db, schemas.GroupCreate(name="Round Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Round Organization")
+    )
     track = crud.create_track(db, schemas.TrackCreate(name="Round Track", lane_count=4))
     race = crud.create_race(
-        db, schemas.RaceCreate(name="Round Race", group_id=group.id, track_id=track.id)
+        db,
+        schemas.RaceCreate(
+            name="Round Race", organization_id=group.id, track_id=track.id
+        ),
     )
     race_id = race.id
 
@@ -108,7 +126,7 @@ def test_create_round_regular(client, db):
             schedulingStrategy: "PPC",
             name: "Qualifying",
             runsPerLane: 1,
-            generalType: "PACK"
+            generalType: "ALL"
         }}) {{
             id
             name

@@ -20,7 +20,7 @@ const GET_INITIAL_CONFIG = `
     initialConfig {
       initialized
       version
-      groupName
+      organizationName
       debugMode
       pinRequired
       checkinPinSet
@@ -65,7 +65,7 @@ const CREATE_INITIAL_CONFIG = `
   mutation CreateInitialConfig($config: InitialConfigInput!) {
     createInitialConfig(config: $config) {
       initialized
-      groupName
+      organizationName
       debugMode
       pinRequired
       checkinPinSet
@@ -83,7 +83,7 @@ const UPDATE_INITIAL_CONFIG = `
   mutation UpdateInitialConfig($config: InitialConfigInput!) {
     updateInitialConfig(config: $config) {
       initialized
-      groupName
+      organizationName
       debugMode
       pinRequired
       checkinPinSet
@@ -131,7 +131,7 @@ function SectionHeading({ id, sectioned }: { id: SectionId; sectioned: boolean }
 
 export default function SystemConfig() {
   const navigate = useNavigate();
-  const [groupName, setGroupName] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
   const [debugMode, setDebugMode] = useState(false);
   // Left empty on load and never seeded from the server — a PIN is stored
   // hashed and cannot be read back. Empty therefore means "leave whatever is
@@ -181,7 +181,7 @@ export default function SystemConfig() {
   if (data && data !== seededFrom) {
     setSeededFrom(data);
     if (data.initialConfig) {
-      const { initialized, groupName: savedGroupName, debugMode: savedDebugMode, tracks: savedTracks } = data.initialConfig;
+      const { initialized, organizationName: savedOrganizationName, debugMode: savedDebugMode, tracks: savedTracks } = data.initialConfig;
       setPinRequired(!!data.initialConfig.pinRequired);
       setCheckinPinSet(!!data.initialConfig.checkinPinSet);
       // Display/Printables, unlike the App theme, are seeded from the
@@ -190,7 +190,7 @@ export default function SystemConfig() {
       setPrintablesTheme((data.initialConfig.printablesTheme || 'MATCH_APP') as SurfaceThemeSetting);
       if (initialized) {
         setIsEditing(true);
-        setGroupName(savedGroupName || '');
+        setOrganizationName(savedOrganizationName || '');
         setDebugMode(!!savedDebugMode);
         if (savedTracks && savedTracks.length > 0) {
           setTracks(savedTracks.map((t: {
@@ -252,7 +252,7 @@ export default function SystemConfig() {
     // and with one section showing at a time most of them are not. So the
     // whole form is checked here, and a failure takes the operator to the
     // section holding it rather than reporting a problem they cannot see.
-    const problem = firstProblem(groupName, tracks);
+    const problem = firstProblem(organizationName, tracks);
     if (problem) {
       setError(problem.message);
       if (isEditing) setSection(problem.section);
@@ -263,7 +263,7 @@ export default function SystemConfig() {
     try {
       const variables = {
         config: {
-          groupName: groupName,
+          organizationName: organizationName,
           debugMode: debugMode,
           // Absent, a value, or an explicit empty string to clear — the rule
           // is in `pinFields.ts`, because getting it wrong in either direction
@@ -386,8 +386,8 @@ export default function SystemConfig() {
                     <input
                       type="text"
                       id="group_name"
-                      value={groupName}
-                      onChange={(e) => setGroupName(e.target.value)}
+                      value={organizationName}
+                      onChange={(e) => setOrganizationName(e.target.value)}
                       required
                       placeholder="e.g. Pack 123"
                       style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}

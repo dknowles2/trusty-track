@@ -3,9 +3,9 @@ from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def test_racer_mutations(client, db):
-    # Setup: Group, Track, Race
-    group_in = schemas.GroupCreate(name="Racer Test Group")
-    group = crud.create_group(db, group_in)
+    # Setup: Organization, Track, Race
+    group_in = schemas.OrganizationCreate(name="Racer Test Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Racer Track", lane_count=4)
     track = crud.create_track(db, track_in)
@@ -13,7 +13,11 @@ def test_racer_mutations(client, db):
     mutation_create_race = f"""
     mutation {{
         createRace(
-            race: {{name: "Racer Race", groupId: {group.id}, trackId: {track.id}}}
+            race: {{
+                name: "Racer Race"
+                organizationId: {group.id}
+                trackId: {track.id}
+            }}
         ) {{
             id
         }}
@@ -93,7 +97,9 @@ def test_check_in_racer_preserves_weight_and_photos_it_was_not_given(client, db)
     # of a call arrived as an explicit None and erased whatever a prior
     # check-in (or bulkAssignPhotos) had set — breaking the "absent means
     # leave alone" convention (#192/#205).
-    group = crud.create_group(db, schemas.GroupCreate(name="Check-In Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Check-In Organization")
+    )
     track = crud.create_track(db, schemas.TrackCreate(name="Check-In Track"))
     race_id = client.post(
         "/graphql",
@@ -103,7 +109,7 @@ def test_check_in_racer_preserves_weight_and_photos_it_was_not_given(client, db)
                 createRace(
                     race: {{
                         name: "Check-In Race",
-                        groupId: {group.id},
+                        organizationId: {group.id},
                         trackId: {track.id}
                     }}
                 ) {{ id }}
@@ -179,12 +185,17 @@ def test_check_in_racer_preserves_weight_and_photos_it_was_not_given(client, db)
 
 def _setup_race_with_heat(db, lane_count=4):
     """Create a race with two racers and a heat whose lane_results reference them."""
-    group = crud.create_group(db, schemas.GroupCreate(name="Heat Test Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Heat Test Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Heat Track", lane_count=lane_count)
     )
     race = crud.create_race(
-        db, schemas.RaceCreate(name="Heat Race", group_id=group.id, track_id=track.id)
+        db,
+        schemas.RaceCreate(
+            name="Heat Race", organization_id=group.id, track_id=track.id
+        ),
     )
 
     racer_a = crud.create_racer(
@@ -275,16 +286,20 @@ def test_bulk_delete_racers_clears_from_heats(client, db):
 
 def test_den_mutations(client, db):
     # Setup
-    group_in = schemas.GroupCreate(name="Den Test Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="RacingGroup Test Organization")
+    group = crud.create_organization(db, group_in)
 
-    track_in = schemas.TrackCreate(name="Den Track", lane_count=4)
+    track_in = schemas.TrackCreate(name="RacingGroup Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
     mutation_create_race = f"""
     mutation {{
         createRace(
-            race: {{name: "Den Race", groupId: {group.id}, trackId: {track.id}}}
+            race: {{
+                name: "RacingGroup Race"
+                organizationId: {group.id}
+                trackId: {track.id}
+            }}
         ) {{
             id
         }}
@@ -294,10 +309,10 @@ def test_den_mutations(client, db):
         "data"
     ]["createRace"]["id"]
 
-    # 1. Create Den
+    # 1. Create RacingGroup
     mutation_create_den = f"""
     mutation {{
-        createDen(raceId: {race_id}, den: {{
+        createRacingGroup(raceId: {race_id}, racingGroup: {{
             name: "Lions",
             color: "#FF0000"
         }}) {{
@@ -308,14 +323,14 @@ def test_den_mutations(client, db):
     }}
     """
     response = client.post("/graphql", json={"query": mutation_create_den})
-    data = response.json()["data"]["createDen"]
+    data = response.json()["data"]["createRacingGroup"]
     assert data["name"] == "Lions"
-    den_id = data["id"]
+    racing_group_id = data["id"]
 
-    # 2. Update Den
+    # 2. Update RacingGroup
     mutation_update_den = f"""
     mutation {{
-        updateDen(id: {den_id}, den: {{
+        updateRacingGroup(id: {racing_group_id}, racingGroup: {{
             name: "Lions Updated",
             color: "#00FF00"
         }}) {{
@@ -325,17 +340,17 @@ def test_den_mutations(client, db):
     }}
     """
     response = client.post("/graphql", json={"query": mutation_update_den})
-    data = response.json()["data"]["updateDen"]
+    data = response.json()["data"]["updateRacingGroup"]
     assert data["name"] == "Lions Updated"
 
-    # 3. Delete Den
+    # 3. Delete RacingGroup
     mutation_delete = f"""
     mutation {{
-        deleteDen(id: {den_id})
+        deleteRacingGroup(id: {racing_group_id})
     }}
     """
     response = client.post("/graphql", json={"query": mutation_delete})
-    assert response.json()["data"]["deleteDen"] is True
+    assert response.json()["data"]["deleteRacingGroup"] is True
 
 
 def test_track_mutations(client):
@@ -388,8 +403,8 @@ def test_track_mutations(client):
 
 def test_round_wizard_and_advance(client, db):
     # Setup
-    group_in = schemas.GroupCreate(name="Wizard Test Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Wizard Test Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Wizard Track", lane_count=4)
     track = crud.create_track(db, track_in)
@@ -397,7 +412,11 @@ def test_round_wizard_and_advance(client, db):
     mutation_create_race = f"""
     mutation {{
         createRace(
-            race: {{name: "Wizard Race", groupId: {group.id}, trackId: {track.id}}}
+            race: {{
+                name: "Wizard Race"
+                organizationId: {group.id}
+                trackId: {track.id}
+            }}
         ) {{
             id
         }}
@@ -430,12 +449,12 @@ def test_round_wizard_and_advance(client, db):
     mutation {{
         createRoundWizard(raceId: {race_id}, config: {{
             generalRound: {{
-                type: "PACK",
+                type: "ALL",
                 runsPerLane: 1
             }},
             championshipRounds: [{{
                 name: "Finals",
-                source: "PACK",
+                source: "ALL",
                 numTopRacers: 3,
                 runsPerLane: 1
             }}]
@@ -478,8 +497,8 @@ def test_round_wizard_and_advance(client, db):
 
 def test_bulk_mutations(client, db):
     # Setup
-    group_in = schemas.GroupCreate(name="Bulk Test Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Bulk Test Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Bulk Track", lane_count=4)
     track = crud.create_track(db, track_in)
@@ -487,7 +506,7 @@ def test_bulk_mutations(client, db):
     mutation_create_race = f"""
     mutation {{
         createRace(
-            race: {{name: "Bulk Race", groupId: {group.id}, trackId: {track.id}}}
+            race: {{name: "Bulk Race", organizationId: {group.id}, trackId: {track.id}}}
         ) {{
             id
         }}
@@ -571,8 +590,8 @@ def test_bulk_mutations_with_variables(client, db):
     GraphQL validation error that only surfaces at runtime — not in the inline-
     value tests above.
     """
-    group_in = schemas.GroupCreate(name="Bulk Vars Test Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Bulk Vars Test Organization")
+    group = crud.create_organization(db, group_in)
     track_in = schemas.TrackCreate(name="Bulk Vars Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
@@ -585,7 +604,7 @@ def test_bulk_mutations_with_variables(client, db):
             "variables": {
                 "race": {
                     "name": "Bulk Vars Race",
-                    "groupId": group.id,
+                    "organizationId": group.id,
                     "trackId": track.id,
                 }
             },
@@ -671,35 +690,37 @@ def test_bulk_mutations_with_variables(client, db):
     assert "errors" not in resp.json(), f"bulkClearNumbers failed: {resp.json()}"
     assert resp.json()["data"]["bulkClearNumbers"] is True
 
-    # -- bulkMoveToDen --
-    den_resp = client.post(
+    # -- bulkMoveToRacingGroup --
+    racing_group_resp = client.post(
         "/graphql",
         json={
             "query": """
-            mutation CreateDen($raceId: Int!, $den: DenInput!) {
-                createDen(raceId: $raceId, den: $den) { id }
+            mutation CreateRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
+                createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id }
             }
             """,
             "variables": {
                 "raceId": race_id,
-                "den": {"name": "Test Den", "color": "#ff0000"},
+                "racingGroup": {"name": "Test RacingGroup", "color": "#ff0000"},
             },
         },
     )
-    den_id = den_resp.json()["data"]["createDen"]["id"]
+    racing_group_id = racing_group_resp.json()["data"]["createRacingGroup"]["id"]
 
     resp = client.post(
         "/graphql",
         json={
             "query": (
-                "mutation BulkMoveToDen($racerIds: [Int!]!, $denId: Int) "
-                "{ bulkMoveToDen(racerIds: $racerIds, denId: $denId) }"
+                "mutation BulkMoveToRacingGroup("
+                "$racerIds: [Int!]!, $racingGroupId: Int) "
+                "{ bulkMoveToRacingGroup("
+                "racerIds: $racerIds, racingGroupId: $racingGroupId) }"
             ),
-            "variables": {"racerIds": racer_ids, "denId": den_id},
+            "variables": {"racerIds": racer_ids, "racingGroupId": racing_group_id},
         },
     )
-    assert "errors" not in resp.json(), f"bulkMoveToDen failed: {resp.json()}"
-    assert resp.json()["data"]["bulkMoveToDen"] is True
+    assert "errors" not in resp.json(), f"bulkMoveToRacingGroup failed: {resp.json()}"
+    assert resp.json()["data"]["bulkMoveToRacingGroup"] is True
 
     # -- bulkDeleteRacers --
     resp = client.post(

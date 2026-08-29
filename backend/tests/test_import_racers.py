@@ -18,7 +18,7 @@ mutation Import($raceId: Int!, $csvData: String!) {
 
 @pytest.fixture
 def race(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Track", lane_count=4, timer_type="FAKE")
     )
@@ -26,7 +26,7 @@ def race(db):
         db,
         schemas.RaceCreate(
             name="Derby",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",
@@ -59,7 +59,7 @@ def test_the_canonical_header_row_imports_every_field(client, db, race):
     count = _import(
         client,
         race.id,
-        "first_name,last_name,car_number,car_name,den,car_passed_inspection\n"
+        "first_name,last_name,car_number,car_name,racing_group,car_passed_inspection\n"
         "Alex,Rivera,101,Blue Streak,Wolves,yes\n",
     )
 
@@ -69,7 +69,7 @@ def test_the_canonical_header_row_imports_every_field(client, db, race):
     assert racer.car_number == 101
     assert racer.car_name == "Blue Streak"
     assert racer.car_passed_inspection is True
-    assert racer.den.name == "Wolves"
+    assert racer.racing_group.name == "Wolves"
 
 
 def test_car_name_and_inspection_used_to_be_dropped(client, db, race):
@@ -129,8 +129,10 @@ def test_dens_named_in_the_file_are_created_once(client, db, race):
     _import(
         client,
         race.id,
-        "first_name,last_name,den\nAlex,Rivera,Wolves\nSam,Okafor,Wolves\n",
+        "first_name,last_name,racing_group\nAlex,Rivera,Wolves\nSam,Okafor,Wolves\n",
     )
 
-    dens = db.query(models.Den).filter(models.Den.race_id == race.id).all()
-    assert [den.name for den in dens] == ["Wolves"]
+    racing_groups = (
+        db.query(models.RacingGroup).filter(models.RacingGroup.race_id == race.id).all()
+    )
+    assert [racing_group.name for racing_group in racing_groups] == ["Wolves"]

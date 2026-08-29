@@ -50,7 +50,7 @@ def source_engine(data_dir: Path):
             text("INSERT INTO alembic_version VALUES (:rev)"), {"rev": _head_revision()}
         )
         connection.execute(
-            text("INSERT INTO groups (name, debug_mode) VALUES ('Pack 42', 0)")
+            text("INSERT INTO organizations (name, debug_mode) VALUES ('Pack 42', 0)")
         )
     yield engine
     engine.dispose()
@@ -113,7 +113,7 @@ class TestWritingAnArchive:
 
         connection = sqlite3.connect(data_dir / "extracted.db")
         try:
-            assert connection.execute("SELECT name FROM groups").fetchall() == [
+            assert connection.execute("SELECT name FROM organizations").fetchall() == [
                 ("Pack 42",)
             ]
         finally:
@@ -350,7 +350,7 @@ class TestRestoring:
 
         connection = sqlite3.connect(data_dir / "trusty-track.db")
         try:
-            assert connection.execute("SELECT name FROM groups").fetchall() == [
+            assert connection.execute("SELECT name FROM organizations").fetchall() == [
                 ("Pack 42",)
             ]
         finally:
@@ -469,12 +469,16 @@ class TestWhoMayCall:
 
     def test_a_viewer_may_not_back_up(self, client, db) -> None:
         # The archive holds every racer's name and photograph.
-        db.add(models.Group(name="Pack 42", operator_pin_hash=auth.hash_pin("1234")))
+        db.add(
+            models.Organization(name="Pack 42", operator_pin_hash=auth.hash_pin("1234"))
+        )
         db.commit()
         assert client.get("/api/backup").status_code == 403
 
     def test_the_operator_may_back_up(self, client, db) -> None:
-        db.add(models.Group(name="Pack 42", operator_pin_hash=auth.hash_pin("1234")))
+        db.add(
+            models.Organization(name="Pack 42", operator_pin_hash=auth.hash_pin("1234"))
+        )
         db.commit()
         response = client.get("/api/backup", headers={auth.PIN_HEADER: "1234"})
         assert response.status_code == 200
@@ -482,7 +486,7 @@ class TestWhoMayCall:
 
     def test_the_check_in_desk_may_not_restore(self, client, db) -> None:
         db.add(
-            models.Group(
+            models.Organization(
                 name="Pack 42",
                 operator_pin_hash=auth.hash_pin("1234"),
                 checkin_pin_hash=auth.hash_pin("5678"),

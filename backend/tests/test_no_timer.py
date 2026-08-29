@@ -74,12 +74,14 @@ def _no_timer_track(db):
 
 
 def _race(db, track):
-    group = crud.create_group(db, schemas.GroupCreate(name="No Timer Pack"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="No Timer Pack")
+    )
     return crud.create_race(
         db,
         schemas.RaceCreate(
             name="No Timer Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),

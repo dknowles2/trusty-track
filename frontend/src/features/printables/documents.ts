@@ -13,7 +13,7 @@ export interface PrintableRacer {
     last_name: string;
     car_number?: number | string;
     car_name?: string;
-    den_id?: number;
+    racing_group_id?: number;
     racer_image_url?: string;
 }
 
@@ -24,8 +24,8 @@ export interface PrintableRace {
     location?: string | null;
 }
 
-/** A den, for the colour flash on a card. */
-export interface PrintableDen {
+/** A racingGroup, for the colour flash on a card. */
+export interface PrintableRacingGroup {
     id: number;
     name: string;
     color: string;

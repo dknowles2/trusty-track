@@ -2,7 +2,7 @@ import { getContrastColor } from '../../../utils/colors';
 import {
     formatEventDate,
     formatEventTime,
-    type PrintableDen,
+    type PrintableRacingGroup,
     type PrintableRace,
     type PrintableRacer,
 } from '../documents';
@@ -12,7 +12,7 @@ import PrintPhoto from './PrintPhoto';
 interface Props {
     racer: PrintableRacer;
     race: PrintableRace;
-    den?: PrintableDen;
+    racingGroup?: PrintableRacingGroup;
 }
 
 /**
@@ -24,7 +24,7 @@ interface Props {
  * on a pass swinging from a lanyard it has to be readable from further away
  * than a name is.
  */
-export default function PitPass({ racer, race, den }: Props) {
+export default function PitPass({ racer, race, racingGroup }: Props) {
     const date = formatEventDate(race.dateTime);
     const time = formatEventTime(race.dateTime);
 
@@ -46,15 +46,15 @@ export default function PitPass({ racer, race, den }: Props) {
                     {racer.first_name} {racer.last_name}
                 </div>
 
-                {den && (
+                {racingGroup && (
                     <span
-                        className="print-den-chip"
+                        className="print-racing-group-chip"
                         style={{
-                            backgroundColor: den.color,
-                            color: getContrastColor(den.color),
+                            backgroundColor: racingGroup.color,
+                            color: getContrastColor(racingGroup.color),
                         }}
                     >
-                        {den.name}
+                        {racingGroup.name}
                     </span>
                 )}
 

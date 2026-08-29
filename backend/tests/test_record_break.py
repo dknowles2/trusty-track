@@ -59,7 +59,7 @@ def track(db):
 
 @pytest.fixture
 def group(db):
-    return crud.create_group(db, schemas.GroupCreate(name="Record Pack"))
+    return crud.create_organization(db, schemas.OrganizationCreate(name="Record Pack"))
 
 
 def _race(db, group, track, name):
@@ -67,7 +67,7 @@ def _race(db, group, track, name):
         db,
         schemas.RaceCreate(
             name=name,
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",

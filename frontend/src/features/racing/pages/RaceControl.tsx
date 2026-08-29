@@ -141,7 +141,7 @@ export default function RaceControl() {
           eliminationLosses: config.eliminationLosses ?? null,
           balancedPhases: config.balancedPhases ?? null,
           runsPerLane: config.runsPerLane || 1,
-          generalType: config.generalType || 'PACK'
+          generalType: config.generalType || 'ALL'
         }
       });
 
@@ -730,7 +730,7 @@ export default function RaceControl() {
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}
           racerCount={race?.racers?.length || 0}
-          denCount={race?.dens?.length || 0}
+          racingGroupCount={race?.racingGroups?.length || 0}
           championshipTrophies={race?.championshipTrophies || 3}
           lastChampionshipRound={
             // A championship round can chain off the latest round that has

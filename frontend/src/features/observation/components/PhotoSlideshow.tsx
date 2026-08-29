@@ -17,13 +17,13 @@ import {
     clampIndex,
     nextIndex,
     slidesFor,
-    type SlideshowDen,
+    type SlideshowRacingGroup,
     type SlideshowRacer,
 } from '../slideshow';
 
 interface Props {
     racers: readonly SlideshowRacer[];
-    dens: readonly SlideshowDen[];
+    racingGroups: readonly SlideshowRacingGroup[];
     /** How long each racer stays up, from the display's assignment. */
     intervalMs: number;
     /**
@@ -37,8 +37,8 @@ interface Props {
     loading?: boolean;
 }
 
-export default function PhotoSlideshow({ racers, dens, intervalMs, loading = false }: Props) {
-    const slides = slidesFor(racers, dens);
+export default function PhotoSlideshow({ racers, racingGroups, intervalMs, loading = false }: Props) {
+    const slides = slidesFor(racers, racingGroups);
     const [index, setIndex] = useState(0);
 
     // Hold position when the roster changes underneath us. A photo uploaded at
@@ -129,18 +129,18 @@ export default function PhotoSlideshow({ racers, dens, intervalMs, loading = fal
                     )}
                     {slide.name}
                 </div>
-                {(slide.carName || slide.denName) && (
+                {(slide.carName || slide.racingGroupName) && (
                     <div style={{ fontSize: '3vmin', color: 'var(--display-text-faint-color)', marginTop: '1vmin' }}>
                         {slide.carName}
-                        {slide.carName && slide.denName ? ' · ' : ''}
-                        {slide.denName && (
+                        {slide.carName && slide.racingGroupName ? ' · ' : ''}
+                        {slide.racingGroupName && (
                             <span
                                 style={{
-                                    borderLeft: slide.denColor ? `0.6vmin solid ${slide.denColor}` : undefined,
-                                    paddingLeft: slide.denColor ? '1vmin' : undefined,
+                                    borderLeft: slide.racingGroupColor ? `0.6vmin solid ${slide.racingGroupColor}` : undefined,
+                                    paddingLeft: slide.racingGroupColor ? '1vmin' : undefined,
                                 }}
                             >
-                                {slide.denName}
+                                {slide.racingGroupName}
                             </span>
                         )}
                     </div>

@@ -39,14 +39,18 @@ def _mock_session(db):
 
 
 def _build_race(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Collision Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Collision Organization")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name="Collision Track", lane_count=2, timer_type="FAKE"),
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Collision Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Collision Race", organization_id=group.id, track_id=track.id
+        ),
     )
     return group, track, race
 

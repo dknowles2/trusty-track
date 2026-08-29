@@ -121,7 +121,7 @@ class TestAdvancement:
             db,
             race_id=race_id,
             round_number=2,
-            advancement_source="PACK",
+            advancement_source="ALL",
             advancement_num_racers=2,
         )
         crud.generate_heats_for_round(db, final.id, num_placeholders=2)
@@ -130,10 +130,10 @@ class TestAdvancement:
 
     def test_a_withdrawn_racer_is_not_advanced(self, db, client):
         race_id, _final = self._race_with_final(db, client)
-        top = scoring.get_advancing_racers(db, race_id, "PACK", 2)
+        top = scoring.get_advancing_racers(db, race_id, "ALL", 2)
         withdraw(db, top[0])
 
-        after = scoring.get_advancing_racers(db, race_id, "PACK", 2)
+        after = scoring.get_advancing_racers(db, race_id, "ALL", 2)
 
         # The next qualifier steps up; the field stays full.
         assert top[0] not in after

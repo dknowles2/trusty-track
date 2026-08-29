@@ -11,12 +11,12 @@ const racer = (over: Partial<SortableRacer> & { id: number }): SortableRacer => 
     first_name: 'A',
     last_name: 'A',
     car_number: null,
-    den_id: null,
+    racing_group_id: null,
     car_passed_inspection: false,
     ...over,
 });
 
-const DENS = [
+const RACING_GROUPS = [
     { id: 1, name: 'Wolves' },
     { id: 2, name: 'Bears' },
 ];
@@ -27,7 +27,7 @@ describe('sortRacers', () => {
     it('defaults to car number ascending', () => {
         const sorted = sortRacers(
             [racer({ id: 1, car_number: 9 }), racer({ id: 2, car_number: 3 })],
-            DENS,
+            RACING_GROUPS,
         );
 
         expect(ids(sorted)).toEqual([2, 1]);
@@ -38,7 +38,7 @@ describe('sortRacers', () => {
         // the end of a list than in the middle of one.
         const sorted = sortRacers(
             [racer({ id: 1, car_number: null }), racer({ id: 2, car_number: 40 })],
-            DENS,
+            RACING_GROUPS,
         );
 
         expect(ids(sorted)).toEqual([2, 1]);
@@ -48,7 +48,7 @@ describe('sortRacers', () => {
         // The same array is the query result React is holding.
         const racers = [racer({ id: 1, car_number: 9 }), racer({ id: 2, car_number: 3 })];
 
-        sortRacers(racers, DENS);
+        sortRacers(racers, RACING_GROUPS);
 
         expect(ids(racers)).toEqual([1, 2]);
     });
@@ -59,40 +59,40 @@ describe('sortRacers', () => {
                 racer({ id: 1, last_name: 'Zeta', first_name: 'Ann' }),
                 racer({ id: 2, last_name: 'Alpha', first_name: 'Zoe' }),
             ],
-            DENS,
+            RACING_GROUPS,
             { key: 'last_name', direction: 'asc' },
         );
 
         expect(ids(sorted)).toEqual([2, 1]);
     });
 
-    it('sorts by den name rather than den id', () => {
+    it('sorts by racingGroup name rather than racingGroup id', () => {
         // The ids are in the opposite order to the names, so an implementation
         // that sorted on the raw column would pass a laxer test.
         const sorted = sortRacers(
-            [racer({ id: 1, den_id: 1 }), racer({ id: 2, den_id: 2 })],
-            DENS,
-            { key: 'den', direction: 'asc' },
+            [racer({ id: 1, racing_group_id: 1 }), racer({ id: 2, racing_group_id: 2 })],
+            RACING_GROUPS,
+            { key: 'racingGroup', direction: 'asc' },
         );
 
         expect(ids(sorted)).toEqual([2, 1]);
     });
 
-    it('puts racers in no den first, where a den still has to be chosen', () => {
+    it('puts racers in no racingGroup first, where a racingGroup still has to be chosen', () => {
         const sorted = sortRacers(
-            [racer({ id: 1, den_id: 1 }), racer({ id: 2, den_id: null })],
-            DENS,
-            { key: 'den', direction: 'asc' },
+            [racer({ id: 1, racing_group_id: 1 }), racer({ id: 2, racing_group_id: null })],
+            RACING_GROUPS,
+            { key: 'racingGroup', direction: 'asc' },
         );
 
         expect(ids(sorted)).toEqual([2, 1]);
     });
 
-    it('survives a den that no longer exists', () => {
+    it('survives a racingGroup that no longer exists', () => {
         const sorted = sortRacers(
-            [racer({ id: 1, den_id: 999 }), racer({ id: 2, den_id: 1 })],
-            DENS,
-            { key: 'den', direction: 'asc' },
+            [racer({ id: 1, racing_group_id: 999 }), racer({ id: 2, racing_group_id: 1 })],
+            RACING_GROUPS,
+            { key: 'racingGroup', direction: 'asc' },
         );
 
         expect(ids(sorted)).toEqual([1, 2]);
@@ -106,7 +106,7 @@ describe('sortRacers', () => {
                 racer({ id: 1, car_passed_inspection: true }),
                 racer({ id: 2, car_passed_inspection: false }),
             ],
-            DENS,
+            RACING_GROUPS,
             { key: 'status', direction: 'asc' },
         );
 
@@ -116,7 +116,7 @@ describe('sortRacers', () => {
     it('reverses when asked', () => {
         const sorted = sortRacers(
             [racer({ id: 1, car_number: 1 }), racer({ id: 2, car_number: 2 })],
-            DENS,
+            RACING_GROUPS,
             { key: 'car_number', direction: 'desc' },
         );
 
@@ -124,16 +124,16 @@ describe('sortRacers', () => {
     });
 
     it('does not reverse the tie-break', () => {
-        // Descending by den should still list each den's own racers by car
+        // Descending by racingGroup should still list each racingGroup's own racers by car
         // number, rather than backwards within the group.
         const sorted = sortRacers(
             [
-                racer({ id: 1, den_id: 1, car_number: 20 }),
-                racer({ id: 2, den_id: 1, car_number: 10 }),
-                racer({ id: 3, den_id: 2, car_number: 5 }),
+                racer({ id: 1, racing_group_id: 1, car_number: 20 }),
+                racer({ id: 2, racing_group_id: 1, car_number: 10 }),
+                racer({ id: 3, racing_group_id: 2, car_number: 5 }),
             ],
-            DENS,
-            { key: 'den', direction: 'desc' },
+            RACING_GROUPS,
+            { key: 'racingGroup', direction: 'desc' },
         );
 
         expect(ids(sorted)).toEqual([2, 1, 3]);
@@ -143,7 +143,7 @@ describe('sortRacers', () => {
         // Every racer here is identical on the sort key and on both tie-breaks.
         const identical = [3, 1, 2].map((id) => racer({ id, car_number: 7 }));
 
-        expect(ids(sortRacers(identical, DENS, { key: 'status', direction: 'asc' }))).toEqual([
+        expect(ids(sortRacers(identical, RACING_GROUPS, { key: 'status', direction: 'asc' }))).toEqual([
             1, 2, 3,
         ]);
     });
@@ -151,15 +151,15 @@ describe('sortRacers', () => {
 
 describe('nextSortState', () => {
     it('starts a new column ascending', () => {
-        expect(nextSortState({ key: 'last_name', direction: 'desc' }, 'den')).toEqual({
-            key: 'den',
+        expect(nextSortState({ key: 'last_name', direction: 'desc' }, 'racingGroup')).toEqual({
+            key: 'racingGroup',
             direction: 'asc',
         });
     });
 
     it('flips the column already sorted', () => {
-        expect(nextSortState({ key: 'den', direction: 'asc' }, 'den')).toEqual({
-            key: 'den',
+        expect(nextSortState({ key: 'racingGroup', direction: 'asc' }, 'racingGroup')).toEqual({
+            key: 'racingGroup',
             direction: 'desc',
         });
     });
@@ -167,8 +167,8 @@ describe('nextSortState', () => {
     it('flips back rather than cycling to unsorted', () => {
         // "Unsorted" would mean insertion order, which is the arbitrary one
         // this replaced.
-        expect(nextSortState({ key: 'den', direction: 'desc' }, 'den')).toEqual({
-            key: 'den',
+        expect(nextSortState({ key: 'racingGroup', direction: 'desc' }, 'racingGroup')).toEqual({
+            key: 'racingGroup',
             direction: 'asc',
         });
     });

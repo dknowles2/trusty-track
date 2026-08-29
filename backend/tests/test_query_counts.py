@@ -26,7 +26,7 @@ query($id: Int!) {
     scoringStrategy
     autoAdvanceHeat
     track { id laneCount timerType }
-    dens { id name }
+    racingGroups { id name }
     racers { id firstName lastName carNumber racerImageUrl carImageUrl }
     heats { id heatNumber roundNumber roundId roundName
             lanes { lane racerId time place } }
@@ -42,7 +42,7 @@ query($id: Int!) {
         source
         numRacers
         advancingRacers {
-          racerId firstName lastName carNumber denName score rank isAdvancing
+          racerId firstName lastName carNumber racingGroupName score rank isAdvancing
         }
       }
     }
@@ -64,7 +64,7 @@ query($id: Int!) {
   race(raceId: $id) {
     id
     name
-    leaderboard { racerId firstName lastName carNumber denName score rank }
+    leaderboard { racerId firstName lastName carNumber racingGroupName score rank }
     heats { id heatNumber roundNumber roundName
             lanes { lane racerId time place } }
   }
@@ -92,21 +92,23 @@ class _QueryCounter:
 
 @pytest.fixture
 def populated_race(db):
-    """A realistically sized race: 60 racers, 5 dens, 3 rounds, 45 heats."""
-    group = crud.create_group(db, schemas.GroupCreate(name="Perf Pack"))
+    """A realistically sized race: 60 racers, 5 racing_groups, 3 rounds, 45 heats."""
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Perf Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Perf Track", lane_count=4, timer_type="FAKE")
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Perf Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Perf Race", organization_id=group.id, track_id=track.id
+        ),
     )
 
-    dens = []
+    racing_groups = []
     for i in range(5):
-        den = models.Den(name=f"Den {i}", race_id=race.id)
-        db.add(den)
-        dens.append(den)
+        racing_group = models.RacingGroup(name=f"RacingGroup {i}", race_id=race.id)
+        db.add(racing_group)
+        racing_groups.append(racing_group)
     db.commit()
 
     racers = []
@@ -116,7 +118,7 @@ def populated_race(db):
             first_name=f"Racer{i}",
             last_name="Test",
             car_number=100 + i,
-            den_id=dens[i % 5].id,
+            racing_group_id=racing_groups[i % 5].id,
             car_passed_inspection=True,
         )
         db.add(racer)
@@ -242,15 +244,20 @@ def test_heat_fields_do_not_scale_with_heat_count(client, populated_race, db):
 
 
 def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
-    """Moving racers between dens is one UPDATE, whatever the count.
+    """Moving racers between racing_groups is one UPDATE, whatever the count.
 
-    It used to be four more statements than that: a SELECT for a racer, one for
-    the den, one for the `racing_groups` row shadowing that den, and an INSERT
-    with its own commit the first time. That table was written on every save
+    It used to be four more statements than that: a SELECT for a racer, one
+    for the racing group, one for the `racing_groups` row shadowing that
+    racing group, and an INSERT with its own commit the first time. That
+    table was written on every save
     and read by nothing, and was dropped in 0008 — this is the guard against
     something like it growing back on a bulk path.
     """
-    den = db.query(models.Den).filter(models.Den.race_id == populated_race.id).first()
+    racing_group = (
+        db.query(models.RacingGroup)
+        .filter(models.RacingGroup.race_id == populated_race.id)
+        .first()
+    )
     racer_ids = [
         r.id
         for r in db.query(models.Racer)
@@ -259,8 +266,8 @@ def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
     ]
 
     mutation = """
-    mutation($ids: [Int!]!, $denId: Int) {
-      bulkMoveToDen(racerIds: $ids, denId: $denId)
+    mutation($ids: [Int!]!, $racingGroupId: Int) {
+      bulkMoveToRacingGroup(racerIds: $ids, racingGroupId: $racingGroupId)
     }
     """
     with _QueryCounter() as counter:
@@ -268,7 +275,7 @@ def test_bulk_move_to_den_is_a_single_update(client, db, populated_race):
             "/graphql",
             json={
                 "query": mutation,
-                "variables": {"ids": racer_ids, "denId": den.id},
+                "variables": {"ids": racer_ids, "racingGroupId": racing_group.id},
             },
         )
     assert response.status_code == 200, response.text
@@ -322,7 +329,7 @@ query($id: Int!) {
     id
     awards {
       id name kind place source sortOrder
-      den { id name }
+      racingGroup { id name }
       recipient { id firstName lastName carNumber racerImageUrl }
     }
   }
@@ -333,7 +340,7 @@ query($id: Int!) {
 def test_awards_do_not_scale_with_the_number_of_awards(client, populated_race, db):
     """Resolving a speed award is a full scoring pass, so it must be shared.
 
-    A pack gives one award per den plus a podium, which is a dozen or more, and
+    A pack gives one award per racing group plus a podium, which is a dozen or more, and
     each of them names a source. Resolved per award that is a dozen passes over
     every heat in the race; `loaders.award_recipients` computes the whole race
     once and `services.awards` loads each distinct source once within that.
@@ -341,19 +348,23 @@ def test_awards_do_not_scale_with_the_number_of_awards(client, populated_race, d
     The comparison is against the same query with a single award, so this fails
     on per-award work rather than on whatever the page costs in total.
     """
-    dens = db.query(models.Den).filter(models.Den.race_id == populated_race.id).all()
+    racing_groups = (
+        db.query(models.RacingGroup)
+        .filter(models.RacingGroup.race_id == populated_race.id)
+        .all()
+    )
 
     crud.create_award(
         db,
         populated_race.id,
         schemas.AwardCreate(
-            name="Fastest Car", kind=models.AwardKind.SPEED, source="PACK", place=1
+            name="Fastest Car", kind=models.AwardKind.SPEED, source="ALL", place=1
         ),
     )
     with _QueryCounter() as one_award:
         _run(client, AWARDS_QUERY, populated_race.id)
 
-    # A podium plus one per den, which is what a real pack hands out.
+    # A podium plus one per racing group, which is what a real pack hands out.
     for place in (2, 3):
         crud.create_award(
             db,
@@ -361,20 +372,20 @@ def test_awards_do_not_scale_with_the_number_of_awards(client, populated_race, d
             schemas.AwardCreate(
                 name=f"Place {place}",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=place,
             ),
         )
-    for den in dens:
+    for racing_group in racing_groups:
         crud.create_award(
             db,
             populated_race.id,
             schemas.AwardCreate(
-                name=f"Fastest {den.name}",
+                name=f"Fastest {racing_group.name}",
                 kind=models.AwardKind.SPEED,
-                source="PACK",
+                source="ALL",
                 place=1,
-                den_id=den.id,
+                racing_group_id=racing_group.id,
             ),
         )
 

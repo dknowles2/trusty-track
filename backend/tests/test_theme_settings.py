@@ -1,4 +1,4 @@
-"""Display/Printables theme settings on `Group` (#498, stage 2).
+"""Display/Printables theme settings on `Organization` (#498, stage 2).
 
 The App theme is not tested here at all — it lives only in each device's own
 `localStorage` and never reaches the server (see `frontend/src/theming/
@@ -16,12 +16,12 @@ client = TestClient(app)
 
 def _reset(db: Session) -> None:
     db.query(models.Track).delete()
-    db.query(models.Group).delete()
+    db.query(models.Organization).delete()
     db.commit()
 
 
 def test_an_unconfigured_install_reports_match_app(db: Session):
-    """No Group exists yet, so both fields default to the sentinel that
+    """No Organization exists yet, so both fields default to the sentinel that
     reproduces today's shipped colours — never null, and never left out of
     the payload."""
     _reset(db)
@@ -46,7 +46,7 @@ def test_a_fresh_group_defaults_to_match_app(db: Session):
     """The column's own server default, exercised the ordinary way — a
     group created with no explicit values at all."""
     _reset(db)
-    group = models.Group(name="Pack 1")
+    group = models.Organization(name="Pack 1")
     db.add(group)
     db.commit()
     db.refresh(group)
@@ -68,7 +68,7 @@ def test_create_initial_config_accepts_explicit_themes(db: Session):
     """
     variables = {
         "config": {
-            "groupName": "Pack 42",
+            "organizationName": "Pack 42",
             "displayTheme": "old-glory",
             "printablesTheme": "newsprint",
             "tracks": [{"name": "Main Track", "laneCount": 4, "timerType": "FAKE"}],
@@ -98,7 +98,7 @@ def test_create_initial_config_defaults_when_omitted(db: Session):
     """
     variables = {
         "config": {
-            "groupName": "Pack 42",
+            "organizationName": "Pack 42",
             "tracks": [{"name": "Main Track", "laneCount": 4, "timerType": "FAKE"}],
         }
     }
@@ -112,7 +112,7 @@ def test_create_initial_config_defaults_when_omitted(db: Session):
 
 def test_update_initial_config_sets_both_themes(db: Session):
     _reset(db)
-    group = models.Group(name="Pack 1")
+    group = models.Organization(name="Pack 1")
     db.add(group)
     track = models.Track(name="T1", lane_count=4)
     db.add(track)
@@ -128,7 +128,7 @@ def test_update_initial_config_sets_both_themes(db: Session):
     """
     variables = {
         "config": {
-            "groupName": "Pack 1",
+            "organizationName": "Pack 1",
             "displayTheme": "clear-sight",
             "printablesTheme": "sawdust-and-pine",
             "tracks": [],
@@ -148,7 +148,7 @@ def test_update_initial_config_leaves_the_theme_alone_when_absent(db: Session):
     otherwise reset the theme back to the default whenever the operator
     renamed a track."""
     _reset(db)
-    group = models.Group(name="Pack 1", display_theme="old-glory")
+    group = models.Organization(name="Pack 1", display_theme="old-glory")
     db.add(group)
     track = models.Track(name="T1", lane_count=4)
     db.add(track)
@@ -162,7 +162,7 @@ def test_update_initial_config_leaves_the_theme_alone_when_absent(db: Session):
         }
     }
     """
-    variables = {"config": {"groupName": "Pack 1", "tracks": []}}
+    variables = {"config": {"organizationName": "Pack 1", "tracks": []}}
     response = client.post("/graphql", json={"query": mutation, "variables": variables})
     res_data = response.json()
     assert "errors" not in res_data, res_data
@@ -178,7 +178,7 @@ def test_update_initial_config_can_explicitly_reset_to_match_app(db: Session):
     "clear" equivalent for this field, requiring no separate boolean flag
     the way `clearWeightLimit` does for a field whose off-state is null."""
     _reset(db)
-    group = models.Group(name="Pack 1", display_theme="old-glory")
+    group = models.Organization(name="Pack 1", display_theme="old-glory")
     db.add(group)
     track = models.Track(name="T1", lane_count=4)
     db.add(track)
@@ -193,7 +193,7 @@ def test_update_initial_config_can_explicitly_reset_to_match_app(db: Session):
     """
     variables = {
         "config": {
-            "groupName": "Pack 1",
+            "organizationName": "Pack 1",
             "displayTheme": "MATCH_APP",
             "tracks": [],
         }

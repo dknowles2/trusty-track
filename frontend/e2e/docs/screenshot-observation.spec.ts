@@ -34,7 +34,7 @@ import {
     readRounds,
     recordEveryHeat,
     runRoundWizard,
-    seedDens,
+    seedRacingGroups,
     seedHistoricalRecord,
     seedRace,
     seedRacers,
@@ -68,14 +68,14 @@ const DENS = [
 // standings are this order. Every one is under the 3.899 seeded below, so the
 // record breaks — deterministically, on this spec's own track.
 const RACERS = [
-    { first: 'Ada', last: 'Lovelace', car: 3, carName: 'Blue Streak', den: 'Bears' },
-    { first: 'Grace', last: 'Hopper', car: 7, carName: 'Thunderbolt', den: 'Wolves' },
-    { first: 'Alan', last: 'Turing', car: 11, carName: 'Silver Arrow', den: 'Wolves' },
-    { first: 'Katherine', last: 'Johnson', car: 14, carName: 'Red Comet', den: 'Bears' },
-    { first: 'Mae', last: 'Jemison', car: 18, carName: 'Night Owl', den: 'Wolves' },
-    { first: 'Chien-Shiung', last: 'Wu', car: 22, carName: 'Green Machine', den: 'Bears' },
-    { first: 'Rosalind', last: 'Franklin', car: 26, carName: 'Gold Rush', den: 'Wolves' },
-    { first: 'Percy', last: 'Julian', car: 31, carName: 'Copper Bolt', den: 'Bears' },
+    { first: 'Ada', last: 'Lovelace', car: 3, carName: 'Blue Streak', racingGroup: 'Bears' },
+    { first: 'Grace', last: 'Hopper', car: 7, carName: 'Thunderbolt', racingGroup: 'Wolves' },
+    { first: 'Alan', last: 'Turing', car: 11, carName: 'Silver Arrow', racingGroup: 'Wolves' },
+    { first: 'Katherine', last: 'Johnson', car: 14, carName: 'Red Comet', racingGroup: 'Bears' },
+    { first: 'Mae', last: 'Jemison', car: 18, carName: 'Night Owl', racingGroup: 'Wolves' },
+    { first: 'Chien-Shiung', last: 'Wu', car: 22, carName: 'Green Machine', racingGroup: 'Bears' },
+    { first: 'Rosalind', last: 'Franklin', car: 26, carName: 'Gold Rush', racingGroup: 'Wolves' },
+    { first: 'Percy', last: 'Julian', car: 31, carName: 'Copper Bolt', racingGroup: 'Bears' },
 ];
 
 /** Slower than any car above, so the record it sets is a real break. */
@@ -95,8 +95,8 @@ test('screenshot the audience displays', async ({ page, browser }) => {
         dateTime: '2026-03-07T10:00:00',
         location: 'School Gym',
     });
-    const denIds = await seedDens(page, raceId, DENS);
-    const racerIds = await seedRacers(page, raceId, RACERS, denIds);
+    const racingGroupIds = await seedRacingGroups(page, raceId, DENS);
+    const racerIds = await seedRacers(page, raceId, RACERS, racingGroupIds);
     const timeOf = new Map(
         RACERS.map((racer, index) => [racerIds[racer.car], 3.02 + index * 0.11]),
     );
@@ -237,7 +237,7 @@ test('screenshot the audience displays', async ({ page, browser }) => {
         `mutation DisplayAward($id: Int!, $award: AwardInput!) {
             createAward(raceId: $id, award: $award) { id }
         }`,
-        { id: raceId, award: { name: 'Fastest Car', kind: 'SPEED', source: 'PACK', place: 1 } },
+        { id: raceId, award: { name: 'Fastest Car', kind: 'SPEED', source: 'ALL', place: 1 } },
     );
 
     await page.reload();

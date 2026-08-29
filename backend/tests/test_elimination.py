@@ -129,7 +129,9 @@ class TestStandings:
 
 
 def _race(db, name) -> models.Race:
-    group = crud.create_group(db, schemas.GroupCreate(name=f"Pack for {name}"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"Pack for {name}")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name=f"Track for {name}", lane_count=4, timer_type="FAKE"),
@@ -137,7 +139,7 @@ def _race(db, name) -> models.Race:
     return crud.create_race(
         db,
         schemas.RaceCreate(
-            group_id=group.id,
+            organization_id=group.id,
             name=name,
             track_id=track.id,
             scoring_strategy=models.ScoringStrategy.TIMED,
@@ -487,7 +489,7 @@ class TestTheRound:
                     "raceId": race.id,
                     "roundData": {
                         "schedulingStrategy": "ELIMINATION",
-                        "advancementSource": "PACK",
+                        "advancementSource": "ALL",
                         "advancementNumRacers": 3,
                     },
                 },

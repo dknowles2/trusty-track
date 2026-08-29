@@ -74,7 +74,7 @@ describe('roundTitle', () => {
     });
 
     it('says which unnamed rounds are championships', () => {
-        expect(roundTitle({ id: 1, roundNumber: 2, advancementSource: 'PACK' })).toBe(
+        expect(roundTitle({ id: 1, roundNumber: 2, advancementSource: 'ALL' })).toBe(
             'Championship round 2',
         );
     });
@@ -83,7 +83,7 @@ describe('roundTitle', () => {
 describe('buildHeatSheet', () => {
     const rounds = [
         { id: 10, roundNumber: 1 },
-        { id: 20, roundNumber: 2, advancementSource: 'PACK' },
+        { id: 20, roundNumber: 2, advancementSource: 'ALL' },
     ];
 
     it('gives every row the same columns, whatever the heat holds', () => {
@@ -119,7 +119,7 @@ describe('buildHeatSheet', () => {
     it('orders rounds by round number', () => {
         const sections = buildHeatSheet(
             [
-                { id: 20, roundNumber: 2, advancementSource: 'PACK' },
+                { id: 20, roundNumber: 2, advancementSource: 'ALL' },
                 { id: 10, roundNumber: 1 },
             ],
             [heat({ roundId: 20 }), heat({ id: 101, roundId: 10 })],

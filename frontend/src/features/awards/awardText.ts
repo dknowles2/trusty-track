@@ -1,7 +1,7 @@
 /**
  * Saying in words what an award is for (#170).
  *
- * A stored award is `{source: "ROUND:4", place: 1, denId: 3}`, which is exactly
+ * A stored award is `{source: "ROUND:4", place: 1, racingGroupId: 3}`, which is exactly
  * the wrong thing to show somebody deciding which trophies their pack gives
  * out. This turns it into "Winner of Finals — Wolves".
  *
@@ -10,7 +10,7 @@
  * presentation display will want the same sentences the operator screen shows.
  */
 
-export const PACK_SOURCE = 'PACK';
+export const ALL_SOURCE = 'ALL';
 
 export interface NamedRound {
   id: number;
@@ -18,7 +18,7 @@ export interface NamedRound {
   roundNumber: number;
 }
 
-export interface NamedDen {
+export interface NamedRacingGroup {
   id: number;
   name: string;
 }
@@ -48,7 +48,7 @@ export function roundLabel(round: NamedRound): string {
 
 /** The label for a source in a picker: "Overall standings" or a round's name. */
 export function sourceLabel(source: string, rounds: NamedRound[]): string {
-  if (source === PACK_SOURCE) return 'Overall standings';
+  if (source === ALL_SOURCE) return 'Overall standings';
   const round = rounds.find((r) => `ROUND:${r.id}` === source);
   return round ? roundLabel(round) : 'A round that no longer exists';
 }
@@ -56,7 +56,7 @@ export function sourceLabel(source: string, rounds: NamedRound[]): string {
 export interface SpeedAwardParts {
   source?: string | null;
   place?: number | null;
-  denId?: number | null;
+  racingGroupId?: number | null;
   fromBottom?: boolean | null;
 }
 
@@ -81,7 +81,7 @@ export function positionLabel(place: number, fromBottom = false): string {
 export function describeSpeedAward(
   award: SpeedAwardParts,
   rounds: NamedRound[],
-  dens: NamedDen[],
+  racingGroups: NamedRacingGroup[],
 ): string {
   if (!award.source || !award.place) {
     // A row missing its rule. The backend resolves it to nobody rather than
@@ -91,11 +91,11 @@ export function describeSpeedAward(
 
   const position = positionLabel(award.place, award.fromBottom ?? false);
   const where =
-    award.source === PACK_SOURCE ? 'overall' : `in ${sourceLabel(award.source, rounds)}`;
+    award.source === ALL_SOURCE ? 'overall' : `in ${sourceLabel(award.source, rounds)}`;
 
-  const den = award.denId ? dens.find((d) => d.id === award.denId) : undefined;
-  if (award.denId && !den) return `${position} ${where} — a den that no longer exists`;
-  if (den) return `${position} in ${den.name}`;
+  const racingGroup = award.racingGroupId ? racingGroups.find((d) => d.id === award.racingGroupId) : undefined;
+  if (award.racingGroupId && !racingGroup) return `${position} ${where} — a racingGroup that no longer exists`;
+  if (racingGroup) return `${position} in ${racingGroup.name}`;
 
   return `${position} ${where}`;
 }

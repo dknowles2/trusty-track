@@ -5,7 +5,7 @@ import AwardForm from './AwardForm';
 import { templateById } from '../awardTemplates';
 
 const ROUNDS = [{ id: 4, name: 'Finals', roundNumber: 2 }];
-const DENS = [{ id: 10, name: 'Wolves' }];
+const RACING_GROUPS = [{ id: 10, name: 'Wolves' }];
 const RACERS = [
   { id: 1, firstName: 'Ada', lastName: 'Lovelace', carNumber: 42 },
   { id: 2, firstName: 'Grace', lastName: 'Hopper', carNumber: 7 },
@@ -16,7 +16,7 @@ function renderForm(props: Partial<React.ComponentProps<typeof AwardForm>> = {})
   render(
     <AwardForm
       rounds={ROUNDS}
-      dens={DENS}
+      racingGroups={RACING_GROUPS}
       racers={RACERS}
       submitLabel="Add award"
       onSubmit={onSubmit}
@@ -114,22 +114,22 @@ describe('AwardForm', () => {
     expect(screen.queryByLabelText(/let people vote for this/i)).toBeNull();
   });
 
-  it('submits a speed award with its source, place and den', async () => {
+  it('submits a speed award with its source, place and racingGroup', async () => {
     const onSubmit = renderForm();
 
     await userEvent.type(screen.getByLabelText('Award name'), 'Fastest Wolf');
     await userEvent.click(screen.getByLabelText(/speed-based/i));
-    await userEvent.selectOptions(screen.getByLabelText('Limited to a den'), '10');
+    await userEvent.selectOptions(screen.getByLabelText('Limited to a racingGroup'), '10');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'Fastest Wolf',
         kind: 'SPEED',
-        source: 'PACK',
+        source: 'ALL',
         place: 1,
         fromBottom: false,
-        denId: 10,
+        racingGroupId: 10,
       }),
     );
   });
@@ -234,7 +234,7 @@ describe('AwardForm', () => {
         source: 'ROUND:4',
         place: 2,
         fromBottom: true,
-        denId: 10,
+        racingGroupId: 10,
       },
       submitLabel: 'Save changes',
     });
@@ -243,6 +243,6 @@ describe('AwardForm', () => {
     expect(screen.getByLabelText('Standings to use')).toHaveValue('ROUND:4');
     expect(screen.getByLabelText('Counting from')).toHaveValue('BOTTOM');
     expect(screen.getByLabelText('Position')).toHaveValue('2');
-    expect(screen.getByLabelText('Limited to a den')).toHaveValue('10');
+    expect(screen.getByLabelText('Limited to a racingGroup')).toHaveValue('10');
   });
 });

@@ -54,8 +54,8 @@ def db_session():
 def _seed_race(db_session: Any) -> tuple[int, int]:
     """Seed a minimal race, track, racer, heat, and return (race_id, heat_id)."""
     from backend.db.models import (
-        Group,
         Heat,
+        Organization,
         Race,
         Racer,
         Round,
@@ -63,7 +63,7 @@ def _seed_race(db_session: Any) -> tuple[int, int]:
         Track,
     )
 
-    group = Group(name="Test Pack")
+    group = Organization(name="Test Pack")
     db_session.add(group)
     db_session.flush()
 
@@ -73,7 +73,7 @@ def _seed_race(db_session: Any) -> tuple[int, int]:
 
     race = Race(
         name="Test Race",
-        group_id=group.id,
+        organization_id=group.id,
         track_id=track.id,
         car_numbering_strategy="MANUAL",
         scoring_strategy="TIMED",
@@ -290,7 +290,9 @@ def _spy_on_publish(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, Any]]:
 def _configure(db: Any) -> tuple[int, int]:
     """A group and a track — the state System Settings guarantees before a
     race can be created."""
-    group = crud.create_group(db, schemas.GroupCreate(name="Nav Test Pack"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Nav Test Pack")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Nav Test Track", lane_count=4)
     )
@@ -303,12 +305,16 @@ def test_create_race_publishes_races_changed(client, db, monkeypatch) -> None:
     from backend.api.schema import RACES_LIST_CHANNEL
 
     calls = _spy_on_publish(monkeypatch)
-    group_id, track_id = _configure(db)
+    organization_id, track_id = _configure(db)
 
     mutation = f"""
     mutation {{
         createRace(
-            race: {{name: "Nav Race", groupId: {group_id}, trackId: {track_id}}}
+            race: {{
+                name: "Nav Race"
+                organizationId: {organization_id}
+                trackId: {track_id}
+            }}
         ) {{
             id
         }}
@@ -342,10 +348,12 @@ def test_update_race_publishes_races_changed(client, db, monkeypatch) -> None:
     """A rename is exactly what the browser tab's title reads (#300)."""
     from backend.api.schema import RACES_LIST_CHANNEL
 
-    group_id, track_id = _configure(db)
+    organization_id, track_id = _configure(db)
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Before", group_id=group_id, track_id=track_id),
+        schemas.RaceCreate(
+            name="Before", organization_id=organization_id, track_id=track_id
+        ),
     )
 
     calls = _spy_on_publish(monkeypatch)
@@ -374,10 +382,12 @@ def test_update_race_publishes_race_state_changed(client, db, monkeypatch) -> No
     strategy until the next heat result happens to fire the channel."""
     from backend.api.schema import RaceChangeKind
 
-    group_id, track_id = _configure(db)
+    organization_id, track_id = _configure(db)
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Before", group_id=group_id, track_id=track_id),
+        schemas.RaceCreate(
+            name="Before", organization_id=organization_id, track_id=track_id
+        ),
     )
 
     calls = _spy_on_publish(monkeypatch)
@@ -421,10 +431,12 @@ def test_update_race_does_not_publish_for_a_missing_race(client, monkeypatch) ->
 def test_delete_race_publishes_races_changed(client, db, monkeypatch) -> None:
     from backend.api.schema import RACES_LIST_CHANNEL
 
-    group_id, track_id = _configure(db)
+    organization_id, track_id = _configure(db)
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Doomed", group_id=group_id, track_id=track_id),
+        schemas.RaceCreate(
+            name="Doomed", organization_id=organization_id, track_id=track_id
+        ),
     )
 
     calls = _spy_on_publish(monkeypatch)

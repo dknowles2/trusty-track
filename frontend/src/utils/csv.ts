@@ -56,7 +56,7 @@ export function downloadCsv(filename: string, rows: readonly CsvRow[]): void {
  *
  * Race names are free text and go straight into `a.download`. A slash there
  * is the interesting one — browsers differ on whether it becomes a directory
- * separator, and "Pack 42 / Den 3" is an ordinary thing to call a race.
+ * separator, and "Pack 42 / RacingGroup 3" is an ordinary thing to call a race.
  */
 export function filenameFor(raceName: string, suffix: string): string {
     const safe = raceName

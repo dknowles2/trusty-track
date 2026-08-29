@@ -152,7 +152,7 @@ export const GET_RACE_CONTROL_DATA = gql`
         timerType
         laneOutages
       }
-      dens {
+      racingGroups {
         id
         name
       }
@@ -199,7 +199,7 @@ export const GET_RACE_CONTROL_DATA = gql`
             firstName
             lastName
             carNumber
-            denName
+            racingGroupName
             score
             rank
             isAdvancing

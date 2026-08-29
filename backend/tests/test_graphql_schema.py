@@ -25,5 +25,5 @@ def test_populate_test_data_input_sdl():
     assert "count: Int!" in sdl
     assert "addRacerPhotos: Boolean!" in sdl
     assert "addCarPhotos: Boolean!" in sdl
-    assert "assignDens: Boolean!" in sdl
+    assert "assignRacingGroups: Boolean!" in sdl
     assert "checkIn: Boolean!" in sdl

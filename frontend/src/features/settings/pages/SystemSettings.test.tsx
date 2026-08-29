@@ -58,7 +58,7 @@ vi.mock('react-router-dom', async () => {
 describe('SystemSettings', () => {
     it('allows adding and removing tracks', async () => {
         (useQuery as any).mockReturnValue([{
-            data: { initialConfig: { initialized: false, groupName: '', tracks: [] } },
+            data: { initialConfig: { initialized: false, organizationName: '', tracks: [] } },
             fetching: false,
             error: null
         }, vi.fn()]);
@@ -95,7 +95,7 @@ describe('SystemSettings', () => {
 
     it('enforces at least one track', async () => {
         (useQuery as any).mockReturnValue([{
-            data: { initialConfig: { initialized: false, groupName: '', tracks: [] } },
+            data: { initialConfig: { initialized: false, organizationName: '', tracks: [] } },
             fetching: false,
             error: null
         }, vi.fn()]);
@@ -127,7 +127,7 @@ describe('SystemSettings', () => {
 
     it('submits correctly with multiple tracks', async () => {
         (useQuery as any).mockReturnValue([{
-            data: { initialConfig: { initialized: false, groupName: '', tracks: [] } },
+            data: { initialConfig: { initialized: false, organizationName: '', tracks: [] } },
             fetching: false,
             error: null
         }, vi.fn()]);
@@ -171,7 +171,7 @@ describe('SystemSettings', () => {
 
         expect(mockCreateMutation).toHaveBeenCalledWith({
             config: {
-                groupName: 'Test Pack',
+                organizationName: 'Test Pack',
                 debugMode: false,
                 // Every picker's own default (#498) — Field Uniform never
                 // needing to be picked, and Display/Printables "Match App".
@@ -201,7 +201,7 @@ describe('SystemSettings', () => {
         const mockCreateMutation = vi.fn().mockResolvedValue({ data: {} });
 
         (useQuery as any).mockReturnValue([{
-            data: { initialConfig: { initialized: false, groupName: '', tracks: [] } },
+            data: { initialConfig: { initialized: false, organizationName: '', tracks: [] } },
             fetching: false,
             error: null
         }, vi.fn()]);
@@ -256,7 +256,7 @@ describe('the mutation matcher beside a gql-tagged mutation', () => {
             data: {
                 initialConfig: {
                     initialized: true,
-                    groupName: 'Pack 42',
+                    organizationName: 'Pack 42',
                     debugMode: false,
                     tracks: [
                         { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, historicalRecords: [] },
@@ -303,7 +303,7 @@ describe('a saved track with no length', () => {
             data: {
                 initialConfig: {
                     initialized: true,
-                    groupName: 'Pack 42',
+                    organizationName: 'Pack 42',
                     debugMode: false,
                     tracks: [
                         { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
@@ -360,7 +360,7 @@ describe('removing a track from the middle of the list', () => {
             data: {
                 initialConfig: {
                     initialized: true,
-                    groupName: 'Pack 42',
+                    organizationName: 'Pack 42',
                     debugMode: false,
                     tracks: [
                         { id: 1, name: 'Track A', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
@@ -418,7 +418,7 @@ describe('lanes out of service', () => {
             data: {
                 initialConfig: {
                     initialized: true,
-                    groupName: 'Pack 42',
+                    organizationName: 'Pack 42',
                     debugMode: false,
                     tracks,
                 },
@@ -484,7 +484,7 @@ describe('checking one track\'s timer', () => {
             data: {
                 initialConfig: {
                     initialized: true,
-                    groupName: 'Pack 42',
+                    organizationName: 'Pack 42',
                     debugMode: false,
                     tracks,
                 },
@@ -546,7 +546,7 @@ describe('the Backup panel', () => {
             data: {
                 initialConfig: {
                     initialized: true,
-                    groupName: 'Pack 42',
+                    organizationName: 'Pack 42',
                     debugMode: false,
                     tracks: [
                         { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
@@ -615,7 +615,7 @@ describe('the settings sections', () => {
 
     const configured = {
         initialized: true,
-        groupName: 'Pack 42',
+        organizationName: 'Pack 42',
         debugMode: false,
         tracks: [
             { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
@@ -625,7 +625,7 @@ describe('the settings sections', () => {
     it('shows the whole form at once on the first run', async () => {
         // A wizard is not sectioned. Somebody who has never seen the app is
         // not going to go looking for the two fields they have not filled in.
-        renderWith({ initialized: false, groupName: '', tracks: [] });
+        renderWith({ initialized: false, organizationName: '', tracks: [] });
 
         expect(await screen.findByLabelText('Organization Name')).toBeInTheDocument();
         expect(screen.getByPlaceholderText('e.g. Main Track')).toBeInTheDocument();
@@ -670,7 +670,7 @@ describe('the settings sections', () => {
         // be a dead end.
         const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
         (useQuery as any).mockReturnValue([{
-            data: { initialConfig: { ...configured, groupName: '' } },
+            data: { initialConfig: { ...configured, organizationName: '' } },
             fetching: false,
             error: null,
         }, vi.fn()]);
@@ -705,7 +705,7 @@ describe('the Appearance section (#498)', () => {
 
     const configured = {
         initialized: true,
-        groupName: 'Pack 42',
+        organizationName: 'Pack 42',
         debugMode: false,
         displayTheme: 'MATCH_APP',
         printablesTheme: 'MATCH_APP',

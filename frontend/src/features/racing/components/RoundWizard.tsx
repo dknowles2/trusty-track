@@ -12,21 +12,21 @@ interface RoundWizardProps {
   onClose: () => void;
   raceId: number;
   racerCount: number;
-  denCount: number;
+  racingGroupCount: number;
   laneCount: number;
   championshipTrophies: number;
   onCreated: () => void;
 }
 
 interface GeneralConfig {
-  type: 'PACK' | 'DEN';
+  type: 'ALL' | 'EACH_GROUP';
   runsPerLane: number;
 }
 
 interface ChampionshipConfig {
   id: string;
   name: string;
-  source: 'PACK' | 'DEN' | 'PREVIOUS';
+  source: 'ALL' | 'EACH_GROUP' | 'PREVIOUS';
   numTopRacers: number;
   runsPerLane: number;
 }
@@ -36,14 +36,14 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   onClose,
   raceId,
   racerCount,
-  denCount,
+  racingGroupCount,
   laneCount,
   championshipTrophies,
   onCreated,
 }) => {
   const [step, setStep] = useState(1);
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
-    type: 'PACK',
+    type: 'ALL',
     runsPerLane: 1,
   });
   // Opening the wizard starts it over, which is what mounting already does —
@@ -54,7 +54,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   const [championshipRounds, setChampionshipRounds] = useState<ChampionshipConfig[]>([{
     id: 'champ-1',
     name: 'Grand Finals',
-    source: 'PACK',
+    source: 'ALL',
     numTopRacers: Math.max(championshipTrophies, laneCount), // Default to filling a heat
     runsPerLane: 1
   }]);
@@ -84,7 +84,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     // General Round
     const generalHeats = heatsFor(racerCount, generalConfig.runsPerLane);
     rounds.push({
-      name: `${generalConfig.type === 'PACK' ? 'All Pack' : 'Den'} Round`,
+      name: `${generalConfig.type === 'ALL' ? 'All Pack' : 'Racing Group'} Round`,
       heats: generalHeats,
       duration: Math.ceil(generalHeats * ESTIMATED_HEAT_DURATION_MIN)
     });
@@ -92,10 +92,10 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     // Championship Rounds
     for (const round of championshipRounds) {
       let participatingRacers = 0;
-      if (round.source === 'PACK' || round.source === 'PREVIOUS') {
+      if (round.source === 'ALL' || round.source === 'PREVIOUS') {
         participatingRacers = round.numTopRacers;
       } else {
-        participatingRacers = round.numTopRacers * denCount;
+        participatingRacers = round.numTopRacers * racingGroupCount;
       }
       const roundHeats = heatsFor(participatingRacers, round.runsPerLane);
       rounds.push({
@@ -122,7 +122,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       {
         id: `champ-${Date.now()}`,
         name: 'New Championship Round',
-        source: prev.length === 0 ? 'PACK' : 'PREVIOUS',
+        source: prev.length === 0 ? 'ALL' : 'PREVIOUS',
         numTopRacers: laneCount,
         runsPerLane: 1
       }
@@ -249,18 +249,18 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                 <label style={labelStyle}>Qualifying / General Round Type</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div
-                    style={configCardStyle(generalConfig.type === 'PACK')}
-                    onClick={() => setGeneralConfig({ ...generalConfig, type: 'PACK' })}
+                    style={configCardStyle(generalConfig.type === 'ALL')}
+                    onClick={() => setGeneralConfig({ ...generalConfig, type: 'ALL' })}
                   >
                     <div style={{ fontWeight: 500 }}>All Pack</div>
                     <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Every racer races against everyone else in the pack.</div>
                   </div>
                   <div
-                    style={configCardStyle(generalConfig.type === 'DEN')}
-                    onClick={() => setGeneralConfig({ ...generalConfig, type: 'DEN' })}
+                    style={configCardStyle(generalConfig.type === 'EACH_GROUP')}
+                    onClick={() => setGeneralConfig({ ...generalConfig, type: 'EACH_GROUP' })}
                   >
-                    <div style={{ fontWeight: 500 }}>By Den</div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Racers only race against others in their own Den initially.</div>
+                    <div style={{ fontWeight: 500 }}>By Racing Group</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Racers only race against others in their own racing group initially.</div>
                   </div>
                 </div>
               </div>
@@ -321,10 +321,10 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                           className="form-control"
                           style={{ fontSize: '0.875rem' }}
                           value={round.source}
-                          onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'PACK' | 'DEN' })}
+                          onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'ALL' | 'EACH_GROUP' })}
                         >
-                          <option value="PACK">Top Overall (Pack)</option>
-                          <option value="DEN">Top per Den</option>
+                          <option value="ALL">Top Overall (Pack)</option>
+                          <option value="EACH_GROUP">Top per Racing Group</option>
                         </select>
                       ) : (
                         <div
@@ -337,7 +337,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     </div>
                     <div>
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>
-                        {round.source === 'PACK' ? 'Number of Finalists' : 'Advancing per Den'}
+                        {round.source === 'ALL' ? 'Number of Finalists' : 'Advancing per Racing Group'}
                       </label>
                       <input
                         type="number"
@@ -391,10 +391,10 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     </div>
                     <p style={{ fontSize: '0.875rem', color: 'var(--wizard-text-subtle-color)', margin: '0.25rem 0 0 0' }}>
                       {idx === 0 ? (
-                        generalConfig.type === 'PACK' ? 'All racers compete against each other.' : 'Racers compete within their dens.'
+                        generalConfig.type === 'ALL' ? 'All racers compete against each other.' : 'Racers compete within their racing groups.'
                       ) : (
                         `Advances top ${championshipRounds[idx-1].numTopRacers} racers ${
-                          championshipRounds[idx-1].source === 'DEN' ? ' from each Den' :
+                          championshipRounds[idx-1].source === 'EACH_GROUP' ? ' from each racing group' :
                           championshipRounds[idx-1].source === 'PREVIOUS' ? ` from ${championshipRounds[idx-2]?.name || 'previous round'}` :
                           ' overall'
                         }.`

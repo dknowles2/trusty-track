@@ -43,7 +43,7 @@ def registered_manager():
 
 
 def _race(db, *, timer_type="FAKE"):
-    group = crud.create_group(db, schemas.GroupCreate(name="Panic Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Panic Pack"))
     track = crud.create_track(
         db,
         schemas.TrackCreate(name="Panic Track", lane_count=2, timer_type=timer_type),
@@ -52,7 +52,7 @@ def _race(db, *, timer_type="FAKE"):
         db,
         schemas.RaceCreate(
             name="Panic Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),

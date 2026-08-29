@@ -7,9 +7,9 @@ import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 import { useAlert } from '../../../context/AlertContext';
 
 import { getContrastColor } from '../../../utils/colors';
-import RacerForm, { RacerData, Den } from '../components/RacerForm';
+import RacerForm, { RacerData, RacingGroup } from '../components/RacerForm';
 import NoHeatsBadge from '../components/NoHeatsBadge';
-import DenManager from '../components/DenManager';
+import RacingGroupManager from '../components/RacingGroupManager';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
 import ImportRacersModal from '../components/ImportRacersModal';
@@ -28,7 +28,7 @@ import {
 import CheckInScanner from '../../printables/components/CheckInScanner';
 import * as GQL from '../graphql/queries';
 import { DEFAULT_SORT, nextSortState, sortRacers, type SortKey, type SortState } from '../rosterSort';
-import { groupRacersByDen } from '../groupRacersByDen';
+import { groupRacersByRacingGroup } from '../groupRacersByRacingGroup';
 
 /**
  * The shapes the query actually returns, derived rather than restated.
@@ -40,7 +40,7 @@ import { groupRacersByDen } from '../groupRacersByDen';
  * from this query demonstrated.
  */
 type GQLRace = NonNullable<GetRaceDetailsQuery['race']>;
-type GQLDen = GQLRace['dens'][number];
+type GQLRacingGroup = GQLRace['racingGroups'][number];
 type GQLRacer = GQLRace['racers'][number];
 
 interface Race extends RaceFormData {
@@ -82,7 +82,7 @@ export default function RaceDetails() {
   const [, bulkAutoNumberMutation] = useMutation(GQL.BULK_AUTO_NUMBER);
   const [, bulkClearNumbersMutation] = useMutation(GQL.BULK_CLEAR_NUMBERS);
   const [, bulkCheckInMutation] = useMutation(GQL.BULK_CHECK_IN);
-  const [, bulkMoveToDenMutation] = useMutation(GQL.BULK_MOVE_TO_DEN);
+  const [, bulkMoveToRacingGroupMutation] = useMutation(GQL.BULK_MOVE_TO_RACING_GROUP);
   const [, bulkDeleteRacersMutation] = useMutation(GQL.BULK_DELETE_RACERS);
   const [, populateRaceMutation] = useMutation(GQL.POPULATE_RACE);
 
@@ -116,7 +116,7 @@ export default function RaceDetails() {
       first_name: r.firstName,
       last_name: r.lastName,
       car_number: r.carNumber ?? undefined,
-      den_id: r.denId ?? undefined,
+      racing_group_id: r.racingGroupId ?? undefined,
       car_name: r.carName ?? undefined,
       car_passed_inspection: r.carPassedInspection,
       car_weight: r.carWeight ?? undefined,
@@ -125,9 +125,9 @@ export default function RaceDetails() {
     }));
   }, [data]);
 
-  const dens = useMemo<Den[]>(() => {
-    if (!data?.race?.dens) return [];
-    return data.race.dens.map((d: GQLDen) => ({
+  const racingGroups = useMemo<RacingGroup[]>(() => {
+    if (!data?.race?.racingGroups) return [];
+    return data.race.racingGroups.map((d: GQLRacingGroup) => ({
       id: d.id,
       name: d.name,
       color: d.color,
@@ -154,7 +154,7 @@ export default function RaceDetails() {
   // `scheduledRacerIds` cannot stand in for it.
   const setupProgress = useMemo(
     () => ({
-      denCount: data?.race?.dens?.length ?? 0,
+      racingGroupCount: data?.race?.racingGroups?.length ?? 0,
       racerCount: data?.race?.registeredCount ?? 0,
       checkedInCount: data?.race?.checkedInCount ?? 0,
       roundCount: data?.race?.rounds?.length ?? 0,
@@ -167,7 +167,7 @@ export default function RaceDetails() {
   // Racer Form State
   const [showRacerForm, setShowRacerForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showDenManager, setShowDenManager] = useState(false);
+  const [showRacingGroupManager, setShowRacingGroupManager] = useState(false);
   const [editingRacer, setEditingRacer] = useState<Racer | undefined>(undefined);
   const [racerFormTitle, setRacerFormTitle] = useState('Add New Racer');
   const [racerFormSubmitLabel, setRacerFormSubmitLabel] = useState('Save Racer');
@@ -180,17 +180,17 @@ export default function RaceDetails() {
   const [populateCount, setPopulateCount] = useState(20);
   const [popAddRacerPhotos, setPopAddRacerPhotos] = useState(true);
   const [popAddCarPhotos, setPopAddCarPhotos] = useState(true);
-  const [popAssignDens, setPopAssignDens] = useState(true);
+  const [popAssignRacingGroups, setPopAssignRacingGroups] = useState(true);
   const [popCheckIn, setPopCheckIn] = useState(false);
 
   // Race Edit State
   const [isEditingRace, setIsEditingRace] = useState(false);
 
   // Roster View State
-  const [isGroupedByDen, setIsGroupedByDen] = useState(false);
+  const [isGroupedByRacingGroup, setIsGroupedByRacingGroup] = useState(false);
   const [isAddRacerDropdownOpen, setIsAddRacerDropdownOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const [isMoveToDenOpen, setIsMoveToDenOpen] = useState(false);
+  const [isMoveToRacingGroupOpen, setIsMoveToRacingGroupOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT);
 
@@ -199,7 +199,7 @@ export default function RaceDetails() {
 
   // Handle click outside for dropdowns
   useEffect(() => {
-    if (!isAddRacerDropdownOpen && !isMoreMenuOpen && !isMoveToDenOpen) return;
+    if (!isAddRacerDropdownOpen && !isMoreMenuOpen && !isMoveToRacingGroupOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -209,12 +209,12 @@ export default function RaceDetails() {
       }
       setIsAddRacerDropdownOpen(false);
       setIsMoreMenuOpen(false);
-      setIsMoveToDenOpen(false);
+      setIsMoveToRacingGroupOpen(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isAddRacerDropdownOpen, isMoreMenuOpen, isMoveToDenOpen]);
+  }, [isAddRacerDropdownOpen, isMoreMenuOpen, isMoveToRacingGroupOpen]);
 
 
   const refreshData = () => {
@@ -251,7 +251,7 @@ export default function RaceDetails() {
 
   const handleDeleteRace = async () => {
     const confirmed = await showConfirm(
-        "Are you sure you want to delete this race?\n\nThis action cannot be undone and will delete all racers, dens, rounds, heats, and results associated with it.",
+        "Are you sure you want to delete this race?\n\nThis action cannot be undone and will delete all racers, racingGroups, rounds, heats, and results associated with it.",
         "Delete Race",
         "Delete",
         "danger"
@@ -305,7 +305,7 @@ export default function RaceDetails() {
           firstName: formData.first_name,
           lastName: formData.last_name,
           carNumber: formData.car_number,
-          denId: formData.den_id,
+          racingGroupId: formData.racing_group_id,
           carName: formData.car_name,
           carPassedInspection: formData.car_passed_inspection,
           carWeight: formData.car_weight,
@@ -366,7 +366,7 @@ export default function RaceDetails() {
 
   // Bulk Handlers
   //
-  // The additive ones — auto-number, check in, move to den — leave the
+  // The additive ones — auto-number, check in, move to racingGroup — leave the
   // selection standing after they succeed (#420). The desk works a queue:
   // select everyone, auto-number, then check in, and re-ticking select-all
   // between two clicks that both meant "these racers" is the friction the
@@ -423,15 +423,15 @@ export default function RaceDetails() {
     }
   };
 
-  const handleBulkMoveToDen = async (denId: number | null) => {
+  const handleBulkMoveToRacingGroup = async (racingGroupId: number | null) => {
     try {
-      const result = await bulkMoveToDenMutation({ racerIds: selectedRacerIds, denId });
+      const result = await bulkMoveToRacingGroupMutation({ racerIds: selectedRacerIds, racingGroupId });
       if (result.error) throw result.error;
       refreshData();
-      setIsMoveToDenOpen(false);
+      setIsMoveToRacingGroupOpen(false);
       setIsMoreMenuOpen(false);
     } catch {
-      showAlert("Failed to move racers to den", "Error");
+      showAlert("Failed to move racers to racingGroup", "Error");
     }
   };
 
@@ -467,16 +467,16 @@ export default function RaceDetails() {
   const filteredRacers = sortRacers(
     racers.filter(racer => {
         const searchLower = searchTerm.toLowerCase();
-        const denName = dens.find(d => d.id === racer.den_id)?.name || '';
+        const racingGroupName = racingGroups.find(d => d.id === racer.racing_group_id)?.name || '';
 
         return (
             (racer.first_name || '').toLowerCase().includes(searchLower) ||
             (racer.last_name || '').toLowerCase().includes(searchLower) ||
             (racer.car_number || '').toString().includes(searchLower) ||
-            denName.toLowerCase().includes(searchLower)
+            racingGroupName.toLowerCase().includes(searchLower)
         );
     }),
-    dens,
+    racingGroups,
     sort,
   );
 
@@ -485,10 +485,10 @@ export default function RaceDetails() {
   // The grouped view, shared between the desktop table and the mobile cards
   // (#437) — both used to build this bucketing and sorting themselves, with
   // no test of either copy.
-  const groupedRacers = useMemo(() => groupRacersByDen(filteredRacers, dens), [filteredRacers, dens]);
+  const groupedRacers = useMemo(() => groupRacersByRacingGroup(filteredRacers, racingGroups), [filteredRacers, racingGroups]);
 
   const renderRacerCard = (racer: Racer) => {
-    const den = dens.find(d => d.id === racer.den_id);
+    const racingGroup = racingGroups.find(d => d.id === racer.racing_group_id);
     const isSelected = selectedRacerIds.includes(racer.id);
 
     return (
@@ -516,18 +516,18 @@ export default function RaceDetails() {
           </div>
 
           <div className="racer-card-row">
-              <span className="racer-card-label">Den</span>
+              <span className="racer-card-label">Racing Group</span>
               <div className="racer-card-value">
-                  {racer.den_id ? (
+                  {racer.racing_group_id ? (
                       <span style={{
                           padding: '2px 8px',
                           borderRadius: '12px',
-                          backgroundColor: den?.color || 'var(--divider-color)',
-                          color: getContrastColor(den?.color || '#eee'),
+                          backgroundColor: racingGroup?.color || 'var(--divider-color)',
+                          color: getContrastColor(racingGroup?.color || '#eee'),
                           fontSize: '0.75rem',
                           fontWeight: 'bold'
                       }}>
-                          {den?.name || 'Unknown'}
+                          {racingGroup?.name || 'Unknown'}
                       </span>
                   ) : '-'}
               </div>
@@ -579,7 +579,7 @@ export default function RaceDetails() {
       <SetupChecklist
           progress={setupProgress}
           onAction={{
-              dens: () => setShowDenManager(true),
+              racingGroups: () => setShowRacingGroupManager(true),
               racers: handleAddRacerClick,
               schedule: () => navigate(`/race/${parsedRaceId}/control`),
           }}
@@ -600,7 +600,7 @@ export default function RaceDetails() {
               }[race.scoring_strategy] || race.scoring_strategy) : '-'}</div>
               <div><strong>Car Numbering:</strong> {race?.car_numbering_strategy ? ({
                   'MANUAL': 'Manual',
-                  'PER_GROUP': 'Per Den',
+                  'PER_GROUP': 'Per RacingGroup',
                   'GLOBAL': 'Global'
               }[race.car_numbering_strategy] || race.car_numbering_strategy) : '-'}</div>
               <div><strong>Championship Trophies:</strong> {race?.championship_trophies || 3}</div>
@@ -627,7 +627,7 @@ export default function RaceDetails() {
 
       {/* Roster Section
 
-          Three controls on the first row rather than six. Manage dens, photos
+          Three controls on the first row rather than six. Manage racingGroups, photos
           and print are things an operator does once before an event, so they
           sit behind the overflow; add and scan are the two reached for over and
           over. Bulk Actions is gone entirely — it was a button that spent most
@@ -722,10 +722,10 @@ export default function RaceDetails() {
                     {isMoreMenuOpen && (
                         <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '190px' }}>
                             <button
-                                onClick={() => { setShowDenManager(true); setIsMoreMenuOpen(false); }}
+                                onClick={() => { setShowRacingGroupManager(true); setIsMoreMenuOpen(false); }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
-                                <Icon path={mdiAccountGroup} size={0.7} /> Manage Dens
+                                <Icon path={mdiAccountGroup} size={0.7} /> Manage Racing Groups
                             </button>
                             <button
                                 onClick={() => { setShowBulkPhotoUpload(true); setIsMoreMenuOpen(false); }}
@@ -777,12 +777,12 @@ export default function RaceDetails() {
             </div>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', fontWeight: 500, whiteSpace: 'nowrap' }}>Group by Den</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', fontWeight: 500, whiteSpace: 'nowrap' }}>Group by Racing Group</span>
                 <span className="toggle-switch small">
                     <input
                         type="checkbox"
-                        checked={isGroupedByDen}
-                        onChange={e => setIsGroupedByDen(e.target.checked)}
+                        checked={isGroupedByRacingGroup}
+                        onChange={e => setIsGroupedByRacingGroup(e.target.checked)}
                     />
                     <span className="slider"></span>
                 </span>
@@ -832,35 +832,35 @@ export default function RaceDetails() {
                     <Icon path={mdiPlus} size={0.6} style={{ transform: 'rotate(45deg)' }} /> Clear numbers
                 </button>
 
-                {/* Still a menu, because a pack has six dens and they will not
+                {/* Still a menu, because a pack has six racingGroups and they will not
                     fit on the bar. It opens downward now rather than flying out
                     sideways, so there is no space left to measure — the
                     hover-and-flip machinery went with it. */}
                 <div className="dropdown" style={{ position: 'relative' }}>
                     <button
                         className="secondary-btn"
-                        onClick={() => setIsMoveToDenOpen(!isMoveToDenOpen)}
+                        onClick={() => setIsMoveToRacingGroupOpen(!isMoveToRacingGroupOpen)}
                         style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
-                        data-testid="bulk-move-to-den-expand-btn"
-                        aria-expanded={isMoveToDenOpen}
+                        data-testid="bulk-move-to-racing-group-expand-btn"
+                        aria-expanded={isMoveToRacingGroupOpen}
                     >
-                        <Icon path={mdiAccountGroup} size={0.6} /> Move to den
+                        <Icon path={mdiAccountGroup} size={0.6} /> Move to racingGroup
                         <Icon path={mdiChevronDown} size={0.5} />
                     </button>
-                    {isMoveToDenOpen && (
+                    {isMoveToRacingGroupOpen && (
                         <div className="dropdown-content" style={{ display: 'block', minWidth: '170px' }}>
-                            {dens.map(den => (
+                            {racingGroups.map(racingGroup => (
                                 <button
-                                    key={den.id}
-                                    onClick={() => handleBulkMoveToDen(den.id)}
+                                    key={racingGroup.id}
+                                    onClick={() => handleBulkMoveToRacingGroup(racingGroup.id)}
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                                    data-testid={`bulk-move-to-den-${den.id}`}
+                                    data-testid={`bulk-move-to-racing-group-${racingGroup.id}`}
                                 >
-                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: den.color }}></span>
-                                    {den.name}
+                                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: racingGroup.color }}></span>
+                                    {racingGroup.name}
                                 </button>
                             ))}
-                            <button onClick={() => handleBulkMoveToDen(null)} data-testid="bulk-move-to-unassigned">Unassigned</button>
+                            <button onClick={() => handleBulkMoveToRacingGroup(null)} data-testid="bulk-move-to-unassigned">Unassigned</button>
                         </div>
                     )}
                 </div>
@@ -908,7 +908,7 @@ export default function RaceDetails() {
                         <th style={{ padding: '12px', textAlign: 'center' }}>Photo</th>
                         <SortableHeader label="First Name" sortKey="first_name" sort={sort} onSort={toggleSort} />
                         <SortableHeader label="Last Name" sortKey="last_name" sort={sort} onSort={toggleSort} />
-                        <SortableHeader label="Den" sortKey="den" sort={sort} onSort={toggleSort} />
+                        <SortableHeader label="Racing Group" sortKey="racingGroup" sort={sort} onSort={toggleSort} />
                         <SortableHeader label="Status / Edit" sortKey="status" sort={sort} onSort={toggleSort} align="center" />
                     </tr>
                 </thead>
@@ -917,17 +917,17 @@ export default function RaceDetails() {
                         <tr><td data-label="Status" colSpan={7} style={{ padding: '20px', textAlign: 'center' }}>
                             {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
                         </td></tr>
-                    ) : isGroupedByDen ? (
+                    ) : isGroupedByRacingGroup ? (
                         // Grouped View
                         groupedRacers.map(group => {
-                            const { denName, denColor } = group;
+                            const { racingGroupName, racingGroupColor } = group;
 
                             return (
                                 // A keyed Fragment, not <>: the shorthand takes
-                                // no key, and a den header plus its rows have
+                                // no key, and a racingGroup header plus its rows have
                                 // to be siblings of the other groups' rows for
                                 // the table to be valid.
-                                <Fragment key={`group-${group.denId}`}>
+                                <Fragment key={`group-${group.racingGroupId}`}>
                                     <tr className="group-row" style={{ backgroundColor: 'var(--surface-tint-color)', borderTop: '2px solid var(--border-color)' }}>
                                         <td colSpan={7} style={{ padding: '12px', fontWeight: 'bold', fontSize: '1.1rem' }}>
                                             <span style={{
@@ -935,10 +935,10 @@ export default function RaceDetails() {
                                                 width: '12px',
                                                 height: '12px',
                                                 borderRadius: '50%',
-                                                backgroundColor: denColor,
+                                                backgroundColor: racingGroupColor,
                                                 marginRight: '8px'
                                             }}></span>
-                                            {denName} ({group.items.length})
+                                            {racingGroupName} ({group.items.length})
                                         </td>
                                     </tr>
                                     {group.items.map(racer => (
@@ -973,17 +973,17 @@ export default function RaceDetails() {
                                             </td>
                                             <td data-label="First Name" style={{ padding: '12px' }}>{racer.first_name}</td>
                                             <td data-label="Last Name" style={{ padding: '12px' }}>{racer.last_name}</td>
-                                            <td data-label="Den" style={{ padding: '12px' }}>
-                                                {racer.den_id ? (
+                                            <td data-label="RacingGroup" style={{ padding: '12px' }}>
+                                                {racer.racing_group_id ? (
                                                     <span style={{
                                                         padding: '4px 8px',
                                                         borderRadius: '12px',
-                                                        backgroundColor: dens.find(d => d.id === racer.den_id)?.color || 'var(--divider-color)',
-                                                        color: getContrastColor(dens.find(d => d.id === racer.den_id)?.color || '#eee'),
+                                                        backgroundColor: racingGroups.find(d => d.id === racer.racing_group_id)?.color || 'var(--divider-color)',
+                                                        color: getContrastColor(racingGroups.find(d => d.id === racer.racing_group_id)?.color || '#eee'),
                                                         fontSize: '0.85rem',
                                                         fontWeight: 'bold'
                                                     }}>
-                                                        {dens.find(d => d.id === racer.den_id)?.name || 'Unknown'}
+                                                        {racingGroups.find(d => d.id === racer.racing_group_id)?.name || 'Unknown'}
                                                     </span>
                                                 ) : '-'}
                                             </td>
@@ -1060,18 +1060,18 @@ export default function RaceDetails() {
                                 </td>
                                 <td data-label="First Name" style={{ padding: '12px' }}><span className="cell-value">{racer.first_name}</span></td>
                                 <td data-label="Last Name" style={{ padding: '12px' }}><span className="cell-value">{racer.last_name}</span></td>
-                                <td data-label="Den" style={{ padding: '12px' }}>
+                                <td data-label="RacingGroup" style={{ padding: '12px' }}>
                                     <span className="cell-value">
-                                        {racer.den_id ? (
+                                        {racer.racing_group_id ? (
                                             <span style={{
                                                 padding: '4px 8px',
                                                 borderRadius: '12px',
-                                                backgroundColor: dens.find(d => d.id === racer.den_id)?.color || 'var(--divider-color)',
-                                                color: getContrastColor(dens.find(d => d.id === racer.den_id)?.color || '#eee'),
+                                                backgroundColor: racingGroups.find(d => d.id === racer.racing_group_id)?.color || 'var(--divider-color)',
+                                                color: getContrastColor(racingGroups.find(d => d.id === racer.racing_group_id)?.color || '#eee'),
                                                 fontSize: '0.85rem',
                                                 fontWeight: 'bold'
                                             }}>
-                                                {dens.find(d => d.id === racer.den_id)?.name || 'Unknown'}
+                                                {racingGroups.find(d => d.id === racer.racing_group_id)?.name || 'Unknown'}
                                             </span>
                                         ) : '-'}
                                     </span>
@@ -1121,12 +1121,12 @@ export default function RaceDetails() {
               <div style={{ padding: '20px', textAlign: 'center', background: 'var(--surface-color)', borderRadius: '12px', border: '1px solid var(--divider-color)' }}>
                   {searchTerm ? 'No racers found matching your search.' : 'No racers registered yet.'}
               </div>
-          ) : isGroupedByDen ? (
+          ) : isGroupedByRacingGroup ? (
               // Mobile Grouped View
               groupedRacers.map(group => (
-                  <div key={`mobile-group-${group.denId}`}>
-                      <div className="mobile-den-header" style={{ borderLeftColor: group.denColor }}>
-                          {group.denName} ({group.items.length})
+                  <div key={`mobile-group-${group.racingGroupId}`}>
+                      <div className="mobile-racing-group-header" style={{ borderLeftColor: group.racingGroupColor }}>
+                          {group.racingGroupName} ({group.items.length})
                       </div>
                       {group.items.map(racer => renderRacerCard(racer))}
                   </div>
@@ -1174,14 +1174,14 @@ export default function RaceDetails() {
           )}
       </Modal>
 
-      {/* Den Manager Modal */}
+      {/* Racing Group Manager Modal */}
       <Modal
-        isOpen={showDenManager}
-        onClose={() => setShowDenManager(false)}
-        title="Manage Dens"
+        isOpen={showRacingGroupManager}
+        onClose={() => setShowRacingGroupManager(false)}
+        title="Manage Racing Groups"
       >
           {race ? (
-             <DenManager
+             <RacingGroupManager
                 raceId={race.id}
                 onUpdate={refreshData}
               />
@@ -1253,10 +1253,10 @@ export default function RaceDetails() {
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                       <input
                           type="checkbox"
-                          checked={popAssignDens}
-                          onChange={(e) => setPopAssignDens(e.target.checked)}
+                          checked={popAssignRacingGroups}
+                          onChange={(e) => setPopAssignRacingGroups(e.target.checked)}
                       />
-                      Assign to Dens
+                      Assign to Racing Groups
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                       <input
@@ -1289,7 +1289,7 @@ export default function RaceDetails() {
                                     count: populateCount,
                                     addRacerPhotos: popAddRacerPhotos,
                                     addCarPhotos: popAddCarPhotos,
-                                    assignDens: popAssignDens,
+                                    assignRacingGroups: popAssignRacingGroups,
                                     checkIn: popCheckIn
                                 }
                             });

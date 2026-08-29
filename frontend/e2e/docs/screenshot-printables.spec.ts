@@ -14,7 +14,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, gql, groupId } from './support';
+import { docsTrackId, ensureConfigured, gql, organizationId } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/printables');
@@ -43,7 +43,7 @@ test('screenshot the print sheets', async ({ page }) => {
 
     await ensureConfigured(page);
 
-    const raceGroupId = await groupId(page);
+    const raceOrganizationId = await organizationId(page);
     const raceTrackId = await docsTrackId(page);
     const race = await gql(
         page,
@@ -53,7 +53,7 @@ test('screenshot the print sheets', async ({ page }) => {
                 name: 'Pack 42 Pinewood Derby',
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
-                groupId: raceGroupId,
+                organizationId: raceOrganizationId,
                 trackId: raceTrackId,
                 scoringStrategy: 'TIMED',
                 carNumberingStrategy: 'MANUAL',
@@ -62,10 +62,10 @@ test('screenshot the print sheets', async ({ page }) => {
     );
     const raceId = race.createRace.id;
 
-    const den = await gql(
+    const racingGroup = await gql(
         page,
-        `mutation Den($raceId: Int!, $den: DenInput!) { createDen(raceId: $raceId, den: $den) { id } }`,
-        { raceId, den: { name: 'Wolves', color: '#8B4513', rank: 'WOLF' } },
+        `mutation RacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) { createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id } }`,
+        { raceId, racingGroup: { name: 'Wolves', color: '#8B4513', rank: 'WOLF' } },
     );
 
     for (const racer of RACERS) {
@@ -75,7 +75,7 @@ test('screenshot the print sheets', async ({ page }) => {
             {
                 racer: {
                     raceId,
-                    denId: den.createDen.id,
+                    racingGroupId: racingGroup.createRacingGroup.id,
                     firstName: racer.first,
                     lastName: racer.last,
                     carNumber: racer.car,
@@ -144,7 +144,7 @@ test('screenshot the print sheets', async ({ page }) => {
         {
             raceId,
             config: {
-                generalRound: { type: 'PACK', runsPerLane: 1 },
+                generalRound: { type: 'ALL', runsPerLane: 1 },
                 championshipRounds: [],
             },
         },
@@ -157,23 +157,23 @@ test('screenshot the print sheets', async ({ page }) => {
     // The results sheet is the other half of the pair (#206): the heat sheet
     // before the racing, this one after it. Both wanted here rather than in a
     // spec of their own, because they share this race's roster and schedule.
-    // A second den, added only now so the card screenshots above are untouched
-    // — and worth adding at all because the per-den tables collapse when a race
-    // has one den, which would leave that half of the sheet unillustrated.
+    // A second racingGroup, added only now so the card screenshots above are untouched
+    // — and worth adding at all because the per-racing-group tables collapse when a race
+    // has one racingGroup, which would leave that half of the sheet unillustrated.
     const bears = await gql(
         page,
-        `mutation SecondDen($raceId: Int!, $den: DenInput!) {
-            createDen(raceId: $raceId, den: $den) { id }
+        `mutation SecondRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
+            createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) { id }
         }`,
-        { raceId, den: { name: 'Bears', color: '#1F4E79', rank: 'BEAR' } },
+        { raceId, racingGroup: { name: 'Bears', color: '#1F4E79', rank: 'BEAR' } },
     );
     const half = roster.race.racers.slice(3).map((r: { id: number }) => r.id);
     await gql(
         page,
-        `mutation SheetMove($ids: [Int!]!, $denId: Int) {
-            bulkMoveToDen(racerIds: $ids, denId: $denId)
+        `mutation SheetMove($ids: [Int!]!, $racingGroupId: Int) {
+            bulkMoveToRacingGroup(racerIds: $ids, racingGroupId: $racingGroupId)
         }`,
-        { ids: half, denId: bears.createDen.id },
+        { ids: half, racingGroupId: bears.createRacingGroup.id },
     );
 
     const heats = await gql(
@@ -225,7 +225,7 @@ test('screenshot the print sheets', async ({ page }) => {
         }`,
         {
             raceId,
-            award: { name: 'Fastest Car', kind: 'SPEED', source: 'PACK', place: 1 },
+            award: { name: 'Fastest Car', kind: 'SPEED', source: 'ALL', place: 1 },
         },
     );
 

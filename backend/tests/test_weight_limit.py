@@ -10,13 +10,15 @@ from backend.db import crud, models, schemas
 
 
 def _race(db, name: str) -> models.Race:
-    group = crud.create_group(db, schemas.GroupCreate(name=f"{name} Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"{name} Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name=f"{name} Track", lane_count=4)
     )
     return crud.create_race(
         db,
-        schemas.RaceCreate(name=name, group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(name=name, organization_id=group.id, track_id=track.id),
     )
 
 
@@ -33,7 +35,9 @@ def test_a_race_created_without_one_does_not_check_weights(client, db):
 
 
 def test_a_limit_can_be_set_when_the_race_is_created(client, db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Created Limit Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Created Limit Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Created Limit Track", lane_count=4)
     )
@@ -45,7 +49,7 @@ def test_a_limit_can_be_set_when_the_race_is_created(client, db):
             mutation {{
                 createRace(race: {{
                     name: "Created With Limit",
-                    groupId: {group.id},
+                    organizationId: {group.id},
                     trackId: {track.id},
                     weightLimitOz: 5.0
                 }}) {{ weightLimitOz }}

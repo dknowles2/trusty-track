@@ -222,15 +222,16 @@ app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 def _role_for_request(db: Session, pin: str | None) -> auth.Role:
     """The caller's role, from the PIN they sent and the PINs that are set.
 
-    Reads the single `Group` rather than taking a race — roles are install-wide,
-    and an install has one group. No group yet (the first run, before the wizard
-    has saved) means nothing is configured, so `role_for` returns operator.
+    Reads the single `Organization` rather than taking a race — roles are
+    install-wide, and an install has one organization. No organization yet
+    (the first run, before the wizard has saved) means nothing is configured,
+    so `role_for` returns operator.
     """
-    group = db.query(models.Group).first()
+    organization = db.query(models.Organization).first()
     return auth.role_for(
         pin,
-        operator_pin_hash=getattr(group, "operator_pin_hash", None),
-        checkin_pin_hash=getattr(group, "checkin_pin_hash", None),
+        operator_pin_hash=getattr(organization, "operator_pin_hash", None),
+        checkin_pin_hash=getattr(organization, "checkin_pin_hash", None),
     )
 
 

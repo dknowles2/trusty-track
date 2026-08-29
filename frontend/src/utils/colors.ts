@@ -1,5 +1,5 @@
 /**
- * Common colors used across the application, particularly for Dens and Avatars.
+ * Common colors used across the application, particularly for racing groups and avatars.
  */
 export const COMMON_COLORS = [
     '#003F87', // Scouting Blue

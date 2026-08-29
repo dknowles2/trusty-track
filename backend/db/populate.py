@@ -72,7 +72,7 @@ LAST_NAMES = [
     "Axle",
 ]
 
-DENS = [
+RACING_GROUPS = [
     {"name": "Lion", "color": "#F4D03F", "rank": models.Rank.LION},
     {"name": "Tiger", "color": "#E67E22", "rank": models.Rank.TIGER},
     {"name": "Wolf", "color": "#AAB7B8", "rank": models.Rank.WOLF},
@@ -82,21 +82,23 @@ DENS = [
 ]
 
 
-def ensure_dens(db: Session, race_id: int):
-    existing_dens = crud.get_dens(db, race_id=race_id)
-    if not existing_dens:
-        created_dens = []
-        for den_data in DENS:
+def ensure_racing_groups(db: Session, race_id: int):
+    existing_racing_groups = crud.get_racing_groups(db, race_id=race_id)
+    if not existing_racing_groups:
+        created_racing_groups = []
+        for racing_group_data in RACING_GROUPS:
             # Explicitly cast rank to help mypy if needed, or rely on runtime type.
-            # DENS has Rank enum members now.
-            den_in = schemas.DenCreate(
-                name=str(den_data["name"]),
-                color=str(den_data["color"]),
-                rank=den_data["rank"],  # type: ignore
+            # RACING_GROUPS has Rank enum members now.
+            racing_group_in = schemas.RacingGroupCreate(
+                name=str(racing_group_data["name"]),
+                color=str(racing_group_data["color"]),
+                rank=racing_group_data["rank"],  # type: ignore
             )
-            created_dens.append(crud.create_den(db, den_in, race_id=race_id))
-        return created_dens
-    return existing_dens
+            created_racing_groups.append(
+                crud.create_racing_group(db, racing_group_in, race_id=race_id)
+            )
+        return created_racing_groups
+    return existing_racing_groups
 
 
 def get_unique_name(existing_names, source=None):
@@ -118,7 +120,7 @@ def generate_fake_racers(
     count: int = 20,
     add_racer_photos: bool = True,
     add_car_photos: bool = True,
-    assign_dens: bool = True,
+    assign_racing_groups: bool = True,
     check_in: bool = False,
 ):
     # Ensure assets exist
@@ -159,12 +161,12 @@ def generate_fake_racers(
     existing_racers = crud.get_racers(db, race_id=race_id)
     existing_names = {f"{r.first_name} {r.last_name}" for r in existing_racers}
 
-    # Ensure Dens exist and get them
-    dens = []
-    if assign_dens:
-        dens = ensure_dens(db, race_id)
-        if not dens:
-            return {"error": "Could not create dens"}
+    # Ensure RacingGroups exist and get them
+    racing_groups = []
+    if assign_racing_groups:
+        racing_groups = ensure_racing_groups(db, race_id)
+        if not racing_groups:
+            return {"error": "Could not create racing groups"}
 
     # Shuffle assets for variety in this batch
     if add_racer_photos:
@@ -179,10 +181,10 @@ def generate_fake_racers(
         # Pick unique names
         first, last = get_unique_name(existing_names, source)
 
-        den_id = None
-        if assign_dens and dens:
-            den = source.choice(dens)
-            den_id = den.id
+        racing_group_id = None
+        if assign_racing_groups and racing_groups:
+            racing_group = source.choice(racing_groups)
+            racing_group_id = racing_group.id
 
         # Handle Racer Images (Cycling)
         racer_img_url = None
@@ -214,7 +216,7 @@ def generate_fake_racers(
         racer_in = schemas.RacerCreate(
             first_name=first,
             last_name=last,
-            den_id=den_id,
+            racing_group_id=racing_group_id,
             # Will be assigned by auto-numbering based on race strategy
             car_number=None,
             car_passed_inspection=check_in,

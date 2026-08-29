@@ -3,12 +3,12 @@ from backend.db import models
 
 def test_wizard_crash_repro(db, client):
     # 1. Create a Race
-    group_obj = models.Group(name="Test Group")
-    db.add(group_obj)
+    organization_obj = models.Organization(name="Test Organization")
+    db.add(organization_obj)
     db.commit()
-    db.refresh(group_obj)
+    db.refresh(organization_obj)
 
-    race = models.Race(name="Test Race", group_id=group_obj.id)
+    race = models.Race(name="Test Race", organization_id=organization_obj.id)
     db.add(race)
     db.commit()
     db.refresh(race)
@@ -23,14 +23,17 @@ def test_wizard_crash_repro(db, client):
     db.commit()
 
     # 2. Add some racers (just in case logic depends on them)
-    # create den
-    den = models.Den(name="Den 1", race_id=race.id)
-    db.add(den)
+    # create racing_group
+    racing_group = models.RacingGroup(name="RacingGroup 1", race_id=race.id)
+    db.add(racing_group)
     db.commit()
-    db.refresh(den)
+    db.refresh(racing_group)
 
     racer = models.Racer(
-        first_name="John", last_name="Doe", race_id=race.id, den_id=den.id
+        first_name="John",
+        last_name="Doe",
+        race_id=race.id,
+        racing_group_id=racing_group.id,
     )
     db.add(racer)
     db.commit()
@@ -41,7 +44,7 @@ def test_wizard_crash_repro(db, client):
     mutation_no_champ = f"""
     mutation {{
         createRoundWizard(raceId: {race.id}, config: {{
-            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            generalRound: {{ type: "ALL", runsPerLane: 1 }},
             championshipRounds: []
         }}) {{
             id
@@ -57,13 +60,15 @@ def test_wizard_crash_repro(db, client):
     assert "Not enough racers" in response.json()["errors"][0]["message"]
 
     # Reset for next attempt (rounds exist now? No, previous failed)
-    race2 = models.Race(name="Test Race 2", group_id=group_obj.id, track_id=track.id)
+    race2 = models.Race(
+        name="Test Race 2", organization_id=organization_obj.id, track_id=track.id
+    )
     db.add(race2)
     db.commit()
     db.refresh(race2)
 
     # Add racers to race2 so it succeeds
-    den2 = models.Den(name="Den 2", race_id=race2.id)
+    den2 = models.RacingGroup(name="RacingGroup 2", race_id=race2.id)
     db.add(den2)
     db.commit()
     db.refresh(den2)
@@ -72,14 +77,14 @@ def test_wizard_crash_repro(db, client):
         first_name="Jane",
         last_name="Doe",
         race_id=race2.id,
-        den_id=den2.id,
+        racing_group_id=den2.id,
         car_passed_inspection=True,
     )
     racer2b = models.Racer(
         first_name="Jack",
         last_name="Smith",
         race_id=race2.id,
-        den_id=den2.id,
+        racing_group_id=den2.id,
         car_passed_inspection=True,
     )
     db.add(racer2a)
@@ -90,10 +95,10 @@ def test_wizard_crash_repro(db, client):
     mutation_with_champ = f"""
     mutation {{
         createRoundWizard(raceId: {race2.id}, config: {{
-            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            generalRound: {{ type: "ALL", runsPerLane: 1 }},
             championshipRounds: [{{
                 name: "Finals",
-                source: "PACK",
+                source: "ALL",
                 numTopRacers: 3,
                 runsPerLane: 1
             }}]
@@ -114,7 +119,7 @@ def test_wizard_crash_repro(db, client):
     mutation_bad = f"""
     mutation {{
         createRoundWizard(raceId: {race2.id}, config: {{
-            generalRound: {{ type: "PACK", runsPerLane: "five" }},
+            generalRound: {{ type: "ALL", runsPerLane: "five" }},
             championshipRounds: []
         }}) {{
             id
