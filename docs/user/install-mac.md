@@ -33,13 +33,25 @@ Open your **Applications** folder (click Go → Applications in the Finder menu 
 
 ### If you see a Gatekeeper security warning
 
-macOS may show a message like "TrustyTrack can't be opened because it is from an unidentified developer." This happens because the app hasn't been code-signed with an Apple certificate.
+macOS may show a message like "TrustyTrack can't be opened because it is from an unidentified developer" or "Apple could not verify TrustyTrack is free of malware." This happens because the app hasn't been code-signed with an Apple certificate.
 
-To open it anyway:
+How to open it anyway depends on your macOS version — check the Apple menu → **About This Mac** if you're not sure which you have.
+
+**macOS 12 (Monterey) through 14 (Sonoma):**
 
 1. **Right-click** (or Control-click) on **TrustyTrack** in Applications.
 2. Click **Open** from the menu.
 3. Click **Open** again in the dialog that appears.
+
+**macOS 15 (Sequoia) and later:**
+
+Sequoia removed the right-click bypass, so use System Settings instead:
+
+1. Try to open **TrustyTrack** and dismiss the warning.
+2. Open **System Settings**.
+3. Go to **Privacy & Security**, then scroll down to the **Security** section.
+4. Next to the message about TrustyTrack, click **Open Anyway**.
+5. Confirm in the dialog that appears, and enter your admin password if asked.
 
 You only need to do this the first time you open the app.
 
