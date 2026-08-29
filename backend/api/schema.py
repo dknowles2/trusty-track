@@ -2072,6 +2072,11 @@ class Query:
         if data is None:
             return None
 
+        # `compute_race_stats` returns a dict matching this type field-for-field
+        # by design (see its docstring), so every nested list here is a
+        # mechanical dict-to-dataclass conversion rather than a hand-copied
+        # field list. `times_per_lane` is the one field that needs the same
+        # treatment one level down.
         return RaceStats(
             race_id=data["race_id"],
             race_name=data["race_name"],
@@ -2079,83 +2084,22 @@ class Query:
             total_heats_scheduled=data["total_heats_scheduled"],
             total_heats_completed=data["total_heats_completed"],
             total_racers=data["total_racers"],
-            lane_stats=[
-                LaneTimeStat(
-                    lane=ls["lane"],
-                    avg_time=ls["avg_time"],
-                    heat_count=ls["heat_count"],
-                    relative_advantage_pct=ls["relative_advantage_pct"],
-                )
-                for ls in data["lane_stats"]
-            ],
+            lane_stats=[LaneTimeStat(**ls) for ls in data["lane_stats"]],
             racer_stats=[
                 RacerStat(
-                    racer_id=rs["racer_id"],
-                    first_name=rs["first_name"],
-                    last_name=rs["last_name"],
-                    car_number=rs["car_number"],
-                    den_name=rs["den_name"],
-                    heats_completed=rs["heats_completed"],
-                    heats_scheduled=rs["heats_scheduled"],
-                    min_time=rs["min_time"],
-                    max_time=rs["max_time"],
-                    mean_time=rs["mean_time"],
-                    std_dev=rs["std_dev"],
-                    times_per_lane=[
-                        TimesPerLane(lane=tpl["lane"], avg_time=tpl["avg_time"])
-                        for tpl in rs["times_per_lane"]
-                    ],
+                    **{
+                        **rs,
+                        "times_per_lane": [
+                            TimesPerLane(**t) for t in rs["times_per_lane"]
+                        ],
+                    }
                 )
                 for rs in data["racer_stats"]
             ],
-            highlights=[
-                HeatHighlight(
-                    type=hl["type"],
-                    round_name=hl["round_name"],
-                    heat_number=hl["heat_number"],
-                    global_heat_number=hl["global_heat_number"],
-                    racer_name=hl.get("racer_name"),
-                    time=hl.get("time"),
-                    margin=hl.get("margin"),
-                )
-                for hl in data["highlights"]
-            ],
-            den_stats=[
-                DenStat(
-                    den_id=ds["den_id"],
-                    den_name=ds["den_name"],
-                    den_color=ds["den_color"],
-                    racer_count=ds["racer_count"],
-                    avg_score=ds["avg_score"],
-                    best_racer_name=ds["best_racer_name"],
-                )
-                for ds in data["den_stats"]
-            ],
-            heat_results=[
-                HeatResultRow(
-                    round_name=hr["round_name"],
-                    heat_number=hr["heat_number"],
-                    global_heat_number=hr["global_heat_number"],
-                    lane=hr["lane"],
-                    car_number=hr["car_number"],
-                    racer_first_name=hr["racer_first_name"],
-                    racer_last_name=hr["racer_last_name"],
-                    time=hr["time"],
-                    place=hr["place"],
-                )
-                for hr in data["heat_results"]
-            ],
-            track_records=[
-                TrackRecord(
-                    time_seconds=tr.time_seconds,
-                    racer_name=tr.racer_name,
-                    car_number=tr.car_number,
-                    race_id=tr.race_id,
-                    race_name=tr.race_name,
-                    race_date=tr.race_date,
-                )
-                for tr in data["track_records"]
-            ],
+            highlights=[HeatHighlight(**hl) for hl in data["highlights"]],
+            den_stats=[DenStat(**ds) for ds in data["den_stats"]],
+            heat_results=[HeatResultRow(**hr) for hr in data["heat_results"]],
+            track_records=[TrackRecord(**tr) for tr in data["track_records"]],
         )
 
 

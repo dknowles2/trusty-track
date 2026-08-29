@@ -5,6 +5,7 @@ This module provides functions to calculate per-racer stats, lane fairness,
 den comparisons, highlights, and exportable heat results for a race.
 """
 
+import dataclasses
 import math
 from typing import Any, TypedDict
 
@@ -157,6 +158,13 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
         else str(race.scoring_strategy)
     )
 
+    # Computed once; `_den_id` is internal (see `_compute_racer_stats`) and is
+    # stripped from the public `racer_stats` list below, but `_compute_den_stats`
+    # still needs it.
+    racer_stats = _compute_racer_stats(
+        all_results, racer_heat_counts, racer_map, den_map
+    )
+
     return {
         "race_id": race.id,
         "race_name": race.name,
@@ -165,19 +173,20 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
         "total_heats_completed": total_heats_completed,
         "total_racers": len(racers),
         "lane_stats": _compute_lane_stats(all_results, lane_count),
-        "racer_stats": _compute_racer_stats(
-            all_results, racer_heat_counts, racer_map, den_map
-        ),
+        "racer_stats": [
+            {k: v for k, v in rs.items() if k != "_den_id"} for rs in racer_stats
+        ],
         "highlights": _compute_highlights(heats_with_rounds, racer_map),
-        "den_stats": _compute_den_stats(
-            _compute_racer_stats(all_results, racer_heat_counts, racer_map, den_map),
-            dens,
-        ),
+        "den_stats": _compute_den_stats(racer_stats, dens),
         "heat_results": _compute_heat_results(heats_with_rounds, racer_map),
         # The record belongs to the track, not the race: every race ever run
         # on it competes. A race with no track has nothing to hold a record.
+        # `track_records` returns dataclasses (`TrackRecordEntry`); converted
+        # to dicts here so every field of this payload keeps the same shape.
         "track_records": (
-            records.track_records(db, race.track_id) if race.track_id else []
+            [dataclasses.asdict(tr) for tr in records.track_records(db, race.track_id)]
+            if race.track_id
+            else []
         ),
     }
 
