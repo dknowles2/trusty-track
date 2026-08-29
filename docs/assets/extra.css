@@ -10,8 +10,12 @@
 
    Both files define the same four colours from the same source, which is the
    app itself: `--scouting-blue` and `--cub-scouting-gold` are custom
-   properties in `frontend/src/index.css`. The cream and wood tones come from
-   the logo's pinewood car.
+   properties in `frontend/src/index.css`, holding Field Uniform's own values
+   — the default of the seven themes the app can now be set to (#498). This
+   page and the guides stay pinned to Field Uniform regardless of which theme
+   an install is actually running; they are marketing and documentation, not
+   a themed surface. The cream and wood tones come from the logo's pinewood
+   car.
    --------------------------------------------------------------------------- */
 
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap");

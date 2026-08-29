@@ -101,6 +101,7 @@ nav:
   - Displays and Printouts:
     - Observation Displays: observation-displays.md
     - Printables: printables.md
+    - Themes: reference/themes.md
   - Network and Backups:
     - Access and Your Network: access-and-network.md
     - Backup and Restore: backup-and-restore.md

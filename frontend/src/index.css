@@ -33,7 +33,13 @@
 }
 
 :root {
-  /* BSA Official Colors */
+  /* BSA Official Colors — Field Uniform's own values (#498). These are the
+   * no-script/pre-JS fallback: `applyTheme` (frontend/src/theming/) redefines
+   * every one of them as an inline style on each surface's own scoping root,
+   * so a theme other than Field Uniform never touches this block. Kept in
+   * exact step with `THEMES.find(t => t.key === 'field-uniform')` in
+   * `frontend/src/theming/themes.ts` — `themes.test.ts` pins the App/Display/
+   * Printables values that also appear below. */
   --scouting-blue: #003F87;
   --cub-scouting-gold: #FCD116;
   --scouting-red: #D63232;
@@ -44,6 +50,19 @@
   --white: #ffffff;
   --error: #d32f2f;
 
+  /*
+   * The rest of the App surface's token vocabulary (#498). Also Field
+   * Uniform's values, also redefined per-theme by `applyTheme` rather than
+   * here.
+   */
+  --surface-color: #ffffff;
+  --surface-alt-color: #f8f9fa;
+  --border-color: #dddddd;
+  --text-muted-color: #666666;
+  --on-primary-color: #ffffff;
+  --on-accent-color: #003F87;
+  --focus-ring-color: #003F87;
+
   /* Typography */
   --font-header: 'Roboto Condensed', sans-serif;
   --font-body: 'Roboto', sans-serif;
@@ -51,6 +70,43 @@
   /* Spacing & Layout */
   --border-radius: 12px;
   --spacing-unit: 8px;
+
+  /*
+   * Display surface tokens (#498). The audience/projector views
+   * (`Observation.tsx`, `AwardCeremony.tsx`) are their own surface,
+   * independent of the App surface above. These defaults equal today's
+   * hardcoded `.projector-mode` dark palette exactly — no rendered colour
+   * moves for an install that never opens the Appearance section.
+   */
+  --display-bg-color: #0A0A0A;
+  --display-surface-color: #1a1a1a;
+  --display-surface-alt-color: #111111;
+  --display-text-color: #ffffff;
+  --display-text-muted-color: #aaaaaa;
+  --display-border-color: #333333;
+  --display-accent-color: #FCD116;
+  --display-overlay-bg-color: rgba(0, 0, 0, 0.95);
+
+  /*
+   * Printables surface tokens (#498). Pit passes, licences and certificates
+   * are their own surface too. Defaults equal today's card palette.
+   */
+  --print-primary-color: #003F87;
+  --print-accent-color: #FCD116;
+  --print-header-gradient-start: #002a5c;
+  --print-header-gradient-end: #0b4f9e;
+  --print-surface-color: #ffffff;
+  --print-text-color: #222222;
+  --print-text-muted-color: #666666;
+  /* A 0-1 opacity multiplier for the large-area decorative gradients only
+   * (the chequered band, the licence's security wash, the certificate's
+   * guilloche) — see `PrintSheet.css`. Field Uniform's value is 1: full
+   * strength, unchanged from before this token existed. */
+  --print-decor-strength: 1;
+  /* No default: unset means "the usual two-tone primary+accent decoration".
+   * Only a single-ink theme (Newsprint) sets this, and `applyTheme` clears
+   * it again on the way to any theme that does not — see `PrintSheet.css`'s
+   * `[data-theme="newsprint"]` rules, which are the only ones that read it. */
 }
 
 body {
@@ -99,7 +155,7 @@ a.secondary-btn {
 
 .primary-btn {
   background-color: var(--scouting-blue);
-  color: var(--white);
+  color: var(--on-primary-color, var(--white));
 }
 
 .primary-btn:hover:not(:disabled) {
@@ -114,8 +170,20 @@ a.secondary-btn {
 
 .secondary-btn {
   background-color: var(--cub-scouting-gold);
-  color: var(--scouting-blue);
+  color: var(--on-accent-color, var(--scouting-blue));
   font-weight: bold;
+}
+
+/*
+ * Keyboard focus (#498). Nothing visibly marked a focused control before
+ * this — a theming pass is the natural moment to add one, since Clear Sight
+ * exists partly for someone who benefits from seeing it. `:focus-visible`
+ * rather than `:focus`, so a mouse click does not draw a ring around every
+ * button it lands on — only actual keyboard navigation does.
+ */
+:focus-visible {
+  outline: 3px solid var(--focus-ring-color, var(--scouting-blue));
+  outline-offset: 2px;
 }
 
 .container {
@@ -417,8 +485,8 @@ input:checked + .slider:before {
 
 /* Projector Mode Styling */
 .projector-mode {
-  background-color: #0A0A0A !important;
-  color: #FFFFFF !important;
+  background-color: var(--display-bg-color) !important;
+  color: var(--display-text-color) !important;
   min-height: 100vh;
   /* Reset base font size to use viewport units */
   font-size: 1.2vmin;
@@ -427,7 +495,7 @@ input:checked + .slider:before {
 .projector-mode h1,
 .projector-mode h2,
 .projector-mode h3 {
-  color: var(--cub-scouting-gold) !important;
+  color: var(--display-accent-color) !important;
   text-transform: uppercase;
   letter-spacing: 0.15vmin;
 }
@@ -457,8 +525,8 @@ input:checked + .slider:before {
 /* Heat Cards in Projector Mode */
 .projector-mode .heat-card,
 .projector-mode .heat-card-racer {
-  background-color: #1a1a1a !important;
-  color: #fff !important;
+  background-color: var(--display-surface-color) !important;
+  color: var(--display-text-color) !important;
   border-radius: 1.5vmin !important;
   box-shadow: 0 0.5vmin 1.5vmin rgba(0,0,0,0.5) !important;
 }
@@ -466,7 +534,7 @@ input:checked + .slider:before {
 /* Ensure empty heat card also follows theme */
 .projector-mode .heat-card[style*="background: rgb(245, 245, 245)"],
 .projector-mode .heat-card[style*="background: #f5f5f5"] {
-  background-color: #111 !important;
+  background-color: var(--display-surface-alt-color) !important;
   opacity: 0.5 !important;
 }
 
@@ -479,14 +547,14 @@ input:checked + .slider:before {
 /* Lane Label */
 .projector-mode .heat-card-lane {
   font-size: 1.8vmin !important;
-  color: #aaa !important;
+  color: var(--display-text-muted-color) !important;
 }
 
 /* Heat Card Racers */
 .projector-mode .heat-card-racer-name {
   font-size: 2.2vmin !important; /* Racer Name */
   margin-top: 0.8vmin !important;
-  color: #fff !important;
+  color: var(--display-text-color) !important;
 }
 
 .projector-mode .heat-card-car-number {
@@ -499,18 +567,18 @@ input:checked + .slider:before {
 .projector-mode .heat-card-racer div[style*="border-radius: 50%"] {
   width: 12vmin !important;
   height: 12vmin !important;
-  border-color: #333 !important;
+  border-color: var(--display-border-color) !important;
   font-size: 5vmin !important; /* For Initials fallback */
 }
 
 
 /* Standings Table in Projector Mode */
 .projector-mode .standings-table {
-  background-color: #111 !important;
+  background-color: var(--display-surface-alt-color) !important;
 }
 
 .projector-mode .standings-table thead {
-  background-color: var(--cub-scouting-gold) !important;
+  background-color: var(--display-accent-color) !important;
   color: #000 !important;
 }
 
@@ -521,7 +589,7 @@ input:checked + .slider:before {
 
 .projector-mode .standings-table tbody td {
   padding: 1.8vmin !important;
-  border-bottom: 1px solid #333 !important;
+  border-bottom: 1px solid var(--display-border-color) !important;
 }
 
 /* Rank Number in Standings */
@@ -618,7 +686,7 @@ input:checked + .slider:before {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.95);
+  background-color: var(--display-overlay-bg-color);
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -630,7 +698,7 @@ input:checked + .slider:before {
 
 .overlay-title {
   font-size: 8vmin !important;
-  color: var(--cub-scouting-gold) !important;
+  color: var(--display-accent-color) !important;
   margin-bottom: 4vmin !important;
   text-shadow: 0 0 2vmin rgba(252, 209, 22, 0.3);
   text-align: center;
@@ -640,8 +708,13 @@ input:checked + .slider:before {
    Gold on the dark overlay so it reads as a different kind of news than the
    results beneath it — this is the line the room photographs. */
 .overlay-record-banner {
-  background: var(--cub-scouting-gold);
-  color: var(--scouting-blue);
+  /* The spec's Display token vocabulary has no "text on accent" role, so
+     this reads --display-bg-color instead of inventing one (#498, stage 2)
+     — every theme's Display background is dark enough against its own
+     accent to clear 4.5:1 (themes.test.ts's contrast checks cover the
+     pairing this leans on), and it needs no new token to say so. */
+  background: var(--display-accent-color);
+  color: var(--display-bg-color);
   border-radius: 2vmin;
   padding: 2vmin 4vmin;
   margin-bottom: 3vmin;
@@ -677,7 +750,7 @@ input:checked + .slider:before {
 .overlay-result-item {
   display: flex;
   align-items: center;
-  background: #1a1a1a;
+  background: var(--display-surface-color);
   border-radius: 2vmin;
   padding: 2vmin 3vmin;
   border-left: 1.5vmin solid #ddd;
@@ -686,8 +759,8 @@ input:checked + .slider:before {
 }
 
 .overlay-result-item.first-place {
-  border-left-color: var(--cub-scouting-gold);
-  background: linear-gradient(90deg, rgba(252, 209, 22, 0.1) 0%, #1a1a1a 100%);
+  border-left-color: var(--display-accent-color);
+  background: linear-gradient(90deg, rgba(252, 209, 22, 0.1) 0%, var(--display-surface-color) 100%);
   transform: scale(1.03);
 }
 
@@ -703,7 +776,7 @@ input:checked + .slider:before {
   font-size: 5.5vmin;
   font-weight: 900;
   width: 12vmin;
-  color: #fff;
+  color: var(--display-text-color);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -724,19 +797,19 @@ input:checked + .slider:before {
 .overlay-racer-name {
   font-size: 4.5vmin;
   font-weight: 800;
-  color: #fff;
+  color: var(--display-text-color);
 }
 
 .overlay-car-name {
   font-size: 2.5vmin;
-  color: #aaa;
+  color: var(--display-text-muted-color);
 }
 
 .overlay-time {
   font-size: 7vmin;
   font-weight: 900;
   font-family: monospace;
-  color: var(--cub-scouting-gold);
+  color: var(--display-accent-color);
 }
 
 /* Overlay Avatar */
@@ -919,4 +992,93 @@ input:checked + .slider:before {
     flex-basis: 100%;
     margin-top: 0.5rem;
   }
+}
+
+/*
+ * Clear Sight (#498) — the one theme built for legibility first. Two
+ * deviations that are not a token value at all, and so live here rather than
+ * in `themes.ts`: heavier type, and a solid border in place of a
+ * drop-shadow's subtle differentiation. Both are decoration — nothing here
+ * reflows or resizes anything, the same latitude `--border-radius` and
+ * `--spacing-unit` already leave untouched (see CLAUDE.md's "Hard
+ * constraints").
+ *
+ * The border swap is scoped to `.racer-card`, the one App-surface "card"
+ * class `index.css` itself already owns. Every other card lives inside a
+ * feature's own stylesheet or an inline `style`, which is the ~140-file
+ * inline-literal migration #498 calls out as its own milestone — not
+ * attempted here. A pack on Clear Sight sees the effect on the roster's
+ * mobile card list; other cards keep today's shadow until that migration
+ * lands, which is the "partly themed" state the docs are explicit about
+ * (see `docs/reference/themes.md`).
+ */
+[data-theme='clear-sight'] h1,
+[data-theme='clear-sight'] h2,
+[data-theme='clear-sight'] h3,
+[data-theme='clear-sight'] h4,
+[data-theme='clear-sight'] h5,
+[data-theme='clear-sight'] h6 {
+  font-weight: 900;
+}
+
+[data-theme='clear-sight'] body,
+[data-theme='clear-sight'] p,
+[data-theme='clear-sight'] label,
+[data-theme='clear-sight'] button,
+[data-theme='clear-sight'] input,
+[data-theme='clear-sight'] select,
+[data-theme='clear-sight'] textarea {
+  font-weight: 500;
+}
+
+[data-theme='clear-sight'] .racer-card {
+  box-shadow: none;
+  border: 2px solid var(--border-color);
+}
+
+/*
+ * Theme swatch buttons — the Appearance section's three pickers (#498). A
+ * small circular chip showing the theme's primary and accent color, rather
+ * than a bare `<select>`, since "what does Old Glory look like" is exactly
+ * the question a name alone cannot answer.
+ */
+.theme-swatch-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 84px;
+  padding: 0.5rem 0.4rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--surface-color);
+  color: var(--text-color);
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.theme-swatch-btn[aria-pressed='true'] {
+  border-color: var(--scouting-blue);
+  background: var(--surface-alt-color);
+  font-weight: bold;
+}
+
+.theme-swatch {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.theme-swatch-match-app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt-color);
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--text-muted-color);
 }

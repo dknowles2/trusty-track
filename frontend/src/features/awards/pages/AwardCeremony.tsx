@@ -18,6 +18,8 @@ import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
 import { RACE_AWARDS_QUERY } from '../graphql/queries';
 import { displayId } from '../../observation/displayIdentity';
 import { DisplayAssignmentSubscription } from '../../observation/graphql/queries';
+import { resolveDisplayTheme } from '../../../theming/applyTheme';
+import type { SurfaceThemeSetting } from '../../../theming/themes';
 
 export default function AwardCeremony() {
   const { raceId } = useParams<{ raceId: string }>();
@@ -59,6 +61,14 @@ export default function AwardCeremony() {
   const awards: CeremonyAward[] = race?.awards ?? [];
   const rounds = race?.rounds ?? [];
   const dens = race?.dens ?? [];
+
+  // The Display surface's theme (#498) — same reasoning as Observation.tsx's
+  // own root: this is the audience-facing surface, and "Match App theme"
+  // resolves the same way on every screen in the room.
+  const displayThemeSetting: SurfaceThemeSetting =
+    (result.data?.initialConfig?.displayTheme as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
+  const { key: displayThemeKey, theme: displayTheme } = resolveDisplayTheme(displayThemeSetting);
+  const displayThemeStyle = displayTheme.tokens as React.CSSProperties;
 
   const step = useCallback(
     (delta: number) => setIndex((current) => stepIndex(current, delta, awards.length)),
@@ -116,6 +126,7 @@ export default function AwardCeremony() {
     <div
       onClick={() => step(1)}
       role="presentation"
+      data-theme={displayThemeKey}
       style={{
         position: 'fixed',
         inset: 0,
@@ -124,8 +135,16 @@ export default function AwardCeremony() {
         // ceremony that is on a projector in front of the whole pack. Found by
         // loading the page rather than by any test.
         zIndex: 3000,
-        background: 'var(--scouting-blue, #003F87)',
-        color: 'white',
+        // Joins the rest of the Display surface (#498, stage 2) — the
+        // groundwork PR left this as the App surface's navy because no theme
+        // data existed yet to decide with; now that it does, the ceremony
+        // slide is Observation.tsx's own projector background rather than a
+        // one-off colour beside it. Field Uniform's value is #0A0A0A, not
+        // #003F87 — this is the one deliberate colour change stage 2 makes
+        // to an existing screen under the *default* theme, and it is why the
+        // doc screenshot suite must be re-run for this change (see the PR).
+        background: 'var(--display-bg-color, #0A0A0A)',
+        color: 'var(--display-text-color, #ffffff)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -134,6 +153,7 @@ export default function AwardCeremony() {
         padding: '4vh 6vw',
         cursor: 'pointer',
         userSelect: 'none',
+        ...displayThemeStyle,
       }}
     >
       {!slide ? (
@@ -146,7 +166,7 @@ export default function AwardCeremony() {
             style={{
               fontSize: 'clamp(2rem, 8vh, 6rem)',
               margin: 0,
-              color: 'var(--cub-scouting-gold, #FCD116)',
+              color: 'var(--display-accent-color, #FCD116)',
             }}
           >
             {slide.title}
@@ -161,10 +181,20 @@ export default function AwardCeremony() {
               the slide is exactly as it was before this existed. */}
           {slide.artworkKey && (
             <div style={{ margin: '3vh 0 1vh' }}>
-              {/* dark: the slide's background is the same navy the artwork's
+              {/* dark: the slide's background is dark, the colour the artwork's
                   outlines default to (#400) — without this every line in the
-                  icon matches the wall behind it. */}
-              <AwardArtwork artworkKey={slide.artworkKey} size={140} variant="dark" />
+                  icon matches the wall behind it. The palette is the Display
+                  surface's own accent (#498's groundwork), not the App's gold
+                  read directly. */}
+              <AwardArtwork
+                artworkKey={slide.artworkKey}
+                size={140}
+                variant="dark"
+                palette={{
+                  line: 'var(--display-text-color, #ffffff)',
+                  fill: 'var(--display-accent-color, #FCD116)',
+                }}
+              />
             </div>
           )}
 
@@ -178,7 +208,7 @@ export default function AwardCeremony() {
                 borderRadius: '50%',
                 objectFit: 'cover',
                 margin: '4vh 0 2vh',
-                border: '4px solid var(--cub-scouting-gold, #FCD116)',
+                border: '4px solid var(--display-accent-color, #FCD116)',
               }}
             />
           )}

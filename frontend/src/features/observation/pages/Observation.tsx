@@ -11,8 +11,11 @@ import { useChrome } from '../../../context/ChromeContext';
 import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
+import { observeIdentify, type SeenIdentifySeq } from '../identifyOverlay';
 import { rankLabel } from '../../management/rankText';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
+import { resolveDisplayTheme } from '../../../theming/applyTheme';
+import type { SurfaceThemeSetting } from '../../../theming/themes';
 import {
   LeaderboardSubscription,
   OnDeckSubscription,
@@ -46,6 +49,9 @@ const GET_INITIAL_DATA = `
         color
         rank
       }
+    }
+    initialConfig {
+      displayTheme
     }
   }
 `;
@@ -119,6 +125,15 @@ export default function Observation() {
   } | null>(null);
   const [seenHeatResult, setSeenHeatResult] = useState<SeenHeatResult>(null);
 
+  // Naming this screen (#495): a small badge on connect, and a full-screen
+  // flash when the operator presses Identify on its row. One `identifySeq`
+  // drives both, and `observeIdentify` is the `seen === null` rule again —
+  // the value this display arrives holding, on connect or reconnect, is
+  // history, not an instruction.
+  const [seenIdentifySeq, setSeenIdentifySeq] = useState<SeenIdentifySeq>(null);
+  const [showIdentifyFlash, setShowIdentifyFlash] = useState(false);
+  const [showConnectBadge, setShowConnectBadge] = useState(false);
+
   // Auto-cycling logic (disabled in projector mode)
   useEffect(() => {
     if (!shouldCycle || isProjectorMode) return;
@@ -180,6 +195,17 @@ export default function Observation() {
   });
 
   const { data: initialData } = initialResult;
+
+  // The Display surface's theme (#498) — this whole page, projector mode or
+  // not, is the audience-facing surface the spec means by "Display". Every
+  // screen resolves "Match App theme" the same way regardless of what any
+  // one device's own App theme happens to be — see `resolveSurfaceKey`'s own
+  // comment for why that is the only resolution that can be the same on
+  // every wall display in the room.
+  const displayThemeSetting: SurfaceThemeSetting =
+    (initialData?.initialConfig?.displayTheme as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
+  const { key: displayThemeKey, theme: displayTheme } = resolveDisplayTheme(displayThemeSetting);
+  const displayThemeStyle = displayTheme.tokens as React.CSSProperties;
 
   // Subscriptions for real-time data
   const [{ data: leaderboardData }] = useSubscription({
@@ -247,6 +273,35 @@ export default function Observation() {
       return () => clearTimeout(timer);
     }
   }, [showResultsOverlay, seenHeatResult]);
+
+  // Sync the identify badge/flash during render, the same shape as the
+  // results overlay above: `assignment` arrives over the subscription, and
+  // `observeIdentify` decides which of the two treatments (if either) this
+  // payload deserves.
+  if (assignment) {
+    const observation = observeIdentify(seenIdentifySeq, assignment.identifySeq);
+    if (observation.seen !== seenIdentifySeq) {
+      setSeenIdentifySeq(observation.seen);
+      if (observation.showConnectBadge) setShowConnectBadge(true);
+      if (observation.showFlash) setShowIdentifyFlash(true);
+    }
+  }
+
+  useEffect(() => {
+    if (!showIdentifyFlash) return;
+    // A few seconds is enough to look up and read a name across a room; any
+    // longer and it stops being a flash and starts being a mode.
+    const timer = setTimeout(() => setShowIdentifyFlash(false), 4000);
+    return () => clearTimeout(timer);
+  }, [showIdentifyFlash, seenIdentifySeq]);
+
+  useEffect(() => {
+    if (!showConnectBadge) return;
+    // Must fade — a permanent badge is chrome on a projector, which is the
+    // whole reason `ChromeContext` exists (#175).
+    const timer = setTimeout(() => setShowConnectBadge(false), 4000);
+    return () => clearTimeout(timer);
+  }, [showConnectBadge]);
 
   interface Racer {
     id: number;
@@ -386,7 +441,7 @@ export default function Observation() {
           <span>{title}</span>
           {exhibition && (
             <span style={{
-              background: 'var(--cub-scouting-gold)',
+              background: 'var(--display-accent-color)',
               color: '#333',
               fontSize: '0.75rem',
               fontWeight: 'bold',
@@ -448,7 +503,7 @@ export default function Observation() {
         {overlayData.recordBreak && (
           <div className="overlay-record-banner" data-testid="record-banner">
             <div className="overlay-record-headline">
-              <Icon path={mdiTrophy} size={2} color="#003F87" /> New track record!
+              <Icon path={mdiTrophy} size={2} color="var(--display-bg-color, #0A0A0A)" /> New track record!
             </div>
             <div className="overlay-record-detail">
               {recordBreakDetail(overlayData.recordBreak)}
@@ -495,13 +550,76 @@ export default function Observation() {
     );
   };
 
+  const thisDisplayName = assignment?.name;
+
+  // A small corner badge naming this screen, shown briefly the moment it
+  // connects (#495). Plugging a screen in and opening it is the cheapest
+  // possible time for somebody to learn its name.
+  const renderIdentifyBadge = () => {
+    if (!showConnectBadge || !thisDisplayName) return null;
+    return (
+      <div
+        className="identify-connect-badge"
+        data-testid="identify-connect-badge"
+        style={{
+          position: 'fixed',
+          top: '16px',
+          right: '16px',
+          zIndex: 4900,
+          background: 'rgba(0, 0, 0, 0.75)',
+          color: '#fff',
+          padding: '0.5rem 1rem',
+          borderRadius: '20px',
+          fontSize: '0.9rem',
+          fontWeight: 'bold',
+          pointerEvents: 'none',
+        }}
+      >
+        {thisDisplayName}
+      </div>
+    );
+  };
+
+  // The full-screen flash for an Identify command from the operator's list
+  // (#495) — press it, look up, see the name on the right screen.
+  const renderIdentifyFlash = () => {
+    if (!showIdentifyFlash || !thisDisplayName) return null;
+    return (
+      <div
+        className="identify-flash"
+        data-testid="identify-flash"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 5000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0, 0, 0, 0.88)',
+          color: '#fff',
+          pointerEvents: 'none',
+        }}
+      >
+        <div style={{ fontSize: '9vmin', fontWeight: 'bold', textAlign: 'center', padding: '0 5vmin' }}>
+          {thisDisplayName}
+        </div>
+      </div>
+    );
+  };
+
   // --- SLIDESHOW (#175) ---
   // Ahead of both other modes: it is a full-screen view of its own rather than
   // a tab, and it deliberately shows none of the race furniture — the point is
   // the photographs, on a screen across a room.
   if (behaviour.slideshow) {
     return (
-      <div className="container projector-mode" style={{ maxWidth: '100%', padding: 0, background: '#111' }}>
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{ maxWidth: '100%', padding: 0, background: 'var(--display-surface-alt-color)', ...displayThemeStyle }}
+      >
+        {renderIdentifyBadge()}
+        {renderIdentifyFlash()}
         <PhotoSlideshow
           racers={initialData?.race?.racers ?? []}
           dens={initialData?.race?.dens ?? []}
@@ -515,8 +633,14 @@ export default function Observation() {
   // --- STANDARD MODE RENDER ---
   if (!isProjectorMode) {
     return (
-      <div className="container" style={{ maxWidth: '100%', padding: '20px' }}>
+      <div
+        className="container"
+        data-theme={displayThemeKey}
+        style={{ maxWidth: '100%', padding: '20px', ...displayThemeStyle }}
+      >
         {renderResultsOverlay()}
+        {renderIdentifyBadge()}
+        {renderIdentifyFlash()}
         <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {initialData?.race?.track?.id && (
             <TimerStatusBadge trackId={initialData.race.track.id} />
@@ -585,7 +709,7 @@ export default function Observation() {
               padding: '10px 20px',
               borderRadius: '20px',
               border: 'none',
-              background: activeTab === 'standings' ? 'var(--cub-scouting-gold)' : '#eee',
+              background: activeTab === 'standings' ? 'var(--display-accent-color)' : '#eee',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -603,7 +727,7 @@ export default function Observation() {
               padding: '10px 20px',
               borderRadius: '20px',
               border: 'none',
-              background: activeTab === 'timing' ? 'var(--cub-scouting-gold)' : '#eee',
+              background: activeTab === 'timing' ? 'var(--display-accent-color)' : '#eee',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -619,7 +743,7 @@ export default function Observation() {
         {activeTab === 'standings' ? (
           <div className="standings-table-wrapper" style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: 'var(--cub-scouting-gold)', color: '#333' }}>
+              <thead style={{ backgroundColor: 'var(--display-accent-color)', color: '#333' }}>
                 <tr>
                   <th style={{ padding: '15px' }}>Rank</th>
                   <th style={{ padding: '15px' }}>Racer</th>
@@ -690,14 +814,19 @@ export default function Observation() {
                       marginBottom: '25px',
                       padding: '15px 20px',
                       borderRadius: '12px',
-                      background: 'var(--cub-scouting-gold, #FCD116)',
-                      color: 'var(--scouting-blue, #003F87)',
+                      background: 'var(--display-accent-color, #FCD116)',
+                      // No "text on Display accent" role exists in the token
+                      // vocabulary (#498); --display-bg-color is dark enough
+                      // against every theme's own accent to clear 4.5:1 —
+                      // see themes.test.ts's "display-bg-color reads as text
+                      // on the display accent fill" check.
+                      color: 'var(--display-bg-color, #0A0A0A)',
                       fontWeight: 'bold',
                       fontSize: '1.3rem',
                       textAlign: 'center',
                     }}
                   >
-                    <Icon path={mdiTrophy} size={1.4} color="#003F87" />
+                    <Icon path={mdiTrophy} size={1.4} color="var(--display-bg-color, #0A0A0A)" />
                     <span>
                       New track record! {recordBreakDetail(lastHeatResults.recordBreak)}
                     </span>
@@ -760,7 +889,7 @@ export default function Observation() {
         {entries.map(({ lane, racer }: LaneEntry) => (
           <div key={lane} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#222', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
             {/* Priority 1: Racer Name */}
-            <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: '#fff', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
+            <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: 'var(--display-text-color)', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
               {racer.firstName} {racer.lastName}
             </div>
 
@@ -802,20 +931,26 @@ export default function Observation() {
   const nowRacingHeatInfo = officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}` : undefined;
 
   return (
-    <div className="container projector-mode" style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
+    <div
+      className="container projector-mode"
+      data-theme={displayThemeKey}
+      style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', ...displayThemeStyle }}
+    >
       {renderResultsOverlay()}
+      {renderIdentifyBadge()}
+      {renderIdentifyFlash()}
 
       <div className="projector-grid" style={{ display: 'flex', flex: '1', gap: '3vmin', height: '100%' }}>
         {/* Left Column: Active and Upcoming Heats */}
         <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '3vmin', boxSizing: 'border-box' }}>
 
           {/* Now Racing */}
-          <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #d32f2f', boxSizing: 'border-box' }}>
-            <h2 style={{ fontSize: '4vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid #333', marginBottom: '2vmin' }}>
+          <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #d32f2f', boxSizing: 'border-box' }}>
+            <h2 style={{ fontSize: '4vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin' }}>
               <Icon path={mdiFire} size="4vmin" color="#d32f2f" />
               Now Racing
               {nowRacingHeatInfo && <span style={{ color: '#888', fontSize: '2.5vmin', marginLeft: 'auto', fontWeight: 'normal' }}>({nowRacingHeatInfo})</span>}
-              {isExhibition && <span style={{ background: 'var(--cub-scouting-gold)', color: '#000', fontSize: '2vmin', padding: '0.5vmin 1.5vmin', borderRadius: '2vmin', marginLeft: 'auto' }}>EXHIBITION</span>}
+              {isExhibition && <span style={{ background: 'var(--display-accent-color)', color: '#000', fontSize: '2vmin', padding: '0.5vmin 1.5vmin', borderRadius: '2vmin', marginLeft: 'auto' }}>EXHIBITION</span>}
               {initialData?.race?.track?.id && (
                 <TimerStatusBadge trackId={initialData.race.track.id} />
               )}
@@ -826,9 +961,9 @@ export default function Observation() {
           </div>
 
           {/* On Deck */}
-          <div className="projector-heat-panel" style={{ flex: '2', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #999', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box' }}>
-            <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid #333', marginBottom: '2vmin', color: '#aaa' }}>
-              <Icon path={mdiChevronDoubleRight} size="3.5vmin" color="#aaa" />
+          <div className="projector-heat-panel" style={{ flex: '2', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #999', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box' }}>
+            <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin', color: 'var(--display-text-muted-color)' }}>
+              <Icon path={mdiChevronDoubleRight} size="3.5vmin" color="var(--display-text-muted-color)" />
               On Deck
             </h2>
             <div style={{ flex: 1 }}>
@@ -838,9 +973,9 @@ export default function Observation() {
         </div>
 
         {/* Right Column: Top 5 Standings */}
-        <div className="projector-right-col" style={{ flex: '0 0 calc(35% - 3vmin)', display: 'flex', flexDirection: 'column', background: '#111', borderRadius: '1.5vmin', overflow: 'hidden', padding: '2.5vmin', borderTop: '1vmin solid var(--cub-scouting-gold)', boxSizing: 'border-box' }}>
-          <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5vmin', borderBottom: '2px solid #333', marginBottom: '2vmin' }}>
-            <Icon path={mdiTrophy} size="3.5vmin" color="var(--cub-scouting-gold)" />
+        <div className="projector-right-col" style={{ flex: '0 0 calc(35% - 3vmin)', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', overflow: 'hidden', padding: '2.5vmin', borderTop: '1vmin solid var(--display-accent-color)', boxSizing: 'border-box' }}>
+          <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin' }}>
+            <Icon path={mdiTrophy} size="3.5vmin" color="var(--display-accent-color)" />
             Current Standings
           </h2>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -850,7 +985,7 @@ export default function Observation() {
                   {top5Standings.map((s: Standing, idx: number) => {
                     const racer = racersMap[s.racerId];
                     return (
-                      <tr key={s.racerId} style={{ borderBottom: idx < top5Standings.length - 1 ? '1px solid #333' : 'none' }}>
+                      <tr key={s.racerId} style={{ borderBottom: idx < top5Standings.length - 1 ? '1px solid var(--display-border-color)' : 'none' }}>
                         <td className="projector-standings-rank-col" style={{ padding: '1.5vmin 0', width: '15%' }}>
                           <span style={{ fontSize: '4vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : '#888' }}>
                             {s.rank}
@@ -869,7 +1004,7 @@ export default function Observation() {
                               style={{ border: '0.2vmin solid #555', flexShrink: 0 }}
                             />
                             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                              <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                              <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
                                 {racer ? `${racer.firstName}` : `Racer`}
                               </span>
                               <span style={{ fontSize: '2vmin', fontWeight: 'bold', color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
@@ -880,7 +1015,7 @@ export default function Observation() {
                         </td>
                         <td className="projector-standings-time-col" style={{ padding: '1.5vmin 0', width: '30%', textAlign: 'right' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--cub-scouting-gold)', lineHeight: '1' }}>
+                            <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--display-accent-color)', lineHeight: '1' }}>
                               {formatProjectorScore(s.score)}
                             </span>
                             <span style={{ fontSize: '1.5vmin', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
@@ -901,7 +1036,7 @@ export default function Observation() {
 
             {/* Empty rows filler if less than 5 to keep height consistent */}
             {top5Standings.length > 0 && top5Standings.length < 5 && Array.from({ length: 5 - top5Standings.length }).map((_, i) => (
-               <div key={`empty-${i}`} style={{ flex: 1, borderTop: '1px dashed #333', minHeight: '8vmin' }}></div>
+               <div key={`empty-${i}`} style={{ flex: 1, borderTop: '1px dashed var(--display-border-color)', minHeight: '8vmin' }}></div>
             ))}
           </div>
         </div>

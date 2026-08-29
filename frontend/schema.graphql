@@ -110,6 +110,7 @@ type Display {
   pacedByAPerson: Boolean!
   slideSeq: Int!
   slideDelta: Int!
+  identifySeq: Int!
 }
 
 enum DisplayView {
@@ -246,6 +247,8 @@ input InitialConfigInput {
   tracks: [TrackInput!]!
   operatorPin: String = null
   checkinPin: String = null
+  displayTheme: String = null
+  printablesTheme: String = null
 }
 
 type InitialConfigStatus {
@@ -259,6 +262,8 @@ type InitialConfigStatus {
   pinRequired: Boolean!
   checkinPinSet: Boolean!
   isOperator: Boolean!
+  displayTheme: String!
+  printablesTheme: String!
 }
 
 type LaneResult {
@@ -305,6 +310,7 @@ type Mutation {
   deleteRace(id: Int!): Boolean!
   assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
+  identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display
   forgetDisplay(displayId: String!): Boolean!
   createRacer(racer: RacerInput!): Racer!

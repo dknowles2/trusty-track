@@ -363,7 +363,7 @@ Defined entirely in `backend/api/schema.py`.
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
 - Voting: `castVote` — the one mutation `VIEWER` may run
-- Audience displays: `assignDisplay`, `advanceDisplay`, `renameDisplay`, `forgetDisplay`
+- Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`, `createPracticeRace`
 
@@ -805,6 +805,10 @@ Vocabulary in `domain/displays.py`, presence in `services/displays.py`, the oper
 
 **The photo slideshow is a sixth view** (#175), not a subsystem: `SLIDESHOW` in the same enum, rules in `features/observation/slideshow.ts`. It goes in **car number order rather than shuffling** — the audience is families watching for their own child, and under a shuffle nobody can tell whether they have missed them; in order everybody comes round once per cycle. Racers with no photograph are skipped rather than shown blank, and *loading* is distinguished from *nothing to show*, because the empty state otherwise fires during the first fetch and a projector announces "No photos yet" to the room on its way to the photographs.
 
+**A screen's default name is derived from its own id, not drawn at random** (`domain/display_names.py`, #495). Presence is in memory, so a random name would be re-invented every restart — survivable for `Display 3`, which nobody used as a handle, and not for a name the operator has been saying out loud all morning ("put the standings on Plucky Puffin"). Seeding the draw from `display_id` — which the browser keeps in `localStorage` (`displayIdentity.ts`) — buys the same-screen-same-name property with no storage on the server at all. **Collisions are resolved on the animal, not the whole name**: `Brisk Badger` and `Bright Badger` are worse than `Display 1` and `Display 2`, because the noun is what gets read at a glance and shouted across a room, so `whimsical_name` walks its seeded candidates until it finds an animal nobody else in the race is using, and falls back to a numbered suffix only once the pool is exhausted — the walk must terminate, and the fallback is for the pathological case, not the expected one.
+
+**Identify is an event, not a state, the same shape as the ceremony's steps and for the same reason.** `Display.identify_seq` is bumped by `identifyDisplay` and carried on every payload; the screen flashes its name when the seq it receives is higher than the one it already had, and **ignores the seq it arrives holding** — an opening payload is a reconnection, not an instruction, and a screen that obeyed it would flash its name on every wifi hiccup. That is `roundCompletion.ts`'s `seen === null` rule, applied in `identifyOverlay.ts` exactly as `AwardCeremony` already applies it to `slide_seq`.
+
 **The ceremony can be driven from the operator's list, and the command is a *step*, never a slide number** (`advanceDisplay`). The display owns the index — it is the only thing that knows which trophy is up, and it holds no PIN to report one back (#15) — so an absolute index would need the server to be the sole driver, which kills the presenter remote at the projector. A step composes with both: `Display.slide_delta` is applied to wherever the ceremony has actually got to, and `Display.slide_seq` is what makes it an event rather than a state, since two Nexts carry the same delta. `AwardCeremony` ignores the seq it *arrives* holding — an opening payload is a reconnection, not an instruction, and obeying it would jump a trophy on every wifi hiccup; that is `roundCompletion.ts`'s `seen === null` rule again. Applied during render rather than in an effect, for the same reason `RaceControl` pins its heat that way.
 
 **A view that leaves the observation page must take the subscription with it.** The ceremony is its own route, so an `AWARDS` assignment *navigates* the screen there — and the first version let that navigation close the `displayAssignment` subscription, which is both the screen's presence and its leash: the row dropped to "Not connected" and the screen could never be told anything again, the one state the feature promises cannot happen. `AwardCeremony` therefore holds the same subscription and navigates back to the observation page when an assignment names any other view — gated on `assigned`, the same flag lesson as the opening payload, or a hand-opened ceremony would march off to the standings the moment it connected. `displays.spec.ts` round-trips it end-to-end, which unit tests cannot: the failure is a socket closing across a route change.
@@ -896,6 +900,123 @@ it was 200 lines of JSX inside a `.map()` with nothing saying which controls
 were about the track and which about the device at the end of it. Lanes in
 service and track records still save on click rather than on **Save Settings**,
 and still say so.
+
+### Themes
+
+Three independently configurable colour surfaces (#498) — **App** (the
+operator's own screens), **Display** (the audience/projector views), and
+**Printables** (pit passes, licences, heat sheets, certificates, results
+sheets) — each pickable from seven purpose-built themes: Field Uniform
+(default, unchanged), Under the Lights, Old Glory, Clear Sight, Sawdust &
+Pine, Trail Colors, and Newsprint. Full user-facing detail —
+what each is for, which is per-device versus per-install, the printing/ink
+note — is `docs/reference/themes.md`; this section is the mechanism.
+
+**A theme is one plain data record, not a stylesheet.** `frontend/src/
+theming/themes.ts` is the one place a theme's colours live — `THEMES: readonly
+Theme[]`, each with `app`/`display`/`printables` token maps and an `isDark`
+flag per surface. `applyTheme` (`theming/applyTheme.ts`) redefines a surface's
+CSS custom properties as inline styles on that surface's own root element and
+sets its `data-theme` attribute; nothing generates a stylesheet, so there is
+nothing else able to disagree with this file. `index.css` keeps Field
+Uniform's own values as the pre-JS `:root` fallback (`themes.test.ts` pins
+that the two agree), and `[data-theme="clear-sight"]` / `[data-theme=
+"newsprint"]` selectors carry the two deviations that are not a token value
+at all — Clear Sight's solid border and heavier type, Newsprint's header
+rule in place of a filled bar.
+
+**Three scoping roots, and `applyTheme` clears what it does not set.** The
+App root is `document.body` (`theming/appTheme.ts`'s `applyStoredAppTheme`,
+called first in `main.tsx` and again on a Settings save); the Display root is
+`Observation.tsx`'s and `AwardCeremony.tsx`'s own top-level elements; the
+Printables root is the shared `.printables-page` div each of `Printables.tsx`
+/ `Certificate.tsx` / `HeatSheet.tsx` / `ResultsSheet.tsx` renders
+(`features/printables/printablesTheme.ts` is the one helper all four call, so
+there are not four copies of the resolve-and-cast). `applyTheme` takes every
+token name a surface *could* hold and either sets it or calls
+`removeProperty` — otherwise switching from Newsprint (which sets
+`--print-decor-color`) to a theme that does not would leave a stale inline
+override nothing clears.
+
+**"Match App theme" resolves against Field Uniform outside the settings
+page, never against a live App theme.** The App theme lives only in each
+device's own `localStorage` and never reaches the server, so nothing outside
+the settings page's own component state can know "the App picker's current
+value" for a device other than itself — a wall display resolving `MATCH_APP`
+has no App theme to defer to. `resolveSurfaceKey(setting, appThemeKey =
+DEFAULT_THEME_KEY)` states this as a default parameter: every real caller
+(`Observation.tsx`, `AwardCeremony.tsx`, the four Printables pages) calls it
+with no second argument, so `MATCH_APP` always resolves to Field Uniform —
+which is also why Field Uniform's Display definition is exactly today's
+shipped `.projector-mode` palette: an install that has never opened Settings
+renders identically to before this feature existed. The settings page's own
+live preview is the one caller that passes a real `appThemeKey` — the App
+picker's current (unsaved) selection — so previewing "Match App theme" for
+Display/Printables shows *that* theme's own Display/Printables definition,
+not always Field Uniform's.
+
+**Per-device App theme, per-install Display and Printables.** `Group.
+display_theme` / `Group.printables_theme` are `varchar` columns, server
+default `'MATCH_APP'`, exposed on `initialConfig` and set through
+`updateInitialConfig` alongside the org name and PINs — the same reasoning as
+the Displays system already pushing view state from the operator's own list
+(see "Telling an audience display what to show"): walking to every wall
+display to set the same theme on each defeats the point. The App theme is
+`localStorage` only (`trustytrack.appTheme`, same shape as the PIN and the
+finish chime) and is never sent to the server.
+
+**No clear flag, unlike the PIN or the weight limit — because there is no
+bare-null state to disambiguate.** `InitialConfigInput.display_theme` /
+`.printables_theme` are `str | None = None`: absent means leave alone, same
+as every other optional field here. What makes this *unlike* the PIN
+(`""` clears it) and the weight limit (`clearWeightLimit` exists because
+`null` is both "no limit" and "not supplied") is that this column's own "off"
+state is the non-null string `"MATCH_APP"` — an operator resetting to the
+default sends that value explicitly, which the absent-means-leave-alone rule
+already handles with nothing extra. `_apply_themes` in `api/schema.py`
+mirrors `_apply_pins`'s shape for exactly this reason.
+
+**Plain `String`, not `SAEnum`, on the backend.** Unlike `TimerType` or
+`ScoringStrategy`, nothing server-side branches on a theme key — the frontend
+holds the one canonical vocabulary, the same relationship it has with a
+timer's `TimerProfile`. A value from a build that no longer ships a theme (an
+old device, a stale column) falls back to Field Uniform in `themeByKey`,
+never a crash.
+
+**`AwardArtwork`'s `variant` is derived from the active theme, not
+hardcoded, on both ends that changed.** The Awards list (App surface) passes
+`variant={appIsDark ? 'dark' : 'light'}`, reading this device's own
+`localStorage` theme — Under the Lights is the only one of the seven with a
+dark App surface, and without this its Awards list drew every trophy in blue
+against a background nearly the same colour. `AwardCeremony`'s background
+converged from a hardcoded `--scouting-blue` to `--display-bg-color` — the
+one deliberate colour change this feature makes to an existing screen under
+the *default* theme (stage 1's groundwork PR left it as a hardcoded literal
+because no theme data existed yet to decide with). `resolvePalette` in
+`artwork.tsx` now prefers a caller's own `palette.line` for `variant="dark"`
+rather than always forcing white — needed because `--display-text-color` is
+not pure white under Sawdust & Pine or Trail Colors.
+
+**The demo denylist leaves `updateInitialConfig` refused, whole.** Themes are
+cosmetic and harmless to try, but the mutation that carries them also sets
+PINs and reconfigures tracks — real ways to break the demo for everyone else
+— and it is one mutation, not one per field. Splitting Display/Printables
+into their own mutation just to carve a demo exception was considered and
+rejected as disproportionate complexity for a demo-only nicety. A demo
+visitor still gets the real experience: the App theme is client-only and
+always available, and the settings page's three-panel live preview needs no
+mutation at all, so every theme's full App/Display/Printables rendering is
+visible without persisting anything.
+
+**Not attempted here: the ~140-file inline-style migration.** #498's own
+"Required groundwork" section calls this out as its own milestone, separate
+from adding the themes themselves. This feature converts the files Display
+and Printables theming actually depends on (stage 1) plus a representative
+slice of decoration (`--print-decor-strength` on the chequered band, the
+licence wash and the certificate guilloche; Clear Sight's `.racer-card`
+border) — most inline-styled screens still read literal colours and do not
+respond to a theme. `docs/reference/themes.md` and the landing page say so
+plainly, per the project's own honesty rule for partial coverage.
 
 ### Printables
 
@@ -1079,6 +1200,7 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 | [#301](https://github.com/dknowles2/trusty-track/issues/301) | A second proxy WebSocket silently takes over the timer — the manager's write function is repointed and neither screen says so |
 | [#299](https://github.com/dknowles2/trusty-track/issues/299) | A screen that never got a subscription: the roster across devices |
 | [#296](https://github.com/dknowles2/trusty-track/issues/296), [#297](https://github.com/dknowles2/trusty-track/issues/297) | The demo: a private instance per visitor, and a reset timer an always-on host would need |
+| [#501](https://github.com/dknowles2/trusty-track/issues/501) | Themes: the ~140-file inline-colour-literal migration #498 called out as its own milestone. Most of the app still does not respond to a theme change |
 
 **Closed, and load-bearing — don't undo them:**
 
@@ -1269,14 +1391,21 @@ Two things that changed in the process, both worth not undoing:
 its rules are about honesty rather than completeness.** A comparison page written
 by an author about their own project is not a neutral document, and a reader can
 tell. So: every claim about somebody else comes from *their* own site, linked,
-with the date it was checked stated at the top; a cell nobody could confirm is
-blank and the page says a blank means unknown rather than no; and there is a
-**Where Trusty Track is weakest** section naming the things that would send a
-reader elsewhere — seven months of history against DerbyNet's eleven years, five
-timer profiles that have never met their hardware, and no support desk. The
-short-answer section recommends a competitor first, because for most packs
-reading it that is the true answer. It also credits DerbyNet directly: seven of
-our eight profiles are adapted from theirs.
+with the date it was checked stated near the top; a cell nobody could confirm is
+blank and the page says a blank means unknown rather than no; and **When to pick
+something else** comes before **When to pick this one**, naming seven months of
+history against DerbyNet's eleven years, five timer profiles that have never met
+their hardware, and no support desk. It credits DerbyNet directly — seven of our
+eight profiles are adapted from theirs.
+
+**It is written as prose, and the first draft was not.** That draft had a callout
+box titled "The honest headline", five parallel `**Choose X** if…` blocks, and a
+bolded lead-in on almost every paragraph; the section announcing the project's
+weaknesses opened by explaining how honest it was being. All of that reads as
+generated, which on a page whose only asset is credibility is the one thing it
+cannot afford. Keep it plain: ordinary paragraphs, no admonition boxes, no
+repeated sentence frames, and no line that congratulates the page on its own
+candour.
 
 Only one thing on that page is checkable, and it is checked. The "Timer models
 listed" count for Trusty Track is a fact about this repository, so
@@ -1286,6 +1415,12 @@ nothing on the other end of the cable. Everything else is prose about other
 people's software and needs a person to re-check it; the page carries no other
 counts for that reason, an earlier draft's "eight models, three of them tested"
 being two more numbers to keep in step for no gain.
+
+**The landing page links to it and does not summarise it.** A comparison table in
+a selling position is a different genre from the same table in the documentation:
+the honest version recommends a competitor, which is not what a front page is
+for, and a dishonest one would undo the page it links to. One sentence in the
+closing section is the whole of it.
 
 **`dknowles2.github.io/trusty-track/` is not retired.** `gh-pages` now holds
 `deploy/ghpages-redirect/` — a 404 page that forwards every path to its

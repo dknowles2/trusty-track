@@ -135,6 +135,7 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         # mid-heat.
         "assignDisplay",
         "advanceDisplay",
+        "identifyDisplay",
         "renameDisplay",
         "forgetDisplay",
         # Scheduling

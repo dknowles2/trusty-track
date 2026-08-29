@@ -20,6 +20,7 @@ import { CornerFlourish, Rosette } from '../components/PrintDecor';
 import { certificatesFor, type CertificateAward } from '../certificate';
 import { formatEventDate } from '../documents';
 import { GET_CERTIFICATES } from '../graphql/queries';
+import { printablesThemeRootProps } from '../printablesTheme';
 import '../PrintSheet.css';
 
 export default function Certificate() {
@@ -45,7 +46,7 @@ export default function Certificate() {
     if (!race) return <p style={{ padding: '2rem' }}>Race not found.</p>;
 
     return (
-        <div className="printables-page">
+        <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
             <div className="printables-controls no-print">
                 <div>
                     <Link
@@ -54,7 +55,7 @@ export default function Certificate() {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px',
-                            color: 'var(--scouting-blue)',
+                            color: 'var(--print-primary-color)',
                             fontSize: '0.85rem',
                             marginBottom: '0.5rem',
                         }}
@@ -127,7 +128,14 @@ export default function Certificate() {
                                 award saved before this feature existed prints. */}
                             {certificate.artworkKey && (
                                 <div className="certificate-artwork">
-                                    <AwardArtwork artworkKey={certificate.artworkKey} size={110} />
+                                    <AwardArtwork
+                                        artworkKey={certificate.artworkKey}
+                                        size={110}
+                                        palette={{
+                                            line: 'var(--print-primary-color, #003F87)',
+                                            fill: 'var(--print-accent-color, #FCD116)',
+                                        }}
+                                    />
                                 </div>
                             )}
 

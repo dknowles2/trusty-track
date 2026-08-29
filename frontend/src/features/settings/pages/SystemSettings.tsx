@@ -4,11 +4,15 @@ import { useQuery, useMutation } from 'urql';
 import BackupPanel from '../components/BackupPanel';
 import PinFieldRow from '../components/PinFieldRow';
 import SettingsNav from '../components/SettingsNav';
+import ThemePicker from '../components/ThemePicker';
+import AppearancePreview from '../components/AppearancePreview';
 import TrackCard, { type TimerModel, type TrackFields } from '../components/TrackCard';
 import { blankPin, pinInput, pinToSend, type PinField } from '../pinFields';
 import { firstProblem, isFormSection, sectionsFor, SECTIONS, type SectionId } from '../sections';
 import { clearPin, writePin } from '../../../api/pin';
 import { errorText } from '../../../utils/errors';
+import { applyStoredAppTheme, readAppTheme, writeAppTheme } from '../../../theming/appTheme';
+import type { SurfaceThemeSetting, ThemeKey } from '../../../theming/themes';
 import type { HistoricalRecord } from '../components/TrackRecords';
 
 const GET_INITIAL_CONFIG = `
@@ -21,6 +25,8 @@ const GET_INITIAL_CONFIG = `
       pinRequired
       checkinPinSet
       isOperator
+      displayTheme
+      printablesTheme
       tracks {
         id
         name
@@ -63,6 +69,8 @@ const CREATE_INITIAL_CONFIG = `
       debugMode
       pinRequired
       checkinPinSet
+      displayTheme
+      printablesTheme
       tracks {
         id
         name
@@ -79,6 +87,8 @@ const UPDATE_INITIAL_CONFIG = `
       debugMode
       pinRequired
       checkinPinSet
+      displayTheme
+      printablesTheme
     }
   }
 `;
@@ -135,6 +145,15 @@ export default function SystemConfig() {
   const [pinRequired, setPinRequired] = useState(false);
   const [checkinPinSet, setCheckinPinSet] = useState(false);
 
+  // The three theme pickers (#498). The App theme is this device's own
+  // `localStorage` — read once, lazily, never from the server, since it is
+  // never part of `data.initialConfig` — and every picker defaults to Field
+  // Uniform / Match App, so an operator who does not care never sees a
+  // decision to make.
+  const [appTheme, setAppTheme] = useState<ThemeKey>(() => readAppTheme());
+  const [displayTheme, setDisplayTheme] = useState<SurfaceThemeSetting>('MATCH_APP');
+  const [printablesTheme, setPrintablesTheme] = useState<SurfaceThemeSetting>('MATCH_APP');
+
   const [tracks, setTracks] = useState<TrackFields[]>([blankTrack('Main Track')]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -165,6 +184,10 @@ export default function SystemConfig() {
       const { initialized, groupName: savedGroupName, debugMode: savedDebugMode, tracks: savedTracks } = data.initialConfig;
       setPinRequired(!!data.initialConfig.pinRequired);
       setCheckinPinSet(!!data.initialConfig.checkinPinSet);
+      // Display/Printables, unlike the App theme, are seeded from the
+      // server — they are install-wide, not this device's own (#498).
+      setDisplayTheme((data.initialConfig.displayTheme || 'MATCH_APP') as SurfaceThemeSetting);
+      setPrintablesTheme((data.initialConfig.printablesTheme || 'MATCH_APP') as SurfaceThemeSetting);
       if (initialized) {
         setIsEditing(true);
         setGroupName(savedGroupName || '');
@@ -248,6 +271,13 @@ export default function SystemConfig() {
           // anyone renames a track, and no way to send `''` locks an operator
           // out of their own event with no recovery.
           ...pinInput(operatorPin, checkinPin),
+          // Unlike the PIN, there is no bare-null "leave alone versus clear"
+          // ambiguity for these (#498) — `MATCH_APP` is itself the "reset to
+          // default" value, so it is always sent as an ordinary explicit
+          // string, never omitted. The App theme is not sent at all: it
+          // lives only in this device's own localStorage.
+          displayTheme,
+          printablesTheme,
           tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
             // Absent for a track just added on this screen, which has no row
             // yet; present for a saved one, so the server matches it to its
@@ -286,6 +316,12 @@ export default function SystemConfig() {
       // but we can trust that the mutation result being successful means the backend is ready.
       // To be absolutely safe against race conditions, we'll wait a brief moment.
       await new Promise(resolve => setTimeout(resolve, 100));
+
+      // This device's own App theme (#498) — never sent to the server, and
+      // applied immediately rather than waiting for a reload: nothing about
+      // it needs a fresh socket the way a changed PIN does.
+      writeAppTheme(appTheme);
+      applyStoredAppTheme();
 
       // The device that set the operator PIN keeps it. Otherwise setting one
       // demotes the operator on their own laptop the instant they save, which
@@ -369,6 +405,45 @@ export default function SystemConfig() {
                     <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
                     <small style={{ color: '#666', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
                   </div>
+                </section>
+              )}
+
+              {shows('appearance') && (
+                <section aria-labelledby="settings-appearance" data-testid="appearance-panel">
+                  <SectionHeading id="appearance" sectioned={sectioned} />
+                  <ThemePicker
+                    id="app-theme"
+                    label="App theme"
+                    blurb="What your own screen looks like — Race Control, the roster, and this settings page. Saved on this device only."
+                    surface="app"
+                    value={appTheme}
+                    onChange={(value) => setAppTheme(value as ThemeKey)}
+                    includeMatchApp={false}
+                  />
+                  <ThemePicker
+                    id="display-theme"
+                    label="Display theme"
+                    blurb="What the wall display and the projector show — the same on every screen in the room, however many are connected."
+                    surface="display"
+                    value={displayTheme}
+                    onChange={(value) => setDisplayTheme(value as SurfaceThemeSetting)}
+                    includeMatchApp
+                  />
+                  <ThemePicker
+                    id="printables-theme"
+                    label="Printables theme"
+                    blurb="Pit passes, licences, heat sheets and certificates — the same however many desks print them."
+                    surface="printables"
+                    value={printablesTheme}
+                    onChange={(value) => setPrintablesTheme(value as SurfaceThemeSetting)}
+                    includeMatchApp
+                  />
+                  <p style={{ fontWeight: 'bold', margin: '0 0 0.75rem' }}>Preview</p>
+                  <AppearancePreview
+                    appThemeKey={appTheme}
+                    displaySetting={displayTheme}
+                    printablesSetting={printablesTheme}
+                  />
                 </section>
               )}
 

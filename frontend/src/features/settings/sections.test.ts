@@ -5,6 +5,7 @@ describe('which sections are offered', () => {
     it('gives a configured install one entry per section', () => {
         expect(sectionsFor(true).map((s) => s.id)).toEqual([
             'general',
+            'appearance',
             'access',
             'tracks',
             'backup',
@@ -23,6 +24,7 @@ describe('which sections are offered', () => {
         expect(isFormSection('backup')).toBe(false);
         expect(SECTIONS.filter((s) => isFormSection(s.id)).map((s) => s.id)).toEqual([
             'general',
+            'appearance',
             'access',
             'tracks',
         ]);

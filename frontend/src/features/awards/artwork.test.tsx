@@ -61,5 +61,24 @@ describe('AwardArtwork', () => {
       const normalized = darkSvg.split('#ffffff').join('var(--scouting-blue, #003F87)');
       expect(normalized).toBe(lightSvg);
     });
+
+    it('a caller-supplied palette wins over the hardcoded white (#498) — Sawdust & Pine and Trail Colors have their own display text colour', () => {
+      const { container } = render(
+        <AwardArtwork
+          artworkKey="trophy"
+          variant="dark"
+          palette={{ line: 'var(--display-text-color, #FBF2E1)', fill: 'var(--display-accent-color, #FCD116)' }}
+        />,
+      );
+      const svg = container.querySelector('svg')!;
+      expect(svg.innerHTML).toContain('var(--display-text-color');
+      expect(svg.innerHTML).not.toContain('#ffffff');
+    });
+
+    it('no palette at all still falls back to the hardcoded white', () => {
+      const { container } = render(<AwardArtwork artworkKey="trophy" variant="dark" />);
+      const svg = container.querySelector('svg')!;
+      expect(svg.innerHTML).toContain('#ffffff');
+    });
   });
 });

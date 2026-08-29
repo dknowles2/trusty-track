@@ -115,6 +115,7 @@ export type Display = {
   cycleSeconds: Scalars['Int']['output'];
   description: Scalars['String']['output'];
   displayId: Scalars['String']['output'];
+  identifySeq: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   pacedByAPerson: Scalars['Boolean']['output'];
   raceId: Scalars['Int']['output'];
@@ -252,8 +253,10 @@ export type HistoricalTrackRecordInput = {
 export type InitialConfigInput = {
   checkinPin?: InputMaybe<Scalars['String']['input']>;
   debugMode?: Scalars['Boolean']['input'];
+  displayTheme?: InputMaybe<Scalars['String']['input']>;
   groupName: Scalars['String']['input'];
   operatorPin?: InputMaybe<Scalars['String']['input']>;
+  printablesTheme?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
 };
 
@@ -262,10 +265,12 @@ export type InitialConfigStatus = {
   currentRaceId?: Maybe<Scalars['Int']['output']>;
   debugMode: Scalars['Boolean']['output'];
   demoMode: Scalars['Boolean']['output'];
+  displayTheme: Scalars['String']['output'];
   groupName?: Maybe<Scalars['String']['output']>;
   initialized: Scalars['Boolean']['output'];
   isOperator: Scalars['Boolean']['output'];
   pinRequired: Scalars['Boolean']['output'];
+  printablesTheme: Scalars['String']['output'];
   tracks: Array<Track>;
   version: Scalars['String']['output'];
 };
@@ -344,6 +349,7 @@ export type Mutation = {
   fakeTimerStart: Scalars['Boolean']['output'];
   forceResults: Scalars['Boolean']['output'];
   forgetDisplay: Scalars['Boolean']['output'];
+  identifyDisplay?: Maybe<Display>;
   importRacers: Scalars['Int']['output'];
   populateRace: Scalars['String']['output'];
   prepareHeat: Scalars['Boolean']['output'];
@@ -555,6 +561,11 @@ export type MutationForceResultsArgs = {
 
 
 export type MutationForgetDisplayArgs = {
+  displayId: Scalars['String']['input'];
+};
+
+
+export type MutationIdentifyDisplayArgs = {
   displayId: Scalars['String']['input'];
 };
 

@@ -2,10 +2,13 @@
    Trusty Track — trusty-track.com landing page.
 
    The palette is the app's own: --scouting-blue and --cub-scouting-gold are
-   the same two custom properties frontend/src/index.css defines, so the
-   landing page, the docs theme and the app itself agree. The cream and wood
-   tones come from the logo's pinewood car; they exist to stop a page that is
-   mostly blue and gold from reading like a bank.
+   the same two custom properties frontend/src/index.css defines, holding
+   Field Uniform's own values — the default of the seven themes the app can
+   now be set to (#498). This page always shows Field Uniform's colours,
+   whichever theme an install is actually running; a landing page has no
+   installation to defer to. The cream and wood tones come from the logo's
+   pinewood car; they exist to stop a page that is mostly blue and gold from
+   reading like a bank.
 
    No build step and no framework. One stylesheet, one font, everything else
    is the browser's.

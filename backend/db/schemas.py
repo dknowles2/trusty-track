@@ -119,6 +119,12 @@ class InitialConfigCreate(BaseModel):
     # over whole without the extra keys raising.
     operator_pin: str | None = None
     checkin_pin: str | None = None
+    # Display/Printables theme, or None to take the column's own default
+    # (`"MATCH_APP"`) — see `models.Group.display_theme`. Unlike the PINs,
+    # these are ordinary column values `crud.create_initial_config` sets
+    # directly; there is nothing to hash.
+    display_theme: str | None = None
+    printables_theme: str | None = None
 
 
 class RacerBase(BaseModel):

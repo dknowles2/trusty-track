@@ -30,6 +30,8 @@ import {
   UPDATE_AWARD_MUTATION,
   UPDATE_RACE_VOTING_MUTATION,
 } from '../graphql/queries';
+import { readAppTheme } from '../../../theming/appTheme';
+import { themeByKey } from '../../../theming/themes';
 
 type VoteTallyRow = {
   racerId: number;
@@ -62,6 +64,15 @@ export default function Awards() {
   const id = parseInt(raceId || '0');
   const { showConfirm } = useAlert();
   const runMutation = useRunMutation();
+
+  // The App surface's own theme (#498), read once per render — this device's
+  // `localStorage`, never the server. Under the Lights is the only one of
+  // the seven where this matters: its Awards list sits on a dark
+  // background, and without this every trophy's outline was drawn in the
+  // App's blue against a background nearly the same colour (the exact bug
+  // `variant` exists to prevent, just relocated from a hardcoded literal to
+  // a hardcoded assumption about which theme was active).
+  const appIsDark = themeByKey(readAppTheme()).app.isDark;
 
   const [result, refetch] = useQuery({
     query: RACE_AWARDS_QUERY,
@@ -304,7 +315,11 @@ export default function Awards() {
             </div>
 
             {award.artworkKey && (
-              <AwardArtwork artworkKey={award.artworkKey} size={32} />
+              <AwardArtwork
+                artworkKey={award.artworkKey}
+                size={32}
+                variant={appIsDark ? 'dark' : 'light'}
+              />
             )}
 
             <div style={{ flex: 1, minWidth: 0 }}>

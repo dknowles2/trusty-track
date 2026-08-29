@@ -11,6 +11,7 @@ from sqlalchemy import (
     false,
 )
 from sqlalchemy import Enum as SAEnum
+from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -120,6 +121,37 @@ class Group(Base):
     # live; it is not a per-race setting.
     operator_pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     checkin_pin_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Which theme the Display and Printables surfaces render (#498). A
+    # `ThemeKey` (`frontend/src/theming/themes.ts` — the frontend holds the
+    # one canonical copy of what a theme actually is, the same way the
+    # backend holds the one copy of a timer profile) or the sentinel
+    # `"MATCH_APP"`, never validated here: this column is a passthrough, not
+    # a rule the backend branches on.
+    #
+    # Plain `String`, not `SAEnum` — unlike `TimerType`/`ScoringStrategy`,
+    # nothing server-side reads this value to decide anything, so there is no
+    # backend-owned vocabulary to constrain it against (the same reasoning
+    # `Track.timer_profile` already follows).
+    #
+    # `MATCH_APP` is itself the "off"/default state, so unlike
+    # `weight_limit_oz` or the PINs there is no bare-null "leave alone versus
+    # clear" ambiguity needing a separate clear flag: absent on the input
+    # means leave alone, and any explicit string — including `"MATCH_APP"` —
+    # is a real value to set. See `InitialConfigInput` in `api/schema.py`.
+    #
+    # Per *install*, not per device — the opposite of the App theme, which
+    # lives only in each device's `localStorage` (#498's "Where a theme is
+    # picked"): walking to every wall display and check-in tablet to set the
+    # same Display/Printables theme on each defeats the point of the existing
+    # Displays system, which already pushes view state from the operator's
+    # own list.
+    display_theme: Mapped[str] = mapped_column(
+        String, default="MATCH_APP", server_default=sa_text("'MATCH_APP'")
+    )
+    printables_theme: Mapped[str] = mapped_column(
+        String, default="MATCH_APP", server_default=sa_text("'MATCH_APP'")
+    )
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="group")
 

@@ -20,6 +20,7 @@ import { buildHeatSheet, totalHeats, type SheetHeat, type SheetRacer } from '../
 import { DerbyCar } from '../components/PrintDecor';
 import { formatEventDate } from '../documents';
 import { GET_HEAT_SHEET } from '../graphql/queries';
+import { printablesThemeRootProps } from '../printablesTheme';
 import '../PrintSheet.css';
 
 export default function HeatSheet() {
@@ -60,7 +61,7 @@ export default function HeatSheet() {
     const laneColumns = sections[0]?.rows[0]?.cells ?? [];
 
     return (
-        <div className="printables-page">
+        <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
             <div className="printables-controls no-print">
                 <div>
                     <Link
@@ -69,7 +70,7 @@ export default function HeatSheet() {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px',
-                            color: 'var(--scouting-blue)',
+                            color: 'var(--print-primary-color)',
                             fontSize: '0.85rem',
                             marginBottom: '0.5rem',
                         }}

@@ -33,8 +33,13 @@ listening cannot be told anything.
 
 When a heat [breaks the track record](stats-and-exports.md#the-track-record),
 the Projector view's results overlay and the Last heat's times view both
-carry a gold banner naming the new time and the record it beat. It fires
-only for a record that stood before today's race.
+carry a banner, in the [theme](themes.md)'s own accent colour, naming the new
+time and the record it beat. It fires only for a record that stood before
+today's race.
+
+The colours every screen here uses — including the projector's high-contrast
+dark background — come from whichever [theme](themes.md) Display is set to
+in System Settings, not a fixed palette.
 
 Notes on two of them:
 
@@ -45,6 +50,35 @@ Notes on two of them:
   display's row — about five suits a small pack.
 - **Projector** hides the app's navigation entirely, whichever way it was
   reached.
+
+## Names, and telling one screen from another
+
+Every screen gets a default name the moment it connects — an adjective and an
+animal, like **Plucky Puffin** or **Brisk Badger** — so the Displays list is
+usable before anyone has typed anything.
+
+- **The name is tied to the screen, not drawn at random.** The same physical
+  display gets the same name across a reload, a restart of the machine
+  running Trusty Track, and a laptop swap — so a name you have been saying
+  out loud all morning ("put the standings on Plucky Puffin") does not turn
+  into a different animal an hour later.
+- **No two screens in the same race share an animal.** If a fresh name would
+  collide, the display gets a different one; only once every available
+  animal is already taken does a screen get a number after its name.
+- **Rename it any time**, the same as before — click the pencil. The **🎲**
+  button next to the rename field offers another animal, for the rare case
+  where the room has a real Badger in it and the coincidence is confusing.
+
+### Identify
+
+Each row has an **Identify** button. Press it and that screen's name flashes
+across it in large type for a few seconds — press it, look up, and see which
+physical screen just lit up. It is dead (greyed out) while the row says *Not
+connected*, since there is no screen to flash a name on.
+
+A screen also names itself briefly, in a small corner badge, the moment it
+first connects — plugging it in and opening it is the cheapest moment for
+whoever is standing there to learn its name. The badge fades on its own.
 
 ## How assignment works
 
@@ -63,10 +97,13 @@ Notes on two of them:
   is how you find out the projector at the back dropped off the wifi.
   Trusty Track cannot tell a switched-off screen from a dead network, so
   the row stays until you clear it with the ✕.
-- **Assignments and names do not survive a restart** of the machine running
-  Trusty Track. Screens fall back to their URLs — the same behaviour as
-  before they were assigned — and can be renamed and re-assigned from the
-  list.
+- **Assignments and a hand-typed name do not survive a restart** of the
+  machine running Trusty Track. Screens fall back to their URLs — the same
+  behaviour as before they were assigned — and can be renamed and
+  re-assigned from the list. A screen's **default** name is the exception:
+  it comes back the same, because it is derived from the screen itself
+  rather than stored (see [Names, and telling one screen from
+  another](#names-and-telling-one-screen-from-another) above).
 
 ## Connection behaviour
 

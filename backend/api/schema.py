@@ -533,6 +533,13 @@ class InitialConfigStatus:
     #: Whether the *caller* currently holds the operator role. Lets the UI ask
     #: for the PIN before an action fails rather than after.
     is_operator: bool = True
+    #: Which theme the Display and Printables surfaces render, install-wide
+    #: (#498). A `ThemeKey` or `"MATCH_APP"` — see `models.Group.display_theme`
+    #: for why this is a plain string rather than a GraphQL enum. There is
+    #: deliberately no `appTheme` field here: the App theme lives only in each
+    #: device's own `localStorage` and never reaches the server.
+    display_theme: str = "MATCH_APP"
+    printables_theme: str = "MATCH_APP"
 
 
 @strawberry.input
@@ -550,6 +557,14 @@ class InitialConfigInput:
     #: reach the machine (#15).
     operator_pin: str | None = None
     checkin_pin: str | None = None
+    #: Absent leaves the current Display/Printables theme alone; any other
+    #: value — including `"MATCH_APP"` — is the new setting (#498). Unlike
+    #: the PINs and the weight limit, there is no clear flag here: the
+    #: column's own "off" state is the non-null string `"MATCH_APP"`, so it
+    #: is already reachable as an ordinary value rather than needing a
+    #: bare-null sentinel disambiguated by a boolean.
+    display_theme: str | None = None
+    printables_theme: str | None = None
 
 
 @strawberry.input
@@ -1551,6 +1566,12 @@ class Display:
     #: a trophy every time the wifi hiccuped.
     slide_seq: int
     slide_delta: int
+    #: The operator's last "flash your name" command, as a counter rather
+    #: than a boolean (#495) — the same shape as `slide_seq` and for the same
+    #: reason. `identifyOverlay.ts` applies the same `seen === null` rule as
+    #: the ceremony's steps: the value a screen arrives holding, on connect
+    #: or reconnect, is history rather than an instruction.
+    identify_seq: int
 
 
 def _display(display: displays_service.Display) -> Display:
@@ -1566,6 +1587,7 @@ def _display(display: displays_service.Display) -> Display:
         paced_by_a_person=domain_displays.is_paced_by_a_person(display.assignment.view),
         slide_seq=display.slide_seq,
         slide_delta=display.slide_delta,
+        identify_seq=display.identify_seq,
     )
 
 
@@ -1944,6 +1966,8 @@ class Query:
                 # *query*, so nothing has asked for a role yet, and the point is
                 # to let the UI prompt before an action fails.
                 is_operator=auth.resolve_role(info.context) is auth.Role.OPERATOR,
+                display_theme=group.display_theme if group else "MATCH_APP",
+                printables_theme=group.printables_theme if group else "MATCH_APP",
             )
         # Reported on the unconfigured branch too. A demo seeds itself before
         # it serves, so this is only reachable if seeding failed — and a first
@@ -2236,6 +2260,22 @@ def _apply_pins(group: Any, config: "InitialConfigInput") -> None:
         setattr(group, column, auth.hash_pin(value) if value else None)
 
 
+def _apply_themes(group: Any, config: "InitialConfigInput") -> None:
+    """Store whichever Display/Printables theme the settings page sent (#498).
+
+    Absent means *leave alone*, same shape as `_apply_pins` — but unlike a
+    PIN or the weight limit, there is no bare-null "leave alone versus clear"
+    ambiguity to resolve here: the column's own "off" state is the literal
+    string `"MATCH_APP"`, not `None`, so an explicit `"MATCH_APP"` already
+    means *reset to the default* and needs no companion clear flag.
+    """
+    for field in ("display_theme", "printables_theme"):
+        value = getattr(config, field, None)
+        if value is None:
+            continue
+        setattr(group, field, value)
+
+
 @strawberry.type
 class Mutation:
     """
@@ -2340,6 +2380,23 @@ class Mutation:
             # obey a command that means nothing.
             raise ValueError("A ceremony step must move forwards or backwards.")
         display = displays_service.registry.advance(display_id, delta)
+        if display is None:
+            return None
+        await pubsub.publish(f"display_assignment:{display_id}", None)
+        return _display(display)
+
+    @strawberry.mutation
+    async def identify_display(self, display_id: str) -> Display | None:
+        """Flash a screen's own name across it, so the operator can tell which
+        row on the list is which physical screen (#495).
+
+        A memorable name is only half of it — somebody still has to learn
+        which row is the projector at the back. Bumping the counter is the
+        whole of it: the display is what shows the flash, the same split as
+        `advanceDisplay`'s steps, and it is a **step**, not a state, for the
+        same reason — see `services/displays.Display.identify_seq`.
+        """
+        display = displays_service.registry.identify(display_id)
         if display is None:
             return None
         await pubsub.publish(f"display_assignment:{display_id}", None)
@@ -3356,6 +3413,7 @@ class Mutation:
         group, tracks = crud.create_initial_config(db, config_in)
         _apply_pins(group, config)
         db.commit()
+        db.refresh(group)
 
         # Register a TimerManager for each newly created track so that
         # prepare_heat works immediately without requiring a server restart.
@@ -3384,6 +3442,8 @@ class Mutation:
             # The caller who just set the PIN keeps the role they had for this
             # response; the next request resolves it from what they send.
             is_operator=True,
+            display_theme=group.display_theme,
+            printables_theme=group.printables_theme,
         )
 
     @strawberry.mutation
@@ -3415,6 +3475,7 @@ class Mutation:
 
         if group:
             _apply_pins(group, config)
+            _apply_themes(group, config)
             db.commit()
 
         # Tracks are matched to database rows by id, not by list position
@@ -3526,6 +3587,8 @@ class Mutation:
             pin_required=bool(group and group.operator_pin_hash),
             checkin_pin_set=bool(group and group.checkin_pin_hash),
             is_operator=True,
+            display_theme=group.display_theme if group else "MATCH_APP",
+            printables_theme=group.printables_theme if group else "MATCH_APP",
         )
 
     @strawberry.mutation

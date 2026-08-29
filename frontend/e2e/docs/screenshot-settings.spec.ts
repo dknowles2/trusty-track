@@ -115,6 +115,28 @@ test('screenshot the settings panels', async ({ page }) => {
     await recordsSection.getByRole('button', { name: /remove the record held by jimmy alvarez/i }).click();
     await expect(recordsSection.getByText(/Jimmy Alvarez/)).not.toBeVisible();
 
+    // The Appearance section (#498): three theme pickers and a live preview,
+    // for docs/reference/themes.md. Only the *picker selection* is exercised
+    // here, never Save Settings — Display and Printables are install-wide,
+    // and this spec runs in the parallel pool beside others that assume
+    // Field Uniform / Match App is what the install is actually set to.
+    // The preview updates from local, unsaved component state, which is
+    // what makes a real picture possible without ever touching the
+    // install's own settings the way the Access panel and the activity log
+    // cannot (see this file's own header comment).
+    await page.getByTestId('settings-nav-appearance').click();
+    const appearancePanel = page.getByTestId('appearance-panel');
+    await expect(appearancePanel).toBeVisible();
+
+    await page.getByTestId('app-theme-option-old-glory').click();
+    await page.getByTestId('display-theme-option-old-glory').click();
+    await page.getByTestId('printables-theme-option-old-glory').click();
+    await expect(page.getByTestId('app-theme-option-old-glory')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('appearance-preview')).toBeVisible();
+    await page.waitForTimeout(200);
+
+    await appearancePanel.screenshot({ path: path.join(SCREENSHOT_DIR, '08-appearance-old-glory.png') });
+
     // The backup panel, which is a section of its own now — it used to be at
     // the foot of the page, below every track.
     await page.getByTestId('settings-nav-backup').click();

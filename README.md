@@ -43,6 +43,10 @@
 
 - **Live observation display** — show current racers, the next heat on deck, and a live leaderboard on any screen or projector. All displays update in real-time as the race progresses.
 
+### Make It Yours
+
+- **Seven themes** — pick a look for your own screen, the wall display, and the printed pages, independently: an evening race, a patriotic derby, a keepsake-style certificate, or an ink-conscious pit pass run.
+
 ---
 
 ## Documentation

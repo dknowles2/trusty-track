@@ -5,56 +5,50 @@ hide:
 
 # How Trusty Track compares
 
-There is more than one program for running a Pinewood Derby, and most of them
-are good. This page is here so you can work out which one suits your pack —
-including the cases where that is not this one.
+Several programs run Pinewood Derby races, and most packs would do fine with any
+of them. Here is what the others are, and when one of them is the better pick.
 
-Everything below was checked against each program's own website on
-**28 August 2026**. Prices are in US dollars and change; follow the links before
-you spend anything. If something here is out of date or unfair, please
-[open an issue](https://github.com/dknowles2/trusty-track/issues) and it will be
-corrected.
+Prices and versions were checked on each program's own site on 28 August 2026.
+They move, so follow the links before you spend anything, and please
+[tell us](https://github.com/dknowles2/trusty-track/issues) if something here has
+gone stale or reads unfairly.
 
-!!! note "The honest headline"
+You can try Trusty Track without installing it. The
+[demo](https://demo.trusty-track.com) is a real race, already set up, and it
+forgets everything you do when you leave.
 
-    GrandPrix Race Manager and DerbyNet have each run thousands of real events.
-    Trusty Track's public repository is seven months old. If your race is next
-    week and you have never run one before, the safest choice is one of the
-    established programs. Trusty Track is the right pick when its particular
-    shape suits you and you do not mind being an early user.
+## The others
 
-## The short answer
+[**GrandPrix Race Manager**](https://www.grandprix-software-central.com/gprm/) is
+the one you will hear named most often. It is on its twenty-sixth annual version,
+covers Awana Grand Prix and Raingutter Regatta as well as Pinewood, and costs $60
+for Lite or $80 for Pro. One Windows or Mac machine runs the event. If somebody in
+your pack already knows this program, that is worth more than anything on this
+page.
 
-**Choose [GrandPrix Race Manager](https://www.grandprix-software-central.com/gprm/)**
-if you want what most packs use, with someone to phone when it goes wrong. It is
-the oldest and most complete of these, now on its twenty-sixth annual version,
-and $60–$80 is a small line on a pack budget.
+[**DerbyNet**](https://derbynet.org/) is free, MIT-licensed, and has been
+developed in the open since 2015. It works much the way Trusty Track does: a small
+server on one machine, with every other screen joining in a browser. Installing it
+means unzipping a folder with Apache and PHP inside it and starting that server,
+which is a couple of steps more than a double-click. Their
+[playground](https://hosting.derbynet.org/playground.php) hands you a private
+instance for a few hours if you want a look first.
 
-**Choose [DerbyNet](https://derbynet.org/)** if you want free and open source
-with a decade of race days behind it, and you like the idea of screens all round
-the room. It has been public since 2015 and is still actively developed.
+Seven of Trusty Track's eight timer profiles are adapted from DerbyNet's protocol
+notes, under its licence and credited in the source. A pack with an unusual timer
+has Jeff Piazza to thank for that, not us.
 
-**Choose [Derby Magic Race Manager](https://derbymagic.com/race-management/)**
-if you already run a Derby Magic track and timer and would rather have
-everything from one supplier.
+[**Derby Magic Race Manager**](https://derbymagic.com/race-management/) costs $65
+and runs on Windows. The Derby Magic Company sell tracks and timers too, so it is
+the sensible choice if your track came from them and you would rather have one
+phone number for the lot.
 
-**Choose [Derby Day!](http://www.derbydaysoftware.com/)** if your pack races a
-small ladderless elimination bracket and you want the simplest thing that exists.
+[**Derby Day!**](http://www.derbydaysoftware.com/) is free, Windows-only, takes up
+to fifteen racers and does exactly one format: ladderless elimination. If that is
+how your pack races, its narrowness is the point.
 
-**Choose Trusty Track** if you want one application to install with nothing to
-configure afterwards, a browser interface that works on a phone at the check-in
-table and a projector at the back of the hall, and you are comfortable being
-among the first packs to use it.
-
-**Or use a spreadsheet.** Plenty of packs do, and for a first year with fifteen
-cars and a stopwatch it is a perfectly reasonable answer.
-
-**Better still, try two of them.** Trusty Track's
-[demo](https://demo.trusty-track.com) is a real race, already set up, that forgets
-everything you do when you leave. DerbyNet has a
-[playground](https://hosting.derbynet.org/playground.php) that gives you your own
-private instance for a couple of hours. Neither needs anything installed, and
-fifteen minutes in each will tell you more than this page can.
+A spreadsheet is what plenty of packs use, and for a first year with fifteen cars
+and a stopwatch it is a perfectly good answer.
 
 ## Side by side
 
@@ -72,113 +66,57 @@ fifteen minutes in each will tell you more than this page can.
 | **Try before installing** | Public demo | — | Hosted playground | — | — |
 | **Public since** | Jan 2026 | Version 26 | Jul 2015 | Long-established | Long-established |
 
-A blank cell means the program's own site does not say, not that the answer is
-no. Where it matters to you, ask them.
+A blank cell means their site does not say, not that the answer is no.
 
-## What each one is like
+## When to pick something else
 
-### GrandPrix Race Manager
+Trusty Track's repository is seven months old. DerbyNet's is eleven years old, and
+GrandPrix Race Manager is on version twenty-six. Both have run into race-day
+problems that have not come up here yet, and if your derby is next week and it is
+your first, that history counts for more than any feature.
 
-The one you will hear named most often, from Grand Prix Software Central. It
-handles Pinewood Derby, Awana Grand Prix, Space Derby and Raingutter Regatta,
-which is more breadth than anything else here. Two editions: Lite for the basics
-and Pro for racer photos, extra scheduling methods, track records, tiebreaker
-rules, custom timer configuration and its companion apps. It runs on one Windows
-or Mac machine.
+Five of the eight timer models listed here have never been connected to the actual
+hardware. They were built from DerbyNet's written notes, and only the ones marked
+*Tested* on the [front page](https://trusty-track.com/#timers) have been checked
+against recordings of a real device. [Hardware Timer](hardware-timer.md) explains
+what that means on the day, and how a bench test moves a timer across.
 
-If your pack has run derbies for years and someone already knows this program,
-that knowledge is worth more than any feature list on this page.
+Support is a GitHub issue tracker read by one person who has a day job. Nobody
+outside the project has reviewed any of this either, so everything above about
+Trusty Track is the author's own account of it.
 
-### DerbyNet
+## When to pick this one
 
-Jeff Piazza's open-source system, and the closest thing to Trusty Track in
-shape: a small web server on one machine, with every other screen joining over
-the network in a browser. Check-in stations, on-deck displays for the car
-wranglers, slideshows and an awards display all come from the same server. It
-has been developed in the open since July 2015.
+You install one application and open it. There is no server to start, no database
+to create, and nothing to configure afterwards.
 
-Installing it means unzipping a folder containing a bundled Apache and PHP, then
-starting that server — a couple of steps more than a double-click, though the
-Windows download does come with everything included and will run from a flash
-drive.
+Every screen is a browser, so the check-in desk can work from a tablet while the
+projector at the back is another tab, both reading the same event over the hall's
+own wifi. The operator can change what any screen is showing without getting up.
 
-**Trusty Track owes DerbyNet a direct debt.** Seven of our eight timer profiles
-are adapted from DerbyNet's protocol notes, under its MIT licence and with
-attribution in the source. Their work is why a pack with an unusual timer has any
-chance with us at all.
+It expects the day to go wrong. A racer turning up after the round has started, a
+lane whose sensor dies mid-event, a car withdrawn between rounds, a time typed in
+wrong and corrected later: each of those has a defined behaviour rather than a
+workaround, and [Mid-race changes](reference/mid-race-changes.md) lists what
+happens in each case.
 
-### Derby Magic Race Manager
+Nothing leaves the building. No accounts, no cloud service, no internet needed on
+race day, and children's names and photographs stay on your own machine.
 
-From The Derby Magic Company, who also sell tracks and timers. Windows only,
-with a wizard that walks you through each step. The obvious choice if you bought
-your track from them and want one phone number for the whole setup.
-
-### Derby Day!
-
-Free, deliberately small, and built around one race format: ladderless
-elimination, where cars accumulate points and the last one standing wins. Up to
-fifteen racers. If that is your pack's format and size, its simplicity is a
-feature rather than a limitation.
-
-## Where Trusty Track is weakest
-
-Worth saying plainly, because a comparison page written by an author about their
-own project is not a neutral document.
-
-**It is new.** Seven months of public history against DerbyNet's eleven years and
-GrandPrix Race Manager's twenty-six versions. Those programs have met race-day
-problems nobody has thought of yet here.
-
-**Most of its timer profiles are unproven.** Only the models marked *Tested* on
-[trusty-track.com](https://trusty-track.com/#timers) have been checked against
-recordings of real device output. The rest are built from DerbyNet's written
-notes and have never met their hardware. See
-[Hardware Timer](hardware-timer.md) for what that means in practice, and for the
-bench test that turns an untested timer into a tested one.
-
-**There is no support desk.** There is a GitHub issue tracker, read by one
-person who has a day job. A paid program answering the phone on a Saturday
-morning is a real thing to be buying.
-
-**Nobody has independently reviewed it.** Everything on this page about Trusty
-Track is the author's own account.
-
-## Where it is genuinely different
-
-**One application, no configuration.** Install it and open it. There is no web
-server to start, no database to create, no PHP.
-
-**Every screen is a browser.** The operator drives from a laptop, the check-in
-desk uses a tablet, and the projector is another browser tab — all reading the
-same event over the venue's own network. The operator can also
-[assign what each screen shows](observation-displays.md) without leaving their
-seat.
-
-**It expects the day to go wrong.** A racer arriving after the round has
-started, a lane whose sensor has died mid-event, a car withdrawn between rounds,
-a time entered wrong and corrected later — each has a defined behaviour rather
-than being something to work around. [Mid-race changes](reference/mid-race-changes.md)
-sets out what happens in each case.
-
-**Nothing leaves the building.** No accounts, no cloud service, no internet on
-race day. Children's names and photographs stay in a file on your own machine.
-
-**The rules are written down.** Every scoring, advancement and award rule is in
-[Reference](reference/index.md) in full, because a parent asking "how did my kid
-come fourth?" deserves an answer you can point at.
+The rules are also written down. When a parent asks why their child came fourth,
+[Reference](reference/index.md) has the answer in full.
 
 ## Sources
 
 - GrandPrix Race Manager — [product page](https://www.grandprix-software-central.com/gprm/)
   and [shop](https://grandprix-software-central.com/index.php/shopping/category/70-grandprix-race-manager)
-- DerbyNet — [derbynet.org](https://derbynet.org/) and
-  [the source repository](https://github.com/jeffpiazza/derbynet)
+- DerbyNet — [derbynet.org](https://derbynet.org/), the
+  [source](https://github.com/jeffpiazza/derbynet), and the
+  [playground](https://hosting.derbynet.org/playground.php)
 - Derby Magic — [race management](https://derbymagic.com/race-management/) and
   [pricing](https://derbymagic.com/pricing-guide/)
 - Derby Day! — [derbydaysoftware.com](http://www.derbydaysoftware.com/)
-- DerbyNet's hosted trials — [playground](https://hosting.derbynet.org/playground.php)
-  and [DerbyNet in the Cloud](https://hosting.derbynet.org/)
 
 *Pinewood Derby is a registered trademark of the Boy Scouts of America. Awana
 Grand Prix is a registered trademark of Awana Clubs International. Other names
-belong to their owners. Trusty Track is not affiliated with any of them.*
+belong to their owners, and Trusty Track is not affiliated with any of them.*

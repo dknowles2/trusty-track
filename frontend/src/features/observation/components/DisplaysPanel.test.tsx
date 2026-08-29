@@ -4,7 +4,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import DisplaysPanel from './DisplaysPanel';
 import { useQuery, useMutation } from 'urql';
-import { ADVANCE_DISPLAY, ASSIGN_DISPLAY } from '../graphql/queries';
+import { ADVANCE_DISPLAY, ASSIGN_DISPLAY, IDENTIFY_DISPLAY, RENAME_DISPLAY } from '../graphql/queries';
 
 vi.mock('urql', async (importOriginal) => {
     const actual = await importOriginal<typeof import('urql')>();
@@ -18,6 +18,8 @@ vi.mock('urql', async (importOriginal) => {
 
 const assignDisplay = vi.fn().mockResolvedValue({ data: {} });
 const advanceDisplay = vi.fn().mockResolvedValue({ data: {} });
+const identifyDisplay = vi.fn().mockResolvedValue({ data: {} });
+const renameDisplay = vi.fn().mockResolvedValue({ data: {} });
 
 function renderPanel(view: string, cycleSeconds = 10, connected = true, awards = 2) {
     // Two queries, and they answer different questions: the list of screens,
@@ -69,6 +71,8 @@ function renderPanel(view: string, cycleSeconds = 10, connected = true, awards =
     (vi.mocked(useMutation) as ReturnType<typeof vi.fn>).mockImplementation((query: unknown) => {
         if (query === ASSIGN_DISPLAY) return [{ fetching: false }, assignDisplay];
         if (query === ADVANCE_DISPLAY) return [{ fetching: false }, advanceDisplay];
+        if (query === IDENTIFY_DISPLAY) return [{ fetching: false }, identifyDisplay];
+        if (query === RENAME_DISPLAY) return [{ fetching: false }, renameDisplay];
         return [{ fetching: false }, vi.fn()];
     });
     render(<DisplaysPanel raceId={1} />);
@@ -182,5 +186,56 @@ describe('offering the ceremony as a view', () => {
         renderPanel('AWARDS', 10, true, 0);
         const select = screen.getByLabelText('What Gym north shows') as HTMLSelectElement;
         expect(select.value).toBe('AWARDS');
+    });
+});
+
+describe('identifying a screen (#495)', () => {
+    it('offers an Identify control on every row', () => {
+        renderPanel('STANDINGS');
+        expect(screen.getByLabelText('Identify Gym north')).toBeTruthy();
+    });
+
+    it('sends the identify mutation for that display, not assign or advance', () => {
+        renderPanel('STANDINGS');
+        fireEvent.click(screen.getByLabelText('Identify Gym north'));
+
+        expect(identifyDisplay).toHaveBeenCalledWith({ displayId: 'd-1' });
+        expect(assignDisplay).not.toHaveBeenCalled();
+        expect(advanceDisplay).not.toHaveBeenCalled();
+    });
+
+    it('is dead for a screen that is not connected', () => {
+        // There is no screen to flash a name on if nothing is listening —
+        // the same reasoning as the ceremony's Next/Previous.
+        renderPanel('STANDINGS', 10, false);
+        expect(screen.getByLabelText('Identify Gym north')).toHaveProperty('disabled', true);
+    });
+});
+
+describe("the rename form's new-name reroll (#495)", () => {
+    it('fills the draft input with a suggestion rather than saving it', () => {
+        renderPanel('STANDINGS');
+        fireEvent.click(screen.getByLabelText('Rename Gym north'));
+
+        fireEvent.click(screen.getByLabelText('Suggest a new name'));
+
+        // It only ever fills the draft — renameDisplay is still what commits
+        // a name, and clicking the suggestion must not call it on its own.
+        expect(renameDisplay).not.toHaveBeenCalled();
+        const input = screen.getByPlaceholderText('e.g. Gym north') as HTMLInputElement;
+        expect(input.value).not.toBe('');
+        expect(input.value).not.toBe('Gym north');
+    });
+
+    it('saves the suggestion once the operator submits the form', () => {
+        renderPanel('STANDINGS');
+        fireEvent.click(screen.getByLabelText('Rename Gym north'));
+        fireEvent.click(screen.getByLabelText('Suggest a new name'));
+        const input = screen.getByPlaceholderText('e.g. Gym north') as HTMLInputElement;
+        const suggested = input.value;
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(renameDisplay).toHaveBeenCalledWith({ displayId: 'd-1', name: suggested });
     });
 });

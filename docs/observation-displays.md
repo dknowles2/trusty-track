@@ -74,8 +74,10 @@ Switch to the **Timing Stats** tab to see the results of the most recently recor
 ### When the track record falls
 
 If a heat beats the track record, both audience views say so on their own —
-a gold banner over the projector's results overlay, and one above the Timing
+a banner over the projector's results overlay, and one above the Timing
 Stats results — naming the new time, who set it, and the record it beat.
+Gold is Field Uniform's own accent colour; a different
+[Display theme](reference/themes.md) gives it a different one.
 
 ![The record banner on the Timing Stats view](assets/screenshots/observation/10-record-banner.png)
 _The banner names the new time and the record it beat — including records
@@ -134,8 +136,16 @@ changes within a second or two.
 
 Two things worth knowing:
 
-- **Name them.** Click the pencil and call each screen what you call it —
-  "gym north", "by the doors". The name sticks, including through a reload.
+- **Every screen already has a name** — an adjective and an animal, like
+  **Plucky Puffin** or **Brisk Badger** — so the list is usable before you
+  have renamed anything, and the same screen keeps the same name across a
+  reload. Rename it if you'd rather — click the pencil and call it what you
+  call it, "gym north", "by the doors" — or click the **🎲** next to the
+  field for another animal, if the room happens to have a real Badger in it.
+- **Not sure which row is which screen?** Click **Identify** on a row and
+  that screen's name flashes across it for a few seconds — look up, and
+  whichever screen just lit up is that row. A screen also names itself
+  briefly, in a small corner badge, the moment you first open it.
 - **A screen that has gone quiet stays in the list**, marked *Not connected*
   — that is how you find out the projector at the back has dropped off the
   wifi. Clear the row with the ✕.

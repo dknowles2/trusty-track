@@ -15,7 +15,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useSubscription } from 'urql';
 import { Icon } from '@mdi/react';
-import { mdiCheckCircle, mdiCircleOutline, mdiClose, mdiPencil } from '@mdi/js';
+import { mdiCheckCircle, mdiCircleOutline, mdiClose, mdiDice5, mdiPencil, mdiFlashOutline } from '@mdi/js';
 
 import {
     ADVANCE_DISPLAY,
@@ -23,10 +23,41 @@ import {
     DISPLAYS_QUERY,
     DisplaysSubscription,
     FORGET_DISPLAY,
+    IDENTIFY_DISPLAY,
     RACE_AWARD_COUNT_QUERY,
     RENAME_DISPLAY,
 } from '../graphql/queries';
 import { viewCycles, viewOptionsFor, type DisplayView } from '../displayView';
+
+/**
+ * Suggestions for the rename form's "new name" reroll (#495).
+ *
+ * Deliberately not the backend's `whimsical_name` — this button is a cheap
+ * convenience for "the room has a real Badger on it and the coincidence is
+ * confusing", not a second copy of the collision-avoiding vocabulary. It only
+ * ever fills the draft input; `renameDisplay` is still what saves it, so a
+ * repeat within a race is merely unlucky rather than a bug.
+ */
+const NAME_SUGGESTIONS = [
+    'Brisk Badger',
+    'Plucky Puffin',
+    'Cheerful Chipmunk',
+    'Bold Beaver',
+    'Daring Dolphin',
+    'Friendly Fox',
+    'Happy Hedgehog',
+    'Jolly Jaguar',
+    'Lively Lynx',
+    'Merry Meerkat',
+    'Sunny Squirrel',
+    'Witty Walrus',
+];
+
+function randomNameSuggestion(currentName: string): string {
+    const choices = NAME_SUGGESTIONS.filter((name) => name !== currentName);
+    const pool = choices.length > 0 ? choices : NAME_SUGGESTIONS;
+    return pool[Math.floor(Math.random() * pool.length)];
+}
 
 interface DisplayRow {
     displayId: string;
@@ -36,6 +67,7 @@ interface DisplayRow {
     description: string;
     pacedByAPerson: boolean;
     connected: boolean;
+    identifySeq: number;
 }
 
 export default function DisplaysPanel({ raceId }: { raceId: number }) {
@@ -61,6 +93,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
     const [, advanceDisplay] = useMutation(ADVANCE_DISPLAY);
     const [, renameDisplay] = useMutation(RENAME_DISPLAY);
     const [, forgetDisplay] = useMutation(FORGET_DISPLAY);
+    const [, identifyDisplay] = useMutation(IDENTIFY_DISPLAY);
 
     const [renaming, setRenaming] = useState<string | null>(null);
     const [draftName, setDraftName] = useState('');
@@ -119,6 +152,20 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                                     placeholder="e.g. Gym north"
                                     style={{ flex: 1, padding: '0.3rem', borderRadius: '4px', border: '1px solid #ccc' }}
                                 />
+                                {/* Covers the case where the room has a real
+                                    Badger on it and the coincidence is
+                                    confusing — cheap, and it only fills the
+                                    draft; Save is still what commits it. */}
+                                <button
+                                    type="button"
+                                    aria-label="Suggest a new name"
+                                    title="Suggest a new name"
+                                    onClick={() => setDraftName(randomNameSuggestion(draftName))}
+                                    className="secondary-btn"
+                                    style={{ padding: '0.3rem 0.5rem' }}
+                                >
+                                    <Icon path={mdiDice5} size={0.7} />
+                                </button>
                                 <button type="submit" className="secondary-btn" style={{ padding: '0.3rem 0.7rem' }}>
                                     Save
                                 </button>
@@ -232,6 +279,23 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                             </button>
                         </span>
                     )}
+
+                    {/* A memorable name is only half of it — this is how the
+                        operator learns which row is the projector at the
+                        back. Disabled while not connected: there is no
+                        screen to flash it on. */}
+                    <button
+                        type="button"
+                        aria-label={`Identify ${display.name}`}
+                        title="Flash this screen's name"
+                        disabled={!display.connected}
+                        onClick={() => identifyDisplay({ displayId: display.displayId })}
+                        className="secondary-btn"
+                        style={{ padding: '0.25rem 0.6rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                    >
+                        <Icon path={mdiFlashOutline} size={0.7} />
+                        Identify
+                    </button>
 
                     {!display.connected && (
                         <button
