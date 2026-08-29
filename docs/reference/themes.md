@@ -101,14 +101,26 @@ specifically — neither leans on a shade of grey to carry meaning.
 - **No custom or uploaded themes.** All seven are fixed, reviewed, and
   shipped with the app — there is no colour picker for building your own.
 
-## Not every screen themes yet
+## Every screen themes now
 
-Trusty Track's colours mostly come from a shared set of names ("the primary
-colour," "the accent colour") rather than being typed out fresh on every
-screen — that is what lets one theme choice reach the whole app. A number of
-older screens still have a few colours written out by hand instead, and
-those do not yet respond to a theme change. The screens that matter most for
-telling one theme from another — the wall display, the printed pages, the
-buttons and cards this page's own preview shows — do respond. If part of a
-screen still looks like Field Uniform under a different theme, that is a
-known gap being closed over time, not a bug in the pick.
+Trusty Track's colours come from one shared set of names ("the primary
+colour," "the accent colour") instead of being written out fresh on every
+screen, and that conversion is finished — every screen in the app, the
+wall display, and the printed pages now picks up a theme change.
+
+A few more colours stay fixed, for a different reason than the ones listed
+above: they are not standing in for something a theme should be free to
+recolour — they are just what the object actually is.
+
+- **A car's avatar** keeps the same colour under every theme, the same way
+  a name is spelled the same way twice. It is how you recognise a car at a
+  glance across a busy roster.
+- **The paintbrush and gavel icons** on the Awards page keep their
+  painted-wood brown — a wooden handle is brown no matter which theme is
+  picked.
+- **The timer diagnostics page's serial-traffic log** is styled like a
+  technician's console, light text on a near-black panel, the way any
+  developer console is.
+
+If part of a screen still looks unfamiliar after picking a different
+theme, it is one of these — not a screen still waiting its turn.
