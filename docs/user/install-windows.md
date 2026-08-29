@@ -51,6 +51,11 @@ To continue:
 
 ## Step 4 — Use Trusty Track
 
+The first time it starts, Windows will ask whether to allow Trusty Track on
+your network. Click **Allow** — this is what lets the audience displays and a
+second operator's laptop connect. (If you click the wrong button, see
+Troubleshooting below.)
+
 After installation, Trusty Track will open your browser to **[https://localhost:8000](https://localhost:8000)**. If it doesn't open within 30 seconds, open your browser and go to that address manually.
 
 !!! warning "Your browser will warn you the first time"
@@ -122,12 +127,8 @@ Your data folder (`%APPDATA%\TrustyTrack\`) is not deleted by the uninstaller. D
 
 ### Other devices cannot reach the app
 
-The first time Trusty Track starts, Windows Firewall asks whether to allow it
-on the network. Answer **Allow** — the audience displays and any second
-operator connect over your local network, and blocking it leaves the app
-working only on the machine it is installed on.
-
-If you dismissed that prompt, re-allow it in **Settings → Privacy & security →
+This usually means the Windows Firewall prompt from Step 4 was dismissed or
+answered **Don't allow**. Re-allow it in **Settings → Privacy & security →
 Windows Security → Firewall & network protection → Allow an app through
 firewall**.
 
