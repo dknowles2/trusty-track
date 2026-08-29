@@ -1346,6 +1346,22 @@ Two things follow from sharing an origin, and both are the point of it:
   build — it maps each `/docs/<path>/` back to the Markdown file mkdocs built it
   from, and checks every borrowed image exists.
 
+**The demo is one shared instance, and the copy must not imply otherwise.**
+`deploy/cloudrun/deploy.sh` runs it at `--max-instances=1`, so every visitor at a
+given moment is in the same race, and the reset is the instance scaling to zero
+after a quiet spell rather than anything to do with one person leaving. A private
+instance per visitor is [#296](https://github.com/dknowles2/trusty-track/issues/296),
+and it is open.
+
+The marketing copy said "it forgets everything you do when you leave" in three
+places, which invents per-visitor isolation the deployment does not have. It is
+the shape of wrong that matters most here: a visitor who finds a race they did not
+create, or their own changes still sitting there an hour later, concludes the
+software is broken. `docs/demo.md` had it right the whole time — "a restart is its
+reset" — because it was written from the deployment rather than from the pitch.
+When #296 lands, these three lines and the comparison table's **Try before
+installing** row are what change.
+
 **Adding to the landing page means deciding what comes out.** It is the one page
 in the tree with a fixed size — a person scrolls it once, deciding whether to keep
 reading — so it does not have the property every other file here has, that more is
