@@ -1,6 +1,9 @@
 # Welcome to Trusty Track Help
 
 Trusty Track helps Cub Scout packs run Pinewood Derby events without spreadsheets.
+Running the same kind of race for a school or a club instead? The words on
+screen — "Den", "Pack" — are yours to rename; see
+[the words on screen](reference/race-settings.md#the-words-on-screen).
 
 ## Where do I start?
 

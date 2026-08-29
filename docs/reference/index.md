@@ -23,7 +23,8 @@ after — "what exactly counts toward the standings?", "which timers work?",
 ## Settings and equipment
 
 - **[Race and track settings](race-settings.md)** — every field on the race
-  form and the track card, and what each one does.
+  form and the track card, and what each one does, including renaming "Den"
+  and "Pack" to your own words.
 - **[Timers](timers.md)** — which models work and how well, how detection
   works, every timer state, the remote start gate, and test runs.
 - **[Audience display views](displays.md)** — the six things a screen can
