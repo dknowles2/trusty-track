@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trusty Track — Pinewood Derby race software for Cub Scout packs</title>
+<meta name="description" content="Free, open-source software for running a Cub Scout Pinewood Derby. Registration, check-in, heat scheduling, hardware timers, live audience displays and standings — on a laptop at the venue, with no internet needed.">
+<link rel="canonical" href="https://trusty-track.com/">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://trusty-track.com/">
+<meta property="og:title" content="Trusty Track — Pinewood Derby race software">
+<meta property="og:description" content="Run your pack's Pinewood Derby without the spreadsheet. Free, open source, and it works with the wifi off.">
+<meta property="og:image" content="https://trusty-track.com/docs/assets/logo.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="/docs/assets/logo.png">
+<link rel="apple-touch-icon" href="/docs/assets/logo.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap head-inner">
+    <a class="brand" href="/">
+      <img src="/docs/assets/logo.png" alt="" width="44" height="44">
+      <span>Trusty Track</span>
+    </a>
+    <nav class="head-nav" aria-label="Main">
+      <a href="#what">What it does</a>
+      <a href="#timers">Timers</a>
+      <a href="#install">Install</a>
+      <a href="/docs/">Docs</a>
+      <a class="btn btn-ghost" href="https://github.com/dknowles2/trusty-track">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ───────────────────────── hero ───────────────────────── -->
+<section class="hero">
+  <div class="wrap hero-inner">
+    <div class="hero-copy">
+      <p class="eyebrow">Free &amp; open source · Version 1.0</p>
+      <h1>Run your pack's Pinewood Derby without the spreadsheet.</h1>
+      <p class="lede">
+        Trusty Track handles registration, check-in, the heat schedule, the finish-line
+        timer, the standings and the trophies. It runs on a laptop in the corner of the
+        room — no accounts, no subscription, and no internet on race day.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/docs/user/install/">Install it</a>
+        <a class="btn btn-secondary" href="/docs/getting-started/">Read the guide</a>
+      </div>
+      <p class="fine">
+        Runs on macOS, Windows, Docker or a Raspberry Pi. Apache&nbsp;2.0 licensed.
+      </p>
+    </div>
+
+    <figure class="shot shot-hero">
+      <div class="chrome"><span></span><span></span><span></span></div>
+      <img src="/docs/assets/screenshots/race-day/12-race-execution-current-heat.png"
+           alt="The Race Control screen showing Heat 1 staged with three racers in their lanes, the next heat on deck, and the timer waiting."
+           width="1200" height="800" loading="eager">
+    </figure>
+  </div>
+  <div class="finish-line" aria-hidden="true"></div>
+</section>
+
+<!-- ───────────────────────── the day ───────────────────────── -->
+<section id="what" class="band band-cream">
+  <div class="wrap">
+    <h2 class="section-title">It covers the whole day</h2>
+    <p class="section-sub">
+      From the roster you type in three weeks early to the last trophy handed out.
+    </p>
+
+    <div class="grid-3">
+      <article class="card">
+        <h3>Before</h3>
+        <ul>
+          <li>Type in the roster, or import the pack's spreadsheet as a CSV.</li>
+          <li>Sort racers into dens, hand out car numbers automatically.</li>
+          <li>Print pit passes, driver's licences and scannable check-in codes.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>During</h3>
+        <ul>
+          <li>Check cars in at the scale — weight, inspection, a photo if you want one.</li>
+          <li>Build a schedule where every car runs in every lane.</li>
+          <li>Run heats. Times arrive from the timer on their own.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>After</h3>
+        <ul>
+          <li>Standings, championship rounds, and awards that update as times land.</li>
+          <li>Lane fairness, per-racer averages, den comparisons, CSV exports.</li>
+          <li>Print certificates and back the whole event up to one file.</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── features ───────────────────────── -->
+<section class="band">
+  <div class="wrap features">
+
+    <div class="feature">
+      <div class="feature-copy">
+        <p class="kicker">Race Control</p>
+        <h2>One screen that always says what's next</h2>
+        <p>
+          The heat on the track, who's on deck, and what the timer is doing — in one
+          place, in type big enough to read standing up. When a heat finishes, the next
+          one comes up on its own. If a car doesn't run, skip it and carry on.
+        </p>
+        <ul class="ticks">
+          <li>Space advances, <kbd>E</kbd> opens the editor, <kbd>Esc</kbd> stops the countdown</li>
+          <li>Type a time in by hand when the timer misses one</li>
+          <li>Re-run a heat, reorder the schedule, add a racer who turned up late</li>
+        </ul>
+        <a class="link-more" href="/docs/race-day/">How race day works →</a>
+      </div>
+      <figure class="shot">
+        <div class="chrome"><span></span><span></span><span></span></div>
+        <img src="/docs/assets/screenshots/race-day/10-schedule-management.png"
+             alt="The schedule screen listing generated heats, each with its lane assignments."
+             width="1200" height="800" loading="lazy">
+      </figure>
+    </div>
+
+    <div class="feature feature-flip">
+      <div class="feature-copy">
+        <p class="kicker">Audience displays</p>
+        <h2>Put the race on the big screen</h2>
+        <p>
+          Open a browser on any screen in the room — a spare laptop, a TV, the projector
+          at the back — and point it at the same machine. Now Racing, On Deck, the live
+          leaderboard, a photo slideshow of every car. All of it updates as the heats run.
+        </p>
+        <ul class="ticks">
+          <li>Assign what each screen shows from the operator's laptop</li>
+          <li>Track records across every event you've held on that track</li>
+          <li>An awards ceremony view you step through with the microphone in your hand</li>
+        </ul>
+        <a class="link-more" href="/docs/observation-displays/">Setting up displays →</a>
+      </div>
+      <figure class="shot shot-dark">
+        <img src="/docs/assets/screenshots/observation/07-projector-mode-full.png"
+             alt="A projector showing heat results — first, second and third place with times, and a banner announcing a new track record."
+             width="1280" height="720" loading="lazy">
+      </figure>
+    </div>
+
+    <div class="feature">
+      <div class="feature-copy">
+        <p class="kicker">Scoring</p>
+        <h2>Standings you can explain to a parent</h2>
+        <p>
+          Score by average time or by placement points. Championship rounds pull their
+          field straight from the standings, and re-pull it if you correct a time later.
+          A tie shares a rank instead of being settled quietly by who registered first.
+        </p>
+        <ul class="ticks">
+          <li>Perfect-N scheduling: every car runs once in every lane</li>
+          <li>Elimination and balanced formats, if a straight qualifier isn't your thing</li>
+          <li>A Slowest Race bracket, for the car that deserves the applause</li>
+        </ul>
+        <a class="link-more" href="/docs/reference/scoring/">The scoring rules →</a>
+      </div>
+      <figure class="shot">
+        <div class="chrome"><span></span><span></span><span></span></div>
+        <img src="/docs/assets/screenshots/race-day/18-final-standings.png"
+             alt="The standings table with ranked racers, car numbers, dens, heats run and average times."
+             width="1200" height="800" loading="lazy">
+      </figure>
+    </div>
+
+    <div class="feature feature-flip">
+      <div class="feature-copy">
+        <p class="kicker">Printables</p>
+        <h2>Paper for the parts that still need paper</h2>
+        <p>
+          Pit passes on lanyards, business-card driver's licences, and check-in codes you
+          can scan with a phone camera to pull a racer up instantly. Sheets come out on a
+          normal printer, sorted by car number so the stack matches the queue.
+        </p>
+        <ul class="ticks">
+          <li>Heat sheets with a blank results column — for the moment the wifi drops</li>
+          <li>Certificates for every award, ready to hand out</li>
+          <li>A results sheet to pin up by the door</li>
+        </ul>
+        <a class="link-more" href="/docs/printables/">What you can print →</a>
+      </div>
+      <figure class="shot">
+        <div class="chrome"><span></span><span></span><span></span></div>
+        <img src="/docs/assets/screenshots/printables/pit-pass-sheet.png"
+             alt="A sheet of six pit passes, each with a racer's name, den, car number and car name."
+             width="1280" height="1000" loading="lazy">
+      </figure>
+    </div>
+
+  </div>
+</section>
+
+<!-- ───────────────────────── timers ───────────────────────── -->
+<section id="timers" class="band band-blue">
+  <div class="wrap timers-inner">
+    <div class="timers-copy">
+      <h2>Plug in your finish line</h2>
+      <p>
+        Trusty Track talks to electronic timers over a serial cable, either directly from
+        the machine it's running on or through a Chrome tab if the cable is somewhere else.
+        It'll go looking for the timer on its own — you don't need to know what a baud rate is.
+      </p>
+      <p>
+        There's a diagnostics page that arms every lane with no race behind it, so you can
+        check the hardware works the night before rather than in front of a room full of people.
+      </p>
+      <a class="btn btn-gold" href="/docs/hardware-timer/">Connecting a timer</a>
+    </div>
+
+    <div class="timer-list">
+      <p class="timer-list-head">Timers it knows about</p>
+      <ul>
+        <li><strong>Micro Wizard K1 / K2 / K3</strong> <span class="tag tag-ok">Tested</span></li>
+        <li>NewBold DT, TURBO, DerbyStick</li>
+        <li>JIT Racemaster</li>
+        <li>Derby Timer (derbytimer.com)</li>
+        <li>Bert Drake timer</li>
+        <li>PDT (dfgtec.com)</li>
+        <li>The Judge (New Directions)</li>
+        <li>The Champ (SmartLine / BestTrack)</li>
+      </ul>
+      <p class="timer-note">
+        The seven below the Micro Wizard are adapted from DerbyNet's protocol notes and
+        haven't been run against the real hardware yet. If you have one, there's a test
+        report the app can generate — send it in and we'll get it confirmed.
+      </p>
+      <p class="timer-note">
+        No timer at all? There's a fake one built in. It runs a whole event so you can
+        practise the night before, or set the race up on a train.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── yours ───────────────────────── -->
+<section class="band band-cream">
+  <div class="wrap">
+    <h2 class="section-title">It's your race, on your machine</h2>
+    <p class="section-sub">
+      There's no company behind this and nowhere for your data to go.
+    </p>
+
+    <div class="grid-4">
+      <article class="mini">
+        <h3>Works with the wifi off</h3>
+        <p>Everything runs on one machine at the venue. Other screens join over the local network. Church hall dead spots are somebody else's problem.</p>
+      </article>
+      <article class="mini">
+        <h3>Children's photos stay put</h3>
+        <p>Photos and names live in a file on your own disk. Nothing is uploaded anywhere, because there's nowhere to upload it to.</p>
+      </article>
+      <article class="mini">
+        <h3>Give the desk its own PIN</h3>
+        <p>Optional PINs split the operator from the check-in table, and leave the wall displays read-only. Off by default.</p>
+      </article>
+      <article class="mini">
+        <h3>One file, one restore</h3>
+        <p>Back the whole event — database and photos — into a single zip, and put it back on any machine if the laptop dies.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── install ───────────────────────── -->
+<section id="install" class="band">
+  <div class="wrap">
+    <h2 class="section-title">Get it running</h2>
+    <p class="section-sub">Pick whichever machine you're happiest with.</p>
+
+    <div class="grid-4 install-grid">
+      <a class="install-card" href="/docs/user/install-mac/">
+        <span class="install-diff">Easy</span>
+        <h3>macOS</h3>
+        <p>Download the app, drag it to Applications, open it.</p>
+      </a>
+      <a class="install-card" href="/docs/user/install-windows/">
+        <span class="install-diff">Easy</span>
+        <h3>Windows</h3>
+        <p>Run the installer. It puts a shortcut on the desktop.</p>
+      </a>
+      <a class="install-card" href="/docs/user/install-docker/">
+        <span class="install-diff">Some setup</span>
+        <h3>Docker</h3>
+        <p>One image, one volume. Good on a home server or a NAS.</p>
+      </a>
+      <a class="install-card" href="/docs/user/install-raspberry-pi/">
+        <span class="install-diff">Some setup</span>
+        <h3>Raspberry Pi</h3>
+        <p>Turn a Pi into a race-day appliance that boots straight into it.</p>
+      </a>
+    </div>
+
+    <p class="install-more">
+      Not sure? <a href="/docs/user/install/">Compare the options</a>, or
+      <a href="/docs/user/install-from-source/">build it from source</a>.
+    </p>
+  </div>
+</section>
+
+<!-- ───────────────────────── closer ───────────────────────── -->
+<section class="closer">
+  <div class="wrap closer-inner">
+    <img src="/docs/assets/logo.png" alt="" width="200" height="200" loading="lazy">
+    <div>
+      <h2>Built by a volunteer, for volunteers</h2>
+      <p>
+        Trusty Track is a hobby project, kept free and open source under the Apache 2.0
+        licence. If it saves your pack an afternoon of spreadsheet wrangling, that's the
+        whole point. Found a bug, or want a timer supported? Open an issue — a real person
+        reads them.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="/docs/getting-started/">Start here</a>
+        <a class="btn btn-secondary" href="https://github.com/dknowles2/trusty-track/issues">Report something</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <div class="foot-brand">
+      <img src="/docs/assets/logo.png" alt="" width="36" height="36">
+      <span>Trusty Track</span>
+    </div>
+    <nav class="foot-nav" aria-label="Footer">
+      <a href="/docs/">Documentation</a>
+      <a href="/docs/user/install/">Install</a>
+      <a href="/docs/reference/">Reference</a>
+      <a href="https://github.com/dknowles2/trusty-track">Source</a>
+      <a href="https://github.com/dknowles2/trusty-track/issues">Issues</a>
+    </nav>
+    <p class="foot-fine">
+      Apache 2.0 licensed. Not affiliated with, or endorsed by, the Boy Scouts of America.
+      “Pinewood Derby” is their registered trademark.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

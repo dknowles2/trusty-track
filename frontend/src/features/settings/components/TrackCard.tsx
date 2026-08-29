@@ -231,7 +231,7 @@ export default function TrackCard({
               ? chosen.provenance
               : 'Leave this alone and the app asks each timer it knows about who it is. Pick a model if yours is not found, or to stop it asking.'}{' '}
             <a
-              href="https://dknowles2.github.io/trusty-track/hardware-timer/"
+              href="https://trusty-track.com/docs/hardware-timer/"
               target="_blank"
               rel="noopener noreferrer"
             >

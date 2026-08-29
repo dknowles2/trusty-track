@@ -1,41 +1,48 @@
-name: Deploy docs
+# The documentation site itself is no longer published from here.
+#
+# trusty-track.com is one deployment holding both halves — the landing page at
+# the root and the guides under /docs/ — built by `scripts/build_site.sh` and
+# published by Cloudflare Pages, which watches this repository directly. See
+# deploy/cloudflare/README.md.
+#
+# What this workflow still does is keep the old address working. The docs lived
+# at dknowles2.github.io/trusty-track/ for the whole of the project's life, and
+# links to it exist in places nobody can go back and edit: earlier releases'
+# READMEs, issue threads, search results. So `gh-pages` now holds two files
+# that forward every path to the same page under the new address.
+#
+# It runs on the redirect stub rather than on `docs/**`, because the thing it
+# publishes no longer changes when the documentation does.
+name: Redirect the old docs address
 
 on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
+      - 'deploy/ghpages-redirect/**'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:          # allow manual trigger
 
 permissions:
   contents: write             # needed to push to gh-pages branch
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Publish the redirect to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          fetch-depth: 0      # full history for git-dates plugin (optional)
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: uv sync --only-group docs
-
-      # `--strict` turns a broken link or a missing image into a failed build.
-      # Without it, nine screenshots on the Race Setup page shipped broken for
-      # as long as the page has existed: mkdocs warned on every deploy and
-      # published anyway, and nobody reads a green job's log.
-      #
-      # Invoked via the venv's own binary rather than `uv run`, which would
-      # silently re-sync the default `dev` group (and any plugin missing from
-      # `docs` alone) back in before building — see #468.
-      - name: Build and deploy
-        run: .venv/bin/mkdocs gh-deploy --force --strict
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy/ghpages-redirect
+          # The branch must hold nothing but the redirect: GitHub Pages serves
+          # 404.html only for paths it cannot find, so a leftover copy of the
+          # old site would go on being served instead of forwarding.
+          force_orphan: true
+          exclude_assets: 'README.md'

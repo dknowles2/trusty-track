@@ -1,0 +1,7 @@
+# The documentation site's build dependencies, for hosts that install with pip
+# rather than uv — Cloudflare Pages builds trusty-track.com from this file.
+#
+# Keep it in step with the `docs` dependency group in pyproject.toml, which is
+# what CI's "Deploy docs" job and a local `uv run mkdocs` use.
+mkdocs-material
+mkdocs-callouts

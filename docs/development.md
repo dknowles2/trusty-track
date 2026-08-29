@@ -261,7 +261,7 @@ commit:
 uv run pre-commit install
 ```
 
-## 📚 Building the Docs
+## 📚 Building the Docs and the Website
 
 The user guide is MkDocs Material, and `mkdocs build --strict` gates CI — a
 broken image path or a link to a missing page fails the build:
@@ -273,6 +273,30 @@ uv run --group docs mkdocs serve
 ```bash
 uv run --group docs mkdocs build --strict
 ```
+
+The guides are half of <https://trusty-track.com/>. The other half is the
+landing page in `www/` — one HTML file and one stylesheet, no framework and no
+build step of its own. `scripts/build_site.sh` puts them together the way
+Cloudflare Pages does, with the landing page at the root and the documentation
+under `/docs/`:
+
+```bash
+./scripts/build_site.sh
+```
+
+```bash
+python3 -m http.server -d dist 8080
+```
+
+Serve the result rather than opening `dist/index.html` from the filesystem —
+every link on the landing page is root-relative, so `file://` resolves them
+against the disk root and none of them work.
+
+The landing page links into the guides about fifteen times, and shows the logo
+and four screenshots straight out of `docs/assets/`. `mkdocs --strict` does not
+look at `www/`, so `backend/tests/test_landing_page_links.py` is what fails when
+a renamed page leaves the front door on a 404. Deployment is written up in
+[`deploy/cloudflare/README.md`](https://github.com/dknowles2/trusty-track/blob/main/deploy/cloudflare/README.md).
 
 ## 🐛 Troubleshooting
 
@@ -359,8 +383,10 @@ Every run is clean — the test data directory is wiped before the backend start
 - `backend/migrations/` — Alembic environment and versions.
 - `frontend/src/features/<area>/` — one slice per area, each with its own
   `pages/`, `components/`, and `graphql/queries.ts`.
-- `docs/` — the MkDocs site.
-- `scripts/` — install, serve, dev, and schema-export scripts.
+- `docs/` — the MkDocs site, served at `/docs/` on trusty-track.com.
+- `www/` — the landing page at the root of trusty-track.com.
+- `deploy/` — how the site and the old documentation address are published.
+- `scripts/` — install, serve, dev, schema-export and site-build scripts.
 
 ## 📝 Keeping the Docs Current
 
