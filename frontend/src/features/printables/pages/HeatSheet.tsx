@@ -17,6 +17,7 @@ import { Icon } from '@mdi/react';
 import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 
 import { buildHeatSheet, totalHeats, type SheetHeat, type SheetRacer } from '../heatSheet';
+import { DerbyCar } from '../components/PrintDecor';
 import { formatEventDate } from '../documents';
 import { GET_HEAT_SHEET } from '../graphql/queries';
 import '../PrintSheet.css';
@@ -101,11 +102,17 @@ export default function HeatSheet() {
             ) : (
                 <div className="heat-sheet">
                     <header className="heat-sheet-header">
+                        {/* The same car that rides the pit passes, so a sheet
+                            on the announcer's table and a pass round a scout's
+                            neck read as one event. */}
+                        <DerbyCar size={54} className="heat-sheet-mark" color="#ffffff" />
+                        <div>
                         <h1>{race.name}</h1>
                         <p>
                             {formatEventDate(race.dateTime)}
                             {race.location ? ` · ${race.location}` : ''}
                         </p>
+                        </div>
                     </header>
 
                     {sections.map((section) => (

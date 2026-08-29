@@ -9,7 +9,7 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
 | Document | Where | What it is |
 | --- | --- | --- |
 | **Pit passes** | Roster → ⋯ → Print | Lanyard-sized, six per sheet: photo, name, den, car, event details |
-| **Driver's licences** | Roster → ⋯ → Print | Business-card sized, ten per sheet — the same size as stationery-shop card stock. The car number is the biggest thing on it |
+| **Driver's licences** | Roster → ⋯ → Print | Business-card sized, ten per sheet — the same size as stationery-shop card stock. The car number is the biggest thing on it, and there is a line for the scout to sign |
 | **Check-in codes** | Roster → ⋯ → Print | A QR code per racer, twelve per sheet, name and car number underneath |
 | **Heat sheet** | Race Control → Schedule | The running order: a table per round, a row per heat, a column per lane, and an empty **Result** column to write into |
 | **Results sheet** | Standings → Print results | Awards and winners at the top, then the standings — overall, and a table per den |
@@ -93,13 +93,19 @@ stack matches the order they get handed out in.
   artwork automatically from what kind of trophy it is. An award with
   neither prints a plain certificate — no artwork, just the name, the
   recipient, and the event.
+- **The two lines at the foot are for signatures**, marked Race Director and
+  Cubmaster. They print blank on every certificate: Trusty Track has nowhere
+  to record who signed one, and a certificate is signed as it is handed over.
 - Artwork ships inside the app itself. Nothing is fetched or generated when
-  you print, which matters on the venue's own network.
+  you print, which matters on the venue's own network — and the same goes for
+  the borders, seals and the chequered flag band on the cards.
 
 ## Printer settings worth setting once
 
 - Turn on **Background graphics** (Chrome) / **Print backgrounds** (Safari,
-  Firefox) under the print dialogue's More settings — without it, the blue
-  headers and den colours print white.
+  Firefox) under the print dialogue's More settings — without it the blue
+  headers, the den colours, the chequered band and the certificate's border
+  wash all print white. It is the one setting worth checking before a long
+  run.
 - Set margins to **Default**, not None. The sheets are laid out for a
   half-inch margin, and None crops the outer column.

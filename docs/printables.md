@@ -49,7 +49,9 @@ card stock, if you want to print them on card rather than cut them out.
 ![A sheet of driver's licences](assets/screenshots/printables/drivers-license-sheet.png)
 
 The car number is the biggest thing on it, because that is what gets called out
-at the track.
+at the track. There is a blank line along the bottom for the scout to sign,
+which is worth having them do at the check-in table — it is the bit that makes
+it feel like a licence.
 
 ![A single driver's licence](assets/screenshots/printables/drivers-license-card.png){ width=260 }
 
