@@ -5,6 +5,11 @@
  * in both media and the only thing that changes when printing is what is
  * around them. `--card-w`, `--card-h` and `--cols` are set inline by the page
  * from the document spec, so the layout numbers have one home in TypeScript.
+ *
+ * Everything decorative here is drawn by the browser — gradients, borders and
+ * the inline SVG in `components/PrintDecor.tsx`. Nothing is fetched. These
+ * pages get printed on a laptop at a venue with no internet, and a background
+ * image that 404s prints as a blank rectangle rather than as an error.
  */
 
 @page {
@@ -83,9 +88,10 @@
     overflow: hidden;
     background: white;
     border: 1px dashed #bbb; /* A cut line; see the print rule below. */
-    border-radius: 6px;
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
+    position: relative;
     /* A card split over a page break is waste paper, not a layout quirk. */
     break-inside: avoid;
     page-break-inside: avoid;
@@ -95,21 +101,24 @@
 
 .print-card-header {
     background: var(--scouting-blue);
+    /* A hint of depth across the bar, so the navy does not read as a flat
+       block of toner on a laser printer. */
+    background-image: linear-gradient(100deg, #002a5c 0%, var(--scouting-blue) 55%, #0b4f9e 100%);
     color: white;
-    padding: 4px 8px;
+    padding: 5px 9px;
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: 6px;
-    border-bottom: 3px solid var(--cub-scouting-gold);
 }
 
 .print-card-kind {
     font-family: var(--font-header);
     font-size: 0.62rem;
-    letter-spacing: 0.09em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     white-space: nowrap;
+    color: var(--cub-scouting-gold);
 }
 
 .print-card-race {
@@ -121,10 +130,30 @@
     white-space: nowrap;
 }
 
+/*
+ * The chequered flag band under every card header.
+ *
+ * A real checkerboard, drawn as a repeating conic gradient rather than an SVG
+ * `<pattern>`: a sheet of pit passes is sixty cards, and sixty patterns is
+ * sixty copies of the same element id for the browser to disambiguate. A
+ * gradient has no id to collide.
+ */
+.print-checker {
+    height: 5px;
+    flex-shrink: 0;
+    background-image: repeating-conic-gradient(
+        var(--scouting-blue) 0% 25%,
+        #ffffff 0% 50%
+    );
+    background-size: 10px 10px;
+    border-bottom: 2px solid var(--cub-scouting-gold);
+}
+
 .print-card-body {
     flex: 1;
     display: flex;
     min-height: 0;
+    position: relative;
 }
 
 .print-card-name {
@@ -136,10 +165,12 @@
 
 .print-den-chip {
     display: inline-block;
-    padding: 1px 8px;
+    padding: 1px 9px;
     border-radius: 12px;
     font-size: 0.62rem;
     font-weight: bold;
+    letter-spacing: 0.04em;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
 .print-photo {
@@ -163,52 +194,134 @@
     flex-direction: column;
     align-items: center;
     gap: 5px;
-    padding: 8px;
+    padding: 10px 8px 6px;
     text-align: center;
+}
+
+/* The photo and the car-number roundel travel together — the roundel hangs
+   off the photo's lower right, the way a race number sits on a car. */
+.pit-pass-portrait {
+    position: relative;
+    flex-shrink: 0;
+    /* With the footer pinned to the bottom, this and the rule on the car line
+       below split what is left evenly above and under the block — otherwise
+       the whole card hangs off the top and the space collects in one gap. */
+    margin-top: auto;
 }
 
 .pit-pass .print-photo,
 .pit-pass .print-photo-placeholder {
-    width: 1.3in;
-    height: 1.3in;
+    width: 1.32in;
+    height: 1.32in;
     border-radius: 50%;
-    font-size: 1.8rem;
+    font-size: 1.7rem;
+    /* White, then gold, then a blue hairline. The white ring is not spacing:
+       an initials placeholder takes a colour from the racer's name, and one
+       of those colours is the gold this ring is made of — without a white gap
+       the ring vanishes on exactly those cards. */
+    box-shadow:
+        0 0 0 2px #ffffff,
+        0 0 0 5px var(--cub-scouting-gold),
+        0 0 0 6px var(--scouting-blue);
+    display: block;
+}
+
+.pit-pass-roundel {
+    position: absolute;
+    right: -10px;
+    bottom: 0;
+    min-width: 0.46in;
+    height: 0.46in;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--cub-scouting-gold);
+    border: 2px solid var(--scouting-blue);
+    /* Lifted off whatever the portrait is by a white ring, for the same
+       reason the portrait has one: a gold roundel on a gold placeholder is
+       one shape, not two. */
+    box-shadow: 0 0 0 2px #ffffff;
+    color: var(--scouting-blue);
+    font-family: var(--font-header);
+    font-weight: bold;
+    font-size: 0.82rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .pit-pass .print-card-name {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
+    margin-top: 2px;
 }
 
 .pit-pass-car {
-    font-size: 0.78rem;
-    color: #444;
+    margin-bottom: auto;
+    font-family: var(--font-header);
+    font-size: 0.76rem;
+    color: #333;
+    font-style: italic;
 }
 
 .pit-pass-footer {
     margin-top: auto;
     width: 100%;
-    border-top: 1px solid #eee;
     padding-top: 4px;
-    font-size: 0.64rem;
-    color: #555;
+    font-size: 0.62rem;
+    color: #444;
     line-height: 1.35;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    /* A gold rule rather than the grey one: it is the same divider the header
+       uses, and on paper a 1px grey line is the first thing a tired laser
+       drops. */
+    border-top: 2px solid var(--cub-scouting-gold);
+}
+
+.pit-pass-footer-car {
+    flex-shrink: 0;
 }
 
 /* --- Driver's licence -------------------------------------------------- */
 
+/*
+ * A licence should look like a licence, which means a security wash. Two
+ * shallow repeating gradients crossing at opposite angles give the guilloche
+ * suggestion at a printable weight; anything finer than this turns to moiré
+ * against a 300dpi laser's own halftone.
+ */
 .drivers-license .print-card-body {
     gap: 8px;
-    padding: 6px 8px;
+    padding: 7px 9px;
     align-items: center;
+    background-color: #f7faff;
+    background-image:
+        repeating-linear-gradient(
+            26deg,
+            rgba(0, 63, 135, 0.055) 0 1px,
+            transparent 1px 7px
+        ),
+        repeating-linear-gradient(
+            -26deg,
+            rgba(0, 63, 135, 0.055) 0 1px,
+            transparent 1px 7px
+        );
 }
 
 .drivers-license .print-photo,
 .drivers-license .print-photo-placeholder {
-    width: 0.85in;
-    height: 1.05in;
+    width: 0.8in;
+    height: 1in;
     border-radius: 4px;
     flex-shrink: 0;
     font-size: 1.1rem;
+    box-shadow:
+        0 0 0 1px #ffffff,
+        0 0 0 3px var(--cub-scouting-gold),
+        0 0 0 4px var(--scouting-blue);
 }
 
 .drivers-license-fields {
@@ -226,9 +339,9 @@
 .print-field-label {
     font-family: var(--font-header);
     font-size: 0.54rem;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #888;
+    color: #7a8899;
 }
 
 .print-field-value {
@@ -239,12 +352,72 @@
     white-space: nowrap;
 }
 
+/*
+ * The car number as a number plate — a white plate, a blue rim, a gold bolt
+ * top and bottom. The car number is what gets called out at the track, so it
+ * is the one thing on the card readable across a table.
+ */
+.drivers-license-plate {
+    flex-shrink: 0;
+    text-align: center;
+    padding: 2px 11px 4px;
+    border: 2px solid var(--scouting-blue);
+    border-radius: 5px;
+    background: #ffffff;
+    position: relative;
+}
+
+.drivers-license-plate::before,
+.drivers-license-plate::after {
+    content: '';
+    position: absolute;
+    bottom: 9px;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--cub-scouting-gold);
+}
+
+.drivers-license-plate::before {
+    left: 4px;
+}
+
+.drivers-license-plate::after {
+    right: 4px;
+}
+
 .drivers-license-number {
     font-family: var(--font-header);
-    font-size: 1.5rem;
+    font-size: 1.45rem;
     font-weight: bold;
     color: var(--scouting-blue);
     line-height: 1;
+    letter-spacing: 0.02em;
+}
+
+/* The strip along the foot: what a real licence puts a signature on, and the
+   line a scout signs. */
+.drivers-license-signature {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    padding: 0 9px 5px;
+    background-color: #f7faff;
+}
+
+.drivers-license-signature-line {
+    flex: 1;
+    border-bottom: 1px solid var(--scouting-blue);
+    height: 0.5rem;
+}
+
+.drivers-license-signature-label {
+    font-family: var(--font-header);
+    font-size: 0.5rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7a8899;
+    white-space: nowrap;
 }
 
 /* --- Check-in code ----------------------------------------------------- */
@@ -254,24 +427,61 @@
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding: 5px;
+    padding: 6px;
     text-align: center;
 }
 
+/* Corner brackets around the code, the way a scanner's own viewfinder draws
+   them — they say "point the camera here" without a word of instruction, and
+   the card is too small to spend a line of text saying it. */
+.check-in-code-frame {
+    position: relative;
+    padding: 5px;
+}
+
+.check-in-code-frame::before,
+.check-in-code-frame::after {
+    content: '';
+    position: absolute;
+    width: 0.16in;
+    height: 0.16in;
+    border: 2px solid var(--scouting-blue);
+}
+
+.check-in-code-frame::before {
+    top: 0;
+    left: 0;
+    border-right: none;
+    border-bottom: none;
+}
+
+.check-in-code-frame::after {
+    bottom: 0;
+    right: 0;
+    border-left: none;
+    border-top: none;
+}
+
 .check-in-code .print-qr {
-    width: 1.35in;
-    height: 1.35in;
+    width: 1.25in;
+    height: 1.25in;
+    display: block;
     /* A QR code is squares; smoothing them is what makes a scan fail. */
     image-rendering: pixelated;
 }
 
 .check-in-code .print-card-name {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
 }
 
 .check-in-code-number {
-    font-size: 0.68rem;
-    color: #555;
+    font-family: var(--font-header);
+    font-size: 0.66rem;
+    color: var(--scouting-blue);
+    background: var(--cub-scouting-gold);
+    border-radius: 10px;
+    padding: 0 8px;
+    font-weight: bold;
 }
 
 /* --- Paper ------------------------------------------------------------- */
@@ -304,10 +514,13 @@
     }
 
     /* Backgrounds are what the branding is made of; without this the header
-     * bar prints white on white in every browser's default. */
-    .print-card-header,
-    .print-den-chip,
-    .print-photo-placeholder {
+     * bar, the chequered band and the security wash all print white on white
+     * in every browser's default. Stated over the card and everything in it
+     * rather than as a list of classes — the list was already four long, and
+     * a decoration added later that is not on it fails silently and only on
+     * paper. */
+    .print-card,
+    .print-card * {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
@@ -324,19 +537,40 @@
     font-size: 11pt;
 }
 
+/*
+ * The masthead. A navy band with the event's name in it, the same two rules
+ * under it that every card header carries, so a heat sheet on the announcer's
+ * table and a pit pass round somebody's neck are visibly from one event.
+ */
 .heat-sheet-header {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.9rem;
+    background: var(--scouting-blue);
+    background-image: linear-gradient(100deg, #002a5c 0%, var(--scouting-blue) 55%, #0b4f9e 100%);
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px 6px 0 0;
+    border-bottom: 3px solid var(--cub-scouting-gold);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .heat-sheet-header h1 {
     margin: 0;
     font-size: 16pt;
+    color: white;
 }
 
 .heat-sheet-header p {
     margin: 0.15rem 0 0;
-    color: #444;
+    color: rgba(255, 255, 255, 0.85);
     font-size: 10pt;
+}
+
+.heat-sheet-mark {
+    flex-shrink: 0;
+    /* The car points into the page, towards the schedule it heads. */
+    opacity: 0.95;
 }
 
 .heat-sheet-round {
@@ -346,9 +580,12 @@
 
 .heat-sheet-round h2 {
     font-size: 12pt;
-    margin: 0 0 0.35rem;
-    border-bottom: 2px solid var(--scouting-blue);
-    padding-bottom: 0.15rem;
+    margin: 0 0 0.4rem;
+    padding: 0.1rem 0 0.15rem 0.5rem;
+    /* A gold spine on the left rather than a rule underneath: a round's rows
+       sit under its heading, and the eye follows the spine down them. */
+    border-left: 5px solid var(--cub-scouting-gold);
+    border-bottom: 1px solid var(--scouting-blue);
 }
 
 .heat-sheet table {
@@ -358,21 +595,33 @@
 
 .heat-sheet th,
 .heat-sheet td {
-    border: 1px solid #999;
+    border: 1px solid #b9c3cf;
     padding: 4px 6px;
     text-align: left;
     vertical-align: top;
 }
 
 .heat-sheet thead th {
-    background: #eee;
+    background: var(--scouting-blue);
+    color: white;
+    font-family: var(--font-header);
     font-size: 10pt;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-color: var(--scouting-blue);
     /* Repeated at the top of each printed page, so a sheet that runs over
        does not leave the second page as unlabelled columns. */
 }
 
 .heat-sheet thead {
     display: table-header-group;
+}
+
+/* Banding, so the announcer's eye does not slip a row while reading across
+   eight lanes of names. Every other row rather than every row: a fully ruled
+   grid is heavier and reads slower. */
+.heat-sheet tbody tr:nth-child(even) {
+    background: #f2f6fb;
 }
 
 .heat-sheet tbody tr {
@@ -385,14 +634,36 @@
     font-weight: bold;
 }
 
+/* The heat number, or the finishing place — the thing a row is looked up by,
+   so it is the one that gets the weight. Scoped to the first cell rather than
+   to every `heat-sheet-num`: the results sheet gives that class to Car # and
+   Heats as well, and three bold blue columns in a row means none of them is
+   the one the eye goes to. */
+.heat-sheet tbody td.heat-sheet-num:first-child {
+    font-family: var(--font-header);
+    font-size: 12pt;
+    color: var(--scouting-blue);
+}
+
 /* Left blank on purpose: this sheet is what gets used when the network is
-   down, and what somebody does then is write the finishing order in. */
+   down, and what somebody does then is write the finishing order in. A ruled
+   box rather than an empty cell — a line to write on is an invitation, and a
+   blank cell reads as a column somebody forgot to fill. */
 .heat-sheet-result {
     width: 6em;
 }
 
+.heat-sheet tbody td.heat-sheet-result {
+    background-image: repeating-linear-gradient(
+        transparent 0 0.62em,
+        #c8d2de 0.62em calc(0.62em + 1px)
+    );
+}
+
 .heat-sheet-car {
+    font-family: var(--font-header);
     font-weight: bold;
+    color: var(--scouting-blue);
 }
 
 /* The results sheet (#206) shares the heat sheet's table styling; this is the
@@ -403,6 +674,25 @@
     font-size: 9pt;
     color: #555;
     font-style: italic;
+}
+
+@media print {
+    body:has(.heat-sheet) nav,
+    body:has(.heat-sheet) .no-print {
+        display: none !important;
+    }
+
+    body:has(.heat-sheet) {
+        background: white;
+    }
+
+    /* Same reasoning as the cards: the masthead, the column heads and the
+       row banding are all background colour, and all print white by default. */
+    .heat-sheet,
+    .heat-sheet * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
 }
 
 /* The certificate (#306). One per award, one per sheet — its own module
@@ -419,18 +709,30 @@
     width: 9in;
     min-height: 6.5in;
     box-sizing: border-box;
-    padding: 0.6in;
-    border: 3px solid var(--scouting-blue);
-    outline: 1px solid var(--cub-scouting-gold);
-    outline-offset: -0.18in;
-    border-radius: var(--border-radius);
+    padding: 0.7in;
+    /* One frame, not two. There was a gold inset rule here as well, and with
+       the corner ornaments that made three concentric lines round the page —
+       the ornaments then read as a fourth frame rather than as ornament. The
+       gold now appears once, in the corners and under the recipient's name. */
+    border: 4px double var(--scouting-blue);
     background: white;
+    /* A very faint gold wash out of all four corners, so the middle of the
+       page stays white where the names go. Four rather than two: on opposite
+       corners alone the page reads as lit from one side, which looks like a
+       printer fault rather than a border. */
+    background-image:
+        radial-gradient(circle at 0% 0%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
+        radial-gradient(circle at 100% 0%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
+        radial-gradient(circle at 0% 100%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
+        radial-gradient(circle at 100% 100%, rgba(252, 209, 22, 0.09) 0, transparent 15%);
+    border-radius: var(--border-radius);
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    gap: 0.4rem;
+    gap: 0.35rem;
     /* Trimmed to page size on paper; the outline above is the frame. */
     break-inside: avoid;
     page-break-inside: avoid;
@@ -442,43 +744,153 @@
     page-break-after: auto;
 }
 
+/* One flourish drawn, rotated into the other three corners — four separate
+   drawings would be four things free to drift apart. */
+.certificate-corner {
+    position: absolute;
+    width: 0.62in;
+    height: 0.62in;
+}
+
+.certificate-corner svg {
+    width: 100%;
+    height: 100%;
+}
+
+.certificate-corner-tl {
+    top: 0.2in;
+    left: 0.2in;
+}
+
+.certificate-corner-tr {
+    top: 0.2in;
+    right: 0.2in;
+    transform: rotate(90deg);
+}
+
+.certificate-corner-br {
+    bottom: 0.2in;
+    right: 0.2in;
+    transform: rotate(180deg);
+}
+
+.certificate-corner-bl {
+    bottom: 0.2in;
+    left: 0.2in;
+    transform: rotate(270deg);
+}
+
+/*
+ * Engine turning — the fine radiating guilloche a printed certificate has
+ * behind its text, drawn as one repeating conic gradient.
+ *
+ * This replaced a giant outlined car, and the reason is worth keeping: a
+ * recognisable object blown up to fill a page is clip art whatever it is
+ * drawn of, and it fights the award's own artwork, which is the one picture
+ * on the page that means something. Texture does the job a watermark is
+ * actually for — it says "this is a document" and then gets out of the way.
+ *
+ * Concentric rings rather than radiating rays, which is what the first cut
+ * used. Rays converge, so they crowd to a dark knot behind the recipient's
+ * name — the most important line on the page — and read as a sunburst, which
+ * is a louder gesture than a certificate wants. Rings are even everywhere and
+ * sit still.
+ *
+ * The mask is what makes it a *band*, clear of the text in the middle and of
+ * the frame at the edge. A print engine that ignores the mask gets the rings
+ * everywhere at 5%, which is faint enough to be survivable rather than wrong.
+ */
+.certificate::before {
+    content: '';
+    position: absolute;
+    inset: 0.3in;
+    z-index: 0;
+    pointer-events: none;
+    background-image: repeating-radial-gradient(
+        circle at 50% 47%,
+        rgba(0, 63, 135, 0.05) 0 1px,
+        transparent 1px 7px
+    );
+    -webkit-mask-image: radial-gradient(
+        closest-side,
+        transparent 42%,
+        #000 72%,
+        #000 92%,
+        transparent 100%
+    );
+    mask-image: radial-gradient(
+        closest-side,
+        transparent 42%,
+        #000 72%,
+        #000 92%,
+        transparent 100%
+    );
+}
+
+/* The texture is a positioned pseudo-element, so the certificate's own text —
+   all of it static flow content — would otherwise paint underneath it.
+   `:not()` on the corners is not tidiness: they are absolutely positioned and
+   this rule is later in the file at the same specificity, so without it all
+   four ornaments come back into the flow and stack in the middle of the page. */
+.certificate > *:not(.certificate-corner) {
+    position: relative;
+    z-index: 1;
+}
+
 .certificate-eyebrow {
     font-family: var(--font-header);
     font-size: 11pt;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--scouting-blue);
+    /* Gold rules either side, the way an award citation is set. */
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0;
+}
+
+.certificate-eyebrow::before,
+.certificate-eyebrow::after {
+    content: '';
+    width: 1.1in;
+    height: 2px;
+    background: var(--cub-scouting-gold);
 }
 
 .certificate-race {
+    font-family: var(--font-header);
     font-size: 13pt;
     color: #444;
+    letter-spacing: 0.03em;
 }
 
 .certificate-artwork {
-    margin: 0.3rem 0;
+    margin: 0.25rem 0;
 }
 
 .certificate-award-name {
     font-family: var(--font-header);
-    font-size: 28pt;
+    font-size: 30pt;
     color: var(--scouting-blue);
     margin: 0.1rem 0;
+    letter-spacing: 0.01em;
 }
 
 .certificate-presented-to {
     font-size: 12pt;
     color: #444;
-    margin-top: 0.3rem;
+    margin-top: 0.2rem;
+    font-style: italic;
 }
 
 .certificate-recipient {
     font-family: var(--font-header);
-    font-size: 22pt;
+    font-size: 24pt;
     color: #222;
     border-bottom: 2px solid var(--cub-scouting-gold);
     padding: 0.1rem 1.5rem 0.15rem;
-    min-width: 4in;
+    min-width: 4.5in;
 }
 
 /* An award nobody has decided yet still prints, with a blank line to write a
@@ -488,8 +900,32 @@
     color: transparent;
 }
 
+.certificate-seal {
+    margin-top: 0.45rem;
+}
+
+/* The two lines somebody signs. Blank on purpose, like the heat sheet's
+   Result column — a certificate is handed over signed, and there is no field
+   anywhere in the app holding who signed it. */
+.certificate-signatures {
+    display: flex;
+    gap: 1.2in;
+    margin-top: 0.55rem;
+}
+
+.certificate-signature {
+    width: 2.4in;
+    border-top: 1px solid var(--scouting-blue);
+    padding-top: 3px;
+    font-family: var(--font-header);
+    font-size: 8.5pt;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #666;
+}
+
 .certificate-date {
-    margin-top: 0.5rem;
+    margin-top: 0.4rem;
     font-size: 10pt;
     color: #666;
 }
@@ -511,5 +947,11 @@
     .certificate {
         width: auto;
         min-height: 9.5in;
+    }
+
+    .certificate,
+    .certificate * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 }

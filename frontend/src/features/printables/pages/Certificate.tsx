@@ -16,6 +16,7 @@ import { Icon } from '@mdi/react';
 import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 
 import AwardArtwork from '../../awards/artwork';
+import { CornerFlourish, Rosette } from '../components/PrintDecor';
 import { certificatesFor, type CertificateAward } from '../certificate';
 import { formatEventDate } from '../documents';
 import { GET_CERTIFICATES } from '../graphql/queries';
@@ -93,6 +94,27 @@ export default function Certificate() {
                             className="certificate"
                             data-testid={`certificate-${certificate.awardId}`}
                         >
+                            {/* Frame furniture: one flourish, rotated into the
+                                other three corners by the stylesheet. The
+                                background texture is in the stylesheet rather
+                                than here — a drawing big enough to fill a page
+                                is clip art, and this page already carries the
+                                award's own artwork. None of this carries
+                                `role="img"`: that selector is how a test tells
+                                a certificate with award artwork from one
+                                without. */}
+                            <span className="certificate-corner certificate-corner-tl">
+                                <CornerFlourish />
+                            </span>
+                            <span className="certificate-corner certificate-corner-tr">
+                                <CornerFlourish />
+                            </span>
+                            <span className="certificate-corner certificate-corner-br">
+                                <CornerFlourish />
+                            </span>
+                            <span className="certificate-corner certificate-corner-bl">
+                                <CornerFlourish />
+                            </span>
                             <p className="certificate-eyebrow">Certificate of Achievement</p>
                             <p className="certificate-race">
                                 {certificate.raceName}
@@ -121,6 +143,19 @@ export default function Certificate() {
                             >
                                 {certificate.recipientName ?? 'placeholder'}
                             </p>
+
+                            <div className="certificate-seal">
+                                <Rosette size={86} />
+                            </div>
+
+                            {/* Blank on purpose, like the heat sheet's Result
+                                column: nothing in the app holds who signed a
+                                certificate, and the signing is what handing it
+                                over is. */}
+                            <div className="certificate-signatures">
+                                <div className="certificate-signature">Race Director</div>
+                                <div className="certificate-signature">Cubmaster</div>
+                            </div>
 
                             <p className="certificate-date">{eventDate}</p>
                         </article>

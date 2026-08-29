@@ -12,6 +12,12 @@ interface Props {
  * The keepsake. Business-card sized, laid out like a licence, and the car is
  * the subject rather than the scout — the car number is the largest thing on
  * it because that is what gets called out at the track.
+ *
+ * It is dressed as the thing it is named after: a security wash behind the
+ * fields (`PrintSheet.css`), the number set in a plate, and a line along the
+ * bottom for the driver's own signature. The signature line is blank by
+ * design — nothing in the app holds a signature, and a scout signing their own
+ * licence at the check-in table is the point of it.
  */
 export default function DriversLicense({ racer, race, den }: Props) {
     return (
@@ -20,6 +26,7 @@ export default function DriversLicense({ racer, race, den }: Props) {
                 <span className="print-card-kind">Driver's Licence</span>
                 <span className="print-card-race">{race.name}</span>
             </div>
+            <div className="print-checker" />
 
             <div className="print-card-body">
                 <PrintPhoto racer={racer} />
@@ -48,10 +55,15 @@ export default function DriversLicense({ racer, race, den }: Props) {
                     )}
                 </div>
 
-                <div style={{ textAlign: 'center' }}>
+                <div className="drivers-license-plate">
                     <div className="print-field-label">Car No.</div>
                     <div className="drivers-license-number">{racer.car_number || '—'}</div>
                 </div>
+            </div>
+
+            <div className="drivers-license-signature">
+                <span className="drivers-license-signature-label">Driver</span>
+                <span className="drivers-license-signature-line" />
             </div>
         </div>
     );
