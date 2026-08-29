@@ -65,6 +65,17 @@ class TestPresence:
         assert first.name != second.name
         assert first.name and second.name
 
+    def test_the_auto_name_is_derived_from_the_display_id(self, registry):
+        # #495: not a random draw, or the name would be re-invented on every
+        # restart. `_auto_name` is a thin wrapper around
+        # `domain.display_names.whimsical_name`, and this pins the wiring
+        # rather than re-testing the function itself.
+        from backend.domain.display_names import whimsical_name
+
+        display = registry.connect("laptop-at-the-scale", race_id=1)
+
+        assert display.name == whimsical_name("laptop-at-the-scale", taken=set())
+
     def test_a_display_stays_listed_after_it_goes_quiet(self, registry):
         # The screen that has dropped off the wifi is the one the operator most
         # wants to see. A row that vanishes tells them nothing.
@@ -279,6 +290,48 @@ class TestSteppingTheCeremony:
         assert registry.get("abc").assigned is True
 
 
+class TestIdentifying:
+    """The operator asking a screen to flash its own name (#495).
+
+    Same shape as `TestSteppingTheCeremony`, and for the same reason: this is
+    a counter the display reacts to, not a state the registry pictures.
+    """
+
+    def test_identifying_bumps_the_counter(self, registry):
+        registry.connect("abc", race_id=1)
+
+        registry.identify("abc")
+
+        assert registry.get("abc").identify_seq == 1
+
+    def test_a_second_identify_rises_further(self, registry):
+        registry.connect("abc", race_id=1)
+
+        registry.identify("abc")
+        registry.identify("abc")
+
+        assert registry.get("abc").identify_seq == 2
+
+    def test_a_display_starts_with_nothing_to_obey(self, registry):
+        registry.connect("abc", race_id=1)
+
+        assert registry.get("abc").identify_seq == 0
+
+    def test_identifying_something_unknown_says_so(self, registry):
+        assert registry.identify("never-seen") is None
+
+    def test_identifying_leaves_the_assignment_and_name_alone(self, registry):
+        registry.connect("abc", race_id=1)
+        registry.rename("abc", "Gym north")
+        registry.assign("abc", domain.DisplayView.PROJECTOR)
+
+        registry.identify("abc")
+
+        display = registry.get("abc")
+        assert display.name == "Gym north"
+        assert display.assignment.view is domain.DisplayView.PROJECTOR
+
+
 class TestAdvanceDisplayMutation:
     """The GraphQL layer over `DisplayRegistry.advance` (#347).
 
@@ -365,3 +418,86 @@ class TestAdvanceDisplayMutation:
 
         assert body.get("errors"), "a step of zero should be refused, not silent"
         assert displays_service.registry.get("gql-display").slide_seq == 0
+
+
+class TestIdentifyDisplayMutation:
+    """The GraphQL layer over `DisplayRegistry.identify` (#495).
+
+    Mirrors `TestAdvanceDisplayMutation` — the resolver is little more than a
+    call to the registry method plus a publish, but it is what the operator's
+    list actually calls, and nothing below the browser ran it before this.
+    """
+
+    MUTATION = """
+    mutation($displayId: String!) {
+        identifyDisplay(displayId: $displayId) {
+            displayId
+            identifySeq
+        }
+    }
+    """
+
+    @pytest.fixture(autouse=True)
+    def clean_registry(self):
+        saved = dict(displays_service.registry._displays)
+        displays_service.registry.clear()
+        yield
+        displays_service.registry.clear()
+        displays_service.registry._displays.update(saved)
+
+    def _identify(self, client, display_id):
+        resp = client.post(
+            "/graphql",
+            json={"query": self.MUTATION, "variables": {"displayId": display_id}},
+        )
+        assert resp.status_code == 200
+        return resp.json()
+
+    def test_a_display_nobody_has_seen_returns_null(self, client):
+        body = self._identify(client, "unknown")
+
+        assert "errors" not in body, body.get("errors")
+        assert body["data"]["identifyDisplay"] is None
+
+    def test_identifying_a_known_display_bumps_and_returns_its_counter(self, client):
+        displays_service.registry.connect("gql-display", race_id=7)
+
+        body = self._identify(client, "gql-display")
+
+        assert "errors" not in body, body.get("errors")
+        assert body["data"]["identifyDisplay"] == {
+            "displayId": "gql-display",
+            "identifySeq": 1,
+        }
+        assert displays_service.registry.get("gql-display").identify_seq == 1
+
+    def test_a_second_identify_rises_further(self, client):
+        displays_service.registry.connect("gql-display", race_id=7)
+        self._identify(client, "gql-display")
+
+        body = self._identify(client, "gql-display")
+
+        assert body["data"]["identifyDisplay"]["identifySeq"] == 2
+
+    def test_viewer_cannot_identify_a_display(self, client, db):
+        # Operator-only, same asymmetry as the rest of the display mutations:
+        # a display holds no PIN and is a VIEWER, so it never asks — it is
+        # told. See `api/auth.py::OPERATOR_ONLY_MUTATIONS`.
+        from backend.api import auth
+        from backend.db import schemas
+        from backend.db.crud import create_group
+
+        group = create_group(db, schemas.GroupCreate(name="Pack"))
+        group.operator_pin_hash = auth.hash_pin("1111")
+        db.commit()
+        displays_service.registry.connect("gql-display", race_id=7)
+
+        resp = client.post(
+            "/graphql",
+            json={"query": self.MUTATION, "variables": {"displayId": "gql-display"}},
+        )
+        body = resp.json()
+
+        assert body.get("errors"), "a viewer must not be able to identify a display"
+        assert "VIEWER is not allowed" in body["errors"][0]["message"]
+        assert displays_service.registry.get("gql-display").identify_seq == 0

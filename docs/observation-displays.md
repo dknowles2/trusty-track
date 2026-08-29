@@ -134,8 +134,16 @@ changes within a second or two.
 
 Two things worth knowing:
 
-- **Name them.** Click the pencil and call each screen what you call it —
-  "gym north", "by the doors". The name sticks, including through a reload.
+- **Every screen already has a name** — an adjective and an animal, like
+  **Plucky Puffin** or **Brisk Badger** — so the list is usable before you
+  have renamed anything, and the same screen keeps the same name across a
+  reload. Rename it if you'd rather — click the pencil and call it what you
+  call it, "gym north", "by the doors" — or click the **🎲** next to the
+  field for another animal, if the room happens to have a real Badger in it.
+- **Not sure which row is which screen?** Click **Identify** on a row and
+  that screen's name flashes across it for a few seconds — look up, and
+  whichever screen just lit up is that row. A screen also names itself
+  briefly, in a small corner badge, the moment you first open it.
 - **A screen that has gone quiet stays in the list**, marked *Not connected*
   — that is how you find out the projector at the back has dropped off the
   wifi. Clear the row with the ✕.

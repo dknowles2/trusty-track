@@ -1551,6 +1551,12 @@ class Display:
     #: a trophy every time the wifi hiccuped.
     slide_seq: int
     slide_delta: int
+    #: The operator's last "flash your name" command, as a counter rather
+    #: than a boolean (#495) — the same shape as `slide_seq` and for the same
+    #: reason. `identifyOverlay.ts` applies the same `seen === null` rule as
+    #: the ceremony's steps: the value a screen arrives holding, on connect
+    #: or reconnect, is history rather than an instruction.
+    identify_seq: int
 
 
 def _display(display: displays_service.Display) -> Display:
@@ -1566,6 +1572,7 @@ def _display(display: displays_service.Display) -> Display:
         paced_by_a_person=domain_displays.is_paced_by_a_person(display.assignment.view),
         slide_seq=display.slide_seq,
         slide_delta=display.slide_delta,
+        identify_seq=display.identify_seq,
     )
 
 
@@ -2340,6 +2347,23 @@ class Mutation:
             # obey a command that means nothing.
             raise ValueError("A ceremony step must move forwards or backwards.")
         display = displays_service.registry.advance(display_id, delta)
+        if display is None:
+            return None
+        await pubsub.publish(f"display_assignment:{display_id}", None)
+        return _display(display)
+
+    @strawberry.mutation
+    async def identify_display(self, display_id: str) -> Display | None:
+        """Flash a screen's own name across it, so the operator can tell which
+        row on the list is which physical screen (#495).
+
+        A memorable name is only half of it — somebody still has to learn
+        which row is the projector at the back. Bumping the counter is the
+        whole of it: the display is what shows the flash, the same split as
+        `advanceDisplay`'s steps, and it is a **step**, not a state, for the
+        same reason — see `services/displays.Display.identify_seq`.
+        """
+        display = displays_service.registry.identify(display_id)
         if display is None:
             return None
         await pubsub.publish(f"display_assignment:{display_id}", None)
