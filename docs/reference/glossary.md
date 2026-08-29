@@ -36,7 +36,9 @@ on the wall. Displays need no PIN and cannot change anything. See
 the last car left wins. See [Round styles](round-styles.md#elimination).
 
 **Fake timer** — a pretend timer that makes up finishing times, for practice
-and for racing without hardware. See the [Fake Timer guide](../fake-timer.md).
+and for trying the software out. Not for recording a real race with no
+hardware — see [No timer](race-settings.md#no-timer) for that. See the
+[Fake Timer guide](../fake-timer.md).
 
 **Free race** — a heat that runs on the timer and shows on the audience
 display but counts for nothing. See the [Free Race guide](../free-race.md).
@@ -64,7 +66,9 @@ operator PIN (if one is set). See
 den, and car. See [Printed documents](printing.md#the-six-documents).
 
 **Points** — the scoring choice for racing without a timer: finishing places
-added up, lowest total wins. See [Scoring](scoring.md#points).
+added up, lowest total wins. See [No timer](race-settings.md#no-timer) for
+setting a track up to race this way, and [Scoring](scoring.md#points) for the
+rules.
 
 **Qualifying round** — a round the whole roster races. The overall standings
 are built from these, and championship rounds pick their racers from them.
