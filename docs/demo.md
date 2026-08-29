@@ -4,6 +4,9 @@ A single, disposable instance of Trusty Track that somebody evaluating it can
 click through without installing anything: a populated race, standings, a
 championship field that filled itself, and a heat still left to run.
 
+**There is one running at [demo.trusty-track.com](https://demo.trusty-track.com).**
+Anything you do there is undone the next time it restarts, so click about freely.
+
 It is the same image as every other install. What makes it a demo is one
 environment variable.
 

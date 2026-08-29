@@ -4,7 +4,11 @@ Trusty Track helps Cub Scout packs run Pinewood Derby events without spreadsheet
 
 ## Where do I start?
 
-**[Install it](user/install.md)** first — on a Mac, a Windows PC, a Raspberry Pi, or in Docker.
+**[Have a look round the demo](https://demo.trusty-track.com)** if you would rather
+see it before you install anything. It is a real race, already set up, and it forgets
+everything you do when you leave.
+
+**[Install it](user/install.md)** when you are ready — on a Mac, a Windows PC, a Raspberry Pi, or in Docker.
 
 Then, in the order an event happens:
 

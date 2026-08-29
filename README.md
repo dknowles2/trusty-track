@@ -6,6 +6,7 @@
 
 <p align="center">
   <strong><a href="https://trusty-track.com">trusty-track.com</a></strong> ·
+  <a href="https://demo.trusty-track.com">Live demo</a> ·
   <a href="https://trusty-track.com/docs/">Documentation</a> ·
   <a href="https://trusty-track.com/docs/user/install/">Install</a>
 </p>
