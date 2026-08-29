@@ -26,7 +26,7 @@ from backend.db import crud, schemas
 @pytest.fixture
 def group(db):
     """A configured install. Nothing exists in a fresh test database."""
-    return crud.create_group(db, schemas.GroupCreate(name="Upload Pack"))
+    return crud.create_organization(db, schemas.OrganizationCreate(name="Upload Pack"))
 
 
 @pytest.fixture

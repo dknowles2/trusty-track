@@ -1,7 +1,7 @@
 """The bulk racer resolvers share one way to find their race (#432).
 
 Five resolvers in `api/schema.py` — `bulkAutoNumber`, `bulkClearNumbers`,
-`bulkCheckIn`, `bulkMoveToDen`, `bulkDeleteRacers` — each used to re-derive
+`bulkCheckIn`, `bulkMoveToRacingGroup`, `bulkDeleteRacers` — each used to re-derive
 `race_id` from `racer_ids[0]` with its own null-guard, so which one needed
 telling the mutation had run on nobody depended on which resolver you were
 reading. `_race_id_for_racers` is the one place that indexes `racer_ids` now.

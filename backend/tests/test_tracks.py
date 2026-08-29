@@ -79,15 +79,15 @@ def test_track_crud(client, db):
     assert resp.json()["data"]["updateTrack"]["name"] == "Updated Track A"
 
     # 5. Create race on Track B
-    group_in = schemas.GroupCreate(name=get_unique_name("Race Group"))
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name=get_unique_name("Race Organization"))
+    group = crud.create_organization(db, group_in)
 
     mutation_create_race = f"""
     mutation {{
         createRace(
             race: {{
                 name: "Race on Track B"
-                groupId: {group.id}
+                organizationId: {group.id}
                 trackId: {track_b_id}
             }}
         ) {{
@@ -131,13 +131,13 @@ def test_race_track_association_update(client, db):
     track_in_2 = schemas.TrackCreate(name="T2", lane_count=6)
     t2 = crud.create_track(db, track_in_2)
 
-    group_in = schemas.GroupCreate(name=get_unique_name("Update Group"))
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name=get_unique_name("Update Organization"))
+    group = crud.create_organization(db, group_in)
 
     mutation_create_race = f"""
     mutation {{
         createRace(
-            race: {{name: "Update Race", groupId: {group.id}, trackId: {t1.id}}}
+            race: {{name: "Update Race", organizationId: {group.id}, trackId: {t1.id}}}
         ) {{
             id
             trackId

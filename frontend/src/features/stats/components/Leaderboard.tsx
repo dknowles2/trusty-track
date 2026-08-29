@@ -14,8 +14,8 @@ export interface LeaderboardEntry {
   firstName: string;
   lastName: string;
   carNumber: number;
-  denName: string;
-  denRank?: string | null;
+  racingGroupName: string;
+  racingGroupRank?: string | null;
   score: number;
   heatsCompleted: number;
   rank: number;
@@ -53,8 +53,8 @@ const GET_ROUND_STANDINGS = `
         firstName
         lastName
         carNumber
-        denName
-        denRank
+        racingGroupName
+        racingGroupRank
         score
         heatsCompleted
         rank
@@ -306,7 +306,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
               <th style={{ padding: '12px', textAlign: 'center', width: '60px' }}>Avatar</th>
               <th style={{ padding: '12px', textAlign: 'left', width: '80px' }}>Car #</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
-              <th style={{ padding: '12px', textAlign: 'left' }}>Den</th>
+              <th style={{ padding: '12px', textAlign: 'left' }}>Racing Group</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>Heats</th>
               <th style={{ padding: '12px', textAlign: 'right' }}>{scoreLabel}</th>
             </tr>
@@ -341,9 +341,9 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                   {entry.firstName} {entry.lastName}
                 </td>
                 <td style={{ padding: '12px', color: 'var(--text-muted-color)' }}>
-                  {entry.denName}
-                  {entry.denRank && (
-                    <span style={{ fontSize: '0.8rem' }}> ({rankLabel(entry.denRank)})</span>
+                  {entry.racingGroupName}
+                  {entry.racingGroupRank && (
+                    <span style={{ fontSize: '0.8rem' }}> ({rankLabel(entry.racingGroupRank)})</span>
                   )}
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted-color)' }}>

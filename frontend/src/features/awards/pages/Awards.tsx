@@ -45,7 +45,7 @@ type AwardRow = {
   kind: string;
   source?: string | null;
   place?: number | null;
-  denId?: number | null;
+  racingGroupId?: number | null;
   fromBottom?: boolean | null;
   artworkKey?: string | null;
   votable?: boolean | null;
@@ -91,7 +91,7 @@ export default function Awards() {
   const race = result.data?.race;
   const awards: AwardRow[] = useMemo(() => race?.awards ?? [], [race]);
   const rounds = race?.rounds ?? [];
-  const dens = race?.dens ?? [];
+  const racingGroups = race?.racingGroups ?? [];
   const racers = race?.racers ?? [];
   const votingOpen = race?.votingOpen ?? false;
   // The ballot shows every car's photo (or a gray placeholder where there is
@@ -110,7 +110,7 @@ export default function Awards() {
     source: draft.kind === 'SPEED' ? draft.source : null,
     place: draft.kind === 'SPEED' ? draft.place : null,
     fromBottom: draft.kind === 'SPEED' ? draft.fromBottom : false,
-    denId: draft.kind === 'SPEED' ? draft.denId : null,
+    racingGroupId: draft.kind === 'SPEED' ? draft.racingGroupId : null,
     racerId: draft.kind === 'SPECIAL' ? draft.racerId : null,
     // A SPEED award's key comes from its rule server-side (crud
     // ._set_speed_artwork_key) regardless of what is sent — this is only
@@ -326,7 +326,7 @@ export default function Awards() {
               <strong>{award.name}</strong>
               <div style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
                 {award.kind === 'SPEED'
-                  ? describeSpeedAward(award, rounds, dens)
+                  ? describeSpeedAward(award, rounds, racingGroups)
                   : 'Chosen by the judges'}
               </div>
             </div>
@@ -409,7 +409,7 @@ export default function Awards() {
       <Modal isOpen={adding} onClose={() => setAdding(false)} title="Add an award">
         <AwardForm
           rounds={rounds}
-          dens={dens}
+          racingGroups={racingGroups}
           racers={racers}
           submitLabel="Add award"
           onSubmit={handleCreate}
@@ -426,7 +426,7 @@ export default function Awards() {
               source: editing.source ?? null,
               place: editing.place ?? null,
               fromBottom: editing.fromBottom ?? false,
-              denId: editing.denId ?? null,
+              racingGroupId: editing.racingGroupId ?? null,
               // Only for a special award. A speed award's recipient is
               // computed, and seeding it here would turn "switch this to a
               // judged award" into "give it permanently to whoever happens to
@@ -436,7 +436,7 @@ export default function Awards() {
               votable: editing.votable ?? false,
             }}
             rounds={rounds}
-            dens={dens}
+            racingGroups={racingGroups}
             racers={racers}
             submitLabel="Save changes"
             onSubmit={handleUpdate}

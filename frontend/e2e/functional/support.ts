@@ -123,9 +123,9 @@ export async function seedRace(page: Page, name: string): Promise<SeededRace> {
     // time, so a per-worker track is never contended — and it is why this suite
     // can use more than one worker at all.
     const config = await gql<{
-        groups: { id: number }[];
+        organizations: { id: number }[];
         tracks: { id: number; name: string; laneCount: number }[];
-    }>(page, `query { groups { id } tracks { id name laneCount } }`);
+    }>(page, `query { organizations { id } tracks { id name laneCount } }`);
     const wanted = trackPoolName(test.info().parallelIndex);
     const track = config.tracks.find((t) => t.name === wanted);
     if (!track) {
@@ -140,7 +140,7 @@ export async function seedRace(page: Page, name: string): Promise<SeededRace> {
         {
             race: {
                 name,
-                groupId: config.groups[0].id,
+                organizationId: config.organizations[0].id,
                 trackId: track.id,
                 carNumberingStrategy: 'MANUAL',
                 scoringStrategy: 'TIMED',
@@ -183,12 +183,12 @@ export async function createSchedule(
         {
             raceId,
             config: {
-                generalRound: { type: 'PACK', runsPerLane: 1 },
+                generalRound: { type: 'ALL', runsPerLane: 1 },
                 championshipRounds: championship
                     ? [
                           {
                               name: championship.name,
-                              source: 'PACK',
+                              source: 'ALL',
                               numTopRacers: championship.numTopRacers,
                               runsPerLane: 1,
                           },

@@ -820,12 +820,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     </p>
                     {roundSummary?.source && (
                         <div style={{ fontSize: '0.9rem', color: 'var(--text-subtle-color)', fontStyle: 'italic' }}>
-                            {/* Human words, not the raw source value — "PACK"
+                            {/* Human words, not the raw source value — "ALL"
                                 on a projector means nothing to the room. */}
-                            Advancing from {roundSummary.source === 'PACK'
+                            Advancing from {roundSummary.source === 'ALL'
                                 ? 'the whole pack'
-                                : roundSummary.source === 'DEN'
-                                ? 'each den'
+                                : roundSummary.source === 'EACH_GROUP'
+                                ? 'each racing group'
                                 : 'an earlier round'}
                         </div>
                     )}
@@ -854,7 +854,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         </td>
                                         <td style={{ padding: '10px' }}>
                                             <div style={{ fontWeight: 'bold' }}>{ar.firstName} {ar.lastName}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>{ar.denName} #{ar.carNumber}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>{ar.racingGroupName} #{ar.carNumber}</div>
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right', fontFamily: 'monospace' }}>
                                             {ar.score.toFixed(3)}

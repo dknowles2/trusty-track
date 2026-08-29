@@ -11,11 +11,11 @@ export type Scalars = {
 
 export type AdvancementRacer = {
   carNumber?: Maybe<Scalars['Int']['output']>;
-  denName: Scalars['String']['output'];
   firstName: Scalars['String']['output'];
   isAdvancing: Scalars['Boolean']['output'];
   lastName: Scalars['String']['output'];
   racerId: Scalars['Int']['output'];
+  racingGroupName: Scalars['String']['output'];
   rank: Scalars['Int']['output'];
   score: Scalars['Float']['output'];
 };
@@ -46,14 +46,14 @@ export type AuditLogEntry = {
 
 export type Award = {
   artworkKey?: Maybe<Scalars['String']['output']>;
-  den?: Maybe<Den>;
-  denId?: Maybe<Scalars['Int']['output']>;
   fromBottom: Scalars['Boolean']['output'];
   id: Scalars['Int']['output'];
   kind: Scalars['String']['output'];
   name: Scalars['String']['output'];
   place?: Maybe<Scalars['Int']['output']>;
   raceId: Scalars['Int']['output'];
+  racingGroup?: Maybe<RacingGroup>;
+  racingGroupId?: Maybe<Scalars['Int']['output']>;
   recipient?: Maybe<Racer>;
   sortOrder: Scalars['Int']['output'];
   source?: Maybe<Scalars['String']['output']>;
@@ -63,12 +63,12 @@ export type Award = {
 
 export type AwardInput = {
   artworkKey?: InputMaybe<Scalars['String']['input']>;
-  denId?: InputMaybe<Scalars['Int']['input']>;
   fromBottom?: Scalars['Boolean']['input'];
   kind?: Scalars['String']['input'];
   name: Scalars['String']['input'];
   place?: InputMaybe<Scalars['Int']['input']>;
   racerId?: InputMaybe<Scalars['Int']['input']>;
+  racingGroupId?: InputMaybe<Scalars['Int']['input']>;
   sortOrder?: InputMaybe<Scalars['Int']['input']>;
   source?: InputMaybe<Scalars['String']['input']>;
   votable?: Scalars['Boolean']['input'];
@@ -79,34 +79,6 @@ export type AwardVoteTally = {
   racer?: Maybe<Racer>;
   racerId: Scalars['Int']['output'];
   voteCount: Scalars['Int']['output'];
-};
-
-export type Den = {
-  carNumberRangeEnd?: Maybe<Scalars['Int']['output']>;
-  carNumberRangeStart?: Maybe<Scalars['Int']['output']>;
-  color: Scalars['String']['output'];
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-  raceId: Scalars['Int']['output'];
-  racers: Array<Racer>;
-  rank?: Maybe<Scalars['String']['output']>;
-};
-
-export type DenInput = {
-  carNumberRangeEnd?: InputMaybe<Scalars['Int']['input']>;
-  carNumberRangeStart?: InputMaybe<Scalars['Int']['input']>;
-  color?: Scalars['String']['input'];
-  name: Scalars['String']['input'];
-  rank?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type DenStat = {
-  avgScore?: Maybe<Scalars['Float']['output']>;
-  bestRacerName?: Maybe<Scalars['String']['output']>;
-  denColor: Scalars['String']['output'];
-  denId: Scalars['Int']['output'];
-  denName: Scalars['String']['output'];
-  racerCount: Scalars['Int']['output'];
 };
 
 export type Display = {
@@ -148,12 +120,6 @@ export type FreeRaceLaneAssignment = {
 export type FreeRaceLaneAssignmentInput = {
   lane: Scalars['Int']['input'];
   racerId?: InputMaybe<Scalars['Int']['input']>;
-};
-
-export type Group = {
-  id: Scalars['Int']['output'];
-  name: Scalars['String']['output'];
-  races: Array<Race>;
 };
 
 export type Heat = {
@@ -254,8 +220,8 @@ export type InitialConfigInput = {
   checkinPin?: InputMaybe<Scalars['String']['input']>;
   debugMode?: Scalars['Boolean']['input'];
   displayTheme?: InputMaybe<Scalars['String']['input']>;
-  groupName: Scalars['String']['input'];
   operatorPin?: InputMaybe<Scalars['String']['input']>;
+  organizationName: Scalars['String']['input'];
   printablesTheme?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
 };
@@ -266,9 +232,9 @@ export type InitialConfigStatus = {
   debugMode: Scalars['Boolean']['output'];
   demoMode: Scalars['Boolean']['output'];
   displayTheme: Scalars['String']['output'];
-  groupName?: Maybe<Scalars['String']['output']>;
   initialized: Scalars['Boolean']['output'];
   isOperator: Scalars['Boolean']['output'];
+  organizationName?: Maybe<Scalars['String']['output']>;
   pinRequired: Scalars['Boolean']['output'];
   printablesTheme: Scalars['String']['output'];
   tracks: Array<Track>;
@@ -291,14 +257,14 @@ export type LaneTimeStat = {
 
 export type LeaderboardEntry = {
   carNumber?: Maybe<Scalars['Int']['output']>;
-  denId?: Maybe<Scalars['Int']['output']>;
-  denName: Scalars['String']['output'];
-  denRank?: Maybe<Scalars['String']['output']>;
   firstName: Scalars['String']['output'];
   heatsCompleted: Scalars['Int']['output'];
   lastName: Scalars['String']['output'];
   racerId: Scalars['Int']['output'];
   racerImageUrl?: Maybe<Scalars['String']['output']>;
+  racingGroupId?: Maybe<Scalars['Int']['output']>;
+  racingGroupName: Scalars['String']['output'];
+  racingGroupRank?: Maybe<Scalars['String']['output']>;
   rank: Scalars['Int']['output'];
   score: Scalars['Float']['output'];
 };
@@ -323,25 +289,25 @@ export type Mutation = {
   bulkCheckIn: Scalars['Boolean']['output'];
   bulkClearNumbers: Scalars['Boolean']['output'];
   bulkDeleteRacers: Scalars['Boolean']['output'];
-  bulkMoveToDen: Scalars['Boolean']['output'];
+  bulkMoveToRacingGroup: Scalars['Boolean']['output'];
   castVote?: Maybe<Scalars['String']['output']>;
   checkInRacer?: Maybe<Racer>;
   createAward: Award;
-  createDen: Den;
   createInitialConfig: InitialConfigStatus;
   createPracticeRace: Race;
   createRace: Race;
   createRacer: Racer;
+  createRacingGroup: RacingGroup;
   createRound: Array<Round>;
   createRoundWizard: Array<Round>;
   createTrack: Track;
   createTrackRecord: HistoricalTrackRecord;
   deleteAward: Scalars['Boolean']['output'];
-  deleteDen: Scalars['Boolean']['output'];
   deleteFreeRaceHeat: Scalars['Boolean']['output'];
   deleteHeat: Scalars['Boolean']['output'];
   deleteRace: Scalars['Boolean']['output'];
   deleteRacer: Scalars['Boolean']['output'];
+  deleteRacingGroup: Scalars['Boolean']['output'];
   deleteRound: Scalars['Boolean']['output'];
   deleteTrack: Scalars['Boolean']['output'];
   deleteTrackRecord: Scalars['Boolean']['output'];
@@ -365,11 +331,11 @@ export type Mutation = {
   startFreeRaceHeat: FreeRaceHeat;
   startTimerTest: Scalars['Boolean']['output'];
   updateAward?: Maybe<Award>;
-  updateDen?: Maybe<Den>;
   updateHeatResult?: Maybe<Heat>;
   updateInitialConfig: InitialConfigStatus;
   updateRace?: Maybe<Race>;
   updateRacer?: Maybe<Racer>;
+  updateRacingGroup?: Maybe<RacingGroup>;
   updateTrack?: Maybe<Track>;
   updateTrackRecord: HistoricalTrackRecord;
   uploadImage: Scalars['String']['output'];
@@ -426,9 +392,9 @@ export type MutationBulkDeleteRacersArgs = {
 };
 
 
-export type MutationBulkMoveToDenArgs = {
-  denId?: InputMaybe<Scalars['Int']['input']>;
+export type MutationBulkMoveToRacingGroupArgs = {
   racerIds: Array<Scalars['Int']['input']>;
+  racingGroupId?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
@@ -454,12 +420,6 @@ export type MutationCreateAwardArgs = {
 };
 
 
-export type MutationCreateDenArgs = {
-  den: DenInput;
-  raceId: Scalars['Int']['input'];
-};
-
-
 export type MutationCreateInitialConfigArgs = {
   config: InitialConfigInput;
 };
@@ -472,6 +432,12 @@ export type MutationCreateRaceArgs = {
 
 export type MutationCreateRacerArgs = {
   racer: RacerInput;
+};
+
+
+export type MutationCreateRacingGroupArgs = {
+  raceId: Scalars['Int']['input'];
+  racingGroup: RacingGroupInput;
 };
 
 
@@ -503,11 +469,6 @@ export type MutationDeleteAwardArgs = {
 };
 
 
-export type MutationDeleteDenArgs = {
-  id: Scalars['Int']['input'];
-};
-
-
 export type MutationDeleteFreeRaceHeatArgs = {
   heatId: Scalars['Int']['input'];
 };
@@ -524,6 +485,11 @@ export type MutationDeleteRaceArgs = {
 
 
 export type MutationDeleteRacerArgs = {
+  id: Scalars['Int']['input'];
+};
+
+
+export type MutationDeleteRacingGroupArgs = {
   id: Scalars['Int']['input'];
 };
 
@@ -654,12 +620,6 @@ export type MutationUpdateAwardArgs = {
 };
 
 
-export type MutationUpdateDenArgs = {
-  den: DenInput;
-  id: Scalars['Int']['input'];
-};
-
-
 export type MutationUpdateHeatResultArgs = {
   heatId: Scalars['Int']['input'];
   lanes: Array<HeatLaneInput>;
@@ -683,6 +643,12 @@ export type MutationUpdateRacerArgs = {
 };
 
 
+export type MutationUpdateRacingGroupArgs = {
+  id: Scalars['Int']['input'];
+  racingGroup: RacingGroupInput;
+};
+
+
 export type MutationUpdateTrackArgs = {
   id: Scalars['Int']['input'];
   track: TrackInput;
@@ -699,6 +665,12 @@ export type MutationUploadImageArgs = {
   dataUrl: Scalars['String']['input'];
 };
 
+export type Organization = {
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  races: Array<Race>;
+};
+
 export type PhotoAssignmentInput = {
   photoType: Scalars['String']['input'];
   racerId: Scalars['Int']['input'];
@@ -708,7 +680,7 @@ export type PhotoAssignmentInput = {
 export type PopulateTestDataInput = {
   addCarPhotos?: Scalars['Boolean']['input'];
   addRacerPhotos?: Scalars['Boolean']['input'];
-  assignDens?: Scalars['Boolean']['input'];
+  assignRacingGroups?: Scalars['Boolean']['input'];
   checkIn?: Scalars['Boolean']['input'];
   count?: Scalars['Int']['input'];
 };
@@ -719,10 +691,10 @@ export type Query = {
   auditLog: Array<AuditLogEntry>;
   displays: Array<Display>;
   freeRaceHeats: Array<FreeRaceHeat>;
-  groups: Array<Group>;
   heatSession: HeatSession;
   initialConfig: InitialConfigStatus;
   networkAddresses: Array<Scalars['String']['output']>;
+  organizations: Array<Organization>;
   race?: Maybe<Race>;
   raceStats?: Maybe<RaceStats>;
   racer?: Maybe<Racer>;
@@ -823,16 +795,16 @@ export type Race = {
   championshipTrophies: Scalars['Int']['output'];
   checkedInCount: Scalars['Int']['output'];
   dateTime?: Maybe<Scalars['String']['output']>;
-  dens: Array<Den>;
   globalStartNumber: Scalars['Int']['output'];
-  group: Group;
-  groupId: Scalars['Int']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
   leaderboard: Array<LeaderboardEntry>;
   location?: Maybe<Scalars['String']['output']>;
   name: Scalars['String']['output'];
+  organization: Organization;
+  organizationId: Scalars['Int']['output'];
   racers: Array<Racer>;
+  racingGroups: Array<RacingGroup>;
   registeredCount: Scalars['Int']['output'];
   rounds: Array<Round>;
   scheduledRacerIds: Array<Scalars['Int']['output']>;
@@ -862,9 +834,9 @@ export type RaceInput = {
   championshipTrophies?: Scalars['Int']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
   globalStartNumber?: Scalars['Int']['input'];
-  groupId?: Scalars['Int']['input'];
   location?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
+  organizationId?: Scalars['Int']['input'];
   scoringStrategy?: Scalars['String']['input'];
   trackId: Scalars['Int']['input'];
   weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
@@ -880,13 +852,13 @@ export type RaceStateChangedEvent = {
 };
 
 export type RaceStats = {
-  denStats: Array<DenStat>;
   heatResults: Array<HeatResultRow>;
   highlights: Array<HeatHighlight>;
   laneStats: Array<LaneTimeStat>;
   raceId: Scalars['Int']['output'];
   raceName: Scalars['String']['output'];
   racerStats: Array<RacerStat>;
+  racingGroupStats: Array<RacingGroupStat>;
   scoringStrategy: Scalars['String']['output'];
   totalHeatsCompleted: Scalars['Int']['output'];
   totalHeatsScheduled: Scalars['Int']['output'];
@@ -915,13 +887,13 @@ export type Racer = {
   carNumber?: Maybe<Scalars['Int']['output']>;
   carPassedInspection: Scalars['Boolean']['output'];
   carWeight?: Maybe<Scalars['Float']['output']>;
-  den?: Maybe<Den>;
-  denId?: Maybe<Scalars['Int']['output']>;
   firstName: Scalars['String']['output'];
   id: Scalars['Int']['output'];
   lastName: Scalars['String']['output'];
   raceId: Scalars['Int']['output'];
   racerImageUrl?: Maybe<Scalars['String']['output']>;
+  racingGroup?: Maybe<RacingGroup>;
+  racingGroupId?: Maybe<Scalars['Int']['output']>;
 };
 
 export type RacerInput = {
@@ -930,16 +902,15 @@ export type RacerInput = {
   carNumber?: InputMaybe<Scalars['Int']['input']>;
   carPassedInspection?: Scalars['Boolean']['input'];
   carWeight?: InputMaybe<Scalars['Float']['input']>;
-  denId?: InputMaybe<Scalars['Int']['input']>;
   firstName: Scalars['String']['input'];
   lastName: Scalars['String']['input'];
   raceId?: InputMaybe<Scalars['Int']['input']>;
   racerImageUrl?: InputMaybe<Scalars['String']['input']>;
+  racingGroupId?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type RacerStat = {
   carNumber?: Maybe<Scalars['Int']['output']>;
-  denName: Scalars['String']['output'];
   firstName: Scalars['String']['output'];
   heatsCompleted: Scalars['Int']['output'];
   heatsScheduled: Scalars['Int']['output'];
@@ -948,8 +919,37 @@ export type RacerStat = {
   meanTime?: Maybe<Scalars['Float']['output']>;
   minTime?: Maybe<Scalars['Float']['output']>;
   racerId: Scalars['Int']['output'];
+  racingGroupName: Scalars['String']['output'];
   stdDev?: Maybe<Scalars['Float']['output']>;
   timesPerLane: Array<TimesPerLane>;
+};
+
+export type RacingGroup = {
+  carNumberRangeEnd?: Maybe<Scalars['Int']['output']>;
+  carNumberRangeStart?: Maybe<Scalars['Int']['output']>;
+  color: Scalars['String']['output'];
+  id: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  raceId: Scalars['Int']['output'];
+  racers: Array<Racer>;
+  rank?: Maybe<Scalars['String']['output']>;
+};
+
+export type RacingGroupInput = {
+  carNumberRangeEnd?: InputMaybe<Scalars['Int']['input']>;
+  carNumberRangeStart?: InputMaybe<Scalars['Int']['input']>;
+  color?: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  rank?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type RacingGroupStat = {
+  avgScore?: Maybe<Scalars['Float']['output']>;
+  bestRacerName?: Maybe<Scalars['String']['output']>;
+  racerCount: Scalars['Int']['output'];
+  racingGroupColor: Scalars['String']['output'];
+  racingGroupId: Scalars['Int']['output'];
+  racingGroupName: Scalars['String']['output'];
 };
 
 export type Round = {

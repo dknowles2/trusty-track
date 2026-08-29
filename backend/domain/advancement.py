@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
-PACK = "PACK"
-DEN = "DEN"
+ALL = "ALL"
+EACH_GROUP = "EACH_GROUP"
 ROUND_PREFIX = "ROUND:"
 
 
@@ -31,7 +31,7 @@ class Standing:
     """
 
     racer_id: int
-    den_id: int | None = None
+    racing_group_id: int | None = None
     has_raced: bool = True
 
 
@@ -65,19 +65,19 @@ class AdvancementRule:
 
     ``source`` is one of:
 
-    ``"PACK"``
+    ``"ALL"``
         The top ``num_racers`` of the whole race.
-    ``"DEN"``
-        The top ``num_racers`` *from each den*, so the size of the field scales
-        with the number of dens.
+    ``"EACH_GROUP"``
+        The top ``num_racers`` *from each racing group*, so the size of the field
+        scales with the number of racing groups.
     ``"ROUND:<id>"``
         The top ``num_racers`` of one specific round's standings.
 
     ``from_bottom`` flips which end of those standings the field comes from —
-    a "Slowest Race" bracket. The source vocabulary is deliberately unchanged:
-    slowest-of-the-pack, slowest-per-den and slowest-of-a-round are all the
-    same standings read from the other end, so a second vocabulary would be a
-    second copy of this one.
+    a "Slowest Race" bracket. The source vocabulary is deliberately unchanged
+    by the flip: slowest-overall, slowest-per-racing-group and slowest-of-a-round
+    are all the same standings read from the other end, so a second vocabulary
+    would be a second copy of this one.
     """
 
     source: str
@@ -114,14 +114,15 @@ def _picking_order(
 def advancing_racer_ids(
     rule: AdvancementRule,
     standings: Sequence[Standing],
-    den_ids: Sequence[int] = (),
+    racing_group_ids: Sequence[int] = (),
 ) -> list[int]:
     """Pick the racers who advance, given standings already sorted best-first.
 
-    For ``DEN``, ``den_ids`` fixes the order dens are visited in, and therefore
-    the order of the returned list — which in turn decides which placeholder
-    slot each racer lands in. Racers with no den are not eligible under a
-    ``DEN`` rule; they have no den to be the top of.
+    For ``EACH_GROUP``, ``racing_group_ids`` fixes the order racing groups are
+    visited in, and therefore the order of the returned list — which in turn
+    decides which placeholder slot each racer lands in. Racers with no racing
+    group are not eligible under a ``EACH_GROUP`` rule; they have no racing
+    group to be the top of.
 
     A ``num_racers`` of ``None`` means no limit, so everyone advances. That is
     almost certainly not what anyone wants, but it is what the previous
@@ -138,14 +139,14 @@ def advancing_racer_ids(
             return []
         return [s.racer_id for s in ordered[: rule.num_racers]]
 
-    if rule.source == PACK:
+    if rule.source == ALL:
         return [s.racer_id for s in ordered[: rule.num_racers]]
 
-    if rule.source == DEN:
+    if rule.source == EACH_GROUP:
         advancing: list[int] = []
-        for den_id in den_ids:
-            in_den = [s for s in ordered if s.den_id == den_id]
-            advancing.extend(s.racer_id for s in in_den[: rule.num_racers])
+        for racing_group_id in racing_group_ids:
+            in_group = [s for s in ordered if s.racing_group_id == racing_group_id]
+            advancing.extend(s.racer_id for s in in_group[: rule.num_racers])
         return advancing
 
     return []
@@ -158,8 +159,8 @@ def should_populate(
 ) -> bool:
     """Whether a championship round can be filled in now.
 
-    A round-scoped rule fires when its source round is complete. ``PACK`` and
-    ``DEN`` rules read the standings across everything before them, so they
+    A round-scoped rule fires when its source round is complete. ``ALL`` and
+    ``EACH_GROUP`` rules read the standings across everything before them, so they
     wait until *every* earlier round is complete — otherwise the field would
     be picked from a partial leaderboard and then quietly change.
 
@@ -179,7 +180,7 @@ def should_populate(
     if rule.is_round_scoped:
         source_id = rule.source_round_id
         return source_id is not None and source_round_complete(source_id)
-    if rule.source in (PACK, DEN):
+    if rule.source in (ALL, EACH_GROUP):
         return prior_rounds_complete()
     return False
 
@@ -241,29 +242,31 @@ def may_rebuild(heats_lanes: Iterable[Sequence]) -> bool:
     return not any(lanes_module.has_results(lanes) for lanes in heats_lanes)
 
 
-def field_size(rule: AdvancementRule, den_count: int) -> int:
+def field_size(rule: AdvancementRule, racing_group_count: int) -> int:
     """How many slots a round drawing on this rule needs.
 
-    Issue #52. ``num_racers`` is per *den* when the source is ``DEN`` and
-    absolute otherwise, which is the sort of detail that gets copied correctly
-    once and then not. It was in four places: right in ``createRoundWizard``,
-    right in ``revert_round_to_placeholders`` (which nothing called), and wrong
-    in both ``createRound`` and ``invalidate_future_rounds`` — so recording any
-    preliminary heat shrank a DEN final to a fraction of its field and dropped
-    racers who had qualified for it.
+    Issue #52. ``num_racers`` is per *racing group* when the source is
+    ``EACH_GROUP`` and absolute otherwise, which is the sort of detail that
+    gets copied correctly once and then not. It was in four places: right in
+    ``createRoundWizard``, right in ``revert_round_to_placeholders`` (which
+    nothing called), and wrong in both ``createRound`` and
+    ``invalidate_future_rounds`` — so recording any preliminary heat shrank a
+    EACH_GROUP final to a fraction of its field and dropped racers who had
+    qualified for it.
 
-    ``den_count`` is only read for ``DEN``; callers may pass 0 otherwise.
+    ``racing_group_count`` is only read for ``EACH_GROUP``; callers may pass 0
+    otherwise.
     """
     num_racers = rule.num_racers or 0
-    return num_racers * den_count if rule.source == DEN else num_racers
+    return num_racers * racing_group_count if rule.source == EACH_GROUP else num_racers
 
 
 def placeholder_slots(heats_lanes: Iterable[Sequence]) -> set[int]:
     """Every distinct placeholder slot the round is still holding open.
 
     Counted from the heats rather than from ``advancement_num_racers``, because
-    the two disagree for a ``DEN`` round — that one has ``num_racers`` slots
-    *per den* — and what matters here is what was actually generated.
+    the two disagree for a ``EACH_GROUP`` round — that one has ``num_racers`` slots
+    *per racing group* — and what matters here is what was actually generated.
     """
     return {
         lane.placeholder_slot
@@ -282,7 +285,7 @@ def scheduled_participant_count(heats_lanes: Iterable[Sequence]) -> int:
 
     Counted from the heats rather than from ``Round.total_participants``,
     which is the round's *requested* field size. The two disagree whenever
-    the field came up short of the request (#48) — a den of three answering
+    the field came up short of the request (#48) — a racing group of three answering
     a request for four — and dividing by the request instead of the actual
     field is how a short-field multi-run final collapsed to one run on the
     very next prelim correction (#311): the heats held three participants
@@ -306,7 +309,7 @@ def field_is_short(heats_lanes: Iterable[Sequence], advancing_count: int) -> boo
     """Fewer racers qualified than the round was built to hold.
 
     Issue #48. ``advancement_num_racers`` is a *request* — "top four" — but a
-    den with three racers in it can only ever supply three. The round's heats
+    racing group with three racers in it can only ever supply three. The round's heats
     are generated from the request, before anyone has qualified, so the surplus
     slots are placeholders that no advancement will ever fill.
 

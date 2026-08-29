@@ -9,7 +9,7 @@ from backend.tests.helpers import as_lanes, lane_dicts
 def test_championship_rounds_populate_sequentially(db: Session):
     # 1. Setup Race and Config
     config = schemas.InitialConfigCreate(
-        group_name="Progression Test Group",
+        organization_name="Progression Test Organization",
         tracks=[
             schemas.TrackCreate(
                 name="Progressive Track",
@@ -22,10 +22,10 @@ def test_championship_rounds_populate_sequentially(db: Session):
     crud.create_initial_config(db, config)
 
     # Create the race explicitly
-    group = db.query(models.Group).first()
+    group = db.query(models.Organization).first()
     track = db.query(models.Track).first()
     race_in = schemas.RaceCreate(
-        name="Progression Test Race", group_id=group.id, track_id=track.id
+        name="Progression Test Race", organization_id=group.id, track_id=track.id
     )
     crud.create_race(db, race_in)
 
@@ -61,7 +61,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
         2,
         models.SchedulingStrategy.PPC,
         "Semifinals",
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=8,
     )
     # Populate with placeholders
@@ -74,7 +74,7 @@ def test_championship_rounds_populate_sequentially(db: Session):
         3,
         models.SchedulingStrategy.PPC,
         "Finals",
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=4,
     )
     # Populate with placeholders

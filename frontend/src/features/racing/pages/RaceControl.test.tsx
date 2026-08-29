@@ -90,7 +90,7 @@ describe('RaceControl Page', () => {
                 laneCount: 4,
                 timerType: 'FAKE'
             },
-            dens: [],
+            racingGroups: [],
             racers: [
                 { id: 101, firstName: 'A', lastName: 'B', carNumber: 101 },
                 { id: 102, firstName: 'C', lastName: 'D', carNumber: 102 }
@@ -171,7 +171,7 @@ describe('RaceControl Page', () => {
         isReady: true,
         requiresAdvancement: true,
         alreadyAdvanced: true,
-        source: 'PACK',
+        source: 'ALL',
         numRacers: 3,
         advancingRacers: [],
         ...over,
@@ -188,7 +188,7 @@ describe('RaceControl Page', () => {
     it('raises no summary for a schedule that has not been raced', async () => {
         withRounds([
             { id: 1, roundNumber: 1, name: 'Qualifying', advancementSource: null, advancementStatus: advancementStatus() },
-            { id: 2, roundNumber: 2, name: 'Grand Finals', advancementSource: 'PACK', advancementStatus: advancementStatus({ alreadyAdvanced: false }) },
+            { id: 2, roundNumber: 2, name: 'Grand Finals', advancementSource: 'ALL', advancementStatus: advancementStatus({ alreadyAdvanced: false }) },
         ]);
 
         render(

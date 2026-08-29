@@ -67,7 +67,7 @@ def test_a_heat_lane_cannot_name_a_racer_who_does_not_exist(db):
     hand-walk the blob today. That clause is a no-op while enforcement is off,
     which is why this had to land first.
     """
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Track", lane_count=2, timer_type="FAKE")
     )
@@ -75,7 +75,7 @@ def test_a_heat_lane_cannot_name_a_racer_who_does_not_exist(db):
         db,
         schemas.RaceCreate(
             name="Derby",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),
@@ -99,7 +99,7 @@ def test_a_race_cannot_name_a_group_that_does_not_exist(db):
     db.add(
         models.Race(
             name="Orphan",
-            group_id=99999,
+            organization_id=99999,
             car_numbering_strategy=models.CarNumberingStrategy.MANUAL,
         )
     )
@@ -124,7 +124,7 @@ def test_a_fresh_database_enforces_too(tmp_path):
         session.add(
             models.Race(
                 name="Orphan",
-                group_id=99999,
+                organization_id=99999,
                 car_numbering_strategy=models.CarNumberingStrategy.MANUAL,
             )
         )

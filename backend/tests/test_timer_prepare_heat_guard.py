@@ -45,7 +45,7 @@ def registered_manager():
 
 
 def _race(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Guard Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Guard Pack"))
     track = crud.create_track(
         db,
         schemas.TrackCreate(name="Guard Track", lane_count=2, timer_type="FAKE"),
@@ -54,7 +54,7 @@ def _race(db):
         db,
         schemas.RaceCreate(
             name="Guard Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),

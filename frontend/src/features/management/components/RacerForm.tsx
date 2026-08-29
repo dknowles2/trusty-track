@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import CameraCapture from '../../../components/ui/CameraCapture';
 import { useQuery, useMutation } from 'urql';
-import { GET_RACE_DENS, UPLOAD_IMAGE } from '../graphql/queries';
+import { GET_RACE_RACING_GROUPS, UPLOAD_IMAGE } from '../graphql/queries';
 import { carryOver } from '../racerEntry';
 import { weightNotice, weightVerdict } from '../weightCheck';
 import { useAlert } from '../../../context/AlertContext';
@@ -10,7 +10,7 @@ export interface RacerData {
   first_name: string;
   last_name: string;
   car_number?: number;
-  den_id?: number;
+  racing_group_id?: number;
   car_name?: string;
   car_passed_inspection: boolean;
   car_weight?: number;
@@ -18,7 +18,7 @@ export interface RacerData {
   car_image_url?: string;
 }
 
-export interface Den {
+export interface RacingGroup {
     id: number;
     name: string;
     color: string;
@@ -53,20 +53,20 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     first_name: '',
     last_name: '',
     car_number: undefined,
-    den_id: undefined,
+    racing_group_id: undefined,
     car_passed_inspection: false,
     car_weight: undefined,
     car_name: ''
   });
 
-  // Use GraphQL to fetch dens
-  const [densResult] = useQuery({
-      query: GET_RACE_DENS,
+  // Use GraphQL to fetch racingGroups
+  const [racingGroupsResult] = useQuery({
+      query: GET_RACE_RACING_GROUPS,
       variables: { raceId: raceId || 0 },
       pause: !raceId
   });
 
-  const dens: Den[] = densResult.data?.race?.dens || [];
+  const racingGroups: RacingGroup[] = racingGroupsResult.data?.race?.racingGroups || [];
 
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
@@ -90,7 +90,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked :
-               name === 'car_number' || name === 'den_id' ? parseInt(value) || undefined :
+               name === 'car_number' || name === 'racing_group_id' ? parseInt(value) || undefined :
                name === 'car_weight' ? parseFloat(value) || undefined : value
     }));
   };
@@ -125,7 +125,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     }
   };
 
-  // Save, then hand the form back empty but for the den (#202). The reset only
+  // Save, then hand the form back empty but for the racingGroup (#202). The reset only
   // happens on success: throwing away what the operator typed because the save
   // failed is how sixty entries become sixty-one.
   const handleSubmitAndContinue = async () => {
@@ -230,17 +230,17 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
         </div>
 
         <div style={{ marginBottom: '10px' }}>
-             <label htmlFor="racer-den" style={{ display: 'block', marginBottom: '5px' }}>Den</label>
+             <label htmlFor="racer-racing-group" style={{ display: 'block', marginBottom: '5px' }}>Racing Group</label>
              <select
-               name="den_id"
-                   id="racer-den"
-               value={formData.den_id || ''}
+               name="racing_group_id"
+                   id="racer-racing-group"
+               value={formData.racing_group_id || ''}
                onChange={handleChange}
                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
              >
-                <option value="">Select a Den...</option>
-                {dens.map((den: Den) => (
-                    <option key={den.id} value={den.id}>{den.name}</option>
+                <option value="">Select a Racing Group...</option>
+                {racingGroups.map((racingGroup: RacingGroup) => (
+                    <option key={racingGroup.id} value={racingGroup.id}>{racingGroup.name}</option>
                 ))}
              </select>
         </div>

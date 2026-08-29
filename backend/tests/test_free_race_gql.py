@@ -14,11 +14,13 @@ client = TestClient(app)
 
 def _create_race_with_track(db: Session) -> tuple[int, int]:
     """Returns (race_id, track_id)."""
-    db.query(models.Group).delete()
+    db.query(models.Organization).delete()
     db.query(models.Track).delete()
     db.commit()
 
-    group = crud.create_group(db, schemas.GroupCreate(name="GQL Test Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="GQL Test Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="GQL Track", lane_count=4, timer_type="FAKE")
     )
@@ -26,7 +28,7 @@ def _create_race_with_track(db: Session) -> tuple[int, int]:
         db,
         schemas.RaceCreate(
             name="GQL Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",
@@ -380,12 +382,14 @@ def test_prepare_heat_is_free_race_flag(db: Session):
     )
     track_id = track_resp.json()["data"]["createTrack"]["id"]
 
-    group = crud.create_group(db, schemas.GroupCreate(name="Test Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Test Organization")
+    )
     race = crud.create_race(
         db,
         schemas.RaceCreate(
             name="Test Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track_id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",
@@ -462,12 +466,14 @@ def test_prepare_heat_anonymous_free_heat_arms_only_the_lanes_it_holds(db: Sessi
     track_id = track_resp.json()["data"]["createTrack"]["id"]
     crud.set_lane_outages(db, track_id, [3])
 
-    group = crud.create_group(db, schemas.GroupCreate(name="Outage Prepare Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Outage Prepare Organization")
+    )
     race = crud.create_race(
         db,
         schemas.RaceCreate(
             name="Outage Prepare Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track_id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",
@@ -523,12 +529,14 @@ def test_prepare_heat_anonymous_free_heat_with_no_stored_lanes_falls_back_to_usa
     track_id = track_resp.json()["data"]["createTrack"]["id"]
     crud.set_lane_outages(db, track_id, [3])
 
-    group = crud.create_group(db, schemas.GroupCreate(name="Outage Empty Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Outage Empty Organization")
+    )
     race = crud.create_race(
         db,
         schemas.RaceCreate(
             name="Outage Empty Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track_id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",
@@ -582,12 +590,14 @@ def test_fake_timer_finish_anonymous_free_heat_respects_lane_outages(
     track_id = track_resp.json()["data"]["createTrack"]["id"]
     crud.set_lane_outages(db, track_id, [3])
 
-    group = crud.create_group(db, schemas.GroupCreate(name="Outage Finish Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Outage Finish Organization")
+    )
     race = crud.create_race(
         db,
         schemas.RaceCreate(
             name="Outage Finish Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track_id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",

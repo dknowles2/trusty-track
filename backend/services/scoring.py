@@ -107,9 +107,9 @@ class _LeaderboardRow(TypedDict):
     first_name: str
     last_name: str
     car_number: int | None
-    den_id: int | None
-    den_name: str
-    den_rank: str | None
+    racing_group_id: int | None
+    racing_group_name: str
+    racing_group_rank: str | None
     score: float
     heats_completed: int
     racer_image_url: str | None
@@ -155,9 +155,11 @@ def get_leaderboard(
     racer_scores = calculate_racer_scores(db, race_id, round_id=round_id, scope=scope)
 
     racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
-    den_map = {
+    racing_group_map = {
         d.id: d
-        for d in db.query(models.Den).filter(models.Den.race_id == race_id).all()
+        for d in db.query(models.RacingGroup)
+        .filter(models.RacingGroup.race_id == race_id)
+        .all()
     }
 
     leaderboard: list[LeaderboardEntry] = []
@@ -167,7 +169,11 @@ def get_leaderboard(
         if not racer:
             continue
 
-        den = den_map.get(racer.den_id) if racer.den_id else None
+        racing_group = (
+            racing_group_map.get(racer.racing_group_id)
+            if racer.racing_group_id
+            else None
+        )
 
         leaderboard.append(
             LeaderboardEntry(
@@ -175,9 +181,11 @@ def get_leaderboard(
                 first_name=racer.first_name,
                 last_name=racer.last_name,
                 car_number=racer.car_number,
-                den_id=racer.den_id,
-                den_name=den.name if den else "Unknown",
-                den_rank=den.rank.value if den and den.rank else None,
+                racing_group_id=racer.racing_group_id,
+                racing_group_name=racing_group.name if racing_group else "Unknown",
+                racing_group_rank=racing_group.rank.value
+                if racing_group and racing_group.rank
+                else None,
                 score=score_data["score"],
                 heats_completed=int(score_data["heats_completed"]),
                 racer_image_url=racer.racer_image_url,
@@ -222,7 +230,7 @@ def _elimination_leaderboard(
     heats = crud.get_heats(db, race_id, round_id=round_obj.id)
     parsed = crud.lanes_for_heats(db, heats)
     threshold = round_obj.elimination_losses or 1
-    eligible = set(crud.eligible_racer_ids(db, race_id, round_obj.den_id))
+    eligible = set(crud.eligible_racer_ids(db, race_id, round_obj.racing_group_id))
     entries = [
         entry
         for entry in domain_elimination.standings(parsed, threshold)
@@ -239,9 +247,11 @@ def _elimination_leaderboard(
                 completed[racer_id] = completed.get(racer_id, 0) + 1
 
     racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
-    den_map = {
+    racing_group_map = {
         d.id: d
-        for d in db.query(models.Den).filter(models.Den.race_id == race_id).all()
+        for d in db.query(models.RacingGroup)
+        .filter(models.RacingGroup.race_id == race_id)
+        .all()
     }
 
     leaderboard: list[LeaderboardEntry] = []
@@ -250,7 +260,11 @@ def _elimination_leaderboard(
         racer = racer_map.get(entry.racer_id)
         if not racer:
             continue
-        den = den_map.get(racer.den_id) if racer.den_id else None
+        racing_group = (
+            racing_group_map.get(racer.racing_group_id)
+            if racer.racing_group_id
+            else None
+        )
         key = (entry.alive, entry.losses, entry.out_after)
         rank = (
             leaderboard[-1]["rank"]
@@ -264,9 +278,11 @@ def _elimination_leaderboard(
                 first_name=racer.first_name,
                 last_name=racer.last_name,
                 car_number=racer.car_number,
-                den_id=racer.den_id,
-                den_name=den.name if den else "Unknown",
-                den_rank=den.rank.value if den and den.rank else None,
+                racing_group_id=racer.racing_group_id,
+                racing_group_name=racing_group.name if racing_group else "Unknown",
+                racing_group_rank=racing_group.rank.value
+                if racing_group and racing_group.rank
+                else None,
                 score=float(entry.losses),
                 heats_completed=completed.get(entry.racer_id, 0),
                 racer_image_url=racer.racer_image_url,
@@ -279,7 +295,7 @@ def _elimination_leaderboard(
 def _standings_for(db: Session, race_id: int, rule) -> list[LeaderboardEntry]:
     """The leaderboard a rule should be evaluated against.
 
-    ``PACK`` and ``DEN`` read the default prelim-scoped standings, which is what
+    ``ALL`` and ``EACH_GROUP`` read the default prelim-scoped standings, which is what
     breaks the feedback loop #17 describes: before this, a championship result
     fed back into the leaderboard that had chosen the championship field, so
     recording a final-round time could change who was supposed to be in the
@@ -303,7 +319,7 @@ def get_advancing_racers(
 ) -> list[int]:
     """Racer ids that should advance into a championship round, in rank order.
 
-    ``source`` is ``"PACK"``, ``"DEN"``, or ``"ROUND:<id>"``; see
+    ``source`` is ``"ALL"``, ``"EACH_GROUP"``, or ``"ROUND:<id>"``; see
     :class:`backend.domain.advancement.AdvancementRule`. With ``from_bottom``
     the same standings are read from the other end — a Slowest Race bracket —
     and racers with no recorded result are excluded, slowest first in the
@@ -329,25 +345,26 @@ def get_advancing_racers(
     standings = [
         domain_advancement.Standing(
             racer_id=e["racer_id"],
-            den_id=e["den_id"],
+            racing_group_id=e["racing_group_id"],
             has_raced=e["heats_completed"] > 0,
         )
         for e in entries
         if e["racer_id"] in checked_in
     ]
 
-    den_ids: list[int] = []
-    if rule.source == domain_advancement.DEN:
-        # Ordered (#316): den order decides which placeholder slot each den's
-        # qualifiers land in, so an unordered query is the #240 failure mode
+    racing_group_ids: list[int] = []
+    if rule.source == domain_advancement.EACH_GROUP:
+        # Ordered (#316): racing group order decides which placeholder slot
+        # each racing group's qualifiers land in, so an unordered query is
+        # the #240 failure mode
         # on the advancement path — same seed, different field, on a plan
         # change SQLite gives no warning before making.
-        den_ids = [
+        racing_group_ids = [
             d.id
-            for d in db.query(models.Den)
-            .filter(models.Den.race_id == race_id)
-            .order_by(models.Den.id)
+            for d in db.query(models.RacingGroup)
+            .filter(models.RacingGroup.race_id == race_id)
+            .order_by(models.RacingGroup.id)
             .all()
         ]
 
-    return domain_advancement.advancing_racer_ids(rule, standings, den_ids)
+    return domain_advancement.advancing_racer_ids(rule, standings, racing_group_ids)

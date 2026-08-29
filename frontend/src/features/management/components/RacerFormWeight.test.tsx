@@ -15,7 +15,7 @@ import { AlertProvider } from '../../../context/AlertContext';
 
 beforeEach(() => {
     vi.mocked(useQuery).mockReturnValue([
-        { data: { race: { dens: [] } }, fetching: false, stale: false },
+        { data: { race: { racingGroups: [] } }, fetching: false, stale: false },
         vi.fn(),
     ] as never);
     vi.mocked(useMutation).mockReturnValue([{ fetching: false, stale: false }, vi.fn()] as never);

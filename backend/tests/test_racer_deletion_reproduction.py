@@ -8,14 +8,16 @@ from backend.tests.helpers import as_lanes, lane_dicts
 def _setup_race_with_heats(db, num_racers=3):
     """Setup a race with multiple racers and rounds."""
     suffix = str(uuid.uuid4())[:8]
-    group = crud.create_group(db, schemas.GroupCreate(name=f"Regen Group {suffix}"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"Regen Organization {suffix}")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name=f"Regen Track {suffix}", lane_count=4)
     )
     race = crud.create_race(
         db,
         schemas.RaceCreate(
-            name=f"Regen Race {suffix}", group_id=group.id, track_id=track.id
+            name=f"Regen Race {suffix}", organization_id=group.id, track_id=track.id
         ),
     )
 
@@ -178,14 +180,16 @@ def test_delete_racer_nullifies_free_heat(db):
 
 def _setup_unraced_round(db, num_racers=3, lane_count=4):
     suffix = str(uuid.uuid4())[:8]
-    group = crud.create_group(db, schemas.GroupCreate(name=f"Bulk Group {suffix}"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"Bulk Organization {suffix}")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name=f"Bulk Track {suffix}", lane_count=lane_count)
     )
     race = crud.create_race(
         db,
         schemas.RaceCreate(
-            name=f"Bulk Race {suffix}", group_id=group.id, track_id=track.id
+            name=f"Bulk Race {suffix}", organization_id=group.id, track_id=track.id
         ),
     )
     racers = []

@@ -30,11 +30,13 @@ def _full_results(db, heat_id: int, overrides_by_racer: dict[int, dict]) -> list
 
 
 def _setup_race(client, db):
-    """Create group, track, race, 2 dens, 4 racers.
+    """Create group, track, race, 2 racing_groups, 4 racers.
 
-    Returns (race_id, racer_ids, den_ids).
+    Returns (race_id, racer_ids, racing_group_ids).
     """
-    group = crud.create_group(db, schemas.GroupCreate(name="Stats Test Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Stats Test Organization")
+    )
     track = crud.create_track(db, schemas.TrackCreate(name="Stats Track", lane_count=4))
 
     resp = client.post(
@@ -44,7 +46,7 @@ def _setup_race(client, db):
             mutation {{
                 createRace(race: {{
                     name: "Stats Race",
-                    groupId: {group.id},
+                    organizationId: {group.id},
                     trackId: {track.id}
                 }}) {{ id }}
             }}
@@ -54,27 +56,27 @@ def _setup_race(client, db):
     assert resp.status_code == 200
     race_id = resp.json()["data"]["createRace"]["id"]
 
-    # Create 2 dens
-    den_ids = []
+    # Create 2 racing_groups
+    racing_group_ids = []
     for name, color in [("Lions", "#FF0000"), ("Tigers", "#00FF00")]:
         resp = client.post(
             "/graphql",
             json={
                 "query": f"""
                 mutation {{
-                    createDen(
+                    createRacingGroup(
                         raceId: {race_id},
-                        den: {{ name: "{name}", color: "{color}" }}
+                        racingGroup: {{ name: "{name}", color: "{color}" }}
                     ) {{ id }}
                 }}
                 """
             },
         )
-        den_ids.append(resp.json()["data"]["createDen"]["id"])
+        racing_group_ids.append(resp.json()["data"]["createRacingGroup"]["id"])
 
-    # Create 4 racers — 2 per den, all checked in
+    # Create 4 racers — 2 per racing group, all checked in
     racer_ids = []
-    for i, den_id in enumerate(den_ids * 2):
+    for i, racing_group_id in enumerate(racing_group_ids * 2):
         resp = client.post(
             "/graphql",
             json={
@@ -84,7 +86,7 @@ def _setup_race(client, db):
                         firstName: "Racer",
                         lastName: "{i + 1}",
                         raceId: {race_id},
-                        denId: {den_id},
+                        racingGroupId: {racing_group_id},
                         carNumber: {i + 1},
                         carPassedInspection: true
                     }}) {{ id }}
@@ -94,7 +96,7 @@ def _setup_race(client, db):
         )
         racer_ids.append(resp.json()["data"]["createRacer"]["id"])
 
-    return race_id, racer_ids, den_ids
+    return race_id, racer_ids, racing_group_ids
 
 
 def _create_round_and_get_heats(client, race_id):
@@ -105,7 +107,7 @@ def _create_round_and_get_heats(client, race_id):
             "query": f"""
             mutation {{
                 createRoundWizard(raceId: {race_id}, config: {{
-                    generalRound: {{ type: "PACK", runsPerLane: 1 }},
+                    generalRound: {{ type: "ALL", runsPerLane: 1 }},
                     championshipRounds: []
                 }}) {{ id }}
             }}
@@ -145,12 +147,14 @@ query GetRaceStats($raceId: Int!) {
     totalRacers
     laneStats { lane avgTime heatCount relativeAdvantagePct }
     racerStats {
-      racerId firstName lastName carNumber denName
+      racerId firstName lastName carNumber racingGroupName
       heatsCompleted heatsScheduled minTime maxTime meanTime stdDev
       timesPerLane { lane avgTime }
     }
     highlights { type roundName heatNumber racerName time margin }
-    denStats { denId denName denColor racerCount avgScore bestRacerName }
+    racingGroupStats {
+      racingGroupId racingGroupName racingGroupColor racerCount avgScore bestRacerName
+    }
     heatResults {
       roundName heatNumber lane carNumber racerFirstName racerLastName time place
     }
@@ -161,7 +165,7 @@ query GetRaceStats($raceId: Int!) {
 
 def test_race_stats_no_results(client, db):
     """raceStats returns zeros before any heats are completed."""
-    race_id, racer_ids, den_ids = _setup_race(client, db)
+    race_id, racer_ids, racing_group_ids = _setup_race(client, db)
     _create_round_and_get_heats(client, race_id)
 
     resp = client.post(
@@ -181,7 +185,7 @@ def test_race_stats_no_results(client, db):
 
 def test_race_stats_with_results(client, db):
     """raceStats returns correct values after recording heat results."""
-    race_id, racer_ids, den_ids = _setup_race(client, db)
+    race_id, racer_ids, racing_group_ids = _setup_race(client, db)
     heats = _create_round_and_get_heats(client, race_id)
     assert len(heats) > 0
 
@@ -239,13 +243,13 @@ def test_race_stats_with_results(client, db):
     # heatResults should have 4 rows
     assert len(data["heatResults"]) == 4
 
-    # denStats should have 2 dens
-    assert len(data["denStats"]) == 2
+    # racingGroupStats should have 2 racing_groups
+    assert len(data["racingGroupStats"]) == 2
 
 
 def test_race_stats_multiple_heats(client, db):
     """std_dev is computed correctly across 2+ heats."""
-    race_id, racer_ids, den_ids = _setup_race(client, db)
+    race_id, racer_ids, racing_group_ids = _setup_race(client, db)
     heats = _create_round_and_get_heats(client, race_id)
 
     # Record results in 2 heats for racer 0 (times: 3.0, 4.0 → mean 3.5, std_dev ~0.5)
@@ -283,7 +287,7 @@ def test_race_stats_unnamed_round_falls_back_to_round_number(client, db):
     per heat — is distinguishable from the fixed `f"Round {round_number}"`
     one, which is the same for every heat in the round.
     """
-    race_id, racer_ids, den_ids = _setup_race(client, db)
+    race_id, racer_ids, racing_group_ids = _setup_race(client, db)
 
     round_obj = crud.create_round(db, race_id=race_id, round_number=5)
     assert round_obj.name is None

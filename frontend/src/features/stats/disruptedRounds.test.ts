@@ -7,7 +7,7 @@ const disruptedFinal: RoundSummary = {
   id: 3,
   name: 'Finals',
   roundNumber: 2,
-  advancementSource: 'PACK',
+  advancementSource: 'ALL',
   disrupted: true,
 };
 

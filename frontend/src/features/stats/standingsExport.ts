@@ -17,7 +17,7 @@ export interface StandingsEntry {
     carNumber: number | null;
     firstName: string;
     lastName: string;
-    denName: string;
+    racingGroupName: string;
     score: number;
     heatsCompleted: number;
 }
@@ -47,7 +47,7 @@ export function standingsRows(
         'Car #',
         'First Name',
         'Last Name',
-        'Den',
+        'Racing Group',
         scoreHeading(scoringStrategy),
         'Heats',
     ];
@@ -58,7 +58,7 @@ export function standingsRows(
             entry.carNumber,
             entry.firstName,
             entry.lastName,
-            entry.denName,
+            entry.racingGroupName,
             scoreValue(entry.score, scoringStrategy),
             entry.heatsCompleted,
         ]),

@@ -30,14 +30,14 @@ def get_unique_name(prefix: str) -> str:
 
 def test_rerun_last_heat_clears_next_round(client, db):
     # 1. Setup Race
-    group_in = schemas.GroupCreate(name=get_unique_name("Rerun Group"))
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name=get_unique_name("Rerun Organization"))
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Rerun Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
     race_in = schemas.RaceCreate(
-        name=get_unique_name("Rerun Race"), group_id=group.id, track_id=track.id
+        name=get_unique_name("Rerun Race"), organization_id=group.id, track_id=track.id
     )
     race = crud.create_race(db, race_in)
     race_id = race.id
@@ -64,7 +64,7 @@ def test_rerun_last_heat_clears_next_round(client, db):
                     "name": "General",
                     "schedulingStrategy": "PPC",
                     "runsPerLane": 1,
-                    "generalType": "PACK",
+                    "generalType": "ALL",
                 },
             },
         },
@@ -84,7 +84,7 @@ def test_rerun_last_heat_clears_next_round(client, db):
                     "name": "Championship",
                     "schedulingStrategy": "PPC",
                     "runsPerLane": 1,
-                    "advancementSource": "PACK",
+                    "advancementSource": "ALL",
                     "advancementNumRacers": 2,
                 },
             },

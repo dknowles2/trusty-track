@@ -1,11 +1,11 @@
 import { getContrastColor } from '../../../utils/colors';
-import type { PrintableDen, PrintableRace, PrintableRacer } from '../documents';
+import type { PrintableRacingGroup, PrintableRace, PrintableRacer } from '../documents';
 import PrintPhoto from './PrintPhoto';
 
 interface Props {
     racer: PrintableRacer;
     race: PrintableRace;
-    den?: PrintableDen;
+    racingGroup?: PrintableRacingGroup;
 }
 
 /**
@@ -19,7 +19,7 @@ interface Props {
  * design — nothing in the app holds a signature, and a scout signing their own
  * licence at the check-in table is the point of it.
  */
-export default function DriversLicense({ racer, race, den }: Props) {
+export default function DriversLicense({ racer, race, racingGroup }: Props) {
     return (
         <div className="print-card drivers-license">
             <div className="print-card-header">
@@ -41,16 +41,16 @@ export default function DriversLicense({ racer, race, den }: Props) {
                         <div className="print-field-value">{racer.car_name || 'Unnamed'}</div>
                     </div>
 
-                    {den && (
+                    {racingGroup && (
                         <span
-                            className="print-den-chip"
+                            className="print-racing-group-chip"
                             style={{
-                                backgroundColor: den.color,
-                                color: getContrastColor(den.color),
+                                backgroundColor: racingGroup.color,
+                                color: getContrastColor(racingGroup.color),
                                 alignSelf: 'flex-start',
                             }}
                         >
-                            {den.name}
+                            {racingGroup.name}
                         </span>
                     )}
                 </div>

@@ -15,7 +15,7 @@ export const GET_RACE_DETAILS = gql`
       weightLimitOz
       registeredCount
       checkedInCount
-      dens {
+      racingGroups {
         id
         name
         color
@@ -28,7 +28,7 @@ export const GET_RACE_DETAILS = gql`
         firstName
         lastName
         carNumber
-        denId
+        racingGroupId
         carName
         carPassedInspection
         carWeight
@@ -40,7 +40,7 @@ export const GET_RACE_DETAILS = gql`
         firstName
         lastName
         carNumber
-        denName
+        racingGroupName
         score
         heatsCompleted
         racerImageUrl
@@ -63,11 +63,11 @@ export const GET_RACE_DETAILS = gql`
   }
 `;
 
-export const GET_RACE_DENS = gql`
-  query GetRaceDens($raceId: Int!) {
+export const GET_RACE_RACING_GROUPS = gql`
+  query GetRaceRacingGroups($raceId: Int!) {
     race(raceId: $raceId) {
       id
-      dens {
+      racingGroups {
         id
         name
         color
@@ -140,27 +140,27 @@ export const IMPORT_RACERS = gql`
   }
 `;
 
-export const CREATE_DEN = gql`
-  mutation CreateDen($raceId: Int!, $den: DenInput!) {
-    createDen(raceId: $raceId, den: $den) {
+export const CREATE_RACING_GROUP = gql`
+  mutation CreateRacingGroup($raceId: Int!, $racingGroup: RacingGroupInput!) {
+    createRacingGroup(raceId: $raceId, racingGroup: $racingGroup) {
       id
       name
     }
   }
 `;
 
-export const UPDATE_DEN = gql`
-  mutation UpdateDen($id: Int!, $den: DenInput!) {
-    updateDen(id: $id, den: $den) {
+export const UPDATE_RACING_GROUP = gql`
+  mutation UpdateRacingGroup($id: Int!, $racingGroup: RacingGroupInput!) {
+    updateRacingGroup(id: $id, racingGroup: $racingGroup) {
       id
       name
     }
   }
 `;
 
-export const DELETE_DEN = gql`
-  mutation DeleteDen($id: Int!) {
-    deleteDen(id: $id)
+export const DELETE_RACING_GROUP = gql`
+  mutation DeleteRacingGroup($id: Int!) {
+    deleteRacingGroup(id: $id)
   }
 `;
 
@@ -182,9 +182,9 @@ export const BULK_CHECK_IN = gql`
   }
 `;
 
-export const BULK_MOVE_TO_DEN = gql`
-  mutation BulkMoveToDen($racerIds: [Int!]!, $denId: Int) {
-    bulkMoveToDen(racerIds: $racerIds, denId: $denId)
+export const BULK_MOVE_TO_RACING_GROUP = gql`
+  mutation BulkMoveToRacingGroup($racerIds: [Int!]!, $racingGroupId: Int) {
+    bulkMoveToRacingGroup(racerIds: $racerIds, racingGroupId: $racingGroupId)
   }
 `;
 
@@ -224,7 +224,7 @@ export const BULK_ASSIGN_PHOTOS = gql`
  * A whole event on a fake timer, ready to run (#201).
  *
  * One mutation rather than the five round trips a client would need — race,
- * dens, roster, check-in, rounds — because a rehearsal that fails half way
+ * racingGroups, roster, check-in, rounds — because a rehearsal that fails half way
  * leaves the operator with a broken race to tidy up.
  */
 export const CREATE_PRACTICE_RACE = gql`

@@ -3,8 +3,8 @@ import { gql } from 'urql';
 /**
  * Everything the awards screen needs in one query.
  *
- * The rounds and dens come along because both are pickers on the form — a
- * speed award names a source and optionally a den — and asking for them
+ * The rounds and racingGroups come along because both are pickers on the form — a
+ * speed award names a source and optionally a racingGroup — and asking for them
  * separately would be two round trips to draw one page.
  */
 export const RACE_AWARDS_QUERY = gql`
@@ -24,10 +24,10 @@ export const RACE_AWARDS_QUERY = gql`
         source
         place
         fromBottom
-        denId
+        racingGroupId
         artworkKey
         votable
-        den {
+        racingGroup {
           id
           name
         }
@@ -53,7 +53,7 @@ export const RACE_AWARDS_QUERY = gql`
         name
         roundNumber
       }
-      dens {
+      racingGroups {
         id
         name
         color

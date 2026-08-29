@@ -19,7 +19,7 @@ from backend.tests.helpers import as_lanes
 
 
 def _seed(db, scoring_strategy=models.ScoringStrategy.TIMED):
-    group = crud.create_group(db, schemas.GroupCreate(name="Scope Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Scope Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Scope Track", lane_count=2, timer_type="FAKE")
     )
@@ -27,7 +27,7 @@ def _seed(db, scoring_strategy=models.ScoringStrategy.TIMED):
         db,
         schemas.RaceCreate(
             name="Scope Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy=scoring_strategy,
         ),
@@ -80,7 +80,7 @@ def _build_race_with_championship(db):
     _heat(db, race, prelim, [_lane(1, fast.id, 3.0, 1), _lane(2, slow.id, 4.0, 2)])
 
     champ = crud.create_round(db, race_id=race.id, round_number=2)
-    champ.advancement_source = "PACK"
+    champ.advancement_source = "ALL"
     champ.advancement_num_racers = 2
     db.commit()
 
@@ -131,18 +131,18 @@ def test_a_single_round_is_still_scoped_to_that_round(db):
 def test_advancement_is_decided_on_prelims_alone(db):
     """The feedback loop, closed.
 
-    `PACK` advancement reads the standings. If championship results counted, a
+    `ALL` advancement reads the standings. If championship results counted, a
     final-round time would change who was supposed to be *in* the final — and
     advancement is re-run on every recorded result.
     """
     race, fast, slow, _prelim, champ = _build_race_with_championship(db)
 
-    before = scoring.get_advancing_racers(db, race.id, "PACK", 1)
+    before = scoring.get_advancing_racers(db, race.id, "ALL", 1)
     assert before == [fast.id]
 
     _heat(db, race, champ, [_lane(1, fast.id, 9.0, 2), _lane(2, slow.id, 2.0, 1)])
 
-    after = scoring.get_advancing_racers(db, race.id, "PACK", 1)
+    after = scoring.get_advancing_racers(db, race.id, "ALL", 1)
     assert after == [fast.id], (
         "who advances must not depend on results from the round they advance into"
     )
@@ -161,7 +161,7 @@ def test_points_scoring_is_scoped_the_same_way(db):
     _heat(db, race, prelim, [_lane(1, a.id, 3.0, 1), _lane(2, b.id, 4.0, 2)])
 
     champ = crud.create_round(db, race_id=race.id, round_number=2)
-    champ.advancement_source = "PACK"
+    champ.advancement_source = "ALL"
     champ.advancement_num_racers = 2
     db.commit()
     _heat(db, race, champ, [_lane(1, a.id, 3.0, 2), _lane(2, b.id, 4.0, 1)])
@@ -178,7 +178,7 @@ def test_a_race_with_no_prelim_rounds_falls_back_to_every_heat(db):
         db, schemas.RacerCreate(first_name="Only", last_name="One", race_id=race.id)
     )
     champ = crud.create_round(db, race_id=race.id, round_number=1)
-    champ.advancement_source = "PACK"
+    champ.advancement_source = "ALL"
     champ.advancement_num_racers = 1
     db.commit()
     _heat(db, race, champ, [_lane(1, racer.id, 3.5, 1)])

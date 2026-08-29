@@ -22,7 +22,7 @@ export interface ResultsEntry {
     firstName: string;
     lastName: string;
     carNumber?: number | null;
-    denName?: string | null;
+    racingGroupName?: string | null;
     score: number;
     heatsCompleted: number;
 }
@@ -41,17 +41,17 @@ export interface ResultsAward {
 
 export interface ResultRow {
     racerId: number;
-    /** Place within *this* section, which is not the pack rank in a den table. */
+    /** Place within *this* section, which is not the pack rank in a racingGroup table. */
     place: number;
     name: string;
     carNumber: string;
-    denName: string;
+    racingGroupName: string;
     score: string;
     heats: number;
 }
 
 export interface ResultsSection {
-    /** `PACK` for the overall table, or the den's name. */
+    /** `PACK` for the overall table, or the racingGroup's name. */
     title: string;
     rows: ResultRow[];
 }
@@ -66,8 +66,8 @@ export interface AwardLine {
 /** What an award with no recipient says. */
 export const UNDECIDED = 'Not awarded';
 
-/** A racer with no den still belongs in the overall table. */
-export const NO_DEN = 'No den';
+/** A racer with no racingGroup still belongs in the overall table. */
+export const NO_DEN = 'No racingGroup';
 
 export const OVERALL = 'Overall standings';
 
@@ -82,27 +82,27 @@ function rowsFrom(
     return entries.map((entry, index) => ({
         racerId: entry.racerId,
         // Numbered from 1 within the section rather than carrying the pack
-        // rank across. A den table headed 4, 9, 17 is a table of pack ranks,
-        // and the person reading it wants to know who won the den.
+        // rank across. A racingGroup table headed 4, 9, 17 is a table of pack ranks,
+        // and the person reading it wants to know who won the racingGroup.
         place: index + 1,
         name: nameOf(entry),
         carNumber: entry.carNumber == null ? '' : String(entry.carNumber),
-        denName: entry.denName || NO_DEN,
+        racingGroupName: entry.racingGroupName || NO_DEN,
         score: scoreValue(entry.score, scoringStrategy),
         heats: entry.heatsCompleted,
     }));
 }
 
 /**
- * The overall table and one per den.
+ * The overall table and one per racingGroup.
  *
- * **A den's table is the pack standings narrowed, not a separate scoring
- * pass.** That is the same rule a den-scoped award follows — "fastest Wolf" is
+ * **A racingGroup's table is the pack standings narrowed, not a separate scoring
+ * pass.** That is the same rule a racing-group-scoped award follows — "fastest Wolf" is
  * the pack standings with everybody else removed — so the sheet and the
- * trophies cannot disagree about who won a den.
+ * trophies cannot disagree about who won a racingGroup.
  *
- * Dens appear in the order their fastest racer does, which puts the winning
- * den first. Alphabetical would be arbitrary here; the sheet is about results.
+ * Racing groups appear in the order their fastest racer does, which puts the winning
+ * racingGroup first. Alphabetical would be arbitrary here; the sheet is about results.
  */
 export function resultsSections(
     standings: readonly ResultsEntry[],
@@ -114,21 +114,21 @@ export function resultsSections(
         { title: OVERALL, rows: rowsFrom(standings, scoringStrategy) },
     ];
 
-    const byDen = new Map<string, ResultsEntry[]>();
+    const byRacingGroup = new Map<string, ResultsEntry[]>();
     for (const entry of standings) {
-        // Racers in no den are deliberately left out of the per-den tables
-        // rather than gathered into one: "No den" is not a den anybody wins,
+        // Racers in no racingGroup are deliberately left out of the per-racing-group tables
+        // rather than gathered into one: "No racingGroup" is not a racingGroup anybody wins,
         // and they are already in the overall table above.
-        if (!entry.denName) continue;
-        const existing = byDen.get(entry.denName);
+        if (!entry.racingGroupName) continue;
+        const existing = byRacingGroup.get(entry.racingGroupName);
         if (existing) existing.push(entry);
-        else byDen.set(entry.denName, [entry]);
+        else byRacingGroup.set(entry.racingGroupName, [entry]);
     }
 
-    // A single den is the whole pack, so its table would repeat the one above.
-    if (byDen.size > 1) {
-        for (const [denName, entries] of byDen) {
-            sections.push({ title: denName, rows: rowsFrom(entries, scoringStrategy) });
+    // A single racingGroup is the whole pack, so its table would repeat the one above.
+    if (byRacingGroup.size > 1) {
+        for (const [racingGroupName, entries] of byRacingGroup) {
+            sections.push({ title: racingGroupName, rows: rowsFrom(entries, scoringStrategy) });
         }
     }
 

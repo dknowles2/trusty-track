@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { CeremonyAward, deltaForKey, slideFor, stepIndex } from './ceremony';
 
 const ROUNDS = [{ id: 4, name: 'Finals', roundNumber: 2 }];
-const DENS = [{ id: 5, name: 'Wolves' }];
+const RACING_GROUPS = [{ id: 5, name: 'Wolves' }];
 
 const AWARDS: CeremonyAward[] = [
   {
     id: 1,
     name: 'Fastest Wolf',
     kind: 'SPEED',
-    source: 'PACK',
+    source: 'ALL',
     place: 1,
-    denId: 5,
+    racingGroupId: 5,
     artworkKey: 'trophy',
     recipient: {
       id: 100,
@@ -72,7 +72,7 @@ describe('which keys advance it', () => {
 
 describe('what goes on the screen', () => {
   it('shows the trophy, what it is for, and who won it', () => {
-    expect(slideFor(AWARDS, 0, ROUNDS, DENS)).toEqual({
+    expect(slideFor(AWARDS, 0, ROUNDS, RACING_GROUPS)).toEqual({
       awardId: 1,
       title: 'Fastest Wolf',
       subtitle: 'Fastest in Wolves',
@@ -84,28 +84,28 @@ describe('what goes on the screen', () => {
   });
 
   it('has no artwork for an award none was set for', () => {
-    expect(slideFor(AWARDS, 1, ROUNDS, DENS)?.artworkKey).toBeNull();
+    expect(slideFor(AWARDS, 1, ROUNDS, RACING_GROUPS)?.artworkKey).toBeNull();
   });
 
   it('still shows an award nobody has won', () => {
     // Most stay unresolved until the very end. An announcer reading "Best
     // Paint — and the winner is…" off a screen that had skipped it would be
     // worse than one that says the decision is still to come.
-    const slide = slideFor(AWARDS, 1, ROUNDS, DENS);
+    const slide = slideFor(AWARDS, 1, ROUNDS, RACING_GROUPS);
     expect(slide?.title).toBe('Best Paint');
     expect(slide?.subtitle).toBe('Chosen by the judges');
     expect(slide?.winner).toBeNull();
   });
 
   it('has nothing to show past the end', () => {
-    expect(slideFor(AWARDS, 9, ROUNDS, DENS)).toBeNull();
+    expect(slideFor(AWARDS, 9, ROUNDS, RACING_GROUPS)).toBeNull();
   });
 
   it('has nothing to show for a race with no awards', () => {
-    expect(slideFor([], 0, ROUNDS, DENS)).toBeNull();
+    expect(slideFor([], 0, ROUNDS, RACING_GROUPS)).toBeNull();
   });
 
   it('counts from one, because the audience is not counting from zero', () => {
-    expect(slideFor(AWARDS, 1, ROUNDS, DENS)?.position).toBe('2 of 2');
+    expect(slideFor(AWARDS, 1, ROUNDS, RACING_GROUPS)?.position).toBe('2 of 2');
   });
 });

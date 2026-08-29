@@ -15,7 +15,7 @@ const mapping = (partial: Partial<Mapping>): Mapping => ({
   lastName: null,
   carNumber: null,
   carName: null,
-  den: null,
+  racingGroup: null,
   passedInspection: null,
   ...partial,
 });
@@ -92,12 +92,12 @@ describe('parseCsv', () => {
 
 describe('guessMapping', () => {
   it('matches the canonical headers', () => {
-    const guess = guessMapping(['first_name', 'last_name', 'car_number', 'den']);
+    const guess = guessMapping(['first_name', 'last_name', 'car_number', 'racingGroup']);
 
     expect(guess.firstName).toBe('first_name');
     expect(guess.lastName).toBe('last_name');
     expect(guess.carNumber).toBe('car_number');
-    expect(guess.den).toBe('den');
+    expect(guess.racingGroup).toBe('racingGroup');
   });
 
   it('ignores case, spaces and punctuation', () => {
@@ -213,8 +213,8 @@ describe('validate', () => {
   });
 
   it('passes a clean file', () => {
-    const map = mapping({ firstName: 'first', lastName: 'last', carNumber: 'car', den: 'den' });
-    const csv = 'first,last,car,den\nAlex,Rivera,1,Wolves\nSam,Okafor,2,Bears';
+    const map = mapping({ firstName: 'first', lastName: 'last', carNumber: 'car', racingGroup: 'racingGroup' });
+    const csv = 'first,last,car,racingGroup\nAlex,Rivera,1,Wolves\nSam,Okafor,2,Bears';
 
     expect(validate(applyMapping(parsed(csv), map), map)).toEqual([]);
   });
@@ -229,11 +229,11 @@ describe('toCanonicalCsv', () => {
   });
 
   it('omits a column for an unmapped field', () => {
-    // An empty Den column would otherwise have the backend create a den named "".
+    // An empty Racing Group column would otherwise have the backend create a racing group named "".
     const map = mapping({ firstName: 'A', lastName: 'B' });
     const rows = applyMapping(parseCsv('A,B\nAlex,Rivera'), map);
 
-    expect(toCanonicalCsv(rows, map)).not.toMatch(/den/);
+    expect(toCanonicalCsv(rows, map)).not.toMatch(/racing_group/);
   });
 
   it('normalizes inspection values to yes and no', () => {

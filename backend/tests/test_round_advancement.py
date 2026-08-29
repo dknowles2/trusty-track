@@ -12,12 +12,12 @@ def test_advancement_restricted_to_round(db: Session):
     db.query(models.Round).delete()
     db.query(models.Racer).delete()
     db.query(models.Race).delete()
-    db.query(models.Group).delete()
+    db.query(models.Organization).delete()
     db.query(models.Track).delete()
     db.commit()
 
     config = schemas.InitialConfigCreate(
-        group_name="Round Advancement Group",
+        organization_name="Round Advancement Organization",
         tracks=[
             schemas.TrackCreate(
                 name="Test Track",
@@ -28,10 +28,10 @@ def test_advancement_restricted_to_round(db: Session):
         ],
     )
     crud.create_initial_config(db, config)
-    group = db.query(models.Group).first()
+    group = db.query(models.Organization).first()
     track = db.query(models.Track).first()
     race_in = schemas.RaceCreate(
-        name="Round Advancement Race", group_id=group.id, track_id=track.id
+        name="Round Advancement Race", organization_id=group.id, track_id=track.id
     )
     crud.create_race(db, race_in)
     race = db.query(models.Race).first()
@@ -64,7 +64,7 @@ def test_advancement_restricted_to_round(db: Session):
         2,
         models.SchedulingStrategy.PPC,
         "Champ A",
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=4,
     )
     db.flush()
@@ -130,7 +130,7 @@ def test_advancement_restricted_to_round(db: Session):
     assert set(winners_r3) == {racers[2].id, racers[3].id}
 
     # Overall winners: 0,1 (avg (0.1+1.1)/2 = 0.6s) vs 2,3 (avg (1.0+0.8)/2 = 0.9s)
-    winners_pack = scoring.get_advancing_racers(db, race.id, "PACK", 2)
+    winners_pack = scoring.get_advancing_racers(db, race.id, "ALL", 2)
     assert set(winners_pack) == {racers[0].id, racers[1].id}
 
 
@@ -139,12 +139,12 @@ def test_wizard_with_previous_round(client, db: Session):
     db.query(models.Round).delete()
     db.query(models.Racer).delete()
     db.query(models.Race).delete()
-    db.query(models.Group).delete()
+    db.query(models.Organization).delete()
     db.query(models.Track).delete()
     db.commit()
 
     config = schemas.InitialConfigCreate(
-        group_name="Wizard Test Group",
+        organization_name="Wizard Test Organization",
         tracks=[
             schemas.TrackCreate(
                 name="Wizard Track",
@@ -155,10 +155,10 @@ def test_wizard_with_previous_round(client, db: Session):
         ],
     )
     crud.create_initial_config(db, config)
-    group = db.query(models.Group).first()
+    group = db.query(models.Organization).first()
     track = db.query(models.Track).first()
     race_in = schemas.RaceCreate(
-        name="Wizard Test Race", group_id=group.id, track_id=track.id
+        name="Wizard Test Race", organization_id=group.id, track_id=track.id
     )
     crud.create_race(db, race_in)
     race = db.query(models.Race).first()
@@ -190,11 +190,11 @@ def test_wizard_with_previous_round(client, db: Session):
     variables = {
         "raceId": race.id,
         "config": {
-            "generalRound": {"type": "PACK", "runsPerLane": 1},
+            "generalRound": {"type": "ALL", "runsPerLane": 1},
             "championshipRounds": [
                 {
                     "name": "Semi-Finals",
-                    "source": "PACK",
+                    "source": "ALL",
                     "numTopRacers": 4,
                     "runsPerLane": 1,
                 },
@@ -220,6 +220,6 @@ def test_wizard_with_previous_round(client, db: Session):
     assert len(rounds) == 3
     assert rounds[0].name == "All Pack"
     assert rounds[1].name == "Semi-Finals"
-    assert rounds[1].advancement_source == "PACK"
+    assert rounds[1].advancement_source == "ALL"
     assert rounds[2].name == "Finals"
     assert rounds[2].advancement_source == f"ROUND:{rounds[1].id}"

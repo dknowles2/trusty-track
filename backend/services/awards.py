@@ -35,7 +35,7 @@ def _rule_for(award: models.Award) -> domain_awards.SpeedRule | None:
         return domain_awards.SpeedRule(
             source=award.source,
             place=award.place,
-            den_id=award.den_id,
+            racing_group_id=award.racing_group_id,
             from_bottom=award.from_bottom,
         )
     except ValueError:
@@ -63,7 +63,7 @@ def _standings_cache(
         cache[source] = [
             domain_advancement.Standing(
                 racer_id=entry["racer_id"],
-                den_id=entry["den_id"],
+                racing_group_id=entry["racing_group_id"],
                 # Only a `from_bottom` award reads this, and for it the
                 # distinction is the whole point: the leaderboard sorts cars
                 # with no result below every car that raced, so without it the

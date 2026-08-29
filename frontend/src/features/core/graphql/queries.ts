@@ -84,7 +84,7 @@ export const RACE_STATE_CHANGED_SUBSCRIPTION = `
         carPassedInspection
         racerImageUrl
         carImageUrl
-        denId
+        racingGroupId
       }
     }
   }

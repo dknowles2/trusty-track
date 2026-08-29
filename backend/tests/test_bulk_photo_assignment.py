@@ -9,12 +9,15 @@ from backend.db import crud, schemas
 
 
 def _race_with_racers(db, count=2):
-    group = crud.create_group(db, schemas.GroupCreate(name="Photo Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Photo Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Photo Track", lane_count=4, timer_type="FAKE")
     )
     race = crud.create_race(
-        db, schemas.RaceCreate(group_id=group.id, name="Photo Derby", track_id=track.id)
+        db,
+        schemas.RaceCreate(
+            organization_id=group.id, name="Photo Derby", track_id=track.id
+        ),
     )
     racers = [
         crud.create_racer(

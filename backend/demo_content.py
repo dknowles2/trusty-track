@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 #: What the demo's organisation is called. It is on screen throughout, so it
 #: says what this is rather than naming a pack that does not exist.
-DEMO_GROUP_NAME = "Trusty Track Demo"
+DEMO_ORGANIZATION_NAME = "Trusty Track Demo"
 
 #: The demo's track. Four lanes is the common club setup and what every
 #: screenshot in the documentation shows.
@@ -67,12 +67,12 @@ _SLOWEST = 3.65
 def is_seeded(db: Session) -> bool:
     """Whether this database already holds a demo.
 
-    Asks about the ``Group``, which is what the first-run gate asks about: an
+    Asks about the ``Organization``, which is what the first-run gate asks about: an
     install is configured exactly when one exists. That makes seeding idempotent
     without a marker column — and a marker column is the thing #201 declined
     for the practice race, for the same reason. Nothing else branches on it.
     """
-    return db.query(models.Group).first() is not None
+    return db.query(models.Organization).first() is not None
 
 
 def seed(db: Session) -> models.Race:
@@ -83,7 +83,7 @@ def seed(db: Session) -> models.Race:
     crud.create_initial_config(
         db,
         schemas.InitialConfigCreate(
-            group_name=DEMO_GROUP_NAME,
+            organization_name=DEMO_ORGANIZATION_NAME,
             tracks=[
                 schemas.TrackCreate(
                     name=DEMO_TRACK_NAME,

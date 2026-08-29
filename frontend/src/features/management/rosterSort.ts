@@ -9,7 +9,7 @@
  * Pure. No React, no urql.
  */
 
-export type SortKey = 'car_number' | 'first_name' | 'last_name' | 'den' | 'status';
+export type SortKey = 'car_number' | 'first_name' | 'last_name' | 'racingGroup' | 'status';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortState {
@@ -31,11 +31,11 @@ export interface SortableRacer {
     first_name: string;
     last_name: string;
     car_number?: number | null;
-    den_id?: number | null;
+    racing_group_id?: number | null;
     car_passed_inspection: boolean;
 }
 
-export interface SortableDen {
+export interface SortableRacingGroup {
     id: number;
     name: string;
 }
@@ -59,7 +59,7 @@ function compare(
     a: SortableRacer,
     b: SortableRacer,
     key: SortKey,
-    denNames: Map<number, string>,
+    racingGroupNames: Map<number, string>,
 ): number {
     switch (key) {
         case 'car_number': {
@@ -73,12 +73,12 @@ function compare(
             // The table has a column each, so there is a key each — a single
             // "name" key would sort by one of them and label the other.
             return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`);
-        case 'den': {
-            // A racer in no den sorts with the empty string, which puts them
-            // first ascending — they are the ones a den still has to be chosen
+        case 'racingGroup': {
+            // A racer in no racingGroup sorts with the empty string, which puts them
+            // first ascending — they are the ones a racingGroup still has to be chosen
             // for, so that is the useful end of the list.
-            const an = a.den_id == null ? '' : (denNames.get(a.den_id) ?? '');
-            const bn = b.den_id == null ? '' : (denNames.get(b.den_id) ?? '');
+            const an = a.racing_group_id == null ? '' : (racingGroupNames.get(a.racing_group_id) ?? '');
+            const bn = b.racing_group_id == null ? '' : (racingGroupNames.get(b.racing_group_id) ?? '');
             return an.localeCompare(bn);
         }
         case 'status':
@@ -93,29 +93,29 @@ function compare(
  * The roster in the requested order.
  *
  * Ties break on car number and then on name, so the order is total — otherwise
- * sorting by den reshuffles everybody within a den on every re-render, which on
+ * sorting by racingGroup reshuffles everybody within a racingGroup on every re-render, which on
  * a page that refetches on every check-in is a table that will not sit still.
  */
 export function sortRacers<T extends SortableRacer>(
     racers: readonly T[],
-    dens: readonly SortableDen[],
+    racingGroups: readonly SortableRacingGroup[],
     state: SortState = DEFAULT_SORT,
 ): T[] {
-    const denNames = new Map(dens.map((den) => [den.id, den.name]));
+    const racingGroupNames = new Map(racingGroups.map((racingGroup) => [racingGroup.id, racingGroup.name]));
     const direction = state.direction === 'asc' ? 1 : -1;
 
     return racers.slice().sort((a, b) => {
-        const primary = compare(a, b, state.key, denNames);
+        const primary = compare(a, b, state.key, racingGroupNames);
         if (primary !== 0) return primary * direction;
 
-        // Tie-breaks are *not* reversed. A descending sort by den should still
-        // list each den's own racers by car number rather than backwards.
+        // Tie-breaks are *not* reversed. A descending sort by racingGroup should still
+        // list each racingGroup's own racers by car number rather than backwards.
         if (state.key !== 'car_number') {
-            const byNumber = compare(a, b, 'car_number', denNames);
+            const byNumber = compare(a, b, 'car_number', racingGroupNames);
             if (byNumber !== 0) return byNumber;
         }
         if (state.key !== 'last_name') {
-            const byName = compare(a, b, 'last_name', denNames);
+            const byName = compare(a, b, 'last_name', racingGroupNames);
             if (byName !== 0) return byName;
         }
         return a.id - b.id;

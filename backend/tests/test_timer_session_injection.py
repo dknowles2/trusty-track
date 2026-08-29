@@ -17,14 +17,18 @@ from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _seed(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Injection Pack"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Injection Pack")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name="Injection Track", lane_count=2, timer_type="FAKE"),
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Injection Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Injection Race", organization_id=group.id, track_id=track.id
+        ),
     )
     return group, track, race
 

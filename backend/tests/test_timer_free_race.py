@@ -13,12 +13,17 @@ from backend.tests.helpers import as_lanes, lane_dicts
 @pytest.mark.anyio
 async def test_free_race_heat_recording_in_manager(db):
     # Setup: Create race and free race heat
-    group = crud.create_group(db, schemas.GroupCreate(name="Timer Test Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Timer Test Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Timer Track", lane_count=4, timer_type="FAKE")
     )
     race = crud.create_race(
-        db, schemas.RaceCreate(name="Timer Race", group_id=group.id, track_id=track.id)
+        db,
+        schemas.RaceCreate(
+            name="Timer Race", organization_id=group.id, track_id=track.id
+        ),
     )
     # Capture IDs before session close
     race_id = race.id
@@ -76,13 +81,17 @@ async def test_free_race_heat_recording_in_manager(db):
 @pytest.mark.anyio
 async def test_official_heat_recording_in_manager(db):
     # Setup: Create race and official heat
-    group = crud.create_group(db, schemas.GroupCreate(name="Official Test Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Official Test Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Official Track", lane_count=4, timer_type="FAKE")
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Official Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Official Race", organization_id=group.id, track_id=track.id
+        ),
     )
     race_id = race.id
 

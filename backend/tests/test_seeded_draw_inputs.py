@@ -36,7 +36,9 @@ def seeded(monkeypatch):
 
 
 def _race(db, name="Ordered Draws Derby") -> models.Race:
-    group = crud.create_group(db, schemas.GroupCreate(name=f"Pack for {name}"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"Pack for {name}")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name=f"Track for {name}", lane_count=4, timer_type="FAKE"),
@@ -44,7 +46,7 @@ def _race(db, name="Ordered Draws Derby") -> models.Race:
     return crud.create_race(
         db,
         schemas.RaceCreate(
-            group_id=group.id,
+            organization_id=group.id,
             name=name,
             date_time="2024-01-01T10:00:00",
             track_id=track.id,
@@ -158,7 +160,7 @@ class TestScheduleGeneration:
             db,
             race_id=race.id,
             round_number=2,
-            advancement_source="PACK",
+            advancement_source="ALL",
             advancement_num_racers=4,
         )
         existing = crud.generate_heats_for_round(db, final.id, num_placeholders=4)
@@ -184,36 +186,38 @@ class TestScheduleGeneration:
 
 
 class TestDenAdvancementOrder:
-    """#316: den order isn't a shuffle, but it feeds the same kind of
-    unpromised query this file is about. ``get_advancing_racers`` visits dens
-    in the order ``db.query(models.Den)`` hands them back, and that order
-    decides which placeholder slot (and so which lane pattern) each den's
+    """#316: racing_group order isn't a shuffle, but it feeds the same kind of
+    unpromised query this file is about. ``get_advancing_racers`` visits racing_groups
+    in the order ``db.query(models.RacingGroup)`` hands them back, and that order
+    decides which placeholder slot (and so which lane pattern) each racing group's
     qualifiers land in — #240's rule applies here even though nothing is
     seeded: a query fixing an output order needs an ``ORDER BY``, or the
     promise is one SQLite is not making.
     """
 
     def test_the_den_query_carries_an_order_by(self, db):
-        race = _race(db, name="Ordered Den Advancement Derby")
+        race = _race(db, name="Ordered RacingGroup Advancement Derby")
         for i in range(3):
-            crud.create_den(db, schemas.DenCreate(name=f"Den{i}"), race.id)
+            crud.create_racing_group(
+                db, schemas.RacingGroupCreate(name=f"RacingGroup{i}"), race.id
+            )
         db.commit()
 
         statements: list[str] = []
 
         def _capture(_conn, _cursor, statement, *_args):
-            if "FROM dens" in statement:
+            if "FROM racing_groups" in statement:
                 statements.append(statement)
 
         event.listen(Engine, "before_cursor_execute", _capture)
         try:
-            scoring.get_advancing_racers(db, race.id, source="DEN", num_top=1)
+            scoring.get_advancing_racers(db, race.id, source="EACH_GROUP", num_top=1)
         finally:
             event.remove(Engine, "before_cursor_execute", _capture)
 
-        # `get_leaderboard` (via `_standings_for`) also queries `dens` to build
+        # `get_leaderboard` (via `_standings_for`) also queries `racing_groups` to build
         # a lookup dict, unordered on purpose — dict-by-id doesn't care. It is
         # among these statements too, so this only requires *one* of them to
-        # carry the promise: the query that builds `den_ids`.
-        assert statements, "expected get_advancing_racers to query dens"
-        assert any("ORDER BY dens.id" in s for s in statements), statements
+        # carry the promise: the query that builds `racing_group_ids`.
+        assert statements, "expected get_advancing_racers to query racing_groups"
+        assert any("ORDER BY racing_groups.id" in s for s in statements), statements

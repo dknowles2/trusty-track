@@ -8,19 +8,23 @@ def test_auto_advancement_with_placeholders(client, db):
     Regression test for bug where existing placeholder heats prevented auto-advancement.
     """
     # 1. Setup Race via CRUD
-    group = crud.create_group(db, schemas.GroupCreate(name="Auto Advance Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Auto Advance Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Auto Track", lane_count=4, timer_type="FAKE")
     )
     race = crud.create_race(
         db,
         schemas.RaceCreate(
-            name="Auto Advance Race", group_id=group.id, track_id=track.id
+            name="Auto Advance Race", organization_id=group.id, track_id=track.id
         ),
     )
 
     # Create Racers (4 racers)
-    den = crud.create_den(db, schemas.DenCreate(name="Den 1"), race.id)
+    racing_group = crud.create_racing_group(
+        db, schemas.RacingGroupCreate(name="RacingGroup 1"), race.id
+    )
     for i in range(4):
         crud.create_racer(
             db,
@@ -28,7 +32,7 @@ def test_auto_advancement_with_placeholders(client, db):
                 first_name=f"R{i}",
                 last_name=f"D{i}",
                 race_id=race.id,
-                den_id=den.id,
+                racing_group_id=racing_group.id,
                 car_passed_inspection=True,
             ),
         )
@@ -37,10 +41,10 @@ def test_auto_advancement_with_placeholders(client, db):
     mutation_wizard = f"""
     mutation {{
         createRoundWizard(raceId: {race.id}, config: {{
-            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            generalRound: {{ type: "ALL", runsPerLane: 1 }},
             championshipRounds: [{{
                 name: "Championship",
-                source: "PACK",
+                source: "ALL",
                 numTopRacers: 2,
                 runsPerLane: 1
             }}]
@@ -124,7 +128,9 @@ def test_a_skipped_heat_does_not_stall_the_final(db):
     This is the executed probe that confirmed the bug, inverted: it now
     asserts the final fills.
     """
-    group = crud.create_group(db, schemas.GroupCreate(name="Skip Stall Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Skip Stall Organization")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name="Skip Stall Track", lane_count=2, timer_type="FAKE"),
@@ -132,7 +138,7 @@ def test_a_skipped_heat_does_not_stall_the_final(db):
     race = crud.create_race(
         db,
         schemas.RaceCreate(
-            name="Skip Stall Race", group_id=group.id, track_id=track.id
+            name="Skip Stall Race", organization_id=group.id, track_id=track.id
         ),
     )
     for i in range(4):
@@ -152,7 +158,7 @@ def test_a_skipped_heat_does_not_stall_the_final(db):
         db,
         race_id=race.id,
         round_number=2,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=2,
     )
     crud.generate_heats_for_round(db, final.id)

@@ -2,7 +2,7 @@
  * "No heats" beside a racer who is checked in and in none (#172).
  *
  * One component because the roster draws its status cell three times — the
- * den-grouped table, the plain table and the mobile card — and a badge added
+ * racing-group-grouped table, the plain table and the mobile card — and a badge added
  * to two of them is a badge that is missing wherever the operator happens to
  * be looking.
  */

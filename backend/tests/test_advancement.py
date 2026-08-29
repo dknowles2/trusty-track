@@ -3,22 +3,22 @@ from backend.tests.helpers import lane_dicts, record_heat_result
 
 
 def test_full_advancement_flow(client, db):
-    # 1. Setup: Create race, den, and racers via CRUD
-    group_in = schemas.GroupCreate(name="Pack 123")
-    group = crud.create_group(db, group_in)
+    # 1. Setup: Create race, racing_group, and racers via CRUD
+    group_in = schemas.OrganizationCreate(name="Pack 123")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Advantage Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
     race_in = schemas.RaceCreate(
-        name="Championship Test", group_id=group.id, track_id=track.id
+        name="Championship Test", organization_id=group.id, track_id=track.id
     )
     race = crud.create_race(db, race_in)
     race_id = race.id
 
-    den_in = schemas.DenCreate(name="Bears", color="#ff0000")
-    den = crud.create_den(db, den_in, race_id)
-    den_id = den.id
+    racing_group_in = schemas.RacingGroupCreate(name="Bears", color="#ff0000")
+    racing_group = crud.create_racing_group(db, racing_group_in, race_id)
+    racing_group_id = racing_group.id
 
     # Create 4 racers
     racer_ids = []
@@ -27,7 +27,7 @@ def test_full_advancement_flow(client, db):
             first_name="Racer",
             last_name=str(i),
             car_number=100 + i,
-            den_id=den_id,
+            racing_group_id=racing_group_id,
             race_id=race_id,
             car_passed_inspection=True,
         )
@@ -38,10 +38,10 @@ def test_full_advancement_flow(client, db):
     mutation_wizard = f"""
     mutation {{
         createRoundWizard(raceId: {race_id}, config: {{
-            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            generalRound: {{ type: "ALL", runsPerLane: 1 }},
             championshipRounds: [{{
                 name: "Finals",
-                source: "PACK",
+                source: "ALL",
                 numTopRacers: 2,
                 runsPerLane: 1
             }}]

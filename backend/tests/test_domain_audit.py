@@ -83,14 +83,14 @@ class TestRedaction:
         kept = audit.redact(
             {
                 "config": {
-                    "groupName": "Pack 42",
+                    "organizationName": "Pack 42",
                     "operatorPin": "8531",
                     "checkinPin": "1",
                 }
             }
         )
 
-        assert kept == {"config.groupName": "Pack 42"}
+        assert kept == {"config.organizationName": "Pack 42"}
         assert "8531" not in str(kept)
 
     def test_a_nested_list_becomes_a_count(self):

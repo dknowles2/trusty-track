@@ -15,7 +15,7 @@ export interface SlideshowRacer {
     lastName: string;
     carNumber?: number | null;
     carName?: string | null;
-    denId?: number | null;
+    racingGroupId?: number | null;
     racerImageUrl?: string | null;
     carImageUrl?: string | null;
 }
@@ -25,13 +25,13 @@ export interface Slide {
     name: string;
     carNumber: number | null;
     carName: string | null;
-    denName: string | null;
-    denColor: string | null;
+    racingGroupName: string | null;
+    racingGroupColor: string | null;
     racerImageUrl: string | null;
     carImageUrl: string | null;
 }
 
-export interface SlideshowDen {
+export interface SlideshowRacingGroup {
     id: number;
     name: string;
     color?: string | null;
@@ -57,9 +57,9 @@ export function hasAPhoto(racer: SlideshowRacer): boolean {
  */
 export function slidesFor(
     racers: readonly SlideshowRacer[],
-    dens: readonly SlideshowDen[],
+    racingGroups: readonly SlideshowRacingGroup[],
 ): Slide[] {
-    const denById = new Map(dens.map((den) => [den.id, den]));
+    const racingGroupById = new Map(racingGroups.map((racingGroup) => [racingGroup.id, racingGroup]));
     return racers
         .filter(hasAPhoto)
         .slice()
@@ -72,14 +72,14 @@ export function slidesFor(
             return `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`);
         })
         .map((racer) => {
-            const den = racer.denId == null ? undefined : denById.get(racer.denId);
+            const racingGroup = racer.racingGroupId == null ? undefined : racingGroupById.get(racer.racingGroupId);
             return {
                 racerId: racer.id,
                 name: `${racer.firstName} ${racer.lastName}`.trim(),
                 carNumber: racer.carNumber ?? null,
                 carName: racer.carName ?? null,
-                denName: den?.name ?? null,
-                denColor: den?.color ?? null,
+                racingGroupName: racingGroup?.name ?? null,
+                racingGroupColor: racingGroup?.color ?? null,
                 racerImageUrl: racer.racerImageUrl ?? null,
                 carImageUrl: racer.carImageUrl ?? null,
             };

@@ -85,7 +85,7 @@ class HistoricalTrackRecordCreate(HistoricalTrackRecordBase):
     pass
 
 
-class DenBase(BaseModel):
+class RacingGroupBase(BaseModel):
     name: str
     color: str = "#000000"
     rank: Rank | None = None
@@ -93,11 +93,11 @@ class DenBase(BaseModel):
     car_number_range_end: int | None = None
 
 
-class DenCreate(DenBase):
+class RacingGroupCreate(RacingGroupBase):
     pass
 
 
-class DenUpdate(BaseModel):
+class RacingGroupUpdate(BaseModel):
     name: str | None = None
     color: str | None = None
     rank: Rank | None = None
@@ -110,7 +110,7 @@ class TrackCreate(TrackBase):
 
 
 class InitialConfigCreate(BaseModel):
-    group_name: str
+    organization_name: str
     debug_mode: bool = False
     tracks: list[TrackCreate]
     # Accepted and ignored here: the PINs are hashed in `schema._apply_pins`
@@ -120,7 +120,7 @@ class InitialConfigCreate(BaseModel):
     operator_pin: str | None = None
     checkin_pin: str | None = None
     # Display/Printables theme, or None to take the column's own default
-    # (`"MATCH_APP"`) — see `models.Group.display_theme`. Unlike the PINs,
+    # (`"MATCH_APP"`) — see `models.Organization.display_theme`. Unlike the PINs,
     # these are ordinary column values `crud.create_initial_config` sets
     # directly; there is nothing to hash.
     display_theme: str | None = None
@@ -131,7 +131,7 @@ class RacerBase(BaseModel):
     first_name: str
     last_name: str
     car_number: int | None = None
-    den_id: int | None = None
+    racing_group_id: int | None = None
     car_name: str | None = None
     car_passed_inspection: bool = False
     car_weight: float | None = None
@@ -147,7 +147,7 @@ class RacerUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     car_number: int | None = None
-    den_id: int | None = None
+    racing_group_id: int | None = None
     car_name: str | None = None
     car_passed_inspection: bool | None = None
     car_weight: float | None = None
@@ -175,7 +175,7 @@ class RaceBase(BaseModel):
 
 
 class RaceCreate(RaceBase):
-    group_id: int
+    organization_id: int
     track_id: int
     name: str
     date_time: str | None = None
@@ -200,12 +200,12 @@ class RaceUpdate(BaseModel):
     voting_open: bool | None = None
 
 
-class GroupBase(BaseModel):
+class OrganizationBase(BaseModel):
     name: str
     debug_mode: bool = False
 
 
-class GroupCreate(GroupBase):
+class OrganizationCreate(OrganizationBase):
     pass
 
 
@@ -231,14 +231,15 @@ class AwardBase(BaseModel):
 
     name: str
     kind: AwardKind = AwardKind.SPECIAL
-    #: SPEED: `"PACK"` or `"ROUND:<id>"`, and 1-based `place`. Never `"DEN"` —
-    #: a den-scoped award sets `den_id` instead; see `domain/awards.py`.
+    #: SPEED: `"ALL"` or `"ROUND:<id>"`, and 1-based `place`. Never
+    #: `"EACH_GROUP"` — a racing-group-scoped award sets `racing_group_id`
+    #: instead; see `domain/awards.py`.
     source: str | None = None
     place: int | None = None
     #: SPEED: which end `place` counts from. False is the fastest car, true the
     #: slowest — the same flip `Round.advancement_from_bottom` makes.
     from_bottom: bool = False
-    den_id: int | None = None
+    racing_group_id: int | None = None
     #: SPECIAL: whoever a person decided, or nobody yet.
     racer_id: int | None = None
     #: Which clipart to show on the ceremony slide and the certificate (#306).
@@ -277,7 +278,7 @@ class AwardUpdate(BaseModel):
     source: str | None = None
     place: int | None = None
     from_bottom: bool | None = None
-    den_id: int | None = None
+    racing_group_id: int | None = None
     racer_id: int | None = None
     artwork_key: str | None = None
     sort_order: int | None = None

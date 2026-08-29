@@ -24,7 +24,7 @@ describe('RoundWizard Component', () => {
         onClose: mockOnClose,
         raceId: 1,
         racerCount: 10,
-        denCount: 2,
+        racingGroupCount: 2,
         laneCount: 4,
         championshipTrophies: 3,
         onCreated: mockOnCreated
@@ -94,7 +94,7 @@ describe('RoundWizard Component', () => {
         expect(screen.getByText('Race Schedule Wizard')).toBeInTheDocument();
         expect(screen.getByText('Quickly generate a complete race schedule based on your settings.')).toBeInTheDocument();
         expect(screen.getByText('All Pack')).toBeInTheDocument();
-        expect(screen.getByText('By Den')).toBeInTheDocument();
+        expect(screen.getByText('By Racing Group')).toBeInTheDocument();
     });
 
     it('calculates estimation correctly in Step 3 (with default championship)', async () => {
@@ -181,11 +181,11 @@ describe('RoundWizard Component', () => {
         expect(mockExecuteMutation).toHaveBeenCalledWith({
             raceId: 1,
             config: expect.objectContaining({
-                generalRound: expect.objectContaining({ type: 'PACK' }),
+                generalRound: expect.objectContaining({ type: 'ALL' }),
                 championshipRounds: [
                     expect.objectContaining({
                         name: 'Grand Finals',
-                        source: 'PACK',
+                        source: 'ALL',
                         numTopRacers: 4 // Math.max(3, 4)
                     })
                 ]

@@ -70,7 +70,7 @@ describe('RaceDetails', () => {
             scheduling_strategy: 'LANE_ROTATION',
             scoring_strategy: 'TIMED',
             car_numbering_strategy: 'PER_GROUP',
-            group_id: 1,
+            organization_id: 1,
             track_id: 1,
             global_start_number: 1,
             championship_trophies: 3
@@ -88,12 +88,12 @@ describe('RaceDetails', () => {
                     scoringStrategy: mockRace.scoring_strategy,
                     carNumberingStrategy: mockRace.car_numbering_strategy,
                     trackId: mockRace.track_id,
-                    groupId: mockRace.group_id,
+                    organizationId: mockRace.organization_id,
                     globalStartNumber: mockRace.global_start_number,
                     championshipTrophies: mockRace.championship_trophies,
                     track: { name: 'Main Track' },
                     racers: [],
-                    dens: [],
+                    racingGroups: [],
                     leaderboard: []
                 },
                 tracks: [{ id: 1, name: 'Main Track' }]
@@ -119,17 +119,17 @@ describe('RaceDetails', () => {
 
         // Verify human-readable settings are displayed
         expect(screen.getByText('Timed')).toBeInTheDocument();
-        expect(screen.getByText('Per Den')).toBeInTheDocument();
+        expect(screen.getByText('Per RacingGroup')).toBeInTheDocument();
         expect(screen.getByText('Main Track')).toBeInTheDocument();
     });
 
     it('filters racers by search term', async () => {
         const mockRacers = [
-            { id: 1, first_name: 'John', last_name: 'Doe', car_number: 101, den_id: 1, car_passed_inspection: false },
-            { id: 2, first_name: 'Jane', last_name: 'Smith', car_number: 102, den_id: 2, car_passed_inspection: true },
+            { id: 1, first_name: 'John', last_name: 'Doe', car_number: 101, racing_group_id: 1, car_passed_inspection: false },
+            { id: 2, first_name: 'Jane', last_name: 'Smith', car_number: 102, racing_group_id: 2, car_passed_inspection: true },
         ];
 
-        const mockDens = [
+        const mockRacingGroups = [
             { id: 1, name: 'Tigers', color: 'orange' },
             { id: 2, name: 'Wolves', color: 'red' },
         ];
@@ -146,9 +146,9 @@ describe('RaceDetails', () => {
                         lastName: r.last_name,
                         carNumber: r.car_number,
                         carPassedInspection: r.car_passed_inspection,
-                        denId: r.den_id
+                        racingGroupId: r.racing_group_id
                     })),
-                    dens: mockDens.map(d => ({ ...d, racerCount: 0 })),
+                    racingGroups: mockRacingGroups.map(d => ({ ...d, racerCount: 0 })),
                     leaderboard: []
                 },
                 tracks: []
@@ -197,7 +197,7 @@ describe('RaceDetails', () => {
             scheduling_strategy: 'LANE_ROTATION',
             scoring_strategy: 'TIMED',
             car_numbering_strategy: 'PER_GROUP',
-            group_id: 1,
+            organization_id: 1,
             global_start_number: 1
         };
 
@@ -212,7 +212,7 @@ describe('RaceDetails', () => {
                     scoringStrategy: mockRace.scoring_strategy,
                     carNumberingStrategy: mockRace.car_numbering_strategy,
                     racers: [],
-                    dens: [],
+                    racingGroups: [],
                     leaderboard: []
                 },
                 tracks: []
@@ -262,7 +262,7 @@ describe('RaceDetails', () => {
                     scoringStrategy: 'TIMED',
                     carNumberingStrategy: 'PER_GROUP',
                     racers: [],
-                    dens: [],
+                    racingGroups: [],
                     leaderboard: []
                 },
                 tracks: []
@@ -375,7 +375,7 @@ describe('editing a race that is not on the first track', () => {
                         globalStartNumber: 1,
                         championshipTrophies: 3,
                         racers: [],
-                        dens: [],
+                        racingGroups: [],
                         leaderboard: [],
                     },
                     tracks: [

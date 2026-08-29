@@ -1,6 +1,6 @@
 """A championship round asking for more racers than can qualify (#48).
 
-``advancement_num_racers`` is a request — "top four" — and a den of three
+``advancement_num_racers`` is a request — "top four" — and a racing group of three
 cannot supply it. The round's heats are generated from the request, before
 anyone has qualified, so the surplus slots used to sit as placeholders that no
 advancement would ever fill. ``heat_session.phase`` reports ``NOT_READY`` while
@@ -21,7 +21,7 @@ def _race(db: Session, label: str, racer_count: int) -> tuple:
     crud.create_initial_config(
         db,
         schemas.InitialConfigCreate(
-            group_name=f"Group {label}",
+            organization_name=f"Organization {label}",
             tracks=[
                 schemas.TrackCreate(
                     name=f"Track {label}",
@@ -32,11 +32,17 @@ def _race(db: Session, label: str, racer_count: int) -> tuple:
             ],
         ),
     )
-    group = db.query(models.Group).filter(models.Group.name == f"Group {label}").one()
+    group = (
+        db.query(models.Organization)
+        .filter(models.Organization.name == f"Organization {label}")
+        .one()
+    )
     track = db.query(models.Track).filter(models.Track.name == f"Track {label}").one()
     crud.create_race(
         db,
-        schemas.RaceCreate(name=f"Race {label}", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name=f"Race {label}", organization_id=group.id, track_id=track.id
+        ),
     )
     race = db.query(models.Race).filter(models.Race.name == f"Race {label}").one()
 
@@ -79,7 +85,7 @@ def _champ_round(db: Session, race_id: int, slots: int):
         2,
         models.SchedulingStrategy.PPC,
         "Finals",
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=slots,
     )
     db.flush()

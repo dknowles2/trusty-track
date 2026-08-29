@@ -56,8 +56,8 @@ describe('filenameFor', () => {
     });
 
     it('replaces a slash, which browsers disagree about in a download name', () => {
-        expect(filenameFor('Pack 42 / Den 3', 'standings')).toBe(
-            'Pack 42 - Den 3-standings.csv',
+        expect(filenameFor('Pack 42 / RacingGroup 3', 'standings')).toBe(
+            'Pack 42 - RacingGroup 3-standings.csv',
         );
     });
 

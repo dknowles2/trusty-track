@@ -25,7 +25,7 @@ from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _race(db: Session) -> int:
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack 1"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack 1"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Track", lane_count=4, timer_type="FAKE")
     )
@@ -33,7 +33,7 @@ def _race(db: Session) -> int:
         db,
         schemas.RaceCreate(
             name="Derby",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",
@@ -147,7 +147,7 @@ def test_placeholders_become_slots_and_then_racers(db: Session):
         db,
         race_id,
         round_number=1,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=2,
     )
     crud.generate_heats_for_round(db, round_obj.id)

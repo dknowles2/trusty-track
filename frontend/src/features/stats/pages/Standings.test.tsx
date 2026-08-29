@@ -81,8 +81,8 @@ describe('Standings', () => {
                 name: 'Test Race',
                 scoringStrategy: 'TIMED',
                 leaderboard: [
-                    { racerId: 1, firstName: 'Fast', lastName: 'Driver', carNumber: 10, denName: 'Tigers', score: 0, heatsCompleted: 0, rank: 1 },
-                    { racerId: 2, firstName: 'Slow', lastName: 'Driver', carNumber: 20, denName: 'Wolves', score: 0, heatsCompleted: 0, rank: 2 }
+                    { racerId: 1, firstName: 'Fast', lastName: 'Driver', carNumber: 10, racingGroupName: 'Tigers', score: 0, heatsCompleted: 0, rank: 1 },
+                    { racerId: 2, firstName: 'Slow', lastName: 'Driver', carNumber: 20, racingGroupName: 'Wolves', score: 0, heatsCompleted: 0, rank: 2 }
                 ]
             }
         };

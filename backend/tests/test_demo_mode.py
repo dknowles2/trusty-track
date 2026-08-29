@@ -31,7 +31,7 @@ def demo(monkeypatch):
 @pytest.fixture
 def group(db):
     """A configured install. Nothing exists in a fresh test database."""
-    return crud.create_group(db, schemas.GroupCreate(name="Demo Pack"))
+    return crud.create_organization(db, schemas.OrganizationCreate(name="Demo Pack"))
 
 
 def _mutation_names() -> set[str]:
@@ -130,7 +130,7 @@ def test_the_demo_still_offers_the_race():
 
 CONFIG_MUTATION = """
     mutation {
-      updateInitialConfig(config: {groupName: "Demo Pack", tracks: [],
+      updateInitialConfig(config: {organizationName: "Demo Pack", tracks: [],
                                    operatorPin: "1234"}) { pinRequired }
     }
 """
@@ -148,14 +148,14 @@ class TestTheInstanceCannotBeLockedOut:
         client.post("/graphql", json={"query": CONFIG_MUTATION})
 
         db.expire_all()
-        assert db.get(models.Group, group.id).operator_pin_hash is None
+        assert db.get(models.Organization, group.id).operator_pin_hash is None
 
     def test_an_ordinary_install_still_can(self, client, db, group):
         """The flag is off, so nothing here changed for an operator."""
         client.post("/graphql", json={"query": CONFIG_MUTATION})
 
         db.expire_all()
-        assert db.get(models.Group, group.id).operator_pin_hash is not None
+        assert db.get(models.Organization, group.id).operator_pin_hash is not None
 
     def test_the_refusal_is_recorded(self, client, db, group, demo):  # noqa: ARG002
         """Extension order, asserted rather than assumed. `DemoPolicyExtension`
@@ -267,7 +267,7 @@ class TestBulkGenerators:
         race = crud.create_race(
             db,
             schemas.RaceCreate(
-                name="Demo Populate", group_id=group.id, track_id=default_track
+                name="Demo Populate", organization_id=group.id, track_id=default_track
             ),
         )
         before = db.query(models.Racer).count()
@@ -399,7 +399,7 @@ class TestStartup:
         from backend import demo_content
         from backend.api import main
 
-        crud.create_group(db, schemas.GroupCreate(name="Already Here"))
+        crud.create_organization(db, schemas.OrganizationCreate(name="Already Here"))
 
         calls = []
         monkeypatch.setattr(main, "init_db", lambda: None)

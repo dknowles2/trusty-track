@@ -13,13 +13,15 @@ from backend.db import crud, models, schemas
 
 
 def build(db, lane_count=4, racers=4):
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack 42"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack 42"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Outage Track", lane_count=lane_count)
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Outage Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Outage Race", organization_id=group.id, track_id=track.id
+        ),
     )
     for i in range(racers):
         crud.create_racer(
@@ -90,8 +92,12 @@ class TestRecordingAnOutage:
         # required — `Race.track_id` is nullable and this path is defensive
         # rather than reachable, which is worth knowing before anybody relies
         # on it.
-        group = crud.create_group(db, schemas.GroupCreate(name="Trackless"))
-        race = models.Race(name="Trackless Race", group_id=group.id, track_id=None)
+        group = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Trackless")
+        )
+        race = models.Race(
+            name="Trackless Race", organization_id=group.id, track_id=None
+        )
         db.add(race)
         db.commit()
         assert crud.usable_lanes_for_race(db, race.id) == [1, 2, 3, 4]

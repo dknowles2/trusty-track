@@ -6,7 +6,7 @@ const saved: RacerData = {
     first_name: 'Ada',
     last_name: 'Ant',
     car_number: 12,
-    den_id: 3,
+    racing_group_id: 3,
     car_name: 'Blue Streak',
     car_weight: 4.9,
     car_passed_inspection: true,
@@ -15,8 +15,8 @@ const saved: RacerData = {
 };
 
 describe('carryOver', () => {
-    it('keeps the den, because rosters are entered den by den', () => {
-        expect(carryOver(saved).den_id).toBe(3);
+    it('keeps the racingGroup, because rosters are entered racingGroup by racingGroup', () => {
+        expect(carryOver(saved).racing_group_id).toBe(3);
     });
 
     it('clears the names', () => {
@@ -51,7 +51,7 @@ describe('carryOver', () => {
         expect(next.car_weight).toBeUndefined();
     });
 
-    it('survives a racer who was in no den', () => {
-        expect(carryOver({ ...saved, den_id: undefined }).den_id).toBeUndefined();
+    it('survives a racer who was in no racingGroup', () => {
+        expect(carryOver({ ...saved, racing_group_id: undefined }).racing_group_id).toBeUndefined();
     });
 });

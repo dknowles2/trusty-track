@@ -24,13 +24,15 @@ from backend.tests.helpers import as_lanes, record_heat_result
 
 
 def _seed(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Event Pack"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Event Pack"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Event Track", lane_count=2, timer_type="FAKE")
     )
     race = crud.create_race(
         db,
-        schemas.RaceCreate(name="Event Race", group_id=group.id, track_id=track.id),
+        schemas.RaceCreate(
+            name="Event Race", organization_id=group.id, track_id=track.id
+        ),
     )
     return race
 

@@ -123,7 +123,7 @@ describe('Leaderboard', () => {
             firstName: 'John',
             lastName: 'Doe',
             carNumber: 101,
-            denName: 'Tigers',
+            racingGroupName: 'Tigers',
             score: 5,
             heatsCompleted: 1,
             rank: 1
@@ -151,8 +151,8 @@ describe('Leaderboard', () => {
     expect(screen.queryByText('5.000s')).not.toBeInTheDocument();
   });
 
-  it('shows a den rank beside the den name when the den has one (#298)', () => {
-    const withDenRank = {
+  it('shows a racingGroup rank beside the racingGroup name when the racingGroup has one (#298)', () => {
+    const withRacingGroupRank = {
       race: {
         id: 1,
         scoringStrategy: 'TIMED',
@@ -162,8 +162,8 @@ describe('Leaderboard', () => {
             firstName: 'John',
             lastName: 'Doe',
             carNumber: 101,
-            denName: 'Wolves',
-            denRank: 'WOLF',
+            racingGroupName: 'Wolves',
+            racingGroupRank: 'WOLF',
             score: 3.5,
             heatsCompleted: 1,
             rank: 1,
@@ -173,8 +173,8 @@ describe('Leaderboard', () => {
             firstName: 'Jane',
             lastName: 'Smith',
             carNumber: 102,
-            denName: 'Unassigned',
-            denRank: null,
+            racingGroupName: 'Unassigned',
+            racingGroupRank: null,
             score: 4.2,
             heatsCompleted: 1,
             rank: 2,
@@ -184,13 +184,13 @@ describe('Leaderboard', () => {
     };
 
     (useQuery as any).mockReturnValue([{
-      data: { race: withDenRank.race },
+      data: { race: withRacingGroupRank.race },
       fetching: false,
       error: null
     }, vi.fn()]);
 
     (useSubscription as any).mockReturnValue([{
-      data: { leaderboard: withDenRank.race.leaderboard },
+      data: { leaderboard: withRacingGroupRank.race.leaderboard },
       fetching: false,
       error: null
     }, vi.fn()]);
@@ -198,7 +198,7 @@ describe('Leaderboard', () => {
     render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
 
     expect(screen.getByText('(Wolf)')).toBeInTheDocument();
-    // A den with no rank stored gets no label — no stray parentheses.
+    // A racingGroup with no rank stored gets no label — no stray parentheses.
     expect(screen.queryByText('()')).not.toBeInTheDocument();
   });
 });
@@ -207,13 +207,13 @@ describe('Leaderboard round scope (issue #17)', () => {
   const entries = [
     {
       racerId: 1, firstName: 'Pre', lastName: 'Lim', carNumber: 1,
-      denName: 'Tigers', score: 3.2, heatsCompleted: 4, rank: 1,
+      racingGroupName: 'Tigers', score: 3.2, heatsCompleted: 4, rank: 1,
     },
   ];
   const champEntries = [
     {
       racerId: 2, firstName: 'Champ', lastName: 'Winner', carNumber: 2,
-      denName: 'Wolves', score: 2.9, heatsCompleted: 1, rank: 1,
+      racingGroupName: 'Wolves', score: 2.9, heatsCompleted: 1, rank: 1,
     },
   ];
 
@@ -238,7 +238,7 @@ describe('Leaderboard round scope (issue #17)', () => {
     (useQuery as any).mockReturnValue([{
       data: { race: withRounds([
         { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
-        { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'PACK' },
+        { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' },
       ]) },
       fetching: false, error: null,
     }, vi.fn()]);
@@ -259,7 +259,7 @@ describe('Leaderboard round scope (issue #17)', () => {
         ? [{
             data: { race: withRounds([
               { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
-              { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'PACK' },
+              { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' },
             ]) },
             fetching: false, error: null,
           }, vi.fn()]
@@ -286,14 +286,14 @@ describe('export and print actions (#173)', () => {
     scoringStrategy: 'TIMED',
     rounds: [
       { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
-      { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'PACK' },
+      { id: 2, name: 'Finals', roundNumber: 2, advancementSource: 'ALL' },
     ],
   };
   const overall = [
-    { racerId: 1, firstName: 'Pre', lastName: 'Lim', carNumber: 1, denName: 'Tigers', score: 3.2, heatsCompleted: 4, rank: 1 },
+    { racerId: 1, firstName: 'Pre', lastName: 'Lim', carNumber: 1, racingGroupName: 'Tigers', score: 3.2, heatsCompleted: 4, rank: 1 },
   ];
   const champ = [
-    { racerId: 2, firstName: 'Champ', lastName: 'Winner', carNumber: 2, denName: 'Wolves', score: 2.9, heatsCompleted: 1, rank: 1 },
+    { racerId: 2, firstName: 'Champ', lastName: 'Winner', carNumber: 2, racingGroupName: 'Wolves', score: 2.9, heatsCompleted: 1, rank: 1 },
   ];
 
   function mockRoundAwareQuery() {

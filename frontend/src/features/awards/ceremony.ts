@@ -11,7 +11,7 @@
  */
 
 import {
-  NamedDen,
+  NamedRacingGroup,
   NamedRound,
   describeSpeedAward,
   racerLabel,
@@ -23,7 +23,7 @@ export interface CeremonyAward {
   kind: string;
   source?: string | null;
   place?: number | null;
-  denId?: number | null;
+  racingGroupId?: number | null;
   fromBottom?: boolean | null;
   artworkKey?: string | null;
   recipient?: {
@@ -74,7 +74,7 @@ export function slideFor(
   awards: CeremonyAward[],
   index: number,
   rounds: NamedRound[],
-  dens: NamedDen[],
+  racingGroups: NamedRacingGroup[],
 ): Slide | null {
   const award = awards[index];
   if (!award) return null;
@@ -84,7 +84,7 @@ export function slideFor(
     title: award.name,
     subtitle:
       award.kind === 'SPEED'
-        ? describeSpeedAward(award, rounds, dens)
+        ? describeSpeedAward(award, rounds, racingGroups)
         : 'Chosen by the judges',
     winner: award.recipient ? racerLabel(award.recipient) : null,
     racerImageUrl: award.recipient?.racerImageUrl ?? null,

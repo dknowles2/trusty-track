@@ -16,7 +16,7 @@ const racer = (over: Partial<SlideshowRacer> = {}): SlideshowRacer => ({
     ...over,
 });
 
-const DENS = [{ id: 10, name: 'Wolves', color: '#8B4513' }];
+const RACING_GROUPS = [{ id: 10, name: 'Wolves', color: '#8B4513' }];
 
 describe('hasAPhoto', () => {
     it('accepts a racer with only a headshot', () => {
@@ -47,7 +47,7 @@ describe('slidesFor', () => {
                 racer({ id: 1, carNumber: 1 }),
                 racer({ id: 2, carNumber: 2, racerImageUrl: null, carImageUrl: null }),
             ],
-            DENS,
+            RACING_GROUPS,
         );
 
         expect(slides.map((s) => s.racerId)).toEqual([1]);
@@ -63,7 +63,7 @@ describe('slidesFor', () => {
                 racer({ id: 2, carNumber: 3 }),
                 racer({ id: 3, carNumber: 11 }),
             ],
-            DENS,
+            RACING_GROUPS,
         );
 
         expect(slides.map((s) => s.carNumber)).toEqual([3, 11, 22]);
@@ -72,7 +72,7 @@ describe('slidesFor', () => {
     it('puts unnumbered cars last rather than first', () => {
         const slides = slidesFor(
             [racer({ id: 1, carNumber: null }), racer({ id: 2, carNumber: 7 })],
-            DENS,
+            RACING_GROUPS,
         );
 
         expect(slides.map((s) => s.racerId)).toEqual([2, 1]);
@@ -84,45 +84,45 @@ describe('slidesFor', () => {
                 racer({ id: 1, carNumber: null, lastName: 'Zephyr' }),
                 racer({ id: 2, carNumber: null, lastName: 'Ahmed' }),
             ],
-            DENS,
+            RACING_GROUPS,
         );
 
         expect(slides.map((s) => s.racerId)).toEqual([2, 1]);
     });
 
-    it('carries the den so a slide can be coloured', () => {
-        const [slide] = slidesFor([racer({ denId: 10 })], DENS);
+    it('carries the racingGroup so a slide can be coloured', () => {
+        const [slide] = slidesFor([racer({ racingGroupId: 10 })], RACING_GROUPS);
 
-        expect(slide.denName).toBe('Wolves');
-        expect(slide.denColor).toBe('#8B4513');
+        expect(slide.racingGroupName).toBe('Wolves');
+        expect(slide.racingGroupColor).toBe('#8B4513');
     });
 
-    it('survives a racer in no den', () => {
-        const [slide] = slidesFor([racer({ denId: null })], DENS);
+    it('survives a racer in no racingGroup', () => {
+        const [slide] = slidesFor([racer({ racingGroupId: null })], RACING_GROUPS);
 
-        expect(slide.denName).toBeNull();
+        expect(slide.racingGroupName).toBeNull();
     });
 
-    it('survives a den that no longer exists', () => {
-        // Deleting a den leaves its racers behind; a slideshow that threw here
+    it('survives a racingGroup that no longer exists', () => {
+        // Deleting a racingGroup leaves its racers behind; a slideshow that threw here
         // would take the audience screen down mid-event.
-        const [slide] = slidesFor([racer({ denId: 999 })], DENS);
+        const [slide] = slidesFor([racer({ racingGroupId: 999 })], RACING_GROUPS);
 
-        expect(slide.denName).toBeNull();
+        expect(slide.racingGroupName).toBeNull();
     });
 
     it('does not mutate what it was given', () => {
         // It sorts, and the same array is the query result React is holding.
         const racers = [racer({ id: 1, carNumber: 9 }), racer({ id: 2, carNumber: 1 })];
 
-        slidesFor(racers, DENS);
+        slidesFor(racers, RACING_GROUPS);
 
         expect(racers.map((r) => r.id)).toEqual([1, 2]);
     });
 
     it('produces nothing when nobody has a photo', () => {
         expect(
-            slidesFor([racer({ racerImageUrl: null, carImageUrl: null })], DENS),
+            slidesFor([racer({ racerImageUrl: null, carImageUrl: null })], RACING_GROUPS),
         ).toEqual([]);
     });
 });

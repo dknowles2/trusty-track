@@ -1,7 +1,8 @@
-"""A DEN championship round keeping its whole field (#52).
+"""A EACH_GROUP championship round keeping its whole field (#52).
 
-``advancement_num_racers`` is per *den* when the source is ``DEN``. Getting
-that wrong does not fail loudly — the round simply comes back with fewer heats
+``advancement_num_racers`` is per *racing group* when the source is
+``EACH_GROUP``. Getting that wrong does not fail loudly — the round simply
+comes back with fewer heats
 and fewer racers, and the ones dropped are racers who had qualified for it.
 """
 
@@ -12,15 +13,17 @@ from backend.domain import audit, lanes
 from backend.services import scoring
 from backend.tests.helpers import as_lanes, lane_dicts
 
-DENS = 2
+RACING_GROUPS = 2
 PER_DEN = 2
 
 
-def _race(db: Session, label: str, den_count: int = DENS, racers: int = 6):
+def _race(
+    db: Session, label: str, racing_group_count: int = RACING_GROUPS, racers: int = 6
+):
     crud.create_initial_config(
         db,
         schemas.InitialConfigCreate(
-            group_name=f"G{label}",
+            organization_name=f"G{label}",
             tracks=[
                 schemas.TrackCreate(
                     name=f"T{label}",
@@ -31,20 +34,29 @@ def _race(db: Session, label: str, den_count: int = DENS, racers: int = 6):
             ],
         ),
     )
-    group = db.query(models.Group).filter(models.Group.name == f"G{label}").one()
+    group = (
+        db.query(models.Organization)
+        .filter(models.Organization.name == f"G{label}")
+        .one()
+    )
     track = db.query(models.Track).filter(models.Track.name == f"T{label}").one()
     crud.create_race(
-        db, schemas.RaceCreate(name=f"R{label}", group_id=group.id, track_id=track.id)
+        db,
+        schemas.RaceCreate(
+            name=f"R{label}", organization_id=group.id, track_id=track.id
+        ),
     )
     race = db.query(models.Race).filter(models.Race.name == f"R{label}").one()
 
-    dens = [
-        crud.create_den(
+    racing_groups = [
+        crud.create_racing_group(
             db,
-            schemas.DenCreate(name=f"{label}Den{i}", color="#000000", rank="WOLF"),
+            schemas.RacingGroupCreate(
+                name=f"{label}RacingGroup{i}", color="#000000", rank="WOLF"
+            ),
             race.id,
         )
-        for i in range(den_count)
+        for i in range(racing_group_count)
     ]
     for i in range(racers):
         crud.create_racer(
@@ -54,12 +66,12 @@ def _race(db: Session, label: str, den_count: int = DENS, racers: int = 6):
                 last_name="T",
                 car_number=i + 1,
                 race_id=race.id,
-                den_id=dens[i % den_count].id,
+                racing_group_id=racing_groups[i % racing_group_count].id,
                 car_passed_inspection=True,
             ),
         )
     db.commit()
-    return race, dens
+    return race, racing_groups
 
 
 def _rounds(db: Session, race, source: str, num_racers: int, slots: int):
@@ -105,22 +117,22 @@ def _run_round(db: Session, race, round_obj) -> None:
 def test_invalidation_keeps_every_den_slot(db: Session):
     """The bug: 4 slots became 2 the moment anything was recorded."""
     race, _ = _race(db, "keep")
-    _, r2 = _rounds(db, race, "DEN", PER_DEN, slots=DENS * PER_DEN)
-    assert len(_slots(db, race, r2)) == DENS * PER_DEN
+    _, r2 = _rounds(db, race, "EACH_GROUP", PER_DEN, slots=RACING_GROUPS * PER_DEN)
+    assert len(_slots(db, race, r2)) == RACING_GROUPS * PER_DEN
 
     crud.invalidate_future_rounds(db, race.id, 1)
 
-    assert len(_slots(db, race, r2)) == DENS * PER_DEN
+    assert len(_slots(db, race, r2)) == RACING_GROUPS * PER_DEN
 
 
 def test_everyone_who_qualifies_races_the_final(db: Session):
     """What it cost: two kids who earned a place did not get to race."""
     race, _ = _race(db, "final")
-    r1, r2 = _rounds(db, race, "DEN", PER_DEN, slots=DENS * PER_DEN)
+    r1, r2 = _rounds(db, race, "EACH_GROUP", PER_DEN, slots=RACING_GROUPS * PER_DEN)
 
     _run_round(db, race, r1)
 
-    qualified = set(scoring.get_advancing_racers(db, race.id, "DEN", PER_DEN))
+    qualified = set(scoring.get_advancing_racers(db, race.id, "EACH_GROUP", PER_DEN))
     finalists = {
         racer_id
         for heat in crud.get_heats(db, race.id, round_id=r2.id)
@@ -130,9 +142,9 @@ def test_everyone_who_qualifies_races_the_final(db: Session):
 
 
 def test_a_pack_round_is_not_multiplied(db: Session):
-    """`num_racers` is absolute for PACK. Multiplying it would be the mirror bug."""
+    """`num_racers` is absolute for ALL. Multiplying it would be the mirror bug."""
     race, _ = _race(db, "pack")
-    _, r2 = _rounds(db, race, "PACK", 4, slots=4)
+    _, r2 = _rounds(db, race, "ALL", 4, slots=4)
 
     crud.invalidate_future_rounds(db, race.id, 1)
 
@@ -162,9 +174,9 @@ def test_a_round_scoped_round_is_not_multiplied(db: Session):
 
 
 def test_the_den_count_is_read_when_it_matters(db: Session):
-    """Three dens, top two each — six slots, not two and not four."""
-    race, _ = _race(db, "three", den_count=3, racers=9)
-    _, r2 = _rounds(db, race, "DEN", PER_DEN, slots=3 * PER_DEN)
+    """Three racing_groups, top two each — six slots, not two and not four."""
+    race, _ = _race(db, "three", racing_group_count=3, racers=9)
+    _, r2 = _rounds(db, race, "EACH_GROUP", PER_DEN, slots=3 * PER_DEN)
 
     crud.invalidate_future_rounds(db, race.id, 1)
 
@@ -204,7 +216,7 @@ def test_creating_a_den_round_sizes_it_correctly(client, db: Session):
             "raceId": race.id,
             "roundData": {
                 "name": "Finals",
-                "advancementSource": "DEN",
+                "advancementSource": "EACH_GROUP",
                 "advancementNumRacers": PER_DEN,
             },
         },
@@ -213,7 +225,7 @@ def test_creating_a_den_round_sizes_it_correctly(client, db: Session):
     round_id = data["createRound"][0]["id"]
     r2 = db.query(models.Round).filter(models.Round.id == round_id).one()
 
-    assert len(_slots(db, race, r2)) == DENS * PER_DEN
+    assert len(_slots(db, race, r2)) == RACING_GROUPS * PER_DEN
 
 
 def test_the_wizard_sizes_a_den_round_correctly(client, db: Session):
@@ -231,11 +243,11 @@ def test_the_wizard_sizes_a_den_round_correctly(client, db: Session):
         {
             "raceId": race.id,
             "config": {
-                "generalRound": {"type": "PACK", "runsPerLane": 1},
+                "generalRound": {"type": "ALL", "runsPerLane": 1},
                 "championshipRounds": [
                     {
                         "name": "Finals",
-                        "source": "DEN",
+                        "source": "EACH_GROUP",
                         "numTopRacers": PER_DEN,
                         "runsPerLane": 1,
                     }
@@ -248,18 +260,18 @@ def test_the_wizard_sizes_a_den_round_correctly(client, db: Session):
         db.query(models.Round)
         .filter(
             models.Round.race_id == race.id,
-            models.Round.advancement_source == "DEN",
+            models.Round.advancement_source == "EACH_GROUP",
         )
         .one()
     )
 
-    assert len(_slots(db, race, champ)) == DENS * PER_DEN
+    assert len(_slots(db, race, champ)) == RACING_GROUPS * PER_DEN
 
 
 def test_total_participants_uses_the_same_rule(db: Session):
     """The fifth copy, now delegating rather than repeating.
 
-    Nothing in production reaches its DEN branch since `round_field_size`
+    Nothing in production reaches its EACH_GROUP branch since `round_field_size`
     started passing a correct non-zero count — `generate_heats_for_round` only
     falls back to this property when asked for zero placeholders. Pinned
     directly because the property is public, and because a rule with five
@@ -272,11 +284,11 @@ def test_total_participants_uses_the_same_rule(db: Session):
         2,
         models.SchedulingStrategy.PPC,
         "Finals",
-        advancement_source="DEN",
+        advancement_source="EACH_GROUP",
         advancement_num_racers=PER_DEN,
     )
     db.flush()
-    assert champ.total_participants == DENS * PER_DEN
+    assert champ.total_participants == RACING_GROUPS * PER_DEN
 
     pack = crud.create_round(
         db,
@@ -284,7 +296,7 @@ def test_total_participants_uses_the_same_rule(db: Session):
         3,
         models.SchedulingStrategy.PPC,
         "Pack Finals",
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=PER_DEN,
     )
     db.flush()
@@ -300,7 +312,7 @@ def test_invalidation_puts_an_advanced_round_back_to_placeholders(db: Session):
     same. This one advances the round first, so they cannot.
     """
     race, _ = _race(db, "reset")
-    r1, r2 = _rounds(db, race, "PACK", 4, slots=4)
+    r1, r2 = _rounds(db, race, "ALL", 4, slots=4)
 
     _run_round(db, race, r1)
     advanced = {
@@ -323,22 +335,22 @@ def test_invalidation_puts_an_advanced_round_back_to_placeholders(db: Session):
 def test_a_round_whose_shape_changed_is_regenerated(db: Session):
     """In-place reset only works while the heat count matches.
 
-    Adding a den changes a DEN round's slot count, so the same rows cannot be
-    rewritten and the round has to be rebuilt properly.
+    Adding a racing group changes a EACH_GROUP round's slot count, so the
+    same rows cannot be rewritten and the round has to be rebuilt properly.
     """
     race, _ = _race(db, "reshape")
-    _, r2 = _rounds(db, race, "DEN", PER_DEN, slots=DENS * PER_DEN)
-    assert len(crud.get_heats(db, race.id, round_id=r2.id)) == DENS * PER_DEN
+    _, r2 = _rounds(db, race, "EACH_GROUP", PER_DEN, slots=RACING_GROUPS * PER_DEN)
+    assert len(crud.get_heats(db, race.id, round_id=r2.id)) == RACING_GROUPS * PER_DEN
 
-    crud.create_den(
+    crud.create_racing_group(
         db,
-        schemas.DenCreate(name="reshapeDenExtra", color="#000000", rank="WOLF"),
+        schemas.RacingGroupCreate(name="reshapeDenExtra", color="#000000", rank="WOLF"),
         race.id,
     )
     db.commit()
 
     crud.invalidate_future_rounds(db, race.id, 1)
 
-    expected = (DENS + 1) * PER_DEN
+    expected = (RACING_GROUPS + 1) * PER_DEN
     assert len(_slots(db, race, r2)) == expected
     assert len(crud.get_heats(db, race.id, round_id=r2.id)) == expected

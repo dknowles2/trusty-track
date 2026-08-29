@@ -35,7 +35,7 @@ def test_seeding_makes_it_seeded(db, seeded):  # noqa: ARG001 - seeds
 
 def test_any_configured_install_counts_as_seeded(db):
     """`is_seeded` asks the same question the first-run gate does — an install
-    is configured exactly when a `Group` exists — which is why there is no
+    is configured exactly when a `Organization` exists — which is why there is no
     marker column. #201 declined one for the practice race for the same reason:
     a flag would be a schema change for something nothing else branches on.
 
@@ -43,7 +43,7 @@ def test_any_configured_install_counts_as_seeded(db):
     a database holding somebody's real event must not seed a second one on top
     of it.
     """
-    crud.create_group(db, schemas.GroupCreate(name="Someone Else's Pack"))
+    crud.create_organization(db, schemas.OrganizationCreate(name="Someone Else's Pack"))
 
     assert demo_content.is_seeded(db)
 

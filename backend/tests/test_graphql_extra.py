@@ -3,8 +3,8 @@ from backend.db import crud, schemas
 
 def test_bulk_move_to_den(client, db):
     # Setup
-    group_in = schemas.GroupCreate(name="Bulk Move Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Bulk Move Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Bulk Move Track", lane_count=4)
     track = crud.create_track(db, track_in)
@@ -12,7 +12,11 @@ def test_bulk_move_to_den(client, db):
     mutation_create_race = f"""
     mutation {{
         createRace(
-            race: {{name: "Bulk Move Race", groupId: {group.id}, trackId: {track.id}}}
+            race: {{
+                name: "Bulk Move Race"
+                organizationId: {group.id}
+                trackId: {track.id}
+            }}
         ) {{
             id
         }}
@@ -39,44 +43,47 @@ def test_bulk_move_to_den(client, db):
         )
         racer_ids.append(resp.json()["data"]["createRacer"]["id"])
 
-    # Create Den
+    # Create RacingGroup
     mutation_create_den = f"""
     mutation {{
-        createDen(raceId: {race_id}, den: {{name: "New Den", color: "#FF0000"}}) {{
+        createRacingGroup(
+            raceId: {race_id}
+            racingGroup: {{name: "New RacingGroup", color: "#FF0000"}}
+        ) {{
             id
         }}
     }}
     """
-    den_id = client.post("/graphql", json={"query": mutation_create_den}).json()[
-        "data"
-    ]["createDen"]["id"]
+    racing_group_id = client.post(
+        "/graphql", json={"query": mutation_create_den}
+    ).json()["data"]["createRacingGroup"]["id"]
 
     # Bulk Move
     mutation_move = f"""
     mutation {{
-        bulkMoveToDen(racerIds: {racer_ids}, denId: {den_id})
+        bulkMoveToRacingGroup(racerIds: {racer_ids}, racingGroupId: {racing_group_id})
     }}
     """
     response = client.post("/graphql", json={"query": mutation_move})
-    assert response.json()["data"]["bulkMoveToDen"] is True
+    assert response.json()["data"]["bulkMoveToRacingGroup"] is True
 
     # Verify
     for rid in racer_ids:
         query = f"""
         query {{
             racer(racerId: {rid}) {{
-                denId
+                racingGroupId
             }}
         }}
         """
         data = client.post("/graphql", json={"query": query}).json()["data"]["racer"]
-        assert data["denId"] == int(den_id)
+        assert data["racingGroupId"] == int(racing_group_id)
 
 
 def test_reorder_heats(client, db):
     # Setup Race & Round
-    group_in = schemas.GroupCreate(name="Reorder Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Reorder Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Reorder Track", lane_count=4)
     track = crud.create_track(db, track_in)
@@ -84,7 +91,11 @@ def test_reorder_heats(client, db):
     mutation_create_race = f"""
     mutation {{
         createRace(
-            race: {{name: "Reorder Race", groupId: {group.id}, trackId: {track.id}}}
+            race: {{
+                name: "Reorder Race"
+                organizationId: {group.id}
+                trackId: {track.id}
+            }}
         ) {{ id }}
     }}
     """
@@ -116,7 +127,7 @@ def test_reorder_heats(client, db):
     mutation {{
         createRound(
             raceId: {race_id}
-            roundData: {{name: "R1", runsPerLane: 1, generalType: "PACK" }}
+            roundData: {{name: "R1", runsPerLane: 1, generalType: "ALL" }}
         ) {{
             id
             heats {{ id heatNumber }}
@@ -160,8 +171,8 @@ def test_reorder_heats(client, db):
 
 def test_wizard_graphql_flow(client, db):
     # Setup
-    group_in = schemas.GroupCreate(name="Wizard GQL Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Wizard GQL Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Wizard GQL Track", lane_count=4)
     track = crud.create_track(db, track_in)
@@ -169,7 +180,11 @@ def test_wizard_graphql_flow(client, db):
     mutation_create_race = f"""
     mutation {{
         createRace(
-            race: {{name: "Wizard GQL Race", groupId: {group.id}, trackId: {track.id}}}
+            race: {{
+                name: "Wizard GQL Race"
+                organizationId: {group.id}
+                trackId: {track.id}
+            }}
         ) {{ id }}
     }}
     """
@@ -200,9 +215,9 @@ def test_wizard_graphql_flow(client, db):
     mutation_wizard = f"""
     mutation {{
         createRoundWizard(raceId: {race_id}, config: {{
-            generalRound: {{ type: "PACK", runsPerLane: 1 }},
+            generalRound: {{ type: "ALL", runsPerLane: 1 }},
             championshipRounds: [
-                {{ name: "Finals", source: "PACK", numTopRacers: 3, runsPerLane: 1 }}
+                {{ name: "Finals", source: "ALL", numTopRacers: 3, runsPerLane: 1 }}
             ]
         }}) {{
             id

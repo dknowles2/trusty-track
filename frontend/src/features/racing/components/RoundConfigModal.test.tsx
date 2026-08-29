@@ -19,7 +19,7 @@ describe('RoundConfigModal', () => {
     onClose: vi.fn(),
     onSubmit: vi.fn().mockResolvedValue(undefined),
     racerCount: 12,
-    denCount: 3,
+    racingGroupCount: 3,
     laneCount: 4,
     championshipTrophies: 3,
     hasGeneralRound: true,
@@ -39,7 +39,7 @@ describe('RoundConfigModal', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
-      advancementSource: 'PACK',
+      advancementSource: 'ALL',
       advancementFromBottom: false,
     });
   });
@@ -60,7 +60,7 @@ describe('RoundConfigModal', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
       name: 'Slowest Race',
-      advancementSource: 'PACK',
+      advancementSource: 'ALL',
       advancementFromBottom: true,
     });
   });
@@ -135,7 +135,7 @@ describe('RoundConfigModal', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
       schedulingStrategy: 'PPC',
-      generalType: 'PACK',
+      generalType: 'ALL',
     });
     expect(onSubmit.mock.calls[0][0].eliminationLosses).toBeUndefined();
   });
@@ -182,7 +182,7 @@ describe('RoundConfigModal', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
       schedulingStrategy: 'PPC',
-      generalType: 'PACK',
+      generalType: 'ALL',
       advancementSource: undefined,
     });
   });

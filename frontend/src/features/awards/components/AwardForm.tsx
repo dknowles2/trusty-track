@@ -3,7 +3,7 @@
  *
  * The form is really two forms behind one kind switch, because the two kinds
  * of award have nothing in common but a name. A `SPEED` award needs a source, a
- * place and optionally a den; a `SPECIAL` award needs a person. Showing both
+ * place and optionally a racingGroup; a `SPECIAL` award needs a person. Showing both
  * halves at once and letting the server sort it out would put the operator in
  * front of four controls that do nothing.
  *
@@ -17,9 +17,9 @@
 import { useState } from 'react';
 import { AWARD_TEMPLATES, templateById } from '../awardTemplates';
 import {
-  NamedDen,
+  NamedRacingGroup,
   NamedRound,
-  PACK_SOURCE,
+  ALL_SOURCE,
   positionLabel,
   racerLabel,
   roundLabel,
@@ -31,7 +31,7 @@ export interface AwardDraft {
   source: string | null;
   place: number | null;
   fromBottom: boolean;
-  denId: number | null;
+  racingGroupId: number | null;
   racerId: number | null;
   artworkKey: string | null;
   // SPECIAL only; ignored (forced false) for SPEED — see
@@ -49,7 +49,7 @@ export interface AwardFormRacer {
 interface Props {
   initial?: Partial<AwardDraft>;
   rounds: NamedRound[];
-  dens: NamedDen[];
+  racingGroups: NamedRacingGroup[];
   racers: AwardFormRacer[];
   submitLabel: string;
   onSubmit: (draft: AwardDraft) => void;
@@ -59,10 +59,10 @@ interface Props {
 const EMPTY: AwardDraft = {
   name: '',
   kind: 'SPECIAL',
-  source: PACK_SOURCE,
+  source: ALL_SOURCE,
   place: 1,
   fromBottom: false,
-  denId: null,
+  racingGroupId: null,
   racerId: null,
   artworkKey: null,
   // On by default for a new judged award — most of the ones a pack adds are
@@ -73,7 +73,7 @@ const EMPTY: AwardDraft = {
 export default function AwardForm({
   initial,
   rounds,
-  dens,
+  racingGroups,
   racers,
   submitLabel,
   onSubmit,
@@ -176,11 +176,11 @@ export default function AwardForm({
             </label>
             <select
               id="award-source"
-              value={draft.source ?? PACK_SOURCE}
+              value={draft.source ?? ALL_SOURCE}
               onChange={(e) => set('source', e.target.value)}
               className="form-control"
             >
-              <option value={PACK_SOURCE}>Overall standings</option>
+              <option value={ALL_SOURCE}>Overall standings</option>
               {rounds.map((round) => (
                 <option key={round.id} value={`ROUND:${round.id}`}>
                   {roundLabel(round)}
@@ -225,19 +225,19 @@ export default function AwardForm({
               </select>
             </div>
             <div style={{ flex: 1, minWidth: '9rem' }}>
-              <label htmlFor="award-den" style={{ display: 'block', fontSize: '0.9rem' }}>
-                Limited to a den
+              <label htmlFor="award-racing-group" style={{ display: 'block', fontSize: '0.9rem' }}>
+                Limited to a racingGroup
               </label>
               <select
-                id="award-den"
-                value={draft.denId ?? ''}
-                onChange={(e) => set('denId', e.target.value ? Number(e.target.value) : null)}
+                id="award-racing-group"
+                value={draft.racingGroupId ?? ''}
+                onChange={(e) => set('racingGroupId', e.target.value ? Number(e.target.value) : null)}
                 className="form-control"
               >
                 <option value="">The whole pack</option>
-                {dens.map((den) => (
-                  <option key={den.id} value={den.id}>
-                    {den.name}
+                {racingGroups.map((racingGroup) => (
+                  <option key={racingGroup.id} value={racingGroup.id}>
+                    {racingGroup.name}
                   </option>
                 ))}
               </select>

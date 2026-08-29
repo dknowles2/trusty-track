@@ -34,7 +34,10 @@ class FakeRound:
 
 
 def _standings(*pairs) -> list[Standing]:
-    return [Standing(racer_id=rid, den_id=den) for rid, den in pairs]
+    return [
+        Standing(racer_id=rid, racing_group_id=racing_group)
+        for rid, racing_group in pairs
+    ]
 
 
 # --------------------------------------------------------------------------- #
@@ -57,8 +60,8 @@ def test_a_malformed_round_source_advances_nobody(source):
 
 
 def test_pack_and_den_are_not_round_scoped():
-    assert not AdvancementRule("PACK", 2).is_round_scoped
-    assert AdvancementRule("DEN", 2).source_round_id is None
+    assert not AdvancementRule("ALL", 2).is_round_scoped
+    assert AdvancementRule("EACH_GROUP", 2).source_round_id is None
 
 
 # --------------------------------------------------------------------------- #
@@ -68,38 +71,44 @@ def test_pack_and_den_are_not_round_scoped():
 
 def test_pack_takes_the_top_n_overall():
     standings = _standings((10, 1), (11, 2), (12, 1), (13, 2))
-    assert advancing_racer_ids(AdvancementRule("PACK", 2), standings) == [10, 11]
+    assert advancing_racer_ids(AdvancementRule("ALL", 2), standings) == [10, 11]
 
 
 def test_den_takes_the_top_n_from_each_den():
     standings = _standings((10, 1), (11, 2), (12, 1), (13, 2))
-    assert advancing_racer_ids(AdvancementRule("DEN", 1), standings, [1, 2]) == [10, 11]
+    assert advancing_racer_ids(AdvancementRule("EACH_GROUP", 1), standings, [1, 2]) == [
+        10,
+        11,
+    ]
 
 
 def test_den_visits_dens_in_the_order_given():
     """That order decides which placeholder slot each racer lands in."""
     standings = _standings((10, 1), (11, 2))
-    assert advancing_racer_ids(AdvancementRule("DEN", 1), standings, [2, 1]) == [11, 10]
+    assert advancing_racer_ids(AdvancementRule("EACH_GROUP", 1), standings, [2, 1]) == [
+        11,
+        10,
+    ]
 
 
 def test_den_excludes_racers_with_no_den():
     standings = _standings((10, None), (11, 1))
-    assert advancing_racer_ids(AdvancementRule("DEN", 5), standings, [1]) == [11]
+    assert advancing_racer_ids(AdvancementRule("EACH_GROUP", 5), standings, [1]) == [11]
 
 
 def test_asking_for_more_than_the_field_returns_the_field():
     standings = _standings((10, 1), (11, 1))
-    assert advancing_racer_ids(AdvancementRule("PACK", 10), standings) == [10, 11]
+    assert advancing_racer_ids(AdvancementRule("ALL", 10), standings) == [10, 11]
 
 
 def test_zero_racers_advances_nobody():
-    assert advancing_racer_ids(AdvancementRule("PACK", 0), _standings((1, None))) == []
+    assert advancing_racer_ids(AdvancementRule("ALL", 0), _standings((1, None))) == []
 
 
 def test_no_racer_count_means_no_limit():
     """Preserved from the previous implementation; see the docstring's note."""
     standings = _standings((10, 1), (11, 1))
-    assert advancing_racer_ids(AdvancementRule("PACK", None), standings) == [10, 11]
+    assert advancing_racer_ids(AdvancementRule("ALL", None), standings) == [10, 11]
 
 
 def test_an_unrecognised_source_advances_nobody():
@@ -139,7 +148,7 @@ def test_a_malformed_round_source_fires_nothing():
 
 def test_pack_waits_for_every_earlier_round():
     """Otherwise the field is picked from a partial leaderboard and then moves."""
-    rule = AdvancementRule("PACK", 4)
+    rule = AdvancementRule("ALL", 4)
     assert not should_populate(
         rule, source_round_complete=_never_id, prior_rounds_complete=lambda: False
     )
@@ -234,16 +243,16 @@ def test_only_later_championship_rounds_are_invalidated():
     """A general round's field is the roster, which a result does not change."""
     rounds = [
         FakeRound(1),
-        FakeRound(2, "PACK"),
+        FakeRound(2, "ALL"),
         FakeRound(3),
-        FakeRound(4, "DEN"),
+        FakeRound(4, "EACH_GROUP"),
     ]
     affected = rounds_to_invalidate(rounds, changed_round_number=1)
     assert [r.round_number for r in affected] == [2, 4]
 
 
 def test_the_changed_round_invalidates_nothing_at_or_before_itself():
-    rounds = [FakeRound(1, "PACK"), FakeRound(2, "PACK")]
+    rounds = [FakeRound(1, "ALL"), FakeRound(2, "ALL")]
     assert rounds_to_invalidate(rounds, changed_round_number=2) == []
 
 
@@ -295,7 +304,7 @@ def test_a_field_matching_the_slots_is_not_short():
 
 
 def test_a_field_smaller_than_the_slots_is_short():
-    """Issue #48: a den of three cannot supply a top four."""
+    """Issue #48: a racing group of three cannot supply a top four."""
     assert field_is_short(_placeholder_round(4), advancing_count=3)
 
 
@@ -373,26 +382,31 @@ def test_a_round_with_no_heats_is_not_stale():
 
 
 def test_a_pack_field_is_the_number_asked_for():
-    rule = AdvancementRule(source="PACK", num_racers=4)
-    assert field_size(rule, den_count=3) == 4
+    rule = AdvancementRule(source="ALL", num_racers=4)
+    assert field_size(rule, racing_group_count=3) == 4
 
 
 def test_a_den_field_is_that_many_per_den():
     """#52: the detail that was copied correctly once and wrong twice."""
-    rule = AdvancementRule(source="DEN", num_racers=2)
-    assert field_size(rule, den_count=3) == 6
+    rule = AdvancementRule(source="EACH_GROUP", num_racers=2)
+    assert field_size(rule, racing_group_count=3) == 6
 
 
 def test_a_round_scoped_field_is_the_number_asked_for():
     rule = AdvancementRule(source="ROUND:7", num_racers=3)
-    assert field_size(rule, den_count=5) == 3
+    assert field_size(rule, racing_group_count=5) == 3
 
 
 def test_a_den_field_with_no_dens_is_empty():
     """Not a crash, and not the unmultiplied count either."""
-    assert field_size(AdvancementRule(source="DEN", num_racers=2), den_count=0) == 0
+    assert (
+        field_size(
+            AdvancementRule(source="EACH_GROUP", num_racers=2), racing_group_count=0
+        )
+        == 0
+    )
 
 
 def test_no_racer_count_means_no_slots():
-    assert field_size(AdvancementRule(source="PACK", num_racers=None), 0) == 0
-    assert field_size(AdvancementRule(source="DEN", num_racers=None), 3) == 0
+    assert field_size(AdvancementRule(source="ALL", num_racers=None), 0) == 0
+    assert field_size(AdvancementRule(source="EACH_GROUP", num_racers=None), 3) == 0

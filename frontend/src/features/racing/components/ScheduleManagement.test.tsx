@@ -108,7 +108,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -136,7 +136,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -166,7 +166,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -196,7 +196,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -226,7 +226,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -263,7 +263,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -300,7 +300,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -331,7 +331,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -354,7 +354,7 @@ describe('ScheduleManagement', () => {
             advancementSource: undefined,
             advancementNumRacers: undefined,
             runsPerLane: 1,
-            generalType: 'PACK'
+            generalType: 'ALL'
         });
     });
 
@@ -381,7 +381,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -424,7 +424,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -461,7 +461,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -497,7 +497,7 @@ describe('ScheduleManagement', () => {
                     onRefetchHeats={vi.fn()}
                     laneCount={4}
                     racerCount={10}
-                    denCount={3}
+                    racingGroupCount={3}
                     championshipTrophies={3}
                 />
             </AlertProvider>
@@ -533,7 +533,7 @@ describe('ScheduleManagement', () => {
           onRefetchHeats={vi.fn()}
           laneCount={4}
           racerCount={10}
-          denCount={3}
+          racingGroupCount={3}
           championshipTrophies={3}
         />
       </AlertProvider>
@@ -568,7 +568,7 @@ describe('ScheduleManagement', () => {
           onRefetchHeats={vi.fn()}
           laneCount={4}
           racerCount={10}
-          denCount={3}
+          racingGroupCount={3}
           championshipTrophies={3}
         />
       </AlertProvider>
@@ -604,7 +604,7 @@ describe('ScheduleManagement', () => {
           onRefetchHeats={vi.fn()}
           laneCount={4}
           racerCount={10}
-          denCount={3}
+          racingGroupCount={3}
           championshipTrophies={3}
         />
       </AlertProvider>
@@ -651,7 +651,7 @@ describe('ScheduleManagement', () => {
           onRefetchHeats={vi.fn()}
           laneCount={4}
           racerCount={10}
-          denCount={3}
+          racingGroupCount={3}
           championshipTrophies={3}
         />
       </AlertProvider>
@@ -694,7 +694,7 @@ describe('ScheduleManagement', () => {
             onRefetchHeats={vi.fn()}
             laneCount={4}
             racerCount={10}
-            denCount={3}
+            racingGroupCount={3}
             championshipTrophies={3}
             staleRoundIds={new Set([7])}
           />
@@ -725,7 +725,7 @@ describe('ScheduleManagement', () => {
             onRefetchHeats={vi.fn()}
             laneCount={4}
             racerCount={10}
-            denCount={3}
+            racingGroupCount={3}
             championshipTrophies={3}
           />
         </AlertProvider>
@@ -760,7 +760,7 @@ describe('ScheduleManagement', () => {
               onRefetchHeats={vi.fn()}
               laneCount={4}
               racerCount={10}
-              denCount={3}
+              racingGroupCount={3}
               championshipTrophies={3}
             />
           </AlertProvider>

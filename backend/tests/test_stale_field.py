@@ -37,7 +37,7 @@ def _race_with_raced_final(db, client):
         db,
         race_id=race_id,
         round_number=2,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=2,
     )
     crud.generate_heats_for_round(db, final.id, num_placeholders=2)
@@ -93,7 +93,7 @@ def test_an_unraced_final_is_refielded_not_flagged(db, client):
         db,
         race_id=race_id,
         round_number=2,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=2,
     )
     crud.generate_heats_for_round(db, final.id, num_placeholders=2)

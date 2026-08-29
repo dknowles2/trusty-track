@@ -56,7 +56,7 @@ interface ScheduleManagementProps {
   getRacerName: (id: number) => string;
   laneCount: number;
   racerCount: number;
-  denCount: number;
+  racingGroupCount: number;
   championshipTrophies: number;
   lastChampionshipRound?: { id: number; name: string | null } | null;
   /**
@@ -226,7 +226,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   getRacerName,
   laneCount,
   racerCount,
-  denCount,
+  racingGroupCount,
   championshipTrophies,
   lastChampionshipRound,
   staleRoundIds,
@@ -435,7 +435,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           onClose={() => setIsWizardOpen(false)}
           raceId={raceId}
           racerCount={racerCount}
-          denCount={denCount}
+          racingGroupCount={racingGroupCount}
           laneCount={laneCount}
           championshipTrophies={championshipTrophies}
           onCreated={async () => {
@@ -448,7 +448,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleAddRound}
           racerCount={racerCount}
-          denCount={denCount}
+          racingGroupCount={racingGroupCount}
           laneCount={laneCount}
           championshipTrophies={championshipTrophies}
           hasGeneralRound={hasGeneralRound}

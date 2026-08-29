@@ -41,9 +41,9 @@ const GET_INITIAL_DATA = `
         racerImageUrl
         carImageUrl
         carName
-        denId
+        racingGroupId
       }
-      dens {
+      racingGroups {
         id
         name
         color
@@ -58,13 +58,13 @@ const GET_INITIAL_DATA = `
 
 interface Standing {
   racerId: number;
-  denRank?: string | null;
+  racingGroupRank?: string | null;
   score: number;
   heatsCompleted: number;
   rank: number;
 }
 
-interface DenInfo {
+interface RacingGroupInfo {
   id: number;
   name: string;
   color: string;
@@ -310,7 +310,7 @@ export default function Observation() {
     carNumber?: number;
     racerImageUrl?: string;
     carName?: string;
-    denId?: number | null;
+    racingGroupId?: number | null;
   }
 
   const racersMap = useMemo(() => {
@@ -319,17 +319,17 @@ export default function Observation() {
     return map;
   }, [initialData]);
 
-  // Den rank, for the branding SPEC.md asked for (#298) — a den's rank shown
-  // as a label wherever a racer's den is otherwise implicit on this screen.
-  const densMap = useMemo(() => {
-    const map: Record<number, DenInfo> = {};
-    initialData?.race?.dens?.forEach((d: DenInfo) => map[d.id] = d);
+  // Racing group rank, for the branding SPEC.md asked for (#298) — a racing group's rank shown
+  // as a label wherever a racer's racingGroup is otherwise implicit on this screen.
+  const racingGroupsMap = useMemo(() => {
+    const map: Record<number, RacingGroupInfo> = {};
+    initialData?.race?.racingGroups?.forEach((d: RacingGroupInfo) => map[d.id] = d);
     return map;
   }, [initialData]);
 
-  const denRankFor = (racer: Racer | undefined): string | null => {
-    if (!racer || racer.denId == null) return null;
-    return densMap[racer.denId]?.rank ?? null;
+  const racingGroupRankFor = (racer: Racer | undefined): string | null => {
+    if (!racer || racer.racingGroupId == null) return null;
+    return racingGroupsMap[racer.racingGroupId]?.rank ?? null;
   };
 
   const officialCurrentHeat = currentlyRacingData?.currentlyRacing;
@@ -480,9 +480,9 @@ export default function Observation() {
                   {racer.firstName} {racer.lastName}
                 </div>
                 {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>Car #{racer.carNumber}</div>}
-                {denRankFor(racer) && (
-                  <div className="heat-card-den-rank" style={{ fontSize: '0.75rem', color: 'var(--text-subtle-color)' }}>
-                    {rankLabel(denRankFor(racer))}
+                {racingGroupRankFor(racer) && (
+                  <div className="heat-card-racing-group-rank" style={{ fontSize: '0.75rem', color: 'var(--text-subtle-color)' }}>
+                    {rankLabel(racingGroupRankFor(racer))}
                   </div>
                 )}
               </div>
@@ -622,7 +622,7 @@ export default function Observation() {
         {renderIdentifyFlash()}
         <PhotoSlideshow
           racers={initialData?.race?.racers ?? []}
-          dens={initialData?.race?.dens ?? []}
+          racingGroups={initialData?.race?.racingGroups ?? []}
           intervalMs={behaviour.cycleMs}
           loading={initialResult.fetching && !initialData}
         />
@@ -778,8 +778,8 @@ export default function Observation() {
                             {racer?.carNumber && (
                               <div className="standing-car-number" style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>Car #{racer.carNumber}</div>
                             )}
-                            {s.denRank && (
-                              <div className="standing-den-rank" style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{rankLabel(s.denRank)}</div>
+                            {s.racingGroupRank && (
+                              <div className="standing-racing-group-rank" style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{rankLabel(s.racingGroupRank)}</div>
                             )}
                           </div>
                         </div>
@@ -915,9 +915,9 @@ export default function Observation() {
                   Car #{racer.carNumber}
                 </div>
               )}
-              {denRankFor(racer) && (
+              {racingGroupRankFor(racer) && (
                 <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
-                  {rankLabel(denRankFor(racer))}
+                  {rankLabel(racingGroupRankFor(racer))}
                 </div>
               )}
             </div>

@@ -2,14 +2,14 @@ from backend.db import crud, schemas
 
 
 def create_test_race(db):
-    group_in = schemas.GroupCreate(name="Schedule Group")
-    group = crud.create_group(db, group_in)
+    group_in = schemas.OrganizationCreate(name="Schedule Organization")
+    group = crud.create_organization(db, group_in)
 
     track_in = schemas.TrackCreate(name="Schedule Track", lane_count=4)
     track = crud.create_track(db, track_in)
 
     race_in = schemas.RaceCreate(
-        name="Schedule Race", group_id=group.id, track_id=track.id
+        name="Schedule Race", organization_id=group.id, track_id=track.id
     )
     race = crud.create_race(db, race_in)
     return race.id
@@ -31,7 +31,7 @@ def test_generate_schedule_not_enough_racers(client, db):
             name: "R1",
             schedulingStrategy: "PPC",
             runsPerLane: 1,
-            generalType: "PACK"
+            generalType: "ALL"
         }}) {{
             id
         }}
@@ -64,7 +64,7 @@ def test_generate_schedule_success_with_min_racers(client, db):
             name: "R1",
             schedulingStrategy: "PPC",
             runsPerLane: 1,
-            generalType: "PACK"
+            generalType: "ALL"
         }}) {{
             id
             heats {{ id }}
@@ -103,7 +103,7 @@ def test_generate_ppc_schedule(client, db):
             name: "PPC Round",
             schedulingStrategy: "PPC",
             runsPerLane: 1,
-            generalType: "PACK"
+            generalType: "ALL"
         }}) {{
             id
             heats {{ id }}

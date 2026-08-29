@@ -20,7 +20,9 @@ from backend.db import crud, models, schemas
 
 
 def _race(db, lane_count=3, racer_count=10, label="Bounds"):
-    group = crud.create_group(db, schemas.GroupCreate(name=f"{label} Pack"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"{label} Pack")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name=f"{label} Track", lane_count=lane_count),
@@ -29,7 +31,7 @@ def _race(db, lane_count=3, racer_count=10, label="Bounds"):
         db,
         schemas.RaceCreate(
             name=f"{label} Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),
@@ -78,7 +80,7 @@ def test_a_negative_advancement_num_racers_is_refused(db, client):
         client,
         race.id,
         name="Finals",
-        advancementSource="PACK",
+        advancementSource="ALL",
         advancementNumRacers=-2,
         runsPerLane=1,
     )
@@ -98,7 +100,7 @@ def test_a_zero_advancement_num_racers_is_refused(db, client):
         client,
         race.id,
         name="Finals",
-        advancementSource="PACK",
+        advancementSource="ALL",
         advancementNumRacers=0,
         runsPerLane=1,
     )
@@ -128,7 +130,7 @@ def test_a_negative_runs_per_lane_is_refused_for_a_championship_round(db, client
         client,
         race.id,
         name="Finals",
-        advancementSource="PACK",
+        advancementSource="ALL",
         advancementNumRacers=3,
         runsPerLane=-1,
     )
@@ -152,7 +154,7 @@ def test_the_wizard_refuses_a_zero_runs_per_lane_on_the_general_round(db, client
             "variables": {
                 "raceId": race.id,
                 "config": {
-                    "generalRound": {"type": "PACK", "runsPerLane": 0},
+                    "generalRound": {"type": "ALL", "runsPerLane": 0},
                     "championshipRounds": [],
                 },
             },
@@ -178,11 +180,11 @@ def test_the_wizard_refuses_a_negative_num_top_racers(db, client):
             "variables": {
                 "raceId": race.id,
                 "config": {
-                    "generalRound": {"type": "PACK", "runsPerLane": 1},
+                    "generalRound": {"type": "ALL", "runsPerLane": 1},
                     "championshipRounds": [
                         {
                             "name": "Finals",
-                            "source": "PACK",
+                            "source": "ALL",
                             "numTopRacers": -3,
                             "runsPerLane": 1,
                         }
@@ -213,11 +215,11 @@ def test_the_wizard_refuses_a_zero_runs_per_lane_on_a_championship_round(db, cli
             "variables": {
                 "raceId": race.id,
                 "config": {
-                    "generalRound": {"type": "PACK", "runsPerLane": 1},
+                    "generalRound": {"type": "ALL", "runsPerLane": 1},
                     "championshipRounds": [
                         {
                             "name": "Finals",
-                            "source": "PACK",
+                            "source": "ALL",
                             "numTopRacers": 3,
                             "runsPerLane": 0,
                         }

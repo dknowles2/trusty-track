@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PACK_SOURCE,
+  ALL_SOURCE,
   carLabel,
   describeSpeedAward,
   forBallot,
@@ -15,7 +15,7 @@ const ROUNDS = [
   { id: 2, name: null, roundNumber: 2 },
   { id: 3, name: '  ', roundNumber: 3 },
 ];
-const DENS = [
+const RACING_GROUPS = [
   { id: 10, name: 'Wolves' },
   { id: 11, name: 'Bears' },
 ];
@@ -59,7 +59,7 @@ describe('naming a round', () => {
 
 describe('naming a source', () => {
   it('calls the pack source what an operator calls it', () => {
-    expect(sourceLabel(PACK_SOURCE, ROUNDS)).toBe('Overall standings');
+    expect(sourceLabel(ALL_SOURCE, ROUNDS)).toBe('Overall standings');
   });
 
   it('names the round a source points at', () => {
@@ -76,64 +76,64 @@ describe('naming a source', () => {
 
 describe('describing a speed award', () => {
   it('calls first place fastest, which is what people say', () => {
-    expect(describeSpeedAward({ source: PACK_SOURCE, place: 1 }, ROUNDS, DENS)).toBe(
+    expect(describeSpeedAward({ source: ALL_SOURCE, place: 1 }, ROUNDS, RACING_GROUPS)).toBe(
       'Fastest overall',
     );
   });
 
   it('uses the ordinal for the rest of the podium', () => {
-    expect(describeSpeedAward({ source: PACK_SOURCE, place: 2 }, ROUNDS, DENS)).toBe(
+    expect(describeSpeedAward({ source: ALL_SOURCE, place: 2 }, ROUNDS, RACING_GROUPS)).toBe(
       '2nd overall',
     );
   });
 
   it('names the round when the award is drawn from one', () => {
-    expect(describeSpeedAward({ source: 'ROUND:1', place: 3 }, ROUNDS, DENS)).toBe(
+    expect(describeSpeedAward({ source: 'ROUND:1', place: 3 }, ROUNDS, RACING_GROUPS)).toBe(
       '3rd in Prelims',
     );
   });
 
-  it('names the den when the award is limited to one', () => {
+  it('names the racingGroup when the award is limited to one', () => {
     expect(
-      describeSpeedAward({ source: PACK_SOURCE, place: 1, denId: 10 }, ROUNDS, DENS),
+      describeSpeedAward({ source: ALL_SOURCE, place: 1, racingGroupId: 10 }, ROUNDS, RACING_GROUPS),
     ).toBe('Fastest in Wolves');
   });
 
   it('says when an award cannot be won', () => {
     // A row missing its rule. The backend resolves it to nobody rather than
     // raising; showing "undefined overall" would be worse than either.
-    expect(describeSpeedAward({ source: null, place: null }, ROUNDS, DENS)).toBe(
+    expect(describeSpeedAward({ source: null, place: null }, ROUNDS, RACING_GROUPS)).toBe(
       'Not set up — this award cannot be won',
     );
   });
 
   it('calls the bottom of the standings slowest', () => {
     expect(
-      describeSpeedAward({ source: PACK_SOURCE, place: 1, fromBottom: true }, ROUNDS, DENS),
+      describeSpeedAward({ source: ALL_SOURCE, place: 1, fromBottom: true }, ROUNDS, RACING_GROUPS),
     ).toBe('Slowest overall');
   });
 
   it('numbers the rest from the bottom too', () => {
     // "2nd slowest", never "1st slowest" — nobody announces it that way.
     expect(
-      describeSpeedAward({ source: 'ROUND:1', place: 2, fromBottom: true }, ROUNDS, DENS),
+      describeSpeedAward({ source: 'ROUND:1', place: 2, fromBottom: true }, ROUNDS, RACING_GROUPS),
     ).toBe('2nd slowest in Prelims');
   });
 
-  it('narrows a slowest award to a den like any other', () => {
+  it('narrows a slowest award to a racingGroup like any other', () => {
     expect(
       describeSpeedAward(
-        { source: PACK_SOURCE, place: 1, denId: 10, fromBottom: true },
+        { source: ALL_SOURCE, place: 1, racingGroupId: 10, fromBottom: true },
         ROUNDS,
-        DENS,
+        RACING_GROUPS,
       ),
     ).toBe('Slowest in Wolves');
   });
 
-  it('says when the den is gone', () => {
+  it('says when the racingGroup is gone', () => {
     expect(
-      describeSpeedAward({ source: PACK_SOURCE, place: 1, denId: 99 }, ROUNDS, DENS),
-    ).toBe('Fastest overall — a den that no longer exists');
+      describeSpeedAward({ source: ALL_SOURCE, place: 1, racingGroupId: 99 }, ROUNDS, RACING_GROUPS),
+    ).toBe('Fastest overall — a racingGroup that no longer exists');
   });
 });
 

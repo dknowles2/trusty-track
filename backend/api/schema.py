@@ -287,7 +287,7 @@ class AdvancementRacer:
     first_name: str
     last_name: str
     car_number: int | None
-    den_name: str
+    racing_group_name: str
     score: float
     rank: int
     is_advancing: bool
@@ -402,7 +402,7 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
             first_name=entry["first_name"],
             last_name=entry["last_name"],
             car_number=entry.get("car_number"),
-            den_name=entry["den_name"],
+            racing_group_name=entry["racing_group_name"],
             score=entry["score"],
             rank=entry["rank"],
             is_advancing=entry["racer_id"] in winner_ids,
@@ -510,7 +510,7 @@ class InitialConfigStatus:
 
     initialized: bool
     version: str
-    group_name: str | None = None
+    organization_name: str | None = None
     debug_mode: bool = False
     tracks: list["Track"] = strawberry.field(default_factory=list)
     current_race_id: int | None = None
@@ -534,7 +534,7 @@ class InitialConfigStatus:
     #: for the PIN before an action fails rather than after.
     is_operator: bool = True
     #: Which theme the Display and Printables surfaces render, install-wide
-    #: (#498). A `ThemeKey` or `"MATCH_APP"` — see `models.Group.display_theme`
+    #: (#498). A `ThemeKey` or `"MATCH_APP"` — see `models.Organization.display_theme`
     #: for why this is a plain string rather than a GraphQL enum. There is
     #: deliberately no `appTheme` field here: the App theme lives only in each
     #: device's own `localStorage` and never reaches the server.
@@ -548,7 +548,7 @@ class InitialConfigInput:
     Input for initial system configuration.
     """
 
-    group_name: str
+    organization_name: str
     debug_mode: bool = False
     tracks: list["TrackInput"]
     #: Four digits, or empty/None to leave unchanged. Setting the operator PIN
@@ -576,7 +576,7 @@ class RacerInput:
     first_name: str
     last_name: str
     car_number: int | None = None
-    den_id: int | None = None
+    racing_group_id: int | None = None
     car_name: str | None = None
     car_passed_inspection: bool = False
     car_weight: float | None = None
@@ -586,9 +586,9 @@ class RacerInput:
 
 
 @strawberry.input
-class DenInput:
+class RacingGroupInput:
     """
-    Input type for creating or updating a Den sub-group.
+    Input type for creating or updating a RacingGroup sub-organization.
     """
 
     name: str
@@ -607,7 +607,7 @@ class RaceInput:
     name: str
     date_time: str | None = None
     location: str | None = None
-    group_id: int = 1
+    organization_id: int = 1
     track_id: int
     scoring_strategy: str = "TIMED"
     car_numbering_strategy: str = "MANUAL"
@@ -673,7 +673,7 @@ class WizardGeneralRoundInput:
     Configuration for a general racing round in the wizard.
     """
 
-    type: str  # "PACK" or "DEN"
+    type: str  # "ALL" or "EACH_GROUP"
     runs_per_lane: int = 1
 
 
@@ -684,7 +684,7 @@ class WizardChampionshipRoundInput:
     """
 
     name: str = "Championship Round"
-    source: str = "PACK"  # "PACK" (Overall) or "DEN" (Each Den)
+    source: str = "ALL"  # "ALL" (Overall) or "EACH_GROUP" (Each RacingGroup)
     num_top_racers: int = 3
     runs_per_lane: int = 1
 
@@ -715,7 +715,7 @@ class RacerStat:
     first_name: str
     last_name: str
     car_number: int | None
-    den_name: str
+    racing_group_name: str
     heats_completed: int
     heats_scheduled: int
     min_time: float | None
@@ -749,12 +749,12 @@ class HeatHighlight:
 
 
 @strawberry.type
-class DenStat:
-    """Aggregate statistics for a den."""
+class RacingGroupStat:
+    """Aggregate statistics for a racing group."""
 
-    den_id: int
-    den_name: str
-    den_color: str
+    racing_group_id: int
+    racing_group_name: str
+    racing_group_color: str
     racer_count: int
     avg_score: float | None
     best_racer_name: str | None
@@ -870,7 +870,7 @@ class RaceStats:
     lane_stats: list[LaneTimeStat]
     racer_stats: list[RacerStat]
     highlights: list[HeatHighlight]
-    den_stats: list[DenStat]
+    racing_group_stats: list[RacingGroupStat]
     heat_results: list[HeatResultRow]
     track_records: list[TrackRecord]
 
@@ -885,9 +885,9 @@ class LeaderboardEntry:
     first_name: str
     last_name: str
     car_number: int | None
-    den_id: int | None
-    den_name: str
-    den_rank: str | None
+    racing_group_id: int | None
+    racing_group_name: str
+    racing_group_rank: str | None
     score: float
     heats_completed: int
     racer_image_url: str | None
@@ -895,8 +895,8 @@ class LeaderboardEntry:
 
 
 @strawberry.type
-class Den:
-    """Represents a Den (sub-group of racers), usually by rank or age."""
+class RacingGroup:
+    """Represents a RacingGroup (sub-organization of racers), usually by rank or age."""
 
     id: int
     name: str
@@ -908,11 +908,11 @@ class Den:
 
     @strawberry.field
     def racers(self, info: Info) -> list["Racer"]:
-        """Get all racers belonging to this den."""
+        """Get all racers belonging to this racing group."""
         return (
             info.context["db"]
             .query(models.Racer)
-            .filter(models.Racer.den_id == self.id)
+            .filter(models.Racer.racing_group_id == self.id)
             .all()
         )
 
@@ -924,7 +924,7 @@ class PopulateTestDataInput:
     count: int = 10
     add_racer_photos: bool = True
     add_car_photos: bool = True
-    assign_dens: bool = True
+    assign_racing_groups: bool = True
     check_in: bool = False
 
 
@@ -946,7 +946,7 @@ class RoundCreateInput:
     advancement_source: str | None = None
     advancement_num_racers: int | None = None
     runs_per_lane: int = 1
-    general_type: str = "PACK"
+    general_type: str = "ALL"
     #: Draw the field from the bottom of the standings — a Slowest Race
     #: bracket. Only meaningful with an ``advancement_source``.
     advancement_from_bottom: bool = False
@@ -990,15 +990,17 @@ class Racer:
     car_weight: float | None
     racer_image_url: str | None
     car_image_url: str | None
-    den_id: int | None
+    racing_group_id: int | None
     race_id: int
 
     @strawberry.field
-    def den(self, info: Info) -> Den | None:
-        """Get the den this racer belongs to, if any."""
-        if not self.den_id:
+    def racing_group(self, info: Info) -> RacingGroup | None:
+        """Get the racing group this racer belongs to, if any."""
+        if not self.racing_group_id:
             return None
-        return typing.cast(Any, _loaders(info).den_by_id(self.race_id, self.den_id))
+        return typing.cast(
+            Any, _loaders(info).racing_group_by_id(self.race_id, self.racing_group_id)
+        )
 
 
 @strawberry.type
@@ -1021,13 +1023,13 @@ class Award:
     name: str
     kind: str
     sort_order: int
-    #: `SPEED` only: `"PACK"` or `"ROUND:<id>"`, and a 1-based `place`.
+    #: `SPEED` only: `"ALL"` or `"ROUND:<id>"`, and a 1-based `place`.
     source: str | None
     place: int | None
     #: `SPEED` only: which end `place` counts from. False is the fastest car,
     #: true the slowest.
     from_bottom: bool
-    den_id: int | None
+    racing_group_id: int | None
     #: Which clipart the ceremony slide and the certificate draw, or null for a
     #: plain certificate (#306). `SPEED` awards get this defaulted from their
     #: rule; `SPECIAL` awards get it from the ready-made superlative picker or
@@ -1046,11 +1048,13 @@ class Award:
         return typing.cast(Any, _loaders(info).racer_by_id(self.race_id, racer_id))
 
     @strawberry.field
-    def den(self, info: Info) -> Den | None:
-        """The den this award is narrowed to, if any."""
-        if not self.den_id:
+    def racing_group(self, info: Info) -> RacingGroup | None:
+        """The racing group this award is narrowed to, if any."""
+        if not self.racing_group_id:
             return None
-        return typing.cast(Any, _loaders(info).den_by_id(self.race_id, self.den_id))
+        return typing.cast(
+            Any, _loaders(info).racing_group_by_id(self.race_id, self.racing_group_id)
+        )
 
     @strawberry.field
     def vote_tally(self, info: Info) -> list["AwardVoteTally"]:
@@ -1099,7 +1103,7 @@ class AwardInput:
     source: str | None = None
     place: int | None = None
     from_bottom: bool = False
-    den_id: int | None = None
+    racing_group_id: int | None = None
     racer_id: int | None = None
     #: Ignored server-side for a `SPEED` award — see `crud._set_speed_artwork_key`.
     artwork_key: str | None = None
@@ -1116,14 +1120,14 @@ class AwardInput:
 @strawberry.type
 class Race:
     """
-    Represents a Race event, which contains multiple racers, dens, and rounds.
+    Represents a Race event, which contains multiple racers, racing groups, and rounds.
     """
 
     id: int
     name: str
     date_time: str | None
     location: str | None
-    group_id: int
+    organization_id: int
     track_id: int | None
     car_numbering_strategy: str
     global_start_number: int
@@ -1188,9 +1192,9 @@ class Race:
         )
 
     @strawberry.field
-    def dens(self, info: Info) -> list[Den]:
-        """Get all dens associated with this race."""
-        return typing.cast(Any, _loaders(info).dens_for_race(self.id))
+    def racing_groups(self, info: Info) -> list[RacingGroup]:
+        """Get all racing groups associated with this race."""
+        return typing.cast(Any, _loaders(info).racing_groups_for_race(self.id))
 
     @strawberry.field
     def racers(self, info: Info) -> list[Racer]:
@@ -1203,9 +1207,9 @@ class Race:
         return _loaders(info).scheduled_racer_ids(self.id)
 
     @strawberry.field
-    def group(self, info: Info) -> "Group":
-        """Get the organization group that owns this race."""
-        return typing.cast(Any, _loaders(info).group_by_id(self.group_id))
+    def organization(self, info: Info) -> "Organization":
+        """Get the organization that owns this race."""
+        return typing.cast(Any, _loaders(info).organization_by_id(self.organization_id))
 
     @strawberry.field
     def rounds(self, info: Info) -> list[Round]:
@@ -1289,9 +1293,9 @@ class Track:
 
 
 @strawberry.type
-class Group:
+class Organization:
     """
-    Represents an organization or group (e.g. 'Pack 123') that holds races.
+    Represents an organization (e.g. 'Pack 123') that holds races.
     """
 
     id: int
@@ -1299,11 +1303,11 @@ class Group:
 
     @strawberry.field
     def races(self, info: Info) -> list[Race]:
-        """Get all races organized by this group."""
+        """Get all races organized by this organization."""
         return (
             info.context["db"]
             .query(models.Race)
-            .filter(models.Race.group_id == self.id)
+            .filter(models.Race.organization_id == self.id)
             .all()
         )
 
@@ -1933,9 +1937,9 @@ class Query:
         return typing.cast(Any, crud.get_tracks(info.context["db"]))
 
     @strawberry.field
-    def groups(self, info: Info) -> list[Group]:
-        """Get all registered groups."""
-        return typing.cast(Any, info.context["db"].query(models.Group).all())
+    def organizations(self, info: Info) -> list[Organization]:
+        """Get all registered organizations."""
+        return typing.cast(Any, info.context["db"].query(models.Organization).all())
 
     @strawberry.field
     def initial_config(self, info: Info) -> InitialConfigStatus:
@@ -1949,25 +1953,29 @@ class Query:
             _version = "unknown"
 
         if tracks:
-            group = db.query(models.Group).first()
+            organization = db.query(models.Organization).first()
             race = db.query(models.Race).first()
-            pin_required = bool(group and group.operator_pin_hash)
+            pin_required = bool(organization and organization.operator_pin_hash)
             return InitialConfigStatus(
                 initialized=True,
                 version=_version,
                 demo_mode=demo_mode.enabled(),
-                group_name=group.name if group else None,
-                debug_mode=group.debug_mode if group else False,
+                organization_name=organization.name if organization else None,
+                debug_mode=organization.debug_mode if organization else False,
                 tracks=typing.cast(Any, tracks),
                 current_race_id=race.id if race else None,
                 pin_required=pin_required,
-                checkin_pin_set=bool(group and group.checkin_pin_hash),
+                checkin_pin_set=bool(organization and organization.checkin_pin_hash),
                 # Resolved here rather than left to the extension: this is a
                 # *query*, so nothing has asked for a role yet, and the point is
                 # to let the UI prompt before an action fails.
                 is_operator=auth.resolve_role(info.context) is auth.Role.OPERATOR,
-                display_theme=group.display_theme if group else "MATCH_APP",
-                printables_theme=group.printables_theme if group else "MATCH_APP",
+                display_theme=organization.display_theme
+                if organization
+                else "MATCH_APP",
+                printables_theme=organization.printables_theme
+                if organization
+                else "MATCH_APP",
             )
         # Reported on the unconfigured branch too. A demo seeds itself before
         # it serves, so this is only reachable if seeding failed — and a first
@@ -2121,7 +2129,9 @@ class Query:
                 for rs in data["racer_stats"]
             ],
             highlights=[HeatHighlight(**hl) for hl in data["highlights"]],
-            den_stats=[DenStat(**ds) for ds in data["den_stats"]],
+            racing_group_stats=[
+                RacingGroupStat(**ds) for ds in data["racing_group_stats"]
+            ],
             heat_results=[HeatResultRow(**hr) for hr in data["heat_results"]],
             track_records=[TrackRecord(**tr) for tr in data["track_records"]],
         )
@@ -2241,7 +2251,7 @@ def _start_backend_direct(
         asyncio.create_task(mgr.autodetect([profile] if profile else None))
 
 
-def _apply_pins(group: Any, config: "InitialConfigInput") -> None:
+def _apply_pins(organization: Any, config: "InitialConfigInput") -> None:
     """Store whichever PINs the wizard sent, hashed (#15).
 
     Absent means *leave alone* and an explicit empty string means *clear*. The
@@ -2257,10 +2267,10 @@ def _apply_pins(group: Any, config: "InitialConfigInput") -> None:
         value = getattr(config, field, None)
         if value is None:
             continue
-        setattr(group, column, auth.hash_pin(value) if value else None)
+        setattr(organization, column, auth.hash_pin(value) if value else None)
 
 
-def _apply_themes(group: Any, config: "InitialConfigInput") -> None:
+def _apply_themes(organization: Any, config: "InitialConfigInput") -> None:
     """Store whichever Display/Printables theme the settings page sent (#498).
 
     Absent means *leave alone*, same shape as `_apply_pins` — but unlike a
@@ -2273,7 +2283,7 @@ def _apply_themes(group: Any, config: "InitialConfigInput") -> None:
         value = getattr(config, field, None)
         if value is None:
             continue
-        setattr(group, field, value)
+        setattr(organization, field, value)
 
 
 @strawberry.type
@@ -2516,36 +2526,51 @@ class Mutation:
             )
         return updated
 
-    # Den Mutations
+    # RacingGroup Mutations
     @strawberry.mutation
-    async def create_den(self, info: Info, race_id: int, den: DenInput) -> Den:
-        """Create a new den."""
+    async def create_racing_group(
+        self, info: Info, race_id: int, racing_group: RacingGroupInput
+    ) -> RacingGroup:
+        """Create a new racing group."""
         db = info.context["db"]
-        den_in = schemas.DenCreate(**typing.cast(Any, strawberry.asdict(den)))
-        new_den = typing.cast(Any, crud.create_den(db, den_in, race_id=race_id))
+        racing_group_in = schemas.RacingGroupCreate(
+            **typing.cast(Any, strawberry.asdict(racing_group))
+        )
+        new_racing_group = typing.cast(
+            Any, crud.create_racing_group(db, racing_group_in, race_id=race_id)
+        )
         await _publish_race_state(race_id)
-        return new_den
+        return new_racing_group
 
     @strawberry.mutation
-    async def update_den(self, info: Info, id: int, den: DenInput) -> Den | None:
-        """Update an existing den."""
+    async def update_racing_group(
+        self, info: Info, id: int, racing_group: RacingGroupInput
+    ) -> RacingGroup | None:
+        """Update an existing racing group."""
         db = info.context["db"]
-        den_update = schemas.DenUpdate(**typing.cast(Any, strawberry.asdict(den)))
+        racing_group_update = schemas.RacingGroupUpdate(
+            **typing.cast(Any, strawberry.asdict(racing_group))
+        )
         updated = typing.cast(
-            Any, crud.update_den(db, den_id=id, den_update=den_update)
+            Any,
+            crud.update_racing_group(
+                db, racing_group_id=id, racing_group_update=racing_group_update
+            ),
         )
         if updated:
             await _publish_race_state(updated.race_id)
         return updated
 
     @strawberry.mutation
-    async def delete_den(self, info: Info, id: int) -> bool:
-        """Delete a den."""
+    async def delete_racing_group(self, info: Info, id: int) -> bool:
+        """Delete a racing group."""
         db = info.context["db"]
-        den = db.query(models.Den).filter(models.Den.id == id).first()
-        race_id = den.race_id if den else None
+        racing_group = (
+            db.query(models.RacingGroup).filter(models.RacingGroup.id == id).first()
+        )
+        race_id = racing_group.race_id if racing_group else None
         try:
-            result = crud.delete_den(db, den_id=id) is not None
+            result = crud.delete_racing_group(db, racing_group_id=id) is not None
         except ValueError:
             return False
         if race_id:
@@ -2818,7 +2843,7 @@ class Mutation:
 
         try:
             # General Round
-            if config.general_round.type == "PACK":
+            if config.general_round.type == "ALL":
                 round_obj = crud.create_round(
                     db,
                     race_id,
@@ -2837,12 +2862,12 @@ class Mutation:
                     runs=config.general_round.runs_per_lane,
                 )
                 current_round_number += 1
-            elif config.general_round.type == "DEN":
-                dens = crud.get_dens(db, race_id)
-                for den in dens:
+            elif config.general_round.type == "EACH_GROUP":
+                racing_groups = crud.get_racing_groups(db, race_id)
+                for racing_group in racing_groups:
                     racers = (
                         db.query(models.Racer)
-                        .filter(models.Racer.den_id == den.id)
+                        .filter(models.Racer.racing_group_id == racing_group.id)
                         .all()
                     )
                     if not racers:
@@ -2852,8 +2877,8 @@ class Mutation:
                         race_id,
                         current_round_number,
                         models.SchedulingStrategy.PPC,
-                        den.name,
-                        den_id=den.id,
+                        racing_group.name,
+                        racing_group_id=racing_group.id,
                     )
                     created_rounds.append(round_obj)
                     p_ids = [r.id for r in racers]
@@ -2874,8 +2899,8 @@ class Mutation:
                     if previous_champ_round_id:
                         adv_source = f"ROUND:{previous_champ_round_id}"
                     else:
-                        # Fallback to PACK if no previous championship round exists
-                        adv_source = "PACK"
+                        # Fallback to ALL if no previous championship round exists
+                        adv_source = "ALL"
 
                 round_obj = crud.create_round(
                     db,
@@ -3351,13 +3376,13 @@ class Mutation:
         return True
 
     @strawberry.mutation
-    async def bulk_move_to_den(
-        self, info: Info, racer_ids: list[int], den_id: int | None
+    async def bulk_move_to_racing_group(
+        self, info: Info, racer_ids: list[int], racing_group_id: int | None
     ) -> bool:
-        """Bulk move racers to a den."""
+        """Bulk move racers to a racing group."""
         db = info.context["db"]
         race_id = _race_id_for_racers(db, racer_ids)
-        crud.bulk_move_racers_to_den(db, racer_ids, den_id)
+        crud.bulk_move_racers_to_racing_group(db, racer_ids, racing_group_id)
         if race_id is not None:
             await _publish_race_state(race_id, kind=RaceChangeKind.ROSTER)
         return True
@@ -3403,17 +3428,17 @@ class Mutation:
     def create_initial_config(
         self, info: Info, config: InitialConfigInput
     ) -> InitialConfigStatus:
-        """Initialize the system with group name and tracks."""
+        """Initialize the system with organization name and tracks."""
         db = info.context["db"]
         if crud.get_tracks(db):
             raise ValueError("System already initialized")
 
         config_dict = strawberry.asdict(config)
         config_in = schemas.InitialConfigCreate(**config_dict)
-        group, tracks = crud.create_initial_config(db, config_in)
-        _apply_pins(group, config)
+        organization, tracks = crud.create_initial_config(db, config_in)
+        _apply_pins(organization, config)
         db.commit()
-        db.refresh(group)
+        db.refresh(organization)
 
         # Register a TimerManager for each newly created track so that
         # prepare_heat works immediately without requiring a server restart.
@@ -3434,16 +3459,16 @@ class Mutation:
         return InitialConfigStatus(
             initialized=True,
             version=_version,
-            group_name=group.name,
-            debug_mode=group.debug_mode,
+            organization_name=organization.name,
+            debug_mode=organization.debug_mode,
             tracks=typing.cast(Any, tracks),
-            pin_required=bool(group.operator_pin_hash),
-            checkin_pin_set=bool(group.checkin_pin_hash),
+            pin_required=bool(organization.operator_pin_hash),
+            checkin_pin_set=bool(organization.checkin_pin_hash),
             # The caller who just set the PIN keeps the role they had for this
             # response; the next request resolves it from what they send.
             is_operator=True,
-            display_theme=group.display_theme,
-            printables_theme=group.printables_theme,
+            display_theme=organization.display_theme,
+            printables_theme=organization.printables_theme,
         )
 
     @strawberry.mutation
@@ -3462,20 +3487,25 @@ class Mutation:
     ) -> InitialConfigStatus:
         """Update system organization name and tracks."""
         db = info.context["db"]
-        group = db.query(models.Group).first()
-        if group and (
-            group.name != config.group_name or group.debug_mode != config.debug_mode
+        organization = db.query(models.Organization).first()
+        if organization and (
+            organization.name != config.organization_name
+            or organization.debug_mode != config.debug_mode
         ):
-            if group.name != config.group_name:
-                existing = crud.get_group_by_name(db, config.group_name)
+            if organization.name != config.organization_name:
+                existing = crud.get_organization_by_name(db, config.organization_name)
                 if existing:
-                    raise ValueError(f"Group '{config.group_name}' already exists")
-            crud.update_group(db, group, config.group_name, config.debug_mode)
-            db.refresh(group)
+                    raise ValueError(
+                        f"Organization '{config.organization_name}' already exists"
+                    )
+            crud.update_organization(
+                db, organization, config.organization_name, config.debug_mode
+            )
+            db.refresh(organization)
 
-        if group:
-            _apply_pins(group, config)
-            _apply_themes(group, config)
+        if organization:
+            _apply_pins(organization, config)
+            _apply_themes(organization, config)
             db.commit()
 
         # Tracks are matched to database rows by id, not by list position
@@ -3581,14 +3611,16 @@ class Mutation:
         return InitialConfigStatus(
             initialized=True,
             version=_version,
-            group_name=group.name if group else None,
-            debug_mode=group.debug_mode if group else False,
+            organization_name=organization.name if organization else None,
+            debug_mode=organization.debug_mode if organization else False,
             tracks=typing.cast(Any, tracks),
-            pin_required=bool(group and group.operator_pin_hash),
-            checkin_pin_set=bool(group and group.checkin_pin_hash),
+            pin_required=bool(organization and organization.operator_pin_hash),
+            checkin_pin_set=bool(organization and organization.checkin_pin_hash),
             is_operator=True,
-            display_theme=group.display_theme if group else "MATCH_APP",
-            printables_theme=group.printables_theme if group else "MATCH_APP",
+            display_theme=organization.display_theme if organization else "MATCH_APP",
+            printables_theme=organization.printables_theme
+            if organization
+            else "MATCH_APP",
         )
 
     @strawberry.mutation
@@ -3605,7 +3637,7 @@ class Mutation:
             count=config.count,
             add_racer_photos=config.add_racer_photos,
             add_car_photos=config.add_car_photos,
-            assign_dens=config.assign_dens,
+            assign_racing_groups=config.assign_racing_groups,
             check_in=config.check_in,
         )
         await _publish_race_state(race_id)
@@ -3616,7 +3648,7 @@ class Mutation:
         """A whole event on a fake timer, ready to run (#201).
 
         One mutation rather than the five round trips a client would need —
-        race, dens, roster, check-in, rounds — because a rehearsal that fails
+        race, racing groups, roster, check-in, rounds — because a rehearsal that fails
         half way leaves the operator with a broken race to tidy up, which is
         the opposite of the confidence this exists to give.
         """
@@ -3660,22 +3692,27 @@ class Mutation:
             return None
 
         for row in reader:
-            den_id = None
-            den_val = get_val(row, "den")
-            if den_val:
-                den_name = den_val.strip()
-                db_den = (
-                    db.query(models.Den)
-                    .filter(models.Den.race_id == race_id, models.Den.name == den_name)
+            racing_group_id = None
+            racing_group_val = get_val(row, "racing_group")
+            if racing_group_val:
+                racing_group_name = racing_group_val.strip()
+                db_racing_group = (
+                    db.query(models.RacingGroup)
+                    .filter(
+                        models.RacingGroup.race_id == race_id,
+                        models.RacingGroup.name == racing_group_name,
+                    )
                     .first()
                 )
-                if not db_den:
-                    db_den = crud.create_den(
+                if not db_racing_group:
+                    db_racing_group = crud.create_racing_group(
                         db,
-                        schemas.DenCreate(name=den_name, color="#808080"),
+                        schemas.RacingGroupCreate(
+                            name=racing_group_name, color="#808080"
+                        ),
                         race_id,
                     )
-                den_id = db_den.id
+                racing_group_id = db_racing_group.id
 
             first_name = get_val(row, "first_name", "first")
             last_name = get_val(row, "last_name", "last")
@@ -3697,7 +3734,7 @@ class Mutation:
                 # file posted straight to the mutation can hold anything.
                 car_passed_inspection=bool(passed)
                 and passed.strip().lower() in _TRUTHY_CSV_VALUES,
-                den_id=den_id,
+                racing_group_id=racing_group_id,
                 race_id=race_id,
             )
             crud.create_racer(db, racer_in)
@@ -3959,11 +3996,11 @@ class RaceChangeKind(enum.Enum):
     HEAT_RESULT = "HEAT_RESULT"
     #: Fields changed on an existing racer — checked in, renamed, renumbered,
     #: photographed. Carries ``racer`` when a single one changed. Crucially this
-    #: does *not* change which racers exist or which den they are in, so a
+    #: does *not* change which racers exist or which racing group they are in, so a
     #: normalized client cache can merge the payload without refetching a list.
     RACER = "RACER"
-    #: Racers were added or removed, or moved between dens. ``Race.racers`` and
-    #: ``Den.racers`` membership changed, which no payload can express — a
+    #: Racers were added or removed, or moved between racing groups. ``Race.racers`` and
+    #: ``RacingGroup.racers`` membership changed, which no payload can express — a
     #: client has to re-read the list.
     ROSTER = "ROSTER"
     #: Heats or rounds were created, regenerated, reordered, or deleted. The
@@ -4044,7 +4081,7 @@ class _RacerSnapshot:
         "car_weight",
         "racer_image_url",
         "car_image_url",
-        "den_id",
+        "racing_group_id",
         "race_id",
     )
 

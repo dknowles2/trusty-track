@@ -13,7 +13,7 @@ from backend.tests.helpers import record_heat_result
 
 
 def build(db, *, racers=5, lane_count=4, strategy=models.ScoringStrategy.TIMED):
-    group = crud.create_group(db, schemas.GroupCreate(name="Pack 42"))
+    group = crud.create_organization(db, schemas.OrganizationCreate(name="Pack 42"))
     track = crud.create_track(
         db, schemas.TrackCreate(name="Shrink Track", lane_count=lane_count)
     )
@@ -21,7 +21,7 @@ def build(db, *, racers=5, lane_count=4, strategy=models.ScoringStrategy.TIMED):
         db,
         schemas.RaceCreate(
             name="Shrink Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy=strategy,
         ),

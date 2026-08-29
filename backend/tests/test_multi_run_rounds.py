@@ -20,7 +20,9 @@ from backend.domain import audit, lanes
 
 @pytest.fixture
 def race(db):
-    group = crud.create_group(db, schemas.GroupCreate(name="Multi-Run Pack"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Multi-Run Pack")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(name="Multi-Run Track", lane_count=2, timer_type="FAKE"),
@@ -28,7 +30,7 @@ def race(db):
     race = crud.create_race(
         db,
         schemas.RaceCreate(
-            name="Multi-Run Derby", group_id=group.id, track_id=track.id
+            name="Multi-Run Derby", organization_id=group.id, track_id=track.id
         ),
     )
     for i in range(4):
@@ -72,7 +74,7 @@ def _two_run_final(db, race, num_racers=2):
         db,
         race_id=race.id,
         round_number=2,
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=num_racers,
     )
     crud.generate_heats_for_round(

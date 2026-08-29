@@ -81,7 +81,7 @@ describe('RaceDetails Populate', () => {
                     carNumberingStrategy: 'PER_GROUP',
                     track: { name: 'Main Track' },
                     racers: [],
-                    dens: [],
+                    racingGroups: [],
                     leaderboard: []
                 },
                 tracks: [{ id: 1, name: 'Main Track' }]
@@ -135,7 +135,7 @@ describe('RaceDetails Populate', () => {
                 count: 15,
                 addRacerPhotos: true,
                 addCarPhotos: true,
-                assignDens: true,
+                assignRacingGroups: true,
                 checkIn: false
             })
         }));
@@ -152,7 +152,7 @@ describe('RaceDetails Populate', () => {
                     scoringStrategy: 'TIMED',
                     carNumberingStrategy: 'PER_GROUP',
                     racers: [],
-                    dens: [],
+                    racingGroups: [],
                     leaderboard: []
                 },
                 tracks: []

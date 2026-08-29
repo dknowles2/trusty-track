@@ -83,7 +83,7 @@ test('it is built out enough to rehearse the whole day', async ({ page }) => {
     // Advancement is the part of race day that surprises people, so a
     // rehearsal that stops before the final leaves out the bit worth
     // practising.
-    expect(data.race.rounds.map((r) => r.advancementSource)).toContain('PACK');
+    expect(data.race.rounds.map((r) => r.advancementSource)).toContain('ALL');
 });
 
 test('a second rehearsal does not collide with the first', async ({ page }) => {

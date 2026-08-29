@@ -29,7 +29,7 @@ interface RacerStat {
   firstName: string;
   lastName: string;
   carNumber: number | null;
-  denName: string;
+  racingGroupName: string;
   heatsCompleted: number;
   heatsScheduled: number;
   minTime: number | null;
@@ -56,10 +56,10 @@ interface HeatHighlight {
   margin: number | null;
 }
 
-interface DenStat {
-  denId: number;
-  denName: string;
-  denColor: string;
+interface RacingGroupStat {
+  racingGroupId: number;
+  racingGroupName: string;
+  racingGroupColor: string;
   racerCount: number;
   avgScore: number | null;
   bestRacerName: string | null;
@@ -97,7 +97,7 @@ interface RaceStatsData {
   laneStats: LaneTimeStat[];
   racerStats: RacerStat[];
   highlights: HeatHighlight[];
-  denStats: DenStat[];
+  racingGroupStats: RacingGroupStat[];
   heatResults: HeatResultRow[];
   trackRecords: TrackRecord[];
 }
@@ -132,12 +132,12 @@ function exportHeatResults(heatResults: HeatResultRow[], raceName: string) {
 }
 
 function exportRacerStats(racerStats: RacerStat[], raceName: string) {
-  const header: CsvRow = ['Car #', 'First Name', 'Last Name', 'Den', 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev'];
+  const header: CsvRow = ['Car #', 'First Name', 'Last Name', 'Racing Group', 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev'];
   const rows = racerStats.map(r => [
     r.carNumber,
     r.firstName,
     r.lastName,
-    r.denName,
+    r.racingGroupName,
     r.heatsCompleted,
     r.minTime,
     r.meanTime,
@@ -316,7 +316,7 @@ export default function RaceStats() {
                     <th className="sortable" onClick={() => handleSort('lastName')}>
                       Name{sortIndicator('lastName')}
                     </th>
-                    <th>Den</th>
+                    <th>Racing Group</th>
                     <th className="sortable" onClick={() => handleSort('heatsCompleted')}>
                       Heats{sortIndicator('heatsCompleted')}
                     </th>
@@ -339,7 +339,7 @@ export default function RaceStats() {
                     <tr key={rs.racerId}>
                       <td>{rs.carNumber ?? '—'}</td>
                       <td>{rs.firstName} {rs.lastName}</td>
-                      <td style={{ color: 'var(--text-muted-color)' }}>{rs.denName}</td>
+                      <td style={{ color: 'var(--text-muted-color)' }}>{rs.racingGroupName}</td>
                       <td style={{ textAlign: 'center' }}>{rs.heatsCompleted}</td>
                       <td className="mono">{fmt(rs.minTime)}</td>
                       <td className="mono" style={{ fontWeight: 'bold' }}>{fmt(rs.meanTime)}</td>
@@ -457,26 +457,26 @@ export default function RaceStats() {
             </div>
           )}
 
-          {/* Den Comparison */}
-          {stats.denStats.length > 0 && (
+          {/* Racing Group Comparison */}
+          {stats.racingGroupStats.length > 0 && (
             <div className="race-stats__section">
-              <h2 className="race-stats__section-title">Den Comparison</h2>
+              <h2 className="race-stats__section-title">Racing Group Comparison</h2>
               <div className="race-stats__chart-wrapper">
-                <ResponsiveContainer width="100%" height={Math.max(120, stats.denStats.length * 50)}>
+                <ResponsiveContainer width="100%" height={Math.max(120, stats.racingGroupStats.length * 50)}>
                   <BarChart
-                    data={stats.denStats}
+                    data={stats.racingGroupStats}
                     layout="vertical"
                     margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" unit="s" tickFormatter={(v: number) => v.toFixed(2)} />
-                    <YAxis type="category" dataKey="denName" width={75} />
+                    <YAxis type="category" dataKey="racingGroupName" width={75} />
                     <Tooltip
                       formatter={(value: unknown) => [`${Number(value).toFixed(3)}s`, 'Avg Score']}
                     />
                     <Bar dataKey="avgScore" name="Avg Score">
-                      {stats.denStats.map((entry, i) => (
-                        <Cell key={i} fill={entry.denColor || 'var(--scouting-blue)'} />
+                      {stats.racingGroupStats.map((entry, i) => (
+                        <Cell key={i} fill={entry.racingGroupColor || 'var(--scouting-blue)'} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -485,15 +485,15 @@ export default function RaceStats() {
               <table className="race-stats__table">
                 <thead>
                   <tr>
-                    <th>Den</th>
+                    <th>Racing Group</th>
                     <th>Racers</th>
                     <th>Avg Score</th>
                     <th>Best Racer</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stats.denStats.map(ds => (
-                    <tr key={ds.denId}>
+                  {stats.racingGroupStats.map(ds => (
+                    <tr key={ds.racingGroupId}>
                       <td style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span
                           style={{
@@ -501,11 +501,11 @@ export default function RaceStats() {
                             width: '12px',
                             height: '12px',
                             borderRadius: '3px',
-                            backgroundColor: ds.denColor,
+                            backgroundColor: ds.racingGroupColor,
                             flexShrink: 0,
                           }}
                         />
-                        {ds.denName}
+                        {ds.racingGroupName}
                       </td>
                       <td>{ds.racerCount}</td>
                       <td className="mono">{fmt(ds.avgScore)}</td>

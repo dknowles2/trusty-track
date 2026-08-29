@@ -18,7 +18,7 @@ interface RoundConfigModalProps {
     generalType?: string;
   }) => Promise<void>;
   racerCount: number;
-  denCount: number;
+  racingGroupCount: number;
   laneCount: number;
   championshipTrophies: number;
   hasGeneralRound: boolean;
@@ -32,19 +32,19 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   onClose,
   onSubmit,
   racerCount,
-  denCount,
+  racingGroupCount,
   laneCount,
   championshipTrophies,
   hasGeneralRound,
   lastChampionshipRound
 }) => {
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
-  const [generalType, setGeneralType] = useState<'PACK' | 'DEN'>('PACK');
+  const [generalType, setGeneralType] = useState<'ALL' | 'EACH_GROUP'>('ALL');
   const [raceStyle, setRaceStyle] = useState<'PPC' | 'ELIMINATION' | 'BALANCED'>('PPC');
   const [eliminationLosses, setEliminationLosses] = useState(3);
   const [balancedPhases, setBalancedPhases] = useState(Math.max(1, laneCount));
   const [name, setName] = useState('');
-  const [source, setSource] = useState<'PACK' | 'DEN' | 'PREVIOUS'>('PACK');
+  const [source, setSource] = useState<'ALL' | 'EACH_GROUP' | 'PREVIOUS'>('ALL');
   const [numTopRacers, setNumTopRacers] = useState(championshipTrophies);
   const [fromBottom, setFromBottom] = useState(false);
   const [runsPerLane, setRunsPerLane] = useState(1);
@@ -294,31 +294,31 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
                       type="radio"
-                      checked={generalType === 'PACK'}
-                      onChange={() => setGeneralType('PACK')}
+                      checked={generalType === 'ALL'}
+                      onChange={() => setGeneralType('ALL')}
                       disabled={loading}
                     />
                     <span>
                       <Icon path={mdiFlagCheckered} size={0.7} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                      PACK
+                      All Pack
                     </span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
                       type="radio"
-                      checked={generalType === 'DEN'}
-                      onChange={() => setGeneralType('DEN')}
+                      checked={generalType === 'EACH_GROUP'}
+                      onChange={() => setGeneralType('EACH_GROUP')}
                       disabled={loading}
                     />
                     <span>
                       <Icon path={mdiAccountGroup} size={0.7} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                      DEN
+                      By Racing Group
                     </span>
                   </label>
                 </div>
-                {generalType === 'DEN' && (
+                {generalType === 'EACH_GROUP' && (
                   <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                    Will create {denCount} rounds (one per den).
+                    Will create {racingGroupCount} rounds (one per racing group).
                   </p>
                 )}
               </div>
@@ -363,12 +363,12 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   <label style={labelStyle}>{fromBottom ? 'Slowest cars from' : 'Top performers from'}</label>
                   <select
                     value={source}
-                    onChange={(e) => setSource(e.target.value as 'PACK' | 'DEN' | 'PREVIOUS')}
+                    onChange={(e) => setSource(e.target.value as 'ALL' | 'EACH_GROUP' | 'PREVIOUS')}
                     className="form-control"
                     disabled={loading}
                   >
-                    <option value="PACK">PACK (Overall)</option>
-                    <option value="DEN">DEN (Each Den)</option>
+                    <option value="ALL">Overall</option>
+                    <option value="EACH_GROUP">Each Racing Group</option>
                     {lastChampionshipRound && (
                       <option value="PREVIOUS">
                         {lastChampionshipRound.name || 'Previous championship round'}

@@ -15,7 +15,7 @@ export const GET_PRINTABLES = gql`
       name
       dateTime
       location
-      dens {
+      racingGroups {
         id
         name
         color
@@ -26,7 +26,7 @@ export const GET_PRINTABLES = gql`
         lastName
         carNumber
         carName
-        denId
+        racingGroupId
         racerImageUrl
       }
     }
@@ -105,7 +105,7 @@ export const GET_RESULTS_SHEET = gql`
         firstName
         lastName
         carNumber
-        denName
+        racingGroupName
         score
         heatsCompleted
       }

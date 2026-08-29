@@ -75,7 +75,9 @@ def registered_manager():
 
 
 def _race(db, lane_count=4):
-    group = crud.create_group(db, schemas.GroupCreate(name="Session Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Session Organization")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(
@@ -86,7 +88,7 @@ def _race(db, lane_count=4):
         db,
         schemas.RaceCreate(
             name="Session Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),

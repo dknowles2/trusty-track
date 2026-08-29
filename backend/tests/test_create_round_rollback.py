@@ -18,7 +18,9 @@ from backend.db import crud, models, schemas
 
 
 def _race(db, racer_count, label):
-    group = crud.create_group(db, schemas.GroupCreate(name=f"{label} Pack"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"{label} Pack")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name=f"{label} Track", lane_count=3)
     )
@@ -26,7 +28,7 @@ def _race(db, racer_count, label):
         db,
         schemas.RaceCreate(
             name=f"{label} Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             car_numbering_strategy="MANUAL",
         ),
@@ -100,7 +102,7 @@ def test_a_championship_round_that_fails_generation_leaves_no_round_behind(
         client,
         race.id,
         name="Finals",
-        advancementSource="PACK",
+        advancementSource="ALL",
         advancementNumRacers=3,
         runsPerLane=1,
     )

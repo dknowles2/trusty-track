@@ -485,9 +485,9 @@ class TestIdentifyDisplayMutation:
         # told. See `api/auth.py::OPERATOR_ONLY_MUTATIONS`.
         from backend.api import auth
         from backend.db import schemas
-        from backend.db.crud import create_group
+        from backend.db.crud import create_organization
 
-        group = create_group(db, schemas.GroupCreate(name="Pack"))
+        group = create_organization(db, schemas.OrganizationCreate(name="Pack"))
         group.operator_pin_hash = auth.hash_pin("1111")
         db.commit()
         displays_service.registry.connect("gql-display", race_id=7)

@@ -60,7 +60,7 @@ export default function AwardCeremony() {
   const race = result.data?.race;
   const awards: CeremonyAward[] = race?.awards ?? [];
   const rounds = race?.rounds ?? [];
-  const dens = race?.dens ?? [];
+  const racingGroups = race?.racingGroups ?? [];
 
   // The Display surface's theme (#498) — same reasoning as Observation.tsx's
   // own root: this is the audience-facing surface, and "Match App theme"
@@ -120,7 +120,7 @@ export default function AwardCeremony() {
 
   if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
-  const slide = slideFor(awards, index, rounds, dens);
+  const slide = slideFor(awards, index, rounds, racingGroups);
 
   return (
     <div

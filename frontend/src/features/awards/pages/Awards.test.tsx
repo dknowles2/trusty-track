@@ -23,13 +23,13 @@ const RACE = {
       name: 'Fastest Wolf',
       kind: 'SPEED',
       sortOrder: 0,
-      source: 'PACK',
+      source: 'ALL',
       place: 1,
-      denId: 5,
+      racingGroupId: 5,
       artworkKey: 'trophy',
       votable: false,
       voteTally: [],
-      den: { id: 5, name: 'Wolves' },
+      racingGroup: { id: 5, name: 'Wolves' },
       recipient: {
         id: 100,
         firstName: 'Ada',
@@ -45,14 +45,14 @@ const RACE = {
       sortOrder: 1,
       source: null,
       place: null,
-      denId: null,
+      racingGroupId: null,
       artworkKey: null,
       votable: true,
       voteTally: [
         { racerId: 100, voteCount: 3, racer: { id: 100, carNumber: 42, carName: null } },
         { racerId: 101, voteCount: 1, racer: { id: 101, carNumber: 7, carName: null } },
       ],
-      den: null,
+      racingGroup: null,
       recipient: null,
     },
     {
@@ -62,11 +62,11 @@ const RACE = {
       sortOrder: 2,
       source: null,
       place: null,
-      denId: null,
+      racingGroupId: null,
       artworkKey: null,
       votable: false,
       voteTally: [],
-      den: null,
+      racingGroup: null,
       recipient: {
         id: 101,
         firstName: 'Grace',
@@ -77,7 +77,7 @@ const RACE = {
     },
   ],
   rounds: [{ id: 4, name: 'Finals', roundNumber: 2 }],
-  dens: [{ id: 5, name: 'Wolves', color: '#888' }],
+  racingGroups: [{ id: 5, name: 'Wolves', color: '#888' }],
   racers: [
     { id: 100, firstName: 'Ada', lastName: 'Lovelace', carNumber: 42, carImageUrl: null },
     {
@@ -138,7 +138,7 @@ describe('the awards page', () => {
       'kind',
       'source',
       'place',
-      'denId',
+      'racingGroupId',
       'artworkKey',
       'recipient',
       'racerImageUrl',
@@ -260,7 +260,7 @@ describe('the awards page', () => {
     expect(mutations.create.mock.calls[0][0].award).toMatchObject({
       source: null,
       place: null,
-      denId: null,
+      racingGroupId: null,
     });
   });
 

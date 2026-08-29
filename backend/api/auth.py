@@ -99,7 +99,7 @@ CHECKIN_MUTATIONS = frozenset(
         "bulkCheckIn",
         "bulkAutoNumber",
         "bulkClearNumbers",
-        "bulkMoveToDen",
+        "bulkMoveToRacingGroup",
         "bulkAssignPhotos",
         "bulkDeleteRacers",
     }
@@ -110,13 +110,13 @@ CHECKIN_MUTATIONS = frozenset(
 #: `test_auth_policy.py` compares this against the schema in both directions.
 OPERATOR_ONLY_MUTATIONS = frozenset(
     {
-        # Race, den and track
+        # Race, racing group and track
         "createRace",
         "updateRace",
         "deleteRace",
-        "createDen",
-        "updateDen",
-        "deleteDen",
+        "createRacingGroup",
+        "updateRacingGroup",
+        "deleteRacingGroup",
         "createTrack",
         "updateTrack",
         "deleteTrack",

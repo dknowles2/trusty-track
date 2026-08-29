@@ -139,8 +139,8 @@ export default function ResultsSheet() {
                     )}
 
                     {sections.map((section) => {
-                        // The Den column says the same thing on every row of a
-                        // den's own table, which is a column of noise on paper.
+                        // The RacingGroup column says the same thing on every row of a
+                        // racingGroup's own table, which is a column of noise on paper.
                         const isOverall = section.title === OVERALL;
                         return (
                         <section key={section.title} className="heat-sheet-round">
@@ -161,7 +161,7 @@ export default function ResultsSheet() {
                                         <th className="heat-sheet-num">Place</th>
                                         <th className="heat-sheet-num">Car #</th>
                                         <th>Racer</th>
-                                        {isOverall && <th>Den</th>}
+                                        {isOverall && <th>Racing Group</th>}
                                         <th>{scoreHeading(scoringStrategy)}</th>
                                         <th className="heat-sheet-num">Heats</th>
                                     </tr>
@@ -172,7 +172,7 @@ export default function ResultsSheet() {
                                             <td className="heat-sheet-num">{row.place}</td>
                                             <td className="heat-sheet-num">{row.carNumber}</td>
                                             <td>{row.name}</td>
-                                            {isOverall && <td>{row.denName}</td>}
+                                            {isOverall && <td>{row.racingGroupName}</td>}
                                             <td>{row.score}</td>
                                             <td className="heat-sheet-num">{row.heats}</td>
                                         </tr>

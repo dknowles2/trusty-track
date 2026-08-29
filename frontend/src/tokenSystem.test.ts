@@ -335,7 +335,7 @@ const MIGRATED_FILES = [
   'features/core/components/UnlockButton.tsx',
   'features/management/components/BulkPhotoUploadModal.tsx',
   'features/management/components/CheckInProgress.tsx',
-  'features/management/components/DenManager.tsx',
+  'features/management/components/RacingGroupManager.tsx',
   'features/management/components/ImportRacersModal.tsx',
   'features/management/components/NoHeatsBadge.tsx',
   'features/management/components/RaceForm.tsx',

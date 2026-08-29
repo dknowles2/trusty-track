@@ -13,7 +13,9 @@ from backend.services import records
 
 
 def _group_and_track(db, name, lane_count=4):
-    group = crud.create_group(db, schemas.GroupCreate(name=f"Pack for {name}"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name=f"Pack for {name}")
+    )
     track = crud.create_track(
         db,
         schemas.TrackCreate(
@@ -27,7 +29,7 @@ def _race_on(db, group, track, name) -> models.Race:
     return crud.create_race(
         db,
         schemas.RaceCreate(
-            group_id=group.id,
+            organization_id=group.id,
             name=name,
             track_id=track.id,
             scoring_strategy=models.ScoringStrategy.TIMED,

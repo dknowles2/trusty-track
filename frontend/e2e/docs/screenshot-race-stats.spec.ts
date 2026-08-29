@@ -17,7 +17,7 @@
  * is from this race") true rather than lucky.
  *
  * The roster comes from `populateRace` rather than being hand-written: the
- * per-racer table and the den comparison are pictures of a *pack*, and eight
+ * per-racer table and the racingGroup comparison are pictures of a *pack*, and eight
  * names do not illustrate either.
  */
 
@@ -109,7 +109,7 @@ test('screenshot the race stats page', async ({ page }) => {
                 count: 20,
                 addRacerPhotos: true,
                 addCarPhotos: true,
-                assignDens: true,
+                assignRacingGroups: true,
                 checkIn: true,
             },
         },
@@ -219,15 +219,15 @@ test('screenshot the race stats page', async ({ page }) => {
             : {}),
     });
 
-    // 06: den comparison.
-    const denSection = page.locator('.race-stats__section').filter({ hasText: 'Den Comparison' });
-    await expect(denSection).toBeVisible();
-    await denSection.scrollIntoViewIfNeeded();
-    const denBox = await denSection.boundingBox();
+    // 06: racingGroup comparison.
+    const racingGroupSection = page.locator('.race-stats__section').filter({ hasText: 'RacingGroup Comparison' });
+    await expect(racingGroupSection).toBeVisible();
+    await racingGroupSection.scrollIntoViewIfNeeded();
+    const racingGroupBox = await racingGroupSection.boundingBox();
     await page.screenshot({
-        path: path.join(SCREENSHOT_DIR, '06-den-comparison.png'),
-        ...(denBox
-            ? { clip: { x: 0, y: denBox.y - 10, width: 1200, height: denBox.height + 20 } }
+        path: path.join(SCREENSHOT_DIR, '06-racing-group-comparison.png'),
+        ...(racingGroupBox
+            ? { clip: { x: 0, y: racingGroupBox.y - 10, width: 1200, height: racingGroupBox.height + 20 } }
             : {}),
     });
 

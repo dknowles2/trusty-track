@@ -3,14 +3,14 @@ import { RANKS, rankLabel } from './rankText';
 
 describe('rankLabel', () => {
     it('says a rank the way a pack does — the reported bug', () => {
-        // The den list showed the stored value, so a den of Arrow of Light
+        // The racingGroup list showed the stored value, so a racingGroup of Arrow of Light
         // scouts read "(ARROW_OF_LIGHT)".
         expect(rankLabel('ARROW_OF_LIGHT')).toBe('Arrow of Light');
         expect(rankLabel('WEBELOS')).toBe('Webelos');
         expect(rankLabel('LION')).toBe('Lion');
     });
 
-    it('says nothing for a den with no rank', () => {
+    it('says nothing for a racingGroup with no rank', () => {
         expect(rankLabel(undefined)).toBe('');
         expect(rankLabel(null)).toBe('');
         expect(rankLabel('')).toBe('');
@@ -37,7 +37,7 @@ describe('RANKS', () => {
     });
 
     it('labels each one, and the labels are what rankLabel gives', () => {
-        // One list, so the pickers and the den list cannot disagree — which
+        // One list, so the pickers and the racingGroup list cannot disagree — which
         // is what they were doing.
         for (const rank of RANKS) {
             expect(rank.label).toBeTruthy();

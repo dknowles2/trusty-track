@@ -6,7 +6,9 @@ from backend.tests.helpers import as_lanes, lane_dicts
 
 
 def _create_race(db: Session) -> int:
-    group = crud.create_group(db, schemas.GroupCreate(name="Test Group"))
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="Test Organization")
+    )
     track = crud.create_track(
         db, schemas.TrackCreate(name="Test Track", lane_count=4, timer_type="FAKE")
     )
@@ -14,7 +16,7 @@ def _create_race(db: Session) -> int:
         db,
         schemas.RaceCreate(
             name="Test Race",
-            group_id=group.id,
+            organization_id=group.id,
             track_id=track.id,
             scoring_strategy="TIMED",
             car_numbering_strategy="MANUAL",

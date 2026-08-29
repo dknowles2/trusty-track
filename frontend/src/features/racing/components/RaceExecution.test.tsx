@@ -444,9 +444,9 @@ describe('RaceExecution', () => {
             requiresAdvancement: true,
             alreadyAdvanced: false,
             advancingRacers: [
-                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
+                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racingGroupName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
             ],
-            source: 'PACK',
+            source: 'ALL',
             numRacers: 1,
             fromBottom: false,
             fieldIsStale: false
@@ -474,11 +474,11 @@ describe('RaceExecution', () => {
             requiresAdvancement: false,
             alreadyAdvanced: false,
             advancingRacers: [
-                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true },
-                { racerId: 102, firstName: 'Jane', lastName: 'Roe', carNumber: 2, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true },
-                { racerId: 103, firstName: 'Sam', lastName: 'Poe', carNumber: 3, denName: 'Lions', score: 4.0, rank: 3, isAdvancing: false },
+                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racingGroupName: 'Lions', score: 3.5, rank: 1, isAdvancing: true },
+                { racerId: 102, firstName: 'Jane', lastName: 'Roe', carNumber: 2, racingGroupName: 'Lions', score: 3.5, rank: 1, isAdvancing: true },
+                { racerId: 103, firstName: 'Sam', lastName: 'Poe', carNumber: 3, racingGroupName: 'Lions', score: 4.0, rank: 3, isAdvancing: false },
             ],
-            source: 'PACK',
+            source: 'ALL',
             numRacers: 3,
             fromBottom: false,
             fieldIsStale: false
@@ -506,9 +506,9 @@ describe('RaceExecution', () => {
             requiresAdvancement: true,
             alreadyAdvanced: false,
             advancingRacers: [
-                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, denName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
+                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racingGroupName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
             ],
-            source: 'PACK',
+            source: 'ALL',
             numRacers: 3,
             fromBottom: true,
             fieldIsStale: false
@@ -778,7 +778,7 @@ describe('RaceExecution', () => {
                         requiresAdvancement: true,
                         alreadyAdvanced: false,
                         advancingRacers: [],
-                        source: 'PACK',
+                        source: 'ALL',
                         numRacers: 0,
                         roundId: 1,
                     } as any}

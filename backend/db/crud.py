@@ -42,97 +42,128 @@ def stamp_recorded(heat: models.Heat, heat_lanes: Sequence[lanes.Lane]) -> None:
         heat.recorded_at = None
 
 
-def get_group(db: Session, group_id: int) -> models.Group | None:
-    return db.query(models.Group).filter(models.Group.id == group_id).first()
-
-
-def get_group_by_name(db: Session, name: str) -> models.Group | None:
-    return db.query(models.Group).filter(models.Group.name == name).first()
-
-
-def create_group(db: Session, group: schemas.GroupCreate) -> models.Group:
-    db_group = models.Group(name=group.name)
-    db.add(db_group)
-    db.commit()
-    db.refresh(db_group)
-    return db_group
-
-
-def get_dens(
-    db: Session, race_id: int, skip: int = 0, limit: int = 100
-) -> list[models.Den]:
-    # Ordered: an unordered query with offset/limit pages arbitrarily, and
-    # `populate` deals seeded den assignments from this list (`demo_seed`).
+def get_organization(db: Session, organization_id: int) -> models.Organization | None:
     return (
-        db.query(models.Den)
-        .filter(models.Den.race_id == race_id)
-        .order_by(models.Den.id)
+        db.query(models.Organization)
+        .filter(models.Organization.id == organization_id)
+        .first()
+    )
+
+
+def get_organization_by_name(db: Session, name: str) -> models.Organization | None:
+    return (
+        db.query(models.Organization).filter(models.Organization.name == name).first()
+    )
+
+
+def create_organization(
+    db: Session, organization: schemas.OrganizationCreate
+) -> models.Organization:
+    db_organization = models.Organization(name=organization.name)
+    db.add(db_organization)
+    db.commit()
+    db.refresh(db_organization)
+    return db_organization
+
+
+def get_racing_groups(
+    db: Session, race_id: int, skip: int = 0, limit: int = 100
+) -> list[models.RacingGroup]:
+    # Ordered: an unordered query with offset/limit pages arbitrarily, and
+    # `populate` deals seeded racing group assignments from this list (`demo_seed`).
+    return (
+        db.query(models.RacingGroup)
+        .filter(models.RacingGroup.race_id == race_id)
+        .order_by(models.RacingGroup.id)
         .offset(skip)
         .limit(limit)
         .all()
     )
 
 
-def get_den(db: Session, den_id: int) -> models.Den | None:
-    return db.query(models.Den).filter(models.Den.id == den_id).first()
-
-
-def get_den_by_name(db: Session, name: str, race_id: int) -> models.Den | None:
-    # Example: Case insensitive search could be done here if DB supports it easily,
-    # or just do exact match for simplicity first
+def get_racing_group(db: Session, racing_group_id: int) -> models.RacingGroup | None:
     return (
-        db.query(models.Den)
-        .filter(models.Den.name == name, models.Den.race_id == race_id)
+        db.query(models.RacingGroup)
+        .filter(models.RacingGroup.id == racing_group_id)
         .first()
     )
 
 
-def create_den(db: Session, den: schemas.DenCreate, race_id: int) -> models.Den:
-    db_den = models.Den(**den.model_dump(), race_id=race_id)
-    db.add(db_den)
+def get_racing_group_by_name(
+    db: Session, name: str, race_id: int
+) -> models.RacingGroup | None:
+    # Example: Case insensitive search could be done here if DB supports it easily,
+    # or just do exact match for simplicity first
+    return (
+        db.query(models.RacingGroup)
+        .filter(models.RacingGroup.name == name, models.RacingGroup.race_id == race_id)
+        .first()
+    )
+
+
+def create_racing_group(
+    db: Session, racing_group: schemas.RacingGroupCreate, race_id: int
+) -> models.RacingGroup:
+    db_racing_group = models.RacingGroup(**racing_group.model_dump(), race_id=race_id)
+    db.add(db_racing_group)
     db.commit()
-    db.refresh(db_den)
-    return db_den
+    db.refresh(db_racing_group)
+    return db_racing_group
 
 
-def delete_den(db: Session, den_id: int) -> models.Den | None:
-    db_den = db.query(models.Den).filter(models.Den.id == den_id).first()
-    if db_den:
-        # A per-den general round (`Round.den_id`, from the wizard's "DEN"
-        # option) would otherwise fail that column's foreign key (#125) with
-        # an unhandled IntegrityError. Unlike a racer's den_id, nulling it
+def delete_racing_group(db: Session, racing_group_id: int) -> models.RacingGroup | None:
+    db_racing_group = (
+        db.query(models.RacingGroup)
+        .filter(models.RacingGroup.id == racing_group_id)
+        .first()
+    )
+    if db_racing_group:
+        # A per-racing group general round (`Round.racing_group_id`, from the
+        # wizard's "EACH_GROUP" option) would otherwise fail that column's
+        # foreign key (#125) with an unhandled IntegrityError. Unlike a
+        # racer's racing_group_id, nulling it
         # would silently change what the round means — which racers it draws
         # from — rather than merely losing an assignment, so this refuses
         # instead, the same shape `delete_track` uses when races exist.
         round_scoped = (
-            db.query(models.Round).filter(models.Round.den_id == den_id).first()
+            db.query(models.Round)
+            .filter(models.Round.racing_group_id == racing_group_id)
+            .first()
         )
         if round_scoped:
-            raise ValueError("Cannot delete den: a round is scoped to it.")
+            raise ValueError("Cannot delete racing_group: a round is scoped to it.")
 
-        racers = db.query(models.Racer).filter(models.Racer.den_id == den_id).all()
+        racers = (
+            db.query(models.Racer)
+            .filter(models.Racer.racing_group_id == racing_group_id)
+            .all()
+        )
         for racer in racers:
-            racer.den_id = None
+            racer.racing_group_id = None
 
-        db.delete(db_den)
+        db.delete(db_racing_group)
         db.commit()
-    return db_den
+    return db_racing_group
 
 
-def update_den(
-    db: Session, den_id: int, den_update: schemas.DenUpdate
-) -> models.Den | None:
-    db_den = db.query(models.Den).filter(models.Den.id == den_id).first()
-    if not db_den:
+def update_racing_group(
+    db: Session, racing_group_id: int, racing_group_update: schemas.RacingGroupUpdate
+) -> models.RacingGroup | None:
+    db_racing_group = (
+        db.query(models.RacingGroup)
+        .filter(models.RacingGroup.id == racing_group_id)
+        .first()
+    )
+    if not db_racing_group:
         return None
 
-    update_data = den_update.model_dump(exclude_unset=True)
+    update_data = racing_group_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        setattr(db_den, key, value)
+        setattr(db_racing_group, key, value)
 
     db.commit()
-    db.refresh(db_den)
-    return db_den
+    db.refresh(db_racing_group)
+    return db_racing_group
 
 
 def get_races(db: Session, skip: int = 0, limit: int = 100) -> list[models.Race]:
@@ -199,7 +230,7 @@ def get_race(db: Session, race_id: int) -> models.Race | None:
 def delete_race(db: Session, race_id: int) -> bool:
     """Remove a race and everything that hangs off it.
 
-    Two of the three children need doing by hand. ``Race.dens`` and
+    Two of the three children need doing by hand. ``Race.racing_groups`` and
     ``Race.rounds`` carry ``cascade="all, delete-orphan"``, so deleting the race
     takes them; ``Race.racers`` and ``Race.heats`` do not, and a heat belongs to
     the race directly as well as to a round — a free race heat has no round at
@@ -243,18 +274,20 @@ def create_track(db: Session, track: schemas.TrackCreate) -> models.Track:
 
 def create_initial_config(
     db: Session, config: schemas.InitialConfigCreate
-) -> tuple[models.Group, list[models.Track]]:
-    # Create Group
-    group = models.Group(name=config.group_name, debug_mode=config.debug_mode)
+) -> tuple[models.Organization, list[models.Track]]:
+    # Create Organization
+    organization = models.Organization(
+        name=config.organization_name, debug_mode=config.debug_mode
+    )
     # Only set when given, so a caller that omits them gets the column's own
     # default (`"MATCH_APP"`) rather than an explicit `None` fighting the
     # `NOT NULL` constraint — the same "absent means unset" the ORM already
     # gives every other Python-side `default=`.
     if config.display_theme is not None:
-        group.display_theme = config.display_theme
+        organization.display_theme = config.display_theme
     if config.printables_theme is not None:
-        group.printables_theme = config.printables_theme
-    db.add(group)
+        organization.printables_theme = config.printables_theme
+    db.add(organization)
 
     # Create Tracks
     created_tracks = []
@@ -264,20 +297,20 @@ def create_initial_config(
         created_tracks.append(track)
 
     db.commit()
-    db.refresh(group)
+    db.refresh(organization)
     for t in created_tracks:
         db.refresh(t)
-    return group, created_tracks
+    return organization, created_tracks
 
 
-def update_group(
-    db: Session, group: models.Group, name: str, debug_mode: bool = False
-) -> models.Group:
-    group.name = name
-    group.debug_mode = debug_mode
+def update_organization(
+    db: Session, organization: models.Organization, name: str, debug_mode: bool = False
+) -> models.Organization:
+    organization.name = name
+    organization.debug_mode = debug_mode
     db.commit()
-    db.refresh(group)
-    return group
+    db.refresh(organization)
+    return organization
 
 
 def update_track(
@@ -324,10 +357,10 @@ def create_racer(db: Session, racer: schemas.RacerCreate) -> models.Racer | None
         race = db.query(models.Race).first()
 
     if not race:
-        group = db.query(models.Group).first()
-        if not group:
+        organization = db.query(models.Organization).first()
+        if not organization:
             return None
-        race = models.Race(name="Main Event", group_id=group.id)
+        race = models.Race(name="Main Event", organization_id=organization.id)
         db.add(race)
         db.commit()
         db.refresh(race)
@@ -464,7 +497,7 @@ def create_round(
     name: str | None = None,
     advancement_source: str | None = None,
     advancement_num_racers: int | None = None,
-    den_id: int | None = None,
+    racing_group_id: int | None = None,
     advancement_from_bottom: bool = False,
     elimination_losses: int | None = None,
     balanced_phases: int | None = None,
@@ -477,7 +510,7 @@ def create_round(
         name=name,
         advancement_source=advancement_source,
         advancement_num_racers=advancement_num_racers,
-        den_id=den_id,
+        racing_group_id=racing_group_id,
         advancement_from_bottom=advancement_from_bottom,
         elimination_losses=elimination_losses,
         balanced_phases=balanced_phases,
@@ -682,7 +715,7 @@ def extend_elimination_round(db: Session, round_id: int) -> list[models.Heat]:
 
     losses = elimination.losses_by_racer(heat_lanes)
     threshold = round_obj.elimination_losses or 1
-    eligible = set(eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
+    eligible = set(eligible_racer_ids(db, round_obj.race_id, round_obj.racing_group_id))
     losses = {r: c for r, c in losses.items() if r in eligible}
     if not elimination.is_decided(losses, threshold):
         # A latecomer joins the next wave at zero losses (#172's rule, in
@@ -774,7 +807,7 @@ def extend_balanced_round(db: Session, round_id: int) -> list[models.Heat]:
     if apps and max(apps.values()) >= target:
         return []
 
-    eligible = set(eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
+    eligible = set(eligible_racer_ids(db, round_obj.race_id, round_obj.racing_group_id))
     if len(eligible) < 2:
         return []
     recs = balanced.records(heat_lanes)
@@ -815,7 +848,7 @@ def _participant_ids_for_round(
     Four cases, in priority order: explicit placeholders, an explicit racer
     list, a championship round falling back to its already-advanced racers or
     fresh placeholders, and otherwise the checked-in roster (the whole race,
-    or one den). Reads nothing but its own arguments, so it says nothing about
+    or one racing group). Reads nothing but its own arguments, so it says nothing about
     *when* it runs relative to clearing existing heats — that ordering is
     ``generate_heats_for_round``'s to keep.
     """
@@ -838,8 +871,8 @@ def _participant_ids_for_round(
     query = db.query(models.Racer).filter(
         models.Racer.race_id == round_obj.race_id, models.Racer.car_passed_inspection
     )
-    if round_obj.den_id:
-        query = query.filter(models.Racer.den_id == round_obj.den_id)
+    if round_obj.racing_group_id:
+        query = query.filter(models.Racer.racing_group_id == round_obj.racing_group_id)
     # Ordered because the PPC shuffle downstream may be seeded (`demo_seed`),
     # and it is only as repeatable as its input order.
     racers = query.order_by(models.Racer.id).all()
@@ -996,7 +1029,7 @@ def populate_round_field(db: Session, round_id: int, racer_ids: list[int]) -> No
     """Put the racers who qualified into a championship round.
 
     Usually that means filling the placeholder slots in place. But
-    ``advancement_num_racers`` is a *request* — "top four" — and a den of three
+    ``advancement_num_racers`` is a *request* — "top four" — and a racing group of three
     cannot supply it, so a round can hold more slots than the race can ever
     fill. Those surplus slots are not untidy, they are fatal: ``phase`` reports
     ``NOT_READY`` while any placeholder remains and the operator screen has no
@@ -1081,8 +1114,8 @@ def round_field_size(db: Session, round_obj: models.Round) -> int:
     """How many placeholder slots this championship round needs (#52).
 
     The rule is :func:`backend.domain.advancement.field_size`; this is the I/O
-    around it — a ``DEN`` round needs its racer count multiplied by the number
-    of dens, so somebody has to count the dens.
+    around it — a ``EACH_GROUP`` round needs its racer count multiplied by the number
+    of racing groups, so somebody has to count the racing groups.
 
     A round with no ``advancement_source`` is a preliminary round: its field is
     the roster rather than a number of slots, so it needs none. Every caller
@@ -1097,12 +1130,14 @@ def round_field_size(db: Session, round_obj: models.Round) -> int:
         source=source,
         num_racers=round_obj.advancement_num_racers,
     )
-    den_count = 0
-    if source == advancement.DEN:
-        den_count = (
-            db.query(models.Den).filter(models.Den.race_id == round_obj.race_id).count()
+    racing_group_count = 0
+    if source == advancement.EACH_GROUP:
+        racing_group_count = (
+            db.query(models.RacingGroup)
+            .filter(models.RacingGroup.race_id == round_obj.race_id)
+            .count()
         )
-    return advancement.field_size(rule, den_count)
+    return advancement.field_size(rule, racing_group_count)
 
 
 def lane_count_for_race(db: Session, race_id: int) -> int:
@@ -1348,7 +1383,7 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
             # checked in by then.
             continue
 
-        eligible = eligible_racer_ids(db, race_id, round_obj.den_id)
+        eligible = eligible_racer_ids(db, race_id, round_obj.racing_group_id)
         heat_lanes = lanes_for_heats(db, heats)
         already = {
             racer_id for heat in heat_lanes for racer_id in lanes.real_racer_ids(heat)
@@ -1491,7 +1526,7 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
             continue
 
         if advancement.may_rebuild(heat_lanes):
-            eligible = eligible_racer_ids(db, race_id, round_obj.den_id)
+            eligible = eligible_racer_ids(db, race_id, round_obj.racing_group_id)
             if len(eligible) >= 2:
                 generate_heats_for_round(db, round_obj.id, clear_existing=True)
                 changed_round_ids.append(round_obj.id)
@@ -1523,13 +1558,15 @@ def withdraw_absent_racers(db: Session, race_id: int) -> list[int]:
     return changed_round_ids
 
 
-def eligible_racer_ids(db: Session, race_id: int, den_id: int | None) -> list[int]:
+def eligible_racer_ids(
+    db: Session, race_id: int, racing_group_id: int | None
+) -> list[int]:
     """Who a general round's field is drawn from — the same query the generator uses."""
     query = db.query(models.Racer).filter(
         models.Racer.race_id == race_id, models.Racer.car_passed_inspection
     )
-    if den_id:
-        query = query.filter(models.Racer.den_id == den_id)
+    if racing_group_id:
+        query = query.filter(models.Racer.racing_group_id == racing_group_id)
     return [racer.id for racer in query.all()]
 
 
@@ -1695,7 +1732,9 @@ def is_round_complete(db: Session, round_id: int) -> bool:
         # at zero losses forever; withdrawing it is the operator's only way
         # out, and it must not go on counting as a second car still alive.
         losses = elimination.losses_by_racer(heat_lanes)
-        eligible = set(eligible_racer_ids(db, round_obj.race_id, round_obj.den_id))
+        eligible = set(
+            eligible_racer_ids(db, round_obj.race_id, round_obj.racing_group_id)
+        )
         losses = {
             racer_id: count
             for racer_id, count in losses.items()
@@ -1986,34 +2025,38 @@ def auto_number_racers(
             updated_count += 1
 
     elif race.car_numbering_strategy == models.CarNumberingStrategy.PER_GROUP:
-        # Group racers by Den
-        # We need to get all dens for this race to know ranges
-        dens = db.query(models.Den).filter(models.Den.race_id == race_id).all()
-        den_map = {d.id: d for d in dens}
+        # Organization racers by RacingGroup
+        # We need to get all racing groups for this race to know ranges
+        racing_groups = (
+            db.query(models.RacingGroup)
+            .filter(models.RacingGroup.race_id == race_id)
+            .all()
+        )
+        racing_group_map = {d.id: d for d in racing_groups}
 
         # Pre-bucket racers
-        den_racers: dict[int, list[models.Racer]] = {}
+        racing_group_racers: dict[int, list[models.Racer]] = {}
         unassigned_racers: list[models.Racer] = []
 
         for racer in racers:
-            if racer.den_id:
-                if racer.den_id not in den_racers:
-                    den_racers[racer.den_id] = []
-                den_racers[racer.den_id].append(racer)
+            if racer.racing_group_id:
+                if racer.racing_group_id not in racing_group_racers:
+                    racing_group_racers[racer.racing_group_id] = []
+                racing_group_racers[racer.racing_group_id].append(racer)
             else:
                 unassigned_racers.append(racer)
 
-        # Assign numbers per Den
-        for den_id, group_racers in den_racers.items():
-            den = den_map.get(den_id)
-            if not den or den.car_number_range_start is None:
+        # Assign numbers per RacingGroup
+        for racing_group_id, group_racers in racing_group_racers.items():
+            racing_group = racing_group_map.get(racing_group_id)
+            if not racing_group or racing_group.car_number_range_start is None:
                 continue  # Skip if no config
 
             # Sort
             group_racers.sort(key=lambda r: (r.last_name, r.first_name))
 
-            current = den.car_number_range_start
-            limit = den.car_number_range_end
+            current = racing_group.car_number_range_start
+            limit = racing_group.car_number_range_end
 
             for racer in group_racers:
                 if limit and current > limit:
@@ -2128,7 +2171,9 @@ def bulk_delete_racers(db: Session, racer_ids: list[int]):
     # holes instead of regenerating; do the same here rather than raising.
     for round_obj in rebuildable:
         if round_obj.advancement_source is None:
-            eligible = eligible_racer_ids(db, round_obj.race_id, round_obj.den_id)
+            eligible = eligible_racer_ids(
+                db, round_obj.race_id, round_obj.racing_group_id
+            )
             if len(eligible) < 2:
                 continue
         generate_heats_for_round(db, round_obj.id, clear_existing=True)
@@ -2306,10 +2351,12 @@ def get_random_lane_assignments(
     return assignments
 
 
-def bulk_move_racers_to_den(db: Session, racer_ids: list[int], den_id: int | None):
-    """Reassign racers to a den, or to none."""
+def bulk_move_racers_to_racing_group(
+    db: Session, racer_ids: list[int], racing_group_id: int | None
+):
+    """Reassign racers to a racing group, or to none."""
     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
-        {"den_id": den_id}, synchronize_session=False
+        {"racing_group_id": racing_group_id}, synchronize_session=False
     )
     db.commit()
 
@@ -2413,7 +2460,7 @@ def _clear_fields_of_other_kind(award: models.Award) -> None:
         award.source = None
         award.place = None
         award.from_bottom = False
-        award.den_id = None
+        award.racing_group_id = None
 
 
 def _set_speed_artwork_key(award: models.Award) -> None:
@@ -2435,9 +2482,9 @@ def _set_speed_artwork_key(award: models.Award) -> None:
         award.artwork_key = None
         return
     rule = awards.SpeedRule(
-        source=award.source or awards.PACK,
+        source=award.source or awards.ALL,
         place=award.place,
-        den_id=award.den_id,
+        racing_group_id=award.racing_group_id,
         from_bottom=award.from_bottom,
     )
     award.artwork_key = awards.default_artwork_key(rule)
@@ -2617,7 +2664,7 @@ def create_practice_race(db: Session) -> models.Race:
     night before is when they want to find out what race day feels like.
     Everything needed already existed — `populate` builds a believable roster
     and the fake timer runs heats without hardware — but neither was reachable
-    as a rehearsal: it took creating a race, adding dens, populating, checking
+    as a rehearsal: it took creating a race, adding racing groups, populating, checking
     everybody in and running the round wizard, which is most of the thing being
     rehearsed.
 
@@ -2627,8 +2674,10 @@ def create_practice_race(db: Session) -> models.Race:
     """
     from backend.db import populate
 
-    group = db.query(models.Group).order_by(models.Group.id).first()
-    if group is None:
+    organization = (
+        db.query(models.Organization).order_by(models.Organization.id).first()
+    )
+    if organization is None:
         raise ValueError("Set the system up before creating a practice race")
 
     track = practice_track(db)
@@ -2637,7 +2686,7 @@ def create_practice_race(db: Session) -> models.Race:
         db,
         schemas.RaceCreate(
             name=_next_practice_name(db),
-            group_id=group.id,
+            organization_id=organization.id,
             track_id=track.id,
             location="Practice",
             car_numbering_strategy=models.CarNumberingStrategy.GLOBAL,
@@ -2655,7 +2704,7 @@ def create_practice_race(db: Session) -> models.Race:
         count=PRACTICE_RACER_COUNT,
         add_racer_photos=True,
         add_car_photos=True,
-        assign_dens=True,
+        assign_racing_groups=True,
         check_in=True,
     )
 
@@ -2668,7 +2717,7 @@ def create_practice_race(db: Session) -> models.Race:
         2,
         models.SchedulingStrategy.PPC,
         "Final",
-        advancement_source="PACK",
+        advancement_source="ALL",
         advancement_num_racers=PRACTICE_FINALISTS,
     )
     db.flush()
