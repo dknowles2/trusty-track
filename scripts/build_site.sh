@@ -22,11 +22,15 @@ cd "$(dirname "$0")/.."
 OUT="${1:-dist}"
 
 # `mkdocs` is on PATH in the Cloudflare Pages build image (pip installs it from
-# docs/requirements.txt); locally it lives in the uv environment.
+# docs/requirements.txt); locally it lives in the uv environment. Scoped to
+# the `docs` dependency group rather than a bare `uv run`, which would sync
+# the default `dev` group back in and hide a plugin missing from `docs`
+# alone — the masking #468 closed. In CI's Docs Build job the venv holds only
+# that group, so the group genuinely builds the site by itself or fails.
 if command -v mkdocs >/dev/null 2>&1; then
   MKDOCS=(mkdocs)
 else
-  MKDOCS=(uv run mkdocs)
+  MKDOCS=(uv run --only-group docs mkdocs)
 fi
 
 rm -rf "$OUT"
