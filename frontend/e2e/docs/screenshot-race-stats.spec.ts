@@ -220,7 +220,7 @@ test('screenshot the race stats page', async ({ page }) => {
     });
 
     // 06: racingGroup comparison.
-    const racingGroupSection = page.locator('.race-stats__section').filter({ hasText: 'RacingGroup Comparison' });
+    const racingGroupSection = page.locator('.race-stats__section').filter({ hasText: 'Racing Group Comparison' });
     await expect(racingGroupSection).toBeVisible();
     await racingGroupSection.scrollIntoViewIfNeeded();
     const racingGroupBox = await racingGroupSection.boundingBox();
