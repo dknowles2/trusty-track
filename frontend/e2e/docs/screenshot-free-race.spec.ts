@@ -13,7 +13,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ensureConfigured, gql, organizationId, photosFor } from './support';
+import { ensureConfigured, gql, organizationId, photosFor, runFakeHeat } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/free-race');
@@ -116,9 +116,7 @@ test('screenshot free race', async ({ page }) => {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04-heat-armed.png') });
 
     // The fake timer mole: arm, then finish, which records times.
-    await page.getByRole('button', { name: /Start Timer/ }).click();
-    await page.waitForTimeout(600);
-    await page.getByRole('button', { name: /Finish Heat/ }).click();
+    await runFakeHeat(page, 600);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05-heat-results.png') });
 });

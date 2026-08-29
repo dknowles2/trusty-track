@@ -213,6 +213,43 @@ export interface RacerSeed {
 }
 
 /**
+ * Run one heat on the fake timer, leaving its panel as it found it.
+ *
+ * The panel is collapsed for every docs screenshot (`screenshots-setup.ts`),
+ * which also hides the two buttons a spec needs in order to run a heat at all.
+ * Expanding around the clicks keeps both true: the pictures show Race Control
+ * rather than a debugging aid, and the specs can still drive a race.
+ *
+ * `waitBetween` is the pause the free-race spec wants between arming and
+ * finishing, so its "Racing…" state is real rather than skipped over.
+ */
+export async function runFakeHeat(page: Page, waitBetween = 0): Promise<void> {
+    await expandFakeTimer(page);
+    await page.getByRole('button', { name: /Start Timer/i }).click();
+    if (waitBetween) await page.waitForTimeout(waitBetween);
+    await page.getByRole('button', { name: /Finish Heat/i }).click();
+    await collapseFakeTimer(page);
+}
+
+/** Open the fake timer panel if it is collapsed. */
+export async function expandFakeTimer(page: Page): Promise<void> {
+    const startButton = page.getByRole('button', { name: /Start Timer/i });
+    if (!(await startButton.isVisible())) {
+        await page.getByText('Fake Timer Controls').click();
+    }
+    await expect(startButton).toBeVisible();
+}
+
+/** Close it again, so the next screenshot shows the screen and not the panel. */
+export async function collapseFakeTimer(page: Page): Promise<void> {
+    const startButton = page.getByRole('button', { name: /Start Timer/i });
+    if (await startButton.isVisible()) {
+        await page.getByText('Fake Timer Controls').click();
+    }
+    await expect(startButton).toBeHidden();
+}
+
+/**
  * The racer portraits and car photographs that `populateRace` uses, uploaded
  * once and handed out in a fixed order.
  *
