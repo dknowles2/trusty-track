@@ -10,6 +10,7 @@ from .base import TimerProfile
 from .derbynet import ADAPTED_FROM_DERBYNET
 from .fake import FAKE
 from .microwizard import MICROWIZARD
+from .no_timer import NO_TIMER
 
 #: Every real device, in the order a prober should try them.
 #:
@@ -39,6 +40,7 @@ __all__ = [
     "DEFAULT_PROFILE",
     "FAKE",
     "MICROWIZARD",
+    "NO_TIMER",
     "TimerProfile",
     "by_key",
 ]

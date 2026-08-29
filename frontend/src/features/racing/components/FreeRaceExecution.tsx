@@ -132,6 +132,11 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   const isRunning = timerState === 'RUNNING';
   const isCompleted = results !== null;
 
+  // A track with no timer (#490): arming is refused server-side, and this
+  // screen's only route to a result is the same hand-entry modal Override
+  // uses on Race Execution.
+  const hasTimer = timerType !== 'NONE';
+
   // Reset timer state when it stops
   const [prevIsRunning, setPrevIsRunning] = useState(isRunning);
   if (isRunning !== prevIsRunning) {
@@ -143,14 +148,14 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
 
   // Auto-prepare heat when a new heatId is provided
   useEffect(() => {
-    if (timerState === 'IDLE' && results === null && heatId) {
+    if (hasTimer && timerState === 'IDLE' && results === null && heatId) {
       if (heatId !== lastPreparedIdRef.current) {
         prepareHeat({ heatId, isFreeRace: true });
         lastPreparedIdRef.current = heatId;
       }
     }
-    // Only run when heatId, timerState or results changes
-  }, [heatId, timerState, results, prepareHeat]);
+    // Only run when heatId, timerState, results or hasTimer changes
+  }, [heatId, timerState, results, prepareHeat, hasTimer]);
 
 
   // Timer for elapsed display
@@ -298,7 +303,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, fontSize: '2rem' }}>Free Race Heat</h2>
-              {trackId != null && <TimerStatusBadge trackId={trackId} />}
+              {trackId != null && hasTimer && <TimerStatusBadge trackId={trackId} />}
               <Icon path={mdiRacingHelmet} size={1.2} color="var(--scouting-blue)" />
             </div>
             <div style={{
@@ -374,6 +379,30 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                   <Icon path={mdiArrowRight} size={0.7} /> Next Heat
                 </button>
               </>
+            ) : !hasTimer ? (
+              // No timer to arm (#490) — the only route to a result is
+              // hand entry, so it is offered directly rather than behind a
+              // "Waiting for Timer..." message nothing is ever going to
+              // resolve.
+              <button
+                onClick={openEditModal}
+                className="primary-btn"
+                style={{
+                  padding: '6px 16px',
+                  fontSize: '0.95rem',
+                  background: 'var(--cub-scouting-gold)',
+                  color: 'black',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Icon path={mdiPencil} size={0.7} /> Enter Results
+              </button>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
                 <div style={{

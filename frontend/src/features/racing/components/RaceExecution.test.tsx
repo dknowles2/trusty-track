@@ -181,6 +181,100 @@ describe('RaceExecution', () => {
         });
     });
 
+    describe('the Edit/Override modal follows the scoring strategy (#490)', () => {
+        it('shows a Time column for a TIMED race, and none for POINTS', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            expect(screen.getByText('Time (s)')).toBeInTheDocument();
+            expect(screen.queryByText('Place')).not.toBeInTheDocument();
+        });
+
+        it('shows a Place column for a POINTS race, and no Time column', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            expect(screen.getByText('Place')).toBeInTheDocument();
+            expect(screen.queryByText('Time (s)')).not.toBeInTheDocument();
+        });
+
+        it('typing a place under POINTS writes it to the saved lane', async () => {
+            // No stored time on this heat — a hand-called POINTS heat never
+            // has one — so the assertion below actually exercises "no Time
+            // control means time is never touched" rather than happening to
+            // pass because nothing changed it from an existing value.
+            const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null })) };
+            render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} scoringStrategy="POINTS" />);
+            // Nothing recorded yet, so the control is Override rather than Edit.
+            fireEvent.click(screen.getByText('Override'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[0], { target: { value: '2' } });
+
+            fireEvent.click(screen.getByText('Save Results'));
+
+            await waitFor(() => {
+                expect(mockOnUpdateResult).toHaveBeenCalled();
+                const [heatId, saved] = mockOnUpdateResult.mock.calls[0];
+                expect(heatId).toBe(1);
+                expect(saved[0].place).toBe(2);
+                // POINTS entry never touches time — there is no control for it.
+                expect(saved[0].time).toBeNull();
+            });
+        });
+
+        it('clearing a place under POINTS sends null, not a stale value', async () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[0], { target: { value: '' } });
+
+            fireEvent.click(screen.getByText('Save Results'));
+
+            await waitFor(() => {
+                expect(mockOnUpdateResult).toHaveBeenCalled();
+                expect(mockOnUpdateResult.mock.calls[0][1][0].place).toBeNull();
+            });
+        });
+    });
+
+    describe('a track with no timer (#490)', () => {
+        it('shows Enter Results as the primary control instead of a secondary Override', () => {
+            const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null, skipped: false })) };
+            render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} timerType="NONE" />);
+
+            expect(screen.getByText('Enter Results')).toBeInTheDocument();
+            expect(screen.queryByText('Override')).not.toBeInTheDocument();
+        });
+
+        it('never shows "Waiting for Timer..." — there is nothing to wait for', () => {
+            const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null, skipped: false })) };
+            render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} timerType="NONE" />);
+
+            expect(screen.queryByText('Waiting for Timer...')).not.toBeInTheDocument();
+        });
+
+        it('hides the timer status badge', () => {
+            render(<RaceExecution {...defaultProps} timerType="NONE" />);
+            expect(screen.queryByText('Timer disconnected')).not.toBeInTheDocument();
+        });
+
+        it('shows the timer status badge for a track that has one', () => {
+            render(<RaceExecution {...defaultProps} timerType="FAKE" />);
+            expect(screen.getByText('Timer disconnected')).toBeInTheDocument();
+        });
+
+        it('clicking Enter Results opens the same modal Override does', () => {
+            const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null, skipped: false })) };
+            render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} timerType="NONE" />);
+
+            fireEvent.click(screen.getByText('Enter Results'));
+            expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
+            expect(screen.getByText('Edit Results - Heat 1')).toBeInTheDocument();
+        });
+    });
+
     it('renders "Racing..." when timer state is RUNNING', () => {
         mockHeatSession({
             trackId: 1,

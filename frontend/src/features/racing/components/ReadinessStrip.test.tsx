@@ -34,6 +34,7 @@ const strip = (over: Partial<React.ComponentProps<typeof ReadinessStrip>> = {}) 
             <ReadinessStrip
                 raceId={1}
                 trackId={1}
+                timerType="AUTO_DETECT_BACKEND"
                 registeredCount={20}
                 checkedInCount={20}
                 heatCount={20}
@@ -77,6 +78,20 @@ describe('ReadinessStrip', () => {
         expect(screen.getByTestId('readiness-strip')).toHaveAttribute('data-level', 'BLOCKED');
         expect(screen.getByText('Not ready to race yet')).toBeInTheDocument();
         expect(screen.getByTestId('readiness-timer')).toHaveAttribute('data-level', 'BLOCKED');
+    });
+
+    it('is fine, not blocked, on a track with no timer at all (#490)', () => {
+        // A no-timer track's manager sits IDLE forever — the state a real,
+        // ready-to-arm timer also reports — so the strip has to be told the
+        // track was deliberately configured this way rather than inferring
+        // it from a state that means something else for every other track.
+        // OK collapses the strip to one line, same as any other all-clear.
+        backend({ state: 'IDLE', deviceName: 'No Timer' });
+
+        strip({ timerType: 'NONE' });
+
+        expect(screen.getByTestId('readiness-strip')).toHaveAttribute('data-level', 'OK');
+        expect(screen.getByText(/No timer — results are entered by hand\./)).toBeInTheDocument();
     });
 
     it('reads a race with no track as unanswered rather than as a fault', () => {

@@ -360,11 +360,19 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
     const status = result.data?.timerStatus?.status;
     const state: string = status?.state ?? 'DISCONNECTED';
     const serialLog: SerialLogEntry[] = status?.serialLog ?? [];
-    const help = STATE_HELP[state] ?? {
-        label: state,
-        tone: '#9e9e9e',
-        detail: '',
-    };
+    const isNoTimer = track.timerType === 'NONE';
+    // A no-timer track's manager sits in IDLE forever (`services/timer/devices
+    // /no_timer.py`) — it never opens a port, so there is nothing for
+    // `STATE_HELP`'s "Ready"/"waiting for a heat" wording to be about. Its own
+    // label replaces the device-state one rather than trying to make that
+    // table say something true about a device that does not exist.
+    const help = isNoTimer
+        ? { label: 'No timer', tone: '#9e9e9e', detail: '' }
+        : (STATE_HELP[state] ?? {
+              label: state,
+              tone: '#9e9e9e',
+              detail: '',
+          });
     const detail = typeof help.detail === 'function' ? help.detail(track.timerType) : help.detail;
 
     useEffect(() => {
@@ -379,6 +387,9 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
     };
 
     const isFake = track.timerType === 'FAKE';
+    // Neither has hardware to check: the fake timer invents results and this
+    // track has none configured at all (#490).
+    const noHardware = isFake || isNoTimer;
     const lines = buildDisplayLines(serialLog);
 
     return (
@@ -428,23 +439,29 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                 <dd style={{ margin: 0 }}>
                     {isFake
                         ? 'Fake timer (no hardware)'
-                        : track.timerType === 'AUTO_DETECT_BACKEND'
-                          ? 'Plugged into this machine'
-                          : 'Plugged into the laptop running the browser'}
+                        : isNoTimer
+                          ? 'No timer — results are entered by hand'
+                          : track.timerType === 'AUTO_DETECT_BACKEND'
+                            ? 'Plugged into this machine'
+                            : 'Plugged into the laptop running the browser'}
                 </dd>
 
-                <dt style={{ color: '#666' }}>Device</dt>
-                <dd style={{ margin: 0 }}>{status?.deviceName ?? 'unknown'}</dd>
+                {!isNoTimer && (
+                    <>
+                        <dt style={{ color: '#666' }}>Device</dt>
+                        <dd style={{ margin: 0 }}>{status?.deviceName ?? 'unknown'}</dd>
 
-                <dt style={{ color: '#666' }}>Port</dt>
-                <dd style={{ margin: 0, fontFamily: MONO }}>
-                    {status?.port ?? (track.serialPort || 'none yet')}
-                    {!track.serialPort && status?.port && (
-                        <span style={{ fontFamily: 'inherit', color: '#4caf50', marginLeft: '0.5rem' }}>
-                            found automatically
-                        </span>
-                    )}
-                </dd>
+                        <dt style={{ color: '#666' }}>Port</dt>
+                        <dd style={{ margin: 0, fontFamily: MONO }}>
+                            {status?.port ?? (track.serialPort || 'none yet')}
+                            {!track.serialPort && status?.port && (
+                                <span style={{ fontFamily: 'inherit', color: '#4caf50', marginLeft: '0.5rem' }}>
+                                    found automatically
+                                </span>
+                            )}
+                        </dd>
+                    </>
+                )}
             </dl>
 
             {/*
@@ -483,7 +500,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                 </p>
             )}
 
-            {!isFake && (
+            {!noHardware && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
                     {track.timerType === 'AUTO_DETECT_BACKEND' && (
                         <button type="button" onClick={() => run(reconnect, 'connect')}>
@@ -508,7 +525,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                 </div>
             )}
 
-            {!isFake && (
+            {!noHardware && (
                 <TimerTestPanel
                     trackId={track.id}
                     state={state}
@@ -523,6 +540,12 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                 <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
                     This track is set to the fake timer, so there is no hardware to check. Change it
                     on the <Link to="/system-settings">System Settings</Link> page.
+                </p>
+            ) : isNoTimer ? (
+                <p style={{ color: '#666', fontSize: '0.9rem', margin: 0 }}>
+                    This track has no timer configured, so there is no hardware to check. Every
+                    heat's result is entered by hand from the race screen. Add a timer on the{' '}
+                    <Link to="/system-settings">System Settings</Link> page if you get one later.
                 </p>
             ) : (
                 <div>

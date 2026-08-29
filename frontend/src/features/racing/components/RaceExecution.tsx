@@ -59,6 +59,9 @@ interface RaceExecutionProps {
      * "Slowest N" rather than "Top N". */
     slowestRoundIds?: Set<number>;
     onUpdateResult: (heatId: number, lanes: LaneInput[]) => Promise<void>;
+    /** Which columns the Override/Edit modal shows (#490): times for `TIMED`,
+     * places for `POINTS`. */
+    scoringStrategy?: string | null;
     timerType?: string | null;
     trackId?: number | null;
     racers: Record<number, Racer>;
@@ -79,6 +82,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     getRacerName,
     slowestRoundIds,
     onUpdateResult,
+    scoringStrategy,
     timerType,
     trackId,
     racers,
@@ -142,6 +146,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const hasRecordedTimes = hasTimes(storedLanes);
     const isSkipped = storedLanes.some((l) => l.skipped);
 
+    // A track configured with no timer (#490): arming is refused server-side,
+    // hand entry through Override/Edit is the primary control, and nothing
+    // here should imply a device is present or on its way.
+    const hasTimer = timerType !== 'NONE';
+
+    // Which column the Edit/Override modal shows (#490) — see `shouldDerivePlaces`
+    // in `lanes.ts` for the matching save-time rule.
+    const isPointsStrategy = scoringStrategy === 'POINTS';
+
     // The race-day flow (#13). What used to be six mutually-guarding effects
     // with two refs, a mirror state and an `eslint-disable` is now one machine
     // in `raceFlow.ts`, tested without rendering. This component supplies what
@@ -151,6 +164,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             heatId: activeExecutionHeat?.id ?? null,
             phase,
             timerState,
+            hasTimer,
             hasRecordedTimes,
             hasNextHeat: !!nextExecutionHeat,
             autoAdvanceEnabled: autoAdvanceHeat,
@@ -310,7 +324,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
     const showFakeControls = timerType === 'FAKE';
     const showProxyControls = timerType === 'AUTO_DETECT_PROXY';
-    const showHardwareMole = timerType != null && timerType !== 'FAKE' && debugMode;
+    const showHardwareMole = timerType != null && timerType !== 'FAKE' && hasTimer && debugMode;
 
     return (
         <>
@@ -328,7 +342,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                                     <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}</h2>
-                                    {trackId != null && <TimerStatusBadge trackId={trackId} />}
+                                    {trackId != null && hasTimer && <TimerStatusBadge trackId={trackId} />}
                                 </div>
                                 <div style={{ color: '#666', fontSize: '1.1rem' }}>
                                     {activeExecutionHeat.roundName || `Round ${activeExecutionHeat.roundNumber}`}
@@ -399,11 +413,11 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
                                     `}</style>
                                     </div>
-                                ) : timerState === 'IDLE' && trackId != null && !isCompleted ? (
+                                ) : timerState === 'IDLE' && trackId != null && !isCompleted && hasTimer ? (
                                     <div style={{ padding: '8px 20px', color: '#666', fontStyle: 'italic', background: '#f5f5f5', borderRadius: '4px', border: '1px solid #ddd' }}>
                                         Waiting for Timer...
                                     </div>
-                                ) : !isCompleted ? (
+                                ) : !isCompleted && hasTimer ? (
                                     <div style={{
                                         padding: '8px 20px',
                                         fontSize: '1.15rem',
@@ -567,12 +581,20 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     </>
                                 ) : (
                                     <>
+                                        {/* On a track with no timer, arming never happens (#490) — this
+                                            is the only control that records a result, so it takes the
+                                            primary spot rather than sitting secondary to an "Override"
+                                            of something that was never going to run automatically. */}
                                         <button
                                             onClick={handleEditOpen}
-                                            className="secondary-btn"
-                                            style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                            className={hasTimer ? 'secondary-btn' : 'primary-btn'}
+                                            style={hasTimer ? {
+                                                padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
+                                            } : {
+                                                padding: '6px 14px', fontSize: '0.9rem', background: 'var(--cub-scouting-gold)', color: 'black', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
+                                            }}
                                         >
-                                            <Icon path={mdiPencil} size={0.7} /> Override
+                                            <Icon path={mdiPencil} size={0.7} /> {hasTimer ? 'Override' : 'Enter Results'}
                                             <kbd style={KBD_STYLE}>{SHORTCUT_HINTS.EDIT}</kbd>
                                         </button>
                                         <button
@@ -871,13 +893,24 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 title={`Edit Results - Heat ${activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}`}
             >
                 <div className="form-group">
-                    <p className="form-help">Manually update times for this heat.</p>
+                    {/* Which column this shows follows the race's scoring
+                        strategy (#490) rather than being a fourth thing for
+                        the operator to decide: `TIMED` averages times, so
+                        that is what gets typed in and turned into places on
+                        save (see `shouldDerivePlaces` in `lanes.ts`); `POINTS`
+                        sums places, so the finishing order is what somebody
+                        at the line actually has to report by hand. */}
+                    <p className="form-help">
+                        {isPointsStrategy
+                            ? 'Manually enter finishing order for this heat.'
+                            : 'Manually update times for this heat.'}
+                    </p>
                     <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
                         <thead>
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '8px' }}>Lane</th>
                                 <th style={{ textAlign: 'left', padding: '8px' }}>Racer</th>
-                                <th style={{ textAlign: 'left', padding: '8px' }}>Time (s)</th>
+                                <th style={{ textAlign: 'left', padding: '8px' }}>{isPointsStrategy ? 'Place' : 'Time (s)'}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -886,15 +919,27 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <td style={{ padding: '8px' }}>{r.lane}</td>
                                     <td style={{ padding: '8px' }}>{getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}</td>
                                     <td style={{ padding: '8px' }}>
-                                        <input
-                                            type="number"
-                                            step="0.0001"
-                                            min="0"
-                                            value={r.timeText}
-                                            onChange={(e) => handleResultChange(idx, 'time', e.target.value)}
-                                            className="form-control"
-                                            style={{ width: '100px' }}
-                                        />
+                                        {isPointsStrategy ? (
+                                            <input
+                                                type="number"
+                                                step="1"
+                                                min="1"
+                                                value={r.place ?? ''}
+                                                onChange={(e) => handleResultChange(idx, 'place', e.target.value)}
+                                                className="form-control"
+                                                style={{ width: '100px' }}
+                                            />
+                                        ) : (
+                                            <input
+                                                type="number"
+                                                step="0.0001"
+                                                min="0"
+                                                value={r.timeText}
+                                                onChange={(e) => handleResultChange(idx, 'time', e.target.value)}
+                                                className="form-control"
+                                                style={{ width: '100px' }}
+                                            />
+                                        )}
                                     </td>
                                 </tr>
                             ))}

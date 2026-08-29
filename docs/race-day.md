@@ -360,9 +360,13 @@ How a heat starts depends on your track timer:
 
 - **With a hardware timer**: Trusty Track automatically prepares the timer for the next heat. Place the cars on the track and release them as normal — the timer records finish times automatically.
 - **With the fake timer** (for testing without a physical track): A **Fake Timer Controls** panel appears in the bottom-right corner. Once the heat is staged the panel reads "Ready to start" — click **Start Timer** to send the cars off. The heat then finishes on its own a few seconds later, or you can click **Finish Heat** to end it immediately.
+- **With no timer at all**: nothing is armed and there is no "Waiting for Timer…" message — the main button on the heat is **Enter Results**, and hand entry is how every heat gets recorded. See [No timer](reference/race-settings.md#no-timer).
 
 ![Fake Timer Controls](assets/screenshots/race-day/13-fake-timer-controls.png)
 _The Fake Timer Controls panel used for testing. "Start Timer" begins the run; "Finish Heat" ends it and records simulated times._
+
+![Race Execution on a track with no timer](assets/screenshots/race-day/31-enter-results-no-timer.png)
+_A track configured with no timer: no "Waiting for Timer…" message, and **Enter Results** stands where **Override** would on a track that has one._
 
 ---
 
@@ -372,10 +376,13 @@ When a heat finishes:
 
 - **Hardware timer**: Results appear automatically in the lane cards, showing each racer's finish time and placement.
 - **Fake timer**: Results appear when the run ends — either on its own a few seconds after **Start Timer**, or as soon as you click **Finish Heat**.
-- **Manual override**: Click **Override** (before the heat) or **Edit** (after) to enter times by hand.
+- **Manual override**: Click **Override** (before the heat) or **Edit** (after) — or **Enter Results** on a track with no timer — to enter results by hand. What you type depends on how the race is scored: times for a Timed race, finishing order for a Points race (see [Scoring](reference/scoring.md#points)).
 
 ![Heat Results After Finish](assets/screenshots/race-day/14-heat-results.png)
 _After a heat completes, each lane shows the racer's finish time and placement (1st, 2nd, 3rd, etc.). The 1st-place racer is highlighted in gold._
+
+![The manual entry modal on a Points race](assets/screenshots/race-day/32-manual-place-entry-modal.png)
+_A Points race shows a **Place** column instead of a **Time** column — the finishing order somebody at the line called out, typed straight in._
 
 After reviewing results, click **Next Heat** to advance to the next heat — or enable **Auto-advance** to move forward automatically after 10 seconds.
 

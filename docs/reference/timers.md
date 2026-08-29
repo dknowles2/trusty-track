@@ -32,7 +32,7 @@ Other models are not supported yet. Adding one is a matter of describing how
 the timer talks rather than writing code, so an issue naming the model —
 with its manual, if you have it — genuinely helps.
 
-## The three timer types
+## The four timer types
 
 Chosen per track in **Settings → Tracks**, on the track's card under **The
 timer**:
@@ -42,6 +42,7 @@ timer**:
 | **Fake Timer (Manual Control)** | No hardware. Trusty Track makes up times. See the [Fake Timer guide](../fake-timer.md) |
 | **Plugged into this machine** | The timer's USB cable goes into the machine running Trusty Track. Prefer this when you have the choice — nothing depends on which laptop is open |
 | **Plugged into the laptop running the browser** | The timer plugs into the computer you operate from, and the browser passes what it says along. Needs Chrome or Edge |
+| **No timer — I'll enter results by hand** | There is no electronic timer at all. See [Race and Track Settings](race-settings.md#no-timer) |
 
 ## How detection works
 

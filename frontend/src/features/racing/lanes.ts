@@ -11,10 +11,20 @@
  */
 import type { Lane, LaneInput } from './types';
 
-/** A lane with a recorded time. */
-export const hasTime = (lane: Lane): boolean => lane.time !== null;
+/**
+ * A lane with a recorded result — a time, or a hand-entered place.
+ *
+ * "Time" is the common case and the name predates the other one. A `POINTS`
+ * race entered by hand through the Override/Edit modal — no timer, or a
+ * timer that only reports finishing order (#490) — writes a place with no
+ * time at all, and that is a result too. Mirrors `Lane.has_result` in
+ * `backend/domain/lanes.py`: before the modal could enter a place on its
+ * own, a lane never held one without a time, so broadening this changes
+ * nothing for data recorded before #490.
+ */
+export const hasTime = (lane: Lane): boolean => lane.time !== null || lane.place !== null;
 
-/** Any time recorded in this heat. */
+/** Any result recorded in this heat. */
 export const hasTimes = (lanes: readonly Lane[]): boolean => lanes.some(hasTime);
 
 /**
@@ -26,7 +36,7 @@ export const hasTimes = (lanes: readonly Lane[]): boolean => lanes.some(hasTime)
  * still be regenerated.
  */
 export const hasRun = (lanes: readonly Lane[]): boolean =>
-  lanes.some((lane) => lane.time !== null || lane.skipped);
+  lanes.some((lane) => hasTime(lane) || lane.skipped);
 
 /** Passed over rather than raced — skipped, and nothing was timed. */
 export const wasSkipped = (lanes: readonly Lane[]): boolean =>
@@ -97,3 +107,24 @@ export const assignPlaces = (results: readonly LaneInput[]): LaneInput[] => {
     place: placeByLane.get(r.lane) ?? null,
   }));
 };
+
+/**
+ * Whether saving an official heat's edited results should run them through
+ * {@link assignPlaces} (issue #490).
+ *
+ * Mirrors which column the Override/Edit modal shows: a `TIMED` race enters
+ * times and always wants them turned into places — the rule `FreeRaceExecution`
+ * already follows unconditionally, since free racing has no place column to
+ * enter by hand. A `POINTS` race enters places directly, with no time to
+ * derive them from — `assignPlaces` reads "no time anywhere" as "clear every
+ * place", which is exactly backwards for a lane the operator just placed by
+ * hand, so it must not run at all.
+ *
+ * Deciding this from the strategy rather than from the edited lanes' own
+ * shape (e.g. "times present and places absent") matters for a *correction*:
+ * re-editing an already-placed `TIMED` heat to fix one mistyped time must
+ * still recompute every place from the new times, even though the old places
+ * are sitting right there in the payload.
+ */
+export const shouldDerivePlaces = (scoringStrategy: string | null | undefined): boolean =>
+  scoringStrategy !== 'POINTS';

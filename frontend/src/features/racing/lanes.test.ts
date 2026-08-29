@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasTimes, hasRun, wasSkipped, byPlace, assignPlaces, toInput } from './lanes';
+import { hasTimes, hasRun, wasSkipped, byPlace, assignPlaces, shouldDerivePlaces, toInput } from './lanes';
 import { lane } from './testFixtures';
 import type { LaneInput } from './types';
 
@@ -49,6 +49,16 @@ describe('lane predicates', () => {
     // 0.0 is how a DNF reaches the database; it is a recorded result, and
     // treating it as absent would make a raced heat look unraced.
     expect(hasTimes([lane({ lane: 1, racerId: 1, time: 0 })])).toBe(true);
+  });
+
+  it('a hand-entered place with no time counts as run (#490)', () => {
+    // A `POINTS` race entered by hand — no timer, or a timer that only
+    // reports finishing order — writes a place with no time at all. Before
+    // #490 nothing ever did, so `hasTime`/`hasRun` only asked about `time`;
+    // broadened to match `Lane.has_result` in `backend/domain/lanes.py`.
+    const placedOnly = [lane({ lane: 1, racerId: 1, time: null, place: 1 })];
+    expect(hasTimes(placedOnly)).toBe(true);
+    expect(hasRun(placedOnly)).toBe(true);
   });
 
   it('orders by place, unplaced last', () => {
@@ -147,5 +157,77 @@ describe('assignPlaces', () => {
     const results = [input({ lane: 1, racerId: 1, time: 3.0 })];
     assignPlaces(results);
     expect(results[0].place).toBeNull();
+  });
+});
+
+/**
+ * Issue #490. `handleUpdateResult` in `RaceControl.tsx` calls `assignPlaces`
+ * only when `shouldDerivePlaces` says so — always for `TIMED`, since that is
+ * the only strategy the Edit/Override modal shows a time column for; never
+ * for `POINTS`, which shows a place column instead and has no time to derive
+ * anything from.
+ */
+describe('shouldDerivePlaces', () => {
+  it('derives places from times for a TIMED race', () => {
+    expect(shouldDerivePlaces('TIMED')).toBe(true);
+  });
+
+  it('leaves hand-entered places alone for a POINTS race', () => {
+    expect(shouldDerivePlaces('POINTS')).toBe(false);
+  });
+
+  it('defaults to deriving when the strategy is not known yet', () => {
+    expect(shouldDerivePlaces(null)).toBe(true);
+    expect(shouldDerivePlaces(undefined)).toBe(true);
+  });
+});
+
+describe('assignPlaces and shouldDerivePlaces together (#490)', () => {
+  it('a hand-typed time under TIMED gets turned into a place', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 4.821 }),
+      input({ lane: 2, racerId: 2, time: 3.5 }),
+    ];
+    const saved = shouldDerivePlaces('TIMED') ? assignPlaces(results) : results;
+    expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
+    expect(saved.find((r) => r.lane === 1)?.place).toBe(2);
+  });
+
+  it('a DNF (0.0) under TIMED gets no place', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 0 }),
+      input({ lane: 2, racerId: 2, time: 3.5 }),
+    ];
+    const saved = shouldDerivePlaces('TIMED') ? assignPlaces(results) : results;
+    expect(saved.find((r) => r.lane === 1)?.place).toBeNull();
+    expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
+  });
+
+  it('a hand-typed place under POINTS is sent exactly as entered', () => {
+    // The bug #490 fixes: calling assignPlaces unconditionally here would
+    // read "no time anywhere" as "clear every place" and silently discard
+    // the finishing order the operator just typed in.
+    const results = [
+      input({ lane: 1, racerId: 1, time: null, place: 2 }),
+      input({ lane: 2, racerId: 2, time: null, place: 1 }),
+    ];
+    const saved = shouldDerivePlaces('POINTS') ? assignPlaces(results) : results;
+    expect(saved.find((r) => r.lane === 1)?.place).toBe(2);
+    expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
+  });
+
+  it('correcting a mistyped time under TIMED still recomputes every place', () => {
+    // The reason the rule is keyed on strategy, not on "times present and
+    // places absent" in the edited payload: the *old* places are still
+    // sitting right there when the operator is only fixing one time.
+    const results = [
+      input({ lane: 1, racerId: 1, time: 3.2, place: 1 }),
+      input({ lane: 2, racerId: 2, time: 4.5, place: 2 }),
+    ];
+    // Lane 1's corrected time is now the slower one.
+    const corrected = results.map((r) => (r.lane === 1 ? { ...r, time: 5.0 } : r));
+    const saved = shouldDerivePlaces('TIMED') ? assignPlaces(corrected) : corrected;
+    expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
+    expect(saved.find((r) => r.lane === 1)?.place).toBe(2);
   });
 });

@@ -200,15 +200,23 @@ export default function TrackCard({
           id={`track-timer-type-${index}`}
           value={track.timerType}
           onChange={(e) => onChange('timerType', e.target.value)}
-          style={{ ...textInput, marginBottom: track.timerType === 'FAKE' ? '0' : '1rem' }}
+          style={{ ...textInput, marginBottom: track.timerType === 'FAKE' || track.timerType === 'NONE' ? '0' : '1rem' }}
         >
           <option value="FAKE">Fake Timer (Manual Control)</option>
           <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
           <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
+          <option value="NONE">No timer — I'll enter results by hand</option>
         </select>
       </div>
 
-      {track.timerType !== 'FAKE' && (
+      {track.timerType === 'NONE' && (
+        <p style={{ color: '#666', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+          Race Execution won't try to arm a timer. Enter Results becomes the main way
+          to record a heat's result — times for a Timed race, finishing order for Points.
+        </p>
+      )}
+
+      {track.timerType !== 'FAKE' && track.timerType !== 'NONE' && (
         <div>
           <label htmlFor={`track-model-${index}`} style={fieldLabel}>
             Timer Model <span style={{ fontWeight: 'normal', color: '#666' }}>(optional)</span>
@@ -280,12 +288,13 @@ export default function TrackCard({
       )}
 
       {/*
-        Not shown for the fake timer, which has no gate. Otherwise always
-        shown, because whether the accessory is fitted is something only the
-        operator knows — no timer protocol reports it, and the MicroWizard
-        silently ignores the command without it.
+        Not shown for the fake timer, which has no gate, or for no timer at
+        all, which has neither a gate nor anything to release it. Otherwise
+        always shown, because whether the accessory is fitted is something
+        only the operator knows — no timer protocol reports it, and the
+        MicroWizard silently ignores the command without it.
       */}
-      {track.timerType !== 'FAKE' && (
+      {track.timerType !== 'FAKE' && track.timerType !== 'NONE' && (
         <div style={{ marginTop: '1rem' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
             <input

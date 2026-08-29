@@ -20,7 +20,11 @@ fastest average wins.
 
 Each car's score is its **finishing places added up** — 1st is 1 point, 2nd
 is 2 — and the lowest total wins. Points exist for racing without a timer:
-somebody at the finish line calls the order.
+somebody at the finish line calls the order, and types it straight into
+Override/Edit on the Race screen — see
+[Race and Track Settings](race-settings.md#no-timer) for setting a track up
+with no timer at all, which makes that the main way results get recorded
+rather than a fallback.
 
 Because points are a total, a car with fewer counted heats gets a *better*
 score. Every rule below exists to stop a missing heat from becoming a
@@ -33,8 +37,8 @@ reward:
 - A heat where some cars ended up racing **fewer times than others** — a
   lane died mid-round, or a racer arrived late — is
   [set aside](#rounds-that-are-set-aside) from the standings entirely.
-- A lane with a time typed in but **no place** yet is not counted. That is a
-  half-finished hand entry, not a result.
+- A lane left blank in Override has **no place** and is not counted — a
+  genuinely unfinished entry, not a result.
 
 ## When two cars tie
 

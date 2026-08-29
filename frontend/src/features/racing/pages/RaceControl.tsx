@@ -24,7 +24,7 @@ import {
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
-import { hasRun, hasTimes, byPlace, cleared, assignPlaces } from '../lanes';
+import { hasRun, hasTimes, byPlace, cleared, assignPlaces, shouldDerivePlaces } from '../lanes';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { shouldShowReadiness } from '../readiness';
 
@@ -225,7 +225,13 @@ export default function RaceControl() {
           const heat = heats.find((h: Heat) => h.id === heatId);
           if (!heat) return;
 
-          const placedResults = assignPlaces(results);
+          // Times become places (#490's part 2); hand-typed places under
+          // `POINTS` are sent exactly as entered — there is no time to
+          // derive them from, and `assignPlaces` reads "no time anywhere" as
+          // "clear every place".
+          const placedResults = shouldDerivePlaces(race?.scoringStrategy)
+              ? assignPlaces(results)
+              : results;
 
           const result = await updateHeatResultMutation({
               heatId,
@@ -241,7 +247,7 @@ export default function RaceControl() {
           console.error("Failed to update results", e);
           showAlert(errorText(e, "Failed to update results."), "Error");
       }
-  }, [heats, updateHeatResultMutation, reExecute, showAlert]);
+  }, [heats, race, updateHeatResultMutation, reExecute, showAlert]);
 
   // Throws on failure rather than swallowing it, so this can be handed to
   // ScheduleManagement's onReorderHeats directly: its own catch/toast/revert
@@ -582,6 +588,7 @@ export default function RaceControl() {
         <ReadinessStrip
           raceId={id}
           trackId={race?.track?.id ?? null}
+          timerType={race?.track?.timerType ?? null}
           registeredCount={race?.registeredCount ?? 0}
           checkedInCount={race?.checkedInCount ?? 0}
           heatCount={heats.length}
@@ -618,6 +625,7 @@ export default function RaceControl() {
               getRacerName={getRacerName}
               slowestRoundIds={slowestRoundIds}
               onUpdateResult={handleUpdateResult}
+              scoringStrategy={race?.scoringStrategy}
               timerType={race?.track?.timerType}
               trackId={race?.track?.id ?? null}
               racers={racers}

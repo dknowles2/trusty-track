@@ -20,6 +20,10 @@ class TimerType(str, enum.Enum):
     FAKE = "FAKE"
     AUTO_DETECT_BACKEND = "AUTO_DETECT_BACKEND"
     AUTO_DETECT_PROXY = "AUTO_DETECT_PROXY"
+    #: No timer exists for this track. Arming is refused (#490) and hand
+    #: entry through the Override/Edit modal is how every result gets
+    #: recorded — see `services/timer/devices/no_timer.py`.
+    NONE = "NONE"
 
 
 class CarNumberingStrategy(str, enum.Enum):

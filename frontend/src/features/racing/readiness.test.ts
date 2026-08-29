@@ -14,6 +14,7 @@ const input = (over: Partial<ReadinessInput> = {}): ReadinessInput => ({
     timerState: 'IDLE',
     timerDeviceName: 'MicroWizard',
     timerProvenance: null,
+    timerType: 'AUTO_DETECT_BACKEND',
     registeredCount: 20,
     checkedInCount: 20,
     heatCount: 20,
@@ -53,6 +54,22 @@ describe('the timer item', () => {
 
     it('stays usable while a heat is under way', () => {
         expect(levelOf('timer', { timerState: 'RUNNING' })).toBe('OK');
+    });
+
+    it('is fine, not blocked, on a track with no timer at all (#490)', () => {
+        // A track configured with no timer sits its manager in IDLE forever
+        // (`services/timer/devices/no_timer.py`), which would otherwise read
+        // as an ordinary usable timer — and it is not one.
+        expect(levelOf('timer', { timerType: 'NONE', timerState: 'IDLE' })).toBe('OK');
+        expect(detailOf('timer', { timerType: 'NONE', timerState: 'IDLE' })).toBe(
+            'No timer — results are entered by hand.',
+        );
+    });
+
+    it('a no-timer track overrides a disconnected reading', () => {
+        // `timerType` is the intended configuration; a stale or synthetic
+        // `timerState` must not turn it back into a fault.
+        expect(levelOf('timer', { timerType: 'NONE', timerState: 'DISCONNECTED' })).toBe('OK');
     });
 
     it('does not go amber over an untested profile', () => {

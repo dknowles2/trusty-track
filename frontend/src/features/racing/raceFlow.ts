@@ -50,6 +50,17 @@ export interface Observation {
     readonly phase: HeatPhase;
     /** The device's state, which is a different question. Gates arming only. */
     readonly timerState: string;
+    /**
+     * Whether this track has a timer at all (#490).
+     *
+     * A track configured with no timer refuses `prepareHeat` on the server —
+     * there is nothing to arm — so calling it on every observation would be
+     * a mutation fired once per render for no reason, forever. This is a
+     * plain, already-known fact about the track (`Track.timerType`), not a
+     * merge of live timer state: gating on it here is not the client
+     * recomputing anything `domain/heat_session.py` owns.
+     */
+    readonly hasTimer: boolean;
     /** Real times are recorded — not merely skipped. Skips advance at once. */
     readonly hasRecordedTimes: boolean;
     /** There is somewhere to advance *to*. */
@@ -192,6 +203,7 @@ const observed = (state: FlowState, observation: Observation): FlowResult => {
     if (observation.phase === 'RECORDED') {
         preparedHeatId = null;
     } else if (
+        observation.hasTimer &&
         observation.phase === 'WAITING' &&
         observation.timerState === 'IDLE' &&
         observation.heatId !== null &&
