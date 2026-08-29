@@ -52,13 +52,13 @@
 }
 
 .printables-kind[aria-pressed='true'] {
-    border-color: var(--scouting-blue);
+    border-color: var(--print-primary-color);
     background: #f0f7ff;
 }
 
 .printables-kind-label {
     font-weight: bold;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
 }
 
 .printables-kind-blurb {
@@ -100,10 +100,10 @@
 /* --- Shared card furniture ------------------------------------------- */
 
 .print-card-header {
-    background: var(--scouting-blue);
+    background: var(--print-primary-color);
     /* A hint of depth across the bar, so the navy does not read as a flat
        block of toner on a laser printer. */
-    background-image: linear-gradient(100deg, #002a5c 0%, var(--scouting-blue) 55%, #0b4f9e 100%);
+    background-image: linear-gradient(100deg, var(--print-header-gradient-start) 0%, var(--print-primary-color) 55%, var(--print-header-gradient-end) 100%);
     color: white;
     padding: 5px 9px;
     display: flex;
@@ -118,7 +118,7 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     white-space: nowrap;
-    color: var(--cub-scouting-gold);
+    color: var(--print-accent-color);
 }
 
 .print-card-race {
@@ -142,11 +142,11 @@
     height: 5px;
     flex-shrink: 0;
     background-image: repeating-conic-gradient(
-        var(--scouting-blue) 0% 25%,
+        var(--print-primary-color) 0% 25%,
         #ffffff 0% 50%
     );
     background-size: 10px 10px;
-    border-bottom: 2px solid var(--cub-scouting-gold);
+    border-bottom: 2px solid var(--print-accent-color);
 }
 
 .print-card-body {
@@ -159,7 +159,7 @@
 .print-card-name {
     font-family: var(--font-header);
     font-weight: bold;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
     line-height: 1.1;
 }
 
@@ -183,7 +183,7 @@
     align-items: center;
     justify-content: center;
     background: #eef2f7;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
     font-family: var(--font-header);
     font-weight: bold;
 }
@@ -221,8 +221,8 @@
        the ring vanishes on exactly those cards. */
     box-shadow:
         0 0 0 2px #ffffff,
-        0 0 0 5px var(--cub-scouting-gold),
-        0 0 0 6px var(--scouting-blue);
+        0 0 0 5px var(--print-accent-color),
+        0 0 0 6px var(--print-primary-color);
     display: block;
 }
 
@@ -235,13 +235,13 @@
     padding: 0 4px;
     box-sizing: border-box;
     border-radius: 50%;
-    background: var(--cub-scouting-gold);
-    border: 2px solid var(--scouting-blue);
+    background: var(--print-accent-color);
+    border: 2px solid var(--print-primary-color);
     /* Lifted off whatever the portrait is by a white ring, for the same
        reason the portrait has one: a gold roundel on a gold placeholder is
        one shape, not two. */
     box-shadow: 0 0 0 2px #ffffff;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
     font-family: var(--font-header);
     font-weight: bold;
     font-size: 0.82rem;
@@ -278,7 +278,7 @@
     /* A gold rule rather than the grey one: it is the same divider the header
        uses, and on paper a 1px grey line is the first thing a tired laser
        drops. */
-    border-top: 2px solid var(--cub-scouting-gold);
+    border-top: 2px solid var(--print-accent-color);
 }
 
 .pit-pass-footer-car {
@@ -320,8 +320,8 @@
     font-size: 1.1rem;
     box-shadow:
         0 0 0 1px #ffffff,
-        0 0 0 3px var(--cub-scouting-gold),
-        0 0 0 4px var(--scouting-blue);
+        0 0 0 3px var(--print-accent-color),
+        0 0 0 4px var(--print-primary-color);
 }
 
 .drivers-license-fields {
@@ -361,7 +361,7 @@
     flex-shrink: 0;
     text-align: center;
     padding: 2px 11px 4px;
-    border: 2px solid var(--scouting-blue);
+    border: 2px solid var(--print-primary-color);
     border-radius: 5px;
     background: #ffffff;
     position: relative;
@@ -375,7 +375,7 @@
     width: 3px;
     height: 3px;
     border-radius: 50%;
-    background: var(--cub-scouting-gold);
+    background: var(--print-accent-color);
 }
 
 .drivers-license-plate::before {
@@ -390,7 +390,7 @@
     font-family: var(--font-header);
     font-size: 1.45rem;
     font-weight: bold;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
     line-height: 1;
     letter-spacing: 0.02em;
 }
@@ -407,7 +407,7 @@
 
 .drivers-license-signature-line {
     flex: 1;
-    border-bottom: 1px solid var(--scouting-blue);
+    border-bottom: 1px solid var(--print-primary-color);
     height: 0.5rem;
 }
 
@@ -445,7 +445,7 @@
     position: absolute;
     width: 0.16in;
     height: 0.16in;
-    border: 2px solid var(--scouting-blue);
+    border: 2px solid var(--print-primary-color);
 }
 
 .check-in-code-frame::before {
@@ -477,8 +477,8 @@
 .check-in-code-number {
     font-family: var(--font-header);
     font-size: 0.66rem;
-    color: var(--scouting-blue);
-    background: var(--cub-scouting-gold);
+    color: var(--print-primary-color);
+    background: var(--print-accent-color);
     border-radius: 10px;
     padding: 0 8px;
     font-weight: bold;
@@ -544,12 +544,12 @@
  */
 .heat-sheet-header {
     margin-bottom: 0.9rem;
-    background: var(--scouting-blue);
-    background-image: linear-gradient(100deg, #002a5c 0%, var(--scouting-blue) 55%, #0b4f9e 100%);
+    background: var(--print-primary-color);
+    background-image: linear-gradient(100deg, var(--print-header-gradient-start) 0%, var(--print-primary-color) 55%, var(--print-header-gradient-end) 100%);
     color: white;
     padding: 0.5rem 0.75rem;
     border-radius: 6px 6px 0 0;
-    border-bottom: 3px solid var(--cub-scouting-gold);
+    border-bottom: 3px solid var(--print-accent-color);
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -584,8 +584,8 @@
     padding: 0.1rem 0 0.15rem 0.5rem;
     /* A gold spine on the left rather than a rule underneath: a round's rows
        sit under its heading, and the eye follows the spine down them. */
-    border-left: 5px solid var(--cub-scouting-gold);
-    border-bottom: 1px solid var(--scouting-blue);
+    border-left: 5px solid var(--print-accent-color);
+    border-bottom: 1px solid var(--print-primary-color);
 }
 
 .heat-sheet table {
@@ -602,13 +602,13 @@
 }
 
 .heat-sheet thead th {
-    background: var(--scouting-blue);
+    background: var(--print-primary-color);
     color: white;
     font-family: var(--font-header);
     font-size: 10pt;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    border-color: var(--scouting-blue);
+    border-color: var(--print-primary-color);
     /* Repeated at the top of each printed page, so a sheet that runs over
        does not leave the second page as unlabelled columns. */
 }
@@ -642,7 +642,7 @@
 .heat-sheet tbody td.heat-sheet-num:first-child {
     font-family: var(--font-header);
     font-size: 12pt;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
 }
 
 /* Left blank on purpose: this sheet is what gets used when the network is
@@ -663,7 +663,7 @@
 .heat-sheet-car {
     font-family: var(--font-header);
     font-weight: bold;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
 }
 
 /* The results sheet (#206) shares the heat sheet's table styling; this is the
@@ -714,7 +714,7 @@
        the corner ornaments that made three concentric lines round the page —
        the ornaments then read as a fourth frame rather than as ornament. The
        gold now appears once, in the corners and under the recipient's name. */
-    border: 4px double var(--scouting-blue);
+    border: 4px double var(--print-primary-color);
     background: white;
     /* A very faint gold wash out of all four corners, so the middle of the
        page stays white where the names go. Four rather than two: on opposite
@@ -842,7 +842,7 @@
     font-size: 11pt;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
     /* Gold rules either side, the way an award citation is set. */
     display: flex;
     align-items: center;
@@ -855,7 +855,7 @@
     content: '';
     width: 1.1in;
     height: 2px;
-    background: var(--cub-scouting-gold);
+    background: var(--print-accent-color);
 }
 
 .certificate-race {
@@ -872,7 +872,7 @@
 .certificate-award-name {
     font-family: var(--font-header);
     font-size: 30pt;
-    color: var(--scouting-blue);
+    color: var(--print-primary-color);
     margin: 0.1rem 0;
     letter-spacing: 0.01em;
 }
@@ -888,7 +888,7 @@
     font-family: var(--font-header);
     font-size: 24pt;
     color: #222;
-    border-bottom: 2px solid var(--cub-scouting-gold);
+    border-bottom: 2px solid var(--print-accent-color);
     padding: 0.1rem 1.5rem 0.15rem;
     min-width: 4.5in;
 }
@@ -915,7 +915,7 @@
 
 .certificate-signature {
     width: 2.4in;
-    border-top: 1px solid var(--scouting-blue);
+    border-top: 1px solid var(--print-primary-color);
     padding-top: 3px;
     font-family: var(--font-header);
     font-size: 8.5pt;

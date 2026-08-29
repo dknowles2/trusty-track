@@ -69,7 +69,7 @@ export default function HeatSheet() {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '4px',
-                            color: 'var(--scouting-blue)',
+                            color: 'var(--print-primary-color)',
                             fontSize: '0.85rem',
                             marginBottom: '0.5rem',
                         }}

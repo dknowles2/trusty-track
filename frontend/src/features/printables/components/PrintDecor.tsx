@@ -3,10 +3,13 @@
  *
  * Same rule as `features/awards/artwork.tsx`, and for the same reason: the
  * venue has no internet, so every mark a printed page makes has to ship in
- * the bundle. Everything here is an inline `<svg>` drawn for this app in this
- * app's own palette — `--scouting-blue` and `--cub-scouting-gold` — so there
- * is no licence to track beside a committed binary and nothing to fetch when
- * the operator hits Print on a laptop that is off the network.
+ * the bundle. Everything here is an inline `<svg>` drawn for this app, in the
+ * Printables surface's own tokens — `--print-primary-color` and
+ * `--print-accent-color` (issue #498's groundwork: this used to read
+ * `--scouting-blue` / `--cub-scouting-gold` directly, which is the App
+ * surface's tokens, not this surface's own) — so there is no licence to track
+ * beside a committed binary and nothing to fetch when the operator hits Print
+ * on a laptop that is off the network.
  *
  * All of it is `aria-hidden`, and none of it carries `role="img"`. That is
  * load-bearing rather than tidy: `Certificate.test.tsx` asserts that a
@@ -33,8 +36,8 @@ interface DecorProps {
     className?: string;
 }
 
-const BLUE = 'var(--scouting-blue, #003F87)';
-const GOLD = 'var(--cub-scouting-gold, #FCD116)';
+const BLUE = 'var(--print-primary-color, #003F87)';
+const GOLD = 'var(--print-accent-color, #FCD116)';
 
 /**
  * The car, side on, nose to the right: a block of pine cut to a wedge — high
