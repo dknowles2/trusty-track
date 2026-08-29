@@ -50,7 +50,7 @@ export default function BallotShare({ raceId }: BallotShareProps) {
         gap: '0.75rem',
       }}
     >
-      <span style={{ color: '#666', wordBreak: 'break-all' }}>
+      <span style={{ color: 'var(--text-muted-color)', wordBreak: 'break-all' }}>
         Share this address for people to vote from their phones: {url}
       </span>
       <button
@@ -66,7 +66,7 @@ export default function BallotShare({ raceId }: BallotShareProps) {
       {!reachable && (
         <span
           role="alert"
-          style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#8a6d00' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--warning-color)' }}
         >
           <Icon path={mdiAlertOutline} size={0.8} />
           Trusty Track could not find this machine's network address. A phone
@@ -80,7 +80,7 @@ export default function BallotShare({ raceId }: BallotShareProps) {
           alt="QR code that opens the voting page"
           width={120}
           height={120}
-          style={{ border: '1px solid #ddd', borderRadius: '8px' }}
+          style={{ border: '1px solid var(--border-color)', borderRadius: '8px' }}
         />
       )}
     </div>

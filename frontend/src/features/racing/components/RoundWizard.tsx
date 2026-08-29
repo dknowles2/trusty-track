@@ -177,14 +177,14 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     display: 'block',
     fontSize: '0.875rem',
     fontWeight: 500,
-    color: '#374151',
+    color: 'var(--wizard-text-color)',
     marginBottom: '0.5rem'
   };
 
   const stepIndicatorStyle = (active: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
-    color: active ? '#2563eb' : '#9ca3af',
+    color: active ? 'var(--accent-blue-color)' : 'var(--wizard-icon-muted-color)',
     fontWeight: active ? 500 : 400,
     fontSize: '0.875rem'
   });
@@ -198,8 +198,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     justifyContent: 'center',
     border: '1px solid',
     marginRight: '0.5rem',
-    borderColor: active ? '#2563eb' : '#d1d5db',
-    backgroundColor: active ? '#eff6ff' : 'transparent',
+    borderColor: active ? 'var(--accent-blue-color)' : 'var(--wizard-border-muted-color)',
+    backgroundColor: active ? 'var(--accent-blue-bg-color)' : 'transparent',
     boxSizing: 'border-box'
   });
 
@@ -209,8 +209,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     padding: '1rem',
     cursor: 'pointer',
     transition: 'background-color 0.2s, border-color 0.2s',
-    borderColor: active ? '#3b82f6' : '#e5e7eb',
-    backgroundColor: active ? '#eff6ff' : 'transparent',
+    borderColor: active ? 'var(--selection-accent-color)' : 'var(--wizard-border-color)',
+    backgroundColor: active ? 'var(--accent-blue-bg-color)' : 'transparent',
     boxSizing: 'border-box'
   });
 
@@ -219,7 +219,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         {/* Header Description */}
         <div style={{ marginBottom: '1.5rem' }}>
-          <p style={{ color: '#4b5563', fontSize: '0.875rem', marginTop: '-1rem', marginBottom: '1.5rem' }}>
+          <p style={{ color: 'var(--wizard-text-subtle-color)', fontSize: '0.875rem', marginTop: '-1rem', marginBottom: '1.5rem' }}>
             Quickly generate a complete race schedule based on your settings.
           </p>
 
@@ -228,12 +228,12 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
               <span style={stepNumberStyle(step >= 1)}>1</span>
               General Rounds
             </div>
-            <div style={{ width: '2rem', height: '1px', backgroundColor: '#d1d5db', margin: '0 0.5rem' }}></div>
+            <div style={{ width: '2rem', height: '1px', backgroundColor: 'var(--wizard-border-muted-color)', margin: '0 0.5rem' }}></div>
             <div style={stepIndicatorStyle(step >= 2)}>
               <span style={stepNumberStyle(step >= 2)}>2</span>
               Championships
             </div>
-            <div style={{ width: '2rem', height: '1px', backgroundColor: '#d1d5db', margin: '0 0.5rem' }}></div>
+            <div style={{ width: '2rem', height: '1px', backgroundColor: 'var(--wizard-border-muted-color)', margin: '0 0.5rem' }}></div>
             <div style={stepIndicatorStyle(step >= 3)}>
               <span style={stepNumberStyle(step >= 3)}>3</span>
               Review
@@ -253,14 +253,14 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     onClick={() => setGeneralConfig({ ...generalConfig, type: 'PACK' })}
                   >
                     <div style={{ fontWeight: 500 }}>All Pack</div>
-                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>Every racer races against everyone else in the pack.</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Every racer races against everyone else in the pack.</div>
                   </div>
                   <div
                     style={configCardStyle(generalConfig.type === 'DEN')}
                     onClick={() => setGeneralConfig({ ...generalConfig, type: 'DEN' })}
                   >
                     <div style={{ fontWeight: 500 }}>By Den</div>
-                    <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>Racers only race against others in their own Den initially.</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Racers only race against others in their own Den initially.</div>
                   </div>
                 </div>
               </div>
@@ -275,7 +275,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                   value={generalConfig.runsPerLane}
                   onChange={(e) => setGeneralConfig({ ...generalConfig, runsPerLane: parseInt(e.target.value) || 1 })}
                 />
-                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>How many times does each racer run in each lane? (Standard is 1)</p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>How many times does each racer run in each lane? (Standard is 1)</p>
               </div>
             </div>
           )}
@@ -283,21 +283,21 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
           {step === 2 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 500, color: '#111827', margin: 0 }}>Championship Rounds</h3>
-                <button onClick={handleAddChampionshipRound} style={{ background: 'none', color: '#2563eb', fontSize: '0.875rem', padding: 0 }}>+ Add Round</button>
+                <h3 style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--wizard-heading-color)', margin: 0 }}>Championship Rounds</h3>
+                <button onClick={handleAddChampionshipRound} style={{ background: 'none', color: 'var(--accent-blue-color)', fontSize: '0.875rem', padding: 0 }}>+ Add Round</button>
               </div>
 
               {championshipRounds.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#6b7280', backgroundColor: '#f9fafb', borderRadius: '0.5rem', border: '1px dashed #d1d5db' }}>
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--wizard-text-muted-color)', backgroundColor: 'var(--wizard-surface-alt-color)', borderRadius: '0.5rem', border: '1px dashed var(--wizard-border-muted-color)' }}>
                   No championship rounds configured.
                 </div>
               )}
 
               {championshipRounds.map((round, idx) => (
-                <div key={round.id} style={{ position: 'relative', border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#f9fafb' }}>
+                <div key={round.id} style={{ position: 'relative', border: '1px solid var(--wizard-border-color)', borderRadius: '0.5rem', padding: '1rem', backgroundColor: 'var(--wizard-surface-alt-color)' }}>
                   <button
                     onClick={() => handleRemoveChampionshipRound(round.id)}
-                    style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'none', color: '#9ca3af', fontSize: '1.25rem', padding: '0 4px' }}
+                    style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'none', color: 'var(--wizard-icon-muted-color)', fontSize: '1.25rem', padding: '0 4px' }}
                     title="Remove Round"
                     data-testid="remove-round-btn"
                   >
@@ -329,7 +329,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                       ) : (
                         <div
                           className="form-control"
-                          style={{ fontSize: '0.875rem', backgroundColor: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center' }}
+                          style={{ fontSize: '0.875rem', backgroundColor: 'var(--wizard-chip-bg-color)', color: 'var(--wizard-text-muted-color)', display: 'flex', alignItems: 'center' }}
                         >
                           Previous Championship Round
                         </div>
@@ -367,29 +367,29 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
 
           {step === 3 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div style={{ backgroundColor: '#eff6ff', padding: '1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'flex-start' }}>
+              <div style={{ backgroundColor: 'var(--accent-blue-bg-color)', padding: '1rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: '1.5rem', marginRight: '0.75rem' }}>⏱️</span>
                 <div>
-                  <div style={{ fontWeight: 'bold', color: '#1e3a8a' }}>Estimated Grand Total: {minutesEstimate(totalDuration)}</div>
-                  <div style={{ color: '#1d4ed8', fontSize: '0.875rem' }}>Total Heats: {totalHeats}</div>
+                  <div style={{ fontWeight: 'bold', color: 'var(--accent-blue-emphasis-color)' }}>Estimated Grand Total: {minutesEstimate(totalDuration)}</div>
+                  <div style={{ color: 'var(--accent-blue-strong-color)', fontSize: '0.875rem' }}>Total Heats: {totalHeats}</div>
                 </div>
               </div>
 
-              <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', overflow: 'hidden' }}>
+              <div style={{ border: '1px solid var(--wizard-border-color)', borderRadius: '0.5rem', overflow: 'hidden' }}>
                 {breakdown.map((roundInfo, idx) => (
                   <div key={idx} style={{
                     padding: '1rem',
-                    borderBottom: idx === breakdown.length - 1 ? 'none' : '1px solid #e5e7eb',
-                    backgroundColor: idx % 2 === 0 ? 'white' : '#f9fafb'
+                    borderBottom: idx === breakdown.length - 1 ? 'none' : '1px solid var(--wizard-border-color)',
+                    backgroundColor: idx % 2 === 0 ? 'var(--surface-color)' : 'var(--wizard-surface-alt-color)'
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <h4 style={{ fontWeight: 'bold', color: '#111827', margin: 0 }}>{idx + 1}. {roundInfo.name}</h4>
+                      <h4 style={{ fontWeight: 'bold', color: 'var(--wizard-heading-color)', margin: 0 }}>{idx + 1}. {roundInfo.name}</h4>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 600, color: '#111827', fontSize: '0.875rem' }}>{minutesEstimate(roundInfo.duration)}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{roundInfo.heats} {roundInfo.heats === 1 ? 'heat' : 'heats'}</div>
+                        <div style={{ fontWeight: 600, color: 'var(--wizard-heading-color)', fontSize: '0.875rem' }}>{minutesEstimate(roundInfo.duration)}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--wizard-text-muted-color)' }}>{roundInfo.heats} {roundInfo.heats === 1 ? 'heat' : 'heats'}</div>
                       </div>
                     </div>
-                    <p style={{ fontSize: '0.875rem', color: '#4b5563', margin: '0.25rem 0 0 0' }}>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--wizard-text-subtle-color)', margin: '0.25rem 0 0 0' }}>
                       {idx === 0 ? (
                         generalConfig.type === 'PACK' ? 'All racers compete against each other.' : 'Racers compete within their dens.'
                       ) : (
@@ -405,7 +405,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                 ))}
               </div>
 
-              <div style={{ fontSize: '0.875rem', color: '#6b7280', fontStyle: 'italic' }}>
+              <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', fontStyle: 'italic' }}>
                 * Creating this schedule will generate all necessary rounds and heats. You can still modify the schedule later, but the wizard assumes a clean slate.
               </div>
             </div>
@@ -413,7 +413,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--wizard-border-color)', paddingTop: '1.5rem' }}>
           {step > 1 ? (
             <button onClick={handleBack} className="secondary-btn" disabled={loading}>
               Back

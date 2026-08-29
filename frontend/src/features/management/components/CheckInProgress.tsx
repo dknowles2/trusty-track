@@ -32,7 +32,7 @@ export default function CheckInProgress({ checkedIn, registered }: Props) {
                     width: '90px',
                     height: '6px',
                     borderRadius: '3px',
-                    background: '#e6e6e6',
+                    background: 'var(--progress-track-color)',
                     overflow: 'hidden',
                 }}
             >
@@ -40,11 +40,11 @@ export default function CheckInProgress({ checkedIn, registered }: Props) {
                     style={{
                         width: `${fraction * 100}%`,
                         height: '100%',
-                        background: done ? '#2e7d32' : 'var(--cub-scouting-gold)',
+                        background: done ? 'var(--success-color)' : 'var(--cub-scouting-gold)',
                     }}
                 />
             </div>
-            <span style={{ color: done ? '#2e7d32' : '#666', whiteSpace: 'nowrap' }}>
+            <span style={{ color: done ? 'var(--success-color)' : 'var(--text-muted-color)', whiteSpace: 'nowrap' }}>
                 {checkedIn} of {registered} checked in
             </span>
         </div>

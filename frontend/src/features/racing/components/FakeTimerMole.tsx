@@ -112,13 +112,13 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
     const statusText = () => {
         switch (timerState) {
             case 'ARMED':
-                return <span style={{ color: '#2196f3', fontWeight: 'bold' }}>Ready to start</span>;
+                return <span style={{ color: 'var(--info-accent-color)', fontWeight: 'bold' }}>Ready to start</span>;
             case 'RUNNING':
-                return <span style={{ color: '#ff9800', fontWeight: 'bold' }}>Racing...</span>;
+                return <span style={{ color: 'var(--active-accent-color)', fontWeight: 'bold' }}>Racing...</span>;
             case 'IDLE':
-                return <span style={{ color: '#4caf50', fontWeight: 'bold' }}>Heat Completed</span>;
+                return <span style={{ color: 'var(--success-accent-color)', fontWeight: 'bold' }}>Heat Completed</span>;
             default:
-                return <span style={{ color: '#666', fontWeight: 'bold' }}>{timerState}</span>;
+                return <span style={{ color: 'var(--text-muted-color)', fontWeight: 'bold' }}>{timerState}</span>;
         }
     };
 
@@ -129,7 +129,7 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
                 position: 'fixed',
                 bottom: '30px',
                 right: '30px',
-                background: 'white',
+                background: 'var(--surface-color)',
                 padding: '20px',
                 borderRadius: '12px',
                 boxShadow: '0 5px 20px rgba(0,0,0,0.2)',
@@ -138,7 +138,7 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
                 display: 'flex',
                 flexDirection: 'column',
                 gap: collapsed ? 0 : 10,
-                border: '2px solid #ff9800'
+                border: '2px solid var(--active-accent-color)'
             }}
         >
             <h3
@@ -146,16 +146,16 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
                 title={collapsed ? 'Show the fake timer controls' : 'Collapse out of the way'}
                 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}
             >
-                <Icon path={mdiTimerOutline} size={0.9} color="#ff9800" />
+                <Icon path={mdiTimerOutline} size={0.9} color="var(--active-accent-color)" />
                 Fake Timer Controls
                 <span style={{ flex: 1 }} />
                 {/* Collapsed, this is the only thing left saying whether the
                     heat can be started — so it belongs in the header, not in
                     the body with the buttons. */}
-                <span style={{ fontSize: '0.72rem', color: '#ff9800', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--active-accent-color)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     {timerState}
                 </span>
-                <Icon path={collapsed ? mdiChevronUp : mdiChevronDown} size={0.7} color="#666" />
+                <Icon path={collapsed ? mdiChevronUp : mdiChevronDown} size={0.7} color="var(--text-muted-color)" />
             </h3>
 
             {!collapsed && (
@@ -164,25 +164,25 @@ export const FakeTimerMole: React.FC<FakeTimerMoleProps> = ({ isOpen, heatId, tr
                 className="secondary-btn"
                 onClick={handleStartTimer}
                 disabled={startDisabled}
-                style={{ width: '100%', cursor: startDisabled ? 'not-allowed' : 'pointer', padding: '10px', background: startDisabled ? '#f0f0f0' : '#e0e0e0', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: startDisabled ? '#999' : '#000' }}
+                style={{ width: '100%', cursor: startDisabled ? 'not-allowed' : 'pointer', padding: '10px', background: startDisabled ? 'var(--surface-soft-color)' : 'var(--surface-strong-color)', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: startDisabled ? 'var(--text-faint-color)' : 'var(--text-emphasis-color)' }}
             >
-                <Icon path={mdiPlay} size={0.7} color={startDisabled ? '#ccc' : '#4caf50'} /> Start Timer
+                <Icon path={mdiPlay} size={0.7} color={startDisabled ? 'var(--input-border-color)' : 'var(--success-accent-color)'} /> Start Timer
             </button>
 
             <button
                 className="primary-btn"
                 onClick={handleFinishHeat}
                 disabled={finishDisabled}
-                style={{ width: '100%', cursor: finishDisabled ? 'not-allowed' : 'pointer', padding: '10px', background: finishDisabled ? '#f0f0f0' : '#d32f2f', color: finishDisabled ? '#999' : 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                style={{ width: '100%', cursor: finishDisabled ? 'not-allowed' : 'pointer', padding: '10px', background: finishDisabled ? 'var(--surface-soft-color)' : 'var(--error)', color: finishDisabled ? 'var(--text-faint-color)' : 'var(--on-primary-color)', border: 'none', borderRadius: '4px', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-                <Icon path={mdiFlagCheckered} size={0.7} color={finishDisabled ? '#ccc' : 'white'} /> Finish Heat
+                <Icon path={mdiFlagCheckered} size={0.7} color={finishDisabled ? 'var(--input-border-color)' : 'var(--on-primary-color)'} /> Finish Heat
             </button>
 
-            <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#666' }}>
+            <div style={{ marginTop: '5px', fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>
                 {statusText()}
             </div>
 
-            <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#888' }}>
+            <div style={{ marginTop: '5px', fontSize: '0.8rem', color: 'var(--text-subtle-color)' }}>
                 Simulates hardware timer events.
             </div>
               </>

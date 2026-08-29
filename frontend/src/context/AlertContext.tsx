@@ -112,7 +112,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               <button 
                 onClick={() => handleAction(false)} 
                 className="secondary-btn"
-                style={{ backgroundColor: '#e0e0e0', color: '#333' }}
+                style={{ backgroundColor: 'var(--surface-strong-color)', color: 'var(--text-color)' }}
               >
                   Cancel
               </button>
@@ -120,7 +120,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           <button 
             onClick={() => handleAction(true)} 
             className="primary-btn"
-            style={confirmVariant === 'danger' ? { backgroundColor: '#d32f2f', color: 'white' } : {}}
+            style={confirmVariant === 'danger' ? { backgroundColor: 'var(--error)', color: 'var(--on-primary-color)' } : {}}
           >
             {isConfirm ? confirmLabel : 'OK'}
           </button>
@@ -144,8 +144,8 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           <div
             key={toast.id}
             style={{
-              background: toast.type === 'success' ? '#4caf50' : toast.type === 'error' ? '#f44336' : '#2196f3',
-              color: 'white',
+              background: toast.type === 'success' ? 'var(--success-accent-color)' : toast.type === 'error' ? 'var(--danger-accent-color)' : 'var(--info-accent-color)',
+              color: 'var(--on-primary-color)',
               padding: '12px 16px',
               borderRadius: '4px',
               boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
@@ -167,7 +167,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                   style={{
                     background: 'rgba(255,255,255,0.2)',
                     border: '1px solid rgba(255,255,255,0.5)',
-                    color: 'white',
+                    color: 'var(--on-primary-color)',
                     padding: '4px 12px',
                     borderRadius: '3px',
                     cursor: 'pointer',
@@ -183,7 +183,7 @@ export const AlertProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: 'white',
+                  color: 'var(--on-primary-color)',
                   cursor: 'pointer',
                   fontSize: '1.2rem',
                   padding: '0 4px',

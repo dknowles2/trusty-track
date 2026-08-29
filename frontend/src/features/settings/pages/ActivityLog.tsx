@@ -53,7 +53,7 @@ export default function ActivityLog() {
         return (
             <div className="container" style={{ padding: '2rem' }}>
                 <h2>Activity</h2>
-                <p style={{ color: '#666' }}>
+                <p style={{ color: 'var(--text-muted-color)' }}>
                     This page is for the operator's device. Unlock with the operator PIN to
                     see it.
                 </p>
@@ -95,7 +95,7 @@ export default function ActivityLog() {
                             alignItems: 'center',
                             gap: '6px',
                             fontSize: '0.85rem',
-                            color: '#555',
+                            color: 'var(--text-strong-muted-color)',
                             cursor: 'pointer',
                         }}
                     >
@@ -118,7 +118,7 @@ export default function ActivityLog() {
                 </div>
             </div>
 
-            <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+            <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
                 Everything anyone has done, newest first — including anything a device was
                 refused. Heat results say whether the timer recorded them or somebody typed
                 them in.
@@ -149,7 +149,7 @@ export default function ActivityLog() {
             {fetching && entries.length === 0 && <p>Loading…</p>}
 
             {!fetching && entries.length === 0 && (
-                <p data-testid="activity-empty" style={{ color: '#666' }}>
+                <p data-testid="activity-empty" style={{ color: 'var(--text-muted-color)' }}>
                     Nothing recorded yet.
                 </p>
             )}
@@ -159,8 +159,8 @@ export default function ActivityLog() {
                     <h3
                         style={{
                             fontSize: '0.95rem',
-                            color: '#444',
-                            borderBottom: '1px solid #e4e4e4',
+                            color: 'var(--text-heading-alt-color)',
+                            borderBottom: '1px solid var(--border-faint-color)',
                             paddingBottom: '0.3rem',
                             margin: '0 0 0.5rem',
                         }}
@@ -184,7 +184,7 @@ export default function ActivityLog() {
                                 <span
                                     style={{
                                         fontVariantNumeric: 'tabular-nums',
-                                        color: '#888',
+                                        color: 'var(--text-subtle-color)',
                                         fontSize: '0.85rem',
                                         whiteSpace: 'nowrap',
                                     }}
@@ -195,7 +195,7 @@ export default function ActivityLog() {
                                     <span
                                         style={{
                                             fontWeight: entry.noteworthy ? 600 : 400,
-                                            color: entry.outcome === 'OK' ? '#222' : '#c62828',
+                                            color: entry.outcome === 'OK' ? 'var(--text-strong-color)' : 'var(--danger-strong-color)',
                                         }}
                                     >
                                         {entry.noteworthy && entry.outcome !== 'OK' && (
@@ -207,7 +207,7 @@ export default function ActivityLog() {
                                         )}
                                         {entry.summary}
                                     </span>
-                                    <span style={{ color: '#777', fontSize: '0.85rem' }}>
+                                    <span style={{ color: 'var(--text-quiet-color)', fontSize: '0.85rem' }}>
                                         {' · '}
                                         {roleLabel(entry.role)}
                                         {showAddresses && entry.sourceIp ? ` · ${entry.sourceIp}` : ''}
@@ -216,7 +216,7 @@ export default function ActivityLog() {
                                         <div
                                             style={{
                                                 fontSize: '0.8rem',
-                                                color: '#888',
+                                                color: 'var(--text-subtle-color)',
                                                 marginTop: '2px',
                                                 wordBreak: 'break-word',
                                             }}
@@ -234,7 +234,7 @@ export default function ActivityLog() {
             ))}
 
             {entries.length >= PAGE_SIZE && (
-                <p style={{ color: '#888', fontSize: '0.85rem', marginTop: '1rem' }}>
+                <p style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem', marginTop: '1rem' }}>
                     Showing the most recent {PAGE_SIZE} entries.
                 </p>
             )}

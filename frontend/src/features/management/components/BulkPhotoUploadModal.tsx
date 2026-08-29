@@ -143,7 +143,7 @@ function RacerCombobox({ racers, value, onChange }: ComboboxProps) {
                     fontSize: '0.85rem',
                     padding: '4px 7px',
                     borderRadius: '4px',
-                    border: `1px solid ${isOpen ? 'var(--scouting-blue)' : '#ccc'}`,
+                    border: `1px solid ${isOpen ? 'var(--scouting-blue)' : 'var(--input-border-color)'}`,
                     outline: 'none',
                 }}
             />
@@ -159,8 +159,8 @@ function RacerCombobox({ racers, value, onChange }: ComboboxProps) {
                         margin: '2px 0 0',
                         padding: 0,
                         listStyle: 'none',
-                        background: 'white',
-                        border: '1px solid #ccc',
+                        background: 'var(--surface-color)',
+                        border: '1px solid var(--input-border-color)',
                         borderRadius: '4px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
                         maxHeight: '180px',
@@ -168,7 +168,7 @@ function RacerCombobox({ racers, value, onChange }: ComboboxProps) {
                     }}
                 >
                     {filtered.length === 0 ? (
-                        <li style={{ padding: '6px 8px', color: '#888', fontSize: '0.85rem' }}>No matches</li>
+                        <li style={{ padding: '6px 8px', color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>No matches</li>
                     ) : (
                         filtered.map((r, i) => (
                             <li
@@ -179,8 +179,8 @@ function RacerCombobox({ racers, value, onChange }: ComboboxProps) {
                                     padding: '5px 8px',
                                     fontSize: '0.85rem',
                                     cursor: 'pointer',
-                                    background: i === activeIndex ? 'var(--scouting-blue)' : 'white',
-                                    color: i === activeIndex ? 'white' : 'inherit',
+                                    background: i === activeIndex ? 'var(--scouting-blue)' : 'var(--surface-color)',
+                                    color: i === activeIndex ? 'var(--on-primary-color)' : 'inherit',
                                 }}
                             >
                                 {racerLabel(r)}
@@ -220,7 +220,7 @@ function PhotoPreview({ entry }: { entry: PhotoEntry }) {
                     objectFit: 'cover',
                     borderRadius: '6px',
                     flexShrink: 0,
-                    border: '1px solid #ddd',
+                    border: '1px solid var(--border-color)',
                 }}
             />
         );
@@ -234,15 +234,15 @@ function PhotoPreview({ entry }: { entry: PhotoEntry }) {
                     <div style={{
                         position: 'absolute',
                         top: 0, left: 0, right: 0, bottom: 0,
-                        background: '#f0f0f0',
+                        background: 'var(--surface-soft-color)',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: '0.65rem',
-                        color: '#888',
+                        color: 'var(--text-subtle-color)',
                         textAlign: 'center',
-                        border: '1px solid #ddd',
+                        border: '1px solid var(--border-color)',
                         borderRadius: '6px',
                         padding: '0 4px',
                         boxSizing: 'border-box',
@@ -263,7 +263,7 @@ function PhotoPreview({ entry }: { entry: PhotoEntry }) {
                         objectFit: 'cover',
                         borderRadius: '6px',
                         flexShrink: 0,
-                        border: '1px solid #ddd',
+                        border: '1px solid var(--border-color)',
                         display: remoteLoaded ? 'block' : 'none',
                     }}
                 />
@@ -277,15 +277,15 @@ function PhotoPreview({ entry }: { entry: PhotoEntry }) {
             width: 80,
             height: 80,
             borderRadius: '6px',
-            background: '#f0f0f0',
+            background: 'var(--surface-soft-color)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '0.65rem',
-            color: '#888',
+            color: 'var(--text-subtle-color)',
             textAlign: 'center',
-            border: '1px solid #ddd',
+            border: '1px solid var(--border-color)',
             flexShrink: 0,
             padding: '0 4px',
             boxSizing: 'border-box'
@@ -416,12 +416,12 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
 
     return (
         <Modal isOpen={isOpen} onClose={handleClose} title="Upload & Assign Photos" maxWidth="820px">
-            <p style={{ marginTop: 0, color: '#555', fontSize: '0.9rem' }}>
+            <p style={{ marginTop: 0, color: 'var(--text-strong-muted-color)', fontSize: '0.9rem' }}>
                 Select one or more images. Each photo uploads immediately. Use the search box to assign each photo to a racer, then click Apply.
             </p>
 
             {racers.length === 0 ? (
-                <p style={{ color: '#888', fontStyle: 'italic' }}>No racers registered yet. Add racers before uploading photos.</p>
+                <p style={{ color: 'var(--text-subtle-color)', fontStyle: 'italic' }}>No racers registered yet. Add racers before uploading photos.</p>
             ) : (
                 <>
                     <input
@@ -457,20 +457,20 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                             alignItems: 'flex-start',
                             gap: '10px',
                             padding: '10px',
-                            border: '1px solid #e0e0e0',
+                            border: '1px solid var(--surface-strong-color)',
                             borderRadius: '8px',
-                            background: entry.status === 'error' ? '#fff5f5' : 'white',
+                            background: entry.status === 'error' ? 'var(--danger-faint-bg-color)' : 'var(--surface-color)',
                         }}>
                             <PhotoPreview entry={entry} />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '0.8rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-strong-muted-color)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '4px' }}>
                                     {entry.file.name}
                                 </div>
                                 {entry.status === 'uploading' && (
-                                    <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '6px' }}>Uploading...</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-subtle-color)', marginBottom: '6px' }}>Uploading...</div>
                                 )}
                                 {entry.status === 'error' && (
-                                    <div style={{ fontSize: '0.8rem', color: '#c00', marginBottom: '6px' }}>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--danger-plain-color)', marginBottom: '6px' }}>
                                         Upload failed.{' '}
                                         <button
                                             style={{ background: 'none', border: 'none', color: 'var(--scouting-blue)', cursor: 'pointer', padding: 0, fontSize: '0.8rem', textDecoration: 'underline' }}
@@ -526,7 +526,7 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                             <button
                                 onClick={() => handleRemove(entry.localId)}
                                 title="Remove"
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999', fontSize: '1.2rem', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint-color)', fontSize: '1.2rem', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
                             >
                                 ×
                             </button>
@@ -535,8 +535,8 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                 </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #eee' }}>
-                <span style={{ fontSize: '0.9rem', color: '#555' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--divider-color)' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)' }}>
                     {photos.length > 0
                         ? `${assignedCount} of ${photos.filter(p => p.status === 'done').length} uploaded photo(s) assigned`
                         : 'No photos selected yet'}
@@ -549,7 +549,7 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                         disabled={assignedCount === 0 || isAnyUploading}
                         style={{
                             backgroundColor: assignedCount > 0 && !isAnyUploading ? 'var(--scouting-blue)' : undefined,
-                            color: assignedCount > 0 && !isAnyUploading ? 'white' : undefined,
+                            color: assignedCount > 0 && !isAnyUploading ? 'var(--on-primary-color)' : undefined,
                             opacity: assignedCount === 0 || isAnyUploading ? 0.5 : 1,
                         }}
                     >

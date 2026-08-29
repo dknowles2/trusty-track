@@ -494,7 +494,7 @@ export default function RaceControl() {
         <h1 style={{ margin: 0 }}>Race Control</h1>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', background: '#e0e0e0', padding: '5px', borderRadius: '25px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', background: 'var(--surface-strong-color)', padding: '5px', borderRadius: '25px' }}>
                 <button
                     onClick={() => navigate(`/race/${id}/control/schedule`)}
                      style={{
@@ -503,7 +503,7 @@ export default function RaceControl() {
                         whiteSpace: 'nowrap',
                         borderRadius: '20px',
                         border: 'none',
-                        background: viewMode === 'SCHEDULE' ? 'white' : 'transparent',
+                        background: viewMode === 'SCHEDULE' ? 'var(--surface-color)' : 'transparent',
                         boxShadow: viewMode === 'SCHEDULE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                         fontWeight: viewMode === 'SCHEDULE' ? 'bold' : 'normal',
                         cursor: 'pointer',
@@ -522,7 +522,7 @@ export default function RaceControl() {
                         whiteSpace: 'nowrap',
                         borderRadius: '20px',
                         border: 'none',
-                        background: viewMode === 'EXECUTION' ? 'white' : 'transparent',
+                        background: viewMode === 'EXECUTION' ? 'var(--surface-color)' : 'transparent',
                         boxShadow: viewMode === 'EXECUTION' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                         fontWeight: viewMode === 'EXECUTION' ? 'bold' : 'normal',
                         cursor: 'pointer',
@@ -541,7 +541,7 @@ export default function RaceControl() {
                         whiteSpace: 'nowrap',
                         borderRadius: '20px',
                         border: 'none',
-                        background: viewMode === 'FREE_RACE' ? 'white' : 'transparent',
+                        background: viewMode === 'FREE_RACE' ? 'var(--surface-color)' : 'transparent',
                         boxShadow: viewMode === 'FREE_RACE' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                         fontWeight: viewMode === 'FREE_RACE' ? 'bold' : 'normal',
                         cursor: 'pointer',
@@ -564,7 +564,7 @@ export default function RaceControl() {
                         whiteSpace: 'nowrap',
                         borderRadius: '20px',
                         border: 'none',
-                        background: viewMode === 'DISPLAYS' ? 'white' : 'transparent',
+                        background: viewMode === 'DISPLAYS' ? 'var(--surface-color)' : 'transparent',
                         boxShadow: viewMode === 'DISPLAYS' ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                         fontWeight: viewMode === 'DISPLAYS' ? 'bold' : 'normal',
                         cursor: 'pointer',
@@ -611,7 +611,7 @@ export default function RaceControl() {
         />
       ) : viewMode === 'EXECUTION' ? (
         heats.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px', background: '#fff', borderRadius: '8px' }}>
+          <div style={{ textAlign: 'center', padding: '40px', background: 'var(--surface-color)', borderRadius: '8px' }}>
             <p>No heats available. Please add a round in the Schedule view first.</p>
           </div>
         ) : (
@@ -642,7 +642,7 @@ export default function RaceControl() {
             />
             {completedPreviousHeats.length > 0 && (
               <div style={{ maxWidth: '1000px', margin: '24px auto 0' }}>
-                <h3 style={{ marginBottom: '12px', color: '#555', fontWeight: 600 }}>Previous Heats</h3>
+                <h3 style={{ marginBottom: '12px', color: 'var(--text-strong-muted-color)', fontWeight: 600 }}>Previous Heats</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {completedPreviousHeats.map((heat: Heat) => {
                     const isSkipped = heat.lanes.some((l) => l.skipped);
@@ -650,28 +650,28 @@ export default function RaceControl() {
                     const sorted = byPlace(heat.lanes);
                     return (
                       <div key={heat.id} style={{
-                        background: 'white',
+                        background: 'var(--surface-color)',
                         borderRadius: '12px',
                         padding: '14px 20px',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                        borderLeft: isSkipped && !timed ? '4px solid #f44336' : '4px solid #4caf50'
+                        borderLeft: isSkipped && !timed ? '4px solid var(--danger-accent-color)' : '4px solid var(--success-accent-color)'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <span style={{ fontWeight: 'bold', fontSize: '1rem' }}>Heat {heat.globalHeatNumber ?? heat.heatNumber}</span>
                             {isSkipped && !timed && (
-                                <span style={{ background: '#ffebee', color: '#c62828', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Skipped</span>
+                                <span style={{ background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Skipped</span>
                             )}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ color: '#888', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
+                            <span style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{heat.roundName || `Round ${heat.roundNumber}`}</span>
                             <button
                                 onClick={() => handleRunHeat(heat)}
                                 style={{
                                     padding: '4px 10px',
                                     fontSize: '0.8rem',
-                                    background: isSkipped && !timed ? 'var(--cub-scouting-gold)' : '#f5f5f5',
-                                    border: '1px solid #ddd',
+                                    background: isSkipped && !timed ? 'var(--cub-scouting-gold)' : 'var(--background-color)',
+                                    border: '1px solid var(--border-color)',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
                                     display: 'flex',
@@ -687,12 +687,12 @@ export default function RaceControl() {
                         </div>
                         <div style={{ display: 'grid', gap: '2px' }}>
                           {sorted.map((r) => (
-                            <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', padding: '5px 0', borderBottom: '1px solid #f5f5f5' }}>
+                            <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', padding: '5px 0', borderBottom: '1px solid var(--background-color)' }}>
                               <span style={{
                                 minWidth: '26px',
                                 height: '26px',
                                 borderRadius: '50%',
-                                background: r.place === 1 ? 'var(--cub-scouting-gold)' : r.place === 2 ? '#e0e0e0' : r.place === 3 ? '#d7a48d' : '#f0f0f0',
+                                background: r.place === 1 ? 'var(--cub-scouting-gold)' : r.place === 2 ? 'var(--surface-strong-color)' : r.place === 3 ? 'var(--rank-bronze-color)' : 'var(--surface-soft-color)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -700,9 +700,9 @@ export default function RaceControl() {
                                 fontSize: '0.75rem',
                                 flexShrink: 0
                               }}>{r.place ?? '–'}</span>
-                              <span style={{ color: '#888', minWidth: '52px', fontSize: '0.85rem' }}>Lane {r.lane}</span>
+                              <span style={{ color: 'var(--text-subtle-color)', minWidth: '52px', fontSize: '0.85rem' }}>Lane {r.lane}</span>
                               <span style={{ flex: 1, fontWeight: r.place === 1 ? 600 : 'normal' }}>{laneRacerName(r, slowestRoundIds.has(heat.roundId))}</span>
-                              <span style={{ fontFamily: 'monospace', color: '#444', flexShrink: 0 }}>{r.time != null ? `${Number(r.time).toFixed(4)}s` : '–'}</span>
+                              <span style={{ fontFamily: 'monospace', color: 'var(--text-heading-alt-color)', flexShrink: 0 }}>{r.time != null ? `${Number(r.time).toFixed(4)}s` : '–'}</span>
                             </div>
                           ))}
                         </div>

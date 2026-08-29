@@ -91,12 +91,12 @@ export const FreeRaceTab: React.FC<FreeRaceTabProps> = ({
     <div>
       {error && (
         <div style={{
-          background: '#ffebee',
+          background: 'var(--danger-bg-color)',
           border: '1px solid #ef9a9a',
           borderRadius: '6px',
           padding: '12px 16px',
           marginBottom: '16px',
-          color: '#c62828',
+          color: 'var(--danger-strong-color)',
         }}>
           {error}
         </div>

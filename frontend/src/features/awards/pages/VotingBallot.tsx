@@ -144,13 +144,13 @@ export default function VotingBallot() {
       )}
 
       {!result.fetching && !result.error && !votingOpen && (
-        <p style={{ color: '#666', marginTop: '1.5rem' }}>
+        <p style={{ color: 'var(--text-muted-color)', marginTop: '1.5rem' }}>
           Voting is closed right now. Check back once the operator opens it.
         </p>
       )}
 
       {!result.fetching && votingOpen && votable.length === 0 && (
-        <p style={{ color: '#666', marginTop: '1.5rem' }}>
+        <p style={{ color: 'var(--text-muted-color)', marginTop: '1.5rem' }}>
           There is nothing to vote on right now.
         </p>
       )}
@@ -162,7 +162,7 @@ export default function VotingBallot() {
             style={{
               marginTop: '1.75rem',
               paddingTop: '1.25rem',
-              borderTop: '1px solid #eee',
+              borderTop: '1px solid var(--divider-color)',
             }}
           >
             <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>{award.name}</h2>
@@ -208,8 +208,8 @@ export default function VotingBallot() {
                       gap: '0.35rem',
                       padding: '0.6rem',
                       borderRadius: '12px',
-                      border: '1px solid #ddd',
-                      background: '#fff',
+                      border: '1px solid var(--border-color)',
+                      background: 'var(--surface-color)',
                       cursor: submitting === award.id ? 'wait' : 'pointer',
                     }}
                   >
@@ -230,7 +230,7 @@ export default function VotingBallot() {
                           width: '100%',
                           aspectRatio: '1 / 1',
                           borderRadius: '8px',
-                          background: '#f0f0f0',
+                          background: 'var(--surface-soft-color)',
                         }}
                       />
                     )}
@@ -238,7 +238,7 @@ export default function VotingBallot() {
                       {car.carNumber != null ? `#${car.carNumber}` : 'Unnumbered'}
                     </strong>
                     {car.carName && (
-                      <span style={{ fontSize: '0.85rem', color: '#666' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
                         {car.carName}
                       </span>
                     )}

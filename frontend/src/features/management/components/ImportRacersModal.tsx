@@ -136,7 +136,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
     return (
         <Modal isOpen={isOpen} onClose={handleClose} title="Import Racers from CSV" maxWidth="720px">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <p style={{ color: '#666', lineHeight: '1.5', margin: 0 }}>
+                <p style={{ color: 'var(--text-muted-color)', lineHeight: '1.5', margin: 0 }}>
                     Any CSV will do — you match its columns to the fields we need once it is
                     loaded. If you are starting from scratch,{' '}
                     <button
@@ -157,7 +157,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                     .
                 </p>
 
-                <div style={{ border: '2px dashed #ccc', padding: '1.5rem', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ border: '2px dashed var(--input-border-color)', padding: '1.5rem', borderRadius: '8px', textAlign: 'center' }}>
                     <input
                         type="file"
                         accept=".csv"
@@ -169,7 +169,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                         {fileName ?? 'Select CSV File'}
                     </label>
                     {parsed && (
-                        <p style={{ margin: '0.75rem 0 0', color: '#666', fontSize: '0.9rem' }}>
+                        <p style={{ margin: '0.75rem 0 0', color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
                             {parsed.rows.length} {parsed.rows.length === 1 ? 'row' : 'rows'},{' '}
                             {parsed.headers.length} columns
                         </p>
@@ -188,10 +188,10 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                                 }}
                             >
                                 {FIELDS.map((field) => (
-                                    <label key={field} style={{ fontSize: '0.85rem', color: '#444' }}>
+                                    <label key={field} style={{ fontSize: '0.85rem', color: 'var(--text-heading-alt-color)' }}>
                                         {FIELD_LABELS[field]}
                                         {(field === 'firstName' || field === 'lastName') && (
-                                            <span style={{ color: '#c62828' }}> *</span>
+                                            <span style={{ color: 'var(--danger-strong-color)' }}> *</span>
                                         )}
                                         <select
                                             aria-label={FIELD_LABELS[field]}
@@ -202,7 +202,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                                                 padding: '8px',
                                                 marginTop: '3px',
                                                 borderRadius: '4px',
-                                                border: '1px solid #ddd',
+                                                border: '1px solid var(--border-color)',
                                             }}
                                         >
                                             <option value="">Not included</option>
@@ -221,7 +221,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                             <h4 style={{ margin: '0 0 0.5rem' }}>
                                 Preview
                                 {rows.length > PREVIEW_ROWS && (
-                                    <span style={{ fontWeight: 'normal', color: '#666', fontSize: '0.85rem' }}>
+                                    <span style={{ fontWeight: 'normal', color: 'var(--text-muted-color)', fontSize: '0.85rem' }}>
                                         {' '}
                                         — first {PREVIEW_ROWS} of {rows.length}
                                     </span>
@@ -243,7 +243,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                                             <tr key={index}>
                                                 {mappedFields.map((field) => (
                                                     <td key={field} style={{ padding: '6px' }}>
-                                                        {row[field] || <span style={{ color: '#bbb' }}>—</span>}
+                                                        {row[field] || <span style={{ color: 'var(--text-placeholder-color)' }}>—</span>}
                                                     </td>
                                                 ))}
                                             </tr>
@@ -258,8 +258,8 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                                 style={{
                                     padding: '10px',
                                     borderRadius: '4px',
-                                    backgroundColor: ready ? '#fff8e1' : '#ffebee',
-                                    color: ready ? '#8a6d00' : '#c62828',
+                                    backgroundColor: ready ? 'var(--warning-bg-color)' : 'var(--danger-bg-color)',
+                                    color: ready ? 'var(--warning-color)' : 'var(--danger-strong-color)',
                                     maxHeight: '160px',
                                     overflowY: 'auto',
                                 }}
@@ -287,8 +287,8 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
                         style={{
                             padding: '10px',
                             borderRadius: '4px',
-                            backgroundColor: status.type === 'success' ? '#e8f5e9' : '#ffebee',
-                            color: status.type === 'success' ? '#2e7d32' : '#c62828',
+                            backgroundColor: status.type === 'success' ? 'var(--success-bg-color)' : 'var(--danger-bg-color)',
+                            color: status.type === 'success' ? 'var(--success-color)' : 'var(--danger-strong-color)',
                         }}
                     >
                         <p style={{ margin: 0, fontWeight: 'bold' }}>{status.message}</p>

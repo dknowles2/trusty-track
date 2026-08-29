@@ -64,7 +64,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)',
+            backgroundColor: 'var(--overlay-backdrop-strong-color)',
             zIndex: 2000,
             display: 'flex',
             flexDirection: 'column',
@@ -72,13 +72,13 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
             justifyContent: 'center',
             padding: '20px'
         }}>
-            <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '8px', maxWidth: '100%', width: '500px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ backgroundColor: 'var(--surface-color)', padding: '10px', borderRadius: '8px', maxWidth: '100%', width: '500px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <h3 style={{ margin: 0 }}>Take Photo</h3>
                 
                 {error ? (
                     <div style={{ color: 'red', padding: '20px', textAlign: 'center' }}>{error}</div>
                 ) : (
-                    <div style={{ position: 'relative', width: '100%', paddingTop: '75%', backgroundColor: '#000', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ position: 'relative', width: '100%', paddingTop: '75%', backgroundColor: 'var(--text-emphasis-color)', borderRadius: '4px', overflow: 'hidden' }}>
                         <video 
                             ref={videoRef} 
                             autoPlay 
@@ -89,7 +89,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
                 )}
                 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                    <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: '4px', border: '1px solid #ccc', background: 'white', cursor: 'pointer' }}>
+                    <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: '4px', border: '1px solid var(--input-border-color)', background: 'var(--surface-color)', cursor: 'pointer' }}>
                         Cancel
                     </button>
                     {!error && (

@@ -69,8 +69,8 @@ export function DerbyCar({ size = 24, className, color = BLUE }: DecorProps & { 
                 — outboard, not tucked into an arch. */}
             <circle cx="28" cy="34" r="8.5" fill={color} />
             <circle cx="94" cy="34" r="8.5" fill={color} />
-            <circle cx="28" cy="34" r="3" fill="#ffffff" />
-            <circle cx="94" cy="34" r="3" fill="#ffffff" />
+            <circle cx="28" cy="34" r="3" fill="var(--print-surface-color)" />
+            <circle cx="94" cy="34" r="3" fill="var(--print-surface-color)" />
         </svg>
     );
 }
@@ -151,7 +151,7 @@ export function Rosette({ size = 96, className }: DecorProps) {
             <path d="M38 60 L30 96 L46 88 L50 70 Z" fill={BLUE} />
             <path d="M62 60 L70 96 L54 88 L50 70 Z" fill={BLUE} />
             <polygon points={points} fill={GOLD} />
-            <circle cx="50" cy="40" r="18.5" fill="#ffffff" stroke={BLUE} strokeWidth="2" />
+            <circle cx="50" cy="40" r="18.5" fill="var(--print-surface-color)" stroke={BLUE} strokeWidth="2" />
             <circle cx="50" cy="40" r="15" fill="none" stroke={GOLD} strokeWidth="1" />
             <path
                 d="M50 29 L53.3 37.6 L62.5 37.6 L55.1 43.2 L57.9 51.8 L50 46.5 L42.1 51.8 L44.9 43.2 L37.5 37.6 L46.7 37.6 Z"

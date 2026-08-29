@@ -142,7 +142,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
   const nothingHere = leaderboard.length === 0 || !hasResults;
   if (!race || (nothingHere && !stillLoading && selectableRounds.length === 0)) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
+      <div style={{ textAlign: 'center', padding: '40px', background: 'var(--surface-tint-color)', borderRadius: '8px' }}>
         <p>{notice ?? 'No results yet. Complete some heats to see standings!'}</p>
       </div>
     );
@@ -183,12 +183,12 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         <p
           role="status"
           style={{
-            background: '#fff8e1',
-            border: '1px solid #f0d98c',
+            background: 'var(--warning-bg-color)',
+            border: '1px solid var(--warning-notice-border-color)',
             borderRadius: '8px',
             padding: '0.6rem 0.9rem',
             fontSize: '0.9rem',
-            color: '#5b4a00',
+            color: 'var(--warning-notice-text-color)',
             marginBottom: '1rem',
           }}
         >
@@ -206,12 +206,12 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         <h2 style={{ margin: 0 }}>
           {selectedRound === null ? 'Current Standings' : roundLabel(selectedRound)}
           {selectedRound?.advancementFromBottom && (
-            <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'normal', color: '#666' }}>
+            <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-muted-color)' }}>
               Slowest car first — the last one down the track wins.
             </span>
           )}
           {isEliminationRound && (
-            <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'normal', color: '#666' }}>
+            <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-muted-color)' }}>
               Lose {selectedRound?.eliminationLosses ?? 3} heats and you&apos;re
               out — the last car left wins.
             </span>
@@ -224,7 +224,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
             aria-label="Standings scope"
             value={selectedRoundId ?? ''}
             onChange={(e) => setSelectedRoundId(e.target.value === '' ? null : parseInt(e.target.value))}
-            style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid #ccc' }}
+            style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--input-border-color)' }}
           >
             <option value="">Overall (qualifying rounds)</option>
             {selectableRounds.map((r) => (
@@ -277,11 +277,11 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         <div style={{
           marginBottom: '12px',
           padding: '10px 14px',
-          background: '#f3f6fb',
+          background: 'var(--info-notice-bg-color)',
           borderLeft: '4px solid var(--scouting-blue)',
           borderRadius: '12px',
           fontSize: '0.9rem',
-          color: '#444'
+          color: 'var(--text-heading-alt-color)'
         }}>
           Overall standings cover the qualifying rounds. Championship results are
           listed separately — pick a round above.
@@ -289,19 +289,19 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
       )}
 
       {nothingHere && !stillLoading ? (
-        <div style={{ textAlign: 'center', padding: '40px', background: '#f9f9f9', borderRadius: '8px' }}>
+        <div style={{ textAlign: 'center', padding: '40px', background: 'var(--surface-tint-color)', borderRadius: '8px' }}>
           <p>{notice ?? 'No results yet for this view. Pick a round above, or complete some heats.'}</p>
         </div>
       ) : (
       <div style={{
-        background: '#fff',
+        background: 'var(--surface-color)',
         borderRadius: '8px',
         overflow: 'hidden',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: 'var(--scouting-blue)', color: 'white' }}>
+            <tr style={{ background: 'var(--scouting-blue)', color: 'var(--on-primary-color)' }}>
               <th style={{ padding: '12px', textAlign: 'left', width: '60px' }}>Rank</th>
               <th style={{ padding: '12px', textAlign: 'center', width: '60px' }}>Avatar</th>
               <th style={{ padding: '12px', textAlign: 'left', width: '80px' }}>Car #</th>
@@ -317,7 +317,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                 key={entry.racerId}
                 style={{
                   ...getRankStyle(entry.rank),
-                  borderBottom: index < leaderboard.length - 1 ? '1px solid #eee' : 'none'
+                  borderBottom: index < leaderboard.length - 1 ? '1px solid var(--divider-color)' : 'none'
                 }}
               >
                 <td style={{ padding: '12px', fontSize: '1.1rem' }}>
@@ -340,13 +340,13 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                 <td style={{ padding: '12px' }}>
                   {entry.firstName} {entry.lastName}
                 </td>
-                <td style={{ padding: '12px', color: '#666' }}>
+                <td style={{ padding: '12px', color: 'var(--text-muted-color)' }}>
                   {entry.denName}
                   {entry.denRank && (
                     <span style={{ fontSize: '0.8rem' }}> ({rankLabel(entry.denRank)})</span>
                   )}
                 </td>
-                <td style={{ padding: '12px', textAlign: 'center', color: '#666' }}>
+                <td style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted-color)' }}>
                   {entry.heatsCompleted}
                 </td>
                 <td style={{
@@ -371,7 +371,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
       <div style={{
         marginTop: '10px',
         fontSize: '0.85rem',
-        color: '#666',
+        color: 'var(--text-muted-color)',
         textAlign: 'center'
       }}>
         {isEliminationRound

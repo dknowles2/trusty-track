@@ -420,29 +420,29 @@ export default function Observation() {
       <div className="heat-card" style={{
         flex: 1,
         minWidth: '300px',
-        background: isEmpty ? '#f5f5f5' : 'white',
+        background: isEmpty ? 'var(--background-color)' : 'var(--surface-color)',
         borderRadius: '8px',
         padding: '20px',
         boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(0,0,0,0.1)',
-        borderTop: `5px solid ${isNext ? '#999' : '#d32f2f'}`,
+        borderTop: `5px solid ${isNext ? 'var(--text-faint-color)' : 'var(--error)'}`,
         opacity: isEmpty ? 0.7 : 1,
         textAlign: isEmpty ? 'center' : 'left'
       }}>
         <h2 className="heat-card-title" style={{
           marginTop: 0,
           fontSize: '1.5rem',
-          color: isNext ? '#666' : '#333',
+          color: isNext ? 'var(--text-muted-color)' : 'var(--text-color)',
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
           justifyContent: isEmpty ? 'center' : 'flex-start'
         }}>
-          {iconPath && <Icon path={iconPath} size={1} color={isNext ? '#666' : '#d32f2f'} />}
+          {iconPath && <Icon path={iconPath} size={1} color={isNext ? 'var(--text-muted-color)' : 'var(--error)'} />}
           <span>{title}</span>
           {exhibition && (
             <span style={{
               background: 'var(--display-accent-color)',
-              color: '#333',
+              color: 'var(--text-color)',
               fontSize: '0.75rem',
               fontWeight: 'bold',
               padding: '2px 8px',
@@ -455,7 +455,7 @@ export default function Observation() {
             </span>
           )}
           {heatInfo && (
-            <span style={{ fontSize: '1rem', fontWeight: 'normal', color: '#666', marginLeft: 'auto' }}>({heatInfo})</span>
+            <span style={{ fontSize: '1rem', fontWeight: 'normal', color: 'var(--text-muted-color)', marginLeft: 'auto' }}>({heatInfo})</span>
           )}
         </h2>
 
@@ -464,8 +464,8 @@ export default function Observation() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '15px' }}>
             {entries.map(({ lane, racer }: LaneEntry) => (
-              <div key={lane} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: '#f9f9f9', borderRadius: '8px' }}>
-                <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: '#888' }}>Lane {lane}</div>
+              <div key={lane} className="heat-card-racer" style={{ textAlign: 'center', padding: '10px', background: 'var(--surface-tint-color)', borderRadius: '8px' }}>
+                <div className="heat-card-lane" style={{ fontWeight: 'bold', marginBottom: '5px', color: 'var(--text-subtle-color)' }}>Lane {lane}</div>
                 <RacerAvatar
                   racer={{
                     id: racer.id,
@@ -474,14 +474,14 @@ export default function Observation() {
                     racer_image_url: racer.racerImageUrl
                   }}
                   size="80px"
-                  style={{ margin: '0 auto 5px', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                  style={{ margin: '0 auto 5px', border: '2px solid var(--on-primary-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                 />
                 <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
                   {racer.firstName} {racer.lastName}
                 </div>
-                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: '#666' }}>Car #{racer.carNumber}</div>}
+                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>Car #{racer.carNumber}</div>}
                 {denRankFor(racer) && (
-                  <div className="heat-card-den-rank" style={{ fontSize: '0.75rem', color: '#888' }}>
+                  <div className="heat-card-den-rank" style={{ fontSize: '0.75rem', color: 'var(--text-subtle-color)' }}>
                     {rankLabel(denRankFor(racer))}
                   </div>
                 )}
@@ -534,7 +534,7 @@ export default function Observation() {
                   racer_image_url: lane.racerImageUrl
                 }}
                 size="120px"
-                style={{ margin: '0 40px', border: '4px solid white', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}
+                style={{ margin: '0 40px', border: '4px solid var(--display-text-color)', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}
               />
               <div className="overlay-racer-info">
                 <div className="overlay-racer-name">{lane.racerName}</div>
@@ -566,8 +566,8 @@ export default function Observation() {
           top: '16px',
           right: '16px',
           zIndex: 4900,
-          background: 'rgba(0, 0, 0, 0.75)',
-          color: '#fff',
+          background: 'var(--display-badge-bg-color)',
+          color: 'var(--display-text-color)',
           padding: '0.5rem 1rem',
           borderRadius: '20px',
           fontSize: '0.9rem',
@@ -595,8 +595,8 @@ export default function Observation() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'rgba(0, 0, 0, 0.88)',
-          color: '#fff',
+          background: 'var(--display-flash-bg-color)',
+          color: 'var(--display-text-color)',
           pointerEvents: 'none',
         }}
       >
@@ -709,7 +709,7 @@ export default function Observation() {
               padding: '10px 20px',
               borderRadius: '20px',
               border: 'none',
-              background: activeTab === 'standings' ? 'var(--display-accent-color)' : '#eee',
+              background: activeTab === 'standings' ? 'var(--display-accent-color)' : 'var(--divider-color)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -727,7 +727,7 @@ export default function Observation() {
               padding: '10px 20px',
               borderRadius: '20px',
               border: 'none',
-              background: activeTab === 'timing' ? 'var(--display-accent-color)' : '#eee',
+              background: activeTab === 'timing' ? 'var(--display-accent-color)' : 'var(--divider-color)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -741,9 +741,9 @@ export default function Observation() {
         </div>
 
         {activeTab === 'standings' ? (
-          <div className="standings-table-wrapper" style={{ background: '#fff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+          <div className="standings-table-wrapper" style={{ background: 'var(--surface-color)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             <table className="standings-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: 'var(--display-accent-color)', color: '#333' }}>
+              <thead style={{ backgroundColor: 'var(--display-accent-color)', color: 'var(--text-color)' }}>
                 <tr>
                   <th style={{ padding: '15px' }}>Rank</th>
                   <th style={{ padding: '15px' }}>Racer</th>
@@ -755,8 +755,8 @@ export default function Observation() {
                 {standings.map((s: Standing) => {
                   const racer = racersMap[s.racerId];
                   return (
-                    <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid #eee' }}>
-                      <td className="standing-rank" style={{ padding: '15px', fontSize: '1.5rem', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : '#333' }}>
+                    <tr key={s.racerId} className="standing-row" style={{ borderBottom: '1px solid var(--divider-color)' }}>
+                      <td className="standing-rank" style={{ padding: '15px', fontSize: '1.5rem', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--text-color)' }}>
                         {s.rank}
                       </td>
                       <td className="standing-racer" style={{ padding: '15px' }}>
@@ -769,17 +769,17 @@ export default function Observation() {
                               racer_image_url: racer?.racerImageUrl
                             }}
                             size="100px"
-                            style={{ border: '3px solid white', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
+                            style={{ border: '3px solid var(--on-primary-color)', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
                           />
                           <div>
                             <div className="standing-racer-name" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
                               {racer ? `${racer.firstName} ${racer.lastName}` : `Racer #${s.racerId}`}
                             </div>
                             {racer?.carNumber && (
-                              <div className="standing-car-number" style={{ color: '#666', fontSize: '0.9rem' }}>Car #{racer.carNumber}</div>
+                              <div className="standing-car-number" style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>Car #{racer.carNumber}</div>
                             )}
                             {s.denRank && (
-                              <div className="standing-den-rank" style={{ color: '#888', fontSize: '0.85rem' }}>{rankLabel(s.denRank)}</div>
+                              <div className="standing-den-rank" style={{ color: 'var(--text-subtle-color)', fontSize: '0.85rem' }}>{rankLabel(s.denRank)}</div>
                             )}
                           </div>
                         </div>
@@ -796,7 +796,7 @@ export default function Observation() {
             </table>
           </div>
         ) : (
-          <div className="timing-list-wrapper" style={{ background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+          <div className="timing-list-wrapper" style={{ background: 'var(--surface-color)', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             {lastHeatResults ? (
               <div>
                 <h2 className="timing-header" style={{ textAlign: 'center', marginBottom: '30px' }}>
@@ -843,9 +843,9 @@ export default function Observation() {
                         display: 'flex',
                         alignItems: 'center',
                         padding: '20px',
-                        background: lane.place === 1 ? 'rgba(212, 175, 55, 0.1)' : '#f9f9f9',
+                        background: lane.place === 1 ? 'var(--display-highlight-gold-tint-color)' : 'var(--surface-tint-color)',
                         borderRadius: '12px',
-                        borderLeft: `10px solid ${lane.place === 1 ? '#d4af37' : '#ddd'}`
+                        borderLeft: `10px solid ${lane.place === 1 ? '#d4af37' : 'var(--border-color)'}`
                       }}
                     >
                       <div className="timing-rank" style={{ fontSize: '2rem', fontWeight: 'bold', width: '60px', textAlign: 'center' }}>
@@ -853,7 +853,7 @@ export default function Observation() {
                       </div>
                       <div className="timing-racer-info" style={{ flex: 1 }}>
                         <div className="timing-racer-name" style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{lane.racerName}</div>
-                        <div className="timing-car-name" style={{ color: '#666' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
+                        <div className="timing-car-name" style={{ color: 'var(--text-muted-color)' }}>{lane.carName || `Lane ${lane.laneNumber}`}</div>
                       </div>
                       <div className="timing-time" style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
                         {lane.time?.toFixed(3)}s
@@ -863,8 +863,8 @@ export default function Observation() {
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
-                <Icon path={mdiTimerOutline} size={3} color="#eee" />
+              <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted-color)' }}>
+                <Icon path={mdiTimerOutline} size={3} color="var(--divider-color)" />
                 <h3>Waiting for the first heat to complete...</h3>
               </div>
             )}
@@ -878,7 +878,7 @@ export default function Observation() {
   const renderProjectorRacers = (entries: LaneEntry[], isNowRacing: boolean) => {
     if (entries.length === 0) {
       return (
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', fontSize: '3vmin' }}>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--display-placeholder-color)', fontSize: '3vmin' }}>
           No heat scheduled
         </div>
       );
@@ -887,7 +887,7 @@ export default function Observation() {
     return (
       <div style={{ display: 'flex', height: '100%', gap: '2vmin' }}>
         {entries.map(({ lane, racer }: LaneEntry) => (
-          <div key={lane} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#222', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
+          <div key={lane} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--display-card-bg-color)', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
             {/* Priority 1: Racer Name */}
             <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: 'var(--display-text-color)', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
               {racer.firstName} {racer.lastName}
@@ -902,21 +902,21 @@ export default function Observation() {
                 racer_image_url: racer.racerImageUrl
               }}
               size={isNowRacing ? "16vmin" : "12vmin"}
-              style={{ margin: '0 auto', border: '0.4vmin solid white', boxShadow: '0 0.5vmin 1vmin rgba(0,0,0,0.3)' }}
+              style={{ margin: '0 auto', border: '0.4vmin solid var(--display-text-color)', boxShadow: '0 0.5vmin 1vmin rgba(0,0,0,0.3)' }}
             />
 
             {/* Priority 3: Lane Number (Only prominent for Now Racing, very small or omitted for On Deck) */}
             <div className="projector-racer-lane-car" style={{ marginTop: '1.5vmin', display: 'flex', flexDirection: 'column', gap: '0.5vmin' }}>
-              <div style={{ color: isNowRacing ? '#bbb' : '#666', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}>
+              <div style={{ color: isNowRacing ? 'var(--display-text-dim-color)' : 'var(--display-placeholder-color)', fontSize: isNowRacing ? '2.5vmin' : '1.8vmin', fontWeight: isNowRacing ? 'bold' : 'normal' }}>
                 Lane {lane}
               </div>
               {racer.carNumber && (
-                <div style={{ color: '#777', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
+                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
                   Car #{racer.carNumber}
                 </div>
               )}
               {denRankFor(racer) && (
-                <div style={{ color: '#777', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
+                <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
                   {rankLabel(denRankFor(racer))}
                 </div>
               )}
@@ -945,12 +945,12 @@ export default function Observation() {
         <div className="projector-left-col" style={{ flex: '0 0 65%', display: 'flex', flexDirection: 'column', gap: '3vmin', boxSizing: 'border-box' }}>
 
           {/* Now Racing */}
-          <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #d32f2f', boxSizing: 'border-box' }}>
+          <div className="projector-heat-panel" style={{ flex: '3', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid var(--error)', boxSizing: 'border-box' }}>
             <h2 style={{ fontSize: '4vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin' }}>
-              <Icon path={mdiFire} size="4vmin" color="#d32f2f" />
+              <Icon path={mdiFire} size="4vmin" color="var(--error)" />
               Now Racing
-              {nowRacingHeatInfo && <span style={{ color: '#888', fontSize: '2.5vmin', marginLeft: 'auto', fontWeight: 'normal' }}>({nowRacingHeatInfo})</span>}
-              {isExhibition && <span style={{ background: 'var(--display-accent-color)', color: '#000', fontSize: '2vmin', padding: '0.5vmin 1.5vmin', borderRadius: '2vmin', marginLeft: 'auto' }}>EXHIBITION</span>}
+              {nowRacingHeatInfo && <span style={{ color: 'var(--display-text-faintest-color)', fontSize: '2.5vmin', marginLeft: 'auto', fontWeight: 'normal' }}>({nowRacingHeatInfo})</span>}
+              {isExhibition && <span style={{ background: 'var(--display-accent-color)', color: 'var(--display-on-accent-color)', fontSize: '2vmin', padding: '0.5vmin 1.5vmin', borderRadius: '2vmin', marginLeft: 'auto' }}>EXHIBITION</span>}
               {initialData?.race?.track?.id && (
                 <TimerStatusBadge trackId={initialData.race.track.id} />
               )}
@@ -961,7 +961,7 @@ export default function Observation() {
           </div>
 
           {/* On Deck */}
-          <div className="projector-heat-panel" style={{ flex: '2', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid #999', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box' }}>
+          <div className="projector-heat-panel" style={{ flex: '2', display: 'flex', flexDirection: 'column', background: 'var(--display-surface-alt-color)', borderRadius: '1.5vmin', padding: '2.5vmin', borderTop: '1vmin solid var(--display-accent-muted-color)', opacity: nextHeatRacers.length === 0 ? 0.7 : 1, boxSizing: 'border-box' }}>
             <h2 style={{ fontSize: '3.5vmin', margin: 0, paddingBottom: '1.5vmin', display: 'flex', alignItems: 'center', gap: '1.5vmin', borderBottom: '2px solid var(--display-border-color)', marginBottom: '2vmin', color: 'var(--display-text-muted-color)' }}>
               <Icon path={mdiChevronDoubleRight} size="3.5vmin" color="var(--display-text-muted-color)" />
               On Deck
@@ -987,7 +987,7 @@ export default function Observation() {
                     return (
                       <tr key={s.racerId} style={{ borderBottom: idx < top5Standings.length - 1 ? '1px solid var(--display-border-color)' : 'none' }}>
                         <td className="projector-standings-rank-col" style={{ padding: '1.5vmin 0', width: '15%' }}>
-                          <span style={{ fontSize: '4vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : '#888' }}>
+                          <span style={{ fontSize: '4vmin', fontWeight: 'bold', color: s.rank === 1 ? '#d4af37' : s.rank === 2 ? '#c0c0c0' : s.rank === 3 ? '#cd7f32' : 'var(--display-text-faintest-color)' }}>
                             {s.rank}
                           </span>
                         </td>
@@ -1001,13 +1001,13 @@ export default function Observation() {
                                 racer_image_url: racer?.racerImageUrl
                               }}
                               size="6vmin"
-                              style={{ border: '0.2vmin solid #555', flexShrink: 0 }}
+                              style={{ border: '0.2vmin solid var(--display-border-subtle-color)', flexShrink: 0 }}
                             />
                             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
                               <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
                                 {racer ? `${racer.firstName}` : `Racer`}
                               </span>
-                              <span style={{ fontSize: '2vmin', fontWeight: 'bold', color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                              <span style={{ fontSize: '2vmin', fontWeight: 'bold', color: 'var(--display-text-subtle-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
                                 {racer ? `${racer.lastName}` : `#${s.racerId}`}
                               </span>
                             </div>
@@ -1018,7 +1018,7 @@ export default function Observation() {
                             <span style={{ fontSize: '3.5vmin', fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--display-accent-color)', lineHeight: '1' }}>
                               {formatProjectorScore(s.score)}
                             </span>
-                            <span style={{ fontSize: '1.5vmin', color: '#888', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
+                            <span style={{ fontSize: '1.5vmin', color: 'var(--display-text-faintest-color)', textTransform: 'uppercase', letterSpacing: '0.1vmin', marginTop: '0.5vmin' }}>
                               {scoreLabel}
                             </span>
                           </div>
@@ -1029,7 +1029,7 @@ export default function Observation() {
                 </tbody>
               </table>
             ) : (
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#666', fontSize: '3vmin' }}>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--display-placeholder-color)', fontSize: '3vmin' }}>
                 No results yet.
               </div>
             )}

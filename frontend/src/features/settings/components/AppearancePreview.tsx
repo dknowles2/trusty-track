@@ -147,7 +147,7 @@ export default function AppearancePreview({
               on the accent fill, not inherited white — the accent is a
               bright fill in every theme here, so white-on-accent is the
               same contrast trap Clear Sight's own design notes reject. */}
-          <thead style={{ background: 'var(--display-accent-color)', color: '#333' }}>
+          <thead style={{ background: 'var(--display-accent-color)', color: 'var(--text-color)' }}>
             <tr>
               <th style={{ padding: '2px 4px', textAlign: 'left' }}>Rank</th>
               <th style={{ padding: '2px 4px', textAlign: 'left' }}>Racer</th>
@@ -162,7 +162,7 @@ export default function AppearancePreview({
         data-testid="appearance-preview-printables"
         style={{
           ...(printablesTheme.tokens as React.CSSProperties),
-          background: '#dfe3e8',
+          background: 'var(--preview-border-color)',
           padding: '0.75rem',
           borderRadius: 'var(--border-radius, 12px)',
           display: 'flex',
@@ -170,7 +170,7 @@ export default function AppearancePreview({
           alignItems: 'center',
         }}
       >
-        <p style={{ margin: '0 0 0.5rem', alignSelf: 'flex-start', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#333' }}>
+        <p style={{ margin: '0 0 0.5rem', alignSelf: 'flex-start', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-color)' }}>
           Printables
         </p>
         <div

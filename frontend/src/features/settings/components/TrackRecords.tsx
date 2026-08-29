@@ -250,7 +250,7 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
             borderRadius: '4px',
             border: 'none',
             background: 'var(--scouting-blue)',
-            color: 'white',
+            color: 'var(--on-primary-color)',
             cursor: busy ? 'wait' : 'pointer',
           }}
         >
@@ -262,13 +262,13 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
             onClick={stopEditing}
             disabled={busy}
             className="form-control"
-            style={{ width: 'auto', background: 'white', cursor: 'pointer' }}
+            style={{ width: 'auto', background: 'var(--surface-color)', cursor: 'pointer' }}
           >
             Cancel
           </button>
         )}
       </div>
-      <small style={{ color: '#666' }}>
+      <small style={{ color: 'var(--text-muted-color)' }}>
         For records set before you used Trusty Track. They appear on the Stats
         page's record board, exactly as entered, until a faster time beats
         them. Saved as soon as you add one.

@@ -18,7 +18,7 @@ export const SerialProxyConnector: React.FC<SerialProxyConnectorProps> = ({ trac
   if (!isSupported) {
     return (
       <div className="proxy-connector-unsupported">
-        <Icon path={mdiAlertCircle} size={1} color="#f44336" />
+        <Icon path={mdiAlertCircle} size={1} color="var(--danger-accent-color)" />
         <span>Web Serial not supported. Use Chrome or Edge.</span>
       </div>
     );
@@ -27,7 +27,7 @@ export const SerialProxyConnector: React.FC<SerialProxyConnectorProps> = ({ trac
   if (status === 'connected') {
     return (
       <div className="proxy-connector-status connected">
-        <Icon path={mdiCheckCircle} size={0.8} color="#4caf50" />
+        <Icon path={mdiCheckCircle} size={0.8} color="var(--success-accent-color)" />
         <span>Hardware Timer Proxy Active</span>
       </div>
     );

@@ -129,8 +129,8 @@ export default function Home() {
             {error && <p>{errorText(error, 'The list of races could not be loaded.')}</p>}
             {!fetching && !error && (
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                        <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'white' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'var(--surface-color)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                        <thead style={{ backgroundColor: 'var(--scouting-blue)', color: 'var(--on-primary-color)' }}>
                             <tr>
                                 <th style={{ padding: '15px', textAlign: 'left' }}>Event Name</th>
                                 <th className="mobile-hide" style={{ padding: '15px', textAlign: 'left' }}>Date & Time</th>
@@ -163,7 +163,7 @@ export default function Home() {
                                     on a fake timer first.
                                 </td></tr>
                             ) : races.map(race => (
-                                <tr key={race.id} style={{ borderBottom: '1px solid #eee' }}>
+                                <tr key={race.id} style={{ borderBottom: '1px solid var(--divider-color)' }}>
                                     <td style={{ padding: '15px' }}>
                                         <Link to={`/race/${race.id}`} style={{ fontWeight: 'bold', color: 'var(--scouting-blue)', textDecoration: 'none', fontSize: '1.1rem' }}>
                                             {race.name}

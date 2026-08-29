@@ -143,7 +143,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     marginBottom: '0.5rem',
     fontWeight: 'bold',
     fontSize: '0.9rem',
-    color: '#333'
+    color: 'var(--text-color)'
   };
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
@@ -153,16 +153,16 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     cursor: 'pointer',
     borderBottom: active ? '3px solid var(--scouting-blue)' : '3px solid transparent',
     fontWeight: active ? 'bold' : 'normal',
-    color: active ? 'var(--scouting-blue)' : '#666',
+    color: active ? 'var(--scouting-blue)' : 'var(--text-muted-color)',
     transition: 'all 0.2s',
-    background: active ? '#f0f7ff' : 'none'
+    background: active ? 'var(--surface-hover-color)' : 'none'
   });
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add Round" maxWidth="500px">
       <form onSubmit={handleSubmit}>
         {/* Type Tabs */}
-        <div style={{ display: 'flex', marginBottom: '20px', borderBottom: '1px solid #eee' }}>
+        <div style={{ display: 'flex', marginBottom: '20px', borderBottom: '1px solid var(--divider-color)' }}>
           <div style={tabStyle(effectiveType === 'GENERAL')} onClick={() => chooseType('GENERAL')}>
             General Round
           </div>
@@ -189,8 +189,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             condition would need to hold, so testing it here made the banner
             unreachable. */}
         {!hasGeneralRound && type === 'CHAMPIONSHIP' && (
-           <div style={{ padding: '10px', background: '#fff3e0', border: '1px solid #ffe0b2', borderRadius: '4px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
-             <Icon path={mdiInformation} size={0.7} color="#f57c00" />
+           <div style={{ padding: '10px', background: 'var(--caution-bg-color)', border: '1px solid var(--caution-border-color)', borderRadius: '4px', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+             <Icon path={mdiInformation} size={0.7} color="var(--caution-icon-color)" />
              Championship rounds require an existing general round as a source.
            </div>
         )}
@@ -258,7 +258,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       style={{ width: '50%' }}
                       disabled={loading}
                     />
-                    <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
+                    <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
                       The first heats are drawn at random; after that, winners
                       race winners — so more children get a heat they can win.
                       Times and points still count toward the standings.
@@ -279,7 +279,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       style={{ width: '50%' }}
                       disabled={loading}
                     />
-                    <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
+                    <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
                       New heats appear after each round of racing, matching cars
                       with the same record. The last car left wins.
                     </p>
@@ -317,7 +317,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   </label>
                 </div>
                 {generalType === 'DEN' && (
-                  <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
                     Will create {denCount} rounds (one per den).
                   </p>
                 )}
@@ -350,7 +350,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   </label>
                 </div>
                 {fromBottom && (
-                  <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
                     A just-for-fun race for the slowest cars. Cars without a
                     recorded time are left out.
                   </p>
@@ -397,8 +397,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
               {/* The trophy minimum is about handing out championship trophies,
                   which a slowest race does not do. */}
               {!fromBottom && (
-                <div style={{ fontSize: '0.75rem', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Icon path={mdiInformation} size={0.6} color="#666" />
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted-color)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Icon path={mdiInformation} size={0.6} color="var(--text-muted-color)" />
                   Minimum pick count ({championshipTrophies}) enforced by trophy config.
                 </div>
               )}
@@ -423,7 +423,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', borderTop: '1px solid var(--divider-color)', paddingTop: '20px' }}>
           <button
             type="button"
             onClick={onClose}

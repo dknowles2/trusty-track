@@ -122,7 +122,7 @@ function SectionHeading({ id, sectioned }: { id: SectionId; sectioned: boolean }
   return (
     <>
       <h2 style={{ marginTop: 0, marginBottom: '0.25rem' }}>{meta.label}</h2>
-      <p style={{ color: '#666', fontSize: '0.9rem', marginTop: 0, marginBottom: '1.5rem' }}>
+      <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', marginTop: 0, marginBottom: '1.5rem' }}>
         {meta.blurb}
       </p>
     </>
@@ -390,7 +390,7 @@ export default function SystemConfig() {
                       onChange={(e) => setGroupName(e.target.value)}
                       required
                       placeholder="e.g. Pack 123"
-                      style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                     />
                   </div>
 
@@ -403,7 +403,7 @@ export default function SystemConfig() {
                       style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
                     />
                     <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
-                    <small style={{ color: '#666', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
+                    <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
                   </div>
                 </section>
               )}
@@ -450,7 +450,7 @@ export default function SystemConfig() {
               {shows('access') && (
                 <section data-testid="access-panel">
                   {sectioned ? <SectionHeading id="access" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Access</h2>}
-                  <p style={{ color: '#666', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
+                  <p style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem', marginTop: 0, marginBottom: '1rem' }}>
                     {pinRequired
                       ? 'A PIN is set. Screens without one can watch the race but cannot change anything.'
                       : 'No PIN is set, so anyone on this network can change anything — including deleting the race. Set one to stop that.'}
@@ -483,7 +483,7 @@ export default function SystemConfig() {
                       is *for* — so an operator setting PINs had no cue that running the
                       desk on a second device is a supported way to work. One sentence,
                       not a wizard. */}
-                  <p data-testid="checkin-pin-hint" style={{ color: '#666', fontSize: '0.85rem', marginTop: '-1.25rem', marginBottom: '2rem' }}>
+                  <p data-testid="checkin-pin-hint" style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', marginTop: '-1.25rem', marginBottom: '2rem' }}>
                     Running check-in on a separate tablet? Set a check-in PIN and enter it
                     on that device. It can add racers and check them in, and nothing else —
                     so a tablet left on the registration table cannot delete a round.
@@ -561,7 +561,7 @@ export default function SystemConfig() {
         </div>
       </div>
 
-      <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid #eee', textAlign: 'center', fontSize: '0.85rem', color: '#666' }}>
+      <div style={{ marginTop: '3rem', paddingTop: '1rem', borderTop: '1px solid var(--divider-color)', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
         <p>
           {/* Built from the git hash, so it changes on every commit. The
               documentation screenshots hide it by this test id, the same one

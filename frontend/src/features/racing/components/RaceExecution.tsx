@@ -256,7 +256,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             <div style={{ textAlign: 'center', padding: '50px' }}>
                 <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" style={{ marginBottom: '20px' }} />
                 <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Race Execution</h2>
-                <p style={{ fontSize: '1.2rem', color: '#666' }}>
+                <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)' }}>
                     {nextExecutionHeat ? "Select a heat to begin." : "All heats have been run."}
                 </p>
             </div>
@@ -266,12 +266,12 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     if (hasPlaceholders) {
         return (
             <div style={{ textAlign: 'center', padding: '100px 50px' }}>
-                <Icon path={mdiCalendarRange} size={4} color="#ccc" style={{ marginBottom: '20px' }} />
+                <Icon path={mdiCalendarRange} size={4} color="var(--input-border-color)" style={{ marginBottom: '20px' }} />
                 <h2 style={{ fontSize: '2.5rem', marginTop: 0 }}>Round Not Ready</h2>
-                <p style={{ fontSize: '1.2rem', color: '#666', maxWidth: '600px', margin: '0 auto' }}>
+                <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)', maxWidth: '600px', margin: '0 auto' }}>
                     The racers for <strong>{activeExecutionHeat.roundName || `Round ${activeExecutionHeat.roundNumber}`}</strong> haven't been determined yet.
                 </p>
-                <p style={{ color: '#888', marginTop: '10px' }}>
+                <p style={{ color: 'var(--text-subtle-color)', marginTop: '10px' }}>
                     Please complete the previous rounds to advance racers into this round.
                 </p>
             </div>
@@ -334,7 +334,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
                     {/* Active Heat Card */}
-                    <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
+                    <div style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--cub-scouting-gold)' }}>
                         {showProxyControls && trackId != null && (
                             <SerialProxyConnector trackId={trackId} />
                         )}
@@ -344,7 +344,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <h2 style={{ margin: 0, fontSize: '2rem' }}>Heat {activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}</h2>
                                     {trackId != null && hasTimer && <TimerStatusBadge trackId={trackId} />}
                                 </div>
-                                <div style={{ color: '#666', fontSize: '1.1rem' }}>
+                                <div style={{ color: 'var(--text-muted-color)', fontSize: '1.1rem' }}>
                                     {activeExecutionHeat.roundName || `Round ${activeExecutionHeat.roundNumber}`}
                                 </div>
                             </div>
@@ -360,8 +360,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             style={{
                                                 padding: '6px 16px',
                                                 fontSize: '0.95rem',
-                                                background: '#2e7d32',
-                                                color: 'white',
+                                                background: 'var(--success-color)',
+                                                color: 'var(--on-primary-color)',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 gap: '8px',
@@ -379,8 +379,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                     padding: '6px 14px',
                                                     fontSize: '0.9rem',
                                                     background: 'transparent',
-                                                    color: '#c62828',
-                                                    border: '1px solid #c62828',
+                                                    color: 'var(--danger-strong-color)',
+                                                    border: '1px solid var(--danger-strong-color)',
                                                     borderRadius: '6px',
                                                     cursor: 'pointer',
                                                     fontWeight: 'bold',
@@ -397,15 +397,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <div style={{
                                             padding: '8px 20px',
                                             fontSize: '1.15rem',
-                                            background: timerState === 'RESULTS_OVERDUE' ? '#d32f2f' : 'orange',
-                                            color: 'white',
+                                            background: timerState === 'RESULTS_OVERDUE' ? 'var(--error)' : 'orange',
+                                            color: 'var(--on-primary-color)',
                                             borderRadius: '4px',
                                             fontWeight: 'bold',
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '10px'
                                         }}>
-                                            <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'white', borderRadius: '50%' }} />
+                                            <span className="pulse-dot" style={{ width: '12px', height: '12px', background: 'var(--surface-color)', borderRadius: '50%' }} />
                                             {timerState === 'RESULTS_OVERDUE' ? 'Overdue' : 'Racing'}... {elapsedSeconds.toFixed(1)}s
                                         </div>
                                         <style>{`
@@ -414,18 +414,18 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     `}</style>
                                     </div>
                                 ) : timerState === 'IDLE' && trackId != null && !isCompleted && hasTimer ? (
-                                    <div style={{ padding: '8px 20px', color: '#666', fontStyle: 'italic', background: '#f5f5f5', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                    <div style={{ padding: '8px 20px', color: 'var(--text-muted-color)', fontStyle: 'italic', background: 'var(--background-color)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
                                         Waiting for Timer...
                                     </div>
                                 ) : !isCompleted && hasTimer ? (
                                     <div style={{
                                         padding: '8px 20px',
                                         fontSize: '1.15rem',
-                                        background: '#f5f5f5',
-                                        color: '#666',
+                                        background: 'var(--background-color)',
+                                        color: 'var(--text-muted-color)',
                                         borderRadius: '4px',
                                         fontWeight: 'bold',
-                                        border: '1px solid #ddd'
+                                        border: '1px solid var(--border-color)'
                                     }}>
                                         Waiting for Timer...
                                     </div>
@@ -437,13 +437,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             {liveLanes.map((r) => {
                                 const racer = racers[r.racerId || 0];
                                 return (
-                                    <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: '#f9f9f9', borderRadius: '8px', borderLeft: '5px solid #ddd' }}>
-                                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>Lane {r.lane}</div>
+                                    <div key={r.lane} style={{ display: 'flex', alignItems: 'center', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', borderLeft: '5px solid var(--border-color)' }}>
+                                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}>Lane {r.lane}</div>
 
                                         <div style={{
                                             flex: 1,
                                             padding: '10px 15px',
-                                            background: r.place === 1 ? 'rgba(252, 209, 22, 0.1)' : 'transparent',
+                                            background: r.place === 1 ? 'var(--highlight-gold-tint-color)' : 'transparent',
                                             border: r.place === 1 ? '1px solid var(--cub-scouting-gold)' : '1px solid transparent',
                                             borderRadius: '8px',
                                             display: 'flex',
@@ -465,7 +465,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                 <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>
                                                     {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}
                                                 </div>
-                                                {racer && <div style={{ fontSize: '1rem', color: '#666' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
+                                                {racer && <div style={{ fontSize: '1rem', color: 'var(--text-muted-color)' }}>{racer.carNumber ? `#${racer.carNumber}` : ''}</div>}
                                             </div>
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -481,8 +481,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                         padding: '5px',
                                                         borderRadius: '8px',
                                                         background: r.place === 1 ? 'var(--cub-scouting-gold)' :
-                                                            r.place === 2 ? '#e0e0e0' :
-                                                                r.place === 3 ? '#d7a48d' : 'transparent',
+                                                            r.place === 2 ? 'var(--surface-strong-color)' :
+                                                                r.place === 3 ? 'var(--rank-bronze-color)' : 'transparent',
                                                         color: r.place === 1 ? 'var(--scouting-blue)' : 'inherit',
                                                         boxShadow: r.place <= 3 ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'
                                                     }}>
@@ -491,7 +491,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                 path={mdiTrophy}
                                                                 size={1}
                                                                 color={r.place === 1 ? 'var(--scouting-blue)' :
-                                                                    r.place === 2 ? '#757575' : '#8d6e63'}
+                                                                    r.place === 2 ? 'var(--rank-silver-icon-color)' : 'var(--rank-bronze-icon-color)'}
                                                             />
                                                         ) : (
                                                             <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{r.place}th</span>
@@ -508,7 +508,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             })}
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '15px', borderTop: '1px solid var(--divider-color)' }}>
                             {/* BOTTOM LEFT: Controls */}
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                 {isCompleted ? (
@@ -518,9 +518,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             style={{
                                                 padding: '6px 14px',
                                                 fontSize: '0.9rem',
-                                                background: '#f0f0f0',
-                                                color: 'black',
-                                                border: '1px solid #ccc',
+                                                background: 'var(--surface-soft-color)',
+                                                color: 'var(--text-emphasis-color)',
+                                                border: '1px solid var(--input-border-color)',
                                                 borderRadius: '6px',
                                                 cursor: 'pointer',
                                                 fontWeight: 'bold',
@@ -539,7 +539,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                 padding: '6px 14px',
                                                 fontSize: '0.9rem',
                                                 background: 'var(--cub-scouting-gold)',
-                                                color: 'black',
+                                                color: 'var(--text-emphasis-color)',
                                                 border: 'none',
                                                 borderRadius: '6px',
                                                 cursor: 'pointer',
@@ -558,7 +558,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
                                             className="secondary-btn"
-                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#f5f5f5', color: 'black', border: '1px solid #ccc', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--background-color)', color: 'var(--text-emphasis-color)', border: '1px solid var(--input-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiRefresh} size={0.7} /> Reset Heat
                                         </button>
@@ -574,7 +574,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={handleSkipHeat}
                                             className="secondary-btn"
-                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', border: '1px solid var(--danger-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
                                         </button>
@@ -591,7 +591,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             style={hasTimer ? {
                                                 padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
                                             } : {
-                                                padding: '6px 14px', fontSize: '0.9rem', background: 'var(--cub-scouting-gold)', color: 'black', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
+                                                padding: '6px 14px', fontSize: '0.9rem', background: 'var(--cub-scouting-gold)', color: 'var(--text-emphasis-color)', border: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
                                             }}
                                         >
                                             <Icon path={mdiPencil} size={0.7} /> {hasTimer ? 'Override' : 'Enter Results'}
@@ -600,7 +600,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={handleSkipHeat}
                                             className="secondary-btn"
-                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
+                                            style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', border: '1px solid var(--danger-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
                                         </button>
@@ -615,7 +615,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 operator's laptop wants it, a wall display does
                                 not. */}
                             <label
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', color: '#555', cursor: 'pointer', userSelect: 'none' }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', cursor: 'pointer', userSelect: 'none' }}
                                 title="Play a short sound when a heat's results are recorded."
                             >
                                 <input
@@ -646,8 +646,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             bottom: '100%',
                                             right: 0,
                                             marginBottom: '8px',
-                                            background: '#333',
-                                            color: 'white',
+                                            background: 'var(--text-color)',
+                                            color: 'var(--on-primary-color)',
                                             fontSize: '0.8rem',
                                             padding: '6px 10px',
                                             borderRadius: '6px',
@@ -659,7 +659,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             Automatically advances to the next heat 10 seconds after results are recorded.
                                         </div>
                                     )}
-                                    <span style={{ fontSize: '0.9rem', color: '#555', userSelect: 'none' }}>Auto-advance</span>
+                                    <span style={{ fontSize: '0.9rem', color: 'var(--text-strong-muted-color)', userSelect: 'none' }}>Auto-advance</span>
                                     <label style={{ position: 'relative', display: 'inline-block', width: '44px', height: '24px', cursor: 'pointer' }}>
                                         <input
                                             type="checkbox"
@@ -671,7 +671,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         />
                                         <div style={{
                                             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                                            background: autoAdvanceHeat ? 'var(--scouting-blue)' : '#ccc',
+                                            background: autoAdvanceHeat ? 'var(--scouting-blue)' : 'var(--input-border-color)',
                                             borderRadius: '24px',
                                             transition: 'background 0.2s',
                                         }} />
@@ -680,7 +680,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             height: '18px', width: '18px',
                                             left: autoAdvanceHeat ? '23px' : '3px',
                                             bottom: '3px',
-                                            background: 'white',
+                                            background: 'var(--surface-color)',
                                             borderRadius: '50%',
                                             transition: 'left 0.2s',
                                             boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
@@ -695,15 +695,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
 
                 {/* RIGHT COLUMN: On Deck */}
                 <div>
-                    <h3 style={{ marginTop: 0, marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: '#444' }}>
+                    <h3 style={{ marginTop: 0, marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-heading-alt-color)' }}>
                         <Icon path={mdiChevronDoubleRight} size={1} /> On Deck
                     </h3>
-                    <div style={{ background: 'white', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', height: 'fit-content' }}>
+                    <div style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', height: 'fit-content' }}>
                         {!nextExecutionHeat || nextExecutionHeat.roundId !== activeExecutionHeat.roundId ? (
-                            <div style={{ padding: '30px 20px', textAlign: 'center', color: '#555' }}>
+                            <div style={{ padding: '30px 20px', textAlign: 'center', color: 'var(--text-strong-muted-color)' }}>
                                 <Icon path={mdiTrophy} size={2} color="var(--cub-scouting-gold)" style={{ marginBottom: '10px' }} />
                                 <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>End of Round</div>
-                                <div style={{ fontSize: '0.9rem', color: '#888', marginTop: '5px' }}>
+                                <div style={{ fontSize: '0.9rem', color: 'var(--text-subtle-color)', marginTop: '5px' }}>
                                     {nextExecutionHeat
                                         ? `Next: ${nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}`
                                         : "Race Complete!"}
@@ -713,21 +713,21 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                 <div style={{ fontWeight: 'bold', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                                     <span style={{ fontSize: '1.1rem' }}>Heat {nextExecutionHeat.globalHeatNumber ?? nextExecutionHeat.heatNumber}</span>
-                                    <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>{nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}</span>
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle-color)', fontWeight: 'normal' }}>{nextExecutionHeat.roundName || `Round ${nextExecutionHeat.roundNumber}`}</span>
                                 </div>
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                     {nextExecutionHeat.lanes.map((r: Lane) => {
                                         const racer = racers[r.racerId || 0];
                                         return (
-                                                                                        <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid #f5f5f5' }}>
-                                                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#999', width: '30px' }}>L{r.lane}</div>
+                                                                                        <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingBottom: '12px', borderBottom: '1px solid var(--background-color)' }}>
+                                                                                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}>L{r.lane}</div>
 
                                                                                             <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                                                 {racer?.carImageUrl ? (
                                                                                                     <img
                                                                                                         src={racer.carImageUrl}
                                                                                                         alt={`Car #${racer.carNumber}`}
-                                                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', border: '1px solid #eee' }}
+                                                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', border: '1px solid var(--divider-color)' }}
                                                                                                     />
                                                                                                 ) : (
                                                                                                     <div style={{
@@ -755,7 +755,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                                     {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(nextExecutionHeat?.roundId ?? -1))}
                                                                                                 </div>
                                                                                                 {racer?.carNumber && (
-                                                                                                    <div style={{ fontSize: '0.85rem', color: '#888' }}>Car #{racer.carNumber}</div>
+                                                                                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-subtle-color)' }}>Car #{racer.carNumber}</div>
                                                                                                 )}
                                                                                             </div>
                                                                                         </div>
@@ -767,31 +767,31 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         )}
                     </div>
                     {totalHeatsInRound !== undefined && remainingHeatsInRound !== undefined && (
-                        <div style={{ marginTop: '15px', padding: '10px 15px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef', textAlign: 'center' }}>
-                            <div style={{ fontSize: '0.85rem', color: '#6c757d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Round Progress</div>
-                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#495057' }}>
+                        <div style={{ marginTop: '15px', padding: '10px 15px', background: 'var(--surface-alt-color)', borderRadius: '8px', border: '1px solid var(--progress-panel-border-color)', textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--progress-label-color)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Round Progress</div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--progress-value-color)' }}>
                                 {totalHeatsInRound - remainingHeatsInRound} of {totalHeatsInRound} Heats Completed
                             </div>
-                            <div style={{ fontSize: '0.9rem', color: '#2e7d32', fontWeight: 600 }}>
+                            <div style={{ fontSize: '0.9rem', color: 'var(--success-color)', fontWeight: 600 }}>
                                 {remainingHeatsInRound} {remainingHeatsInRound === 1 ? 'Heat' : 'Heats'} Remaining
                             </div>
-                            <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '4px' }}>
                                 Estimated time remaining: {heatsEstimate(remainingHeatsInRound)}
                             </div>
                         </div>
                     )}
                     {upcomingRounds && upcomingRounds.length > 0 && (
                         <div style={{ marginTop: '20px' }}>
-                            <h3 style={{ fontSize: '1rem', color: '#444', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <h3 style={{ fontSize: '1rem', color: 'var(--text-heading-alt-color)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <Icon path={mdiCalendarRange} size={0.8} /> Upcoming Rounds
                             </h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {upcomingRounds.map((round) => (
-                                    <div key={round.roundNumber} style={{ background: 'white', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: '4px solid #ddd' }}>
+                                    <div key={round.roundNumber} style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', borderLeft: '4px solid var(--border-color)' }}>
                                         <div style={{ fontWeight: 'bold', fontSize: '1rem', marginBottom: '4px' }}>
                                             {round.roundName || `Round ${round.roundNumber}`}
                                         </div>
-                                        <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
                                             {round.totalHeats} {round.totalHeats === 1 ? 'Heat' : 'Heats'} Scheduled
                                         </div>
                                     </div>
@@ -810,7 +810,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
             >
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                     <Icon path={mdiTrophy} size={3} color="var(--cub-scouting-gold)" />
-                    <p style={{ fontSize: '1.2rem', color: '#666', marginTop: '10px' }}>
+                    <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)', marginTop: '10px' }}>
                         {roundSummary?.requiresAdvancement
                             ? roundSummary.fromBottom
                                 ? `The ${roundSummary.numRacers} slowest cars race in the next round.`
@@ -819,7 +819,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         }
                     </p>
                     {roundSummary?.source && (
-                        <div style={{ fontSize: '0.9rem', color: '#888', fontStyle: 'italic' }}>
+                        <div style={{ fontSize: '0.9rem', color: 'var(--text-subtle-color)', fontStyle: 'italic' }}>
                             {/* Human words, not the raw source value — "PACK"
                                 on a projector means nothing to the room. */}
                             Advancing from {roundSummary.source === 'PACK'
@@ -832,9 +832,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 </div>
 
                 {roundSummary && (
-                    <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '8px', marginBottom: '20px' }}>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid var(--divider-color)', borderRadius: '8px', marginBottom: '20px' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead style={{ background: '#f5f5f5', position: 'sticky', top: 0 }}>
+                            <thead style={{ background: 'var(--background-color)', position: 'sticky', top: 0 }}>
                                 <tr>
                                     <th style={{ padding: '10px', textAlign: 'left' }}>Rank</th>
                                     <th style={{ padding: '10px', textAlign: 'left' }}>Racer</th>
@@ -845,7 +845,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 {roundSummary.advancingRacers
                                     .filter(ar => !roundSummary.requiresAdvancement || ar.isAdvancing)
                                     .map((ar) => (
-                                    <tr key={ar.racerId} style={{ borderBottom: '1px solid #eee', background: ar.isAdvancing ? '#fff8e1' : 'white' }}>
+                                    <tr key={ar.racerId} style={{ borderBottom: '1px solid var(--divider-color)', background: ar.isAdvancing ? 'var(--warning-bg-color)' : 'var(--surface-color)' }}>
                                         <td style={{ padding: '10px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                                 {ar.rank <= 3 && <Icon path={mdiTrophy} size={0.7} color={ar.rank === 1 ? 'gold' : ar.rank === 2 ? 'silver' : '#cd7f32'} />}
@@ -854,7 +854,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         </td>
                                         <td style={{ padding: '10px' }}>
                                             <div style={{ fontWeight: 'bold' }}>{ar.firstName} {ar.lastName}</div>
-                                            <div style={{ fontSize: '0.8rem', color: '#666' }}>{ar.denName} #{ar.carNumber}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)' }}>{ar.denName} #{ar.carNumber}</div>
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right', fontFamily: 'monospace' }}>
                                             {ar.score.toFixed(3)}
@@ -873,8 +873,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         style={{
                             padding: '10px 24px',
                             fontSize: '1.1rem',
-                            background: '#2e7d32',
-                            color: 'white',
+                            background: 'var(--success-color)',
+                            color: 'var(--on-primary-color)',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '8px',
@@ -915,7 +915,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         </thead>
                         <tbody>
                             {editingResults.map((r, idx) => (
-                                <tr key={r.lane} style={{ borderBottom: '1px solid #eee' }}>
+                                <tr key={r.lane} style={{ borderBottom: '1px solid var(--divider-color)' }}>
                                     <td style={{ padding: '8px' }}>{r.lane}</td>
                                     <td style={{ padding: '8px' }}>{getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}</td>
                                     <td style={{ padding: '8px' }}>

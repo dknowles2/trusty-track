@@ -81,7 +81,7 @@ const laneNumber = {
   fontSize: '1.2rem',
   fontWeight: 'bold',
   width: '80px',
-  color: '#666',
+  color: 'var(--text-muted-color)',
 } as const;
 
 /**
@@ -93,9 +93,9 @@ const laneNumber = {
  * read as a lane nobody would be racing in.
  */
 const AnonymousLaneItem: React.FC<{ lane: number }> = ({ lane }) => (
-  <div style={{ ...laneCard, background: '#f9f9f9', padding: '14px 15px' }}>
+  <div style={{ ...laneCard, background: 'var(--surface-tint-color)', padding: '14px 15px' }}>
     <div style={laneNumber}>Lane {lane}</div>
-    <div style={{ flex: 1, color: '#777' }}>Any car</div>
+    <div style={{ flex: 1, color: 'var(--text-quiet-color)' }}>Any car</div>
   </div>
 );
 
@@ -134,7 +134,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
     display: 'flex',
     alignItems: 'center',
     padding: '15px',
-    background: isDragging ? '#fff' : '#f9f9f9',
+    background: isDragging ? 'var(--surface-color)' : 'var(--surface-tint-color)',
     borderRadius: '8px',
     borderLeft: '5px solid var(--scouting-blue)',
     boxShadow: isDragging ? '0 5px 15px rgba(0,0,0,0.1)' : 'none',
@@ -161,14 +161,14 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
           paddingRight: '15px',
           display: 'flex',
           alignItems: 'center',
-          color: '#999',
+          color: 'var(--text-faint-color)',
           opacity: 0.6,
         }}
       >
         <Icon path={mdiDragVertical} size={1} />
       </div>
 
-      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: '#666' }}>
+      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', width: '80px', color: 'var(--text-muted-color)' }}>
         Lane {assignment.lane}
       </div>
 
@@ -198,11 +198,11 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
             width: '80px',
             height: '80px',
             borderRadius: '50%',
-            border: '2px dashed #ccc',
+            border: '2px dashed var(--input-border-color)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: '#ccc'
+            color: 'var(--input-border-color)'
           }}>
             ?
           </div>
@@ -225,14 +225,14 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
           />
         ) : (
           assignment.racerId === null ? (
-            <em style={{ color: '#999', fontSize: '1.2rem' }}>(empty)</em>
+            <em style={{ color: 'var(--text-faint-color)', fontSize: '1.2rem' }}>(empty)</em>
           ) : (
             <>
               <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
                 {racer?.firstName} {racer?.lastName}
               </div>
               {racer?.carNumber != null && (
-                <div style={{ fontSize: '1rem', color: '#666' }}>
+                <div style={{ fontSize: '1rem', color: 'var(--text-muted-color)' }}>
                   Car #{racer.carNumber}
                 </div>
               )}
@@ -415,12 +415,12 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-      <div style={{ background: 'white', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scouting-blue)' }}>
+      <div style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '30px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', borderTop: '8px solid var(--scouting-blue)' }}>
         {showProxyControls && trackId != null && (
           <SerialProxyConnector trackId={trackId} />
         )}
         <div style={{
-          background: '#e3f2fd',
+          background: 'var(--info-panel-bg-color)',
           border: '1px solid var(--scouting-blue)',
           borderRadius: '12px',
           padding: '10px 16px',
@@ -437,7 +437,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
         </div>
 
         {/* Mode tabs */}
-        <div style={{ display: 'flex', background: '#e0e0e0', padding: '4px', borderRadius: '20px', marginBottom: '20px', width: 'fit-content', gap: '4px' }}>
+        <div style={{ display: 'flex', background: 'var(--surface-strong-color)', padding: '4px', borderRadius: '20px', marginBottom: '20px', width: 'fit-content', gap: '4px' }}>
           {MODES.map(({ key, label, icon }) => (
             <button
               key={key}
@@ -447,7 +447,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                 padding: '8px 20px',
                 borderRadius: '16px',
                 border: 'none',
-                background: mode === key ? 'white' : 'transparent',
+                background: mode === key ? 'var(--surface-color)' : 'transparent',
                 boxShadow: mode === key ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                 fontWeight: mode === key ? 'bold' : 'normal',
                 cursor: 'pointer',
@@ -465,7 +465,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
             A lane out of service is shown locked rather than left off the
             row, so an operator can see why it is not on offer. */}
         <div style={{ marginBottom: '20px' }} data-testid="lane-toggle-row">
-          <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '6px' }}>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)', marginBottom: '6px' }}>
             Lanes for this session
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -486,9 +486,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                     gap: '6px',
                     padding: '6px 12px',
                     borderRadius: '20px',
-                    border: '1px solid ' + (outOfService ? '#eee' : enabled ? 'var(--scouting-blue)' : '#ccc'),
-                    background: outOfService ? '#f5f5f5' : enabled ? '#e3f2fd' : 'white',
-                    color: outOfService ? '#aaa' : '#333',
+                    border: '1px solid ' + (outOfService ? 'var(--divider-color)' : enabled ? 'var(--scouting-blue)' : 'var(--input-border-color)'),
+                    background: outOfService ? 'var(--background-color)' : enabled ? 'var(--info-panel-bg-color)' : 'var(--surface-color)',
+                    color: outOfService ? 'var(--text-faintest-color)' : 'var(--text-color)',
                     cursor: outOfService ? 'not-allowed' : 'pointer',
                     fontSize: '0.9rem',
                   }}
@@ -507,7 +507,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
         </div>
 
         {mode === 'anonymous' && (
-          <p style={{ color: '#666', marginTop: 0, marginBottom: '20px' }}>
+          <p style={{ color: 'var(--text-muted-color)', marginTop: 0, marginBottom: '20px' }}>
             Put any car in any lane — the time is kept against the lane, not
             against a racer. Use it to test the track or the timer, or to run
             cars that are not on the roster.
@@ -516,7 +516,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
         <div data-testid="lane-cards">
           {enabledLanes.length === 0 ? (
-            <p style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+            <p style={{ padding: '40px', textAlign: 'center', color: 'var(--text-faint-color)' }}>
               No lanes are enabled. Turn one on above to start a heat.
             </p>
           ) : mode === 'anonymous' ? (
@@ -533,7 +533,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
               onDragEnd={handleDragEnd}
             >
               {mode === 'random' && randomResult.fetching && randomAssignments.length === 0 ? (
-                <p style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                <p style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted-color)' }}>
                   Loading random assignments...
                 </p>
               ) : (
@@ -568,9 +568,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                 onClick={handleReshuffle}
                 style={{
                   padding: '10px 20px',
-                  border: '1px solid #ccc',
+                  border: '1px solid var(--input-border-color)',
                   borderRadius: '6px',
-                  background: 'white',
+                  background: 'var(--surface-color)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -585,9 +585,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
                 onClick={() => setManualAssignments((prev) => prev.map((a) => ({ ...a, racerId: null })))}
                 style={{
                   padding: '10px 20px',
-                  border: '1px solid #ccc',
+                  border: '1px solid var(--input-border-color)',
                   borderRadius: '6px',
-                  background: 'white',
+                  background: 'var(--surface-color)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -610,7 +610,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
               border: 'none',
               borderRadius: '6px',
               background: 'var(--scouting-blue)',
-              color: 'white',
+              color: 'var(--on-primary-color)',
               cursor: 'pointer',
               fontWeight: 'bold',
               display: 'flex',

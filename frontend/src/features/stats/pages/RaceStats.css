@@ -21,7 +21,7 @@
 }
 
 .race-stats__overview-card {
-  background: white;
+  background: var(--surface-color);
   border-radius: 12px;
   padding: 1.25rem 1.5rem;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
@@ -33,7 +33,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #888;
+  color: var(--text-subtle-color);
   margin-bottom: 0.4rem;
 }
 
@@ -46,14 +46,14 @@
 .race-stats__overview-card--badge .race-stats__overview-card-value {
   font-size: 1rem;
   background: var(--scouting-blue);
-  color: white;
+  color: var(--on-primary-color);
   display: inline-block;
   padding: 4px 12px;
   border-radius: 20px;
 }
 
 .race-stats__section {
-  background: white;
+  background: var(--surface-color);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
@@ -74,7 +74,7 @@
 
 .race-stats__table th {
   background: var(--scouting-blue);
-  color: white;
+  color: var(--on-primary-color);
   padding: 10px 12px;
   text-align: left;
   font-weight: 600;
@@ -87,12 +87,12 @@
 }
 
 .race-stats__table th.sortable:hover {
-  background: #002d6b;
+  background: var(--scouting-blue-hover-color);
 }
 
 .race-stats__table td {
   padding: 9px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--surface-soft-color);
 }
 
 .race-stats__table tr:last-child td {
@@ -100,7 +100,7 @@
 }
 
 .race-stats__table tr:hover td {
-  background: #f8faff;
+  background: var(--table-row-hover-color);
 }
 
 .race-stats__table td.mono {
@@ -115,7 +115,7 @@
 }
 
 .race-stats__highlight-card {
-  background: #f7f9fc;
+  background: var(--highlight-card-bg-color);
   border-radius: 10px;
   padding: 1rem 1.25rem;
   border-left: 4px solid var(--scouting-blue);
@@ -127,7 +127,7 @@
 
 .race-stats__highlight-card--record {
   border-left-color: var(--gold, #FCD116);
-  background: #fffaf0;
+  background: var(--record-highlight-bg-color);
 }
 
 .race-stats__record-badge {
@@ -146,7 +146,7 @@
 
 .race-stats__record-note {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--text-muted-color);
   margin-top: 0.75rem;
 }
 
@@ -154,7 +154,7 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #888;
+  color: var(--text-subtle-color);
   margin-bottom: 0.35rem;
 }
 
@@ -167,7 +167,7 @@
 
 .race-stats__highlight-sub {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--text-strong-muted-color);
   margin-top: 0.25rem;
 }
 
@@ -180,7 +180,7 @@
 
 .race-stats__export-btn {
   background: var(--scouting-blue);
-  color: white;
+  color: var(--on-primary-color);
   border: none;
   border-radius: 8px;
   padding: 10px 20px;
@@ -191,14 +191,14 @@
 }
 
 .race-stats__export-btn:hover {
-  background: #002d6b;
+  background: var(--scouting-blue-hover-color);
 }
 
 .race-stats__empty {
   text-align: center;
   padding: 3rem;
-  color: #888;
-  background: white;
+  color: var(--text-subtle-color);
+  background: var(--surface-color);
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }

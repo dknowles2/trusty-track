@@ -155,7 +155,7 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
                         position: 'relative',
                         width: '100%',
                         paddingTop: '62%',
-                        background: '#000',
+                        background: 'var(--text-emphasis-color)',
                         borderRadius: '8px',
                         overflow: 'hidden',
                     }}
@@ -191,14 +191,14 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
                         display: 'flex',
                         gap: '10px',
                         alignItems: 'flex-start',
-                        background: '#fff8e1',
-                        border: '1px solid #ffe082',
+                        background: 'var(--warning-bg-color)',
+                        border: '1px solid var(--warning-alt-border-color)',
                         borderRadius: '8px',
                         padding: '12px',
                         fontSize: '0.9rem',
                     }}
                 >
-                    <Icon path={mdiAlertCircleOutline} size={0.9} color="#f57c00" />
+                    <Icon path={mdiAlertCircleOutline} size={0.9} color="var(--caution-icon-color)" />
                     <span>
                         {cameraError ||
                             'This browser cannot scan QR codes — Chrome and Edge can. ' +
@@ -226,7 +226,7 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
                         flex: 1,
                         padding: '8px',
                         borderRadius: '6px',
-                        border: '1px solid #ccc',
+                        border: '1px solid var(--input-border-color)',
                     }}
                 />
                 <button type="submit" className="primary-btn" style={{ padding: '8px 16px' }}>

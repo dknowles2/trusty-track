@@ -67,7 +67,7 @@ export function UnlockButton({ isOperator }: { isOperator: boolean }) {
                 style={{
                     background: 'none',
                     border: 'none',
-                    color: 'white',
+                    color: 'var(--on-primary-color)',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -83,7 +83,7 @@ export function UnlockButton({ isOperator }: { isOperator: boolean }) {
                     style={{
                         position: 'fixed',
                         inset: 0,
-                        background: 'rgba(0,0,0,0.4)',
+                        background: 'var(--overlay-backdrop-soft-color)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -95,7 +95,7 @@ export function UnlockButton({ isOperator }: { isOperator: boolean }) {
                         onSubmit={unlock}
                         onClick={(e) => e.stopPropagation()}
                         style={{
-                            background: 'white',
+                            background: 'var(--surface-color)',
                             padding: '1.5rem',
                             borderRadius: '12px',
                             minWidth: '280px',
@@ -105,7 +105,7 @@ export function UnlockButton({ isOperator }: { isOperator: boolean }) {
                         }}
                     >
                         <h3 style={{ margin: 0, color: 'var(--scouting-blue)' }}>Enter PIN</h3>
-                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#666' }}>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
                             This screen can watch the race. A PIN is needed to change anything.
                         </p>
                         <label htmlFor="unlock-pin" style={{ fontSize: '0.9rem' }}>
@@ -118,7 +118,7 @@ export function UnlockButton({ isOperator }: { isOperator: boolean }) {
                             autoFocus
                             value={pin}
                             onChange={(e) => setPin(e.target.value)}
-                            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                         />
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button type="submit" className="primary-btn" style={{ flex: 1 }}>

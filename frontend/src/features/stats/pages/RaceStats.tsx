@@ -265,12 +265,12 @@ export default function RaceStats() {
                     formatter={(value: unknown) => [`${Number(value).toFixed(2)}%`, 'Advantage']}
                     labelFormatter={(label: unknown) => `Lane ${label}`}
                   />
-                  <ReferenceLine y={0} stroke="#666" />
+                  <ReferenceLine y={0} stroke="var(--text-muted-color)" />
                   <Bar dataKey="relativeAdvantagePct" name="Advantage %">
                     {stats.laneStats.map((entry, i) => (
                       <Cell
                         key={i}
-                        fill={(entry.relativeAdvantagePct ?? 0) >= 0 ? '#003F87' : '#FCD116'}
+                        fill={(entry.relativeAdvantagePct ?? 0) >= 0 ? 'var(--scouting-blue)' : 'var(--cub-scouting-gold)'}
                       />
                     ))}
                   </Bar>
@@ -339,7 +339,7 @@ export default function RaceStats() {
                     <tr key={rs.racerId}>
                       <td>{rs.carNumber ?? '—'}</td>
                       <td>{rs.firstName} {rs.lastName}</td>
-                      <td style={{ color: '#666' }}>{rs.denName}</td>
+                      <td style={{ color: 'var(--text-muted-color)' }}>{rs.denName}</td>
                       <td style={{ textAlign: 'center' }}>{rs.heatsCompleted}</td>
                       <td className="mono">{fmt(rs.minTime)}</td>
                       <td className="mono" style={{ fontWeight: 'bold' }}>{fmt(rs.meanTime)}</td>
@@ -440,7 +440,7 @@ export default function RaceStats() {
                             )}
                           </td>
                           <td>{tr.carNumber ?? '—'}</td>
-                          <td style={{ color: '#666' }}>
+                          <td style={{ color: 'var(--text-muted-color)' }}>
                             {tr.raceName ?? '—'}
                             {recordDate(tr.raceDate) && <span>, {recordDate(tr.raceDate)}</span>}
                           </td>
@@ -476,7 +476,7 @@ export default function RaceStats() {
                     />
                     <Bar dataKey="avgScore" name="Avg Score">
                       {stats.denStats.map((entry, i) => (
-                        <Cell key={i} fill={entry.denColor || '#003F87'} />
+                        <Cell key={i} fill={entry.denColor || 'var(--scouting-blue)'} />
                       ))}
                     </Bar>
                   </BarChart>

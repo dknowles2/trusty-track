@@ -66,7 +66,7 @@ export default function PhotoSlideshow({ racers, dens, intervalMs, loading = fal
                     justifyContent: 'center',
                     padding: '4vmin',
                     textAlign: 'center',
-                    color: '#ccc',
+                    color: 'var(--display-text-subtle-color)',
                     fontSize: '3vmin',
                 }}
             >
@@ -123,14 +123,14 @@ export default function PhotoSlideshow({ racers, dens, intervalMs, loading = fal
             </div>
 
             <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '5vmin', fontWeight: 'bold', color: '#fff', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', lineHeight: 1.1 }}>
                     {slide.carNumber != null && (
-                        <span style={{ color: 'var(--cub-scouting-gold)' }}>#{slide.carNumber} </span>
+                        <span style={{ color: 'var(--display-accent-color)' }}>#{slide.carNumber} </span>
                     )}
                     {slide.name}
                 </div>
                 {(slide.carName || slide.denName) && (
-                    <div style={{ fontSize: '3vmin', color: '#ddd', marginTop: '1vmin' }}>
+                    <div style={{ fontSize: '3vmin', color: 'var(--display-text-faint-color)', marginTop: '1vmin' }}>
                         {slide.carName}
                         {slide.carName && slide.denName ? ' · ' : ''}
                         {slide.denName && (
@@ -145,7 +145,7 @@ export default function PhotoSlideshow({ racers, dens, intervalMs, loading = fal
                         )}
                     </div>
                 )}
-                <div style={{ fontSize: '2vmin', color: '#888', marginTop: '1.5vmin' }}>
+                <div style={{ fontSize: '2vmin', color: 'var(--display-text-faintest-color)', marginTop: '1.5vmin' }}>
                     {safeIndex + 1} of {slides.length}
                 </div>
             </div>

@@ -16,11 +16,11 @@ export type StatusBannerTone = 'neutral' | 'active' | 'success';
 
 const TONE_STYLES: Record<StatusBannerTone, CSSProperties> = {
   // The default: informational, no particular urgency (voting closed).
-  neutral: { background: '#fafafa', border: '1px solid #ddd' },
+  neutral: { background: 'var(--surface-faint-color)', border: '1px solid var(--border-color)' },
   // Something is under way and worth noticing (voting open).
-  active: { background: '#fffbea', border: '1px solid #ddd' },
+  active: { background: 'var(--banner-active-bg-color)', border: '1px solid var(--border-color)' },
   // Confirms an action just succeeded (a vote was recorded).
-  success: { background: '#f0f9f0', color: '#256029' },
+  success: { background: 'var(--banner-success-bg-color)', color: 'var(--banner-success-color)' },
 };
 
 interface StatusBannerProps {
