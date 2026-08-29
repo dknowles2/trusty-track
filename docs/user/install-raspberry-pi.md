@@ -26,7 +26,7 @@ This guide turns a Raspberry Pi into a dedicated Trusty Track appliance. After a
 3. Click **Choose Storage** and select your SD card.
 
 4. Click the **gear icon** (⚙) to open advanced settings:
-   - Enable **SSH** and set a username and password.
+   - Enable **SSH** and set a username and password. Remember the username — you'll use it to connect in Step 2.
    - Optionally configure your Wi-Fi network (SSID and password).
    - Set the **hostname** to `trustytrack` (optional but recommended).
 
@@ -38,12 +38,12 @@ This guide turns a Raspberry Pi into a dedicated Trusty Track appliance. After a
 
 ## Step 2 — Connect to the Pi
 
-Wait about 60 seconds for the Pi to boot, then SSH into it from your computer:
+Wait about 60 seconds for the Pi to boot, then SSH into it from your computer, using the username you set in Step 1:
 
 ```bash
-ssh pi@trustytrack.local
+ssh <username>@trustytrack.local
 # or use the IP address if mDNS doesn't work:
-ssh pi@<pi-ip-address>
+ssh <username>@<pi-ip-address>
 ```
 
 You can find the Pi's IP address from your router's admin page, or by checking your network's device list.

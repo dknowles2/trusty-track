@@ -332,3 +332,25 @@ def test_the_documentation_actually_contains_anchor_links():
     silently.
     """
     assert len(ANCHOR_LINKS) >= 5
+
+
+def test_the_pi_guide_never_hardcodes_the_username():
+    """Raspberry Pi OS no longer ships a default `pi` user (issue #478).
+
+    The Imager's advanced settings force the reader to choose a username in
+    Step 1; an `ssh` command in Step 2 that hardcodes `pi@` is wrong for
+    anyone who typed anything else, and fails with nothing connecting the
+    `Permission denied` back to the field they filled in ten minutes earlier.
+    """
+    pi_guide = DOCS_DIR / "user" / "install-raspberry-pi.md"
+    text = pi_guide.read_text()
+
+    assert "pi@" not in text, (
+        f"{pi_guide} hardcodes the `pi` username in an ssh command — use "
+        "`<username>@...` instead, since the Imager makes the reader choose "
+        "their own."
+    )
+    assert "ssh <username>@" in text, (
+        f"{pi_guide} should walk the reader through connecting with the "
+        "username they set in Step 1."
+    )
