@@ -324,6 +324,44 @@ def test_every_link_into_a_heading_lands_on_one(link: Anchor):
     )
 
 
+#: Mirrors `mkdocs.yml`'s `markdown_extensions` list, so the render below sees
+#: what the published site sees rather than what bare `markdown` would produce.
+_SITE_EXTENSIONS = [
+    "admonition",
+    "attr_list",
+    "md_in_html",
+    "pymdownx.details",
+    "pymdownx.superfences",
+    "pymdownx.tabbed",
+]
+
+_STRONG = re.compile(r"<strong>(.*?)</strong>", re.S)
+
+
+@pytest.mark.parametrize(
+    "page",
+    [DOCS_DIR / "user" / "install-mac.md", DOCS_DIR / "user" / "install-windows.md"],
+)
+def test_no_bold_text_renders_a_literal_backslash(page: Path):
+    """#477: `**TrustyTrack-\\<version\\>-mac.dmg**` published as
+    "TrustyTrack-\\<version>-mac.dmg" — a novice was told to click a filename
+    with a stray backslash in it, in the one step where they must match a
+    name against a real file list.
+
+    The escape isn't honored inside a bold span by the site's Markdown
+    pipeline (pymdown-extensions), so this renders through the same
+    extensions `mkdocs.yml` configures rather than bare `markdown` — the raw
+    source can look fine and still misrender on the published page.
+    """
+    html = markdown.Markdown(extensions=_SITE_EXTENSIONS).convert(page.read_text())
+    bad = [text for text in _STRONG.findall(html) if "\\" in text]
+    assert not bad, (
+        f"{page.relative_to(REPO_ROOT)} renders bold text with a literal "
+        f"backslash: {bad}. Use a backticked example filename instead of an "
+        "escaped placeholder like `\\<version\\>`."
+    )
+
+
 def test_the_documentation_actually_contains_anchor_links():
     """Otherwise the check above passes an empty list and proves nothing.
 

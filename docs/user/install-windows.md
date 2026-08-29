@@ -14,7 +14,7 @@ This guide walks you through installing Trusty Track on a Windows PC. No termina
 ## Step 1 — Download the installer
 
 1. Go to the [Trusty Track Releases page](https://github.com/dknowles2/trusty-track/releases/latest) on GitHub.
-2. Under **Assets**, click **TrustyTrack-\<version\>-setup.exe** to download it.
+2. Under **Assets**, click the `.exe` file (for example, `TrustyTrack-1.0.0-setup.exe`) to download it.
 
 ---
 
