@@ -119,7 +119,7 @@ describe('AwardForm', () => {
 
     await userEvent.type(screen.getByLabelText('Award name'), 'Fastest Wolf');
     await userEvent.click(screen.getByLabelText(/speed-based/i));
-    await userEvent.selectOptions(screen.getByLabelText('Limited to a racingGroup'), '10');
+    await userEvent.selectOptions(screen.getByLabelText('Limited to a den'), '10');
     await userEvent.click(screen.getByRole('button', { name: 'Add award' }));
 
     expect(onSubmit).toHaveBeenCalledWith(
@@ -243,6 +243,6 @@ describe('AwardForm', () => {
     expect(screen.getByLabelText('Standings to use')).toHaveValue('ROUND:4');
     expect(screen.getByLabelText('Counting from')).toHaveValue('BOTTOM');
     expect(screen.getByLabelText('Position')).toHaveValue('2');
-    expect(screen.getByLabelText('Limited to a racingGroup')).toHaveValue('10');
+    expect(screen.getByLabelText('Limited to a den')).toHaveValue('10');
   });
 });

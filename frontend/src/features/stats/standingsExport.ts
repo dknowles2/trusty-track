@@ -41,13 +41,17 @@ export function scoreValue(score: number, scoringStrategy: string): string {
 export function standingsRows(
     standings: readonly StandingsEntry[],
     scoringStrategy: string,
+    /** The singular racing-group word for the column header, defaulting to
+     * the built-in Scouting one, `DEFAULT_TERMINOLOGY.racingGroupSingular`
+     * (#496 stage 4). */
+    groupWord = 'Den',
 ): CsvRow[] {
     const header: CsvRow = [
         'Rank',
         'Car #',
         'First Name',
         'Last Name',
-        'Racing Group',
+        groupWord,
         scoreHeading(scoringStrategy),
         'Heats',
     ];

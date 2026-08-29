@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { GET_RACE_STATS } from '../graphql/queries';
+import { useTerminology } from '../../../context/TerminologyContext';
 import './RaceStats.css';
 
 // ---- Types ----
@@ -131,8 +132,8 @@ function exportHeatResults(heatResults: HeatResultRow[], raceName: string) {
   downloadCsv(filenameFor(raceName, 'heat-results'), [header, ...rows]);
 }
 
-function exportRacerStats(racerStats: RacerStat[], raceName: string) {
-  const header: CsvRow = ['Car #', 'First Name', 'Last Name', 'Racing Group', 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev'];
+function exportRacerStats(racerStats: RacerStat[], raceName: string, groupWord = 'Den') {
+  const header: CsvRow = ['Car #', 'First Name', 'Last Name', groupWord, 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev'];
   const rows = racerStats.map(r => [
     r.carNumber,
     r.firstName,
@@ -171,6 +172,7 @@ const fmt = (t: number | null | undefined) =>
 export default function RaceStats() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
+  const { group, groups } = useTerminology();
 
   const [result, reExecute] = useQuery({
     query: GET_RACE_STATS,
@@ -316,7 +318,7 @@ export default function RaceStats() {
                     <th className="sortable" onClick={() => handleSort('lastName')}>
                       Name{sortIndicator('lastName')}
                     </th>
-                    <th>Racing Group</th>
+                    <th>{group}</th>
                     <th className="sortable" onClick={() => handleSort('heatsCompleted')}>
                       Heats{sortIndicator('heatsCompleted')}
                     </th>
@@ -460,7 +462,7 @@ export default function RaceStats() {
           {/* Racing Group Comparison */}
           {stats.racingGroupStats.length > 0 && (
             <div className="race-stats__section">
-              <h2 className="race-stats__section-title">Racing Group Comparison</h2>
+              <h2 className="race-stats__section-title">{groups} Comparison</h2>
               <div className="race-stats__chart-wrapper">
                 <ResponsiveContainer width="100%" height={Math.max(120, stats.racingGroupStats.length * 50)}>
                   <BarChart
@@ -485,7 +487,7 @@ export default function RaceStats() {
               <table className="race-stats__table">
                 <thead>
                   <tr>
-                    <th>Racing Group</th>
+                    <th>{group}</th>
                     <th>Racers</th>
                     <th>Avg Score</th>
                     <th>Best Racer</th>
@@ -529,7 +531,7 @@ export default function RaceStats() {
               </button>
               <button
                 className="race-stats__export-btn"
-                onClick={() => exportRacerStats(stats.racerStats, stats.raceName)}
+                onClick={() => exportRacerStats(stats.racerStats, stats.raceName, group)}
               >
                 Export Racer Stats
               </button>

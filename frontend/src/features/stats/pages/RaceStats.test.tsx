@@ -303,7 +303,7 @@ describe('CSV exports', () => {
         expect(downloadCsv).toHaveBeenCalledTimes(1);
         const [filename, rows] = (downloadCsv as any).mock.calls[0];
         expect(filename).toBe(filenameFor('This Derby', 'racer-stats'));
-        expect(rows[0]).toEqual(['Car #', 'First Name', 'Last Name', 'Racing Group', 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev']);
+        expect(rows[0]).toEqual(['Car #', 'First Name', 'Last Name', 'Den', 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev']);
         expect(rows[1]).toEqual([3, 'Ada', 'Lovelace', 'Wolves', 4, 3.1, 3.5, 3.9, 0.3]);
     });
 });
@@ -379,6 +379,6 @@ describe('racingGroup comparison', () => {
 
     it('is absent when the race has no racingGroups', () => {
         renderStats(statsPayload({ racingGroupStats: [] }));
-        expect(screen.queryByText('Racing Group Comparison')).toBeNull();
+        expect(screen.queryByText('Dens Comparison')).toBeNull();
     });
 });

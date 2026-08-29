@@ -5,6 +5,7 @@ import type { GetRaceDetailsQuery } from '../../../gql/operations';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
 
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 import { getContrastColor } from '../../../utils/colors';
 import RacerForm, { RacerData, RacingGroup } from '../components/RacerForm';
@@ -55,6 +56,7 @@ export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
   const parsedRaceId = useMemo(() => raceId ? parseInt(raceId) : 0, [raceId]);
   const { showAlert, showConfirm } = useAlert();
+  const { group, groups, groupLower, groupsLower } = useTerminology();
   const navigate = useNavigate();
 
   // GraphQL Queries
@@ -266,7 +268,7 @@ export default function RaceDetails() {
 
   const handleDeleteRace = async () => {
     const confirmed = await showConfirm(
-        "Are you sure you want to delete this race?\n\nThis action cannot be undone and will delete all racers, racingGroups, rounds, heats, and results associated with it.",
+        `Are you sure you want to delete this race?\n\nThis action cannot be undone and will delete all racers, ${groupsLower}, rounds, heats, and results associated with it.`,
         "Delete Race",
         "Delete",
         "danger"
@@ -446,7 +448,7 @@ export default function RaceDetails() {
       setIsMoveToRacingGroupOpen(false);
       setIsMoreMenuOpen(false);
     } catch {
-      showAlert("Failed to move racers to racingGroup", "Error");
+      showAlert(`Failed to move racers to ${groupLower}`, "Error");
     }
   };
 
@@ -500,7 +502,10 @@ export default function RaceDetails() {
   // The grouped view, shared between the desktop table and the mobile cards
   // (#437) — both used to build this bucketing and sorting themselves, with
   // no test of either copy.
-  const groupedRacers = useMemo(() => groupRacersByRacingGroup(filteredRacers, racingGroups), [filteredRacers, racingGroups]);
+  const groupedRacers = useMemo(
+    () => groupRacersByRacingGroup(filteredRacers, racingGroups, group),
+    [filteredRacers, racingGroups, group],
+  );
 
   const renderRacerCard = (racer: Racer) => {
     const racingGroup = racingGroups.find(d => d.id === racer.racing_group_id);
@@ -531,7 +536,7 @@ export default function RaceDetails() {
           </div>
 
           <div className="racer-card-row">
-              <span className="racer-card-label">Racing Group</span>
+              <span className="racer-card-label">{group}</span>
               <div className="racer-card-value">
                   {racer.racing_group_id ? (
                       <span style={{
@@ -741,7 +746,7 @@ export default function RaceDetails() {
                                 onClick={() => { setShowRacingGroupManager(true); setIsMoreMenuOpen(false); }}
                                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
-                                <Icon path={mdiAccountGroup} size={0.7} /> Manage Racing Groups
+                                <Icon path={mdiAccountGroup} size={0.7} /> Manage {groups}
                             </button>
                             <button
                                 onClick={() => { setShowBulkPhotoUpload(true); setIsMoreMenuOpen(false); }}
@@ -793,7 +798,7 @@ export default function RaceDetails() {
             </div>
 
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', fontWeight: 500, whiteSpace: 'nowrap' }}>Group by Racing Group</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', fontWeight: 500, whiteSpace: 'nowrap' }}>Group by {group}</span>
                 <span className="toggle-switch small">
                     <input
                         type="checkbox"
@@ -860,7 +865,7 @@ export default function RaceDetails() {
                         data-testid="bulk-move-to-racing-group-expand-btn"
                         aria-expanded={isMoveToRacingGroupOpen}
                     >
-                        <Icon path={mdiAccountGroup} size={0.6} /> Move to racingGroup
+                        <Icon path={mdiAccountGroup} size={0.6} /> Move to {group}
                         <Icon path={mdiChevronDown} size={0.5} />
                     </button>
                     {isMoveToRacingGroupOpen && (
@@ -924,7 +929,7 @@ export default function RaceDetails() {
                         <th style={{ padding: '12px', textAlign: 'center' }}>Photo</th>
                         <SortableHeader label="First Name" sortKey="first_name" sort={sort} onSort={toggleSort} />
                         <SortableHeader label="Last Name" sortKey="last_name" sort={sort} onSort={toggleSort} />
-                        <SortableHeader label="Racing Group" sortKey="racingGroup" sort={sort} onSort={toggleSort} />
+                        <SortableHeader label={group} sortKey="racingGroup" sort={sort} onSort={toggleSort} />
                         <SortableHeader label="Status / Edit" sortKey="status" sort={sort} onSort={toggleSort} align="center" />
                     </tr>
                 </thead>
@@ -989,7 +994,7 @@ export default function RaceDetails() {
                                             </td>
                                             <td data-label="First Name" style={{ padding: '12px' }}>{racer.first_name}</td>
                                             <td data-label="Last Name" style={{ padding: '12px' }}>{racer.last_name}</td>
-                                            <td data-label="RacingGroup" style={{ padding: '12px' }}>
+                                            <td data-label={group} style={{ padding: '12px' }}>
                                                 {racer.racing_group_id ? (
                                                     <span style={{
                                                         padding: '4px 8px',
@@ -1076,7 +1081,7 @@ export default function RaceDetails() {
                                 </td>
                                 <td data-label="First Name" style={{ padding: '12px' }}><span className="cell-value">{racer.first_name}</span></td>
                                 <td data-label="Last Name" style={{ padding: '12px' }}><span className="cell-value">{racer.last_name}</span></td>
-                                <td data-label="RacingGroup" style={{ padding: '12px' }}>
+                                <td data-label={group} style={{ padding: '12px' }}>
                                     <span className="cell-value">
                                         {racer.racing_group_id ? (
                                             <span style={{
@@ -1194,7 +1199,7 @@ export default function RaceDetails() {
       <Modal
         isOpen={showRacingGroupManager}
         onClose={() => setShowRacingGroupManager(false)}
-        title="Manage Racing Groups"
+        title={`Manage ${groups}`}
       >
           {race ? (
              <RacingGroupManager
@@ -1272,7 +1277,7 @@ export default function RaceDetails() {
                           checked={popAssignRacingGroups}
                           onChange={(e) => setPopAssignRacingGroups(e.target.checked)}
                       />
-                      Assign to Racing Groups
+                      Assign to {groups}
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                       <input

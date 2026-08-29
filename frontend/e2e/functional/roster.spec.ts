@@ -186,13 +186,13 @@ test('a racing group created through the UI groups the roster', async ({ page })
     await expect(page.getByText('Alpha', { exact: true })).toBeVisible();
 
     await page.getByTestId('roster-more-menu').click();
-    await page.getByRole('button', { name: /Manage Racing Groups/ }).click();
-    const modal = page.getByRole('dialog', { name: 'Manage Racing Groups' });
-    await modal.getByRole('button', { name: /Add New Racing Group/ }).click();
+    await page.getByRole('button', { name: /Manage Dens/ }).click();
+    const modal = page.getByRole('dialog', { name: 'Manage Dens' });
+    await modal.getByRole('button', { name: /Add New Den/ }).click();
     // The racing group form's labels are not wired to their inputs, so the name field
     // is the form's only text input.
     await modal.locator('input[type="text"]').first().fill('Wolves');
-    await modal.getByRole('button', { name: 'Add Racing Group', exact: true }).click();
+    await modal.getByRole('button', { name: 'Add Den', exact: true }).click();
 
     // The new racing group appears in the list, and closing the modal leaves the
     // roster able to group by it.
@@ -210,18 +210,18 @@ test('renaming and deleting a racing group through the UI', async ({ page }) => 
     await expect(page.getByText('Alpha', { exact: true })).toBeVisible();
 
     await page.getByTestId('roster-more-menu').click();
-    await page.getByRole('button', { name: /Manage Racing Groups/ }).click();
-    const modal = page.getByRole('dialog', { name: 'Manage Racing Groups' });
+    await page.getByRole('button', { name: /Manage Dens/ }).click();
+    const modal = page.getByRole('dialog', { name: 'Manage Dens' });
     await expect(modal.getByText('Tigers', { exact: true })).toBeVisible();
 
-    await modal.getByTitle('Edit Racing Group').click();
+    await modal.getByTitle('Edit Den').click();
     await modal.locator('input[type="text"]').first().fill('Tiger Cubs');
     await modal.getByRole('button', { name: 'Save Changes' }).click();
     await expect(modal.getByText('Tiger Cubs', { exact: true })).toBeVisible();
 
-    await modal.getByTitle('Delete Racing Group').click();
+    await modal.getByTitle('Delete Den').click();
     await page
-        .getByRole('dialog', { name: 'Delete Racing Group' })
+        .getByRole('dialog', { name: 'Delete Den' })
         .getByRole('button', { name: 'Confirm' })
         .click();
     await expect(modal.getByText('Tiger Cubs', { exact: true })).toBeHidden();

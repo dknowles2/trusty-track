@@ -7,7 +7,9 @@
  * with no direct test of either copy. `rosterSort.ts` and `rosterStatus.ts`
  * are where a roster rule like this belongs.
  *
- * Pure. No React, no urql.
+ * Pure. No React, no urql — the one word it needs for the "nothing resolves"
+ * fallback below is passed in rather than read from `useTerminology()`
+ * (#496 stage 4).
  */
 
 export interface GroupableRacer {
@@ -49,6 +51,11 @@ export interface RosterBucket<T> {
 export function groupRacersByRacingGroup<T extends GroupableRacer>(
     racers: readonly T[],
     racingGroups: readonly GroupableRacingGroup[],
+    /** The singular racing-group word, for the "id nothing resolves" fallback
+     * below. Defaults to the built-in Scouting word, mirroring
+     * `DEFAULT_TERMINOLOGY` — a caller that has not been threaded through
+     * `useTerminology()` still renders what it always did. */
+    groupWord = 'Den',
 ): RosterBucket<T>[] {
     const racingGroupMap = new Map(racingGroups.map((racingGroup) => [racingGroup.id, racingGroup]));
 
@@ -71,7 +78,7 @@ export function groupRacersByRacingGroup<T extends GroupableRacer>(
                 racingGroupName:
                     racingGroupId === UNASSIGNED_RACING_GROUP_ID
                         ? 'Unassigned'
-                        : (racingGroup?.name || 'Unknown Racing Group'),
+                        : (racingGroup?.name || `Unknown ${groupWord}`),
                 racingGroupColor:
                     racingGroupId === UNASSIGNED_RACING_GROUP_ID ? '#eee' : (racingGroup?.color || '#eee'),
                 items,

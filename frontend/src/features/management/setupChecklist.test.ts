@@ -1,11 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import {
-    checklistFor,
+    checklistFor as checklistForWords,
     nextStep,
     shouldShowChecklist,
     type SetupProgress,
     type StepKey,
 } from './setupChecklist';
+import type { TerminologyWords } from '../../context/TerminologyContext';
+
+const WORDS: TerminologyWords = {
+    group: 'Den',
+    groups: 'Dens',
+    org: 'Pack',
+    orgs: 'Packs',
+    groupLower: 'den',
+    groupsLower: 'dens',
+    orgLower: 'pack',
+    orgsLower: 'packs',
+};
+
+const checklistFor = (p: SetupProgress) => checklistForWords(p, WORDS);
 
 const progress = (over: Partial<SetupProgress> = {}): SetupProgress => ({
     racingGroupCount: 0,

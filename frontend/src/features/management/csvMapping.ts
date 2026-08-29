@@ -30,14 +30,25 @@ export const FIELDS: readonly Field[] = [
   'passedInspection',
 ] as const;
 
+/** The built-in Scouting label for every column — what `ImportRacersModal`
+ * shows before its own `useTerminology()` call has anything to override
+ * `racingGroup` with, and what every other field always shows (#496 stage 4).
+ */
 export const FIELD_LABELS: Record<Field, string> = {
   firstName: 'First Name',
   lastName: 'Last Name',
   carNumber: 'Car Number',
   carName: 'Car Name',
-  racingGroup: 'Racing Group',
+  racingGroup: 'Den',
   passedInspection: 'Passed Inspection',
 };
+
+/** `FIELD_LABELS`, with the racing-group column's word swapped for the
+ * resolved one — the one field name here that is also a configurable term.
+ */
+export function fieldLabels(groupWord: string): Record<Field, string> {
+  return { ...FIELD_LABELS, racingGroup: groupWord };
+}
 
 /** The header each field is written out as — what `import_racers` reads. */
 const CANONICAL_HEADER: Record<Field, string> = {
@@ -347,10 +358,10 @@ export function toCanonicalCsv(rows: readonly RacerRow[], mapping: Mapping): str
 }
 
 /** A starter file with the headers we read, for an operator with nothing yet. */
-export function templateCsv(): string {
+export function templateCsv(groupWord = 'Den'): string {
   return [
     FIELDS.map((f) => CANONICAL_HEADER[f]).join(','),
-    'Alex,Rivera,101,Blue Streak,Wolf RacingGroup,yes',
-    'Sam,Okafor,102,Thunderbolt,Wolf RacingGroup,yes',
+    `Alex,Rivera,101,Blue Streak,Wolf ${groupWord},yes`,
+    `Sam,Okafor,102,Thunderbolt,Wolf ${groupWord},yes`,
   ].join('\n');
 }

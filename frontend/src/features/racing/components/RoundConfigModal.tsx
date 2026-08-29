@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiAccountGroup, mdiInformation } from '@mdi/js';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface RoundConfigModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   hasGeneralRound,
   lastChampionshipRound
 }) => {
+  const { group, groupLower, org } = useTerminology();
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
   const [generalType, setGeneralType] = useState<'ALL' | 'EACH_GROUP'>('ALL');
   const [raceStyle, setRaceStyle] = useState<'PPC' | 'ELIMINATION' | 'BALANCED'>('PPC');
@@ -300,7 +302,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                     />
                     <span>
                       <Icon path={mdiFlagCheckered} size={0.7} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                      All Pack
+                      All {org}
                     </span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -312,13 +314,13 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                     />
                     <span>
                       <Icon path={mdiAccountGroup} size={0.7} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                      By Racing Group
+                      By {group}
                     </span>
                   </label>
                 </div>
                 {generalType === 'EACH_GROUP' && (
                   <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                    Will create {racingGroupCount} rounds (one per racing group).
+                    Will create {racingGroupCount} rounds (one per {groupLower}).
                   </p>
                 )}
               </div>
@@ -368,7 +370,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                     disabled={loading}
                   >
                     <option value="ALL">Overall</option>
-                    <option value="EACH_GROUP">Each Racing Group</option>
+                    <option value="EACH_GROUP">Each {group}</option>
                     {lastChampionshipRound && (
                       <option value="PREVIOUS">
                         {lastChampionshipRound.name || 'Previous championship round'}

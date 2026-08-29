@@ -5,6 +5,7 @@ import { GET_RACE_RACING_GROUPS, UPLOAD_IMAGE } from '../graphql/queries';
 import { carryOver } from '../racerEntry';
 import { weightNotice, weightVerdict } from '../weightCheck';
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 export interface RacerData {
   first_name: string;
@@ -67,6 +68,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   });
 
   const racingGroups: RacingGroup[] = racingGroupsResult.data?.race?.racingGroups || [];
+  const { group } = useTerminology();
 
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
@@ -230,7 +232,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
         </div>
 
         <div style={{ marginBottom: '10px' }}>
-             <label htmlFor="racer-racing-group" style={{ display: 'block', marginBottom: '5px' }}>Racing Group</label>
+             <label htmlFor="racer-racing-group" style={{ display: 'block', marginBottom: '5px' }}>{group}</label>
              <select
                name="racing_group_id"
                    id="racer-racing-group"
@@ -238,7 +240,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                onChange={handleChange}
                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}
              >
-                <option value="">Select a Racing Group...</option>
+                <option value="">Select a {group}...</option>
                 {racingGroups.map((racingGroup: RacingGroup) => (
                     <option key={racingGroup.id} value={racingGroup.id}>{racingGroup.name}</option>
                 ))}

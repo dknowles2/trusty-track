@@ -7,6 +7,7 @@ import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
 import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 export interface LeaderboardEntry {
   racerId: number;
@@ -68,6 +69,7 @@ interface LeaderboardProps {
 }
 
 export default function Leaderboard({ raceId }: LeaderboardProps) {
+  const { group } = useTerminology();
   // null means the overall standings, which cover preliminary rounds only.
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
 
@@ -249,7 +251,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                     : roundLabel(rounds.find((r) => r.id === selectedRoundId)!),
                 ),
               ),
-              standingsRows(leaderboard, scoringStrategy),
+              standingsRows(leaderboard, scoringStrategy, group),
             )
           }
           style={{ padding: '8px 14px', fontSize: '0.9rem' }}
@@ -305,7 +307,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
               <th style={{ padding: '12px', textAlign: 'center', width: '60px' }}>Avatar</th>
               <th style={{ padding: '12px', textAlign: 'left', width: '80px' }}>Car #</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
-              <th style={{ padding: '12px', textAlign: 'left' }}>Racing Group</th>
+              <th style={{ padding: '12px', textAlign: 'left' }}>{group}</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>Heats</th>
               <th style={{ padding: '12px', textAlign: 'right' }}>{scoreLabel}</th>
             </tr>

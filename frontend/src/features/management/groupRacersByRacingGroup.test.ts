@@ -57,7 +57,7 @@ describe('groupRacersByRacingGroup', () => {
         // still holding its id.
         const groups = groupRacersByRacingGroup([racer({ id: 1, racing_group_id: 99 })], RACING_GROUPS);
 
-        expect(groups[0].racingGroupName).toBe('Unknown Racing Group');
+        expect(groups[0].racingGroupName).toBe('Unknown Den');
         expect(groups[0].racingGroupColor).toBe('#eee');
     });
 

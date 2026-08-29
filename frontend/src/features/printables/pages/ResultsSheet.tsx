@@ -30,11 +30,13 @@ import {
 } from '../resultsSheet';
 import { scoreHeading } from '../../stats/standingsExport';
 import { printablesThemeRootProps } from '../printablesTheme';
+import { useTerminology } from '../../../context/TerminologyContext';
 import '../PrintSheet.css';
 
 export default function ResultsSheet() {
     const { raceId } = useParams<{ raceId: string }>();
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
+    const { group, groupLower } = useTerminology();
 
     const [{ data, fetching, error }] = useQuery({
         query: GET_RESULTS_SHEET,
@@ -46,8 +48,8 @@ export default function ResultsSheet() {
     const scoringStrategy: string = race?.scoringStrategy ?? 'TIMED';
 
     const sections = useMemo(
-        () => resultsSections((race?.leaderboard ?? []) as ResultsEntry[], scoringStrategy),
-        [race?.leaderboard, scoringStrategy],
+        () => resultsSections((race?.leaderboard ?? []) as ResultsEntry[], scoringStrategy, `No ${groupLower}`),
+        [race?.leaderboard, scoringStrategy, groupLower],
     );
     const awards = useMemo(
         () => awardLines((race?.awards ?? []) as ResultsAward[]),
@@ -161,7 +163,7 @@ export default function ResultsSheet() {
                                         <th className="heat-sheet-num">Place</th>
                                         <th className="heat-sheet-num">Car #</th>
                                         <th>Racer</th>
-                                        {isOverall && <th>Racing Group</th>}
+                                        {isOverall && <th>{group}</th>}
                                         <th>{scoreHeading(scoringStrategy)}</th>
                                         <th className="heat-sheet-num">Heats</th>
                                     </tr>

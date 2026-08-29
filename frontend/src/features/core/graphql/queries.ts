@@ -36,6 +36,31 @@ export const INITIAL_CONFIG_QUERY = `
       pinRequired
       isOperator
       demoMode
+      terminology {
+        racingGroupSingular
+        racingGroupPlural
+        organizationSingular
+        organizationPlural
+      }
+    }
+  }
+`;
+
+// The one query `RaceTerminologyGate` runs per race, so every page under
+// `/race/:raceId` reads `useTerminology()` rather than asking the server
+// itself (#496 stage 4). Kept separate from each page's own race query —
+// those already vary in shape, and this field is cheap and identical
+// everywhere it is needed.
+export const RACE_TERMINOLOGY_QUERY = `
+  query GetRaceTerminology($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      terminology {
+        racingGroupSingular
+        racingGroupPlural
+        organizationSingular
+        organizationPlural
+      }
     }
   }
 `;

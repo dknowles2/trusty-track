@@ -75,6 +75,10 @@ export function slideFor(
   index: number,
   rounds: NamedRound[],
   racingGroups: NamedRacingGroup[],
+  /** The lowercase racing-group word, for the "no longer exists" fallback in
+   * `describeSpeedAward`. Defaults to the built-in Scouting one (#496
+   * stage 4). */
+  groupWord = 'den',
 ): Slide | null {
   const award = awards[index];
   if (!award) return null;
@@ -84,7 +88,7 @@ export function slideFor(
     title: award.name,
     subtitle:
       award.kind === 'SPEED'
-        ? describeSpeedAward(award, rounds, racingGroups)
+        ? describeSpeedAward(award, rounds, racingGroups, groupWord)
         : 'Chosen by the judges',
     winner: award.recipient ? racerLabel(award.recipient) : null,
     racerImageUrl: award.recipient?.racerImageUrl ?? null,

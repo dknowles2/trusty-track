@@ -30,7 +30,7 @@ describe('SetupChecklist', () => {
         // somebody moving.
         render(<SetupChecklist progress={progress()} onAction={{ racingGroups: vi.fn(), racers: vi.fn() }} />);
 
-        expect(screen.getByRole('button', { name: 'Set up racing groups' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Set up dens' })).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Add your first racer' })).not.toBeInTheDocument();
     });
 

@@ -8,6 +8,7 @@ import Home from './features/management/pages/Home';
 import { useQuery } from 'urql';
 import { AlertProvider } from './context/AlertContext';
 import { SerialProxyProvider } from './context/SerialProxyContext';
+import { TerminologyProvider } from './context/TerminologyContext';
 
 import RaceDetails from './features/management/pages/RaceDetails';
 import RaceControl from './features/racing/pages/RaceControl';
@@ -36,12 +37,54 @@ import Certificate from './features/printables/pages/Certificate';
 import TimerDiagnostics from './features/settings/pages/TimerDiagnostics';
 import ActivityLog from './features/settings/pages/ActivityLog';
 
-import { INITIAL_CONFIG_QUERY } from './features/core/graphql/queries';
+import { INITIAL_CONFIG_QUERY, RACE_TERMINOLOGY_QUERY } from './features/core/graphql/queries';
 import { DemoSessionGate } from './features/core/components/DemoSessionGate';
 
-// No React hooks needed anymore in this file
+/** Seeds the organization's default terminology for the whole app —
+ * `initialConfig.terminology` is the organization default resolved against
+ * the built-in Scouting words, with no race in view (#496 stage 4). Home,
+ * System Settings and anything else outside `/race/:raceId` read this and
+ * nothing else. Shares the cache with `ProtectedRoute` and `DemoSession`,
+ * which run the identical query. */
+function AppTerminologyProvider({ children }: { children: React.ReactNode }) {
+  const [{ data }] = useQuery({ query: INITIAL_CONFIG_QUERY });
+  return (
+    <TerminologyProvider value={data?.initialConfig?.terminology}>
+      {children}
+    </TerminologyProvider>
+  );
+}
 
+/** Overrides the app-wide default with this race's own resolved terms —
+ * `Race.terminology` already layers the organization default underneath a
+ * race override on the server, so there is nothing to merge here (#496
+ * stage 4). While the query is in flight `TerminologyProvider` keeps
+ * whatever `AppTerminologyProvider` already supplied, so a race with no
+ * override of its own never flashes the built-in words before settling on
+ * the identical organization ones. */
+function RaceTerminologyGate({ children }: { children: React.ReactNode }) {
+  const { raceId } = useParams<{ raceId: string }>();
+  const [{ data }] = useQuery({
+    query: RACE_TERMINOLOGY_QUERY,
+    variables: { raceId: Number(raceId) },
+    pause: !raceId,
+  });
+  return (
+    <TerminologyProvider value={data?.race?.terminology}>
+      {children}
+    </TerminologyProvider>
+  );
+}
 
+/** Wraps a race-scoped route's element in both the first-run gate and the
+ * race's own terminology, so the route table below stays a flat list. */
+function raceRoute(element: React.ReactNode) {
+  return (
+    <ProtectedRoute>
+      <RaceTerminologyGate>{element}</RaceTerminologyGate>
+    </ProtectedRoute>
+  );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -93,6 +136,7 @@ function App() {
             view inside the routes is what tells the navigation to go away. */}
         <ChromeProvider>
         <Router>
+          <AppTerminologyProvider>
           <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <DemoSession />
             {/* Renders nothing; it names the browser tab. Here rather than in
@@ -107,24 +151,24 @@ function App() {
                 <Route path="/timer-check" element={<ProtectedRoute><TimerDiagnostics /></ProtectedRoute>} />
                 <Route path="/activity" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
                 <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-                <Route path="/race/:raceId" element={<ProtectedRoute><RaceDetails /></ProtectedRoute>} />
-                <Route path="/race/:raceId/standings" element={<ProtectedRoute><Standings /></ProtectedRoute>} />
-                <Route path="/race/:raceId/awards" element={<ProtectedRoute><Awards /></ProtectedRoute>} />
-                <Route path="/race/:raceId/awards/present" element={<ProtectedRoute><AwardCeremony /></ProtectedRoute>} />
+                <Route path="/race/:raceId" element={raceRoute(<RaceDetails />)} />
+                <Route path="/race/:raceId/standings" element={raceRoute(<Standings />)} />
+                <Route path="/race/:raceId/awards" element={raceRoute(<Awards />)} />
+                <Route path="/race/:raceId/awards/present" element={raceRoute(<AwardCeremony />)} />
                 {/* No PIN needed to reach it — a phone in the room votes as a
                     VIEWER (#305). `ProtectedRoute` still applies: it is only
                     the first-run gate, not a role check. */}
-                <Route path="/race/:raceId/vote" element={<ProtectedRoute><VotingBallot /></ProtectedRoute>} />
-                <Route path="/race/:raceId/stats" element={<ProtectedRoute><RaceStats /></ProtectedRoute>} />
-                <Route path="/race/:raceId/print" element={<ProtectedRoute><Printables /></ProtectedRoute>} />
-                <Route path="/race/:raceId/print/heat-sheet" element={<ProtectedRoute><HeatSheet /></ProtectedRoute>} />
-                <Route path="/race/:raceId/print/results" element={<ProtectedRoute><ResultsSheet /></ProtectedRoute>} />
-                <Route path="/race/:raceId/print/certificates" element={<ProtectedRoute><Certificate /></ProtectedRoute>} />
+                <Route path="/race/:raceId/vote" element={raceRoute(<VotingBallot />)} />
+                <Route path="/race/:raceId/stats" element={raceRoute(<RaceStats />)} />
+                <Route path="/race/:raceId/print" element={raceRoute(<Printables />)} />
+                <Route path="/race/:raceId/print/heat-sheet" element={raceRoute(<HeatSheet />)} />
+                <Route path="/race/:raceId/print/results" element={raceRoute(<ResultsSheet />)} />
+                <Route path="/race/:raceId/print/certificates" element={raceRoute(<Certificate />)} />
                 <Route path="/race/:raceId/checkin" element={<Navigate to="../" relative="path" replace />} />
                 {/* Keyed on the race: switching races is a fresh screen, so no
                     state from the last one can survive into the next. */}
-                <Route path="/race/:raceId/control/:tab?" element={<ProtectedRoute><KeyedRaceControl /></ProtectedRoute>} />
-                <Route path="/race/:raceId/observation" element={<ProtectedRoute><Observation /></ProtectedRoute>} />
+                <Route path="/race/:raceId/control/:tab?" element={raceRoute(<KeyedRaceControl />)} />
+                <Route path="/race/:raceId/observation" element={raceRoute(<Observation />)} />
 
                 {/* Legacy Redirects or Handle 404 */}
                 <Route path="/checkin" element={<Navigate to="/" replace />} />
@@ -133,6 +177,7 @@ function App() {
               </Routes>
             </main>
           </div>
+          </AppTerminologyProvider>
         </Router>
         </ChromeProvider>
       </SerialProxyProvider>

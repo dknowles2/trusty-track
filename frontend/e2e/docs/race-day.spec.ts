@@ -93,23 +93,23 @@ test('take screenshots', async ({ page }) => {
     await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/05-race-details-empty.png') });
     await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/01-race-details-overview.png') });
 
-    // Manage Racing Groups, now behind the roster overflow menu (#186) — it is a
+    // Manage Dens, now behind the roster overflow menu (#186) — it is a
     // set-up action rather than one reached for during an event.
     await page.getByTestId('roster-more-menu').click();
-    await page.getByRole('button', { name: /Manage Racing Groups/i }).click();
-    await expect(page.getByRole('heading', { name: 'Manage Racing Groups' })).toBeVisible();
+    await page.getByRole('button', { name: /Manage Dens/i }).click();
+    await expect(page.getByRole('heading', { name: 'Manage Dens' })).toBeVisible();
     await page.screenshot({ path: path.join(screenshotsDir, 'getting-started/04-racing-group-management.png') });
     await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/02-racing-group-manager-ui.png') });
 
-    await page.getByRole('button', { name: /Add New Racing Group/i }).click();
-    await expect(page.getByRole('button', { name: 'Add Racing Group' })).toBeVisible();
+    await page.getByRole('button', { name: /Add New Den/i }).click();
+    await expect(page.getByRole('button', { name: 'Add Den' })).toBeVisible();
     await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/03-add-racing-group-form.png') });
 
-    // Close Add Racing Group by cancelling, then close Manage Racing Groups.
+    // Close Add Den by cancelling, then close Manage Dens.
     await page.getByRole('button', { name: 'Cancel' }).click();
-    await expect(page.getByRole('button', { name: 'Add Racing Group' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Add Den' })).toBeHidden();
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('heading', { name: 'Manage Racing Groups' })).toBeHidden();
+    await expect(page.getByRole('heading', { name: 'Manage Dens' })).toBeHidden();
 
     // Add Racer manually.
     await page.getByRole('button', { name: 'Add Racer', exact: true }).click();
