@@ -14,8 +14,11 @@ They move, so follow the links before you spend anything, and please
 gone stale or reads unfairly.
 
 You can try Trusty Track without installing it. The
-[demo](https://demo.trusty-track.com) is a real race, already set up, and it
-forgets everything you do when you leave.
+[demo](https://demo.trusty-track.com) is a real race, already set up. There is only
+one of it, so anybody else looking at the same moment is in the same race as you,
+and it resets itself once it has been quiet for a while. DerbyNet's playground gives
+each visitor a private instance instead, which is the nicer arrangement and one we
+have not built yet.
 
 ## The others
 
@@ -63,7 +66,7 @@ and a stopwatch it is a perfectly good answer.
 | **Race formats** | Perfect-N, championship, elimination, balanced, slowest | Several, more in Pro | Several | Several | Elimination only |
 | **Racer limit** | None | None | None | None | 15 |
 | **Racer and car photos** | Yes | Pro only | Yes | — | — |
-| **Try before installing** | Public demo | — | Hosted playground | — | — |
+| **Try before installing** | One shared demo | — | A private instance, a few hours | — | — |
 | **Public since** | Jan 2026 | Version 26 | Jul 2015 | Long-established | Long-established |
 
 A blank cell means their site does not say, not that the answer is no.

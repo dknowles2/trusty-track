@@ -1063,7 +1063,7 @@ A scan has **four** outcomes, not racer-or-nothing (`scanning.resolveScan`): the
 
 **The heat sheet is a table, not a card** ([#173](https://github.com/dknowles2/trusty-track/issues/173)). `/race/:raceId/print/heat-sheet`, linked from the schedule rather than the roster's print menu, because it prints the *schedule*. `heatSheet.ts` holds the rules and shares only the stylesheet with the cards above — `DocumentSpec` and `perSheet` are card geometry and do not apply.
 
-Two rules there, both about what paper needs that a screen does not: a lane's three states are **distinct** — an unadvanced championship slot reads "To be decided" because somebody will write a name in, an empty lane reads "—" because nobody is coming, and rendering both as blank loses that. And every row gets a column for every lane the **track** has rather than every lane the heat holds, so a heat short a lane still lines up with the rows above it. The blank **Result** column is deliberate: this sheet exists for the moment the network drops.
+Two rules there, both about what paper needs that a screen does not: a lane's three states are **distinct** — an unadvanced championship slot reads "To be decided" because somebody will write a name in, an empty lane reads "—" because nobody is coming, and rendering both as blank loses that. And every row gets a column for every lane the **track** has rather than every lane the heat holds, so a heat short a lane still lines up with the rows above it. The blank **Result** column is deliberate: this sheet is what the announcer's table has when a screen is not there — the laptop runs flat, the timer stops talking, an auxiliary display drops off the wifi. Naming only the last of those is how the landing page ended up promising paper for a wifi failure two sections after boasting that nothing needs wifi.
 
 **CSV lives in `utils/csv.ts`**, not in whichever page needed it. `RaceStats` had the only copy and it quoted every field without escaping an embedded quote, so a car named `The "Beast"` produced a malformed row and silently shifted every later column. Use `downloadCsv` / `filenameFor`; don't inline a third.
 
@@ -1345,6 +1345,22 @@ Two things follow from sharing an origin, and both are the point of it:
   `backend/tests/test_landing_page_links.py` is what turns that into a red
   build — it maps each `/docs/<path>/` back to the Markdown file mkdocs built it
   from, and checks every borrowed image exists.
+
+**The demo is one shared instance, and the copy must not imply otherwise.**
+`deploy/cloudrun/deploy.sh` runs it at `--max-instances=1`, so every visitor at a
+given moment is in the same race, and the reset is the instance scaling to zero
+after a quiet spell rather than anything to do with one person leaving. A private
+instance per visitor is [#296](https://github.com/dknowles2/trusty-track/issues/296),
+and it is open.
+
+The marketing copy said "it forgets everything you do when you leave" in three
+places, which invents per-visitor isolation the deployment does not have. It is
+the shape of wrong that matters most here: a visitor who finds a race they did not
+create, or their own changes still sitting there an hour later, concludes the
+software is broken. `docs/demo.md` had it right the whole time — "a restart is its
+reset" — because it was written from the deployment rather than from the pitch.
+When #296 lands, these three lines and the comparison table's **Try before
+installing** row are what change.
 
 **Adding to the landing page means deciding what comes out.** It is the one page
 in the tree with a fixed size — a person scrolls it once, deciding whether to keep
