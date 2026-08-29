@@ -1331,16 +1331,39 @@ Two things follow from sharing an origin, and both are the point of it:
   build — it maps each `/docs/<path>/` back to the Markdown file mkdocs built it
   from, and checks every borrowed image exists.
 
-**Two copy mistakes the landing page has already made, both from adding rather
-than editing.** A note appended to the nearest paragraph rather than given its
-own: the hero's fine print ended up explaining the demo button *and* listing
-supported platforms in one blurb, because the demo sentence was added to the
-line that was already there. Fine print under a row of buttons is about the
-product; a note about one button is a second line. And a detail pitched at the
-wrong reader: the Race Control block led with the keyboard shortcuts, which are
-a pleasure to discover in your second season and no reason at all to choose the
-software in your first. The bullets there are about the day going wrong and
-being recoverable, which is what a volunteer is actually worried about.
+**Adding to the landing page means deciding what comes out.** It is the one page
+in the tree with a fixed size — a person scrolls it once, deciding whether to keep
+reading — so it does not have the property every other file here has, that more is
+harmless. Everything on it was added by somebody who was right that their thing
+mattered. It still drifts, because each addition is judged on its own and never
+against the block it lands in.
+
+There is deliberately no test for this. The failure is "these two sentences are
+about different things", which no assertion can see, and a word or bullet budget
+would be an invented number that fails on honest rewrites and passes on bad ones.
+It is a review rule instead:
+
+- **A feature block is one paragraph and three bullets.** Four means one of the
+  three has stopped earning its place. Say which, and cut it — moving a fact into
+  the paragraph is usually the right answer, since the paragraph is prose and can
+  absorb a clause.
+- **Fine print under a row of buttons is about the product**, not about one of the
+  buttons. A note about a single button is its own line.
+- **No caveats about what is not finished yet.** Those are true, and they belong
+  in the reference page for that feature, where somebody who has already chosen
+  will read them.
+- **Nothing whose value only appears in a second season.** Keyboard shortcuts are
+  the example; they are a pleasure to discover and no reason to choose anything.
+- **Read the whole block after editing it, not the line you added.** All three
+  failures below were invisible from the diff and obvious from the rendered page.
+
+Three instances, all of them shipped:
+
+| What happened | What it looked like |
+| --- | --- |
+| The demo's explanation was appended to the hero's existing fine print | One paragraph explaining a button and listing supported platforms |
+| The Race Control bullets led with the keyboard shortcuts | The least interesting of three, first |
+| Two later features each appended a bullet to Audience displays, and a fourth change added a `<small>` hedge about theming being incomplete | Five bullets and an implementation caveat, on a landing page |
 
 **The landing page's timer list is held to `ALL_PROFILES`, in both directions.**
 Each row carries `data-timer-key`, so the page states which profiles it is
