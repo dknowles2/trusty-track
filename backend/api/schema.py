@@ -413,22 +413,15 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
     # A raced championship round whose field has drifted from the standings.
     # Only a *raced* round can be stale: an unraced one is re-fielded by
     # invalidation (or withdrawal) the moment the standings move, so a
-    # mismatch there is a bug, not a state. Sets, not lists — lane order is
-    # the scheduler's business.
+    # mismatch there is a bug, not a state. See domain.advancement.field_is_stale
+    # for the rule itself (#433).
     field_is_stale = False
     if round_obj.advancement_source is not None and already_advanced and winner_ids:
         round_lanes = [
             loaders.lane_values_for_heat(race_id, heat.id)
             for heat in loaders.heats_for_round(race_id, round_id)
         ]
-        actual_field = {
-            lane.racer_id
-            for heat_lanes in round_lanes
-            for lane in heat_lanes
-            if lane.racer_id is not None
-        }
-        raced = any(lanes.has_results(heat_lanes) for heat_lanes in round_lanes)
-        field_is_stale = raced and bool(actual_field) and actual_field != winner_ids
+        field_is_stale = advancement.field_is_stale(round_lanes, winner_ids)
 
     return AdvancementStatus(
         is_ready=is_ready,
@@ -1452,6 +1445,30 @@ def _require_operator_role(info: Info) -> None:
         raise auth.PermissionDeniedError("The activity log is operator-only")
 
 
+def _audit_entry(row: models.AuditEntry) -> audit.Entry:
+    """The domain `Entry` a stored audit row describes.
+
+    `summary` and `noteworthy` each need one built from the row; sharing the
+    construction is what keeps them in step if `Entry` grows a field — two
+    independent copies is how one of them would quietly stop getting it.
+    `noteworthy` reads neither `race_id` nor `details`, but there is no
+    cheaper `Entry` to hand it than the real one.
+
+    A free function rather than a method on `AuditLogEntry`: `self` inside a
+    field resolver is the duck-typed ORM row, not this Strawberry type, so a
+    method reached through `self.` is looked up on `models.AuditEntry` and
+    fails there.
+    """
+    return audit.Entry(
+        action=row.action,
+        role=audit.ActorRole(row.role),
+        at=row.at,
+        outcome=audit.Outcome(row.outcome),
+        race_id=row.race_id,
+        details=json.loads(row.details) if row.details else {},
+    )
+
+
 @strawberry.type
 class AuditLogEntry:
     """One line of the timeline (#219).
@@ -1491,28 +1508,12 @@ class AuditLogEntry:
     @strawberry.field
     def summary(self) -> str:
         """The sentence to show, rendered from this entry alone."""
-        return audit.describe(
-            audit.Entry(
-                action=self.action,
-                role=audit.ActorRole(self.role),
-                at=self.at,
-                outcome=audit.Outcome(self.outcome),
-                race_id=self.race_id,
-                details=json.loads(self.details) if self.details else {},
-            )
-        )
+        return audit.describe(_audit_entry(self))
 
     @strawberry.field
     def noteworthy(self) -> bool:
         """Whether this one deserves attention rather than merely a line."""
-        return audit.is_noteworthy(
-            audit.Entry(
-                action=self.action,
-                role=audit.ActorRole(self.role),
-                at=self.at,
-                outcome=audit.Outcome(self.outcome),
-            )
-        )
+        return audit.is_noteworthy(_audit_entry(self))
 
 
 @strawberry.type
@@ -2787,7 +2788,6 @@ class Mutation:
     ) -> list[Round]:
         """Create rounds using the wizard logic."""
         db = info.context["db"]
-        # Logic replicated from main.py's create_race_wizard
         race = db.query(models.Race).filter(models.Race.id == race_id).first()
         if not race:
             raise ValueError("Race not found")

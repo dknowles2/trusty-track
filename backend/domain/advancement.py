@@ -319,3 +319,28 @@ def field_is_short(heats_lanes: Iterable[Sequence], advancing_count: int) -> boo
     the caller rebuilds the round for the field that actually qualified.
     """
     return advancing_count < len(placeholder_slots(heats_lanes))
+
+
+def field_is_stale(heats_lanes: Iterable[Sequence], winner_ids: Iterable[int]) -> bool:
+    """A raced championship round whose field has drifted from the standings.
+
+    Issue #229. Recording — or clearing — a result upstream moves the
+    standings a championship field was drawn from, and only a round that has
+    *already been raced* can go stale: an unraced one is simply re-fielded by
+    invalidation the moment the standings move, so a mismatch there is a bug,
+    not a state worth surfacing.
+
+    Compared as sets, never lists: lane order is the scheduler's business, not
+    part of what "the same field" means. A round holding no real racers yet —
+    every lane still a placeholder — is not stale either; it has no field to
+    have drifted from.
+    """
+    from backend.domain import lanes as lanes_module
+
+    heats = list(heats_lanes)
+    actual_field = {
+        lane.racer_id for lanes in heats for lane in lanes if lane.racer_id is not None
+    }
+    winners = set(winner_ids)
+    raced = any(lanes_module.has_results(lanes) for lanes in heats)
+    return raced and bool(actual_field) and actual_field != winners
