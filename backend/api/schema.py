@@ -1445,6 +1445,30 @@ def _require_operator_role(info: Info) -> None:
         raise auth.PermissionDeniedError("The activity log is operator-only")
 
 
+def _audit_entry(row: models.AuditEntry) -> audit.Entry:
+    """The domain `Entry` a stored audit row describes.
+
+    `summary` and `noteworthy` each need one built from the row; sharing the
+    construction is what keeps them in step if `Entry` grows a field — two
+    independent copies is how one of them would quietly stop getting it.
+    `noteworthy` reads neither `race_id` nor `details`, but there is no
+    cheaper `Entry` to hand it than the real one.
+
+    A free function rather than a method on `AuditLogEntry`: `self` inside a
+    field resolver is the duck-typed ORM row, not this Strawberry type, so a
+    method reached through `self.` is looked up on `models.AuditEntry` and
+    fails there.
+    """
+    return audit.Entry(
+        action=row.action,
+        role=audit.ActorRole(row.role),
+        at=row.at,
+        outcome=audit.Outcome(row.outcome),
+        race_id=row.race_id,
+        details=json.loads(row.details) if row.details else {},
+    )
+
+
 @strawberry.type
 class AuditLogEntry:
     """One line of the timeline (#219).
@@ -1481,33 +1505,15 @@ class AuditLogEntry:
         # duck-typed shells. So this reads the column rather than recursing.
         return self.source_ip  # type: ignore[attr-defined,no-any-return]
 
-    def _entry(self):
-        """The domain `Entry` this row describes.
-
-        `summary` and `noteworthy` each need one built from `self`; sharing the
-        construction is what keeps them in step if `Entry` grows a field —
-        two independent copies is how one of them would quietly stop getting
-        it. `noteworthy` reads neither `race_id` nor `details`, but there is
-        no cheaper `Entry` to hand it than the real one.
-        """
-        return audit.Entry(
-            action=self.action,
-            role=audit.ActorRole(self.role),
-            at=self.at,
-            outcome=audit.Outcome(self.outcome),
-            race_id=self.race_id,
-            details=json.loads(self.details) if self.details else {},
-        )
-
     @strawberry.field
     def summary(self) -> str:
         """The sentence to show, rendered from this entry alone."""
-        return audit.describe(self._entry())
+        return audit.describe(_audit_entry(self))
 
     @strawberry.field
     def noteworthy(self) -> bool:
         """Whether this one deserves attention rather than merely a line."""
-        return audit.is_noteworthy(self._entry())
+        return audit.is_noteworthy(_audit_entry(self))
 
 
 @strawberry.type
