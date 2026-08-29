@@ -25,6 +25,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery } from 'urql';
+import StatusBanner from '../../../components/ui/StatusBanner';
 import { useChrome } from '../../../context/ChromeContext';
 import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
@@ -137,7 +138,7 @@ export default function VotingBallot() {
 
       {result.fetching && <p>Loading…</p>}
       {result.error && (
-        <p style={{ color: '#b60205' }}>
+        <p style={{ color: 'var(--error)' }}>
           {errorText(result.error, 'This page could not be loaded.')}
         </p>
       )}
@@ -167,17 +168,9 @@ export default function VotingBallot() {
             <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>{award.name}</h2>
 
             {justVoted[award.id] ? (
-              <div
-                style={{
-                  padding: '0.85rem 1rem',
-                  borderRadius: '12px',
-                  background: '#f0f9f0',
-                  color: '#256029',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '1rem',
-                }}
+              <StatusBanner
+                tone="success"
+                style={{ padding: '0.85rem 1rem', justifyContent: 'space-between', gap: '1rem' }}
               >
                 <span>Thanks for voting for {votedCarLabel(justVoted[award.id])}!</span>
                 <button
@@ -193,7 +186,7 @@ export default function VotingBallot() {
                 >
                   Vote again
                 </button>
-              </div>
+              </StatusBanner>
             ) : (
               <div
                 style={{

@@ -93,14 +93,11 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         }
     };
 
+    // Layout only — the field's shape (padding, border, radius) is the
+    // shared `.form-control` class (#439); this form is the one of the five
+    // that stacks its fields with margin rather than a flex `gap`.
     const inputStyle = {
-        width: '100%',
-        padding: '10px',
-        borderRadius: '8px',
-        border: '1px solid #ddd',
-        fontSize: '1rem',
         marginBottom: '1rem',
-        boxSizing: 'border-box' as const
     };
 
     const labelStyle = {
@@ -122,6 +119,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     onChange={e => handleChange('name', e.target.value)}
                     placeholder="e.g. 2024 Pinewood Derby"
                     required
+                    className="form-control"
                     style={inputStyle}
                 />
             </div>
@@ -132,6 +130,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     type="datetime-local"
                     value={formData.date_time}
                     onChange={e => handleChange('date_time', e.target.value)}
+                    className="form-control"
                     style={inputStyle}
                 />
             </div>
@@ -143,6 +142,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     value={formData.location}
                     onChange={e => handleChange('location', e.target.value)}
                     placeholder="e.g. School Gym"
+                    className="form-control"
                     style={inputStyle}
                 />
             </div>
@@ -154,6 +154,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         id="race-scoring"
                         value={formData.scoring_strategy}
                         onChange={e => handleChange('scoring_strategy', e.target.value)}
+                        className="form-control"
                         style={inputStyle}
                     >
                         <option value="TIMED">Timed (Fastest Avg Time)</option>
@@ -169,6 +170,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         onChange={e => handleChange('championship_trophies', parseInt(e.target.value) || 3)}
                         min="1"
                         max="10"
+                        className="form-control"
                         style={inputStyle}
                     />
                     <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '-0.5rem', marginBottom: '1rem' }}>
@@ -207,6 +209,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                             onChange={e =>
                                 handleChange('weight_limit_oz', parseFloat(e.target.value) || DEFAULT_LIMIT_OZ)
                             }
+                            className="form-control"
                             style={inputStyle}
                         />
                     </>
@@ -230,6 +233,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     id="race-track"
                     value={trackId}
                     onChange={e => handleChange('track_id', parseInt(e.target.value))}
+                    className="form-control"
                     style={inputStyle}
                     required
                 >
@@ -246,6 +250,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     id="race-car-numbering"
                     value={formData.car_numbering_strategy}
                     onChange={e => handleChange('car_numbering_strategy', e.target.value)}
+                    className="form-control"
                     style={inputStyle}
                 >
                     <option value="MANUAL">Manual</option>
@@ -261,6 +266,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         type="number"
                         value={formData.global_start_number}
                         onChange={e => handleChange('global_start_number', parseInt(e.target.value) || 1)}
+                        className="form-control"
                         style={inputStyle}
                         placeholder="e.g. 1"
                     />

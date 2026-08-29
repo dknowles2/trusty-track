@@ -181,15 +181,6 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     marginBottom: '0.5rem'
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '0.5rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '0.375rem',
-    fontSize: '1rem',
-    boxSizing: 'border-box'
-  };
-
   const stepIndicatorStyle = (active: boolean): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
@@ -280,7 +271,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                   type="number"
                   min="1"
                   max="4"
-                  style={inputStyle}
+                  className="form-control"
                   value={generalConfig.runsPerLane}
                   onChange={(e) => setGeneralConfig({ ...generalConfig, runsPerLane: parseInt(e.target.value) || 1 })}
                 />
@@ -317,7 +308,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Round Name</label>
                       <input
                         type="text"
-                        style={{ ...inputStyle, fontSize: '0.875rem' }}
+                        className="form-control"
+                        style={{ fontSize: '0.875rem' }}
                         value={round.name}
                         onChange={(e) => updateChampionshipRound(round.id, { name: e.target.value })}
                       />
@@ -326,7 +318,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>Who advances</label>
                       {idx === 0 ? (
                         <select
-                          style={{ ...inputStyle, fontSize: '0.875rem' }}
+                          className="form-control"
+                          style={{ fontSize: '0.875rem' }}
                           value={round.source}
                           onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'PACK' | 'DEN' })}
                         >
@@ -334,7 +327,10 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                           <option value="DEN">Top per Den</option>
                         </select>
                       ) : (
-                        <div style={{ ...inputStyle, fontSize: '0.875rem', backgroundColor: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center' }}>
+                        <div
+                          className="form-control"
+                          style={{ fontSize: '0.875rem', backgroundColor: '#f3f4f6', color: '#6b7280', display: 'flex', alignItems: 'center' }}
+                        >
                           Previous Championship Round
                         </div>
                       )}
@@ -346,7 +342,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                       <input
                         type="number"
                         min="1"
-                        style={{ ...inputStyle, fontSize: '0.875rem' }}
+                        className="form-control"
+                        style={{ fontSize: '0.875rem' }}
                         value={round.numTopRacers}
                         onChange={(e) => updateChampionshipRound(round.id, { numTopRacers: parseInt(e.target.value) || 1 })}
                       />
@@ -356,7 +353,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                       <input
                         type="number"
                         min="1"
-                        style={{ ...inputStyle, fontSize: '0.875rem' }}
+                        className="form-control"
+                        style={{ fontSize: '0.875rem' }}
                         value={round.runsPerLane}
                         onChange={(e) => updateChampionshipRound(round.id, { runsPerLane: parseInt(e.target.value) || 1 })}
                       />

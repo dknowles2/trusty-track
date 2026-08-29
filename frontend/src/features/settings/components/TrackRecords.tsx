@@ -70,12 +70,6 @@ const EMPTY_FORM: FormState = {
   raceDate: '',
 };
 
-const inputStyle = {
-  padding: '0.4rem',
-  borderRadius: '4px',
-  border: '1px solid #ccc',
-} as const;
-
 export default function TrackRecords({ trackId, records, onChange }: Props) {
   const { showToast } = useAlert();
   const runMutation = useRunMutation();
@@ -209,7 +203,8 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
           aria-label="Record time in seconds"
           value={form.time}
           onChange={(e) => set('time')(e.target.value)}
-          style={{ ...inputStyle, width: '6.5rem' }}
+          className="form-control"
+          style={{ width: '6.5rem' }}
         />
         <input
           type="text"
@@ -217,7 +212,8 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
           aria-label="Who set the record"
           value={form.racerName}
           onChange={(e) => set('racerName')(e.target.value)}
-          style={{ ...inputStyle, flex: 1, minWidth: '9rem' }}
+          className="form-control"
+          style={{ width: 'auto', flex: 1, minWidth: '9rem' }}
         />
         <input
           type="number"
@@ -225,7 +221,8 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
           aria-label="Car number (optional)"
           value={form.carNumber}
           onChange={(e) => set('carNumber')(e.target.value)}
-          style={{ ...inputStyle, width: '5rem' }}
+          className="form-control"
+          style={{ width: '5rem' }}
         />
         <input
           type="text"
@@ -233,14 +230,16 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
           aria-label="Which event it was set at (optional)"
           value={form.raceName}
           onChange={(e) => set('raceName')(e.target.value)}
-          style={{ ...inputStyle, flex: 1, minWidth: '10rem' }}
+          className="form-control"
+          style={{ width: 'auto', flex: 1, minWidth: '10rem' }}
         />
         <input
           type="date"
           aria-label="When it was set (optional)"
           value={form.raceDate}
           onChange={(e) => set('raceDate')(e.target.value)}
-          style={inputStyle}
+          className="form-control"
+          style={{ width: 'auto' }}
         />
         <button
           type="button"
@@ -262,7 +261,8 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
             type="button"
             onClick={stopEditing}
             disabled={busy}
-            style={{ ...inputStyle, background: 'white', cursor: 'pointer' }}
+            className="form-control"
+            style={{ width: 'auto', background: 'white', cursor: 'pointer' }}
           >
             Cancel
           </button>
