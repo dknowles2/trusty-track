@@ -36,15 +36,24 @@ dev = [
     "mypy",
     "pyinstaller",
     "pre-commit",
-    "mkdocs-callouts>=1.16.1",
     # `test_docs_stay_current.py` renders each page and reads the heading ids
     # the real toc extension produces, rather than reimplementing its slug
-    # rules. Already present as a transitive dependency of the mkdocs plugin
-    # above; named here because a test depends on it directly.
+    # rules. Already present as a transitive dependency of mkdocs; named here
+    # because a test depends on it directly.
     "markdown",
+    { include-group = "docs" },
 ]
+# Everything `mkdocs build` needs, and nothing else — CI's "Docs Build" job and
+# the deploy both install this group alone, so a plugin named in `mkdocs.yml`
+# and missing from here is a broken build. `mkdocs-callouts` was in `dev` and
+# only in `dev`, which worked for anybody who had run a full `uv sync` and for
+# nobody else.
+#
+# Keep `docs/requirements.txt` in step: Cloudflare Pages builds
+# trusty-track.com with pip and reads that file rather than this one.
 docs = [
     "mkdocs-material",
+    "mkdocs-callouts>=1.16.1",
 ]
 
 [tool.pytest.ini_options]

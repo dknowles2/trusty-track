@@ -70,13 +70,6 @@ const EMPTY: AwardDraft = {
   votable: true,
 };
 
-const inputStyle = {
-  width: '100%',
-  padding: '0.5rem',
-  borderRadius: '4px',
-  border: '1px solid #ccc',
-};
-
 export default function AwardForm({
   initial,
   rounds,
@@ -140,7 +133,7 @@ export default function AwardForm({
             setSelectedTemplateId('');
           }}
           placeholder="e.g. Best Paint, Fastest Wolf"
-          style={inputStyle}
+          className="form-control"
           required
         />
       </div>
@@ -185,7 +178,7 @@ export default function AwardForm({
               id="award-source"
               value={draft.source ?? PACK_SOURCE}
               onChange={(e) => set('source', e.target.value)}
-              style={inputStyle}
+              className="form-control"
             >
               <option value={PACK_SOURCE}>Overall standings</option>
               {rounds.map((round) => (
@@ -208,7 +201,7 @@ export default function AwardForm({
                 id="award-direction"
                 value={draft.fromBottom ? 'BOTTOM' : 'TOP'}
                 onChange={(e) => set('fromBottom', e.target.value === 'BOTTOM')}
-                style={inputStyle}
+                className="form-control"
               >
                 <option value="TOP">The fastest car</option>
                 <option value="BOTTOM">The slowest car</option>
@@ -222,7 +215,7 @@ export default function AwardForm({
                 id="award-place"
                 value={draft.place ?? 1}
                 onChange={(e) => set('place', Number(e.target.value))}
-                style={inputStyle}
+                className="form-control"
               >
                 {[1, 2, 3, 4, 5].map((place) => (
                   <option key={place} value={place}>
@@ -239,7 +232,7 @@ export default function AwardForm({
                 id="award-den"
                 value={draft.denId ?? ''}
                 onChange={(e) => set('denId', e.target.value ? Number(e.target.value) : null)}
-                style={inputStyle}
+                className="form-control"
               >
                 <option value="">The whole pack</option>
                 {dens.map((den) => (
@@ -264,7 +257,7 @@ export default function AwardForm({
               id="award-template"
               value={selectedTemplateId}
               onChange={(e) => applyTemplate(e.target.value)}
-              style={inputStyle}
+              className="form-control"
             >
               <option value="">Choose one, or type your own name below</option>
               {AWARD_TEMPLATES.map((template) => (
@@ -290,7 +283,7 @@ export default function AwardForm({
               onChange={(e) =>
                 set('racerId', e.target.value ? Number(e.target.value) : null)
               }
-              style={inputStyle}
+              className="form-control"
             >
               <option value="">Not decided yet</option>
               {racers.map((racer) => (

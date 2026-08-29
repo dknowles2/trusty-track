@@ -243,22 +243,20 @@ export default function RaceControl() {
       }
   }, [heats, updateHeatResultMutation, reExecute, showAlert]);
 
+  // Throws on failure rather than swallowing it, so this can be handed to
+  // ScheduleManagement's onReorderHeats directly: its own catch/toast/revert
+  // is what runs for a failed drag, not a copy of it here. handleRunHeat is
+  // the other caller and does its own catch, for its own UX (an alert rather
+  // than a toast, since it also has to skip navigating to the Race tab).
   const handleReorderHeats = useCallback(async (updates: { heat_id: number, new_heat_number: number }[]) => {
-    try {
-      const formattedUpdates = updates.map(u => ({
-        heatId: u.heat_id,
-        newHeatNumber: u.new_heat_number
-      }));
-      const result = await reorderHeatsMutation({ heatUpdates: formattedUpdates });
-      if (result.error) throw result.error;
-      reExecute({ requestPolicy: 'network-only' });
-      return true;
-    } catch (e) {
-      console.error("Failed to reorder heats", e);
-      showAlert(errorText(e, "Failed to reorder heats."), "Error");
-      return false;
-    }
-  }, [reorderHeatsMutation, reExecute, showAlert]);
+    const formattedUpdates = updates.map(u => ({
+      heatId: u.heat_id,
+      newHeatNumber: u.new_heat_number
+    }));
+    const result = await reorderHeatsMutation({ heatUpdates: formattedUpdates });
+    if (result.error) throw result.error;
+    reExecute({ requestPolicy: 'network-only' });
+  }, [reorderHeatsMutation, reExecute]);
 
   const handleRunHeat = useCallback(async (heat: Heat, shouldStart: boolean = true) => {
     if (hasRun(heat.lanes)) {
@@ -299,10 +297,13 @@ export default function RaceControl() {
                 new_heat_number: idx + 1
             }));
 
-            const reorderSucceeded = await handleReorderHeats(updates);
-            if (!reorderSucceeded) {
-                // handleReorderHeats already showed the alert; don't move the
-                // operator to the Race tab believing the schedule changed.
+            try {
+                await handleReorderHeats(updates);
+            } catch (e) {
+                console.error("Failed to reorder heats", e);
+                showAlert(errorText(e, "Failed to reorder heats."), "Error");
+                // Don't move the operator to the Race tab believing the
+                // schedule changed.
                 return;
             }
         }
@@ -310,7 +311,7 @@ export default function RaceControl() {
         setSelectedHeatId(heat.id);
         navigate(`/race/${id}/control/race`);
     }
-  }, [heats, updateHeatResultMutation, reExecute, handleReorderHeats, navigate, id, showToast]);
+  }, [heats, updateHeatResultMutation, reExecute, handleReorderHeats, navigate, id, showToast, showAlert]);
 
 
   // Rounds whose field comes from the bottom of the standings — a Slowest
@@ -717,7 +718,7 @@ export default function RaceControl() {
           onDeleteHeat={handleDeleteHeat}
           onRefetchHeats={async () => { reExecute({ requestPolicy: 'network-only' }); }}
           onRunHeat={handleRunHeat}
-          onReorderHeats={async (updates) => { await handleReorderHeats(updates); }}
+          onReorderHeats={handleReorderHeats}
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}
           racerCount={race?.racers?.length || 0}

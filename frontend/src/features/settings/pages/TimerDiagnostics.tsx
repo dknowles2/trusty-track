@@ -590,7 +590,7 @@ const TimerDiagnostics: React.FC = () => {
                 Live view of every track's timer. Use this before the event to confirm the timer is
                 plugged in and talking, without setting up a race first. The{' '}
                 <a
-                    href="https://dknowles2.github.io/trusty-track/hardware-timer/"
+                    href="https://trusty-track.com/docs/hardware-timer/"
                     target="_blank"
                     rel="noopener noreferrer"
                 >

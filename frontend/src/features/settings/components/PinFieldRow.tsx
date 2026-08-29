@@ -70,7 +70,7 @@ export default function PinFieldRow({
               borderRadius: '4px',
               border: '1px solid #ccc',
               background: field.remove ? 'var(--cub-scouting-gold)' : 'white',
-              color: field.remove ? 'var(--scouting-blue)' : '#b60205',
+              color: field.remove ? 'var(--scouting-blue)' : 'var(--error)',
               fontSize: '0.85rem',
               whiteSpace: 'nowrap',
             }}
@@ -79,7 +79,7 @@ export default function PinFieldRow({
           </button>
         )}
       </div>
-      <small style={{ color: field.remove ? '#b60205' : '#666' }}>
+      <small style={{ color: field.remove ? 'var(--error)' : '#666' }}>
         {pinHelp(field, isSet, what)}
       </small>
     </div>

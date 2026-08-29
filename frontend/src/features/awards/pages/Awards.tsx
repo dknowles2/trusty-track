@@ -14,11 +14,12 @@ import { useMutation, useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiArrowDown, mdiArrowUp, mdiPencil, mdiTrashCan, mdiTrophyOutline } from '@mdi/js';
 import Modal from '../../../components/ui/Modal';
+import StatusBanner from '../../../components/ui/StatusBanner';
 import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
 import { errorText } from '../../../utils/errors';
 import AwardArtwork from '../artwork';
-import { describeSpeedAward, racerLabel } from '../awardText';
+import { carLabel, describeSpeedAward, racerLabel } from '../awardText';
 import AwardForm, { AwardDraft } from '../components/AwardForm';
 import BallotShare from '../components/BallotShare';
 import {
@@ -55,14 +56,6 @@ type AwardRow = {
     racerImageUrl?: string | null;
   } | null;
 };
-
-/** What a car in a tally row is called, for the operator screen — never a
- * child's name, the same anonymity the ballot page itself keeps. */
-function carLabel(racer?: VoteTallyRow['racer']): string {
-  if (!racer) return 'A car that has since been removed';
-  const number = racer.carNumber != null ? `#${racer.carNumber}` : 'Unnumbered car';
-  return racer.carName ? `${number} — ${racer.carName}` : number;
-}
 
 export default function Awards() {
   const { raceId } = useParams<{ raceId: string }>();
@@ -235,19 +228,7 @@ export default function Awards() {
       </div>
 
       {awards.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: '0.75rem',
-            padding: '0.75rem 1rem',
-            border: '1px solid #ddd',
-            borderRadius: '12px',
-            marginBottom: '1.5rem',
-            background: votingOpen ? '#fffbea' : '#fafafa',
-          }}
-        >
+        <StatusBanner tone={votingOpen ? 'active' : 'neutral'} style={{ marginBottom: '1.5rem' }}>
           <button
             type="button"
             className={votingOpen ? 'secondary-btn' : 'primary-btn'}
@@ -264,12 +245,12 @@ export default function Awards() {
               roster.
             </span>
           )}
-        </div>
+        </StatusBanner>
       )}
 
       {result.fetching && awards.length === 0 && <p>Loading…</p>}
       {result.error && (
-        <p style={{ color: '#b60205' }}>
+        <p style={{ color: 'var(--error)' }}>
           {errorText(result.error, 'The awards could not be loaded.')}
         </p>
       )}

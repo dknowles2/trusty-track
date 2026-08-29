@@ -25,10 +25,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMutation, useQuery } from 'urql';
+import StatusBanner from '../../../components/ui/StatusBanner';
 import { useChrome } from '../../../context/ChromeContext';
 import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
 import { errorText } from '../../../utils/errors';
+import { forBallot } from '../awardText';
 import { CAST_VOTE_MUTATION, VOTING_BALLOT_QUERY } from '../graphql/queries';
 
 type BallotCar = {
@@ -65,20 +67,6 @@ function newBallotKey(): string {
   // A browser old enough to lack `randomUUID` still needs *a* fresh key per
   // vote — this is not a security boundary, only an idempotency token.
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-/** Car number ascending, unnumbered last — the same shape
- * `printables/documents.ts`'s `inPrintOrder` uses, but with nothing to fall
- * back to but the id: this page never has a racer's name to sort by. */
-function forBallot(cars: BallotCar[]): BallotCar[] {
-  return [...cars].sort((a, b) => {
-    const hasA = a.carNumber != null;
-    const hasB = b.carNumber != null;
-    if (hasA && hasB) return (a.carNumber as number) - (b.carNumber as number);
-    if (hasA) return -1;
-    if (hasB) return 1;
-    return a.id - b.id;
-  });
 }
 
 export default function VotingBallot() {
@@ -150,7 +138,7 @@ export default function VotingBallot() {
 
       {result.fetching && <p>Loading…</p>}
       {result.error && (
-        <p style={{ color: '#b60205' }}>
+        <p style={{ color: 'var(--error)' }}>
           {errorText(result.error, 'This page could not be loaded.')}
         </p>
       )}
@@ -180,17 +168,9 @@ export default function VotingBallot() {
             <h2 style={{ fontSize: '1.1rem', marginBottom: '0.75rem' }}>{award.name}</h2>
 
             {justVoted[award.id] ? (
-              <div
-                style={{
-                  padding: '0.85rem 1rem',
-                  borderRadius: '12px',
-                  background: '#f0f9f0',
-                  color: '#256029',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '1rem',
-                }}
+              <StatusBanner
+                tone="success"
+                style={{ padding: '0.85rem 1rem', justifyContent: 'space-between', gap: '1rem' }}
               >
                 <span>Thanks for voting for {votedCarLabel(justVoted[award.id])}!</span>
                 <button
@@ -206,7 +186,7 @@ export default function VotingBallot() {
                 >
                   Vote again
                 </button>
-              </div>
+              </StatusBanner>
             ) : (
               <div
                 style={{

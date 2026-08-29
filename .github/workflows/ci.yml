@@ -161,10 +161,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --only-group docs
 
-      # On the pull request, not just on the deploy: `docs.yml` runs after the
-      # merge, so a broken link found there is already on main.
-      - name: Build
-        run: uv run mkdocs build --strict
+      # The whole of trusty-track.com, not just the guides: the landing page
+      # and the documentation are one deployment, and Cloudflare Pages builds
+      # it with this same script. Running it here rather than a bare `mkdocs
+      # build` means a build that only fails once the two are assembled
+      # together fails on the pull request instead of on the site.
+      - name: Build the site
+        run: ./scripts/build_site.sh
 
   e2e:
     name: End-to-End Run (${{ matrix.shard }}/2)
