@@ -146,14 +146,6 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
     color: '#333'
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 12px',
-    borderRadius: '4px',
-    border: '1px solid #ccc',
-    fontSize: '1rem'
-  };
-
   const tabStyle = (active: boolean): React.CSSProperties => ({
     flex: 1,
     padding: '10px',
@@ -213,7 +205,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
               placeholder={effectiveType === 'GENERAL' ? "e.g. Quality Round" : "e.g. Finals"}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              style={inputStyle}
+              className="form-control"
               disabled={loading}
             />
           </div>
@@ -262,7 +254,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       max={8}
                       value={balancedPhases}
                       onChange={(e) => setBalancedPhases(Math.max(1, parseInt(e.target.value) || 1))}
-                      style={{ ...inputStyle, width: '50%' }}
+                      className="form-control"
+                      style={{ width: '50%' }}
                       disabled={loading}
                     />
                     <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
@@ -282,7 +275,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       max={10}
                       value={eliminationLosses}
                       onChange={(e) => setEliminationLosses(Math.max(1, parseInt(e.target.value) || 1))}
-                      style={{ ...inputStyle, width: '50%' }}
+                      className="form-control"
+                      style={{ width: '50%' }}
                       disabled={loading}
                     />
                     <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: '#666', fontStyle: 'italic' }}>
@@ -370,7 +364,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                   <select
                     value={source}
                     onChange={(e) => setSource(e.target.value as 'PACK' | 'DEN' | 'PREVIOUS')}
-                    style={inputStyle}
+                    className="form-control"
                     disabled={loading}
                   >
                     <option value="PACK">PACK (Overall)</option>
@@ -395,7 +389,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                         Math.max(fromBottom ? 1 : championshipTrophies, parseInt(e.target.value) || 1)
                       )
                     }
-                    style={inputStyle}
+                    className="form-control"
                     disabled={loading}
                   />
                 </div>
@@ -422,7 +416,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
               max="10"
               value={runsPerLane}
               onChange={(e) => setRunsPerLane(parseInt(e.target.value) || 1)}
-              style={inputStyle}
+              className="form-control"
               disabled={loading}
             />
           </div>

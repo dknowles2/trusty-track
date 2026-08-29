@@ -884,6 +884,22 @@ input:checked + .slider:before {
   max-width: 600px;
 }
 
+/* Shared field styling (#439). AwardForm, TrackRecords, RaceForm, RoundWizard
+   and RoundConfigModal each carried their own `inputStyle` object — the
+   same decision (padding, radius, border colour) made five slightly
+   different ways, and nothing here named the role they were all reaching
+   for. A form still overrides layout — width, margin, flex — with its own
+   inline `style` alongside this class, the same as every other inline
+   style in this codebase; only the field's shape is shared. */
+.form-control {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
 @media screen and (max-width: 768px) {
   .settings-layout {
     grid-template-columns: minmax(0, 1fr);

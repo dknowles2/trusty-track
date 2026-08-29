@@ -240,7 +240,7 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                             onClick={() => forgetDisplay({ displayId: display.displayId })}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}
                         >
-                            <Icon path={mdiClose} size={0.7} color="#b60205" />
+                            <Icon path={mdiClose} size={0.7} color="var(--error)" />
                         </button>
                     )}
                 </div>
