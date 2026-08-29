@@ -42,6 +42,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
 -   **`Group`**: Represents the racing organization (e.g., Cub Scout Pack).
     -   `id` (PK)
     -   `name`
+    -   `display_theme`, `printables_theme` (`varchar`, default `"MATCH_APP"`) — which theme the Display and Printables surfaces render, install-wide (#498). A `ThemeKey` (`frontend/src/theming/themes.ts` — the frontend holds the one canonical copy of what a theme is) or the sentinel `"MATCH_APP"`; never validated server-side, since nothing here branches on the value. The App theme is not a column — it lives only in each device's own `localStorage` and never reaches the server.
 -   **`Track`**: Configuration of the physical track.
     -   `id` (PK)
     -   `lane_count`
@@ -288,11 +289,18 @@ The frontend will provide distinct interfaces tailored for different user journe
 
 ### 4.3. UI & Branding Adherence
 
-The UI will strictly follow the BSA Official Guidelines outlined in [the specification](spec.md):
+The BSA Official Colors — Scouting Blue (`#003F87`) and Cub Scouting Gold
+(`#FCD116`) — are **Field Uniform**, the default of seven themes (#498), not
+a fixed requirement. Three surfaces are independently themeable: **App** (the
+operator's own screens), **Display** (the audience/projector views), and
+**Printables** (pit passes, licences, heat sheets, certificates). Each is a
+CSS custom property redefinition at that surface's own scoping root
+(`applyTheme` in `frontend/src/theming/applyTheme.ts`), never a generated
+stylesheet — the seven records in `frontend/src/theming/themes.ts` are the
+one place their values live. See `docs/reference/themes.md` for the full
+rule set: what each theme is for, the "Match App theme" default, and which
+settings are per-device versus per-install.
 
--   **Primary Colors:**
-    -   Scouting Blue (`#003F87`): Used for headers, navigation, and primary buttons.
-    -   Cub Scouting Gold (`#FCD116`): Used for check-in status indicators and call-to-action elements.
 -   **Typography:**
     -   Headers: `Roboto Condensed Bold`
     -   Body: `Roboto Regular`
@@ -301,9 +309,14 @@ The UI will strictly follow the BSA Official Guidelines outlined in [the specifi
         internet, so a remote font would fail exactly where it matters and
         succeed only on a developer's laptop. One variable file per family
         covers every weight the UI uses; see `frontend/src/assets/fonts/`.
+        No theme introduces a third family — every occasion a theme covers
+        is reachable by varying weight within these two.
 -   **Design Elements:**
-    -   Rounded corners (12px radius) will be applied consistently to interactive elements and containers.
-    -   High-contrast themes will be available, particularly for observation views ("Projector Mode"), to ensure readability in various lighting conditions and on large displays.
+    -   Rounded corners (12px radius) and 8px spacing are never themed —
+        every theme changes color, weight and decoration only, never layout.
+    -   Every Display definition is a high-contrast, dark palette (what used
+        to be a single hardcoded "Projector Mode"), for readability in a gym
+        and on large displays regardless of which theme is active.
 
 ## 5. Timer Connectivity
 

@@ -20,6 +20,7 @@ import { CornerFlourish, Rosette } from '../components/PrintDecor';
 import { certificatesFor, type CertificateAward } from '../certificate';
 import { formatEventDate } from '../documents';
 import { GET_CERTIFICATES } from '../graphql/queries';
+import { printablesThemeRootProps } from '../printablesTheme';
 import '../PrintSheet.css';
 
 export default function Certificate() {
@@ -45,7 +46,7 @@ export default function Certificate() {
     if (!race) return <p style={{ padding: '2rem' }}>Race not found.</p>;
 
     return (
-        <div className="printables-page">
+        <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
             <div className="printables-controls no-print">
                 <div>
                     <Link

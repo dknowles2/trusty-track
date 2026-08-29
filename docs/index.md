@@ -34,6 +34,7 @@ Then, in the order an event happens:
 
 - **[Observation & Audience Displays](observation-displays.md)**: Setting up leaderboards and results for the audience.
 - **[Printables](printables.md)**: Pit passes, driver's licences, and check-in codes you can scan.
+- **[Themes](reference/themes.md)**: Seven looks for the app, the wall display, and the printed pages — pick one for an evening race, a patriotic derby, or a tight print budget.
 
 ### Network and backups
 

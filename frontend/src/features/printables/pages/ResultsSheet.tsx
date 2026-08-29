@@ -29,6 +29,7 @@ import {
     type ResultsEntry,
 } from '../resultsSheet';
 import { scoreHeading } from '../../stats/standingsExport';
+import { printablesThemeRootProps } from '../printablesTheme';
 import '../PrintSheet.css';
 
 export default function ResultsSheet() {
@@ -60,7 +61,7 @@ export default function ResultsSheet() {
     const anything = hasResults(sections, awards);
 
     return (
-        <div className="printables-page">
+        <div className="printables-page" {...printablesThemeRootProps(data?.initialConfig?.printablesTheme)}>
             <div className="printables-controls no-print">
                 <div>
                     <Link

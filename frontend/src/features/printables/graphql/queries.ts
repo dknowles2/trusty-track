@@ -7,6 +7,9 @@ import { gql } from 'urql';
  */
 export const GET_PRINTABLES = gql`
   query GetPrintables($raceId: Int!) {
+    initialConfig {
+      printablesTheme
+    }
     race(raceId: $raceId) {
       id
       name
@@ -39,6 +42,9 @@ export const GET_PRINTABLES = gql`
  */
 export const GET_HEAT_SHEET = gql`
   query GetHeatSheet($raceId: Int!) {
+    initialConfig {
+      printablesTheme
+    }
     race(raceId: $raceId) {
       id
       name
@@ -84,6 +90,9 @@ export const GET_HEAT_SHEET = gql`
  */
 export const GET_RESULTS_SHEET = gql`
   query GetResultsSheet($raceId: Int!) {
+    initialConfig {
+      printablesTheme
+    }
     race(raceId: $raceId) {
       id
       name
@@ -125,6 +134,9 @@ export const GET_RESULTS_SHEET = gql`
  */
 export const GET_CERTIFICATES = gql`
   query GetCertificates($raceId: Int!) {
+    initialConfig {
+      printablesTheme
+    }
     race(raceId: $raceId) {
       id
       name

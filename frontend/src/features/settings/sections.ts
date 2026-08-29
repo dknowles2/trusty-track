@@ -12,7 +12,7 @@
  * doing is in `SystemSettings.tsx`. Same split as `raceFlow.ts`.
  */
 
-export type SectionId = 'general' | 'access' | 'tracks' | 'backup';
+export type SectionId = 'general' | 'appearance' | 'access' | 'tracks' | 'backup';
 
 export interface Section {
   id: SectionId;
@@ -35,6 +35,11 @@ export const SECTIONS: readonly Section[] = [
     blurb: 'Who you are, and what the race screens show.',
   },
   {
+    id: 'appearance',
+    label: 'Appearance',
+    blurb: 'How the screens, the wall display, and the printed pages look.',
+  },
+  {
     id: 'access',
     label: 'Access',
     blurb: 'Who on this network is allowed to change things.',
@@ -52,7 +57,7 @@ export const SECTIONS: readonly Section[] = [
 ];
 
 /** The sections that are part of the settings form, and so of one Save. */
-export const FORM_SECTIONS: readonly SectionId[] = ['general', 'access', 'tracks'];
+export const FORM_SECTIONS: readonly SectionId[] = ['general', 'appearance', 'access', 'tracks'];
 
 export const isFormSection = (id: SectionId): boolean => FORM_SECTIONS.includes(id);
 

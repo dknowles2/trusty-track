@@ -253,8 +253,10 @@ export type HistoricalTrackRecordInput = {
 export type InitialConfigInput = {
   checkinPin?: InputMaybe<Scalars['String']['input']>;
   debugMode?: Scalars['Boolean']['input'];
+  displayTheme?: InputMaybe<Scalars['String']['input']>;
   groupName: Scalars['String']['input'];
   operatorPin?: InputMaybe<Scalars['String']['input']>;
+  printablesTheme?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
 };
 
@@ -263,10 +265,12 @@ export type InitialConfigStatus = {
   currentRaceId?: Maybe<Scalars['Int']['output']>;
   debugMode: Scalars['Boolean']['output'];
   demoMode: Scalars['Boolean']['output'];
+  displayTheme: Scalars['String']['output'];
   groupName?: Maybe<Scalars['String']['output']>;
   initialized: Scalars['Boolean']['output'];
   isOperator: Scalars['Boolean']['output'];
   pinRequired: Scalars['Boolean']['output'];
+  printablesTheme: Scalars['String']['output'];
   tracks: Array<Track>;
   version: Scalars['String']['output'];
 };

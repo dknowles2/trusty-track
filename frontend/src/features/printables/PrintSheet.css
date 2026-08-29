@@ -112,6 +112,21 @@
     gap: 6px;
 }
 
+/*
+ * Newsprint (#498) does not set --print-header-gradient-start/-end at all —
+ * a filled header band is most of a pit pass's toner. Its header is a rule
+ * under white instead: the element, its height and its content are
+ * identical, only what paints behind it differs, which is why this is a
+ * decoration-level change rather than the structural one the hard
+ * constraints forbid.
+ */
+[data-theme='newsprint'] .print-card-header {
+    background: var(--print-surface-color);
+    background-image: none;
+    color: var(--print-text-color);
+    border-bottom: 2px solid var(--print-primary-color);
+}
+
 .print-card-kind {
     font-family: var(--font-header);
     font-size: 0.62rem;
@@ -147,6 +162,10 @@
     );
     background-size: 10px 10px;
     border-bottom: 2px solid var(--print-accent-color);
+    /* The chequered band is one of the three large-area decorative
+       gradients --print-decor-strength governs (#498) — Field Uniform's
+       value is 1 (unchanged); Newsprint's is 0.12. */
+    opacity: var(--print-decor-strength, 1);
 }
 
 .print-card-body {
@@ -298,6 +317,21 @@
     padding: 7px 9px;
     align-items: center;
     background-color: #f7faff;
+}
+
+/* The security wash's cross-hatch, as its own layer (rather than
+   `.print-card-body`'s own `background-image`) so `--print-decor-strength`
+   (#498) can fade it — the first of the three large-area decorative
+   gradients that token governs — without also fading the pale backdrop or
+   the fields on top of it. `.print-card-body` is already `position:
+   relative` (see above); its own children are lifted onto their own
+   stacking layer so this does not paint over them. */
+.drivers-license .print-card-body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
     background-image:
         repeating-linear-gradient(
             26deg,
@@ -307,6 +341,30 @@
         repeating-linear-gradient(
             -26deg,
             rgba(0, 63, 135, 0.055) 0 1px,
+            transparent 1px 7px
+        );
+    opacity: var(--print-decor-strength, 1);
+}
+
+.drivers-license .print-card-body > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* Newsprint (#498) sets --print-decor-color, its single-ink override — the
+   wash above is a hardcoded blue tint rather than a token read, so it is
+   the one place --print-primary-color/--print-accent-color both already
+   being black (Newsprint's own choice) is not enough on its own. */
+[data-theme='newsprint'] .drivers-license .print-card-body::before {
+    background-image:
+        repeating-linear-gradient(
+            26deg,
+            var(--print-decor-color) 0 1px,
+            transparent 1px 7px
+        ),
+        repeating-linear-gradient(
+            -26deg,
+            var(--print-decor-color) 0 1px,
             transparent 1px 7px
         );
 }
@@ -716,15 +774,6 @@
        gold now appears once, in the corners and under the recipient's name. */
     border: 4px double var(--print-primary-color);
     background: white;
-    /* A very faint gold wash out of all four corners, so the middle of the
-       page stays white where the names go. Four rather than two: on opposite
-       corners alone the page reads as lit from one side, which looks like a
-       printer fault rather than a border. */
-    background-image:
-        radial-gradient(circle at 0% 0%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
-        radial-gradient(circle at 100% 0%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
-        radial-gradient(circle at 0% 100%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
-        radial-gradient(circle at 100% 100%, rgba(252, 209, 22, 0.09) 0, transparent 15%);
     border-radius: var(--border-radius);
     position: relative;
     display: flex;
@@ -742,6 +791,38 @@
 
 .certificate:last-child {
     page-break-after: auto;
+}
+
+/* A very faint gold wash out of all four corners, so the middle of the page
+   stays white where the names go. Four rather than two: on opposite corners
+   alone the page reads as lit from one side, which looks like a printer
+   fault rather than a border. Its own pseudo-element (rather than
+   `.certificate`'s own `background-image`) so `--print-decor-strength` (#498)
+   can fade it — the second of the three large-area decorative gradients that
+   token governs — without also fading the border or the white page fill. */
+.certificate::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: var(--border-radius);
+    background-image:
+        radial-gradient(circle at 0% 0%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
+        radial-gradient(circle at 100% 0%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
+        radial-gradient(circle at 0% 100%, rgba(252, 209, 22, 0.09) 0, transparent 15%),
+        radial-gradient(circle at 100% 100%, rgba(252, 209, 22, 0.09) 0, transparent 15%);
+    opacity: var(--print-decor-strength, 1);
+}
+
+/* Newsprint's single-ink override (see the licence wash's comment above for
+   why the hardcoded gold here needs it and the checker/header do not). */
+[data-theme='newsprint'] .certificate::after {
+    background-image:
+        radial-gradient(circle at 0% 0%, var(--print-decor-color) 0, transparent 15%),
+        radial-gradient(circle at 100% 0%, var(--print-decor-color) 0, transparent 15%),
+        radial-gradient(circle at 0% 100%, var(--print-decor-color) 0, transparent 15%),
+        radial-gradient(circle at 100% 100%, var(--print-decor-color) 0, transparent 15%);
 }
 
 /* One flourish drawn, rotated into the other three corners — four separate
@@ -811,6 +892,9 @@
         rgba(0, 63, 135, 0.05) 0 1px,
         transparent 1px 7px
     );
+    /* The guilloche is the third of the three large-area decorative
+       gradients --print-decor-strength governs (#498). */
+    opacity: var(--print-decor-strength, 1);
     -webkit-mask-image: radial-gradient(
         closest-side,
         transparent 42%,
@@ -824,6 +908,16 @@
         #000 72%,
         #000 92%,
         transparent 100%
+    );
+}
+
+/* Newsprint's single-ink override (see the licence wash's comment above for
+   why the hardcoded blue here needs it and the checker/header do not). */
+[data-theme='newsprint'] .certificate::before {
+    background-image: repeating-radial-gradient(
+        circle at 50% 47%,
+        var(--print-decor-color) 0 1px,
+        transparent 1px 7px
     );
 }
 

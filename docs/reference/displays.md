@@ -33,8 +33,13 @@ listening cannot be told anything.
 
 When a heat [breaks the track record](stats-and-exports.md#the-track-record),
 the Projector view's results overlay and the Last heat's times view both
-carry a gold banner naming the new time and the record it beat. It fires
-only for a record that stood before today's race.
+carry a banner, in the [theme](themes.md)'s own accent colour, naming the new
+time and the record it beat. It fires only for a record that stood before
+today's race.
+
+The colours every screen here uses — including the projector's high-contrast
+dark background — come from whichever [theme](themes.md) Display is set to
+in System Settings, not a fixed palette.
 
 Notes on two of them:
 

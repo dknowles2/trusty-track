@@ -28,6 +28,9 @@ after — "what exactly counts toward the standings?", "which timers work?",
   works, every timer state, the remote start gate, and test runs.
 - **[Audience display views](displays.md)** — the six things a screen can
   show, and how assigning a view from Race Control works.
+- **[Themes](themes.md)** — the seven looks the app, the wall display, and
+  printed pages can each take, what "Match App theme" means, and the
+  printing/ink note.
 
 ## Paper and records
 

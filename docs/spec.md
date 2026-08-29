@@ -154,12 +154,21 @@ The current standings according to racing rules.
 
 A view of who is expected to be racing, annotated with racer names & car names. Could include pictures if it makes sense in the visual representation.
 
-## UI & Branding (Official BSA Guidelines)
+## UI & Branding
 
-  * **Primary Colors:**
-    * **Scouting Blue:** `#003F87` (Headers, Nav, Primary Buttons)
-    * **Cub Scouting Gold:** `#FCD116` (Check-In status, Call-to-Action)
+The Official BSA Guidelines — Scouting Blue (`#003F87`), Cub Scouting Gold
+(`#FCD116`) — are **Field Uniform**, the default of seven themes an operator
+can pick from (#498), not a fixed requirement. Three surfaces theme
+independently: **App** (the operator's own screens), **Display** (the
+audience/projector views), and **Printables** (pit passes, licences, heat
+sheets, certificates, results sheets). See
+[the Themes reference page](reference/themes.md) for the full list and what
+each is for.
+
   * **Typography:**
     * **Headers:** `Roboto Condensed Bold`
     * **Body:** `Roboto Regular`
-  * **Design Elements:** Rounded corners (12px) and high-contrast "Projector Mode" race observation views.
+  * **Design Elements:** Rounded corners (12px) never change. Every Display
+    theme is a high-contrast, dark palette — the requirement a single
+    hardcoded "Projector Mode" used to carry alone, now one property every
+    theme's Display definition satisfies.
