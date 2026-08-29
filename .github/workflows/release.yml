@@ -323,6 +323,22 @@ jobs:
         with:
           path: release-artifacts
 
+      # The landing page and install guides link straight to
+      # releases/latest/download/<asset> (#474) so the URL never has to
+      # change between releases. That only works if every release publishes
+      # an asset under the *same* name, so each build's versioned file
+      # (TrustyTrack-1.2.3-mac.dmg — kept for anyone browsing Assets on a
+      # specific release, or comparing an older version) gets a copy under a
+      # fixed name alongside it. The glob for one can't match the other:
+      # "TrustyTrack-*-mac.dmg" requires a "-" both before and after the
+      # version, which "TrustyTrack-mac.dmg" doesn't have.
+      - name: Create stable-named copies for direct downloads
+        run: |
+          cp release-artifacts/macos-dmg/TrustyTrack-*-mac.dmg \
+             release-artifacts/macos-dmg/TrustyTrack-mac.dmg
+          cp release-artifacts/windows-exe/TrustyTrack-*-setup.exe \
+             release-artifacts/windows-exe/TrustyTrack-setup.exe
+
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -332,5 +348,7 @@ jobs:
             --title "Trusty Track v$VERSION" \
             --generate-notes \
             release-artifacts/macos-dmg/TrustyTrack-*-mac.dmg \
+            release-artifacts/macos-dmg/TrustyTrack-mac.dmg \
             release-artifacts/windows-exe/TrustyTrack-*-setup.exe \
+            release-artifacts/windows-exe/TrustyTrack-setup.exe \
             release-artifacts/docker-compose/docker-compose-release.yml#docker-compose.yml
