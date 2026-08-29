@@ -49,6 +49,13 @@ among the first packs to use it.
 **Or use a spreadsheet.** Plenty of packs do, and for a first year with fifteen
 cars and a stopwatch it is a perfectly reasonable answer.
 
+**Better still, try two of them.** Trusty Track's
+[demo](https://demo.trusty-track.com) is a real race, already set up, that forgets
+everything you do when you leave. DerbyNet has a
+[playground](https://hosting.derbynet.org/playground.php) that gives you your own
+private instance for a couple of hours. Neither needs anything installed, and
+fifteen minutes in each will tell you more than this page can.
+
 ## Side by side
 
 | | **Trusty Track** | **GrandPrix RM** | **DerbyNet** | **Derby Magic** | **Derby Day!** |
@@ -62,6 +69,7 @@ cars and a stopwatch it is a perfectly reasonable answer.
 | **Race formats** | Perfect-N, championship, elimination, balanced, slowest | Several, more in Pro | Several | Several | Elimination only |
 | **Racer limit** | None | None | None | None | 15 |
 | **Racer and car photos** | Yes | Pro only | Yes | — | — |
+| **Try before installing** | Public demo | — | Hosted playground | — | — |
 | **Public since** | Jan 2026 | Version 26 | Jul 2015 | Long-established | Long-established |
 
 A blank cell means the program's own site does not say, not that the answer is
@@ -168,6 +176,8 @@ come fourth?" deserves an answer you can point at.
 - Derby Magic — [race management](https://derbymagic.com/race-management/) and
   [pricing](https://derbymagic.com/pricing-guide/)
 - Derby Day! — [derbydaysoftware.com](http://www.derbydaysoftware.com/)
+- DerbyNet's hosted trials — [playground](https://hosting.derbynet.org/playground.php)
+  and [DerbyNet in the Cloud](https://hosting.derbynet.org/)
 
 *Pinewood Derby is a registered trademark of the Boy Scouts of America. Awana
 Grand Prix is a registered trademark of Awana Clubs International. Other names
