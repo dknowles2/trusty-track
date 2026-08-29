@@ -14,7 +14,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { docsTrackId, ensureConfigured, gql, organizationId } from './support';
+import { docsTrackId, ensureConfigured, gql, organizationId, photosFor } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
@@ -73,7 +73,7 @@ test('screenshot the slowest race bracket', async ({ page }) => {
     }
 
     const racerIds: Record<number, number> = {};
-    for (const racer of RACERS) {
+    for (const [index, racer] of RACERS.entries()) {
         const created = await gql(
             page,
             `mutation Racer($racer: RacerInput!) { createRacer(racer: $racer) { id } }`,
@@ -86,6 +86,7 @@ test('screenshot the slowest race bracket', async ({ page }) => {
                     carNumber: racer.car,
                     carName: racer.name,
                     carPassedInspection: true,
+                    ...(await photosFor(page, index)),
                 },
             },
         );

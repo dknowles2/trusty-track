@@ -13,7 +13,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ensureConfigured, gql, organizationId } from './support';
+import { ensureConfigured, gql, organizationId, photosFor } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/free-race');
@@ -62,7 +62,7 @@ test('screenshot free race', async ({ page }) => {
     );
     const raceId = race.createRace.id;
 
-    for (const racer of RACERS) {
+    for (const [index, racer] of RACERS.entries()) {
         await gql(
             page,
             `mutation Racer($racer: RacerInput!) { createRacer(racer: $racer) { id } }`,
@@ -75,6 +75,7 @@ test('screenshot free race', async ({ page }) => {
                     carName: racer.name,
                     // Only checked-in racers can be put in a lane.
                     carPassedInspection: true,
+                    ...(await photosFor(page, index)),
                 },
             },
         );

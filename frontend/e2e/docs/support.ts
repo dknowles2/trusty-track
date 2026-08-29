@@ -24,7 +24,12 @@
  */
 
 import { expect, type Page } from '@playwright/test';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { SCREENSHOT_BACKEND_URL } from '../environment';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const BACKEND_URL = SCREENSHOT_BACKEND_URL;
 
@@ -208,6 +213,71 @@ export interface RacerSeed {
 }
 
 /**
+ * The racer portraits and car photographs that `populateRace` uses, uploaded
+ * once and handed out in a fixed order.
+ *
+ * Several specs build their roster with their own `createRacer` loop, because
+ * each one needs particular names and car numbers for its captions. None of
+ * them set a picture, so every avatar in the shots they own fell back to the
+ * racer's initials — while the specs that go through `populateRace` (the stats
+ * and observation ones, and race day, which drives the Populate Test Data
+ * dialog) had photographs. The same app looked like two different apps
+ * depending on which spec took the picture.
+ *
+ * The files are the ones the backend ships for exactly this purpose. Uploading
+ * them through `uploadImage` is what `populateRace` does internally too; doing
+ * it here rather than adding a mutation keeps the seeding in the spec layer.
+ *
+ * Sorted, cached, and handed out by index rather than at random: a screenshot
+ * that picks a different face per run rewrites an image with no visible cause,
+ * which is the churn `screenshots-setup.ts` exists to prevent.
+ */
+const REPO_ROOT = path.resolve(__dirname, '../../..');
+let photoCache: Promise<{ racers: string[]; cars: string[] }> | null = null;
+
+async function uploadDefaults(page: Page, kind: 'racers' | 'cars'): Promise<string[]> {
+    const dir = path.join(REPO_ROOT, 'backend', 'assets', 'defaults', kind);
+    const files = fs
+        .readdirSync(dir)
+        .filter((name) => name.endsWith('.png'))
+        .sort();
+    const urls: string[] = [];
+    for (const name of files) {
+        const dataUrl = `data:image/png;base64,${fs.readFileSync(path.join(dir, name)).toString('base64')}`;
+        const uploaded = await gql<{ uploadImage: string }>(
+            page,
+            `mutation SeedPhoto($dataUrl: String!) { uploadImage(dataUrl: $dataUrl) }`,
+            { dataUrl },
+        );
+        urls.push(uploaded.uploadImage);
+    }
+    return urls;
+}
+
+export function defaultPhotos(page: Page): Promise<{ racers: string[]; cars: string[] }> {
+    photoCache ??= (async () => ({
+        racers: await uploadDefaults(page, 'racers'),
+        cars: await uploadDefaults(page, 'cars'),
+    }))();
+    return photoCache;
+}
+
+/**
+ * The picture fields for the racer at `index`, cycling through the defaults the
+ * way `populateRace` does. Spread it into a `RacerInput`.
+ */
+export async function photosFor(
+    page: Page,
+    index: number,
+): Promise<{ racerImageUrl: string; carImageUrl: string }> {
+    const { racers, cars } = await defaultPhotos(page);
+    return {
+        racerImageUrl: racers[index % racers.length],
+        carImageUrl: cars[index % cars.length],
+    };
+}
+
+/**
  * Checked in as they are created, because that is what makes them eligible for
  * a heat — `generate_heats_for_round` fields from `car_passed_inspection`.
  */
@@ -218,7 +288,7 @@ export async function seedRacers(
     racingGroupIds: Record<string, number> = {},
 ): Promise<Record<number, number>> {
     const ids: Record<number, number> = {};
-    for (const racer of racers) {
+    for (const [index, racer] of racers.entries()) {
         const created = await gql<{ createRacer: { id: number } }>(
             page,
             `mutation SeedRacer($racer: RacerInput!) { createRacer(racer: $racer) { id } }`,
@@ -231,6 +301,7 @@ export async function seedRacers(
                     carNumber: racer.car,
                     carName: racer.carName,
                     carPassedInspection: true,
+                    ...(await photosFor(page, index)),
                 },
             },
         );

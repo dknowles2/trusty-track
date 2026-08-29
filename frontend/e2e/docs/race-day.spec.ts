@@ -304,11 +304,22 @@ test('take screenshots', async ({ page }) => {
     // lanes plus three car photos on deck is this view's settled state.
     await expect(page.locator('img[src*="/static/"]')).toHaveCount(6);
 
+    // Collapse the fake timer panel before photographing the screen behind it.
+    // Expanded, it is a floating box over the On Deck column, and this picture
+    // is the one the documentation and the landing page both use to show what
+    // Race Control looks like — so it was advertising a debugging aid over the
+    // thing it is meant to be showing, on a track that in a real hall has a
+    // real timer. Its own close-up is the next shot, which expands it again.
+    await page.getByText('Fake Timer Controls').click();
+    await expect(page.getByRole('button', { name: /Start Timer/i })).toBeHidden();
+
     // 12: the race execution view, with the lane assignments.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/12-race-execution-current-heat.png') });
 
     // 13: the Fake Timer Controls panel itself. It was a second copy of 12, so
     // the close-up the caption describes did not exist (#144).
+    await page.getByText('Fake Timer Controls').click();
+    await expect(page.getByRole('button', { name: /Start Timer/i })).toBeVisible();
     const timerPanel = page.locator('.fake-timer-mole');
     const panelBox = await timerPanel.boundingBox();
     await page.screenshot({

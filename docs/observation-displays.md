@@ -241,7 +241,10 @@ You can open the Observation page on as many devices as you want simultaneously 
 
 ## Display Without Photos
 
-If racer photos haven't been added, the Observation page still works — each racer gets a colored circle with their initials instead. The display is fully functional either way.
+If racer photos haven't been added, the Observation page still works — each racer
+gets a coloured circle with their initials instead. Adding photos during check-in
+makes the display nicer, but nothing here needs them.
 
-![Observation Without Photos](assets/screenshots/observation/01-observation-overview.png)
-_The Observation page works without photos — racers get colored circles with their initials instead. Adding photos during check-in makes the display nicer but is not required._
+(Every screenshot on this page has photographs in it, so none of them shows the
+fallback. There is nothing to see: the same layout, with a circle of initials
+where a face would be.)
