@@ -72,6 +72,14 @@ fi
 # no-credential default and a viewer can read a roster. Cloud Run only tells
 # you the URL after the first deploy, so the usual shape is deploy once, then
 # re-run with ALLOWED_ORIGINS set to the URL it printed.
+#
+# The app takes a comma-separated list, which is what a custom domain needs —
+# `https://demo.example.org,https://<service>.run.app`, so the old address goes
+# on working while DNS and the certificate settle. That comma is also why the
+# `--set-env-vars` below uses gcloud's `^|^` delimiter syntax rather than the
+# default: gcloud splits that flag on commas to find the *next variable*, so a
+# list-valued one is read as a key with no value and the deploy fails on a
+# syntax error naming the second origin. A single origin never showed it.
 ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-*}"
 
 # Fixed, so every visitor sees the same roster and the same times. In ordinary
@@ -129,7 +137,7 @@ gcloud run deploy "$SERVICE" \
   --cpu=1 \
   --timeout=900 \
   --cpu-boost \
-  --set-env-vars="TRUSTYTRACK_DEMO_MODE=1,TRUSTYTRACK_DEMO_SEED=${DEMO_SEED},TRUSTYTRACK_ALLOWED_ORIGINS=${ALLOWED_ORIGINS},TRUSTYTRACK_DATA_DIR=${DATA_DIR}"
+  --set-env-vars="^|^TRUSTYTRACK_DEMO_MODE=1|TRUSTYTRACK_DEMO_SEED=${DEMO_SEED}|TRUSTYTRACK_ALLOWED_ORIGINS=${ALLOWED_ORIGINS}|TRUSTYTRACK_DATA_DIR=${DATA_DIR}"
 
 cat <<'NOTE'
 

@@ -25,7 +25,7 @@ its reset.
 | --- | --- |
 | `TRUSTYTRACK_DEMO_MODE` | Turns the demo on. Absent means an ordinary install, which is every install that exists |
 | `TRUSTYTRACK_DEMO_SEED` | Fixes the invented data, so every visitor sees the same roster and the same times |
-| `TRUSTYTRACK_ALLOWED_ORIGINS` | Narrows CORS to the demo's own hostname. Defaults to `*`, which is right on a LAN and wrong on the internet |
+| `TRUSTYTRACK_ALLOWED_ORIGINS` | Narrows CORS to the demo's own hostname, or several separated by commas. Defaults to `*`, which is right on a LAN and wrong on the internet |
 | `TRUSTYTRACK_DATA_DIR` | Where it writes. On a host with no disk, point it somewhere ephemeral |
 | `PORT` | The port to listen on. Defaults to 8000; Cloud Run and Railway set it for you |
 
