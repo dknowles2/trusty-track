@@ -1,0 +1,105 @@
+name: Deploy Demo
+
+# Push a published image to the public demo on Cloud Run.
+#
+# Called by the release workflow once a stable version has been published to
+# GHCR, and runnable by hand from the Actions tab to put a specific version
+# back up. It deploys an image that already exists — it never builds one — so
+# the thing visitors click through is byte-for-byte the thing the release page
+# hands out, and this workflow needs no Cloud Build permissions at all.
+#
+# Everything it needs to know is a repository *variable* rather than a secret,
+# and that is deliberate on two counts: none of the four is secret (a Workload
+# Identity provider path and a service account email are both public-facing
+# identifiers, and keyless auth means there is no key to hide), and `secrets`
+# is not readable from a job-level `if` while `vars` is — so a fork, or this
+# repository before anybody has configured a project, skips the job cleanly
+# instead of failing a release.
+#
+#   DEMO_CLOUD_RUN_PROJECT              the GCP project id. Empty disables all of this
+#   DEMO_WORKLOAD_IDENTITY_PROVIDER     projects/<n>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+#   DEMO_DEPLOY_SERVICE_ACCOUNT         the service account this workflow impersonates
+#   DEMO_ALLOWED_ORIGINS                the demo's own URL, for CORS. Empty leaves the LAN wildcard
+#   DEMO_CLOUD_RUN_SERVICE / _REGION    optional; empty takes deploy.sh's own defaults
+#
+# The deployment itself is `deploy/cloudrun/deploy.sh`, called rather than
+# copied. Its flags are the documentation of what the demo is — one instance
+# for the in-process pub/sub, zero minimum so the instance dying is the reset —
+# and a second copy of them here would be free to disagree with it.
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: The published image to deploy.
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image to deploy, e.g. ghcr.io/dknowles2/trusty-track:1.2.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Cloud Run
+    runs-on: ubuntu-latest
+    # No project configured means this repository has no demo to push to.
+    if: vars.DEMO_CLOUD_RUN_PROJECT != ''
+    permissions:
+      contents: read
+      id-token: write # the OIDC token Workload Identity Federation exchanges
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.DEMO_CLOUD_RUN_PROJECT }}
+          workload_identity_provider: ${{ vars.DEMO_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.DEMO_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      # IMAGE set is deploy.sh's "deploy this, do not build" path. The empty
+      # variables fall through to the script's own defaults, which is why they
+      # are passed unconditionally rather than composed into a command line.
+      - name: Deploy
+        env:
+          IMAGE: ${{ inputs.image }}
+          PROJECT: ${{ vars.DEMO_CLOUD_RUN_PROJECT }}
+          SERVICE: ${{ vars.DEMO_CLOUD_RUN_SERVICE }}
+          REGION: ${{ vars.DEMO_CLOUD_RUN_REGION }}
+          ALLOWED_ORIGINS: ${{ vars.DEMO_ALLOWED_ORIGINS }}
+        run: ./deploy/cloudrun/deploy.sh
+
+      # Cloud Run reports a revision healthy once the container answers on
+      # $PORT, which the app does before it has finished seeding. Asking for
+      # /health afterwards is what proves the thing a visitor lands on actually
+      # came up — and with --min-instances=0 there is nothing running to ask
+      # until somebody does, so this doubles as the cold start.
+      - name: Check the demo answers
+        env:
+          PROJECT: ${{ vars.DEMO_CLOUD_RUN_PROJECT }}
+          SERVICE: ${{ vars.DEMO_CLOUD_RUN_SERVICE }}
+          REGION: ${{ vars.DEMO_CLOUD_RUN_REGION }}
+        run: |
+          URL=$(gcloud run services describe "${SERVICE:-trusty-track-demo}" \
+            --project="$PROJECT" \
+            --region="${REGION:-us-central1}" \
+            --format='value(status.url)')
+          echo "Demo at $URL"
+          for i in $(seq 1 30); do
+            if curl -fsS "$URL/health"; then
+              echo "healthy"
+              echo "Deployed [\`${{ inputs.image }}\`]($URL)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the demo never answered /health" >&2
+          exit 1

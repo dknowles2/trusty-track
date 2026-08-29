@@ -62,6 +62,12 @@ jobs:
     permissions:
       contents: read
       packages: write
+    # Read by the demo deploy below: it pushes the image this job published,
+    # and only for a plain X.Y.Z — a release candidate must not become the
+    # thing the front page sends people to.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      stable: ${{ steps.version.outputs.stable }}
     steps:
       - uses: actions/checkout@v7
 
@@ -271,6 +277,30 @@ jobs:
         with:
           name: windows-exe
           path: dist/TrustyTrack-*-setup.exe
+
+  # -------------------------------------------------------------------
+  # Public demo — push the image just published to Cloud Run.
+  #
+  # Deliberately not a dependency of `create-release`. A release is a set of
+  # artefacts people download; the demo is one hosted instance, and a Cloud Run
+  # outage or an expired credential must not hold up the release page or the
+  # installers. If it fails, the release still stands and this job is re-run by
+  # hand from the Actions tab.
+  #
+  # Pre-releases are skipped for the same reason they do not claim `latest`:
+  # the demo is where the docs and the front page send an evaluator, so it
+  # follows stable versions only.
+  # -------------------------------------------------------------------
+  deploy-demo:
+    name: Public Demo
+    needs: docker
+    if: needs.docker.outputs.stable == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-demo.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/trusty-track:${{ needs.docker.outputs.version }}
 
   # -------------------------------------------------------------------
   # Create GitHub Release

@@ -68,6 +68,57 @@ disposes its connection rather than retrying, and starting again is a reload.
 
 ## Deploying it
 
+### On a release
+
+Tagging a stable version pushes it to the demo. The release workflow publishes
+the image, and its `Public Demo` job then points Cloud Run at that exact
+version and waits for `/health` to answer before it calls the deploy good.
+
+Three things about it:
+
+- **It deploys the published image; it never builds one.** What a visitor
+  clicks through is the same image the release page hands out.
+- **A release candidate is skipped**, exactly as one does not claim the
+  `latest` Docker tag. The demo is where this site sends an evaluator, so it
+  follows stable versions only.
+- **A failed deploy does not fail the release.** The installers and the release
+  page do not wait on it, and the job can be re-run on its own from the Actions
+  tab — or run by hand from there against any published version.
+
+It stays switched off until the repository has somewhere to deploy *to*: the
+job is skipped unless a `DEMO_CLOUD_RUN_PROJECT` repository variable names a
+project, so a fork releases without it.
+
+Setting it up is four repository variables and one Google Cloud identity.
+Authentication is [Workload Identity
+Federation](https://cloud.google.com/iam/docs/workload-identity-federation) —
+GitHub proves who it is with a short-lived token, so there is no service
+account key in this repository to leak or rotate. In the Google Cloud project:
+create a Workload Identity pool with a GitHub provider, restrict it to this
+repository, and let it impersonate a service account holding **Cloud Run Admin**
+(`roles/run.admin`) and **Service Account User** (`roles/iam.serviceAccountUser`)
+— the first to deploy the service, the second to let it act as the runtime
+account. Then, under **Settings → Secrets and variables → Actions →
+Variables**:
+
+| Variable | What it holds |
+| --- | --- |
+| `DEMO_CLOUD_RUN_PROJECT` | The project id. Absent, nothing deploys |
+| `DEMO_WORKLOAD_IDENTITY_PROVIDER` | The provider's full resource name, `projects/…/providers/…` |
+| `DEMO_DEPLOY_SERVICE_ACCOUNT` | The service account to impersonate |
+| `DEMO_ALLOWED_ORIGINS` | The demo's own URL, so CORS stops being the LAN wildcard |
+| `DEMO_CLOUD_RUN_SERVICE`, `DEMO_CLOUD_RUN_REGION` | Optional; empty takes the script's own defaults |
+
+Variables rather than secrets, and not by accident: none of them is a secret
+once the key is gone, and GitHub will not let a job decide whether to run based
+on a secret — which is what lets the job skip quietly on a repository that has
+no demo instead of failing somebody's release.
+
+The workflow calls `deploy/cloudrun/deploy.sh` rather than repeating its flags,
+so there is one description of what the demo is.
+
+### By hand
+
 `deploy/cloudrun/deploy.sh` deploys to Cloud Run, two ways:
 
 ```bash
