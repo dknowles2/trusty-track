@@ -17,6 +17,7 @@ import Modal from '../../../components/ui/Modal';
 import StatusBanner from '../../../components/ui/StatusBanner';
 import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
+import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 import AwardArtwork from '../artwork';
 import { carLabel, describeSpeedAward, racerLabel } from '../awardText';
@@ -64,6 +65,7 @@ export default function Awards() {
   const id = parseInt(raceId || '0');
   const { showConfirm } = useAlert();
   const runMutation = useRunMutation();
+  const { groupLower, orgLower } = useTerminology();
 
   // The App surface's own theme (#498), read once per render — this device's
   // `localStorage`, never the server. Under the Lights is the only one of
@@ -270,7 +272,7 @@ export default function Awards() {
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted-color)' }}>
           <Icon path={mdiTrophyOutline} size={2} color="var(--input-border-color)" />
           <p style={{ marginTop: '1rem' }}>
-            No awards yet. Add the ones your pack hands out — Best Paint and Most
+            No awards yet. Add the ones your {orgLower} hands out — Best Paint and Most
             Original as well as the fast ones.
           </p>
         </div>
@@ -326,7 +328,7 @@ export default function Awards() {
               <strong>{award.name}</strong>
               <div style={{ color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
                 {award.kind === 'SPEED'
-                  ? describeSpeedAward(award, rounds, racingGroups)
+                  ? describeSpeedAward(award, rounds, racingGroups, groupLower)
                   : 'Chosen by the judges'}
               </div>
             </div>

@@ -82,6 +82,9 @@ export function describeSpeedAward(
   award: SpeedAwardParts,
   rounds: NamedRound[],
   racingGroups: NamedRacingGroup[],
+  /** The lowercase racing-group word, for the "no longer exists" fallback.
+   * Defaults to the built-in Scouting one (#496 stage 4). */
+  groupWord = 'den',
 ): string {
   if (!award.source || !award.place) {
     // A row missing its rule. The backend resolves it to nobody rather than
@@ -94,7 +97,7 @@ export function describeSpeedAward(
     award.source === ALL_SOURCE ? 'overall' : `in ${sourceLabel(award.source, rounds)}`;
 
   const racingGroup = award.racingGroupId ? racingGroups.find((d) => d.id === award.racingGroupId) : undefined;
-  if (award.racingGroupId && !racingGroup) return `${position} ${where} — a racingGroup that no longer exists`;
+  if (award.racingGroupId && !racingGroup) return `${position} ${where} — a ${groupWord} that no longer exists`;
   if (racingGroup) return `${position} in ${racingGroup.name}`;
 
   return `${position} ${where}`;

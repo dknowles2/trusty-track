@@ -48,7 +48,7 @@ describe('standingsRows', () => {
             'Car #',
             'First Name',
             'Last Name',
-            'Racing Group',
+            'Den',
             'Points',
             'Heats',
         ]);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { RacingGroup } from './RacerForm';
 import { COMMON_COLORS } from '../../../utils/colors';
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 import { Icon } from '@mdi/react';
 import { mdiPlus, mdiPencil, mdiDelete } from '@mdi/js';
 import { useMutation, useQuery } from 'urql';
@@ -17,6 +18,7 @@ interface RacingGroupManagerProps {
 
 export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupManagerProps) {
     const { showAlert, showConfirm } = useAlert();
+    const { group, groupLower, groupsLower } = useTerminology();
 
     const [{ data }, reexecuteQuery] = useQuery({
         query: GET_RACE_DETAILS,
@@ -90,15 +92,18 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
             setIsAddingRacingGroup(false);
             refreshRacingGroups();
         } catch (e) {
-            console.error("Failed to add racing group", e);
-            showAlert("Failed to add racing group", "Error");
+            console.error(`Failed to add ${groupLower}`, e);
+            showAlert(`Failed to add ${groupLower}`, "Error");
         } finally {
             setLoading(false);
         }
     };
 
     const handleDeleteRacingGroup = async (racingGroupId: number) => {
-        const confirmed = await showConfirm("Are you sure? Racers in this racing group will be unassigned.", "Delete Racing Group");
+        const confirmed = await showConfirm(
+            `Are you sure? Racers in this ${groupLower} will be unassigned.`,
+            `Delete ${group}`,
+        );
         if (!confirmed) return;
 
         try {
@@ -106,15 +111,15 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
             if (result.error) throw result.error;
             if (!result.data?.deleteRacingGroup) {
                 showAlert(
-                    "This racing group can't be deleted while a round is scoped to it. Remove or reassign that round first.",
+                    `This ${groupLower} can't be deleted while a round is scoped to it. Remove or reassign that round first.`,
                     "Error"
                 );
                 return;
             }
             refreshRacingGroups();
         } catch (e) {
-            console.error("Failed to delete racing group", e);
-            showAlert("Failed to delete racing group", "Error");
+            console.error(`Failed to delete ${groupLower}`, e);
+            showAlert(`Failed to delete ${groupLower}`, "Error");
         }
     };
 
@@ -146,8 +151,8 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
             setEditingRacingGroupId(null);
             refreshRacingGroups();
         } catch (e) {
-            console.error("Failed to update racing group", e);
-            showAlert("Failed to update racing group", "Error");
+            console.error(`Failed to update ${groupLower}`, e);
+            showAlert(`Failed to update ${groupLower}`, "Error");
         } finally {
             setLoading(false);
         }
@@ -205,11 +210,11 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                     className="secondary-btn"
                     style={{ width: '100%', marginBottom: '20px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
-                    <Icon path={mdiPlus} size={0.8} /> Add New Racing Group
+                    <Icon path={mdiPlus} size={0.8} /> Add New {group}
                     </button>
             ) : (
                 <form onSubmit={handleAddRacingGroup} style={{ marginBottom: '20px', padding: '15px', background: 'var(--surface-tint-color)', borderRadius: '8px', border: '1px solid var(--divider-color)' }}>
-                    <h4 style={{ marginTop: 0 }}>Add New Racing Group</h4>
+                    <h4 style={{ marginTop: 0 }}>Add New {group}</h4>
                     <div style={{ marginBottom: '10px' }}>
                             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '3px' }}>Name</label>
                             <input
@@ -288,7 +293,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                             <button type="submit" disabled={loading} className="primary-btn" style={{ flex: 1 }}>
-                            {loading ? 'Adding...' : 'Add Racing Group'}
+                            {loading ? 'Adding...' : `Add ${group}`}
                         </button>
                         <button type="button" onClick={() => setIsAddingRacingGroup(false)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}>
                             Cancel
@@ -394,14 +399,14 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                                     <button
                                         onClick={() => handleEditRacingGroupClick(racingGroup)}
                                         style={{ marginRight: '10px', background: 'none', border: 'none', color: 'var(--link-color)', cursor: 'pointer', padding: '4px' }}
-                                        title="Edit Racing Group"
+                                        title={`Edit ${group}`}
                                     >
                                         <Icon path={mdiPencil} size={0.7} />
                                     </button>
                                     <button
                                         onClick={() => handleDeleteRacingGroup(racingGroup.id)}
                                         style={{ color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-                                        title="Delete Racing Group"
+                                        title={`Delete ${group}`}
                                     >
                                         <Icon path={mdiDelete} size={0.7} />
                                     </button>
@@ -410,7 +415,7 @@ export default function RacingGroupManager({ raceId, onUpdate }: RacingGroupMana
                         )}
                     </li>
                 ))}
-                {visibleRacingGroups.length === 0 && <li style={{ padding: '10px', color: 'var(--text-faint-color)', textAlign: 'center' }}>No racing groups found.</li>}
+                {visibleRacingGroups.length === 0 && <li style={{ padding: '10px', color: 'var(--text-faint-color)', textAlign: 'center' }}>No {groupsLower} found.</li>}
             </ul>
             )}
         </div>

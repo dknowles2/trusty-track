@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 
 import { DEFAULT_LIMIT_OZ, formatOunces } from '../weightCheck';
 import { DEFAULT_TERMINOLOGY } from '../../settings/terminologyDefaults';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 export interface RaceFormData {
     name: string;
@@ -51,6 +52,7 @@ import { useQuery } from 'urql';
 import { GET_TRACKS } from '../../core/graphql/queries';
 
 export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', isEditing = false }: RaceFormProps) {
+    const { group } = useTerminology();
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
         date_time: '',
@@ -361,7 +363,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     style={inputStyle}
                 >
                     <option value="MANUAL">Manual</option>
-                    <option value="PER_GROUP">Per Racing Group</option>
+                    <option value="PER_GROUP">Per {group}</option>
                     <option value="GLOBAL">Global</option>
                 </select>
             </div>

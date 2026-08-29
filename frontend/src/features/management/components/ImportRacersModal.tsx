@@ -6,7 +6,7 @@ import { errorText } from '../../../utils/errors';
 import {
     applyMapping,
     canImport,
-    FIELD_LABELS,
+    fieldLabels,
     FIELDS,
     guessMapping,
     parseCsv,
@@ -17,6 +17,7 @@ import {
     type Mapping,
     type ParsedCsv,
 } from '../csvMapping';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface ImportRacersModalProps {
     isOpen: boolean;
@@ -38,6 +39,8 @@ const PREVIEW_ROWS = 5;
  * file, so the import is exactly what the preview showed.
  */
 export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuccess }: ImportRacersModalProps) {
+    const { group } = useTerminology();
+    const FIELD_LABELS = fieldLabels(group);
     const [fileName, setFileName] = useState<string | null>(null);
     const [parsed, setParsed] = useState<ParsedCsv | null>(null);
     const [mapping, setMapping] = useState<Mapping | null>(null);
@@ -118,7 +121,7 @@ export default function ImportRacersModal({ isOpen, onClose, raceId, onImportSuc
     };
 
     const downloadTemplate = () => {
-        const url = URL.createObjectURL(new Blob([templateCsv()], { type: 'text/csv' }));
+        const url = URL.createObjectURL(new Blob([templateCsv(group)], { type: 'text/csv' }));
         const link = document.createElement('a');
         link.href = url;
         link.download = 'trusty-track-roster-template.csv';

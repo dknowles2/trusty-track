@@ -6,6 +6,7 @@ import { CREATE_ROUND_WIZARD } from '../graphql/queries';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { minutesEstimate } from '../../../utils/duration';
 import Modal from '../../../components/ui/Modal';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface RoundWizardProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   championshipTrophies,
   onCreated,
 }) => {
+  const { group, groupLower, groupsLower, org, orgLower } = useTerminology();
   const [step, setStep] = useState(1);
   const [generalConfig, setGeneralConfig] = useState<GeneralConfig>({
     type: 'ALL',
@@ -84,7 +86,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     // General Round
     const generalHeats = heatsFor(racerCount, generalConfig.runsPerLane);
     rounds.push({
-      name: `${generalConfig.type === 'ALL' ? 'All Pack' : 'Racing Group'} Round`,
+      name: `${generalConfig.type === 'ALL' ? `All ${org}` : group} Round`,
       heats: generalHeats,
       duration: Math.ceil(generalHeats * ESTIMATED_HEAT_DURATION_MIN)
     });
@@ -252,15 +254,15 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     style={configCardStyle(generalConfig.type === 'ALL')}
                     onClick={() => setGeneralConfig({ ...generalConfig, type: 'ALL' })}
                   >
-                    <div style={{ fontWeight: 500 }}>All Pack</div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Every racer races against everyone else in the pack.</div>
+                    <div style={{ fontWeight: 500 }}>All {org}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Every racer races against everyone else in the {orgLower}.</div>
                   </div>
                   <div
                     style={configCardStyle(generalConfig.type === 'EACH_GROUP')}
                     onClick={() => setGeneralConfig({ ...generalConfig, type: 'EACH_GROUP' })}
                   >
-                    <div style={{ fontWeight: 500 }}>By Racing Group</div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Racers only race against others in their own racing group initially.</div>
+                    <div style={{ fontWeight: 500 }}>By {group}</div>
+                    <div style={{ fontSize: '0.875rem', color: 'var(--wizard-text-muted-color)', marginTop: '0.25rem' }}>Racers only race against others in their own {groupLower} initially.</div>
                   </div>
                 </div>
               </div>
@@ -323,8 +325,8 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                           value={round.source}
                           onChange={(e) => updateChampionshipRound(round.id, { source: e.target.value as 'ALL' | 'EACH_GROUP' })}
                         >
-                          <option value="ALL">Top Overall (Pack)</option>
-                          <option value="EACH_GROUP">Top per Racing Group</option>
+                          <option value="ALL">Top Overall ({org})</option>
+                          <option value="EACH_GROUP">Top per {group}</option>
                         </select>
                       ) : (
                         <div
@@ -337,7 +339,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     </div>
                     <div>
                       <label style={{ ...labelStyle, fontSize: '0.75rem' }}>
-                        {round.source === 'ALL' ? 'Number of Finalists' : 'Advancing per Racing Group'}
+                        {round.source === 'ALL' ? 'Number of Finalists' : `Advancing per ${group}`}
                       </label>
                       <input
                         type="number"
@@ -391,10 +393,10 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
                     </div>
                     <p style={{ fontSize: '0.875rem', color: 'var(--wizard-text-subtle-color)', margin: '0.25rem 0 0 0' }}>
                       {idx === 0 ? (
-                        generalConfig.type === 'ALL' ? 'All racers compete against each other.' : 'Racers compete within their racing groups.'
+                        generalConfig.type === 'ALL' ? 'All racers compete against each other.' : `Racers compete within their ${groupsLower}.`
                       ) : (
                         `Advances top ${championshipRounds[idx-1].numTopRacers} racers ${
-                          championshipRounds[idx-1].source === 'EACH_GROUP' ? ' from each racing group' :
+                          championshipRounds[idx-1].source === 'EACH_GROUP' ? ` from each ${groupLower}` :
                           championshipRounds[idx-1].source === 'PREVIOUS' ? ` from ${championshipRounds[idx-2]?.name || 'previous round'}` :
                           ' overall'
                         }.`

@@ -10,7 +10,13 @@
  * Pure, and deliberately derived from data the roster already has rather than
  * from anything the operator ticks off by hand. A checklist somebody has to
  * maintain is a second copy of the truth, and it is the copy that goes stale.
+ *
+ * `checklistFor` takes the resolved terminology words rather than reading
+ * `useTerminology()` itself — same split as `raceFlow.ts`, a rule here and
+ * the one React hook that supplies it in `SetupChecklist.tsx` (#496 stage 4).
  */
+
+import type { TerminologyWords } from '../../context/TerminologyContext';
 
 export interface SetupProgress {
     racingGroupCount: number;
@@ -56,16 +62,17 @@ export interface ChecklistStep {
  * hint is what actually answers "are we ready to start", and it keeps counting
  * after the step is ticked.
  */
-export function checklistFor(progress: SetupProgress): ChecklistStep[] {
+export function checklistFor(progress: SetupProgress, words: TerminologyWords): ChecklistStep[] {
     const { racingGroupCount, racerCount, checkedInCount, roundCount } = progress;
+    const { groupsLower } = words;
 
     return [
         {
             key: 'racingGroups',
-            label: 'Set up racing groups',
-            hint: 'Group racers into racing groups so they can be scored and awarded separately.',
+            label: `Set up ${groupsLower}`,
+            hint: `Group racers into ${groupsLower} so they can be scored and awarded separately.`,
             done: racingGroupCount > 0 || racerCount > 0,
-            action: 'Set up racing groups',
+            action: `Set up ${groupsLower}`,
         },
         {
             key: 'racers',

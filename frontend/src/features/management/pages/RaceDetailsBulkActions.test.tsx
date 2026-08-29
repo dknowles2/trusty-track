@@ -332,7 +332,7 @@ describe('RaceDetails Bulk Actions', () => {
         expect(screen.getByRole('button', { name: /^Scan$/i })).toBeInTheDocument();
         expect(screen.getByTestId('roster-more-menu')).toBeInTheDocument();
 
-        expect(screen.queryByRole('button', { name: /Manage Racing Groups/i })).toBeNull();
+        expect(screen.queryByRole('button', { name: /Manage Dens/i })).toBeNull();
         expect(screen.queryByRole('button', { name: /Upload Photos/i })).toBeNull();
         expect(screen.queryByRole('button', { name: /^Print/i })).toBeNull();
     });
@@ -349,7 +349,7 @@ describe('RaceDetails Bulk Actions', () => {
         await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
         await user.click(screen.getByTestId('roster-more-menu'));
 
-        expect(screen.getByRole('button', { name: /Manage Racing Groups/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Manage Dens/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Upload Photos/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /^Print/i })).toBeInTheDocument();
     });

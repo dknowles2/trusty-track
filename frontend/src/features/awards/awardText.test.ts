@@ -133,7 +133,7 @@ describe('describing a speed award', () => {
   it('says when the racingGroup is gone', () => {
     expect(
       describeSpeedAward({ source: ALL_SOURCE, place: 1, racingGroupId: 99 }, ROUNDS, RACING_GROUPS),
-    ).toBe('Fastest overall — a racingGroup that no longer exists');
+    ).toBe('Fastest overall — a den that no longer exists');
   });
 });
 

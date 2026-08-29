@@ -66,8 +66,11 @@ export interface AwardLine {
 /** What an award with no recipient says. */
 export const UNDECIDED = 'Not awarded';
 
-/** A racer with no racingGroup still belongs in the overall table. */
-export const NO_DEN = 'No racingGroup';
+/** A racer with no racing group still belongs in the overall table — the
+ * built-in Scouting word, `DEFAULT_TERMINOLOGY.racingGroupSingular` lowercase
+ * (#496 stage 4). `resultsSections` takes the resolved word and falls back to
+ * this only when none is given. */
+export const NO_DEN = 'No den';
 
 export const OVERALL = 'Overall standings';
 
@@ -78,6 +81,7 @@ function nameOf(entry: { firstName: string; lastName: string }): string {
 function rowsFrom(
     entries: readonly ResultsEntry[],
     scoringStrategy: string,
+    noGroupLabel: string,
 ): ResultRow[] {
     return entries.map((entry, index) => ({
         racerId: entry.racerId,
@@ -87,7 +91,7 @@ function rowsFrom(
         place: index + 1,
         name: nameOf(entry),
         carNumber: entry.carNumber == null ? '' : String(entry.carNumber),
-        racingGroupName: entry.racingGroupName || NO_DEN,
+        racingGroupName: entry.racingGroupName || noGroupLabel,
         score: scoreValue(entry.score, scoringStrategy),
         heats: entry.heatsCompleted,
     }));
@@ -107,11 +111,14 @@ function rowsFrom(
 export function resultsSections(
     standings: readonly ResultsEntry[],
     scoringStrategy: string,
+    /** The "no racing group" fallback, resolved from `useTerminology()`.
+     * Defaults to the built-in Scouting word (#496 stage 4). */
+    noGroupLabel: string = NO_DEN,
 ): ResultsSection[] {
     if (standings.length === 0) return [];
 
     const sections: ResultsSection[] = [
-        { title: OVERALL, rows: rowsFrom(standings, scoringStrategy) },
+        { title: OVERALL, rows: rowsFrom(standings, scoringStrategy, noGroupLabel) },
     ];
 
     const byRacingGroup = new Map<string, ResultsEntry[]>();
@@ -128,7 +135,7 @@ export function resultsSections(
     // A single racingGroup is the whole pack, so its table would repeat the one above.
     if (byRacingGroup.size > 1) {
         for (const [racingGroupName, entries] of byRacingGroup) {
-            sections.push({ title: racingGroupName, rows: rowsFrom(entries, scoringStrategy) });
+            sections.push({ title: racingGroupName, rows: rowsFrom(entries, scoringStrategy, noGroupLabel) });
         }
     }
 

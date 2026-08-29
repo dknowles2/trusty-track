@@ -192,7 +192,7 @@ test('screenshot the awards screens', async ({ page }) => {
     await page.getByLabel('Award name').fill('Fastest Wolf');
     await page.getByText('Speed-based').click();
     await expect(page.getByLabel('Standings to use')).toBeVisible();
-    await page.getByLabel('Limited to a racingGroup').selectOption(String(wolvesId));
+    await page.getByLabel('Limited to a den').selectOption(String(wolvesId));
     await page.waitForTimeout(300);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '02-speed-award-form.png') });
 

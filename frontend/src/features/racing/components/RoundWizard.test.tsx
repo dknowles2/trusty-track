@@ -94,7 +94,7 @@ describe('RoundWizard Component', () => {
         expect(screen.getByText('Race Schedule Wizard')).toBeInTheDocument();
         expect(screen.getByText('Quickly generate a complete race schedule based on your settings.')).toBeInTheDocument();
         expect(screen.getByText('All Pack')).toBeInTheDocument();
-        expect(screen.getByText('By Racing Group')).toBeInTheDocument();
+        expect(screen.getByText('By Den')).toBeInTheDocument();
     });
 
     it('calculates estimation correctly in Step 3 (with default championship)', async () => {

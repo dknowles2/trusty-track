@@ -20,11 +20,13 @@ import { displayId } from '../../observation/displayIdentity';
 import { DisplayAssignmentSubscription } from '../../observation/graphql/queries';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 export default function AwardCeremony() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
   const navigate = useNavigate();
+  const { groupLower } = useTerminology();
   const [index, setIndex] = useState(0);
 
   // Stay on the operator's leash. A screen arrives here because it was
@@ -120,7 +122,7 @@ export default function AwardCeremony() {
 
   if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
-  const slide = slideFor(awards, index, rounds, racingGroups);
+  const slide = slideFor(awards, index, rounds, racingGroups, groupLower);
 
   return (
     <div

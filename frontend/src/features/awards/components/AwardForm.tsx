@@ -16,6 +16,7 @@
 
 import { useState } from 'react';
 import { AWARD_TEMPLATES, templateById } from '../awardTemplates';
+import { useTerminology } from '../../../context/TerminologyContext';
 import {
   NamedRacingGroup,
   NamedRound,
@@ -79,6 +80,7 @@ export default function AwardForm({
   onSubmit,
   onCancel,
 }: Props) {
+  const { groupLower, orgLower } = useTerminology();
   const [draft, setDraft] = useState<AwardDraft>({ ...EMPTY, ...initial });
   // Which template the picker last applied, purely to show its blurb as help
   // text (#440) — the name and artwork fields it wrote are the only lasting
@@ -226,7 +228,7 @@ export default function AwardForm({
             </div>
             <div style={{ flex: 1, minWidth: '9rem' }}>
               <label htmlFor="award-racing-group" style={{ display: 'block', fontSize: '0.9rem' }}>
-                Limited to a racingGroup
+                Limited to a {groupLower}
               </label>
               <select
                 id="award-racing-group"
@@ -234,7 +236,7 @@ export default function AwardForm({
                 onChange={(e) => set('racingGroupId', e.target.value ? Number(e.target.value) : null)}
                 className="form-control"
               >
-                <option value="">The whole pack</option>
+                <option value="">The whole {orgLower}</option>
                 {racingGroups.map((racingGroup) => (
                   <option key={racingGroup.id} value={racingGroup.id}>
                     {racingGroup.name}
@@ -302,7 +304,7 @@ export default function AwardForm({
             />{' '}
             Let people vote for this
             <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem' }}>
-              Turn off for an award your pack's leaders would rather decide
+              Turn off for an award your {orgLower}'s leaders would rather decide
               privately.
             </small>
           </label>

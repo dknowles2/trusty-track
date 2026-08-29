@@ -17,6 +17,7 @@ import {
     type SetupProgress,
     type StepKey,
 } from '../setupChecklist';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface Props {
     progress: SetupProgress;
@@ -25,7 +26,8 @@ interface Props {
 }
 
 export default function SetupChecklist({ progress, onAction }: Props) {
-    const steps = checklistFor(progress);
+    const words = useTerminology();
+    const steps = checklistFor(progress, words);
     if (!shouldShowChecklist(steps)) return null;
 
     const next = nextStep(steps);
