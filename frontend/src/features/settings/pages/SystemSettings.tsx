@@ -450,13 +450,13 @@ export default function SystemConfig() {
                     />
                   </div>
 
-                  {/* Custom terminology (#496 stage 3). A checkbox as well as
-                      four inputs, the same shape as the weight limit above:
-                      "off" and "on but blank" have to be different answers,
-                      and an empty box cannot tell them apart. Nothing reads
-                      the resolved words yet — this is only where they are
-                      set. */}
-                  <div style={{ marginBottom: '2rem' }}>
+                  {/* Custom terminology (#496 stage 3, consumed by stage 4's
+                      useTerminology()). A checkbox as well as four inputs,
+                      the same shape as the weight limit above: "off" and "on
+                      but blank" have to be different answers, and an empty
+                      box cannot tell them apart. See
+                      docs/reference/race-settings.md#the-words-on-screen. */}
+                  <div data-testid="terminology-fields" style={{ marginBottom: '2rem' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
                       <input
                         type="checkbox"

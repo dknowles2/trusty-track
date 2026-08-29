@@ -109,6 +109,11 @@ race day, and children's names and photographs stay on your own machine.
 The rules are also written down. When a parent asks why their child came fourth,
 [Reference](reference/index.md) has the answer in full.
 
+It is built for Cub Scout Pinewood Derby, and the others on this page are too —
+but the words on screen are not fixed. A school, a club, or any group racing
+the same format can rename "Den" and "Pack" to their own, install-wide or per
+race; see [the words on screen](reference/race-settings.md#the-words-on-screen).
+
 ## Sources
 
 - GrandPrix Race Manager — [product page](https://www.grandprix-software-central.com/gprm/)

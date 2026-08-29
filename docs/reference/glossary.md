@@ -26,7 +26,9 @@ check-in form when scanned. See [Printed documents](printing.md#check-in-codes).
 
 **Den** — a group within the race (Lions, Tigers, Wolves…). Used for
 den-only rounds, per-den championships, car number ranges, and the den
-tables on printed results.
+tables on printed results. "Den" is the built-in word for this — a pack can
+rename it, and anything else on screen, to fit a different kind of race; see
+[the words on screen](race-settings.md#the-words-on-screen).
 
 **Display** — any screen showing the Live page: a projector, a TV, a tablet
 on the wall. Displays need no PIN and cannot change anything. See
@@ -86,6 +88,10 @@ car in it scratched. See
 **Standings** — the ranked results. The overall standings cover the
 qualifying rounds; each championship round has its own page. See
 [Scoring](scoring.md#what-the-overall-standings-cover).
+
+**Terminology** — the words the app uses for a racing group and for the
+organization itself, "Den" and "Pack" by default and renameable install-wide
+or per race. See [the words on screen](race-settings.md#the-words-on-screen).
 
 **Timed** — the default scoring choice: each car's score is its average
 time, fastest average wins. See [Scoring](scoring.md#timed).

@@ -1,5 +1,6 @@
 /**
  * Screenshots of the System Settings panels that other pages send you to:
+ * the terminology fields (docs/reference/race-settings.md#the-words-on-screen),
  * the timer-type dropdown (docs/fake-timer.md), the lanes-in-service control
  * (docs/hardware-timer.md) and the backup panel (docs/backup-and-restore.md).
  *
@@ -47,6 +48,25 @@ test('screenshot the settings panels', async ({ page }) => {
     // A configured install shows one section at a time, behind a nav down the
     // left. Every lookup below has to say which section it is in — and the
     // pictures are of the sections, so this is also the subject.
+
+    // Terminology (#496 stage 5), for docs/reference/race-settings.md#the-words-on-screen.
+    // Lives in General, first in the section order, so this is the picture
+    // taken before anything else — before the checkbox is switched on, the
+    // section holds only the organization name and debug toggle. Local,
+    // unsaved form state, the same reasoning as the Appearance preview below:
+    // this spec runs beside others that assume the install's own terminology
+    // is still the built-in default, so Save Settings is never clicked here.
+    await page.getByTestId('settings-nav-general').click();
+    const terminologyFields = page.getByTestId('terminology-fields');
+    await expect(terminologyFields).toBeVisible();
+    await terminologyFields.getByLabel('Use different words for “Den” and “Pack”').click();
+    await terminologyFields.getByLabel('One racing group (was “Den”)').fill('Class');
+    await terminologyFields.getByLabel('More than one (was “Dens”)').fill('Classes');
+    await terminologyFields.getByLabel('The organization itself (was “Pack”)').fill('School');
+    await terminologyFields.getByLabel('More than one (was “Packs”)').fill('Schools');
+    await expect(terminologyFields.getByLabel('One racing group (was “Den”)')).toHaveValue('Class');
+    await terminologyFields.screenshot({ path: path.join(SCREENSHOT_DIR, '09-terminology.png') });
+
     await page.getByTestId('settings-nav-tracks').click();
 
     // This spec's own card, found by the name in its own input rather than by

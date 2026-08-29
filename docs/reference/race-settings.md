@@ -16,6 +16,7 @@ afterwards from the Roster page.
 | **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
 | **Track / Timer** | Which track this race runs on |
 | **Car Numbering** | See [car numbering](#car-numbering) below |
+| **Use different words for this race** | See [the words on screen](#the-words-on-screen) below |
 
 **Auto-advance**, on the race screen itself, is also remembered per race:
 when on, the screen moves to the next heat ten seconds after results land.
@@ -88,3 +89,43 @@ _The timer section of a track's card, with **No timer — I'll enter results by 
 **Organization Name** in System Settings — your pack's name, shown in the
 header and printed on documents. The **Access** panel on the same page holds
 the PINs; see [Roles and permissions](roles-and-permissions.md).
+
+## The words on screen
+
+Trusty Track is built for Cub Scout Pinewood Derby, and "Den" and "Pack" are
+just the built-in words for two ideas: a group of racers who race together,
+and the organization holding the event. A school, an AWANA club, a 4-H
+group — anyone running the same kind of race — can rename both, everywhere
+the app uses them: the roster, the standings, printouts, and the audience
+displays.
+
+Two words, each with its own plural, since English plurals do not follow a
+rule a computer should be guessing at:
+
+| Word | Default | Replaces |
+| --- | --- | --- |
+| Racing group | Den / Dens | "Den", **Manage Dens**, **Per Den** numbering, the Den column on the roster, standings and printouts |
+| Organization | Pack / Packs | "Pack", "Top Overall (Pack)" |
+
+**Set install-wide** in **System Settings → General**, under **Use different
+words for "Den" and "Pack"** — turning it on offers all four boxes, already
+filled in with the built-in words so none of them starts out blank.
+
+![The terminology fields in System Settings, switched on and filled in with "Class"/"Classes" and "School"/"Schools"](../assets/screenshots/settings/09-terminology.png)
+_Turning on custom terminology offers all four boxes at once — a singular
+and a plural for each word._
+
+**A race can override that default of its own**, on the same **Use
+different words for this race** checkbox on the race form — one venue
+running a pack derby in March and a school's own derby in May, on the same
+install, without either one showing the other's words.
+
+**Unticking the checkbox returns to inheriting** — the organization's own
+words if it has set any, the built-in Scouting words otherwise. It does not
+leave the fields blank; there is no way to save an empty word.
+
+**One label stays fixed for everyone: Category**, the field on a racing
+group that a Cub Scout rank or a school grade goes in — see
+[Adding a New Den](../race-setup.md#adding-a-new-den). It is a detail on one
+racing group, not vocabulary a whole screen is built from, so it keeps one
+name regardless of the words above.

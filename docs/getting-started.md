@@ -6,6 +6,11 @@ Welcome to Trusty Track! This guide will walk you through the initial setup and 
 
 Trusty Track is designed to make running a Pinewood Derby race smooth and enjoyable for organizers, racers, and spectators alike. This application handles everything from racer check-in and automated scheduling to real-time race execution and audience leaderboards.
 
+This guide is written for a Cub Scout pack, since that is who most people
+installing it are — but nothing about the app requires one. A school, a
+club, or anyone running the same kind of race day can rename "Den" and
+"Pack" to their own words; see [the words on screen](reference/race-settings.md#the-words-on-screen).
+
 ## 2. Opening the App
 
 Trusty Track runs in your web browser. Once it is started, open it by typing its address into the browser — ask whoever set it up, or, on the machine running Trusty Track itself, it is usually `https://localhost:8000`. The [installation guide](user/install.md) for your platform gives the exact address, which differs a little between install methods.
