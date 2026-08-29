@@ -39,6 +39,11 @@ theme:
     - search.highlight
     - content.action.edit    # "edit this page" link
   logo: assets/logo.png
+  # Without this Material serves its own generic icon, so the documentation had
+  # a different tab icon from the landing page it is half of. One square crop of
+  # the logo's car, shared by both: the full logo is a wide sticker, and a
+  # browser letterboxes it into a sliver at 16px.
+  favicon: assets/favicon.png
 
 # Clicking the logo leaves the documentation for the landing page at
 # trusty-track.com. The two are one deployment (see scripts/build_site.sh), so

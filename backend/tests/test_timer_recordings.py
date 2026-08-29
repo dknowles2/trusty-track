@@ -131,13 +131,21 @@ def test_the_places_a_real_timer_reported_are_the_ones_kept():
 # ---------------------------------------------------------------------------
 
 
+#: The profiles a real device's output is replayed against, by the recording
+#: that exercises them. Named rather than inlined below because it is also the
+#: answer to "which timers has anything real been checked against" — which is a
+#: claim the landing page makes, and `test_landing_page_links.py` holds it to
+#: this list. Adding a recording should light the badge up on the website.
+RECORDED_PROFILES: dict[str, TimerProfile] = {
+    "fasttrack-mark-set": MICROWIZARD,
+    "derbytimer": DERBY_TIMER,
+    "pdt": PDT,
+}
+
+
 @pytest.mark.parametrize(
     ("recording", "profile"),
-    [
-        ("fasttrack-mark-set", MICROWIZARD),
-        ("derbytimer", DERBY_TIMER),
-        ("pdt", PDT),
-    ],
+    list(RECORDED_PROFILES.items()),
 )
 def test_a_recorded_session_produces_the_events_it_should(
     recording: str, profile: TimerProfile

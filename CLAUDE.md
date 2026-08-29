@@ -1192,6 +1192,34 @@ Two things follow from sharing an origin, and both are the point of it:
   build — it maps each `/docs/<path>/` back to the Markdown file mkdocs built it
   from, and checks every borrowed image exists.
 
+**The landing page's timer list is held to `ALL_PROFILES`, in both directions.**
+Each row carries `data-timer-key`, so the page states which profiles it is
+naming rather than being matched on wording — the display names differ
+deliberately ("Micro Wizard", two words, as the docs write it). A profile added
+to `devices/` and not to the page costs the pack that owns that timer; a row
+outliving its profile is worse, because they turn up with the device.
+
+**"Tested" on that page means a recording, and the badge tracks
+`RECORDED_PROFILES`.** `backend/tests/timer_recordings/` holds real output from
+three devices — the MicroWizard, the Derby Timer and the PDT — and replaying it
+is the whole of what has been verified; nothing here has been run against
+hardware physically present. The first version of the page badged the MicroWizard
+alone and called it tested, which was wrong twice over, and writing the guard is
+what found it. Adding a recording should light a badge up.
+
+**There is deliberately no version number on the page.** The only source of
+truth is the git tag `release.yml` writes into `backend/version.py`, which a
+test cannot read — CI checks out shallow, and the tag lands after the merge, so
+`main` would be wrong between a release and the next commit. A claim with no
+checkable source is a claim that goes stale on its own, so it is not made.
+
+**One favicon, shared.** `docs/assets/favicon.png` is a square crop of the
+logo's car, set as `theme.favicon` in `mkdocs.yml` and as `rel="icon"` on every
+page in `www/`. The documentation had Material's generic default while the
+landing page had the logo, so one site had two tab icons; and `logo.png` is a
+wide sticker, which a browser letterboxes into a sliver at 16px. Both facts are
+guarded.
+
 **The copy is the docs' voice, not a brochure's.** Same reader as every user
 page — a parent volunteer, once a year — so the same rule applies with the
 volume turned up rather than a different one: say what the person does, name
