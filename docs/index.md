@@ -8,6 +8,9 @@ Trusty Track helps Cub Scout packs run Pinewood Derby events without spreadsheet
 see it before you install anything. It is a real race, already set up, and it forgets
 everything you do when you leave.
 
+**[How Trusty Track compares](comparison.md)** sets it beside the other Pinewood
+Derby programs, including the cases where one of them suits your pack better.
+
 **[Install it](user/install.md)** when you are ready — on a Mac, a Windows PC, a Raspberry Pi, or in Docker.
 
 Then, in the order an event happens:

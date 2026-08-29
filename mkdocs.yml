@@ -74,7 +74,12 @@ extra_css:
 # rule lives in reference/ and is *linked* from the guide that needs it —
 # stating it in both is how the two drift.
 nav:
-  - Home: index.md
+  # "Home" is a group rather than a single page so that the comparison can sit
+  # beside the welcome without becoming an eighth tab. Both are for somebody who
+  # has not installed anything yet.
+  - Home:
+    - Welcome: index.md
+    - How Trusty Track compares: comparison.md
   - Install:
     - Which method?: user/install.md
     - macOS App: user/install-mac.md
