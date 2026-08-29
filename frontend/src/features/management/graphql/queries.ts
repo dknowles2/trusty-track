@@ -13,6 +13,10 @@ export const GET_RACE_DETAILS = gql`
       globalStartNumber
       championshipTrophies
       weightLimitOz
+      racingGroupSingular
+      racingGroupPlural
+      organizationSingular
+      organizationPlural
       registeredCount
       checkedInCount
       racingGroups {
@@ -92,6 +96,10 @@ export const UPDATE_RACE = gql`
       globalStartNumber
       championshipTrophies
       weightLimitOz
+      racingGroupSingular
+      racingGroupPlural
+      organizationSingular
+      organizationPlural
     }
   }
 `;

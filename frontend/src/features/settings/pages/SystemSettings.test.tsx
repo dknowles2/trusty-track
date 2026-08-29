@@ -177,6 +177,10 @@ describe('SystemSettings', () => {
                 // needing to be picked, and Display/Printables "Match App".
                 displayTheme: 'MATCH_APP',
                 printablesTheme: 'MATCH_APP',
+                // The terminology checkbox was never touched, so this is
+                // "leave it null" said explicitly — the same shape as
+                // `clearWeightLimit` (#496 stage 3).
+                clearTerminology: true,
                 tracks: [
                     // A fake timer carries no model: it is chosen by transport, and a model
                     // travelling with one would linger unseen if the operator switched back.
@@ -792,5 +796,130 @@ describe('the Appearance section (#498)', () => {
         await waitFor(() =>
             expect(window.localStorage.getItem('trustytrack.appTheme')).toBe('old-glory'),
         );
+    });
+});
+
+describe('Terminology (#496 stage 3)', () => {
+    const configured = {
+        initialized: true,
+        organizationName: 'Pack 42',
+        debugMode: false,
+        displayTheme: 'MATCH_APP',
+        printablesTheme: 'MATCH_APP',
+        racingGroupSingular: null,
+        racingGroupPlural: null,
+        organizationSingular: null,
+        organizationPlural: null,
+        tracks: [
+            { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+        ],
+    };
+
+    it('opens unchecked with no fields when nothing has been customized', async () => {
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('general');
+
+        expect(screen.getByLabelText('Use different words for “Den” and “Pack”')).not.toBeChecked();
+        expect(screen.queryByLabelText('One racing group (was “Den”)')).toBeNull();
+    });
+
+    it('seeds the checkbox and fields from a saved override', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    ...configured,
+                    racingGroupSingular: 'Class',
+                    racingGroupPlural: 'Classes',
+                    organizationSingular: 'Club',
+                    organizationPlural: 'Clubs',
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('general');
+
+        expect(screen.getByLabelText('Use different words for “Den” and “Pack”')).toBeChecked();
+        expect(screen.getByLabelText('One racing group (was “Den”)')).toHaveValue('Class');
+        expect(screen.getByLabelText('The organization itself (was “Pack”)')).toHaveValue('Club');
+    });
+
+    it('sends clearTerminology when the box is left unchecked', async () => {
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('general');
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        const sent = mockUpdate.mock.calls[0][0].config;
+        expect(sent.clearTerminology).toBe(true);
+        expect(sent.racingGroupSingular).toBeUndefined();
+    });
+
+    it('sends the four words, and no clearTerminology, once the box is checked', async () => {
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('general');
+        await user.click(screen.getByLabelText('Use different words for “Den” and “Pack”'));
+        await user.clear(screen.getByLabelText('One racing group (was “Den”)'));
+        await user.type(screen.getByLabelText('One racing group (was “Den”)'), 'Class');
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        const sent = mockUpdate.mock.calls[0][0].config;
+        expect(sent.racingGroupSingular).toBe('Class');
+        // The other three were left at the seeded default rather than the
+        // organization's own saved words, but they still travel — one box
+        // controls all four together.
+        expect(sent.racingGroupPlural).toBe('Dens');
+        expect(sent.organizationSingular).toBe('Pack');
+        expect(sent.organizationPlural).toBe('Packs');
+        expect(sent.clearTerminology).toBeUndefined();
     });
 });
