@@ -13,8 +13,11 @@ This guide walks you through installing Trusty Track on a Mac. No terminal or te
 
 ## Step 1 — Download the installer
 
-1. Go to the [Trusty Track Releases page](https://github.com/dknowles2/trusty-track/releases/latest) on GitHub.
-2. Under **Assets**, click the `.dmg` file (for example, `TrustyTrack-1.0.0-mac.dmg`) to download it.
+[Download for macOS](https://github.com/dknowles2/trusty-track/releases/latest/download/TrustyTrack-mac.dmg){ .md-button .md-button--primary }
+
+Prefer to pick a specific version, or check a file's checksum? The
+[Trusty Track Releases page](https://github.com/dknowles2/trusty-track/releases/latest)
+on GitHub lists every release, each with its own copy of the installer.
 
 ---
 
