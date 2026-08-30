@@ -336,6 +336,7 @@ type Mutation {
   bulkAutoNumber(racerIds: [Int!]!): Int!
   bulkClearNumbers(racerIds: [Int!]!): Boolean!
   bulkCheckIn(racerIds: [Int!]!, passedInspection: Boolean! = true): Boolean!
+  bulkSetExcludedFromStandings(racerIds: [Int!]!, excluded: Boolean! = true): Boolean!
   bulkMoveToRacingGroup(racerIds: [Int!]!, racingGroupId: Int): Boolean!
   bulkDeleteRacers(racerIds: [Int!]!): Boolean!
   bulkAssignPhotos(assignments: [PhotoAssignmentInput!]!): Int!
@@ -429,6 +430,7 @@ type Race {
   vehiclePlural: String
   vehicleArtworkKey: String
   dropWorstRuns: Int!
+  excludeRoundWinnersFromQualifyingStandings: Boolean!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
@@ -515,6 +517,7 @@ input RaceUpdateInput {
   vehicleArtworkKey: String = null
   clearTerminology: Boolean! = false
   dropWorstRuns: Int = null
+  excludeRoundWinnersFromQualifyingStandings: Boolean = null
 }
 
 type Racer {
@@ -529,6 +532,7 @@ type Racer {
   carImageUrl: String
   racingGroupId: Int
   raceId: Int!
+  excludedFromStandings: Boolean!
   racingGroup: RacingGroup
 }
 
@@ -543,6 +547,7 @@ input RacerInput {
   racerImageUrl: String = null
   carImageUrl: String = null
   raceId: Int = null
+  excludedFromStandings: Boolean! = false
 }
 
 type RacerStat {

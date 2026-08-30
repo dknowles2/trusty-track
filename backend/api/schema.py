@@ -724,6 +724,10 @@ class RacerInput:
     racer_image_url: str | None = None
     car_image_url: str | None = None
     race_id: int | None = None
+    #: Races, but is not ranked (#548) — a sibling or parent's car, an
+    #: outlaw-class entry, a demonstration run. Read in exactly one place,
+    #: `services/scoring.get_leaderboard`.
+    excluded_from_standings: bool = False
 
 
 @strawberry.input
@@ -829,6 +833,12 @@ class RaceUpdateInput:
     #: no separate clear flag, the same shape `master_running_order`'s
     #: `false` already uses.
     drop_worst_runs: int | None = None
+    #: A decided championship round's winner(s) stop counting toward the
+    #: standings of the round they qualified from (#548) — the Grand Finals
+    #: half of the same mechanism as `Racer.excludedFromStandings`. Absent
+    #: means leave alone; `false` is an ordinary value, the same shape
+    #: `master_running_order` and `voting_open` already use.
+    exclude_round_winners_from_qualifying_standings: bool | None = None
 
 
 @strawberry.input
@@ -1193,6 +1203,11 @@ class Racer:
     car_image_url: str | None
     racing_group_id: int | None
     race_id: int
+    #: Races, but is not ranked (#548). `services/scoring.get_leaderboard`
+    #: drops this racer before ranking; heat generation, admission,
+    #: withdrawal and the live heat view are untouched and still read
+    #: check-in — this is not a second way to say "not racing".
+    excluded_from_standings: bool
 
     @strawberry.field
     def racing_group(self, info: Info) -> RacingGroup | None:
@@ -1379,6 +1394,12 @@ class Race:
     #: scoring (#547 stage 2) — a modifier over `scoringStrategy`, not a
     #: strategy of its own. `0` is the off state.
     drop_worst_runs: int
+    #: Whether a decided championship round's winner(s) stop counting toward
+    #: the standings of the round they qualified from (#548) — off by
+    #: default. `services/scoring.get_leaderboard` reads this on every call
+    #: rather than storing who is affected, so a corrected final-round time
+    #: moves who is excluded.
+    exclude_round_winners_from_qualifying_standings: bool
 
     @strawberry.field
     def terminology(self, info: Info) -> Terminology:
@@ -3741,6 +3762,26 @@ class Mutation:
         # un-checks too — that is how a bulk withdrawal reaches the schedule
         # (#228).
         await _admit_late_racers(info, race_id)
+        await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
+        return True
+
+    @strawberry.mutation
+    async def bulk_set_excluded_from_standings(
+        self, info: Info, racer_ids: list[int], excluded: bool = True
+    ) -> bool:
+        """Bulk set whether racers race but are not ranked (#548).
+
+        Check-in is unchanged — a sibling or parent's car set here still
+        fields in heats exactly as before, and still shows on the audience
+        display. Only `services/scoring.get_leaderboard` reads the flag, so
+        nothing here touches the schedule; no `_admit_late_racers` or
+        `_revalidate_timers` call, unlike `bulk_check_in` beside it.
+        """
+        db = info.context["db"]
+        race_id = _race_id_for_racers(db, racer_ids)
+        if race_id is None:
+            return False
+        crud.bulk_set_excluded_from_standings(db, racer_ids, excluded)
         await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
         return True
 

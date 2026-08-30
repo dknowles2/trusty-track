@@ -109,6 +109,10 @@ export const GET_RESULTS_SHEET = gql`
         score
         heatsCompleted
       }
+      racers {
+        id
+        excludedFromStandings
+      }
       awards {
         id
         name

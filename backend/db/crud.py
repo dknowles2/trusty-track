@@ -2504,6 +2504,22 @@ def bulk_check_in_racers(
     db.commit()
 
 
+def bulk_set_excluded_from_standings(
+    db: Session, racer_ids: list[int], excluded: bool = True
+) -> None:
+    """Bulk set whether racers race but are not ranked (#548).
+
+    Unlike :func:`bulk_check_in_racers`, this touches nothing but the flag
+    itself — check-in still decides who fields in a heat, so there is no
+    schedule to rebuild here.
+    """
+    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
+        {models.Racer.excluded_from_standings: excluded},
+        synchronize_session=False,
+    )
+    db.commit()
+
+
 def create_free_race_heat(
     db: Session,
     race_id: int,

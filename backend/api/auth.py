@@ -97,6 +97,7 @@ CHECKIN_MUTATIONS = frozenset(
         "importRacers",
         "uploadImage",
         "bulkCheckIn",
+        "bulkSetExcludedFromStandings",
         "bulkAutoNumber",
         "bulkClearNumbers",
         "bulkMoveToRacingGroup",

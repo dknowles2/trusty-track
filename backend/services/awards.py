@@ -59,6 +59,11 @@ def _standings_cache(
     outcome — and #540 leaves that format alone, so those rows carry `rank =
     None` and read as never contested, the same "no data" fallback a race
     with no tiebreaker gives.
+
+    A racer with `excluded_from_standings` set (#548) never appears here
+    either — `scoring.get_leaderboard` already dropped them — so a `SPEED`
+    award falls out unable to name an exhibition car for the same reason
+    `get_advancing_racers` cannot pick one.
     """
     # Every round-scoped source in one query, not one per source — the same
     # amortization `award_recipients` already relies on, extended to the

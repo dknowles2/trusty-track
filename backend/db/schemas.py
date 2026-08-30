@@ -153,6 +153,9 @@ class RacerBase(BaseModel):
     car_weight: float | None = None
     racer_image_url: str | None = None
     car_image_url: str | None = None
+    #: Races, but is not ranked (#548). Off by default, same as
+    #: `car_passed_inspection` above.
+    excluded_from_standings: bool = False
 
 
 class RacerCreate(RacerBase):
@@ -169,6 +172,7 @@ class RacerUpdate(BaseModel):
     car_weight: float | None = None
     racer_image_url: str | None = None
     car_image_url: str | None = None
+    excluded_from_standings: bool | None = None
 
 
 class RaceBase(BaseModel):
@@ -261,6 +265,11 @@ class RaceUpdate(BaseModel):
     #: an operator turns it off, the same shape `master_running_order`'s
     #: `false` already uses.
     drop_worst_runs: int | None = None
+    #: A decided championship round's winner(s) stop counting toward the
+    #: standings of the round they qualified from (#548). Absent means leave
+    #: alone; `false` is an ordinary value, not a sentinel — the same shape
+    #: `master_running_order` and `voting_open` already use.
+    exclude_round_winners_from_qualifying_standings: bool | None = None
 
     @field_validator("drop_worst_runs")
     @classmethod

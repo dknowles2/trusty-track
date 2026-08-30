@@ -17,6 +17,9 @@ export interface RacerData {
   car_weight?: number;
   racer_image_url?: string;
   car_image_url?: string;
+  /** Races, but is not ranked (#548) — a sibling or parent's car, a
+   * demonstration run, an outlaw-class entry. Check-in is unaffected. */
+  excluded_from_standings: boolean;
 }
 
 export interface RacingGroup {
@@ -57,7 +60,8 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
     racing_group_id: undefined,
     car_passed_inspection: false,
     car_weight: undefined,
-    car_name: ''
+    car_name: '',
+    excluded_from_standings: false,
   });
 
   // Use GraphQL to fetch racingGroups
@@ -68,7 +72,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   });
 
   const racingGroups: RacingGroup[] = racingGroupsResult.data?.race?.racingGroups || [];
-  const { group, vehicle } = useTerminology();
+  const { group, vehicle, vehicleLower } = useTerminology();
 
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
@@ -262,6 +266,27 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                 />
                 <span className="slider"></span>
             </label>
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+            {/* Races, but is not ranked (#548) — the primary control is the
+                roster's bulk action, but this is what lets one racer added
+                individually (the den leader's demonstration car, say) be
+                flagged without a trip to the selection bar. */}
+            <label htmlFor="racer-excluded-from-standings" style={{ display: 'block', marginBottom: '5px' }}>Racing, not ranked</label>
+            <label className="toggle-switch">
+                <input
+                    id="racer-excluded-from-standings"
+                    type="checkbox"
+                    name="excluded_from_standings"
+                    checked={formData.excluded_from_standings}
+                    onChange={handleChange}
+                />
+                <span className="slider"></span>
+            </label>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '5px', marginBottom: 0 }}>
+                Still races and still shows on the audience displays — just left out of the standings, advancement and awards. For a sibling or parent&apos;s {vehicleLower}, a demonstration run, or an outlaw-class entry.
+            </p>
         </div>
 
         <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>

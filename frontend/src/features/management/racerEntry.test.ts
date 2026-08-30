@@ -12,6 +12,7 @@ const saved: RacerData = {
     car_passed_inspection: true,
     racer_image_url: '/static/ada.png',
     car_image_url: '/static/car.png',
+    excluded_from_standings: true,
 };
 
 describe('carryOver', () => {
@@ -35,6 +36,12 @@ describe('carryOver', () => {
         // Adding a racer to the roster is not the same act as inspecting their
         // car; a stuck toggle would check in children who are not there yet.
         expect(carryOver(saved).car_passed_inspection).toBe(false);
+    });
+
+    it('does not leave "racing, not ranked" switched on', () => {
+        // A judgment about this one car, not a batch property like the racing
+        // group — a stuck toggle would flag every racer typed in afterward.
+        expect(carryOver(saved).excluded_from_standings).toBe(false);
     });
 
     it('drops the photographs', () => {

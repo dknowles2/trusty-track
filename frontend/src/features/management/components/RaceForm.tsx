@@ -39,6 +39,14 @@ export interface RaceFormData {
      */
     master_running_order: boolean;
     /**
+     * Once a championship round is decided, its winner(s) stop counting
+     * toward the standings of the round they qualified from (#548) — the
+     * Grand Finals pack champion no longer also holding their own den's
+     * trophy. Off by default, and update-only like `master_running_order`
+     * above: a race being created has no championship round yet to decide.
+     */
+    exclude_round_winners_from_qualifying_standings: boolean;
+    /**
      * A per-race terminology override, null where this race inherits the
      * organization's word (#496 stage 3; #551 adds the vehicle pair and its
      * artwork). All seven travel together — the checkbox below is on when
@@ -97,6 +105,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         // default on purpose — see the model.
         weight_limit_oz: DEFAULT_LIMIT_OZ,
         master_running_order: false,
+        exclude_round_winners_from_qualifying_standings: false,
         ...initialData
     });
     const [loading, setLoading] = useState(false);
@@ -340,6 +349,32 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         {' '}{groupLower} running its whole round back to back — so the track need not sit
                         empty between {groupsLower}. Apply it from the Schedule screen once the rounds are
                         set up.
+                    </p>
+                </div>
+            )}
+
+            {/* The Grand Finals half of #548: once a championship round is
+                decided, its winner stops counting toward the standings of
+                the round they qualified from, so the pack champion does not
+                also keep their own den's trophy. Update-only for the same
+                reason the running order checkbox above is — there is no
+                championship round to decide until the race, and its rounds,
+                already exist. */}
+            {isEditing && (
+                <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                        <input
+                            type="checkbox"
+                            id="race-exclude-round-winners"
+                            checked={formData.exclude_round_winners_from_qualifying_standings}
+                            onChange={e => setFormData(prev => ({ ...prev, exclude_round_winners_from_qualifying_standings: e.target.checked }))}
+                        />
+                        <span>Exclude Grand Finals winners from qualifying standings</span>
+                    </label>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                        Once a championship round has a winner, that {vehicleLower} stops counting toward the
+                        standings it qualified from — so the same {vehicleLower} does not win both the overall
+                        trophy and their own {groupLower}&apos;s.
                     </p>
                 </div>
             )}

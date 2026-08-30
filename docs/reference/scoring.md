@@ -198,3 +198,35 @@ elimination round beside the overall standings.
 - A **Slowest Race** page lists the slowest car first, because in that round
   the last one down the track wins. Only the display is reversed — nothing
   else reads the standings differently.
+
+## Racing without being ranked
+
+Some cars need to go down the track without competing for a trophy — a
+sibling or parent's car, the den leader's demonstration run, an outlaw-class
+entry sharing the track between dens. Setting a racer's **Racing, not
+ranked** flag on the [Roster page](../race-setup.md#acting-on-several-racers-at-once)
+does exactly that:
+
+- The car still races. It is scheduled into heats, shown on the audience
+  displays, and its times are still recorded — nothing about check-in or
+  scheduling changes.
+- It is left out of the standings entirely, on every page — the overall
+  standings, a championship round's own page, an elimination round's order
+  of finish. It cannot advance into a championship round, and it cannot win
+  a speed award.
+- The Standings page counts how many cars are racing but not ranked, so an
+  operator sees a shorter list explained rather than a shorter list that
+  looks like a bug.
+- It still sets [track records](stats-and-exports.md#the-track-record). A
+  record is a fact about the track, not about who was competing for a
+  trophy that day.
+
+### The Grand Finals winner
+
+A related, separate setting on the race form, **Exclude Grand Finals
+winners from qualifying standings**: once a championship round has a
+winner, that car stops counting toward the standings it qualified from — so
+the pack champion does not also keep their own den's trophy. It only takes
+effect once the round is decided, and a corrected time can move who is
+excluded, exactly like every other standings rule on this page. Off by
+default.

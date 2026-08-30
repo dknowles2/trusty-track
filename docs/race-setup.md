@@ -96,16 +96,21 @@ them.
 ![The selection bar](assets/screenshots/race-setup/09-selection-bar.png)
 
 - **Check In**: Mark the selected racers as passed inspection and checked in.
+- **Racing, not ranked**: Mark the selected racers as racing but not
+  competing for a trophy — a sibling or parent's car, a demonstration run,
+  an outlaw-class entry. They still get heats, still show on the audience
+  displays, and their times are still recorded; they are only left out of
+  the standings. See [Racing without being ranked](reference/scoring.md#racing-without-being-ranked).
 - **Auto number**: Assign car numbers to the selected racers, following the race's **Car Numbering** setting — sequentially from the global start number, or from each den's own range. A race set to Manual numbering is left alone.
 - **Clear numbers**: Remove car numbers from selected racers.
 - **Move to den**: Batch change the den assignment for selected racers, or move them to Unassigned.
 - **Delete**: Remove selected racers from the race.
 
-Check In, Auto number and Move to den leave your selection in place afterward,
-so you can select a group once and run through several of them in a row —
-select everyone, auto-number, then check them in, without re-ticking anything
-in between. Clear numbers and Delete clear the selection instead, since both
-remove something rather than adding to it.
+Check In, Racing not ranked, Auto number and Move to den leave your selection
+in place afterward, so you can select a group once and run through several of
+them in a row — select everyone, auto-number, then check them in, without
+re-ticking anything in between. Clear numbers and Delete clear the selection
+instead, since both remove something rather than adding to it.
 
 The **✕** on the right clears the selection and puts the bar away.
 

@@ -102,9 +102,10 @@ test('a racer checked in through the UI stays checked in', async ({ page }) => {
         .getByRole('button', { name: 'Check In' })
         .click();
     // The checkbox itself is visually hidden behind the slider, so click what
-    // the operator clicks.
+    // the operator clicks. By id, not just `label.toggle-switch`, now that
+    // the form holds a second one for "Racing, not ranked" (#548).
     const checkIn = page.getByRole('dialog', { name: 'Racer Check In' });
-    await checkIn.locator('label.toggle-switch').click();
+    await checkIn.locator('label.toggle-switch:has(#car-passed-inspection)').click();
     await expect(page.getByLabel('Passed Inspection / Checked In')).toBeChecked();
     await checkIn.getByRole('button', { name: 'Save Check-in' }).click();
 

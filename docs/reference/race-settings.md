@@ -17,6 +17,7 @@ afterwards from the Roster page.
 | **Ties** | How a tied score gets settled where it decides something — see [Ties](#ties) below |
 | **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
 | **Interleave heats across every den** | Off by default; only offered once the race exists, from the edit form on the Roster page. One running order across every den instead of a block per den — see [Running order across groups](running-order.md) |
+| **Exclude Grand Finals winners from qualifying standings** | Off by default; only offered once the race exists. Once a championship round has a winner, that car stops counting toward the standings it qualified from, so the pack champion does not also keep their own den's trophy — see [Racing without being ranked](scoring.md#the-grand-finals-winner) |
 | **Track / Timer** | Which track this race runs on |
 | **Car Numbering** | See [car numbering](#car-numbering) below |
 | **Use different words for this race** | Not offered until the race is created — edit it afterwards from the Roster page. See [the words on screen](#the-words-on-screen) below |
