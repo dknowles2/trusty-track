@@ -16,7 +16,7 @@ afterwards from the Roster page.
 | **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
 | **Track / Timer** | Which track this race runs on |
 | **Car Numbering** | See [car numbering](#car-numbering) below |
-| **Use different words for this race** | See [the words on screen](#the-words-on-screen) below |
+| **Use different words for this race** | Not offered until the race is created — edit it afterwards from the Roster page. See [the words on screen](#the-words-on-screen) below |
 
 **Auto-advance**, on the race screen itself, is also remembered per race:
 when on, the screen moves to the next heat ten seconds after results land.
@@ -115,10 +115,13 @@ filled in with the built-in words so none of them starts out blank.
 _Turning on custom terminology offers all four boxes at once — a singular
 and a plural for each word._
 
-**A race can override that default of its own**, on the same **Use
-different words for this race** checkbox on the race form — one venue
-running a pack derby in March and a school's own derby in May, on the same
-install, without either one showing the other's words.
+**A race can override that default of its own** — one venue running a pack
+derby in March and a school's own derby in May, on the same install, without
+either one showing the other's words. Create the race first with the default
+words, then open it from the **Roster** page's edit form and tick **Use
+different words for this race**; the checkbox is not offered on the **+
+Create New Race** form, because there is nothing to override until the race
+exists.
 
 **Unticking the checkbox returns to inheriting** — the organization's own
 words if it has set any, the built-in Scouting words otherwise. It does not
