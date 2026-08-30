@@ -109,6 +109,24 @@ export const assignPlaces = (results: readonly LaneInput[]): LaneInput[] => {
 };
 
 /**
+ * Whether `scoringStrategy` scores from a recorded *time* rather than a
+ * hand-entered *place* — the distinction the Override/Edit modal's column
+ * choice turns on (#490), and the one thing #547's two new strategies have
+ * to get right on the frontend.
+ *
+ * `POINTS` is the only place-based strategy today, so this is `!== 'POINTS'`
+ * — but it is stated as its own predicate, not spelled out at each call
+ * site, because every strategy #547 adds (`CUMULATIVE_TIME`,
+ * `FASTEST_TIME`) is time-based and a future member that sums *placements*
+ * the way `POINTS` does would need exactly one place updated rather than
+ * every site that copied the "not `POINTS`" test agreeing with it by luck.
+ * Mirrors `backend.domain.scoring`'s module docstring, which states the same
+ * four strategies.
+ */
+export const isTimeBasedStrategy = (scoringStrategy: string | null | undefined): boolean =>
+  scoringStrategy !== 'POINTS';
+
+/**
  * Whether saving an official heat's edited results should run them through
  * {@link assignPlaces} (issue #490).
  *
@@ -130,7 +148,7 @@ export const assignPlaces = (results: readonly LaneInput[]): LaneInput[] => {
  * are sitting right there in the payload.
  */
 export const shouldDerivePlaces = (scoringStrategy: string | null | undefined): boolean =>
-  scoringStrategy !== 'POINTS';
+  isTimeBasedStrategy(scoringStrategy);
 
 /**
  * Whether saving a free-race heat's edited results should run them through

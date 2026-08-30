@@ -4,9 +4,12 @@ import pytest
 
 from backend.domain.lanes import Lane
 from backend.domain.scoring import (
+    CUMULATIVE_TIME,
     DNF_PENALTY_SECONDS,
+    FASTEST_TIME,
     POINTS,
     TIMED,
+    counts_a_disrupted_round,
     rank_key,
     score_heats,
     standings_ranks,
@@ -213,3 +216,146 @@ class TestStandingsRanks:
         # The default must be a no-op for every existing caller.
         scored = [(3.0, 2), (3.0, 2), (3.5, 2)]
         assert standings_ranks(scored) == standings_ranks(scored, separated=None)
+
+
+# --- #547 stage 1: CUMULATIVE_TIME and FASTEST_TIME ------------------------
+
+
+def test_cumulative_time_scores_the_sum():
+    scores = score_heats(
+        [_heat((1, 3.0, 1), (2, 4.0, 2)), _heat((1, 5.0, 2), (2, 4.0, 1))],
+        CUMULATIVE_TIME,
+    )
+    assert scores[1].score == 8.0
+    assert scores[1].heats_completed == 2
+    assert scores[2].score == 8.0
+
+
+def test_cumulative_time_uses_the_same_dnf_penalty_as_timed():
+    """The module docstring's decision: a recorded 0.0 is still a heat that
+    happened, so it is summed as a bad-but-finite time rather than dropped —
+    the same reasoning #225 already gave POINTS for the same fact."""
+    scores = score_heats([_heat((1, 0.0, None)), _heat((1, 3.0, 1))], CUMULATIVE_TIME)
+    assert scores[1].score == pytest.approx(DNF_PENALTY_SECONDS + 3.0)
+
+
+def test_cumulative_time_needs_no_penalty_for_a_skip():
+    heats = [
+        _heat((1, 3.0, 1)),
+        [Lane(lane=1, racer_id=1, skipped=True)],
+    ]
+    scores = score_heats(heats, CUMULATIVE_TIME)
+    assert scores[1].score == 3.0
+    assert scores[1].heats_completed == 1
+
+
+class TestCumulativeAndAverageDisagree:
+    """The issue's headline test: cumulative time is a real third method, not
+    a rename of the average, and the difference only shows up once heat
+    counts differ — exactly the invariant a disrupted round breaks."""
+
+    def test_they_disagree_when_heat_counts_differ(self):
+        # Racer 1 ran two heats at a modest pace; racer 2 ran only one heat
+        # (their other lane was vacated by a lane outage, say) but it was
+        # fast. TIMED's average still favours racer 1: 3.5 < 3.6. Summed,
+        # racer 2's single heat beats racer 1's two combined: 3.6 < 7.0.
+        heats = [_heat((1, 3.0, 1), (2, 3.6, 2)), _heat((1, 4.0, 1))]
+        timed = score_heats(heats, TIMED)
+        cumulative = score_heats(heats, CUMULATIVE_TIME)
+
+        assert timed[1].score < timed[2].score  # TIMED: racer 1 wins
+        assert cumulative[2].score < cumulative[1].score  # CUMULATIVE: racer 2 wins
+
+    def test_they_agree_when_heat_counts_are_equal(self):
+        # Every racer ran the same number of heats — the one case the issue
+        # says the two are "identical ordering" for. Dividing every racer's
+        # sum by the same constant (their shared heat count) cannot change
+        # who is ahead of whom.
+        heats = [_heat((1, 3.0, 1), (2, 3.6, 2)), _heat((1, 4.0, 1), (2, 3.5, 2))]
+        timed = score_heats(heats, TIMED)
+        cumulative = score_heats(heats, CUMULATIVE_TIME)
+
+        timed_order = sorted(timed, key=lambda rid: timed[rid].score)
+        cumulative_order = sorted(cumulative, key=lambda rid: cumulative[rid].score)
+        assert timed_order == cumulative_order
+
+
+def test_fastest_time_scores_the_best_recorded_time():
+    scores = score_heats(
+        [_heat((1, 5.2, 1), (2, 4.0, 2)), _heat((1, 4.8, 2), (2, 4.4, 1))],
+        FASTEST_TIME,
+    )
+    assert scores[1].score == 4.8
+    assert scores[2].score == 4.0
+
+
+def test_fastest_time_scores_the_minimum_not_the_first():
+    scores = score_heats(
+        [_heat((1, 4.8, 1)), _heat((1, 3.9, 1)), _heat((1, 5.5, 1))], FASTEST_TIME
+    )
+    assert scores[1].score == 3.9
+    assert scores[1].heats_completed == 3
+
+
+class TestFastestTimeIgnoresDnfs:
+    """The issue's other headline test. A DNF is not merely a bad result
+    here, the way it is under TIMED/CUMULATIVE_TIME — it is not a candidate
+    for "fastest" at all, so it must not drag the score down, and a racer
+    with nothing *but* DNFs must not read as though they had a result."""
+
+    @pytest.mark.parametrize("dnf_time", [0.0, -1.0])
+    def test_a_dnf_is_not_a_candidate(self, dnf_time):
+        # If the DNF counted as a time it would win outright (lowest number);
+        # it must instead be invisible to the comparison.
+        scores = score_heats(
+            [_heat((1, dnf_time, None)), _heat((1, 4.8, 1))], FASTEST_TIME
+        )
+        assert scores[1].score == 4.8
+        assert scores[1].heats_completed == 1
+
+    def test_an_all_dnf_racer_reads_as_unraced(self):
+        scores = score_heats(
+            [_heat((1, 0.0, None)), _heat((1, -1.0, None))], FASTEST_TIME
+        )
+        assert scores[1].heats_completed == 0
+        assert scores[1].score == 0.0
+
+    def test_an_all_dnf_racer_sorts_below_everyone_who_finished(self):
+        # rank_key is what the leaderboard actually sorts by. Racer 1 has a
+        # (bad) real time; racer 2 never finished a single heat.
+        scores = score_heats(
+            [_heat((1, 9.0, 1), (2, 0.0, None)), _heat((2, -1.0, None))],
+            FASTEST_TIME,
+        )
+        key_1 = rank_key(scores[1].score, scores[1].heats_completed, 1)
+        key_2 = rank_key(scores[2].score, scores[2].heats_completed, 2)
+        assert key_1 < key_2
+
+    def test_a_skip_is_also_not_a_candidate(self):
+        heats = [
+            _heat((1, 4.8, 1)),
+            [Lane(lane=1, racer_id=1, skipped=True)],
+        ]
+        scores = score_heats(heats, FASTEST_TIME)
+        assert scores[1].score == 4.8
+        assert scores[1].heats_completed == 1
+
+
+class TestCountsADisruptedRound:
+    """#547 stage 1's other named trap: the mapping from strategy to
+    scale-free-or-summing has to cover all four members, or a disrupted
+    round is silently counted where it should be dropped (#26, again)."""
+
+    def test_timed_counts_a_disrupted_round(self):
+        assert counts_a_disrupted_round(TIMED) is True
+
+    def test_points_drops_a_disrupted_round(self):
+        assert counts_a_disrupted_round(POINTS) is False
+
+    def test_cumulative_time_drops_a_disrupted_round_like_points(self):
+        # CUMULATIVE_TIME sums, so it fails the same way POINTS does.
+        assert counts_a_disrupted_round(CUMULATIVE_TIME) is False
+
+    def test_fastest_time_counts_a_disrupted_round_like_timed(self):
+        # FASTEST_TIME is scale-free, so it fails the same way TIMED does.
+        assert counts_a_disrupted_round(FASTEST_TIME) is True

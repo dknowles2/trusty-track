@@ -1,11 +1,33 @@
 """Scoring rules: turning recorded lanes into ranked standings.
 
-Both strategies are lower-is-better:
+Four strategies, all lower-is-better (#547 stage 1 adds the last two):
 
 ``TIMED``
     Average of the racer's heat times.
 ``POINTS``
     Sum of the racer's finishing places.
+``CUMULATIVE_TIME``
+    Sum (not average) of the racer's heat times. Identical *ordering* to
+    ``TIMED`` only while every racer has the same number of heats — a lane
+    outage (#171), a latecomer (#172) or a shrunk lane count (#325) each
+    break that, and once they do, a racer with one fewer heat has one fewer
+    time to add up, which sums to *less* — a summing method's failure shape,
+    same as ``POINTS`` (#26). It shares ``TIMED``'s DNF handling (the
+    ``DNF_PENALTY_SECONDS`` penalty) rather than inventing a second rule for
+    the same fact: a recorded ``0.0`` is still evidence of a heat that
+    happened, just a bad one, and the penalty is what keeps that heat in a
+    sum-based total rather than silently deleting it (which POINTS cannot do
+    either, for the same reason #225 gave it a last-place penalty instead).
+``FASTEST_TIME``
+    The racer's single best (lowest) recorded time — "fastest run wins", the
+    traditional pinewood answer. A DNF (a recorded time of zero or less) is
+    not a candidate at all: it is skipped outright rather than penalised, so
+    a racer who was quick once and unlucky twice places on the once. A racer
+    whose *every* run is a DNF therefore has no candidate time and reads as
+    unraced (``heats_completed == 0``), which is what puts them below every
+    racer who finished at least one heat — a DNF is bad, but "never finished
+    anything" has to be worse, not merely absent from the average the way it
+    is under ``TIMED``.
 
 Strategies arrive as plain strings. ``models.ScoringStrategy`` is a ``str`` enum
 whose values equal its names, so its members compare equal to these constants
@@ -21,6 +43,13 @@ from backend.domain.lanes import Lane
 
 TIMED = "TIMED"
 POINTS = "POINTS"
+CUMULATIVE_TIME = "CUMULATIVE_TIME"
+FASTEST_TIME = "FASTEST_TIME"
+
+#: Every strategy this module knows, in the order `RaceForm` (stage 3) offers
+#: them — the same forward-declared shape `domain.tiebreak.ALL_METHODS` used
+#: for its own stage 3.
+ALL_STRATEGIES: tuple[str, ...] = (TIMED, POINTS, CUMULATIVE_TIME, FASTEST_TIME)
 
 #: Which rounds count toward the standings.
 #:
@@ -50,6 +79,11 @@ class RacerScore:
     heats_completed: int = 0
     total_time: float = 0.0
     total_points: int = 0
+    #: The lowest recorded, non-DNF time seen so far — ``FASTEST_TIME`` only.
+    #: Not exposed by :meth:`as_dict`, which nothing downstream reads for the
+    #: other three strategies either; ``score`` is the answer every caller
+    #: wants.
+    best_time: float | None = None
 
     def as_dict(self) -> dict[str, float]:
         return {
@@ -82,8 +116,12 @@ def score_heats(
     finite, so the ranking stays a total order. A scratch classifying last is
     what every racing series does.
 
-    ``TIMED`` needs no penalty for a skip: an average is scale-free, so a heat
-    that never ran simply is not in it.
+    ``TIMED`` and ``CUMULATIVE_TIME`` need no penalty for a skip, for the same
+    reason: a skipped heat contributes nothing to either a scale-free average
+    or a sum, so a heat that never ran simply is not in it. ``FASTEST_TIME``
+    needs no penalty either — a DNF (a recorded time of zero or less) is
+    dropped as a candidate rather than counted, so it is not a heat this
+    racer "completed" for scoring purposes at all; see the module docstring.
     """
     scores: dict[int, RacerScore] = {}
 
@@ -99,7 +137,7 @@ def score_heats(
 
             entry = scores.setdefault(racer_id, RacerScore())
 
-            if strategy == TIMED:
+            if strategy in (TIMED, CUMULATIVE_TIME):
                 seconds = lane.seconds
                 if seconds is None:
                     continue
@@ -115,6 +153,17 @@ def score_heats(
                     place = field
                 entry.total_points += place
                 entry.heats_completed += 1
+            elif strategy == FASTEST_TIME:
+                seconds = lane.seconds
+                # Not a candidate: unrecorded, or a DNF — ignored entirely
+                # rather than penalised, per the module docstring. Skipped
+                # for the same reason a skip needs no penalty above: no
+                # finite time exists to be a candidate.
+                if seconds is None or seconds <= 0.0:
+                    continue
+                if entry.best_time is None or seconds < entry.best_time:
+                    entry.best_time = seconds
+                entry.heats_completed += 1
 
     for entry in scores.values():
         if entry.heats_completed == 0:
@@ -123,28 +172,50 @@ def score_heats(
             entry.score = entry.total_time / entry.heats_completed
         elif strategy == POINTS:
             entry.score = entry.total_points
+        elif strategy == CUMULATIVE_TIME:
+            entry.score = entry.total_time
+        elif strategy == FASTEST_TIME:
+            # heats_completed > 0 under FASTEST_TIME only when a candidate
+            # was found, so best_time is never None here.
+            assert entry.best_time is not None
+            entry.score = entry.best_time
 
     return scores
+
+
+#: Strategies that **sum** a per-heat value, so a racer with fewer counted
+#: heats scores *better* — the shape #26 keeps arriving by new routes.
+#: ``POINTS`` sums placements; ``CUMULATIVE_TIME`` sums times (#547 stage 1).
+#: Both need a disrupted round excluded, for the same reason.
+_SUMMING_STRATEGIES = frozenset({POINTS, CUMULATIVE_TIME})
 
 
 def counts_a_disrupted_round(strategy: str) -> bool:
     """Whether a round that lost a lane part-way through still counts (#171).
 
-    The whole difference between the two strategies, stated once:
+    The whole difference is scale-freeness, stated once:
 
-    ``TIMED`` averages a racer's heat times, which is scale-free — somebody who
-    ran four heats and somebody who ran five are compared on the same footing,
-    so a round where a lane died is still perfectly good evidence.
+    ``TIMED`` averages a racer's heat times and ``FASTEST_TIME`` (#547 stage 1)
+    takes the single best of them — both scale-free: somebody who ran four
+    heats and somebody who ran five are compared on the same footing, so a
+    round where a lane died is still perfectly good evidence. (A racer with
+    fewer heats under ``FASTEST_TIME`` had fewer *chances* at a low time,
+    which is a disadvantage, not the reward a summing method hands out — the
+    opposite of the failure this function guards against, so there is
+    nothing here for it to guard.)
 
-    ``POINTS`` **sums** placements, so it is not. A racer whose remaining heat
-    was in the lane that failed has one fewer placement to add up, and a lower
-    total is a *better* score. Counting that round would hand them a trophy for
-    a heat they never ran, which is #26's failure arriving by a third route.
+    ``POINTS`` **sums** placements and ``CUMULATIVE_TIME`` **sums** times, so
+    neither is. A racer whose remaining heat was in the lane that failed has
+    one fewer placement, or one fewer time, to add up, and a lower total is a
+    *better* score under both. Counting that round would hand them a trophy
+    for a heat they never ran, which is #26's failure arriving by a third
+    (``POINTS``) and now a fifth (``CUMULATIVE_TIME``) route — see
+    ``_SUMMING_STRATEGIES``.
 
     Excluding the round is the blunt answer and it is the honest one: the
-    alternative is inventing a placement for a heat nobody raced.
+    alternative is inventing a placement, or a time, for a heat nobody raced.
     """
-    return strategy != POINTS
+    return strategy not in _SUMMING_STRATEGIES
 
 
 def rank_key(score: float, heats_completed: int, racer_id: int) -> tuple:

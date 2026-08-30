@@ -23,7 +23,7 @@ export type {
 } from '../types';
 import type { Heat, Racer, AdvancementStatus, LaneInput, Lane, LiveLane } from '../types';
 import type { HeatPhase } from '../../../gql/operations';
-import { hasRun, hasTimes, toInput } from '../lanes';
+import { hasRun, hasTimes, isTimeBasedStrategy, toInput } from '../lanes';
 import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime';
 import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
@@ -155,8 +155,13 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const hasTimer = timerType !== 'NONE';
 
     // Which column the Edit/Override modal shows (#490) — see `shouldDerivePlaces`
-    // in `lanes.ts` for the matching save-time rule.
-    const isPointsStrategy = scoringStrategy === 'POINTS';
+    // in `lanes.ts` for the matching save-time rule. Stated through
+    // `isTimeBasedStrategy` rather than an inline `=== 'POINTS'` (#547): a
+    // place column is what a *place*-based strategy needs, and today
+    // `POINTS` is the only one, but a future strategy sharing that shape
+    // must not silently fall through this test the way a hand-written
+    // `'POINTS'` comparison would.
+    const showsPlaceColumn = !isTimeBasedStrategy(scoringStrategy);
 
     // The race-day flow (#13). What used to be six mutually-guarding effects
     // with two refs, a mirror state and an `eslint-disable` is now one machine
@@ -926,7 +931,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         stored or spurious one — while `shouldDerivePlaces`
                         keeps it from ever overwriting the hand-typed places. */}
                     <p className="form-help">
-                        {isPointsStrategy
+                        {showsPlaceColumn
                             ? 'Manually enter finishing order for this heat. If a time was recorded, you can correct or clear it below too — it will not change the finishing order.'
                             : 'Manually update times for this heat.'}
                     </p>
@@ -935,9 +940,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '8px' }}>Lane</th>
                                 <th style={{ textAlign: 'left', padding: '8px' }}>Racer</th>
-                                {isPointsStrategy && <th style={{ textAlign: 'left', padding: '8px' }}>Place</th>}
+                                {showsPlaceColumn && <th style={{ textAlign: 'left', padding: '8px' }}>Place</th>}
                                 <th style={{ textAlign: 'left', padding: '8px' }}>
-                                    {isPointsStrategy ? 'Time (s) — optional' : 'Time (s)'}
+                                    {showsPlaceColumn ? 'Time (s) — optional' : 'Time (s)'}
                                 </th>
                             </tr>
                         </thead>
@@ -946,7 +951,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 <tr key={r.lane} style={{ borderBottom: '1px solid var(--divider-color)' }}>
                                     <td style={{ padding: '8px' }}>{r.lane}</td>
                                     <td style={{ padding: '8px' }}>{getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}</td>
-                                    {isPointsStrategy && (
+                                    {showsPlaceColumn && (
                                         <td style={{ padding: '8px' }}>
                                             <input
                                                 type="number"

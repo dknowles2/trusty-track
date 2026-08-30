@@ -100,8 +100,15 @@ class SchedulingStrategy(str, enum.Enum):
 
 
 class ScoringStrategy(str, enum.Enum):
+    """See `backend/domain/scoring.py` for what each member means and how it
+    aggregates. ``CUMULATIVE_TIME`` and ``FASTEST_TIME`` (#547 stage 1) are
+    GPRM's remaining two scoring methods; the module docstring there is the
+    one place their rules are written out."""
+
     TIMED = "TIMED"
     POINTS = "POINTS"
+    CUMULATIVE_TIME = "CUMULATIVE_TIME"
+    FASTEST_TIME = "FASTEST_TIME"
 
 
 class TiebreakMethod(str, enum.Enum):
