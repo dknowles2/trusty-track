@@ -111,6 +111,85 @@ class TestUpdateRaceMutation:
         assert race.drop_worst_runs == 0
 
 
+class TestCreateRaceMutation:
+    """`createRace` accepts `dropWorstRuns` too (#547 stage 3) — RaceForm
+
+    offers the modifier beside Scoring on the create form as well as the
+    edit form, the same way `championshipTrophies` and `weightLimitOz`
+    already do, rather than requiring a race to exist first the way
+    `masterRunningOrder` and the terminology override do.
+    """
+
+    def test_a_race_can_be_created_with_the_modifier_already_on(
+        self, client, db: Session
+    ):
+        org = crud.create_organization(db, schemas.OrganizationCreate(name="New Pack"))
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="New Track", lane_count=2, timer_type="FAKE")
+        )
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    createRace(race: {{
+                        name: "Created With Drop",
+                        organizationId: {org.id},
+                        trackId: {track.id},
+                        dropWorstRuns: 2
+                    }}) {{ dropWorstRuns }}
+                }}
+                """
+            },
+        )
+        assert response.json()["data"]["createRace"]["dropWorstRuns"] == 2
+
+    def test_absent_defaults_to_off(self, client, db: Session):
+        org = crud.create_organization(db, schemas.OrganizationCreate(name="New Pack 2"))
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="New Track 2", lane_count=2, timer_type="FAKE")
+        )
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    createRace(race: {{
+                        name: "Created Without Drop",
+                        organizationId: {org.id},
+                        trackId: {track.id}
+                    }}) {{ dropWorstRuns }}
+                }}
+                """
+            },
+        )
+        assert response.json()["data"]["createRace"]["dropWorstRuns"] == 0
+
+    def test_negative_is_refused(self, client, db: Session):
+        org = crud.create_organization(db, schemas.OrganizationCreate(name="New Pack 3"))
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="New Track 3", lane_count=2, timer_type="FAKE")
+        )
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    createRace(race: {{
+                        name: "Created Negative",
+                        organizationId: {org.id},
+                        trackId: {track.id},
+                        dropWorstRuns: -1
+                    }}) {{ dropWorstRuns }}
+                }}
+                """
+            },
+        )
+        body = response.json()
+        assert body["data"] is None
+        assert "errors" in body
+
+
 class TestGetLeaderboardAppliesTheDrop:
     def test_timed_drops_the_worst_time_when_counts_match(self, db: Session):
         race = _seed(db, models.ScoringStrategy.TIMED, drop_worst_runs=1)

@@ -881,6 +881,7 @@ export type RaceInput = {
   carNumberingStrategy?: Scalars['String']['input'];
   championshipTrophies?: Scalars['Int']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
+  dropWorstRuns?: Scalars['Int']['input'];
   globalStartNumber?: Scalars['Int']['input'];
   location?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];

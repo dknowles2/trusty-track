@@ -24,17 +24,29 @@ export function roundLabel(round: RoundSummary): string {
 }
 
 /**
+ * Strategies that **sum** a per-heat value, so a racer with fewer counted
+ * heats scores *better* — mirrors
+ * `backend.domain.scoring.counts_a_disrupted_round`'s own set exactly
+ * (`POINTS` sums placements, `CUMULATIVE_TIME` sums times, #547 stage 1).
+ * Named for the question this file asks rather than restated as
+ * `!== 'POINTS'` at the one call site below, so a future summing strategy
+ * needs this set updated and nothing else.
+ */
+const SUMMING_STRATEGIES = new Set(['POINTS', 'CUMULATIVE_TIME']);
+
+/**
  * Rounds that a lane outage stopped counting toward the standings.
  *
- * Only under `POINTS`, and only preliminary rounds — a championship round is
- * never in the standings anyway (#17), so calling it excluded would be telling
- * the operator about a consequence that does not exist.
+ * Only under a summing strategy, and only preliminary rounds — a
+ * championship round is never in the standings anyway (#17), so calling it
+ * excluded would be telling the operator about a consequence that does not
+ * exist.
  */
 export function excludedRounds(
   rounds: RoundSummary[],
   scoringStrategy: string,
 ): RoundSummary[] {
-  if (scoringStrategy !== 'POINTS') return [];
+  if (!SUMMING_STRATEGIES.has(scoringStrategy)) return [];
   return rounds.filter((r) => r.disrupted && !r.advancementSource);
 }
 
@@ -53,10 +65,14 @@ export function exclusionNotice(
 
   const names = excluded.map(roundLabel).join(', ');
   const subject = excluded.length === 1 ? 'is' : 'are';
+  const strategyPhrase =
+    scoringStrategy === 'CUMULATIVE_TIME'
+      ? 'cumulative time, which adds up,'
+      : 'points, which add up,';
   return (
     `${names} ${subject} not counted in these standings: a lane went out of ` +
     `service part-way through, so some racers ran fewer heats than others. ` +
-    `This race is scored on points, which add up, so counting it would put ` +
+    `This race is scored on ${strategyPhrase} so counting it would put ` +
     `those racers ahead for heats they never ran.`
   );
 }

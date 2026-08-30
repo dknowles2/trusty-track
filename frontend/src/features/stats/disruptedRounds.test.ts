@@ -33,6 +33,18 @@ describe('which rounds stop counting', () => {
     // does not exist — #17 keeps championship heats out regardless.
     expect(excludedRounds([disruptedFinal], 'POINTS')).toEqual([]);
   });
+
+  it('a disrupted prelim round under CUMULATIVE_TIME too — it sums, same as POINTS', () => {
+    // #547 stage 1: CUMULATIVE_TIME sums times the way POINTS sums
+    // placements, so it fails #26's way a fifth time if this is missed.
+    expect(excludedRounds([prelim, disruptedPrelim], 'CUMULATIVE_TIME')).toEqual([
+      disruptedPrelim,
+    ]);
+  });
+
+  it('none of them under FASTEST_TIME — a single best value is scale-free', () => {
+    expect(excludedRounds([disruptedPrelim], 'FASTEST_TIME')).toEqual([]);
+  });
 });
 
 describe('what the operator is told', () => {
@@ -53,6 +65,12 @@ describe('what the operator is told', () => {
     const notice = exclusionNotice([disruptedPrelim, second], 'POINTS');
     expect(notice).toContain('Prelims, Semis');
     expect(notice).toContain('are not counted');
+  });
+
+  it('says cumulative time, not points, under CUMULATIVE_TIME', () => {
+    const notice = exclusionNotice([disruptedPrelim], 'CUMULATIVE_TIME');
+    expect(notice).toContain('cumulative time');
+    expect(notice).not.toContain('scored on points');
   });
 });
 

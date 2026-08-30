@@ -30,6 +30,7 @@ import CheckInScanner from '../../printables/components/CheckInScanner';
 import * as GQL from '../graphql/queries';
 import { DEFAULT_SORT, nextSortState, sortRacers, type SortKey, type SortState } from '../rosterSort';
 import { groupRacersByRacingGroup } from '../groupRacersByRacingGroup';
+import { strategyLabel } from '../../stats/scoringStrategyText';
 
 /**
  * The shapes the query actually returns, derived rather than restated.
@@ -105,6 +106,7 @@ export default function RaceDetails() {
       track_id: data.race.trackId ?? undefined,
       scoring_strategy: data.race.scoringStrategy,
       tiebreaker: data.race.tiebreaker,
+      drop_worst_runs: data.race.dropWorstRuns,
       car_numbering_strategy: data.race.carNumberingStrategy,
       global_start_number: data.race.globalStartNumber,
       championship_trophies: data.race.championshipTrophies,
@@ -245,6 +247,7 @@ export default function RaceDetails() {
               trackId: updateInput.track_id,
               scoringStrategy: updateInput.scoring_strategy,
               tiebreaker: updateInput.tiebreaker,
+              dropWorstRuns: updateInput.drop_worst_runs,
               carNumberingStrategy: updateInput.car_numbering_strategy,
               globalStartNumber: updateInput.global_start_number,
               championshipTrophies: updateInput.championship_trophies,
@@ -626,10 +629,7 @@ export default function RaceDetails() {
               </button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              <div><strong>Scoring:</strong> {race?.scoring_strategy ? ({
-                  'TIMED': 'Timed',
-                  'POINTS': 'Points'
-              }[race.scoring_strategy] || race.scoring_strategy) : '-'}</div>
+              <div><strong>Scoring:</strong> {strategyLabel(race?.scoring_strategy)}</div>
               <div><strong>{vehicle} Numbering:</strong> {race?.car_numbering_strategy ? ({
                   'MANUAL': 'Manual',
                   'PER_GROUP': 'Per RacingGroup',

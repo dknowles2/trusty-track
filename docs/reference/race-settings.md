@@ -11,7 +11,8 @@ afterwards from the Roster page.
 | --- | --- |
 | **Event Name** | Names the race everywhere. Must be unique |
 | **Date & Time / Location** | Shown on the Home page and printed on pit passes |
-| **Scoring** | **Timed** or **Points** — see [Scoring](scoring.md). Choose before racing starts |
+| **Scoring** | **Timed**, **Points**, **Cumulative time**, or **Fastest single run** — see [Scoring](scoring.md). Choose before racing starts. Every option shows its one-line description underneath it, not only the one currently picked |
+| **Drop worst run(s)** | `0` is off. Drops each racer's worst counted results before scoring — only once everyone who has raced has the same number of runs to drop from, with one to spare; otherwise nothing is dropped and the standings say so |
 | **Championship Trophies** | How many cars the wizard puts into the final. About the racing, not the physical trophies — those live on the [Awards](../awards.md) page |
 | **Ties** | How a tied score gets settled where it decides something — see [Ties](#ties) below |
 | **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
