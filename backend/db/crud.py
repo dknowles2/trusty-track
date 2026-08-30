@@ -19,6 +19,7 @@ from backend.domain import (
     lanes,
     latecomers,
     scheduling,
+    terminology,
 )
 
 from . import lane_sync, models, schemas
@@ -487,6 +488,36 @@ def get_rounds(db: Session, race_id: int) -> list[models.Round]:
         .order_by(models.Round.round_number)
         .all()
     )
+
+
+def default_general_round_name(db: Session, race: models.Race) -> str:
+    """The default title for a general round — not elimination, not balanced
+    (#533).
+
+    Derived from the resolved terminology at *creation* time: "All " plus the
+    organization's own singular word, layered race-over-organization-over-the
+    built-in Scouting words exactly as `Race.terminology` resolves it for
+    display elsewhere. A default install's organization word is "Pack", so
+    this reads exactly "All Pack" — unchanged from the literal it replaces,
+    and what every existing row, the functional suite and the doc screenshots
+    already assume.
+
+    `Round.name` stays a plain stored column: an operator's rename must
+    survive, so this only supplies what goes in it when nobody typed one.
+    Renaming the vocabulary afterwards does not retitle a round already
+    created — weaker than the standings/awards/track-records "computed on
+    every read" rule, and deliberately so: a round's name is something a
+    person types over, not a number that has to keep agreeing with a
+    correction made after the fact.
+    """
+    organization = get_organization(db, race.organization_id)
+    resolved = terminology.resolve_terminology(
+        organization=terminology.overrides_from_row(organization)
+        if organization is not None
+        else None,
+        race=terminology.overrides_from_row(race),
+    )
+    return f"All {resolved.organization_singular}"
 
 
 def create_round(
@@ -2739,7 +2770,13 @@ def create_practice_race(db: Session) -> models.Race:
         check_in=True,
     )
 
-    prelim = create_round(db, race.id, 1, models.SchedulingStrategy.PPC, "All Pack")
+    prelim = create_round(
+        db,
+        race.id,
+        1,
+        models.SchedulingStrategy.PPC,
+        default_general_round_name(db, race),
+    )
     generate_heats_for_round(db, prelim.id, clear_existing=True)
 
     final = create_round(

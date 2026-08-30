@@ -284,9 +284,10 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   const firstUncompletedRoundNumber = rounds[firstUncompletedRoundId]?.[0]?.roundNumber || 0;
 
   const hasGeneralRound = Object.values(rounds).some(roundHeats => {
-      // In GraphQL we might need a better way to identify general rounds
-      // but if roundNumber is small or name is 'All Pack'
-      return roundHeats[0]?.roundName === 'All Pack' || roundHeats[0]?.roundNumber === 1;
+      // Round 1 is always the general round; its default name is now
+      // derived from the race's own terminology (#533), so it is no longer
+      // a fixed literal this check could compare against.
+      return roundHeats[0]?.roundNumber === 1;
   });
 
   const handleAddRound = async (config: {

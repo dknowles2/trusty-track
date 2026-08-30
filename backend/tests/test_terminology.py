@@ -313,3 +313,88 @@ class TestRaceOverride:
         data = response.json()["data"]["updateRace"]
         assert data["racingGroupSingular"] is None
         assert data["terminology"]["racingGroupSingular"] == "Den"
+
+
+class TestDefaultGeneralRoundName:
+    """A general round's default name is derived from the resolved
+    terminology at creation time (#533), not the literal ``"All Pack"`` that
+    used to be hardcoded at three call sites — `crud.create_practice_race`,
+    `createRoundWizard`, and `createRound`."""
+
+    def test_default_install_still_yields_all_pack(self, db):
+        race = _race(db, "Default Naming Race")
+        assert crud.default_general_round_name(db, race) == "All Pack"
+
+    def test_an_organization_rename_changes_the_default(self, db):
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Troop Organization")
+        )
+        organization.organization_singular = "Troop"
+        organization.organization_plural = "Troops"
+        db.commit()
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="Troop Track", lane_count=4)
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Troop Race", organization_id=organization.id, track_id=track.id
+            ),
+        )
+
+        assert crud.default_general_round_name(db, race) == "All Troop"
+
+    def test_a_race_level_override_beats_the_organizations_own_word(self, db):
+        race = _race(db, "School Naming Race")
+        race.organization_singular = "School"
+        db.commit()
+
+        assert crud.default_general_round_name(db, race) == "All School"
+
+    def test_created_round_uses_the_resolved_default_name(self, client, db):
+        """End to end through ``createRound`` — before #533 this mutation
+        hardcoded the literal "All Pack" regardless of terminology, so this
+        fails without the fix even though the race has renamed "Pack" to
+        "Troop"."""
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Renamed Organization")
+        )
+        organization.organization_singular = "Troop"
+        db.commit()
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="Renamed Track", lane_count=4)
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Renamed Race",
+                organization_id=organization.id,
+                track_id=track.id,
+            ),
+        )
+        for i in range(2):
+            crud.create_racer(
+                db,
+                schemas.RacerCreate(
+                    first_name="Racer",
+                    last_name=str(i),
+                    race_id=race.id,
+                    car_passed_inspection=True,
+                ),
+            )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    createRound(raceId: {race.id}, roundData: {{
+                        schedulingStrategy: "PPC", runsPerLane: 1
+                    }}) {{ name }}
+                }}
+                """
+            },
+        )
+
+        data = response.json()["data"]["createRound"]
+        assert data[0]["name"] == "All Troop"

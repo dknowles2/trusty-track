@@ -525,14 +525,11 @@ def _terminology_overrides(row: Any) -> domain_terminology.TerminologyOverrides:
     """Read one layer's four override columns off an ORM row.
 
     Works for both `models.Organization` and `models.Race` — they carry the
-    same four column names for exactly this reason.
+    same four column names for exactly this reason. `crud.default_general_round_name`
+    reads the same way, through `domain_terminology.overrides_from_row`
+    directly, since `db.crud` has no business importing from `api.schema`.
     """
-    return domain_terminology.TerminologyOverrides(
-        racing_group_singular=row.racing_group_singular,
-        racing_group_plural=row.racing_group_plural,
-        organization_singular=row.organization_singular,
-        organization_plural=row.organization_plural,
-    )
+    return domain_terminology.overrides_from_row(row)
 
 
 def _terminology_type(t: domain_terminology.Terminology) -> Terminology:
@@ -3063,7 +3060,7 @@ class Mutation:
                     race_id,
                     current_round_number,
                     models.SchedulingStrategy.PPC,
-                    "All Pack",
+                    crud.default_general_round_name(db, race),
                 )
                 # On the rollback list from the moment the row exists —
                 # `create_round` commits, so a failure in heat generation
@@ -4010,19 +4007,22 @@ class Mutation:
                     )
                     if phases < 1:
                         raise ValueError("A round needs at least one phase.")
-                default_name = (
+                # Only reached for a general round with no name typed —
+                # otherwise this would be a query the operator's own choice
+                # makes unnecessary on every round they name themselves.
+                round_name = round_data.name or (
                     "Elimination Round"
                     if is_elimination
                     else "Balanced Round"
                     if is_balanced
-                    else "All Pack"
+                    else crud.default_general_round_name(db, race)
                 )
                 round_obj = crud.create_round(
                     db,
                     race_id,
                     next_round_number,
                     strategy,
-                    round_data.name or default_name,
+                    round_name,
                     elimination_losses=losses,
                     balanced_phases=phases,
                 )
