@@ -481,6 +481,41 @@ def get_heats(
     )
 
 
+def heats_in_running_order(db: Session, race_id: int) -> list[models.Heat]:
+    """A race's official heats in the order they are meant to be *run*.
+
+    The one door for "which heat is next" (#549): the `currentlyRacing` and
+    `onDeck` subscriptions both read through it, so the wall displays cannot
+    disagree with each other about where the race is up to. The rule itself
+    is `domain.running_order.execution_sort_key` — `(round_number,
+    heat_number)` for every race with `master_running_order` off, and the
+    interleaved `heat_number` sequence (championship rounds after every
+    general round) once it is on.
+
+    Not a change to :func:`get_heats`, deliberately: that function feeds the
+    schedule readers — the heat sheet, `applyMasterRunningOrder` itself, the
+    stats — where round-then-heat is the shape a *schedule* has, and only the
+    execution surfaces ask about the running order.
+    """
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    master = bool(race is not None and race.master_running_order)
+    heats = models.official_heats(
+        db.query(models.Heat).filter(models.Heat.race_id == race_id)
+    ).all()
+
+    def _key(heat: models.Heat) -> tuple[int, int, int]:
+        round_obj = heat.round
+        assert round_obj is not None  # official heats always belong to a round (#6)
+        return running_order.execution_sort_key(
+            round_number=round_obj.round_number,
+            heat_number=heat.heat_number,
+            is_championship=round_obj.advancement_source is not None,
+            master_order=master,
+        )
+
+    return sorted(heats, key=_key)
+
+
 def get_rounds(db: Session, race_id: int) -> list[models.Round]:
     """Get all rounds for a specific race, ordered by round number."""
     return (
@@ -2249,12 +2284,26 @@ def apply_master_running_order(db: Session, race_id: int) -> list[models.Heat]:
     race has anywhere — recorded or pending, in every round — so a
     newly-assigned number can never collide with a heat that already has a
     place in some round's own history.
+
+    Championship rounds are left out of the weave entirely. Their field is
+    drawn from the general rounds' standings, so they cannot meaningfully run
+    before those finish — and `_reset_heats_in_place` renumbers a
+    championship round's heats 1..N on every rebuild, so a master number
+    written onto one would not survive the first preliminary result recorded
+    after it. The execution surfaces put them after every general round
+    instead (`running_order.execution_sort_key`), untouched.
     """
     all_heats = get_heats(db, race_id)
     if not all_heats:
         return []
 
-    pending = [h for h in all_heats if h.recorded_at is None]
+    pending = []
+    for h in all_heats:
+        if h.recorded_at is not None:
+            continue
+        assert h.round is not None  # get_heats excludes free heats (#6)
+        if h.round.advancement_source is None:
+            pending.append(h)
     if not pending:
         return []
 
@@ -2338,6 +2387,24 @@ def repair_master_running_order(
 
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if race is None or not race.master_running_order:
+        return []
+
+    # Championship rounds stay out of the master order, exactly as
+    # `apply_master_running_order` keeps them out: the execution surfaces run
+    # them after every general round, and the advancement cascade renumbers
+    # their heats 1..N on every rebuild anyway.
+    def _is_general(heats: list[models.Heat]) -> bool:
+        round_obj = heats[0].round
+        assert round_obj is not None  # cascade heats always belong to a round
+        return round_obj.advancement_source is None
+
+    new_heats_by_round = {
+        round_id: heats
+        for round_id, heats in new_heats_by_round.items()
+        if heats and _is_general(heats)
+    }
+    new_heats = [heat for heats in new_heats_by_round.values() for heat in heats]
+    if not new_heats:
         return []
 
     new_lanes = lanes_for_heats(db, new_heats)

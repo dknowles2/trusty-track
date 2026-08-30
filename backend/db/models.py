@@ -100,8 +100,15 @@ class SchedulingStrategy(str, enum.Enum):
 
 
 class ScoringStrategy(str, enum.Enum):
+    """See `backend/domain/scoring.py` for what each member means and how it
+    aggregates. ``CUMULATIVE_TIME`` and ``FASTEST_TIME`` (#547 stage 1) are
+    GPRM's remaining two scoring methods; the module docstring there is the
+    one place their rules are written out."""
+
     TIMED = "TIMED"
     POINTS = "POINTS"
+    CUMULATIVE_TIME = "CUMULATIVE_TIME"
+    FASTEST_TIME = "FASTEST_TIME"
 
 
 class TiebreakMethod(str, enum.Enum):
@@ -413,6 +420,16 @@ class Race(Base):
     #: same door `reorderHeats` uses; nothing here reorders heats by itself.
     master_running_order: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
+    )
+    #: How many of each racer's worst counted results to drop before scoring
+    #: (#547 stage 2) — a modifier over whichever `scoring_strategy` is
+    #: chosen, not a fifth strategy of its own. `0` is the off state, so
+    #: there is no clear flag: absent on `updateRace` leaves it alone, and an
+    #: explicit `0` is exactly how an operator turns it back off. See
+    #: `domain.scoring.score_heats` for the rule — the same number is dropped
+    #: from everybody, and only when everybody has enough runs to drop it.
+    drop_worst_runs: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sa_text("0")
     )
 
     organization: Mapped["Organization"] = relationship(

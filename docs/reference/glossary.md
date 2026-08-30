@@ -60,6 +60,11 @@ fills itself in from results; **Line-up out of date** on the schedule means
 those results have since changed. See
 [Championship rounds](championship-rounds.md#when-a-time-is-corrected).
 
+**Master running order** — an opt-in race setting that interleaves every
+den's heats into one running order instead of a block per den, so the track
+need not idle while the next den's cars are staged. Off by default. See
+[Running order across groups](running-order.md).
+
 **Operator** — the person running the race, on the device that holds the
 operator PIN (if one is set). See
 [Roles and permissions](roles-and-permissions.md).

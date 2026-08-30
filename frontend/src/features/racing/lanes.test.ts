@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasTimes, hasRun, wasSkipped, byPlace, assignPlaces, shouldDerivePlaces, shouldDerivePlacesForFreeRace, toInput } from './lanes';
+import { hasTimes, hasRun, wasSkipped, byPlace, assignPlaces, isTimeBasedStrategy, shouldDerivePlaces, shouldDerivePlacesForFreeRace, toInput } from './lanes';
 import { lane } from './testFixtures';
 import type { LaneInput } from './types';
 
@@ -179,6 +179,38 @@ describe('shouldDerivePlaces', () => {
   it('defaults to deriving when the strategy is not known yet', () => {
     expect(shouldDerivePlaces(null)).toBe(true);
     expect(shouldDerivePlaces(undefined)).toBe(true);
+  });
+});
+
+/**
+ * #547 stage 1. `isTimeBasedStrategy` is what `shouldDerivePlaces` and
+ * `RaceExecution`'s modal column choice are restated through, so a new
+ * scoring strategy answers this question once rather than being checked at
+ * every call site that used to spell out `=== 'TIMED'` or `!== 'POINTS'` by
+ * hand. Both new strategies are time-based — neither sums hand-entered
+ * places the way `POINTS` does — so they belong on the `true` side, same as
+ * `TIMED`.
+ */
+describe('isTimeBasedStrategy', () => {
+  it('is true for TIMED', () => {
+    expect(isTimeBasedStrategy('TIMED')).toBe(true);
+  });
+
+  it('is false for POINTS, the one place-based strategy', () => {
+    expect(isTimeBasedStrategy('POINTS')).toBe(false);
+  });
+
+  it('is true for CUMULATIVE_TIME', () => {
+    expect(isTimeBasedStrategy('CUMULATIVE_TIME')).toBe(true);
+  });
+
+  it('is true for FASTEST_TIME', () => {
+    expect(isTimeBasedStrategy('FASTEST_TIME')).toBe(true);
+  });
+
+  it('defaults to time-based when the strategy is not known yet', () => {
+    expect(isTimeBasedStrategy(null)).toBe(true);
+    expect(isTimeBasedStrategy(undefined)).toBe(true);
   });
 });
 

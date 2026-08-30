@@ -20,11 +20,13 @@ import {
   REORDER_HEATS_MUTATION,
   UPDATE_HEAT_RESULT_MUTATION,
   UPDATE_RACE_AUTO_ADVANCE_MUTATION,
+  APPLY_MASTER_RUNNING_ORDER_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
 import { hasRun, hasTimes, byPlace, cleared, assignPlaces, shouldDerivePlaces } from '../lanes';
+import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { shouldShowReadiness } from '../readiness';
 
@@ -64,6 +66,7 @@ export default function RaceControl() {
   const [, reorderHeatsMutation] = useMutation(REORDER_HEATS_MUTATION);
   const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
   const [, updateRaceMutation] = useMutation(UPDATE_RACE_AUTO_ADVANCE_MUTATION);
+  const [, applyMasterRunningOrderMutation] = useMutation(APPLY_MASTER_RUNNING_ORDER_MUTATION);
 
   // Keep every open tab in sync. Heat results and check-ins arrive with the
   // updated entity and merge into the normalized cache; only structural
@@ -80,6 +83,27 @@ export default function RaceControl() {
     });
     return map;
   }, [race?.racers]);
+
+  /* The race-wide running order (#549). `(roundNumber, heatNumber)` for every
+   * race with `masterRunningOrder` off; the interleaved `heatNumber` sequence
+   * — championship rounds after every general round — once it is on. The rule
+   * is `runningOrder.ts`, the mirror of the one the `currentlyRacing` and
+   * `onDeck` subscriptions read on the backend, so this screen and the wall
+   * displays cannot disagree about which heat is next. */
+  const masterRunningOrder = race?.masterRunningOrder ?? false;
+  const championshipRoundIds = useMemo(
+    () =>
+      new Set<number>(
+        (race?.rounds ?? [])
+          .filter((round: Round) => round.advancementSource)
+          .map((round: Round) => round.id),
+      ),
+    [race?.rounds],
+  );
+  const orderHeats = useMemo(
+    () => executionComparator(masterRunningOrder, championshipRoundIds),
+    [masterRunningOrder, championshipRoundIds],
+  );
 
   /**
    * The heat armed or running on this track right now, or null (#345).
@@ -284,40 +308,47 @@ export default function RaceControl() {
     }
 
     if (shouldStart) {
-        // If this is a future heat, move it to be the next one in its round
-        const roundHeats = heats
-          .filter((h: Heat) => h.roundId === heat.roundId)
-          .sort((a: Heat, b: Heat) => a.heatNumber - b.heatNumber);
+        // If this is a future heat, move it to be the next one in its round.
+        //
+        // Not under a master running order: renumbering a round 1..N would
+        // yank its heats to the head of the interleave (#549) — and the
+        // renumbering only exists so the display order shows the jumped-to
+        // heat as next, which selecting it below already does.
+        if (!masterRunningOrder) {
+            const roundHeats = heats
+              .filter((h: Heat) => h.roundId === heat.roundId)
+              .sort((a: Heat, b: Heat) => a.heatNumber - b.heatNumber);
 
-        // Deliberately not `hasRun`: a skipped heat still counts as somewhere to
-        // jump back to.
-        const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => !hasTimes(h.lanes));
+            // Deliberately not `hasRun`: a skipped heat still counts as somewhere to
+            // jump back to.
+            const firstUncompletedIndex = roundHeats.findIndex((h: Heat) => !hasTimes(h.lanes));
 
-        const targetIndex = roundHeats.findIndex((h: Heat) => h.id === heat.id);
+            const targetIndex = roundHeats.findIndex((h: Heat) => h.id === heat.id);
 
-        // Only reorder if we're jumping ahead of at least one uncompleted heat
-        if (firstUncompletedIndex !== -1 && targetIndex > firstUncompletedIndex) {
-            const reordered = arrayMove(roundHeats, targetIndex, firstUncompletedIndex) as Heat[];
-            const updates = reordered.map((h: Heat, idx) => ({
-                heat_id: h.id,
-                new_heat_number: idx + 1
-            }));
+            // Only reorder if we're jumping ahead of at least one uncompleted heat
+            if (firstUncompletedIndex !== -1 && targetIndex > firstUncompletedIndex) {
+                const reordered = arrayMove(roundHeats, targetIndex, firstUncompletedIndex) as Heat[];
+                const updates = reordered.map((h: Heat, idx) => ({
+                    heat_id: h.id,
+                    new_heat_number: idx + 1
+                }));
 
-            try {
-                await handleReorderHeats(updates);
-            } catch (e) {
-                console.error("Failed to reorder heats", e);
-                showAlert(errorText(e, "Failed to reorder heats."), "Error");
-                // Don't move the operator to the Race tab believing the
-                // schedule changed.
-                return;
+                try {
+                    await handleReorderHeats(updates);
+                } catch (e) {
+                    console.error("Failed to reorder heats", e);
+                    showAlert(errorText(e, "Failed to reorder heats."), "Error");
+                    // Don't move the operator to the Race tab believing the
+                    // schedule changed.
+                    return;
+                }
             }
         }
 
         setSelectedHeatId(heat.id);
         navigate(`/race/${id}/control/race`);
     }
-  }, [heats, updateHeatResultMutation, reExecute, handleReorderHeats, navigate, id, showToast, showAlert]);
+  }, [heats, masterRunningOrder, updateHeatResultMutation, reExecute, handleReorderHeats, navigate, id, showToast, showAlert]);
 
 
   // Rounds whose field comes from the bottom of the standings — a Slowest
@@ -327,6 +358,38 @@ export default function RaceControl() {
           .filter((round: Round) => round.advancementFromBottom)
           .map((round: Round) => round.id)
   );
+
+  // A round's own racing group, by round id (#549 stage 4) — what labels a
+  // heat in the master running order. Absent for a round scoped to no single
+  // group, which `ScheduleManagement` reads as an ordinary state, not a
+  // missing one. Resolved against `race.racingGroups`, which the query
+  // already fetches for the roster toggle — a second name-carrying field on
+  // `Round` would be a second copy of the same name.
+  const roundGroupLabel = useMemo(() => {
+      const groupsById = new Map<number, string>();
+      (race?.racingGroups ?? []).forEach((g: { id: number; name: string }) => {
+          groupsById.set(g.id, g.name);
+      });
+      const labels: Record<number, string> = {};
+      (race?.rounds ?? []).forEach((round: Round) => {
+          if (round.racingGroupId != null) {
+              const name = groupsById.get(round.racingGroupId);
+              if (name) labels[round.id] = name;
+          }
+      });
+      return labels;
+  }, [race?.racingGroups, race?.rounds]);
+
+  // Recomputes the whole interleave from scratch — a deliberate, re-runnable
+  // operator action from the Schedule screen, not the automatic mid-event
+  // repair a lane outage or a latecomer triggers on its own seam (#549
+  // stage 3). Throws on failure, same shape as `handleReorderHeats`, so
+  // `ScheduleManagement`'s own catch/toast runs for it.
+  const handleApplyMasterRunningOrder = useCallback(async () => {
+      const result = await applyMasterRunningOrderMutation({ raceId: id });
+      if (result.error) throw result.error;
+      reExecute({ requestPolicy: 'network-only' });
+  }, [applyMasterRunningOrderMutation, id, reExecute]);
 
   const getRacerName = (id: number, fromBottom?: boolean) => {
       if (id < 0) {
@@ -362,11 +425,10 @@ export default function RaceControl() {
   }, [viewMode, reExecute]);
 
   const sortedHeatsEx = useMemo(() => {
-    return [...heats].sort((a, b) => {
-      if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
-      return a.heatNumber - b.heatNumber;
-    }).map((h: Heat, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
-  }, [heats]);
+    return [...heats]
+      .sort(orderHeats)
+      .map((h: Heat, idx) => ({ ...h, globalHeatNumber: idx + 1 }));
+  }, [heats, orderHeats]);
 
   /** The heat on screen: what the operator picked, else where the race is up to.
    *
@@ -429,13 +491,11 @@ export default function RaceControl() {
       : null;
 
   const completedPreviousHeats = useMemo(() => {
+    // Most recent first: the running order, reversed.
     return [...sortedHeatsEx]
       .filter((h: Heat) => h.id !== activeExecutionHeat?.id && hasRun(h.lanes))
-      .sort((a: Heat, b: Heat) => {
-        if (b.roundNumber !== a.roundNumber) return b.roundNumber - a.roundNumber;
-        return b.heatNumber - a.heatNumber;
-      });
-  }, [sortedHeatsEx, activeExecutionHeat]);
+      .sort((a: Heat, b: Heat) => orderHeats(b, a));
+  }, [sortedHeatsEx, activeExecutionHeat, orderHeats]);
 
   const handleNextHeat = useCallback(() => {
       setRoundSummary(null);
@@ -456,9 +516,19 @@ export default function RaceControl() {
 
   const upcomingRounds = useMemo(() => {
     if (!activeExecutionHeat) return [];
+    // Under a master running order, rounds run concurrently rather than in
+    // sequence, so "upcoming" means any other round with a heat still to run
+    // — a later round *number* says nothing about when its next heat is up.
+    const stillHasHeatsToRun = new Set<number>(
+      heats.filter((h: Heat) => !hasRun(h.lanes)).map((h: Heat) => h.roundId)
+    );
+    const isUpcoming = (h: Heat) =>
+      masterRunningOrder
+        ? h.roundId !== activeExecutionHeat.roundId && stillHasHeatsToRun.has(h.roundId)
+        : h.roundNumber > activeExecutionHeat.roundNumber;
     const rounds: Record<number, { roundNumber: number, roundName: string | null, totalHeats: number, roundId: number }> = {};
     heats.forEach((h: Heat) => {
-      if (h.roundNumber > activeExecutionHeat.roundNumber) {
+      if (isUpcoming(h)) {
         if (!rounds[h.roundId]) {
           rounds[h.roundId] = {
             roundNumber: h.roundNumber,
@@ -471,7 +541,7 @@ export default function RaceControl() {
       }
     });
     return Object.values(rounds).sort((a, b) => a.roundNumber - b.roundNumber);
-  }, [heats, activeExecutionHeat]);
+  }, [heats, activeExecutionHeat, masterRunningOrder]);
 
   // The pre-flight check (#200). It answers, before the first heat is armed,
   // the four questions the operator otherwise discovers one error at a time —
@@ -631,6 +701,7 @@ export default function RaceControl() {
               racers={racers}
               roundSummary={roundSummary}
               autoAdvanceHeat={race?.autoAdvanceHeat ?? false}
+              masterRunningOrder={masterRunningOrder}
               remainingHeatsInRound={remainingHeatsInRound}
               totalHeatsInRound={totalHeatsInRound}
               upcomingRounds={upcomingRounds}
@@ -727,6 +798,10 @@ export default function RaceControl() {
           onRefetchHeats={async () => { reExecute({ requestPolicy: 'network-only' }); }}
           onRunHeat={handleRunHeat}
           onReorderHeats={handleReorderHeats}
+          masterRunningOrder={masterRunningOrder}
+          championshipRoundIds={championshipRoundIds}
+          roundGroupLabel={roundGroupLabel}
+          onApplyMasterRunningOrder={handleApplyMasterRunningOrder}
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}
           racerCount={race?.racers?.length || 0}

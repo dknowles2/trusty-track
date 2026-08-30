@@ -4,9 +4,13 @@ import pytest
 
 from backend.domain.lanes import Lane
 from backend.domain.scoring import (
+    CUMULATIVE_TIME,
     DNF_PENALTY_SECONDS,
+    FASTEST_TIME,
     POINTS,
     TIMED,
+    counts_a_disrupted_round,
+    drop_worst_status,
     rank_key,
     score_heats,
     standings_ranks,
@@ -213,3 +217,322 @@ class TestStandingsRanks:
         # The default must be a no-op for every existing caller.
         scored = [(3.0, 2), (3.0, 2), (3.5, 2)]
         assert standings_ranks(scored) == standings_ranks(scored, separated=None)
+
+
+# --- #547 stage 1: CUMULATIVE_TIME and FASTEST_TIME ------------------------
+
+
+def test_cumulative_time_scores_the_sum():
+    scores = score_heats(
+        [_heat((1, 3.0, 1), (2, 4.0, 2)), _heat((1, 5.0, 2), (2, 4.0, 1))],
+        CUMULATIVE_TIME,
+    )
+    assert scores[1].score == 8.0
+    assert scores[1].heats_completed == 2
+    assert scores[2].score == 8.0
+
+
+def test_cumulative_time_uses_the_same_dnf_penalty_as_timed():
+    """The module docstring's decision: a recorded 0.0 is still a heat that
+    happened, so it is summed as a bad-but-finite time rather than dropped —
+    the same reasoning #225 already gave POINTS for the same fact."""
+    scores = score_heats([_heat((1, 0.0, None)), _heat((1, 3.0, 1))], CUMULATIVE_TIME)
+    assert scores[1].score == pytest.approx(DNF_PENALTY_SECONDS + 3.0)
+
+
+def test_cumulative_time_needs_no_penalty_for_a_skip():
+    heats = [
+        _heat((1, 3.0, 1)),
+        [Lane(lane=1, racer_id=1, skipped=True)],
+    ]
+    scores = score_heats(heats, CUMULATIVE_TIME)
+    assert scores[1].score == 3.0
+    assert scores[1].heats_completed == 1
+
+
+class TestCumulativeAndAverageDisagree:
+    """The issue's headline test: cumulative time is a real third method, not
+    a rename of the average, and the difference only shows up once heat
+    counts differ — exactly the invariant a disrupted round breaks."""
+
+    def test_they_disagree_when_heat_counts_differ(self):
+        # Racer 1 ran two heats at a modest pace; racer 2 ran only one heat
+        # (their other lane was vacated by a lane outage, say) but it was
+        # fast. TIMED's average still favours racer 1: 3.5 < 3.6. Summed,
+        # racer 2's single heat beats racer 1's two combined: 3.6 < 7.0.
+        heats = [_heat((1, 3.0, 1), (2, 3.6, 2)), _heat((1, 4.0, 1))]
+        timed = score_heats(heats, TIMED)
+        cumulative = score_heats(heats, CUMULATIVE_TIME)
+
+        assert timed[1].score < timed[2].score  # TIMED: racer 1 wins
+        assert cumulative[2].score < cumulative[1].score  # CUMULATIVE: racer 2 wins
+
+    def test_they_agree_when_heat_counts_are_equal(self):
+        # Every racer ran the same number of heats — the one case the issue
+        # says the two are "identical ordering" for. Dividing every racer's
+        # sum by the same constant (their shared heat count) cannot change
+        # who is ahead of whom.
+        heats = [_heat((1, 3.0, 1), (2, 3.6, 2)), _heat((1, 4.0, 1), (2, 3.5, 2))]
+        timed = score_heats(heats, TIMED)
+        cumulative = score_heats(heats, CUMULATIVE_TIME)
+
+        timed_order = sorted(timed, key=lambda rid: timed[rid].score)
+        cumulative_order = sorted(cumulative, key=lambda rid: cumulative[rid].score)
+        assert timed_order == cumulative_order
+
+
+def test_fastest_time_scores_the_best_recorded_time():
+    scores = score_heats(
+        [_heat((1, 5.2, 1), (2, 4.0, 2)), _heat((1, 4.8, 2), (2, 4.4, 1))],
+        FASTEST_TIME,
+    )
+    assert scores[1].score == 4.8
+    assert scores[2].score == 4.0
+
+
+def test_fastest_time_scores_the_minimum_not_the_first():
+    scores = score_heats(
+        [_heat((1, 4.8, 1)), _heat((1, 3.9, 1)), _heat((1, 5.5, 1))], FASTEST_TIME
+    )
+    assert scores[1].score == 3.9
+    assert scores[1].heats_completed == 3
+
+
+class TestFastestTimeIgnoresDnfs:
+    """The issue's other headline test. A DNF is not merely a bad result
+    here, the way it is under TIMED/CUMULATIVE_TIME — it is not a candidate
+    for "fastest" at all, so it must not drag the score down, and a racer
+    with nothing *but* DNFs must not read as though they had a result."""
+
+    @pytest.mark.parametrize("dnf_time", [0.0, -1.0])
+    def test_a_dnf_is_not_a_candidate(self, dnf_time):
+        # If the DNF counted as a time it would win outright (lowest number);
+        # it must instead be invisible to the comparison.
+        scores = score_heats(
+            [_heat((1, dnf_time, None)), _heat((1, 4.8, 1))], FASTEST_TIME
+        )
+        assert scores[1].score == 4.8
+        assert scores[1].heats_completed == 1
+
+    def test_an_all_dnf_racer_reads_as_unraced(self):
+        scores = score_heats(
+            [_heat((1, 0.0, None)), _heat((1, -1.0, None))], FASTEST_TIME
+        )
+        assert scores[1].heats_completed == 0
+        assert scores[1].score == 0.0
+
+    def test_an_all_dnf_racer_sorts_below_everyone_who_finished(self):
+        # rank_key is what the leaderboard actually sorts by. Racer 1 has a
+        # (bad) real time; racer 2 never finished a single heat.
+        scores = score_heats(
+            [_heat((1, 9.0, 1), (2, 0.0, None)), _heat((2, -1.0, None))],
+            FASTEST_TIME,
+        )
+        key_1 = rank_key(scores[1].score, scores[1].heats_completed, 1)
+        key_2 = rank_key(scores[2].score, scores[2].heats_completed, 2)
+        assert key_1 < key_2
+
+    def test_a_skip_is_also_not_a_candidate(self):
+        heats = [
+            _heat((1, 4.8, 1)),
+            [Lane(lane=1, racer_id=1, skipped=True)],
+        ]
+        scores = score_heats(heats, FASTEST_TIME)
+        assert scores[1].score == 4.8
+        assert scores[1].heats_completed == 1
+
+
+class TestCountsADisruptedRound:
+    """#547 stage 1's other named trap: the mapping from strategy to
+    scale-free-or-summing has to cover all four members, or a disrupted
+    round is silently counted where it should be dropped (#26, again)."""
+
+    def test_timed_counts_a_disrupted_round(self):
+        assert counts_a_disrupted_round(TIMED) is True
+
+    def test_points_drops_a_disrupted_round(self):
+        assert counts_a_disrupted_round(POINTS) is False
+
+    def test_cumulative_time_drops_a_disrupted_round_like_points(self):
+        # CUMULATIVE_TIME sums, so it fails the same way POINTS does.
+        assert counts_a_disrupted_round(CUMULATIVE_TIME) is False
+
+    def test_fastest_time_counts_a_disrupted_round_like_timed(self):
+        # FASTEST_TIME is scale-free, so it fails the same way TIMED does.
+        assert counts_a_disrupted_round(FASTEST_TIME) is True
+
+
+# --- #547 stage 2: drop the worst run ---------------------------------------
+
+
+class TestDropWorstRunsReproducesTodayWhenOff:
+    """The issue's mandatory test: `drop_worst_runs = 0` must change nothing.
+
+    `0` is the off state, so passing it explicitly is the same call as
+    omitting it — the leading tests in this file already exercise the
+    omitted form; these pin that an explicit `0` agrees.
+    """
+
+    def test_timed_with_zero_matches_the_default(self):
+        heats = [_heat((1, 3.0, 1), (2, 4.0, 2)), _heat((1, 5.0, 2), (2, 4.0, 1))]
+        assert score_heats(heats, TIMED, drop_worst_runs=0) == score_heats(heats, TIMED)
+
+    def test_points_with_zero_matches_the_default(self):
+        heats = [_heat((1, 3.0, 1), (2, 4.0, 2)), _heat((1, 5.0, 3), (2, 4.0, 1))]
+        assert score_heats(heats, POINTS, drop_worst_runs=0) == score_heats(
+            heats, POINTS
+        )
+
+    def test_zero_never_applies_however_many_runs_everyone_has(self):
+        heats = [
+            _heat((1, 3.0, 1), (2, 4.0, 2)),
+            _heat((1, 5.0, 2), (2, 4.0, 1)),
+            _heat((1, 2.0, 1), (2, 2.0, 1)),
+        ]
+        assert drop_worst_status(heats, TIMED, 0) is False
+
+
+class TestDropWorstRunsDrops:
+    """The issue's other mandatory tests: dropping actually changes the
+    score, using each strategy's own idea of "worst"."""
+
+    def test_timed_drops_the_worst_time(self):
+        # Racer 1: 3.0, 4.0, 9.0 -> drop the 9.0 -> average of the rest.
+        heats = [
+            _heat((1, 3.0, 1)),
+            _heat((1, 4.0, 1)),
+            _heat((1, 9.0, 1)),
+        ]
+        scores = score_heats(heats, TIMED, drop_worst_runs=1)
+        assert scores[1].score == pytest.approx(3.5)
+        # Participation is unaffected by the modifier: they still raced 3.
+        assert scores[1].heats_completed == 3
+
+    def test_cumulative_time_drops_the_worst_time(self):
+        heats = [
+            _heat((1, 3.0, 1)),
+            _heat((1, 4.0, 1)),
+            _heat((1, 9.0, 1)),
+        ]
+        scores = score_heats(heats, CUMULATIVE_TIME, drop_worst_runs=1)
+        assert scores[1].score == pytest.approx(7.0)
+        assert scores[1].heats_completed == 3
+
+    def test_points_drops_the_worst_placement(self):
+        # Placements 1, 2, 4 -> drop the 4 (worst finish) -> 1 + 2 = 3.
+        heats = [
+            _heat((1, 3.0, 1)),
+            _heat((1, 3.0, 2)),
+            _heat((1, 3.0, 4)),
+        ]
+        scores = score_heats(heats, POINTS, drop_worst_runs=1)
+        assert scores[1].score == 3
+        assert scores[1].heats_completed == 3
+
+    def test_dropping_two_runs_drops_the_two_worst(self):
+        heats = [
+            _heat((1, 1.0, 1)),
+            _heat((1, 2.0, 1)),
+            _heat((1, 8.0, 1)),
+            _heat((1, 9.0, 1)),
+        ]
+        scores = score_heats(heats, TIMED, drop_worst_runs=2)
+        assert scores[1].score == pytest.approx(1.5)
+
+
+class TestDropWorstRunsNeedsEqualCounts:
+    """The issue's headline trap: dropping unevenly reintroduces #26 —
+    dropping one run from a racer with three and one from a racer with four
+    leaves them incomparable. Uneven counts must drop nothing, and say so."""
+
+    def test_one_racer_short_a_run_drops_nothing(self):
+        # Racer 1 raced three heats; racer 2 raced only two (a lane outage,
+        # say). Asking to drop one would leave racer 1 with two counted
+        # results and racer 2 with one — still uneven, the opposite of the
+        # point.
+        heats = [
+            _heat((1, 3.0, 1), (2, 4.0, 2)),
+            _heat((1, 4.0, 1), (2, 4.0, 1)),
+            _heat((1, 5.0, 1)),
+        ]
+        undropped = score_heats(heats, TIMED, drop_worst_runs=0)
+        dropped = score_heats(heats, TIMED, drop_worst_runs=1)
+        assert dropped == undropped
+        assert dropped[1].heats_completed == 3
+        assert dropped[2].heats_completed == 2
+
+    def test_says_so_via_drop_worst_status(self):
+        heats = [
+            _heat((1, 3.0, 1), (2, 4.0, 2)),
+            _heat((1, 4.0, 1), (2, 4.0, 1)),
+            _heat((1, 5.0, 1)),
+        ]
+        assert drop_worst_status(heats, TIMED, 1) is False
+
+    def test_applies_once_everyone_has_caught_up(self):
+        # Same field, one more heat for racer 2 — now both have 3.
+        heats = [
+            _heat((1, 3.0, 1), (2, 4.0, 2)),
+            _heat((1, 4.0, 1), (2, 4.0, 1)),
+            _heat((1, 5.0, 1), (2, 1.0, 1)),
+        ]
+        assert drop_worst_status(heats, TIMED, 1) is True
+        dropped = score_heats(heats, TIMED, drop_worst_runs=1)
+        # Racer 2's worst (4.0, twice tied — either drops) leaves two of
+        # {4.0, 4.0, 1.0}; racer 1 drops its 5.0, leaving {3.0, 4.0}.
+        assert dropped[1].score == pytest.approx(3.5)
+
+    def test_an_unraced_racer_does_not_veto_the_drop(self):
+        # Racer 2 is scheduled (appears in a lane) but has not raced at all —
+        # `heats_completed == 0`. They are not *ranked* yet, so their absence
+        # of results must not block racer 1's drop, the same "unraced" test
+        # `rank_key` already applies.
+        heats = [
+            _heat((1, 3.0, 1), (None, None, None)),
+            _heat((1, 4.0, 1), (None, None, None)),
+            _heat((1, 9.0, 1), (2, None, None)),
+        ]
+        assert drop_worst_status(heats, TIMED, 1) is True
+        dropped = score_heats(heats, TIMED, drop_worst_runs=1)
+        assert dropped[1].score == pytest.approx(3.5)
+        assert dropped[2].heats_completed == 0
+
+
+class TestDropWorstRunsUnderFastestTime:
+    """The issue's third named case: dropping the worst is a no-op under
+    ``FASTEST_TIME`` by construction — the strategy already keeps only the
+    single lowest time, so removing anything else cannot change it."""
+
+    def test_dropping_the_worst_changes_nothing(self):
+        heats = [
+            _heat((1, 5.0, 1)),
+            _heat((1, 2.0, 1)),
+            _heat((1, 9.0, 1)),
+        ]
+        undropped = score_heats(heats, FASTEST_TIME, drop_worst_runs=0)
+        dropped = score_heats(heats, FASTEST_TIME, drop_worst_runs=2)
+        assert dropped[1].score == undropped[1].score == 2.0
+        # Participation is still reported honestly — dropping did not erase
+        # the fact that all three heats were raced.
+        assert dropped[1].heats_completed == undropped[1].heats_completed == 3
+
+    def test_status_can_still_say_applied_even_though_nothing_changes(self):
+        # `drop_worst_status` answers "did the equal-counts rule allow it",
+        # not "did the score change" — the two questions are different, and
+        # FASTEST_TIME is exactly where they can disagree.
+        heats = [_heat((1, 5.0, 1)), _heat((1, 2.0, 1)), _heat((1, 9.0, 1))]
+        assert drop_worst_status(heats, FASTEST_TIME, 1) is True
+
+
+class TestDropWorstStatus:
+    def test_off_is_always_false(self):
+        heats = [_heat((1, 3.0, 1)), _heat((1, 4.0, 1))]
+        assert drop_worst_status(heats, TIMED, 0) is False
+
+    def test_no_ranked_racers_is_false(self):
+        heats = [_heat((None, None, None))]
+        assert drop_worst_status(heats, TIMED, 1) is False
+
+    def test_true_when_everyone_has_exactly_enough(self):
+        heats = [_heat((1, 3.0, 1), (2, 4.0, 1)), _heat((1, 4.0, 1), (2, 5.0, 1))]
+        assert drop_worst_status(heats, TIMED, 1) is True
