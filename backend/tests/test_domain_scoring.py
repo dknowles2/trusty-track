@@ -190,3 +190,26 @@ class TestStandingsRanks:
 
     def test_nothing_ranks_nothing(self):
         assert standings_ranks([]) == []
+
+    def test_separated_stops_sharing_a_rank_despite_equal_scores(self):
+        # #540: a tiebreaker told these two apart, so the next rank does not
+        # skip a place for them the way an unresolved tie does.
+        scored = [(3.0, 2), (3.0, 2), (3.5, 2)]
+        assert standings_ranks(scored, separated=[False, True, False]) == [1, 2, 3]
+
+    def test_a_three_way_tie_partially_separated(self):
+        # One racer is told apart from the other two, who remain tied with
+        # each other — the rank they share is the next one after the leader,
+        # not the position their index would otherwise imply.
+        scored = [(4, 1), (4, 1), (4, 1), (5, 1)]
+        assert standings_ranks(scored, separated=[False, True, False, False]) == [
+            1,
+            2,
+            2,
+            4,
+        ]
+
+    def test_no_separated_argument_reproduces_the_old_behaviour(self):
+        # The default must be a no-op for every existing caller.
+        scored = [(3.0, 2), (3.0, 2), (3.5, 2)]
+        assert standings_ranks(scored) == standings_ranks(scored, separated=None)

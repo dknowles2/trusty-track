@@ -157,7 +157,9 @@ def rank_key(score: float, heats_completed: int, racer_id: int) -> tuple:
     return (float(score) if heats_completed > 0 else float("inf"), racer_id)
 
 
-def standings_ranks(scored: Sequence[tuple[float, int]]) -> list[int]:
+def standings_ranks(
+    scored: Sequence[tuple[float, int]], separated: Sequence[bool] | None = None
+) -> list[int]:
     """Competition ranks (1, 1, 3) for already-sorted ``(score, heats)`` pairs.
 
     Equal scores share a rank and the next rank skips, so a tie is *visible* —
@@ -173,6 +175,15 @@ def standings_ranks(scored: Sequence[tuple[float, int]]) -> list[int]:
     tying with each other: their scores are all equally meaningless, and a
     pre-race leaderboard where the whole roster shares rank 1 would be a wall
     of gold medals.
+
+    ``separated`` is how a resolved tie stops sharing a rank (#540).
+    ``separated[index]`` means index ``index`` no longer counts as tied with
+    ``index - 1`` even though their scores are equal — because
+    ``backend.domain.tiebreak`` told them apart. Left ``None`` (the default),
+    every equal score ties, which is the whole of what this function did
+    before a tiebreaker existed. A pair a tiebreaker could not separate — the
+    method's own "still tied" answer — is simply never marked, so it keeps
+    sharing a rank exactly as it always did.
     """
     ranks: list[int] = []
     for index, (score, heats_completed) in enumerate(scored):
@@ -182,6 +193,7 @@ def standings_ranks(scored: Sequence[tuple[float, int]]) -> list[int]:
             and heats_completed > 0
             and previous[1] > 0
             and float(score) == float(previous[0])
+            and not (separated[index] if separated is not None else False)
         )
         ranks.append(ranks[-1] if tied else index + 1)
     return ranks

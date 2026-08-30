@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session
 from backend.db import crud, models
 from backend.domain import advancement as domain_advancement
 from backend.domain import scoring as domain_scoring
+from backend.domain import tiebreak as domain_tiebreak
+from backend.domain.lanes import Lane
 
 
 def _scoring_heats(db: Session, race_id: int, round_id: int | None, scope: str) -> list:
@@ -113,6 +115,13 @@ class _LeaderboardRow(TypedDict):
     score: float
     heats_completed: int
     racer_image_url: str | None
+    #: The tiebreak method that gave this row a rank it no longer shares with
+    #: anyone (#540) — e.g. ``"BEST_TIME"`` — or ``None`` when the row was
+    #: never tied, or was tied and the chain left it that way. Always present,
+    #: never left for a caller to default: `_elimination_leaderboard` names
+    #: its own reason for the same shape by setting it to ``None`` outright,
+    #: since #540 is explicitly out of scope for that format.
+    resolved_by: str | None
 
 
 class LeaderboardEntry(_LeaderboardRow, total=False):
@@ -152,7 +161,10 @@ def get_leaderboard(
         ):
             return _elimination_leaderboard(db, race_id, round_obj)
 
-    racer_scores = calculate_racer_scores(db, race_id, round_id=round_id, scope=scope)
+    heats = _scoring_heats(db, race_id, round_id, scope)
+    parsed = crud.lanes_for_heats(db, heats)
+    scores = domain_scoring.score_heats(parsed, race.scoring_strategy)
+    racer_scores = {racer_id: score.as_dict() for racer_id, score in scores.items()}
 
     racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
     racing_group_map = {
@@ -189,6 +201,7 @@ def get_leaderboard(
                 score=score_data["score"],
                 heats_completed=int(score_data["heats_completed"]),
                 racer_image_url=racer.racer_image_url,
+                resolved_by=None,
             )
         )
 
@@ -198,15 +211,95 @@ def get_leaderboard(
         )
     )
 
+    # Break same-score clusters per the race's tiebreaker (#540) — reorders
+    # `leaderboard` in place within each cluster, stamps `resolved_by` on
+    # every row it separated, and reports which adjacent pairs stopped being
+    # tied so the rank stamped below does not share one for them.
+    separated = _resolve_ties(leaderboard, parsed, race.tiebreaker)
+
     # Competition ranks: a tie shares a rank rather than being silently
     # resolved by registration order (#226).
     ranks = domain_scoring.standings_ranks(
-        [(entry["score"], entry["heats_completed"]) for entry in leaderboard]
+        [(entry["score"], entry["heats_completed"]) for entry in leaderboard],
+        separated=separated,
     )
     for entry, rank in zip(leaderboard, ranks, strict=True):
         entry["rank"] = rank
 
     return leaderboard
+
+
+def _resolve_ties(
+    leaderboard: list[LeaderboardEntry],
+    heats: list[list[Lane]],
+    method: str,
+) -> list[bool]:
+    """Break each same-score cluster in ``leaderboard`` per ``method`` (#540).
+
+    ``leaderboard`` must already be sorted by :func:`domain_scoring.rank_key`,
+    so every cluster of equal-score, already-raced rows is contiguous.
+    Mutates it in place, reordering a cluster to
+    :attr:`backend.domain.tiebreak.TiebreakResult.order` and stamping
+    ``resolved_by`` on any row the method left standing alone — no longer
+    sharing its rank with anyone it was tied with. A row still sharing a group
+    with somebody keeps ``resolved_by`` at its initial ``None``: the chain did
+    not decide it, so it is reported exactly like a tie always has been.
+
+    Returns a same-length list of booleans: ``[i]`` is ``True`` when row ``i``
+    is no longer considered tied with row ``i - 1`` despite an equal score —
+    what :func:`domain_scoring.standings_ranks` needs to stop sharing their
+    rank. Rows outside any cluster are always ``False`` there, which changes
+    nothing: their scores already differ, so `standings_ranks` was never going
+    to tie them regardless.
+
+    ``method == SHARED`` (or any inconclusive answer) reorders a cluster to
+    exactly its input order — :func:`backend.domain.tiebreak.tiebreak`'s own
+    unresolved answer sorts racer ids ascending, the same tiebreak
+    :func:`domain_scoring.rank_key` already applied to get that order — so a
+    race left on the default sees no change at all.
+    """
+    separated = [False] * len(leaderboard)
+    index = 0
+    n = len(leaderboard)
+    while index < n:
+        start = index
+        while (
+            index + 1 < n
+            and leaderboard[start]["heats_completed"] > 0
+            and leaderboard[index + 1]["heats_completed"] > 0
+            and float(leaderboard[index + 1]["score"])
+            == float(leaderboard[start]["score"])
+        ):
+            index += 1
+        end = index  # inclusive
+
+        if end > start:
+            cluster = leaderboard[start : end + 1]
+            racer_ids = [entry["racer_id"] for entry in cluster]
+            result = domain_tiebreak.tiebreak(racer_ids, heats, method)
+
+            order_position = {
+                racer_id: position for position, racer_id in enumerate(result.order)
+            }
+            cluster.sort(key=lambda entry: order_position[entry["racer_id"]])
+            leaderboard[start : end + 1] = cluster
+
+            for i in range(start + 1, end + 1):
+                a = leaderboard[i - 1]["racer_id"]
+                b = leaderboard[i]["racer_id"]
+                if not result.still_tied(a, b):
+                    separated[i] = True
+
+            group_size = {
+                racer_id: len(group) for group in result.groups for racer_id in group
+            }
+            for entry in cluster:
+                if group_size[entry["racer_id"]] == 1:
+                    entry["resolved_by"] = method
+
+        index += 1
+
+    return separated
 
 
 def _elimination_leaderboard(
@@ -287,6 +380,11 @@ def _elimination_leaderboard(
                 heats_completed=completed.get(entry.racer_id, 0),
                 racer_image_url=racer.racer_image_url,
                 rank=rank,
+                # #540 is deliberately out of scope for elimination — its
+                # rank sharing is survival, not a score, and has its own rule
+                # above. Always present, never left implicit, same as the
+                # ordinary leaderboard's rows.
+                resolved_by=None,
             )
         )
     return leaderboard
