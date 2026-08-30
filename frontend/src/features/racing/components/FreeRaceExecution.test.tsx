@@ -408,4 +408,73 @@ describe('FreeRaceExecution', () => {
 
     expect(mockPrepareHeat).not.toHaveBeenCalled();
   });
+
+  describe('on a track with no timer (#526)', () => {
+    const noTimerProps = { ...defaultProps, timerType: 'NONE' };
+
+    it('Enter Results opens a modal asking for a place, not a time', () => {
+      render(<FreeRaceExecution {...noTimerProps} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Enter Results/i }));
+
+      expect(screen.getByTestId('mock-modal')).toBeInTheDocument();
+      expect(screen.getAllByPlaceholderText('Place').length).toBeGreaterThan(0);
+      expect(screen.queryByPlaceholderText('Time (s)')).not.toBeInTheDocument();
+    });
+
+    it('keeps the time column, unchanged, on a track that has a timer', () => {
+      (useSubscription as any).mockImplementation(({ query }: any) => {
+        const qStr = JSON.stringify(query);
+        if (qStr.includes('FreeRaceHeat')) {
+          return [{ data: { freeRaceHeat: {
+            ...recordedHeat([{ lane: 1, racerId: 101, time: 3.142, place: 1 }])
+          } } }];
+        }
+        return [{ data: null }];
+      });
+
+      render(<FreeRaceExecution {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
+
+      expect(screen.getByPlaceholderText('Time (s)')).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('Place')).not.toBeInTheDocument();
+    });
+
+    it('saving hand-typed places does not clear them (issue #526)', async () => {
+      // This is the bug: `handleSaveEdit` used to run every save through
+      // `assignPlaces` unconditionally, and `assignPlaces` reads "no time
+      // anywhere" as "clear every place" — exactly what a no-timer track's
+      // modal produces, since it never collects a time at all.
+      render(<FreeRaceExecution {...noTimerProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /Enter Results/i }));
+
+      const placeInputs = screen.getAllByPlaceholderText('Place');
+      fireEvent.change(placeInputs[0], { target: { value: '2' } });
+      fireEvent.change(placeInputs[1], { target: { value: '1' } });
+
+      fireEvent.click(screen.getByRole('button', { name: /Save Results/i }));
+
+      await waitFor(() => expect(mockRecordResult).toHaveBeenCalled());
+      expect(mockRecordResult).toHaveBeenCalledWith({
+        heatId: 42,
+        lanes: [
+          { lane: 1, racerId: 101, placeholderSlot: null, time: null, place: 2, skipped: false },
+          { lane: 2, racerId: 102, placeholderSlot: null, time: null, place: 1, skipped: false },
+          { lane: 3, racerId: null, placeholderSlot: null, time: null, place: null, skipped: false },
+        ],
+      });
+    });
+
+    it('treats a non-positive or non-numeric hand-typed place as unplaced (#524)', () => {
+      render(<FreeRaceExecution {...noTimerProps} />);
+      fireEvent.click(screen.getByRole('button', { name: /Enter Results/i }));
+
+      const placeInputs = screen.getAllByPlaceholderText('Place');
+      fireEvent.change(placeInputs[0], { target: { value: '0' } });
+      expect((placeInputs[0] as HTMLInputElement).value).toBe('');
+
+      fireEvent.change(placeInputs[1], { target: { value: '-1' } });
+      expect((placeInputs[1] as HTMLInputElement).value).toBe('');
+    });
+  });
 });

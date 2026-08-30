@@ -131,3 +131,18 @@ export const assignPlaces = (results: readonly LaneInput[]): LaneInput[] => {
  */
 export const shouldDerivePlaces = (scoringStrategy: string | null | undefined): boolean =>
   scoringStrategy !== 'POINTS';
+
+/**
+ * Whether saving a free-race heat's edited results should run them through
+ * {@link assignPlaces} (issue #526).
+ *
+ * `shouldDerivePlaces` keys off the race's scoring strategy, which is the
+ * wrong question here: a free heat is exhibition and is excluded from
+ * scoring under either strategy (#6). What decides it is whether the
+ * *track* has a timer (#490's `hasTimer`) — with one, the modal still only
+ * takes times and always wants them turned into places; with none, the
+ * modal takes a hand-typed finishing order directly, and `assignPlaces`
+ * reading "no time anywhere" as "clear every place" would erase exactly
+ * what the operator just typed.
+ */
+export const shouldDerivePlacesForFreeRace = (hasTimer: boolean): boolean => hasTimer;

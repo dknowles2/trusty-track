@@ -77,6 +77,12 @@ invents a finishing time a few seconds later, which is meant for a practice
 run or trying the software, not for recording a real result. **No timer**
 never invents anything — every result is exactly what was typed in.
 
+The [Free Race](../free-race.md) screen follows the same rule, with one
+difference: it always asks for finishing order rather than a time, whichever
+scoring method the race itself uses — a free heat is exhibition and is never
+scored, so the Timed/Points question this section answers for a real heat
+does not apply to it.
+
 The **Timer Model**, **Serial Port** and **This track has a remote start
 gate** fields disappear once **No timer** is chosen; none of them mean
 anything without a device.

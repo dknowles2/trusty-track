@@ -302,6 +302,70 @@ def test_record_free_race_result_mutation(db: Session):
     assert updated["lanes"][0]["place"] == 1
 
 
+def test_record_free_race_result_accepts_a_place_with_no_time(db: Session):
+    """#526: a no-timer track's only route to a free-race result is the
+    hand-entry modal, and it now sends a place with no time — exactly the
+    write `#490` already taught the official path to accept
+    (`validate_lane_replacement`'s place checks and `lanes.has_result` don't
+    care which screen a lane came from). This pins the free-race write path
+    end to end rather than trusting that by inference."""
+    db.query(models.Organization).delete()
+    db.query(models.Track).delete()
+    db.commit()
+
+    group = crud.create_organization(
+        db, schemas.OrganizationCreate(name="No Timer Free Race Pack")
+    )
+    track = crud.create_track(
+        db,
+        schemas.TrackCreate(name="No Timer Track", lane_count=2, timer_type="NONE"),
+    )
+    race = crud.create_race(
+        db,
+        schemas.RaceCreate(
+            name="No Timer Free Race",
+            organization_id=group.id,
+            track_id=track.id,
+            scoring_strategy="POINTS",
+            car_numbering_strategy="MANUAL",
+        ),
+    )
+    r1 = _add_checked_in_racer(db, race.id, "Alice", "Smith")
+    r2 = _add_checked_in_racer(db, race.id, "Bob", "Jones")
+
+    heat = crud.create_free_race_heat(
+        db,
+        race.id,
+        as_lanes([{"lane": 1, "racer_id": r1}, {"lane": 2, "racer_id": r2}]),
+    )
+
+    lanes = [
+        lane_input({"lane": 1, "racer_id": r1, "time": None, "place": 1}),
+        lane_input({"lane": 2, "racer_id": r2, "time": None, "place": 2}),
+    ]
+
+    resp = client.post(
+        "/graphql",
+        json={
+            "query": RECORD_FREE_RACE_RESULT,
+            "variables": {"heatId": heat.id, "lanes": lanes},
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "errors" not in data, data.get("errors")
+    updated = data["data"]["recordFreeRaceResult"]
+    # `recorded` — and so `stamp_recorded` and `lanes.has_results` beneath it
+    # — must count a place-only lane as a result, or the heat never leaves
+    # the "not yet run" state on a track with nothing to measure a time with.
+    assert updated["recorded"] is True
+    lanes_by_number = {lane["lane"]: lane for lane in updated["lanes"]}
+    assert lanes_by_number[1]["place"] == 1
+    assert lanes_by_number[1]["time"] is None
+    assert lanes_by_number[2]["place"] == 2
+    assert lanes_by_number[2]["time"] is None
+
+
 def test_record_free_race_result_invalid_heat_id(db: Session):
     _create_race_with_track(db)
 
