@@ -1318,6 +1318,12 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
     """
     disrupted_round_ids: list[int] = []
     races = db.query(models.Race).filter(models.Race.track_id == track_id).all()
+    # Heats a full regeneration below creates, by race and then by round —
+    # repaired into each race's master running order (#549, stage 3) once
+    # every race on this track has been brought into line. The vacate branch
+    # never lands here: it keeps every heat's id and heat_number, so there is
+    # nothing for a repair to fold in.
+    new_heats_by_race: dict[int, dict[int, list[models.Heat]]] = {}
 
     for race in races:
         usable = set(usable_lanes_for_race(db, race.id))
@@ -1339,7 +1345,10 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
                 # Nothing raced yet, so rebuild it properly. `may_rebuild` is
                 # satisfied by definition here — no heat holds a result.
                 if usable:
-                    generate_heats_for_round(db, round_obj.id, clear_existing=True)
+                    rebuilt = generate_heats_for_round(
+                        db, round_obj.id, clear_existing=True
+                    )
+                    new_heats_by_race.setdefault(race.id, {})[round_obj.id] = rebuilt
                 continue
 
             vacated = False
@@ -1358,6 +1367,8 @@ def apply_outages_to_scheduled_heats(db: Session, track_id: int) -> list[int]:
                 disrupted_round_ids.append(round_obj.id)
 
     db.commit()
+    for race_id, new_heats_by_round in new_heats_by_race.items():
+        repair_master_running_order(db, race_id, new_heats_by_round)
     return disrupted_round_ids
 
 
@@ -1405,6 +1416,10 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
 
     usable = usable_lanes_for_race(db, race_id)
     disrupted_round_ids: list[int] = []
+    # Heats this call creates, by round — repaired into the master running
+    # order (#549, stage 3) after the loop, if the race wants one. Empty for
+    # a call that admits nobody or only extends elimination/balanced rounds.
+    new_heats_by_round: dict[int, list[models.Heat]] = {}
 
     for round_obj in rounds:
         heats = models.official_heats(
@@ -1425,7 +1440,9 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
             continue
 
         if advancement.may_rebuild(heat_lanes):
-            generate_heats_for_round(db, round_obj.id, clear_existing=True)
+            new_heats_by_round[round_obj.id] = generate_heats_for_round(
+                db, round_obj.id, clear_existing=True
+            )
             continue
 
         if advancement.is_round_complete(heat_lanes):
@@ -1448,6 +1465,7 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
             continue
 
         next_number = max(h.heat_number for h in heats) + 1
+        new_heats: list[models.Heat] = []
         for offset, plan in enumerate(appended):
             heat = models.Heat(
                 race_id=race_id,
@@ -1462,12 +1480,15 @@ def admit_late_racers(db: Session, race_id: int) -> list[int]:
                 ],
             )
             db.add(heat)
+            new_heats.append(heat)
+        new_heats_by_round[round_obj.id] = new_heats
 
         if not round_obj.disrupted:
             round_obj.disrupted = True
             disrupted_round_ids.append(round_obj.id)
 
     db.commit()
+    repair_master_running_order(db, race_id, new_heats_by_round)
     return disrupted_round_ids
 
 
@@ -2255,6 +2276,92 @@ def apply_master_running_order(db: Session, race_id: int) -> list[models.Heat]:
     ]
     order = running_order.interleave(schedules)
 
+    base = max(h.heat_number for h in all_heats) + 1
+    update_map = {heat_id: base + position for position, heat_id in enumerate(order)}
+    return _write_heat_numbers(db, update_map)
+
+
+def repair_master_running_order(
+    db: Session, race_id: int, new_heats_by_round: dict[int, list[models.Heat]]
+) -> list[models.Heat]:
+    """Fold heats a mid-event change just created into the running order.
+
+    (#549, stage 3)
+
+    Called from the two seams that change a group's heat count while a race
+    is under way — :func:`admit_late_racers` (#172) and
+    :func:`apply_outages_to_scheduled_heats` (#171), which both regenerate a
+    round wholesale when nothing has been raced, and the first also appends a
+    wave to a round that is part-way through. Neither is hooked by reaching
+    into :func:`generate_heats_for_round` itself, which both call for the
+    "nothing raced" case: that function also serves `regenerateRound`,
+    `createRoundWizard` and every scheduling-strategy's first wave/phase,
+    none of which is a mid-event cascade this issue is about, so hooking it
+    would repair far more than the two seams the issue names. Each of the two
+    callers instead passes exactly the heats *it* just created.
+
+    `new_heats_by_round` is empty on a call that changed nothing (an outage
+    that only vacated lanes, an admission with no eligible latecomer), and an
+    empty map is a no-op — which is what makes repeated repair idempotent:
+    calling it again with nothing new to fold in touches no row. It is also a
+    no-op when `Race.master_running_order` is off, so every existing race
+    (the flag's default) is entirely unaffected by this function existing.
+
+    This is append-and-repair, not `applyMasterRunningOrder`'s regenerate.
+    Every heat that already existed before this call — recorded or still
+    pending, whether or not it has ever been through an interleave — keeps
+    the `heat_number` it already had: this function never assigns a new
+    heat_number to a heat it did not just receive as an input. That is what
+    protects an armed heat, the same rule elimination's wave growth already
+    follows (#50) — the only heats eligible for a new number here did not
+    exist for the operator to have armed, so there is nothing to disarm and
+    no `_revalidate_timers` call is needed (unlike a rebuild that reassigns
+    lanes on an *existing* heat, this only ever touches `heat_number` on rows
+    nobody could have staged before this function ran).
+
+    Several rounds can each contribute a new wave in the same call — e.g. two
+    dens both admit a latecomer through one `bulkCheckIn` — and their new
+    heats are woven together by `running_order.interleave`, the same
+    algorithm `applyMasterRunningOrder` uses for a whole race, scoped here to
+    only what is actually new. A physical insertion between two existing
+    heat_number values is not attempted: an integer column has no gap to put
+    a heat in without shifting its neighbours, which is exactly the
+    renumbering this function exists to avoid. So the new heats are placed
+    after the highest `heat_number` the race holds anywhere, in the order
+    `interleave` gives them — proportional pacing and no-consecutive-car
+    apply to how the *new* heats are woven together, not retroactively to
+    heats already on the board.
+    """
+    new_heats = [heat for heats in new_heats_by_round.values() for heat in heats]
+    if not new_heats:
+        return []
+
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None or not race.master_running_order:
+        return []
+
+    new_lanes = lanes_for_heats(db, new_heats)
+    lanes_by_id = {
+        heat.id: heat_lanes
+        for heat, heat_lanes in zip(new_heats, new_lanes, strict=True)
+    }
+
+    schedules = [
+        running_order.GroupSchedule(
+            group_id=round_id,
+            heats=[
+                running_order.HeatEntry(
+                    handle=heat.id,
+                    racer_ids=frozenset(lanes.real_racer_ids(lanes_by_id[heat.id])),
+                )
+                for heat in heats
+            ],
+        )
+        for round_id, heats in new_heats_by_round.items()
+    ]
+    order = running_order.interleave(schedules)
+
+    all_heats = get_heats(db, race_id)
     base = max(h.heat_number for h in all_heats) + 1
     update_map = {heat_id: base + position for position, heat_id in enumerate(order)}
     return _write_heat_numbers(db, update_map)
