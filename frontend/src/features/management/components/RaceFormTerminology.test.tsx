@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
- * The per-race terminology override (#496 stage 3). Storage and resolution
- * are backend-tested (`test_terminology.py`); this is only the form's own
- * behaviour — visible while editing, hidden while creating, and the
- * checkbox controlling all four fields together.
+ * The per-race terminology override (#496 stage 3; #551 adds the vehicle
+ * pair). Storage and resolution are backend-tested (`test_terminology.py`);
+ * this is only the form's own behaviour — visible while editing, hidden
+ * while creating, and the checkbox controlling all six fields together.
  */
 import '../../../setupTests';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -65,19 +65,23 @@ describe('editing a race with no override', () => {
 
         await userEvent.click(screen.getByLabelText('Use different words for this race'));
         expect(screen.getByLabelText('One racing group')).toHaveValue('Den');
+        expect(screen.getByLabelText('One vehicle')).toHaveValue('Car');
 
         await userEvent.clear(screen.getByLabelText('One racing group'));
         await userEvent.type(screen.getByLabelText('One racing group'), 'Class');
+        await userEvent.clear(screen.getByLabelText('One vehicle'));
+        await userEvent.type(screen.getByLabelText('One vehicle'), 'Rocket');
         await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
         const payload = onSubmit.mock.calls[0][0];
         expect(payload.racing_group_singular).toBe('Class');
-        // Untouched fields still travel — all four are one override, not
-        // four independent ones, once the box is checked.
+        // Untouched fields still travel — all six are one override, not
+        // six independent ones, once the box is checked.
         expect(payload.organization_singular).toBe('Pack');
+        expect(payload.vehicle_singular).toBe('Rocket');
     });
 
-    it('unchecking the box clears all four fields back to null', async () => {
+    it('unchecking the box clears all six fields back to null', async () => {
         const onSubmit = vi.fn<(data: RaceFormData) => Promise<void>>(async () => {});
         render(
             <RaceForm
@@ -91,6 +95,8 @@ describe('editing a race with no override', () => {
                     racing_group_plural: 'Classes',
                     organization_singular: 'Club',
                     organization_plural: 'Clubs',
+                    vehicle_singular: 'Rocket',
+                    vehicle_plural: 'Rockets',
                 }}
             />,
         );
@@ -104,5 +110,7 @@ describe('editing a race with no override', () => {
         expect(payload.racing_group_plural).toBeNull();
         expect(payload.organization_singular).toBeNull();
         expect(payload.organization_plural).toBeNull();
+        expect(payload.vehicle_singular).toBeNull();
+        expect(payload.vehicle_plural).toBeNull();
     });
 });

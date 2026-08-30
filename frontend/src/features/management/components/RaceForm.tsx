@@ -22,14 +22,17 @@ export interface RaceFormData {
     weight_limit_oz?: number | null;
     /**
      * A per-race terminology override, null where this race inherits the
-     * organization's word (#496 stage 3). All four travel together — the
-     * checkbox below is on when any is non-null, and turning it off clears
-     * all four rather than leaving a partial override behind.
+     * organization's word (#496 stage 3; #551 adds the vehicle pair). All
+     * six travel together — the checkbox below is on when any is non-null,
+     * and turning it off clears all six rather than leaving a partial
+     * override behind.
      */
     racing_group_singular?: string | null;
     racing_group_plural?: string | null;
     organization_singular?: string | null;
     organization_plural?: string | null;
+    vehicle_singular?: string | null;
+    vehicle_plural?: string | null;
 }
 
 
@@ -240,12 +243,13 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 </p>
             </div>
 
-            {/* A per-race terminology override (#496 stage 3). Only offered
-                once a race exists to override — `updateRace` is the only
-                mutation that accepts these fields, so there is nothing to
-                submit while creating. Same checkbox-plus-fields shape as the
-                weight limit above, and the same reason: "inherited" and "set
-                to the same word" are different answers. */}
+            {/* A per-race terminology override (#496 stage 3; #551 adds the
+                vehicle pair). Only offered once a race exists to override —
+                `updateRace` is the only mutation that accepts these fields,
+                so there is nothing to submit while creating. Same
+                checkbox-plus-fields shape as the weight limit above, and the
+                same reason: "inherited" and "set to the same word" are
+                different answers. */}
             {isEditing && (
                 <div>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
@@ -262,12 +266,16 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                             racing_group_plural: DEFAULT_TERMINOLOGY.racingGroupPlural,
                                             organization_singular: DEFAULT_TERMINOLOGY.organizationSingular,
                                             organization_plural: DEFAULT_TERMINOLOGY.organizationPlural,
+                                            vehicle_singular: DEFAULT_TERMINOLOGY.vehicleSingular,
+                                            vehicle_plural: DEFAULT_TERMINOLOGY.vehiclePlural,
                                         }
                                         : {
                                             racing_group_singular: null,
                                             racing_group_plural: null,
                                             organization_singular: null,
                                             organization_plural: null,
+                                            vehicle_singular: null,
+                                            vehicle_plural: null,
                                         }),
                                 }))
                             }
@@ -316,6 +324,28 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                     type="text"
                                     value={formData.organization_plural ?? ''}
                                     onChange={e => handleChange('organization_plural', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle} htmlFor="race-vehicle-singular">One vehicle</label>
+                                <input
+                                    id="race-vehicle-singular"
+                                    type="text"
+                                    value={formData.vehicle_singular ?? ''}
+                                    onChange={e => handleChange('vehicle_singular', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                />
+                            </div>
+                            <div>
+                                <label style={labelStyle} htmlFor="race-vehicle-plural">More than one</label>
+                                <input
+                                    id="race-vehicle-plural"
+                                    type="text"
+                                    value={formData.vehicle_plural ?? ''}
+                                    onChange={e => handleChange('vehicle_plural', e.target.value)}
                                     className="form-control"
                                     style={inputStyle}
                                 />

@@ -229,6 +229,8 @@ export type InitialConfigInput = {
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
+  vehiclePlural?: InputMaybe<Scalars['String']['input']>;
+  vehicleSingular?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type InitialConfigStatus = {
@@ -248,6 +250,8 @@ export type InitialConfigStatus = {
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   terminology: Terminology;
   tracks: Array<Track>;
+  vehiclePlural?: Maybe<Scalars['String']['output']>;
+  vehicleSingular?: Maybe<Scalars['String']['output']>;
   version: Scalars['String']['output'];
 };
 
@@ -685,6 +689,8 @@ export type Organization = {
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   terminology: Terminology;
+  vehiclePlural?: Maybe<Scalars['String']['output']>;
+  vehicleSingular?: Maybe<Scalars['String']['output']>;
 };
 
 export type PhotoAssignmentInput = {
@@ -840,6 +846,8 @@ export type Race = {
   tiebreaker: Scalars['String']['output'];
   track?: Maybe<Track>;
   trackId?: Maybe<Scalars['Int']['output']>;
+  vehiclePlural?: Maybe<Scalars['String']['output']>;
+  vehicleSingular?: Maybe<Scalars['String']['output']>;
   votingOpen: Scalars['Boolean']['output'];
   weightLimitOz?: Maybe<Scalars['Float']['output']>;
 };
@@ -913,6 +921,8 @@ export type RaceUpdateInput = {
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
   tiebreaker?: InputMaybe<Scalars['String']['input']>;
   trackId?: InputMaybe<Scalars['Int']['input']>;
+  vehiclePlural?: InputMaybe<Scalars['String']['input']>;
+  vehicleSingular?: InputMaybe<Scalars['String']['input']>;
   votingOpen?: InputMaybe<Scalars['Boolean']['input']>;
   weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
 };
@@ -1106,6 +1116,8 @@ export type Terminology = {
   organizationSingular: Scalars['String']['output'];
   racingGroupPlural: Scalars['String']['output'];
   racingGroupSingular: Scalars['String']['output'];
+  vehiclePlural: Scalars['String']['output'];
+  vehicleSingular: Scalars['String']['output'];
 };
 
 export type TimerModel = {

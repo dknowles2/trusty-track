@@ -94,6 +94,8 @@ class TestRaceOverride:
                 racing_group_plural="Teams",
                 organization_singular="Club",
                 organization_plural="Clubs",
+                vehicle_singular="Rocket",
+                vehicle_plural="Rockets",
             )
         )
         assert result == Terminology(
@@ -101,4 +103,49 @@ class TestRaceOverride:
             racing_group_plural="Teams",
             organization_singular="Club",
             organization_plural="Clubs",
+            vehicle_singular="Rocket",
+            vehicle_plural="Rockets",
         )
+
+
+class TestVehicleTerm:
+    """The third configurable term (#551) — layers exactly like the other
+    two, so this pins only what is specific to it rather than repeating
+    every case above."""
+
+    def test_the_built_in_word_is_car(self) -> None:
+        assert DEFAULT_TERMINOLOGY.vehicle_singular == "Car"
+        assert DEFAULT_TERMINOLOGY.vehicle_plural == "Cars"
+
+    def test_an_organization_override_replaces_the_built_in_word(self) -> None:
+        result = resolve_terminology(
+            organization=TerminologyOverrides(
+                vehicle_singular="Rocket", vehicle_plural="Rockets"
+            )
+        )
+        assert result.vehicle_singular == "Rocket"
+        assert result.vehicle_plural == "Rockets"
+        # Left alone.
+        assert result.racing_group_singular == DEFAULT_TERMINOLOGY.racing_group_singular
+
+    def test_a_race_override_beats_the_organization_default(self) -> None:
+        result = resolve_terminology(
+            organization=TerminologyOverrides(
+                vehicle_singular="Rocket", vehicle_plural="Rockets"
+            ),
+            race=TerminologyOverrides(vehicle_singular="Boat", vehicle_plural="Boats"),
+        )
+        assert result.vehicle_singular == "Boat"
+        assert result.vehicle_plural == "Boats"
+
+    def test_a_race_field_left_none_falls_through_to_the_organization_default(
+        self,
+    ) -> None:
+        result = resolve_terminology(
+            organization=TerminologyOverrides(
+                vehicle_singular="Rocket", vehicle_plural="Rockets"
+            ),
+            race=TerminologyOverrides(organization_singular="Club"),
+        )
+        assert result.vehicle_singular == "Rocket"
+        assert result.vehicle_plural == "Rockets"

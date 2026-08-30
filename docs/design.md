@@ -43,7 +43,8 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `id` (PK)
     -   `name`
     -   `display_theme`, `printables_theme` (`varchar`, default `"MATCH_APP"`) — which theme the Display and Printables surfaces render, install-wide (#498). A `ThemeKey` (`frontend/src/theming/themes.ts` — the frontend holds the one canonical copy of what a theme is) or the sentinel `"MATCH_APP"`; never validated server-side, since nothing here branches on the value. The App theme is not a column — it lives only in each device's own `localStorage` and never reaches the server.
-    -   `racing_group_singular`, `racing_group_plural`, `organization_singular`, `organization_plural` (`varchar`, nullable — #496 stage 3) — the install-wide default words for a racing group and for the organization itself, replacing "Den"/"Dens" and "Pack"/"Packs". Null means "use the built-in Scouting word", the same layering `Race`'s own four columns below sit under; `domain/terminology.py` resolves both layers into a `Terminology` served on `Race.terminology` and `InitialConfigStatus.terminology`. The frontend reads the resolved words through `useTerminology()` (#496 stage 4) — see CLAUDE.md's Terminology section.
+    -   `racing_group_singular`, `racing_group_plural`, `organization_singular`, `organization_plural` (`varchar`, nullable — #496 stage 3) — the install-wide default words for a racing group and for the organization itself, replacing "Den"/"Dens" and "Pack"/"Packs". Null means "use the built-in Scouting word", the same layering `Race`'s own six columns below sit under; `domain/terminology.py` resolves both layers into a `Terminology` served on `Race.terminology` and `InitialConfigStatus.terminology`. The frontend reads the resolved words through `useTerminology()` (#496 stage 4) — see CLAUDE.md's Terminology section.
+    -   `vehicle_singular`, `vehicle_plural` (`varchar`, nullable — #551) — the install-wide default word for a racer's vehicle, replacing "Car"/"Cars". The third configurable term, same null-means-inherit shape as the two pairs above; storage identifiers (`car_number`, `car_name`, `CarNumberingStrategy`, ...) are deliberately not renamed — only the word a screen shows is configurable.
 -   **`Track`**: Configuration of the physical track.
     -   `id` (PK)
     -   `lane_count`
@@ -77,6 +78,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)
     -   `voting_open` (Boolean, default `false`) — whether a phone holding no PIN may vote for a `SPECIAL` award right now (#305); an operator toggle, not tied to racing progress
     -   `racing_group_singular`, `racing_group_plural`, `organization_singular`, `organization_plural` (`varchar`, nullable — #496 stage 3) — a per-race override of the organization's terminology default, for one install running two differently-worded events. Null means inherit the organization's word; `clearTerminology` on `updateRace` is the explicit way back to null, following `weight_limit_oz`/`clearWeightLimit` above.
+    -   `vehicle_singular`, `vehicle_plural` (`varchar`, nullable — #551) — a per-race override of the organization's vehicle word, same shape as the four columns above.
     -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
 -   **`RacingGroup`**: Sub-divisions within a race (table `racing_groups`; called `Den` before #496). A *different* table of the same name, a vestigial shadow of this concept, briefly existed early on and was dropped (`0008_drop_racing_groups`) once it turned out to be written on every racer save and read by nothing — this table is the rename, not a resurrection of that one.
     -   `id` (PK)
@@ -161,13 +163,13 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 **GraphQL Queries:**
 
 -   `races(skip, limit)` — List all races.
--   `race(raceId)` — Get a single race with nested `racers`, `racingGroups`, `rounds`, `heats`, `leaderboard`, `awards`. Carries `votingOpen` (#305); each `Award` carries `votable` and `voteTally` (ranked `(racer, voteCount)` pairs, from `services/awards.vote_tallies_for` — one query for the whole race, not one per award). Carries `terminology` — this race's override layered over its organization's default (`domain/terminology.py`, #496 stage 3) — plus the raw `racingGroupSingular`/`racingGroupPlural`/`organizationSingular`/`organizationPlural` override fields the edit form reads back.
+-   `race(raceId)` — Get a single race with nested `racers`, `racingGroups`, `rounds`, `heats`, `leaderboard`, `awards`. Carries `votingOpen` (#305); each `Award` carries `votable` and `voteTally` (ranked `(racer, voteCount)` pairs, from `services/awards.vote_tallies_for` — one query for the whole race, not one per award). Carries `terminology` — this race's override layered over its organization's default (`domain/terminology.py`, #496 stage 3; #551 adds the vehicle term) — plus the raw `racingGroupSingular`/`racingGroupPlural`/`organizationSingular`/`organizationPlural`/`vehicleSingular`/`vehiclePlural` override fields the edit form reads back.
 -   `racers(raceId, skip, limit)` — List racers.
 -   `auditLog(raceId, limit, beforeId)` — The activity timeline, newest first. Operator-only, and it enforces that itself: the role policy guards mutations, and this is the query a wall display must never be able to run (#219).
 -   `racer(racerId)` — Get a single racer.
 -   `tracks()` — List configured tracks.
 -   `organizations()` — List organizations.
--   `initialConfig()` — Initial configuration status (organization + track). Carries `terminology` (the organization's default words, resolved) and the raw `racingGroupSingular`/`racingGroupPlural`/`organizationSingular`/`organizationPlural` overrides the settings form reads back (#496 stage 3).
+-   `initialConfig()` — Initial configuration status (organization + track). Carries `terminology` (the organization's default words, resolved) and the raw `racingGroupSingular`/`racingGroupPlural`/`organizationSingular`/`organizationPlural`/`vehicleSingular`/`vehiclePlural` overrides the settings form reads back (#496 stage 3; #551 adds the vehicle term).
 -   `rounds(raceId)` — List rounds for a race.
 -   `advancementStatus(raceId, roundId)` — Check round advancement eligibility.
 -   `raceStats(raceId)` — Lane fairness, per-racer aggregates, top moments, racing group comparison, and the track's all-time records (`trackRecords`: the fastest cars across every race on this race's track, computed on read by `services/records.py`).
@@ -182,7 +184,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 
 **GraphQL Mutations:**
 
--   Race: `createRace`, `updateRace` (absent means leave alone throughout, so a per-race terminology override takes `clearTerminology` to get back to inheriting — the same shape as `clearWeightLimit`, #496 stage 3), `deleteRace`
+-   Race: `createRace`, `updateRace` (absent means leave alone throughout, so a per-race terminology override — racing group, organization, and, since #551, vehicle — takes `clearTerminology` to get back to inheriting — the same shape as `clearWeightLimit`, #496 stage 3), `deleteRace`
 -   Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
 -   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToRacingGroup`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
 -   RacingGroup: `createRacingGroup`, `updateRacingGroup`, `deleteRacingGroup`
@@ -195,7 +197,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
 -   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 -   Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
--   Config: `createInitialConfig`, `updateInitialConfig` — both accept the organization's terminology default the same way they accept the PINs and the themes: absent leaves it alone, and `clearTerminology` (not a non-null sentinel — the built-in Scouting words *are* the null state) is the way back to it (#496 stage 3)
+-   Config: `createInitialConfig`, `updateInitialConfig` — both accept the organization's terminology default (racing group, organization, and, since #551, vehicle) the same way they accept the PINs and the themes: absent leaves it alone, and `clearTerminology` (not a non-null sentinel — the built-in Scouting words *are* the null state) is the way back to it (#496 stage 3)
 -   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data), `createPracticeRace` (a whole rehearsal event on a fake timer)
 
 **REST Endpoints (binary responses):**
