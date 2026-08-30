@@ -471,6 +471,13 @@ class Round:
     #: racers in the vacated lanes raced fewer times than everybody else, so it
     #: does not count toward `POINTS` standings — see `domain/scoring`.
     disrupted: bool
+    #: Which racing group this round belongs to, if it is scoped to one — the
+    #: same column advancement's `EACH_GROUP` source and the round wizard's
+    #: "per group" option already write. Exposed for the master running order
+    #: screen (#549 stage 4): a heat's group label is this round's racing
+    #: group, straight off the id the frontend already has the name for
+    #: (`race.racingGroups`) rather than a second name-resolving field here.
+    racing_group_id: int | None
 
     @strawberry.field
     def heats(self, info: Info) -> list[Heat]:

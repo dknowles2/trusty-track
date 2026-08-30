@@ -334,7 +334,7 @@ export type GetRaceDetailsQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceDetailsQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, tiebreaker: string, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, registeredCount: number, checkedInCount: number, scheduledRacerIds: Array<number>, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racingGroupId: number | null, carName: string | null, carPassedInspection: boolean, carWeight: number | null, racerImageUrl: string | null, carImageUrl: string | null }>, leaderboard: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, heatsCompleted: number, racerImageUrl: string | null, rank: number }>, rounds: Array<{ id: number }> } | null, tracks: Array<{ id: number, name: string, laneCount: number }> };
+export type GetRaceDetailsQuery = { race: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, tiebreaker: string, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, masterRunningOrder: boolean, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, registeredCount: number, checkedInCount: number, scheduledRacerIds: Array<number>, racingGroups: Array<{ id: number, name: string, color: string, division: string | null, carNumberRangeStart: number | null, carNumberRangeEnd: number | null }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racingGroupId: number | null, carName: string | null, carPassedInspection: boolean, carWeight: number | null, racerImageUrl: string | null, carImageUrl: string | null }>, leaderboard: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, heatsCompleted: number, racerImageUrl: string | null, rank: number }>, rounds: Array<{ id: number }> } | null, tracks: Array<{ id: number, name: string, laneCount: number }> };
 
 export type GetRaceRacingGroupsQueryVariables = Exact<{
   raceId: number;
@@ -349,7 +349,7 @@ export type UpdateRaceMutationVariables = Exact<{
 }>;
 
 
-export type UpdateRaceMutation = { updateRace: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, tiebreaker: string, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string } } | null };
+export type UpdateRaceMutation = { updateRace: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, tiebreaker: string, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, masterRunningOrder: boolean, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, vehicleSingular: string | null, vehiclePlural: string | null, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string } } | null };
 
 export type DeleteRaceMutationVariables = Exact<{
   id: number;
@@ -724,7 +724,7 @@ export type GetRaceControlDataQueryVariables = Exact<{
 }>;
 
 
-export type GetRaceControlDataQuery = { initialConfig: { debugMode: boolean }, race: { id: number, name: string, championshipTrophies: number, scoringStrategy: string, autoAdvanceHeat: boolean, registeredCount: number, checkedInCount: number, track: { id: number, laneCount: number, timerType: string, laneOutages: Array<number> } | null, racingGroups: Array<{ id: number, name: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null, carImageUrl: string | null }>, heats: Array<{ id: number, heatNumber: number, roundNumber: number, roundId: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> }>, rounds: Array<{ id: number, roundNumber: number, name: string | null, advancementSource: string | null, advancementFromBottom: boolean, schedulingStrategy: string, advancementStatus: { isReady: boolean, requiresAdvancement: boolean, alreadyAdvanced: boolean, fieldIsStale: boolean, contestedCut: boolean, source: string | null, numRacers: number | null, fromBottom: boolean, advancingRacers: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, rank: number, isAdvancing: boolean }> } }> } | null };
+export type GetRaceControlDataQuery = { initialConfig: { debugMode: boolean }, race: { id: number, name: string, championshipTrophies: number, scoringStrategy: string, autoAdvanceHeat: boolean, registeredCount: number, checkedInCount: number, masterRunningOrder: boolean, track: { id: number, laneCount: number, timerType: string, laneOutages: Array<number> } | null, racingGroups: Array<{ id: number, name: string }>, racers: Array<{ id: number, firstName: string, lastName: string, carNumber: number | null, racerImageUrl: string | null, carImageUrl: string | null }>, heats: Array<{ id: number, heatNumber: number, roundNumber: number, roundId: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null, time: number | null, place: number | null, skipped: boolean }> }>, rounds: Array<{ id: number, roundNumber: number, name: string | null, advancementSource: string | null, advancementFromBottom: boolean, schedulingStrategy: string, racingGroupId: number | null, advancementStatus: { isReady: boolean, requiresAdvancement: boolean, alreadyAdvanced: boolean, fieldIsStale: boolean, contestedCut: boolean, source: string | null, numRacers: number | null, fromBottom: boolean, advancingRacers: Array<{ racerId: number, firstName: string, lastName: string, carNumber: number | null, racingGroupName: string, score: number, rank: number, isAdvancing: boolean }> } }> } | null };
 
 export type CreateRoundMutationVariables = Exact<{
   raceId: number;
@@ -761,6 +761,13 @@ export type ReorderHeatsMutationVariables = Exact<{
 
 
 export type ReorderHeatsMutation = { reorderHeats: { updatedCount: number } };
+
+export type ApplyMasterRunningOrderMutationVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type ApplyMasterRunningOrderMutation = { applyMasterRunningOrder: { updatedCount: number } };
 
 export type UpdateHeatResultMutationVariables = Exact<{
   heatId: number;

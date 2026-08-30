@@ -1020,6 +1020,7 @@ export type Round = {
   id: Scalars['Int']['output'];
   name?: Maybe<Scalars['String']['output']>;
   raceId: Scalars['Int']['output'];
+  racingGroupId?: Maybe<Scalars['Int']['output']>;
   roundNumber: Scalars['Int']['output'];
   schedulingStrategy: Scalars['String']['output'];
 };

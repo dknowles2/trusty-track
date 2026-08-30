@@ -22,6 +22,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
 import type { Heat, Lane } from '../types';
@@ -53,6 +54,28 @@ interface ScheduleManagementProps {
   onRefetchHeats: () => Promise<void>;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   onReorderHeats: (updates: { heat_id: number, new_heat_number: number }[]) => Promise<void>;
+  /**
+   * One interleaved running order across racing groups, rather than a block
+   * per group (#549 stage 4) — the race's own setting, from `RaceForm`. Off
+   * for every race until an operator opts in, which is what keeps this
+   * screen showing exactly what it always has for every existing race.
+   */
+  masterRunningOrder?: boolean;
+  /**
+   * A round's own racing group, by round id — what labels a heat below with
+   * the group whose cars are on the track. Absent for a round scoped to no
+   * single group (a combined general round, a championship round drawing
+   * from several), which is an ordinary state, not a missing one.
+   */
+  roundGroupLabel?: Record<number, string>;
+  /**
+   * Interleaves the race's current *pending* heats into one running order
+   * (`applyMasterRunningOrder`). A deliberate, re-runnable operator action —
+   * it recomputes the whole order from scratch, which is right for this
+   * click and wrong for the automatic mid-event repair a lane outage or a
+   * latecomer triggers on their own seam.
+   */
+  onApplyMasterRunningOrder?: () => Promise<void>;
   getRacerName: (id: number) => string;
   laneCount: number;
   racerCount: number;
@@ -230,6 +253,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   onRefetchHeats,
   onRunHeat,
   onReorderHeats,
+  masterRunningOrder = false,
+  roundGroupLabel = {},
+  onApplyMasterRunningOrder,
   getRacerName,
   laneCount,
   racerCount,
@@ -239,9 +265,11 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   staleRoundIds,
   contestedRoundIds,
 }) => {
+  const { group } = useTerminology();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [applyingOrder, setApplyingOrder] = useState(false);
   // A local copy of the heats, so a drag lands immediately rather than after
   // the round trip. It has to follow the real ones whenever they change.
   const [localHeats, setLocalHeats] = useState<Heat[]>(heats);
@@ -310,6 +338,28 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     generalType?: string;
   }) => {
     await onAddRound(config);
+  };
+
+  // The whole race's heats, in the order `heat_number` puts them — the
+  // master running order itself once `applyMasterRunningOrder` has written
+  // it, and today's ordinary round-block order until it has (#549 stage 4).
+  // Shown only while the race has opted in; the per-round tables below are
+  // unchanged either way, which is what keeps every existing race's screen
+  // exactly as it was.
+  const masterOrderHeats = [...localHeats].sort((a, b) => a.heatNumber - b.heatNumber);
+
+  const handleApplyMasterRunningOrder = async () => {
+    if (!onApplyMasterRunningOrder) return;
+    setApplyingOrder(true);
+    try {
+      await onApplyMasterRunningOrder();
+      showToast('Master running order applied', 'success');
+    } catch (error: unknown) {
+      console.error('Failed to apply master running order:', error);
+      showToast(errorText(error, 'The master running order could not be applied.'), 'error');
+    } finally {
+      setApplyingOrder(false);
+    }
   };
 
   const handleDragOver = (event: DragEndEvent) => {
@@ -437,6 +487,75 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
             </button>
           </div>
         </div>
+
+        {/* The master running order (#549 stage 4): one interleaved sequence
+            across every racing group, shown here because the per-round
+            tables below — grouped block by block — are otherwise unreadable
+            once heat numbers jump between groups. Rendered only while the
+            race has opted in, so an ordinary race's screen is unchanged. */}
+        {masterRunningOrder && sortedRoundIds.length > 0 && (
+          <div
+            data-testid="master-running-order"
+            style={{
+              background: 'var(--surface-tint-color)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              padding: '16px 20px',
+              marginBottom: '30px',
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px',
+              flexWrap: 'wrap',
+              marginBottom: '12px',
+            }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-color)' }}>
+                  Master running order
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
+                  One sequence across every {group}, so the track need not sit empty between them.
+                </p>
+              </div>
+              <button
+                className="secondary-btn"
+                onClick={handleApplyMasterRunningOrder}
+                disabled={generating || reordering || applyingOrder || !onApplyMasterRunningOrder}
+                data-testid="apply-master-running-order"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {applyingOrder ? 'Applying…' : 'Apply master order'}
+              </button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '6px 12px', fontSize: '0.75rem', color: 'var(--text-muted-color)', textTransform: 'uppercase' }}>Heat</th>
+                    <th style={{ padding: '6px 12px', fontSize: '0.75rem', color: 'var(--text-muted-color)', textTransform: 'uppercase' }}>Round</th>
+                    <th style={{ padding: '6px 12px', fontSize: '0.75rem', color: 'var(--text-muted-color)', textTransform: 'uppercase' }}>{group}</th>
+                    <th style={{ padding: '6px 12px', fontSize: '0.75rem', color: 'var(--text-muted-color)', textTransform: 'uppercase' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {masterOrderHeats.map(heat => (
+                    <tr key={heat.id} style={{ borderTop: '1px solid var(--divider-color)' }}>
+                      <td style={{ padding: '6px 12px', fontWeight: 'bold' }}>Heat {heat.heatNumber}</td>
+                      <td style={{ padding: '6px 12px' }}>{heat.roundName || `Round ${heat.roundNumber}`}</td>
+                      <td style={{ padding: '6px 12px' }}>{roundGroupLabel[heat.roundId] ?? '—'}</td>
+                      <td style={{ padding: '6px 12px', color: hasRun(heat.lanes) ? 'var(--success-color)' : 'var(--text-muted-color)' }}>
+                        {hasRun(heat.lanes) ? 'Done' : 'Upcoming'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         <RoundWizard
           key={String(isWizardOpen)}
