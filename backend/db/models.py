@@ -212,6 +212,16 @@ class Organization(Base):
     # shows is configurable.
     vehicle_singular: Mapped[str | None] = mapped_column(String, nullable=True)
     vehicle_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Which line-art glyph the vehicle word draws with (#551, stage 4) — one
+    # of `domain.terminology.VEHICLE_ARTWORK_KEYS` ("car", "rocket", "boat").
+    # A plain string, not `SAEnum`, matching `Award.artwork_key`: the
+    # frontend's `PrintDecor.tsx` holds the one canonical vocabulary, and
+    # nothing server-side branches on which key this is. Null means inherit,
+    # same shape and same reason as the six columns above — an organization's
+    # own artwork choice is a real value a `"DEFAULT"` sentinel might collide
+    # with, so there is no non-null "off" state and `clearTerminology`
+    # reaches this column too.
+    vehicle_artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="organization")
 
@@ -408,6 +418,10 @@ class Race(Base):
     # above.
     vehicle_singular: Mapped[str | None] = mapped_column(String, nullable=True)
     vehicle_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    # A per-race override of the organization's vehicle artwork (#551, stage
+    # 4), the same shape and the same `clearTerminology` flag as the six
+    # columns above. See `Organization.vehicle_artwork_key`.
+    vehicle_artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
     #: One interleaved running order across the race's racing groups, rather
     #: than a block per group (#549 stage 2). Off by default — running one
     #: den at a time is how many packs deliberately structure an event, and

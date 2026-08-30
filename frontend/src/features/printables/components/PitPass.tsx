@@ -6,7 +6,7 @@ import {
     type PrintableRace,
     type PrintableRacer,
 } from '../documents';
-import { DerbyCar } from './PrintDecor';
+import { VehicleGlyph } from './PrintDecor';
 import PrintPhoto from './PrintPhoto';
 import { useTerminology } from '../../../context/TerminologyContext';
 
@@ -28,7 +28,7 @@ interface Props {
 export default function PitPass({ racer, race, racingGroup }: Props) {
     const date = formatEventDate(race.dateTime);
     const time = formatEventTime(race.dateTime);
-    const { vehicle } = useTerminology();
+    const { vehicle, vehicleArtworkKey } = useTerminology();
 
     return (
         <div className="print-card pit-pass">
@@ -66,7 +66,7 @@ export default function PitPass({ racer, race, racingGroup }: Props) {
                 </div>
 
                 <div className="pit-pass-footer">
-                    <DerbyCar size={26} className="pit-pass-footer-car" />
+                    <VehicleGlyph artworkKey={vehicleArtworkKey} size={26} className="pit-pass-footer-car" />
                     <div>
                         {date && (
                             <div>

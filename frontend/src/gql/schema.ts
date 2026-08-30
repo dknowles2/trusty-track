@@ -231,6 +231,7 @@ export type InitialConfigInput = {
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
+  vehicleArtworkKey?: InputMaybe<Scalars['String']['input']>;
   vehiclePlural?: InputMaybe<Scalars['String']['input']>;
   vehicleSingular?: InputMaybe<Scalars['String']['input']>;
 };
@@ -252,6 +253,7 @@ export type InitialConfigStatus = {
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   terminology: Terminology;
   tracks: Array<Track>;
+  vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
   vehiclePlural?: Maybe<Scalars['String']['output']>;
   vehicleSingular?: Maybe<Scalars['String']['output']>;
   version: Scalars['String']['output'];
@@ -698,6 +700,7 @@ export type Organization = {
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   terminology: Terminology;
+  vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
   vehiclePlural?: Maybe<Scalars['String']['output']>;
   vehicleSingular?: Maybe<Scalars['String']['output']>;
 };
@@ -857,6 +860,7 @@ export type Race = {
   tiebreaker: Scalars['String']['output'];
   track?: Maybe<Track>;
   trackId?: Maybe<Scalars['Int']['output']>;
+  vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
   vehiclePlural?: Maybe<Scalars['String']['output']>;
   vehicleSingular?: Maybe<Scalars['String']['output']>;
   votingOpen: Scalars['Boolean']['output'];
@@ -934,6 +938,7 @@ export type RaceUpdateInput = {
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
   tiebreaker?: InputMaybe<Scalars['String']['input']>;
   trackId?: InputMaybe<Scalars['Int']['input']>;
+  vehicleArtworkKey?: InputMaybe<Scalars['String']['input']>;
   vehiclePlural?: InputMaybe<Scalars['String']['input']>;
   vehicleSingular?: InputMaybe<Scalars['String']['input']>;
   votingOpen?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1130,6 +1135,7 @@ export type Terminology = {
   organizationSingular: Scalars['String']['output'];
   racingGroupPlural: Scalars['String']['output'];
   racingGroupSingular: Scalars['String']['output'];
+  vehicleArtworkKey: Scalars['String']['output'];
   vehiclePlural: Scalars['String']['output'];
   vehicleSingular: Scalars['String']['output'];
 };

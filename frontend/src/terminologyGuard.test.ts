@@ -97,6 +97,14 @@ const ALLOWLIST: Record<string, string> = {
         'example of a plausible award name, not the racing-group/organization ' +
         'vocabulary — "Wolf" here names an example division, per the reason ' +
         'above.',
+    'features/printables/components/PrintDecor.tsx':
+        '`VehicleGlyph`\'s `VEHICLES` map keys "car"/"rocket"/"boat" by artwork ' +
+        'key, mirroring `domain.terminology.VEHICLE_ARTWORK_KEYS` (#551, stage ' +
+        '4) — an internal identifier, not display copy, the same category as ' +
+        'the two entries above. (The actual flagged span is the scanner\'s own ' +
+        '`>...<` heuristic bridging the `Record<string, ...>` generic\'s closing ' +
+        '`>` into the object literal beneath it; there is no real JSX text node ' +
+        'here to begin with.)',
 };
 
 function stripComments(src: string): string {

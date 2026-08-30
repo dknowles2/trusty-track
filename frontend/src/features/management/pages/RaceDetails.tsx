@@ -119,6 +119,7 @@ export default function RaceDetails() {
       organization_plural: data.race.organizationPlural ?? null,
       vehicle_singular: data.race.vehicleSingular ?? null,
       vehicle_plural: data.race.vehiclePlural ?? null,
+      vehicle_artwork_key: data.race.vehicleArtworkKey ?? null,
     } satisfies Race;
   }, [data]);
 
@@ -262,6 +263,7 @@ export default function RaceDetails() {
               organizationPlural: updateInput.organization_plural ?? undefined,
               vehicleSingular: updateInput.vehicle_singular ?? undefined,
               vehiclePlural: updateInput.vehicle_plural ?? undefined,
+              vehicleArtworkKey: updateInput.vehicle_artwork_key ?? undefined,
               // Same trap as the weight limit above, for the per-race
               // terminology override (#496 stage 3; #551 adds the vehicle
               // pair): absent means leave alone, so going back to

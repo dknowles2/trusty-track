@@ -592,6 +592,7 @@ describe('RaceExecution', () => {
                     organizationPlural: 'Troops',
                     vehicleSingular: 'Car',
                     vehiclePlural: 'Cars',
+                    vehicleArtworkKey: 'car',
                 }}
             >
                 <RaceExecution {...defaultProps} roundSummary={mockSummary} />

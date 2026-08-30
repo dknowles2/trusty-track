@@ -439,6 +439,170 @@ class TestVehicleTerm:
         assert data["terminology"]["vehicleSingular"] == "Car"
 
 
+class TestVehicleArtworkKey:
+    """The vehicle artwork key (#551, stage 4) — layers and clears exactly
+    like every other terminology field, and `clearTerminology` already
+    reaches it because `_apply_terminology` and `update_race`'s clear loop
+    are both generic over `_TERMINOLOGY_FIELDS`."""
+
+    def test_the_built_in_key_is_car(self, client, db):
+        race = _race(db, "Default Artwork Race")
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                {{ race(raceId: {race.id}) {{
+                    terminology {{ vehicleArtworkKey }}
+                }} }}
+                """
+            },
+        )
+
+        assert response.json()["data"]["race"]["terminology"] == {
+            "vehicleArtworkKey": "car"
+        }
+
+    def test_the_organization_can_set_an_install_wide_default(self, client, db):
+        db.query(models.Track).delete()
+        db.query(models.Organization).delete()
+        db.commit()
+
+        mutation = """
+        mutation($config: InitialConfigInput!) {
+            createInitialConfig(config: $config) {
+                terminology { vehicleArtworkKey }
+            }
+        }
+        """
+        variables = {
+            "config": {
+                "organizationName": "Rocket Pack",
+                "vehicleArtworkKey": "rocket",
+                "tracks": [{"name": "Main Track", "laneCount": 4, "timerType": "FAKE"}],
+            }
+        }
+        response = client.post(
+            "/graphql", json={"query": mutation, "variables": variables}
+        )
+        res = response.json()
+        assert "errors" not in res, res
+        assert res["data"]["createInitialConfig"]["terminology"] == {
+            "vehicleArtworkKey": "rocket"
+        }
+
+    def test_a_race_override_beats_the_organizations_default(self, client, db):
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Boat Artwork Organization")
+        )
+        organization.vehicle_artwork_key = "rocket"
+        db.commit()
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="Boat Artwork Track", lane_count=4)
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Boat Artwork Race",
+                organization_id=organization.id,
+                track_id=track.id,
+            ),
+        )
+
+        client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{
+                        vehicleArtworkKey: "boat"
+                    }}) {{ id }}
+                }}
+                """
+            },
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                {{ race(raceId: {race.id}) {{
+                    terminology {{ vehicleArtworkKey }}
+                }} }}
+                """
+            },
+        )
+        assert response.json()["data"]["race"]["terminology"] == {
+            "vehicleArtworkKey": "boat"
+        }
+
+    def test_the_override_can_be_cleared_back_to_inheriting(self, client, db):
+        race = _race(db, "Cleared Artwork Race")
+        client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{
+                        vehicleArtworkKey: "rocket"
+                    }}) {{ id }}
+                }}
+                """
+            },
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{clearTerminology: true}}) {{
+                        vehicleArtworkKey
+                        terminology {{ vehicleArtworkKey }}
+                    }}
+                }}
+                """
+            },
+        )
+
+        data = response.json()["data"]["updateRace"]
+        assert data["vehicleArtworkKey"] is None
+        assert data["terminology"]["vehicleArtworkKey"] == "car"
+
+    def test_the_word_and_the_artwork_are_independent_columns(self, client, db):
+        """An operator can rename the word without touching the picture, or
+        pick the picture without touching the word — #551 stage 4's own
+        decision over deriving one from the other."""
+        race = _race(db, "Independent Fields Race")
+        client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{
+                        vehicleSingular: "Speedster", vehicleArtworkKey: "rocket"
+                    }}) {{ id }}
+                }}
+                """
+            },
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                {{ race(raceId: {race.id}) {{
+                    terminology {{ vehicleSingular vehicleArtworkKey }}
+                }} }}
+                """
+            },
+        )
+        assert response.json()["data"]["race"]["terminology"] == {
+            "vehicleSingular": "Speedster",
+            "vehicleArtworkKey": "rocket",
+        }
+
+
 class TestDefaultGeneralRoundName:
     """A general round's default name is derived from the resolved
     terminology at creation time (#533), not the literal ``"All Pack"`` that

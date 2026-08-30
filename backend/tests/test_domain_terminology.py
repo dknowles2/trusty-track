@@ -149,3 +149,52 @@ class TestVehicleTerm:
         )
         assert result.vehicle_singular == "Rocket"
         assert result.vehicle_plural == "Rockets"
+
+
+class TestVehicleArtworkKey:
+    """The vehicle artwork key (#551, stage 4) — layers exactly like every
+    other terminology field, so this pins only what is specific to it."""
+
+    def test_the_built_in_key_is_car(self) -> None:
+        assert DEFAULT_TERMINOLOGY.vehicle_artwork_key == "car"
+
+    def test_nothing_set_anywhere_gives_the_built_in_key(self) -> None:
+        assert resolve_terminology().vehicle_artwork_key == "car"
+
+    def test_an_organization_override_replaces_the_built_in_key(self) -> None:
+        result = resolve_terminology(
+            organization=TerminologyOverrides(vehicle_artwork_key="rocket")
+        )
+        assert result.vehicle_artwork_key == "rocket"
+        # Left alone.
+        assert result.vehicle_singular == DEFAULT_TERMINOLOGY.vehicle_singular
+
+    def test_a_race_override_beats_the_organization_default(self) -> None:
+        result = resolve_terminology(
+            organization=TerminologyOverrides(vehicle_artwork_key="rocket"),
+            race=TerminologyOverrides(vehicle_artwork_key="boat"),
+        )
+        assert result.vehicle_artwork_key == "boat"
+
+    def test_a_race_field_left_none_falls_through_to_the_organization_default(
+        self,
+    ) -> None:
+        result = resolve_terminology(
+            organization=TerminologyOverrides(vehicle_artwork_key="rocket"),
+            race=TerminologyOverrides(organization_singular="Club"),
+        )
+        assert result.vehicle_artwork_key == "rocket"
+
+    def test_the_artwork_key_is_independent_of_the_word(self) -> None:
+        """An operator can pick the rocket picture without the word being
+        literally "Rocket" — the two are separate columns for exactly this
+        reason, not one derived from the other."""
+        result = resolve_terminology(
+            organization=TerminologyOverrides(
+                vehicle_singular="Speedster",
+                vehicle_plural="Speedsters",
+                vehicle_artwork_key="rocket",
+            )
+        )
+        assert result.vehicle_singular == "Speedster"
+        assert result.vehicle_artwork_key == "rocket"

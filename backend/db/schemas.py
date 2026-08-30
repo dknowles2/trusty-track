@@ -139,6 +139,7 @@ class InitialConfigCreate(BaseModel):
     organization_plural: str | None = None
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
     clear_terminology: bool = False
 
 
@@ -238,6 +239,9 @@ class RaceUpdate(BaseModel):
     #: four fields above.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: A per-race override of the vehicle artwork (#551, stage 4), same
+    #: shape as the six fields above.
+    vehicle_artwork_key: str | None = None
     #: How many of each racer's worst counted results to drop before scoring
     #: (#547 stage 2). Absent means leave alone; `0` is the off state, so
     #: there is no separate clear flag — sending `0` back on is exactly how

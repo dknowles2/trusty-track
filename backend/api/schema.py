@@ -537,13 +537,17 @@ class Terminology:
     organization_plural: str
     vehicle_singular: str
     vehicle_plural: str
+    #: Which line-art glyph the vehicle word draws with (#551, stage 4) —
+    #: one of `domain_terminology.VEHICLE_ARTWORK_KEYS`. Never null, like
+    #: every field above: `resolve_terminology` always falls back to `"car"`.
+    vehicle_artwork_key: str
 
 
 def _terminology_overrides(row: Any) -> domain_terminology.TerminologyOverrides:
-    """Read one layer's six override columns off an ORM row.
+    """Read one layer's seven override columns off an ORM row.
 
     Works for both `models.Organization` and `models.Race` — they carry the
-    same six column names for exactly this reason. `crud.default_general_round_name`
+    same seven column names for exactly this reason. `crud.default_general_round_name`
     reads the same way, through `domain_terminology.overrides_from_row`
     directly, since `db.crud` has no business importing from `api.schema`.
     """
@@ -558,6 +562,7 @@ def _terminology_type(t: domain_terminology.Terminology) -> Terminology:
         organization_plural=t.organization_plural,
         vehicle_singular=t.vehicle_singular,
         vehicle_plural=t.vehicle_plural,
+        vehicle_artwork_key=t.vehicle_artwork_key,
     )
 
 
@@ -585,6 +590,9 @@ def _terminology_status_kwargs(organization: Any) -> dict[str, Any]:
         else None,
         "vehicle_singular": organization.vehicle_singular if organization else None,
         "vehicle_plural": organization.vehicle_plural if organization else None,
+        "vehicle_artwork_key": organization.vehicle_artwork_key
+        if organization
+        else None,
         "terminology": _terminology_type(
             domain_terminology.resolve_terminology(organization=overrides)
         ),
@@ -641,6 +649,9 @@ class InitialConfigStatus:
     #: has not renamed "Car" — same distinction as the four fields above.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: The organization's raw vehicle-artwork override (#551, stage 4), null
+    #: where it has not chosen one — same distinction as the fields above.
+    vehicle_artwork_key: str | None = None
     #: The resolved words — organization default over the built-in Scouting
     #: ones, with no race in play here. Defaulted so the unconfigured branch
     #: (no organization yet) still returns something rather than nothing.
@@ -690,6 +701,10 @@ class InitialConfigInput:
     #: above, and covered by the same `clearTerminology` flag.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: The install-wide default vehicle artwork (#551, stage 4) — one of
+    #: `domain_terminology.VEHICLE_ARTWORK_KEYS`. Same shape as the six
+    #: fields above.
+    vehicle_artwork_key: str | None = None
     clear_terminology: bool = False
 
 
@@ -795,6 +810,9 @@ class RaceUpdateInput:
     #: same shape as the four fields above.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: A per-race override of the organization's vehicle artwork (#551,
+    #: stage 4), the same shape as the six fields above.
+    vehicle_artwork_key: str | None = None
     #: The explicit way back to "inherit the organization's word", for the
     #: same reason `clear_weight_limit` exists: absent already means leave
     #: alone, so nothing else can ask for null.
@@ -1347,6 +1365,10 @@ class Race:
     #: above.
     vehicle_singular: str | None
     vehicle_plural: str | None
+    #: This race's raw vehicle-artwork override, null where it inherits the
+    #: organization's choice (#551, stage 4) — same distinction as the six
+    #: fields above.
+    vehicle_artwork_key: str | None
     #: How many of each racer's worst counted results are dropped before
     #: scoring (#547 stage 2) — a modifier over `scoringStrategy`, not a
     #: strategy of its own. `0` is the off state.
@@ -1547,6 +1569,10 @@ class Organization:
     #: renamed "Car" (#551) — same distinction as the four fields above.
     vehicle_singular: str | None
     vehicle_plural: str | None
+    #: This organization's raw vehicle-artwork override, null where it has
+    #: not chosen one (#551, stage 4) — same distinction as the six fields
+    #: above.
+    vehicle_artwork_key: str | None
 
     @strawberry.field
     def terminology(self) -> Terminology:
@@ -2577,6 +2603,7 @@ _TERMINOLOGY_FIELDS = (
     "organization_plural",
     "vehicle_singular",
     "vehicle_plural",
+    "vehicle_artwork_key",
 )
 
 
