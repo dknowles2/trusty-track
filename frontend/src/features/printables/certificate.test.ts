@@ -68,4 +68,20 @@ describe('certificatesFor', () => {
   it('produces nothing for a race with no awards', () => {
     expect(certificatesFor(RACE, [])).toEqual([]);
   });
+
+  it('abbreviates the recipient name when told to (#552)', () => {
+    const certificates = certificatesFor(
+      RACE,
+      [
+        {
+          id: 1,
+          name: 'Best Paint',
+          kind: 'SPECIAL',
+          recipient: { firstName: 'Ada', lastName: 'Lovelace', carNumber: 42 },
+        },
+      ],
+      'LAST_INITIAL',
+    );
+    expect(certificates[0].recipientName).toBe('Ada L. (#42)');
+  });
 });

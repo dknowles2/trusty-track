@@ -13,6 +13,7 @@
 import type { CsvRow } from '../../utils/csv';
 import { isTimeBasedStrategy } from '../racing/lanes';
 import { methodPhrase } from './tiebreakText';
+import { formatDisplayName, type NameDisplay } from '../core/displayName';
 
 export interface StandingsEntry {
     rank: number;
@@ -82,12 +83,23 @@ export function standingsRows(
      * the built-in Scouting one, `DEFAULT_TERMINOLOGY.vehicleSingular`
      * (#551). */
     vehicleWord = 'Car',
+    /** How much of a racer's name this export carries (#552). Defaults to
+     * `'FULL'`, today's only behaviour — and under `'FULL'` the sheet is
+     * byte-identical to what it always was: separate "First Name"/"Last
+     * Name" columns. A resolved abbreviation collapses those into a single
+     * "Name" column instead, rather than shortening the values within the
+     * same two columns — a spreadsheet with a fixed First/Last shape that
+     * sometimes carries a bare initial in the Last Name column would look
+     * like corrupted data, where a differently-shaped sheet is an honest
+     * export of what the operator asked this setting to do. */
+    nameDisplay: NameDisplay | string = 'FULL',
 ): CsvRow[] {
+    const nameColumns: CsvRow =
+        nameDisplay === 'FULL' ? ['First Name', 'Last Name'] : ['Name'];
     const header: CsvRow = [
         'Rank',
         `${vehicleWord} #`,
-        'First Name',
-        'Last Name',
+        ...nameColumns,
         groupWord,
         scoreHeading(scoringStrategy),
         'Heats',
@@ -98,16 +110,21 @@ export function standingsRows(
     ];
     return [
         header,
-        ...standings.map((entry) => [
-            entry.rank,
-            entry.carNumber,
-            entry.firstName,
-            entry.lastName,
-            entry.racingGroupName,
-            scoreValue(entry.score, scoringStrategy),
-            entry.heatsCompleted,
-            tieBrokenByValue(entry.resolvedBy),
-        ]),
+        ...standings.map((entry) => {
+            const nameCells: CsvRow =
+                nameDisplay === 'FULL'
+                    ? [entry.firstName, entry.lastName]
+                    : [formatDisplayName(nameDisplay, entry.firstName, entry.lastName)];
+            return [
+                entry.rank,
+                entry.carNumber,
+                ...nameCells,
+                entry.racingGroupName,
+                scoreValue(entry.score, scoringStrategy),
+                entry.heatsCompleted,
+                tieBrokenByValue(entry.resolvedBy),
+            ];
+        }),
     ];
 }
 

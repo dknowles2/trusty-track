@@ -236,3 +236,41 @@ async def test_an_exhibition_run_never_breaks_the_record(db, group, track):
     stats = await _timing_stats(db, race.id)
     assert stats.round_name == "Exhibition"
     assert stats.record_break is None
+
+
+@pytest.mark.anyio
+async def test_lane_and_record_break_names_honour_name_display(db, group, track):
+    """`timingStats` composes its own name strings rather than handing back
+    first/last for the client to format (#552) — the results overlay and the
+    record-break banner are both audience surfaces, so the resolved setting
+    must apply here even though nothing else in this file's assertions cares
+    about it."""
+    _historical(db, track.id, 3.05)
+    group.name_display = "LAST_INITIAL"
+    db.commit()
+    race = _race(db, group, track, "Abbreviated Derby")
+    racers = _racers(db, race, names=("Alice", "Bob"))
+    round_one = crud.create_round(db, race_id=race.id, round_number=1)
+    _record(db, _heat(db, race, round_one, racers), 2.98)
+
+    stats = await _timing_stats(db, race.id)
+    assert {lane.racer_name for lane in stats.lanes} == {"Alice T.", "Bob T."}
+    assert stats.record_break is not None
+    assert stats.record_break.new_holder == "Alice T."
+    # Historical entries carry no first/last to abbreviate; untouched.
+    assert stats.record_break.previous_holder == "Jimmy Legend"
+
+
+@pytest.mark.anyio
+async def test_a_race_override_beats_the_organizations_name_display(db, group, track):
+    group.name_display = "LAST_INITIAL"
+    db.commit()
+    race = _race(db, group, track, "Race Override Derby")
+    race.name_display = "FULL"
+    db.commit()
+    racers = _racers(db, race)
+    round_one = crud.create_round(db, race_id=race.id, round_number=1)
+    _record(db, _heat(db, race, round_one, racers), 2.98)
+
+    stats = await _timing_stats(db, race.id)
+    assert {lane.racer_name for lane in stats.lanes} == {"Alice T", "Bob T"}

@@ -130,6 +130,45 @@ _The timer section of a track's card, with **No timer — I'll enter results by 
 header and printed on documents. The **Access** panel on the same page holds
 the PINs; see [Roles and permissions](roles-and-permissions.md).
 
+## Names on public screens
+
+The audience displays, the printables, and the standings export can show
+less of a racer's name than the roster does — useful for a race whose
+standings are posted on a gym wall, or emailed out, where a stranger reading
+it has no reason to see a child's full name. Three choices:
+
+| Choice | Shows | For |
+| --- | --- | --- |
+| Full name | Jordan Mitchell | The default — today's behaviour, unchanged. |
+| First name and last initial | Jordan M. | The common choice for a screen the public can see. |
+| First name only | Jordan | A pack whose own policy says no surname on a public screen at all. |
+
+**It reaches the projector, the slideshow and the award ceremony; the pit
+passes, driver's licences, heat sheet, results sheet and certificates; and
+the standings CSV export.** It does not touch the roster, check-in, Race
+Control, or the activity log — the people running those screens need the
+whole name to find the right child in a queue, and all four sit behind a PIN
+when one is set. The printed check-in codes are the one printable left at
+full names too, for the same reason: they are scanned at the check-in desk
+to identify a racer, not carried around the venue like a pit pass.
+
+**The same choice also covers a racer's own photograph on the audience
+displays.** A picture of a child's face beside "Jordan M." is not
+anonymised, so picking anything but Full name hides the racer photo there
+too — replaced by the same initials placeholder the roster's avatar already
+falls back to when no photo has been uploaded. The *car* photo is a
+different question and is never hidden. Printables keep the racer photo
+regardless of this setting; a pit pass is handed to the checked-in child it
+names, not read by a stranger on a wall.
+
+**Set install-wide** in **System Settings → General**, under **Names on
+public screens**. **A race can override that default of its own** — tick
+**Override names on public screens for this race** on the race's edit form
+(not offered on the **+ Create New Race** form, since there is nothing to
+override until the race exists) and choose a value, including Full name
+itself if the organization default abbreviates and this one race should not.
+Unticking the checkbox returns to inheriting the organization's setting.
+
 ## The words on screen
 
 Trusty Track is built for Cub Scout Pinewood Derby, and "Den", "Pack" and

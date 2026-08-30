@@ -51,6 +51,17 @@ Notes on two of them:
 - **Projector** hides the app's navigation entirely, whichever way it was
   reached.
 
+## Shortening a racer's name
+
+These screens are on a gym wall, in a room open to whoever walked in — worth
+knowing if a child's full name showing there is a concern. **Names on public
+screens**, in System Settings (with a per-race override on the race's edit
+form), can show "Jordan M." or just "Jordan" instead of the full name across
+every view above, and the same choice hides a racer's own photo when it is
+set to anything but the default — see
+[Race and track settings](race-settings.md#names-on-public-screens) for the
+three choices and exactly where each one reaches.
+
 ## Names, and telling one screen from another
 
 Every screen gets a default name the moment it connects — an adjective and an

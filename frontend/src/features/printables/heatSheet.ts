@@ -14,6 +14,8 @@
  * testing without a browser.
  */
 
+import { formatDisplayName, type NameDisplay } from '../core/displayName';
+
 export interface SheetLane {
     lane: number;
     racerId?: number | null;
@@ -82,14 +84,18 @@ export function roundTitle(round: SheetRound): string {
  * should expect to write a name in; an empty lane is one that will stay empty
  * and should not be waited for. Rendering both as blank loses that.
  */
-export function cellFor(lane: SheetLane, racers: ReadonlyMap<number, SheetRacer>): Cell {
+export function cellFor(
+    lane: SheetLane,
+    racers: ReadonlyMap<number, SheetRacer>,
+    nameDisplay: NameDisplay | string = 'FULL',
+): Cell {
     if (lane.racerId != null) {
         const racer = racers.get(lane.racerId);
         if (racer) {
             return {
                 lane: lane.lane,
                 carNumber: racer.carNumber == null ? '' : String(racer.carNumber),
-                name: `${racer.firstName} ${racer.lastName}`.trim(),
+                name: formatDisplayName(nameDisplay, racer.firstName, racer.lastName),
             };
         }
         // A lane naming a racer the roster does not have. `ON DELETE SET NULL`
@@ -116,6 +122,9 @@ export function buildHeatSheet(
     heats: readonly SheetHeat[],
     racers: readonly SheetRacer[],
     lanes: readonly number[],
+    /** How much of a racer's name this sheet prints (#552). Defaults to
+     * `'FULL'`, today's only behaviour. */
+    nameDisplay: NameDisplay | string = 'FULL',
 ): RoundSection[] {
     const byId = new Map(racers.map((racer) => [racer.id, racer]));
     const lanesInOrder = [...new Set(lanes)].sort((a, b) => a - b);
@@ -132,7 +141,7 @@ export function buildHeatSheet(
                         heatId: heat.id,
                         heatNumber: heat.heatNumber,
                         cells: lanesInOrder.map((lane) =>
-                            cellFor(byLane.get(lane) ?? { lane }, byId),
+                            cellFor(byLane.get(lane) ?? { lane }, byId, nameDisplay),
                         ),
                     };
                 });

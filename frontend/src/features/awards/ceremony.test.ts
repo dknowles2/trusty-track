@@ -109,3 +109,22 @@ describe('what goes on the screen', () => {
     expect(slideFor(AWARDS, 1, ROUNDS, RACING_GROUPS)?.position).toBe('2 of 2');
   });
 });
+
+describe('the winner under a resolved name-display setting (#552)', () => {
+  it('defaults to FULL, so an ordinary caller sees no change', () => {
+    const slide = slideFor(AWARDS, 0, ROUNDS, RACING_GROUPS, 'den');
+    expect(slide?.winner).toBe('Ada Lovelace (#42)');
+    expect(slide?.racerImageUrl).toBe('/static/ada.png');
+  });
+
+  it('abbreviates the winner under LAST_INITIAL', () => {
+    const slide = slideFor(AWARDS, 0, ROUNDS, RACING_GROUPS, 'den', 'LAST_INITIAL');
+    expect(slide?.winner).toBe('Ada L. (#42)');
+  });
+
+  it('hides the winner photo when not FULL', () => {
+    const slide = slideFor(AWARDS, 0, ROUNDS, RACING_GROUPS, 'den', 'FIRST_ONLY');
+    expect(slide?.winner).toBe('Ada (#42)');
+    expect(slide?.racerImageUrl).toBeNull();
+  });
+});

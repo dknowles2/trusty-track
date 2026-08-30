@@ -223,6 +223,26 @@ class Organization(Base):
     # reaches this column too.
     vehicle_artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # How much of a racer's name a public screen may show, install-wide
+    # (#552) — one of `domain.name_display.NAME_DISPLAY_VALUES`
+    # (`"FULL"`, `"LAST_INITIAL"`, `"FIRST_ONLY"`). Plain `String`, not
+    # `SAEnum`, the same reasoning as `vehicle_artwork_key`: nothing
+    # server-side branches on this value, since every surface that renders a
+    # name does so client-side.
+    #
+    # Null means `"FULL"` — and, unlike the terminology columns above,
+    # that is the *whole* story here: `"FULL"` is itself a real, reachable
+    # value (this is a closed three-value choice, not free text an
+    # organization might legitimately want to store as `"FULL"` for some
+    # other reason), so there is no separate `clearNameDisplay` flag at this
+    # layer. Absent on `updateInitialConfig` leaves the column alone, and an
+    # explicit `"FULL"` is already how an operator resets it — the same
+    # shape `display_theme`'s `"MATCH_APP"` sentinel uses.
+    #
+    # `domain/name_display.py` is the one place this resolves into what a
+    # screen should actually do — never read directly for display.
+    name_display: Mapped[str | None] = mapped_column(String, nullable=True)
+
     races: Mapped[list["Race"]] = relationship("Race", back_populates="organization")
 
 
@@ -422,6 +442,16 @@ class Race(Base):
     # 4), the same shape and the same `clearTerminology` flag as the six
     # columns above. See `Organization.vehicle_artwork_key`.
     vehicle_artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    # A per-race override of the organization's name-display default (#552)
+    # — the venue that wants full names at the March pack derby and last
+    # initials at the May science fair. Null means "inherit the
+    # organization's setting", *unlike* `Organization.name_display` above:
+    # here null and `"FULL"` are different answers (inherit vs. an explicit
+    # override to show full names regardless of what the organization has
+    # chosen), so this column needs the same `clearNameDisplay` escape hatch
+    # as the terminology columns' `clearTerminology` — see
+    # `RaceUpdateInput` in `api/schema.py`.
+    name_display: Mapped[str | None] = mapped_column(String, nullable=True)
     #: One interleaved running order across the race's racing groups, rather
     #: than a block per group (#549 stage 2). Off by default — running one
     #: den at a time is how many packs deliberately structure an event, and

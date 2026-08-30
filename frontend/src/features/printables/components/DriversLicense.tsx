@@ -2,11 +2,15 @@ import { getContrastColor } from '../../../utils/colors';
 import type { PrintableRacingGroup, PrintableRace, PrintableRacer } from '../documents';
 import PrintPhoto from './PrintPhoto';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { formatDisplayName, type NameDisplay } from '../../core/displayName';
 
 interface Props {
     racer: PrintableRacer;
     race: PrintableRace;
     racingGroup?: PrintableRacingGroup;
+    /** How much of the racer's name this licence prints (#552). Defaults to
+     * `'FULL'`, today's only behaviour. */
+    nameDisplay?: NameDisplay | string;
 }
 
 /**
@@ -20,7 +24,7 @@ interface Props {
  * design — nothing in the app holds a signature, and a scout signing their own
  * licence at the check-in table is the point of it.
  */
-export default function DriversLicense({ racer, race, racingGroup }: Props) {
+export default function DriversLicense({ racer, race, racingGroup, nameDisplay = 'FULL' }: Props) {
     const { vehicle } = useTerminology();
     return (
         <div className="print-card drivers-license">
@@ -35,7 +39,7 @@ export default function DriversLicense({ racer, race, racingGroup }: Props) {
 
                 <div className="drivers-license-fields">
                     <div className="print-card-name">
-                        {racer.first_name} {racer.last_name}
+                        {formatDisplayName(nameDisplay, racer.first_name, racer.last_name)}
                     </div>
 
                     <div>

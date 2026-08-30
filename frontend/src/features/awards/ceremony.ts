@@ -16,6 +16,7 @@ import {
   describeSpeedAward,
   racerLabel,
 } from './awardText';
+import { shouldShowRacerPhoto, type NameDisplay } from '../core/displayName';
 
 export interface CeremonyAward {
   id: number;
@@ -79,6 +80,11 @@ export function slideFor(
    * `describeSpeedAward`. Defaults to the built-in Scouting one (#496
    * stage 4). */
   groupWord = 'den',
+  /** How much of the winner's name — and whether their own photograph — this
+   * ceremony may show (#552). The ceremony is an audience surface, so this
+   * is `race.resolvedNameDisplay`, not left at `racerLabel`'s own `'FULL'`
+   * default the operator's award screens rely on. */
+  nameDisplay: NameDisplay | string = 'FULL',
 ): Slide | null {
   const award = awards[index];
   if (!award) return null;
@@ -90,8 +96,10 @@ export function slideFor(
       award.kind === 'SPEED'
         ? describeSpeedAward(award, rounds, racingGroups, groupWord)
         : 'Chosen by the judges',
-    winner: award.recipient ? racerLabel(award.recipient) : null,
-    racerImageUrl: award.recipient?.racerImageUrl ?? null,
+    winner: award.recipient ? racerLabel(award.recipient, nameDisplay) : null,
+    racerImageUrl: shouldShowRacerPhoto(nameDisplay)
+      ? (award.recipient?.racerImageUrl ?? null)
+      : null,
     artworkKey: award.artworkKey ?? null,
     position: `${index + 1} of ${awards.length}`,
   };

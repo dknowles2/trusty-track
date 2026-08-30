@@ -179,6 +179,10 @@ describe('SystemSettings', () => {
                 // 'MATCH_APP' (#528).
                 displayTheme: 'MATCH_APP',
                 printablesTheme: 'MATCH_APP',
+                // The name-display picker's own default (#552) — full names,
+                // sent as an ordinary explicit value the same way the themes
+                // above are.
+                nameDisplay: 'FULL',
                 // The terminology checkbox was never touched, so this is
                 // "leave it null" said explicitly — the same shape as
                 // `clearWeightLimit` (#496 stage 3).
@@ -1030,5 +1034,87 @@ describe('Terminology (#496 stage 3; #551 adds the vehicle term, and stage 4 of 
         expect(sent.vehiclePlural).toBe('Cars');
         expect(sent.vehicleArtworkKey).toBe('rocket');
         expect(sent.clearTerminology).toBeUndefined();
+    });
+});
+
+describe('Name display (#552)', () => {
+    const configured = {
+        initialized: true,
+        organizationName: 'Pack 42',
+        debugMode: false,
+        displayTheme: 'MATCH_APP',
+        printablesTheme: 'MATCH_APP',
+        nameDisplay: null,
+        racingGroupSingular: null,
+        racingGroupPlural: null,
+        organizationSingular: null,
+        organizationPlural: null,
+        vehicleSingular: null,
+        vehiclePlural: null,
+        vehicleArtworkKey: null,
+        tracks: [
+            { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
+        ],
+    };
+
+    it('defaults to Full name when nothing has been saved', async () => {
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('general');
+
+        expect(screen.getByLabelText(/^Full name/)).toBeChecked();
+    });
+
+    it('seeds the picker from a saved abbreviation', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: { initialConfig: { ...configured, nameDisplay: 'LAST_INITIAL' } },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('general');
+
+        expect(screen.getByLabelText(/^First name and last initial/)).toBeChecked();
+    });
+
+    it('sends the chosen value as an ordinary field, needing no clear flag', async () => {
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('general');
+        await user.click(screen.getByLabelText(/^First name only/));
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        expect(mockUpdate.mock.calls[0][0].config.nameDisplay).toBe('FIRST_ONLY');
     });
 });

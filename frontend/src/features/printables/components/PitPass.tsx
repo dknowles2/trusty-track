@@ -9,11 +9,17 @@ import {
 import { VehicleGlyph } from './PrintDecor';
 import PrintPhoto from './PrintPhoto';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { formatDisplayName, type NameDisplay } from '../../core/displayName';
 
 interface Props {
     racer: PrintableRacer;
     race: PrintableRace;
     racingGroup?: PrintableRacingGroup;
+    /** How much of the racer's name this pass prints (#552). Defaults to
+     * `'FULL'`, today's only behaviour, for a caller that has not resolved
+     * the setting. The photograph is unaffected — pit passes are handed to
+     * a checked-in scout, not read by a stranger off a wall. */
+    nameDisplay?: NameDisplay | string;
 }
 
 /**
@@ -25,7 +31,7 @@ interface Props {
  * on a pass swinging from a lanyard it has to be readable from further away
  * than a name is.
  */
-export default function PitPass({ racer, race, racingGroup }: Props) {
+export default function PitPass({ racer, race, racingGroup, nameDisplay = 'FULL' }: Props) {
     const date = formatEventDate(race.dateTime);
     const time = formatEventTime(race.dateTime);
     const { vehicle, vehicleArtworkKey } = useTerminology();
@@ -45,7 +51,7 @@ export default function PitPass({ racer, race, racingGroup }: Props) {
                 </div>
 
                 <div className="print-card-name">
-                    {racer.first_name} {racer.last_name}
+                    {formatDisplayName(nameDisplay, racer.first_name, racer.last_name)}
                 </div>
 
                 {racingGroup && (

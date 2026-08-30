@@ -27,6 +27,20 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
   before check-in, which is exactly when photos are missing.
 - The dashed lines on screen are cut guides; they do not print.
 
+## Names on paper
+
+Pit passes, driver's licences, the heat sheet, the results sheet and
+certificates all print a racer's full name by default. **Names on public
+screens**, in System Settings (with a per-race override on the race's edit
+form), can shorten it to "Jordan M." or "Jordan" everywhere on this list
+instead — the same setting that shortens names on the audience displays and
+the standings export. See
+[Race and track settings](race-settings.md#names-on-public-screens) for the
+three choices. Check-in codes are the one document on this page left at full
+names regardless: they are scanned at the check-in desk to find the right
+child, not carried around the venue the way a pit pass is. Photos are
+unaffected everywhere on this page.
+
 ## Check-in codes
 
 A code identifies **that racer at that race**. A pass from last year's derby

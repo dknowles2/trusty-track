@@ -21,6 +21,7 @@ import {
     type SlideshowRacer,
 } from '../slideshow';
 import { useTerminology } from '../../../context/TerminologyContext';
+import type { NameDisplay } from '../../core/displayName';
 
 interface Props {
     racers: readonly SlideshowRacer[];
@@ -36,10 +37,20 @@ interface Props {
      * as the answer rather than as a wait.
      */
     loading?: boolean;
+    /** How much of a racer's name — and whether their own photograph — this
+     * screen may show (#552). Defaults to `'FULL'`, today's only behaviour,
+     * for any caller that has not resolved the setting yet. */
+    nameDisplay?: NameDisplay | string;
 }
 
-export default function PhotoSlideshow({ racers, racingGroups, intervalMs, loading = false }: Props) {
-    const slides = slidesFor(racers, racingGroups);
+export default function PhotoSlideshow({
+    racers,
+    racingGroups,
+    intervalMs,
+    loading = false,
+    nameDisplay = 'FULL',
+}: Props) {
+    const slides = slidesFor(racers, racingGroups, nameDisplay);
     const [index, setIndex] = useState(0);
     const { vehicleLower } = useTerminology();
 

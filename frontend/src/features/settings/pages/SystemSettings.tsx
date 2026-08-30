@@ -15,6 +15,7 @@ import { applyStoredAppTheme, readAppTheme, writeAppTheme } from '../../../themi
 import type { SurfaceThemeSetting, ThemeKey } from '../../../theming/themes';
 import type { HistoricalRecord } from '../components/TrackRecords';
 import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../terminologyDefaults';
+import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -35,6 +36,7 @@ const GET_INITIAL_CONFIG = `
       vehicleSingular
       vehiclePlural
       vehicleArtworkKey
+      nameDisplay
       tracks {
         id
         name
@@ -87,6 +89,7 @@ const CREATE_INITIAL_CONFIG = `
       vehicleSingular
       vehiclePlural
       vehicleArtworkKey
+      nameDisplay
       tracks {
         id
         name
@@ -112,6 +115,7 @@ const UPDATE_INITIAL_CONFIG = `
       vehicleSingular
       vehiclePlural
       vehicleArtworkKey
+      nameDisplay
     }
   }
 `;
@@ -193,6 +197,13 @@ export default function SystemConfig() {
   const [vehiclePlural, setVehiclePlural] = useState<string>(DEFAULT_TERMINOLOGY.vehiclePlural);
   const [vehicleArtworkKey, setVehicleArtworkKey] = useState<string>(DEFAULT_TERMINOLOGY.vehicleArtworkKey);
 
+  // The install-wide default for how much of a racer's name a public
+  // screen may show (#552) — same shape as `displayTheme`/`printablesTheme`
+  // above: `'FULL'` is itself the non-null "off" state (nobody's name is
+  // shortened), so there is no separate on/off checkbox and no clear flag
+  // to send, unlike the terminology words.
+  const [nameDisplay, setNameDisplay] = useState<string>('FULL');
+
   const [tracks, setTracks] = useState<TrackFields[]>([blankTrack('Main Track')]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -227,6 +238,7 @@ export default function SystemConfig() {
       // server — they are install-wide, not this device's own (#498).
       setDisplayTheme((data.initialConfig.displayTheme || 'MATCH_APP') as SurfaceThemeSetting);
       setPrintablesTheme((data.initialConfig.printablesTheme || 'MATCH_APP') as SurfaceThemeSetting);
+      setNameDisplay(data.initialConfig.nameDisplay || 'FULL');
       // Seeded from the *raw* override fields, not the resolved `terminology`
       // — seeding from the resolved words would show "Den" as this
       // install's own custom word and offer no way to tell it apart from
@@ -349,6 +361,10 @@ export default function SystemConfig() {
           // lives only in this device's own localStorage.
           displayTheme,
           printablesTheme,
+          // Same shape as the themes above (#552): `'FULL'` is itself the
+          // non-null "off" state, so it is always sent as an ordinary
+          // explicit value, never omitted and never needing a clear flag.
+          nameDisplay,
           // Unlike the themes, there is no non-null "off" value here — the
           // built-in Scouting words *are* the null state — so turning the
           // customization off has to be said explicitly (#496 stage 3),
@@ -585,6 +601,37 @@ export default function SystemConfig() {
                       </div>
                     )}
                   </div>
+
+                  {/* How much of a racer's name a public screen may show
+                      (#552) — the audience displays, the printables and the
+                      standings export; the roster, check-in and Race
+                      Control always show the full name regardless. Every
+                      option's description stays visible (#304), the same
+                      shape the race form's tiebreaker picker uses. A race
+                      can override this on its own settings too. */}
+                  <fieldset data-testid="name-display-fields" style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '2rem' }}>
+                    <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem', fontWeight: 'bold' }}>Names on public screens</legend>
+                    <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: '0.75rem' }}>
+                      What the audience displays, the printables and the standings export show for a racer&apos;s name. The roster, check-in and Race Control always show the full name.
+                    </small>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      {NAME_DISPLAY_OPTIONS.map(option => (
+                        <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>
+                          <input
+                            type="radio"
+                            name="org-name-display"
+                            id={`org_name_display_${option.value}`}
+                            checked={nameDisplay === option.value}
+                            onChange={() => setNameDisplay(option.value)}
+                          />{' '}
+                          {option.label}
+                          <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}>
+                            {option.description}
+                          </small>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
 
                   <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <input

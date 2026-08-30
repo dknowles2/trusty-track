@@ -9,6 +9,7 @@ import PhotoSlideshow from '../components/PhotoSlideshow';
 import { displayId } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName';
 import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
@@ -30,6 +31,7 @@ const GET_INITIAL_DATA = `
     race(raceId: $id) {
       id
       scoringStrategy
+      resolvedNameDisplay
       track {
         id
       }
@@ -312,6 +314,11 @@ export default function Observation() {
   // placements, not seconds, so the wall must say what it means and never
   // print a POINTS total as though it were a time (#329).
   const scoringStrategy = initialData?.race?.scoringStrategy || 'TIMED';
+  // How much of a racer's name this audience-facing page may show (#552) —
+  // resolved server-side, never null once the race has answered; `'FULL'`
+  // is exactly what every install showed before this setting existed, so
+  // there is nothing to do while the query is still in flight.
+  const nameDisplay = initialData?.race?.resolvedNameDisplay ?? 'FULL';
   const scoreLabel = scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
   const formatScore = (score: number) =>
     scoringStrategy === 'TIMED' ? `${score.toFixed(4)}s` : score.toString();
@@ -436,13 +443,13 @@ export default function Observation() {
                     id: racer.id,
                     first_name: racer.firstName,
                     last_name: racer.lastName,
-                    racer_image_url: racer.racerImageUrl
+                    racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer.racerImageUrl : null
                   }}
                   size="80px"
                   style={{ margin: '0 auto 5px', border: '2px solid var(--display-border-color)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                 />
                 <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
-                  {racer.firstName} {racer.lastName}
+                  {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
                 </div>
                 {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: 'var(--display-text-muted-color)' }}>{vehicle} #{racer.carNumber}</div>}
                 {racingGroupDivisionFor(racer) && (
@@ -496,7 +503,11 @@ export default function Observation() {
                   id: 0,
                   first_name: lane.racerName,
                   last_name: '',
-                  racer_image_url: lane.racerImageUrl
+                  // `lane.racerName` is already resolved server-side
+                  // (#552's `Subscription.timing_stats` — there is no raw
+                  // first/last pair here for the frontend to reformat), so
+                  // only the photo needs gating here.
+                  racer_image_url: shouldShowRacerPhoto(nameDisplay) ? lane.racerImageUrl : undefined
                 }}
                 size="120px"
                 style={{ margin: '0 40px', border: '4px solid var(--display-text-color)', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}
@@ -532,6 +543,7 @@ export default function Observation() {
           racingGroups={initialData?.race?.racingGroups ?? []}
           intervalMs={behaviour.cycleMs}
           loading={initialResult.fetching && !initialData}
+          nameDisplay={nameDisplay}
         />
       </div>
     );
@@ -689,14 +701,14 @@ export default function Observation() {
                               id: s.racerId,
                               first_name: racer?.firstName || '',
                               last_name: racer?.lastName || '',
-                              racer_image_url: racer?.racerImageUrl
+                              racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer?.racerImageUrl : null
                             }}
                             size="100px"
                             style={{ border: '3px solid var(--display-border-color)', boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }}
                           />
                           <div>
                             <div className="standing-racer-name" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
-                              {racer ? `${racer.firstName} ${racer.lastName}` : `Racer #${s.racerId}`}
+                              {racer ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName) : `Racer #${s.racerId}`}
                             </div>
                             {racer?.carNumber && (
                               <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '0.9rem' }}>{vehicle} #{racer.carNumber}</div>
@@ -813,7 +825,7 @@ export default function Observation() {
           <div key={lane} className="projector-racer-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--display-card-bg-color)', borderRadius: '1.5vmin', padding: '2vmin', textAlign: 'center' }}>
             {/* Priority 1: Racer Name */}
             <div className="projector-racer-name" style={{ fontWeight: 'bold', fontSize: isNowRacing ? '4.5vmin' : '3.5vmin', color: 'var(--display-text-color)', marginBottom: '1.5vmin', lineHeight: 1.1 }}>
-              {racer.firstName} {racer.lastName}
+              {formatDisplayName(nameDisplay, racer.firstName, racer.lastName)}
             </div>
 
             {/* Priority 2: Picture */}
@@ -822,7 +834,7 @@ export default function Observation() {
                 id: racer.id,
                 first_name: racer.firstName,
                 last_name: racer.lastName,
-                racer_image_url: racer.racerImageUrl
+                racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer.racerImageUrl : null
               }}
               size={isNowRacing ? "16vmin" : "12vmin"}
               style={{ margin: '0 auto', border: '0.4vmin solid var(--display-text-color)', boxShadow: '0 0.5vmin 1vmin rgba(0,0,0,0.3)' }}
@@ -920,18 +932,29 @@ export default function Observation() {
                                 id: s.racerId,
                                 first_name: racer?.firstName || '',
                                 last_name: racer?.lastName || '',
-                                racer_image_url: racer?.racerImageUrl
+                                racer_image_url: shouldShowRacerPhoto(nameDisplay) ? racer?.racerImageUrl : null
                               }}
                               size="6vmin"
                               style={{ border: '0.2vmin solid var(--display-border-subtle-color)', flexShrink: 0 }}
                             />
                             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                              <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                                {racer ? `${racer.firstName}` : `Racer`}
-                              </span>
-                              <span style={{ fontSize: '2vmin', fontWeight: 'bold', color: 'var(--display-text-subtle-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                                {racer ? `${racer.lastName}` : `#${s.racerId}`}
-                              </span>
+                              {nameDisplay === 'FULL' ? (
+                                <>
+                                  <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                                    {racer ? `${racer.firstName}` : `Racer`}
+                                  </span>
+                                  <span style={{ fontSize: '2vmin', fontWeight: 'bold', color: 'var(--display-text-subtle-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                                    {racer ? `${racer.lastName}` : `#${s.racerId}`}
+                                  </span>
+                                </>
+                              ) : (
+                                // Abbreviated: one line, via the one formatter, rather than
+                                // splitting first/last across two lines the way FULL does —
+                                // a bare last initial reads oddly stacked under a first name.
+                                <span style={{ fontSize: '2.5vmin', fontWeight: 'bold', color: 'var(--display-text-color)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                                  {racer ? formatDisplayName(nameDisplay, racer.firstName, racer.lastName) : `Racer #${s.racerId}`}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
