@@ -7,18 +7,22 @@
  * follow the same `seen === null` shape `resultsOverlay.ts` uses and
  * `AwardCeremony` already applies to `slide_seq`:
  *
- * - **On this display's very first payload** — a fresh connect, a reload, or
- *   a reconnect after the wifi drops — a small corner badge names the screen
- *   briefly. Plugging a screen in and opening it is the cheapest possible
- *   moment for somebody to learn its name, and it fades: a permanent badge is
- *   chrome on a projector, which is what #174's `ChromeContext` work was
- *   about getting rid of.
+ * - **On this display's very first payload** — a fresh connect or a reload —
+ *   a small corner badge names the screen briefly. Plugging a screen in and
+ *   opening it is the cheapest possible moment for somebody to learn its
+ *   name, and it fades: a permanent badge is chrome on a projector, which is
+ *   what #174's `ChromeContext` work was about getting rid of. A reconnect
+ *   under a page that never unmounted keeps whatever `seen` it already held,
+ *   so it does not re-badge — a screen re-badging itself on every wifi wobble
+ *   would be its own kind of noise.
  * - **On an Identify command from the operator's list** — `identifySeq`
- *   rising above the value this display already obeyed — the name flashes
- *   across the whole screen. The value a display arrives holding on connect
- *   or reconnect is history, not an instruction: obeying it would flash the
- *   name on every wifi hiccup, which is exactly what the `seen === null` rule
- *   exists to prevent.
+ *   *rising* above the value this display already obeyed — the name flashes
+ *   across the whole screen. A counter that has gone down is not a command:
+ *   presence lives in memory (`services/displays.py`), so a restarted server
+ *   or a forgotten-then-reconnected display rebuilds the registry at zero,
+ *   and that value is history exactly like the one a fresh connection
+ *   arrives holding — obeying it would flash every screen in the room the
+ *   moment the Pi comes back (#520).
  *
  * Both are edges, not states — the caller compares the previous call's `seen`
  * against a fresh one, the same shape `observeHeatResult` uses, so "did this
@@ -51,5 +55,10 @@ export function observeIdentify(seen: SeenIdentifySeq, current: number | null): 
         return { seen: current, showConnectBadge: true, showFlash: false };
     }
 
-    return { seen: current, showConnectBadge: false, showFlash: current !== seen };
+    // A command is a counter that has gone *up*. One that has gone down —
+    // or simply not moved — is history: the registry lost this display and
+    // rebuilt it at zero, whether from a server restart (#520) or a
+    // forget-and-reconnect, and obeying it would flash the name on every
+    // screen in the room for a command nobody sent.
+    return { seen: current, showConnectBadge: false, showFlash: current > seen };
 }

@@ -18,6 +18,7 @@ import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
 import { RACE_AWARDS_QUERY } from '../graphql/queries';
 import { displayId } from '../../observation/displayIdentity';
 import { DisplayAssignmentSubscription } from '../../observation/graphql/queries';
+import IdentifyPresence from '../../observation/IdentifyPresence';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -158,6 +159,12 @@ export default function AwardCeremony() {
         ...displayThemeStyle,
       }}
     >
+      {/* This page holds its own `displayAssignment` subscription (above,
+          for the leash), so it gets its own copy of the naming treatments
+          (#495) rather than inheriting Observation.tsx's — Identify used to
+          do nothing here for exactly that reason (#519). */}
+      <IdentifyPresence assignment={assignment} />
+
       {!slide ? (
         <p style={{ fontSize: '3vh', opacity: 0.8 }}>
           {result.fetching ? 'Loading…' : 'No awards have been set up for this race yet.'}

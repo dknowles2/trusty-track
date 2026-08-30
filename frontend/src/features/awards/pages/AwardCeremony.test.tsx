@@ -88,7 +88,14 @@ function renderCeremonyForRerender(race: unknown = RACE) {
 
 function mockAssignment(
   assignment:
-    | { assigned: boolean; view: string; slideSeq?: number; slideDelta?: number }
+    | {
+        assigned: boolean;
+        view: string;
+        slideSeq?: number;
+        slideDelta?: number;
+        name?: string;
+        identifySeq?: number | null;
+      }
     | null,
 ) {
   (useSubscription as unknown as ReturnType<typeof vi.fn>).mockReturnValue([
@@ -99,6 +106,8 @@ function mockAssignment(
               cycleSeconds: 10,
               slideSeq: 0,
               slideDelta: 0,
+              name: 'Gym Projector',
+              identifySeq: null,
               ...assignment,
             },
           }
@@ -282,5 +291,42 @@ describe('steps sent from the operator’s Displays panel', () => {
     // Two steps from the first award, clamped at the last — which the
     // ceremony deliberately does not wrap past.
     expect(screen.getByText('2 of 2')).toBeInTheDocument();
+  });
+});
+
+describe('Identify reaches this screen too (#519)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('names itself with the connect badge on the opening payload', () => {
+    mockAssignment({ assigned: true, view: 'AWARDS', name: 'Gym Projector', identifySeq: 3 });
+    renderCeremony();
+
+    expect(screen.getByTestId('identify-connect-badge')).toHaveTextContent('Gym Projector');
+    expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+  });
+
+  it('flashes the name when the operator presses Identify from the Displays panel', () => {
+    // The reported bug: this page consumed slideSeq but knew nothing about
+    // identifySeq, so Identify did nothing on a screen showing the ceremony.
+    mockAssignment({ assigned: true, view: 'AWARDS', name: 'Gym Projector', identifySeq: 3 });
+    const { rerender } = renderCeremonyForRerender();
+    expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+
+    mockAssignment({ assigned: true, view: 'AWARDS', name: 'Gym Projector', identifySeq: 4 });
+    rerender();
+
+    expect(screen.getByTestId('identify-flash')).toHaveTextContent('Gym Projector');
+  });
+
+  it('does not flash on a server restart — a falling identifySeq is history (#520)', () => {
+    mockAssignment({ assigned: true, view: 'AWARDS', name: 'Gym Projector', identifySeq: 3 });
+    const { rerender } = renderCeremonyForRerender();
+
+    // Presence lives in memory: a restart rebuilds this display at zero.
+    mockAssignment({ assigned: true, view: 'AWARDS', name: 'Gym Projector', identifySeq: 0 });
+    rerender();
+
+    expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
   });
 });
