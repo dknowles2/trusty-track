@@ -226,6 +226,7 @@ input InitialConfigInput {
   vehiclePlural: String = null
   vehicleArtworkKey: String = null
   clearTerminology: Boolean! = false
+  nameDisplay: String = null
 }
 
 type InitialConfigStatus {
@@ -249,6 +250,8 @@ type InitialConfigStatus {
   vehiclePlural: String
   vehicleArtworkKey: String
   terminology: Terminology!
+  nameDisplay: String
+  resolvedNameDisplay: String!
 }
 
 type LaneResult {
@@ -339,6 +342,7 @@ type Mutation {
   bulkAutoNumber(racerIds: [Int!]!): Int!
   bulkClearNumbers(racerIds: [Int!]!): Boolean!
   bulkCheckIn(racerIds: [Int!]!, passedInspection: Boolean! = true): Boolean!
+  bulkSetExcludedFromStandings(racerIds: [Int!]!, excluded: Boolean! = true): Boolean!
   bulkMoveToRacingGroup(racerIds: [Int!]!, racingGroupId: Int): Boolean!
   bulkDeleteRacers(racerIds: [Int!]!): Boolean!
   bulkAssignPhotos(assignments: [PhotoAssignmentInput!]!): Int!
@@ -366,7 +370,9 @@ type Organization {
   vehicleSingular: String
   vehiclePlural: String
   vehicleArtworkKey: String
+  nameDisplay: String
   terminology: Terminology!
+  resolvedNameDisplay: String!
   races: [Race!]!
 }
 
@@ -432,6 +438,9 @@ type Race {
   vehiclePlural: String
   vehicleArtworkKey: String
   dropWorstRuns: Int!
+  excludeRoundWinnersFromQualifyingStandings: Boolean!
+  nameDisplay: String
+  resolvedNameDisplay: String!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
@@ -519,6 +528,9 @@ input RaceUpdateInput {
   vehicleArtworkKey: String = null
   clearTerminology: Boolean! = false
   dropWorstRuns: Int = null
+  excludeRoundWinnersFromQualifyingStandings: Boolean = null
+  nameDisplay: String = null
+  clearNameDisplay: Boolean! = false
 }
 
 type Racer {
@@ -533,6 +545,7 @@ type Racer {
   carImageUrl: String
   racingGroupId: Int
   raceId: Int!
+  excludedFromStandings: Boolean!
   racingGroup: RacingGroup
 }
 
@@ -547,6 +560,7 @@ input RacerInput {
   racerImageUrl: String = null
   carImageUrl: String = null
   raceId: Int = null
+  excludedFromStandings: Boolean! = false
 }
 
 type RacerStat {

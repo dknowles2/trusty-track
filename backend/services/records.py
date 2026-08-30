@@ -54,6 +54,13 @@ def track_records(
     of zero or less is a DNF marker rather than a result, and a lane whose
     racer has been deleted has no holder, so neither can set a record.
 
+    Deliberately does **not** read ``Racer.excluded_from_standings`` (#548).
+    A record is a fact about the *track* — the fastest car it has ever
+    seen — not about who was eligible for a trophy that day, and a sibling
+    or parent car's time belongs on the board exactly like any other. Don't
+    "fix" this by filtering it in; that is the one thing #548 asked to stay
+    unfiltered.
+
     Historical records — entered by hand for events from before Trusty
     Track (`models.HistoricalTrackRecord`) — compete in the same list, as
     typed: a 2019 record standing at 2.89 seconds is beaten by a computed

@@ -28,6 +28,16 @@ export const GET_RACE_DETAILS = gql`
       vehicleSingular
       vehiclePlural
       vehicleArtworkKey
+      # Once a championship round is decided, its winner stops counting
+      # toward the standings they qualified from (#548) — the race form's
+      # checkbox for it.
+      excludeRoundWinnersFromQualifyingStandings
+      # A per-race override of how much of a racer's name a public screen
+      # may show (#552), null where this race inherits the organization's
+      # setting — the raw column RaceForm's checkbox reads, mirroring the
+      # terminology overrides above.
+      nameDisplay
+      resolvedNameDisplay
       registeredCount
       checkedInCount
       racingGroups {
@@ -49,6 +59,7 @@ export const GET_RACE_DETAILS = gql`
         carWeight
         racerImageUrl
         carImageUrl
+        excludedFromStandings
       }
       leaderboard {
         racerId
@@ -117,6 +128,14 @@ export const UPDATE_RACE = gql`
       vehicleSingular
       vehiclePlural
       vehicleArtworkKey
+      excludeRoundWinnersFromQualifyingStandings
+      # Same shape and same reason as the terminology pair below (#552):
+      # the raw column is what the form edits, and resolvedNameDisplay is
+      # what every abbreviating surface actually reads — without it,
+      # graphcache writes the raw column onto this Race and leaves its
+      # cached resolved value exactly as it found it.
+      nameDisplay
+      resolvedNameDisplay
       # The raw override columns above are what the form edits;
       # terminology is the resolved value RaceTerminologyGate reads
       # (#496 stage 4, issue #531). Without it, graphcache writes the raw
@@ -219,6 +238,12 @@ export const BULK_CLEAR_NUMBERS = gql`
 export const BULK_CHECK_IN = gql`
   mutation BulkCheckIn($racerIds: [Int!]!, $passedInspection: Boolean!) {
     bulkCheckIn(racerIds: $racerIds, passedInspection: $passedInspection)
+  }
+`;
+
+export const BULK_SET_EXCLUDED_FROM_STANDINGS = gql`
+  mutation BulkSetExcludedFromStandings($racerIds: [Int!]!, $excluded: Boolean!) {
+    bulkSetExcludedFromStandings(racerIds: $racerIds, excluded: $excluded)
   }
 `;
 

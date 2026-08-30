@@ -15,6 +15,7 @@ export const GET_PRINTABLES = gql`
       name
       dateTime
       location
+      resolvedNameDisplay
       racingGroups {
         id
         name
@@ -51,6 +52,7 @@ export const GET_HEAT_SHEET = gql`
       dateTime
       location
       trackId
+      resolvedNameDisplay
       rounds {
         id
         name
@@ -99,6 +101,7 @@ export const GET_RESULTS_SHEET = gql`
       dateTime
       location
       scoringStrategy
+      resolvedNameDisplay
       leaderboard {
         racerId
         rank
@@ -108,6 +111,10 @@ export const GET_RESULTS_SHEET = gql`
         racingGroupName
         score
         heatsCompleted
+      }
+      racers {
+        id
+        excludedFromStandings
       }
       awards {
         id
@@ -142,6 +149,7 @@ export const GET_CERTIFICATES = gql`
       name
       dateTime
       location
+      resolvedNameDisplay
       awards {
         id
         name

@@ -114,6 +114,28 @@ describe('standingsRows', () => {
             'Tie Broken By',
         ]);
     });
+
+    describe('name display (#552)', () => {
+        it('is byte-identical to today under FULL, the default', () => {
+            const rows = standingsRows([entry()], 'TIMED', 'Den', 'Car', 'FULL');
+            expect(rows[0].slice(2, 4)).toEqual(['First Name', 'Last Name']);
+            expect(rows[1].slice(2, 4)).toEqual(['Ada', 'Lovelace']);
+        });
+
+        it('collapses to one Name column when abbreviating', () => {
+            const rows = standingsRows([entry()], 'TIMED', 'Den', 'Car', 'LAST_INITIAL');
+            expect(rows[0]).toEqual([
+                'Rank',
+                'Car #',
+                'Name',
+                'Den',
+                'Average Time (s)',
+                'Heats',
+                'Tie Broken By',
+            ]);
+            expect(rows[1][2]).toBe('Ada L.');
+        });
+    });
 });
 
 describe('tieBrokenByValue', () => {

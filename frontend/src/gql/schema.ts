@@ -224,6 +224,7 @@ export type InitialConfigInput = {
   clearTerminology?: Scalars['Boolean']['input'];
   debugMode?: Scalars['Boolean']['input'];
   displayTheme?: InputMaybe<Scalars['String']['input']>;
+  nameDisplay?: InputMaybe<Scalars['String']['input']>;
   operatorPin?: InputMaybe<Scalars['String']['input']>;
   organizationName: Scalars['String']['input'];
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
@@ -245,6 +246,7 @@ export type InitialConfigStatus = {
   displayTheme: Scalars['String']['output'];
   initialized: Scalars['Boolean']['output'];
   isOperator: Scalars['Boolean']['output'];
+  nameDisplay?: Maybe<Scalars['String']['output']>;
   organizationName?: Maybe<Scalars['String']['output']>;
   organizationPlural?: Maybe<Scalars['String']['output']>;
   organizationSingular?: Maybe<Scalars['String']['output']>;
@@ -252,6 +254,7 @@ export type InitialConfigStatus = {
   printablesTheme: Scalars['String']['output'];
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
+  resolvedNameDisplay: Scalars['String']['output'];
   terminology: Terminology;
   tracks: Array<Track>;
   vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
@@ -312,6 +315,7 @@ export type Mutation = {
   bulkClearNumbers: Scalars['Boolean']['output'];
   bulkDeleteRacers: Scalars['Boolean']['output'];
   bulkMoveToRacingGroup: Scalars['Boolean']['output'];
+  bulkSetExcludedFromStandings: Scalars['Boolean']['output'];
   castVote?: Maybe<Scalars['String']['output']>;
   checkInRacer?: Maybe<Racer>;
   createAward: Award;
@@ -424,6 +428,12 @@ export type MutationBulkDeleteRacersArgs = {
 export type MutationBulkMoveToRacingGroupArgs = {
   racerIds: Array<Scalars['Int']['input']>;
   racingGroupId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type MutationBulkSetExcludedFromStandingsArgs = {
+  excluded?: Scalars['Boolean']['input'];
+  racerIds: Array<Scalars['Int']['input']>;
 };
 
 
@@ -709,11 +719,13 @@ export type MutationUploadImageArgs = {
 export type Organization = {
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
+  nameDisplay?: Maybe<Scalars['String']['output']>;
   organizationPlural?: Maybe<Scalars['String']['output']>;
   organizationSingular?: Maybe<Scalars['String']['output']>;
   races: Array<Race>;
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
+  resolvedNameDisplay: Scalars['String']['output'];
   terminology: Terminology;
   vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
   vehiclePlural?: Maybe<Scalars['String']['output']>;
@@ -852,6 +864,7 @@ export type Race = {
   checkedInCount: Scalars['Int']['output'];
   dateTime?: Maybe<Scalars['String']['output']>;
   dropWorstRuns: Scalars['Int']['output'];
+  excludeRoundWinnersFromQualifyingStandings: Scalars['Boolean']['output'];
   globalStartNumber: Scalars['Int']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
@@ -859,6 +872,7 @@ export type Race = {
   location?: Maybe<Scalars['String']['output']>;
   masterRunningOrder: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
+  nameDisplay?: Maybe<Scalars['String']['output']>;
   organization: Organization;
   organizationId: Scalars['Int']['output'];
   organizationPlural?: Maybe<Scalars['String']['output']>;
@@ -868,6 +882,7 @@ export type Race = {
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   racingGroups: Array<RacingGroup>;
   registeredCount: Scalars['Int']['output'];
+  resolvedNameDisplay: Scalars['String']['output'];
   rounds: Array<Round>;
   runOffHeats: Array<RunOffHeat>;
   scheduledRacerIds: Array<Scalars['Int']['output']>;
@@ -940,14 +955,17 @@ export type RaceUpdateInput = {
   autoAdvanceHeat?: InputMaybe<Scalars['Boolean']['input']>;
   carNumberingStrategy?: InputMaybe<Scalars['String']['input']>;
   championshipTrophies?: InputMaybe<Scalars['Int']['input']>;
+  clearNameDisplay?: Scalars['Boolean']['input'];
   clearTerminology?: Scalars['Boolean']['input'];
   clearWeightLimit?: Scalars['Boolean']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
   dropWorstRuns?: InputMaybe<Scalars['Int']['input']>;
+  excludeRoundWinnersFromQualifyingStandings?: InputMaybe<Scalars['Boolean']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
   masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  nameDisplay?: InputMaybe<Scalars['String']['input']>;
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
@@ -968,6 +986,7 @@ export type Racer = {
   carNumber?: Maybe<Scalars['Int']['output']>;
   carPassedInspection: Scalars['Boolean']['output'];
   carWeight?: Maybe<Scalars['Float']['output']>;
+  excludedFromStandings: Scalars['Boolean']['output'];
   firstName: Scalars['String']['output'];
   id: Scalars['Int']['output'];
   lastName: Scalars['String']['output'];
@@ -983,6 +1002,7 @@ export type RacerInput = {
   carNumber?: InputMaybe<Scalars['Int']['input']>;
   carPassedInspection?: Scalars['Boolean']['input'];
   carWeight?: InputMaybe<Scalars['Float']['input']>;
+  excludedFromStandings?: Scalars['Boolean']['input'];
   firstName: Scalars['String']['input'];
   lastName: Scalars['String']['input'];
   raceId?: InputMaybe<Scalars['Int']['input']>;

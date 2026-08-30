@@ -29,6 +29,7 @@ from backend.db.database import UPLOAD_DIR
 from backend.domain import advancement, audit, lanes
 from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
+from backend.domain import name_display as domain_name_display
 from backend.domain import scoring as domain_scoring
 from backend.domain import terminology as domain_terminology
 from backend.services import displays as displays_service
@@ -614,6 +615,22 @@ def _terminology_status_kwargs(organization: Any) -> dict[str, Any]:
     }
 
 
+def _name_display_status_kwargs(organization: Any) -> dict[str, Any]:
+    """The raw override plus the resolved name-display setting, for building
+    an `InitialConfigStatus` (#552).
+
+    Three call sites build one of these (create, update, the query), the
+    same #48 shape `_terminology_status_kwargs` follows.
+    """
+    raw = organization.name_display if organization else None
+    return {
+        "name_display": raw,
+        "resolved_name_display": domain_name_display.resolve_name_display(
+            organization=raw
+        ),
+    }
+
+
 @strawberry.type
 class InitialConfigStatus:
     """
@@ -675,6 +692,14 @@ class InitialConfigStatus:
             domain_terminology.DEFAULT_TERMINOLOGY
         )
     )
+    #: The organization's raw name-display override, null where it has not
+    #: changed it from `FULL` (#552) — what the settings form reads back to
+    #: populate its picker, distinct from `resolvedNameDisplay` below.
+    name_display: str | None = None
+    #: The resolved name-display setting for screens with no race in view
+    #: (Home, System Settings) — organization default over `FULL`. See
+    #: `Race.resolvedNameDisplay` for the layer a race adds on top.
+    resolved_name_display: str = domain_name_display.DEFAULT_NAME_DISPLAY
 
 
 @strawberry.input
@@ -721,6 +746,12 @@ class InitialConfigInput:
     #: fields above.
     vehicle_artwork_key: str | None = None
     clear_terminology: bool = False
+    #: The install-wide default for how much of a racer's name a public
+    #: screen may show (#552) — one of `domain_name_display.NAME_DISPLAY_VALUES`.
+    #: Absent leaves the current setting alone; any other value — including
+    #: `"FULL"` — is the new setting, the same `display_theme` shape: `FULL`
+    #: is itself the non-null "off" state, so there is no clear flag here.
+    name_display: str | None = None
 
 
 @strawberry.input
@@ -739,6 +770,10 @@ class RacerInput:
     racer_image_url: str | None = None
     car_image_url: str | None = None
     race_id: int | None = None
+    #: Races, but is not ranked (#548) — a sibling or parent's car, an
+    #: outlaw-class entry, a demonstration run. Read in exactly one place,
+    #: `services/scoring.get_leaderboard`.
+    excluded_from_standings: bool = False
 
 
 @strawberry.input
@@ -844,6 +879,23 @@ class RaceUpdateInput:
     #: no separate clear flag, the same shape `master_running_order`'s
     #: `false` already uses.
     drop_worst_runs: int | None = None
+    #: A decided championship round's winner(s) stop counting toward the
+    #: standings of the round they qualified from (#548) — the Grand Finals
+    #: half of the same mechanism as `Racer.excludedFromStandings`. Absent
+    #: means leave alone; `false` is an ordinary value, the same shape
+    #: `master_running_order` and `voting_open` already use.
+    exclude_round_winners_from_qualifying_standings: bool | None = None
+    #: A per-race override of the organization's name-display default
+    #: (#552). Absent means leave alone; explicit `"FULL"` here is a real
+    #: override ("show full names at this race regardless of what the
+    #: organization has chosen"), distinct from inheriting — so unlike the
+    #: organization-level field, there is a `clear_name_display` flag to get
+    #: back to null.
+    name_display: str | None = None
+    #: The explicit way back to "inherit the organization's setting", for
+    #: the same reason `clear_terminology` exists: absent already means
+    #: leave alone, so nothing else can ask for null.
+    clear_name_display: bool = False
 
 
 @strawberry.input
@@ -1208,6 +1260,11 @@ class Racer:
     car_image_url: str | None
     racing_group_id: int | None
     race_id: int
+    #: Races, but is not ranked (#548). `services/scoring.get_leaderboard`
+    #: drops this racer before ranking; heat generation, admission,
+    #: withdrawal and the live heat view are untouched and still read
+    #: check-in — this is not a second way to say "not racing".
+    excluded_from_standings: bool
 
     @strawberry.field
     def racing_group(self, info: Info) -> RacingGroup | None:
@@ -1394,6 +1451,33 @@ class Race:
     #: scoring (#547 stage 2) — a modifier over `scoringStrategy`, not a
     #: strategy of its own. `0` is the off state.
     drop_worst_runs: int
+    #: Whether a decided championship round's winner(s) stop counting toward
+    #: the standings of the round they qualified from (#548) — off by
+    #: default. `services/scoring.get_leaderboard` reads this on every call
+    #: rather than storing who is affected, so a corrected final-round time
+    #: moves who is excluded.
+    exclude_round_winners_from_qualifying_standings: bool
+    #: This race's raw name-display override, null where it inherits the
+    #: organization's setting (#552) — what the race edit form reads back to
+    #: populate its picker, distinct from `resolvedNameDisplay` below.
+    name_display: str | None
+
+    @strawberry.field
+    def resolved_name_display(self, info: Info) -> str:
+        """How much of a racer's name this race's audience/printable/export
+        surfaces may show, fully resolved (#552).
+
+        A race override layered over the organization's own default,
+        layered over `FULL` — see `domain.name_display.resolve_name_display`.
+        Every abbreviating surface reads this (never the raw override
+        fields) so the layering is computed in exactly one place, the same
+        reasoning `Race.terminology` follows.
+        """
+        organization = _loaders(info).organization_by_id(self.organization_id)
+        return domain_name_display.resolve_name_display(
+            organization=organization.name_display if organization else None,
+            race=self.name_display,
+        )
 
     @strawberry.field
     def terminology(self, info: Info) -> Terminology:
@@ -1606,6 +1690,10 @@ class Organization:
     #: not chosen one (#551, stage 4) — same distinction as the six fields
     #: above.
     vehicle_artwork_key: str | None
+    #: This organization's raw name-display override, null where it has not
+    #: changed it from `FULL` (#552) — same distinction as the seven fields
+    #: above.
+    name_display: str | None
 
     @strawberry.field
     def terminology(self) -> Terminology:
@@ -1618,6 +1706,16 @@ class Organization:
                 organization=_terminology_overrides(self)
             )
         )
+
+    @strawberry.field
+    def resolved_name_display(self) -> str:
+        """The install-wide default for how much of a racer's name a public
+        screen may show, fully resolved (#552).
+
+        No race in play here — see `Race.resolvedNameDisplay` for the layer
+        on top.
+        """
+        return domain_name_display.resolve_name_display(organization=self.name_display)
 
     @strawberry.field
     def races(self, info: Info) -> list[Race]:
@@ -2376,6 +2474,7 @@ class Query:
                 if organization
                 else "MATCH_APP",
                 **_terminology_status_kwargs(organization),
+                **_name_display_status_kwargs(organization),
             )
         # Reported on the unconfigured branch too. A demo seeds itself before
         # it serves, so this is only reachable if seeding failed — and a first
@@ -2386,6 +2485,7 @@ class Query:
             version=_version,
             demo_mode=demo_mode.enabled(),
             **_terminology_status_kwargs(None),
+            **_name_display_status_kwargs(None),
         )
 
     @strawberry.field
@@ -2691,6 +2791,18 @@ def _apply_themes(organization: Any, config: "InitialConfigInput") -> None:
         setattr(organization, field, value)
 
 
+def _apply_name_display(organization: Any, config: "InitialConfigInput") -> None:
+    """Store whichever install-wide name-display default the settings page
+    sent (#552).
+
+    Absent means *leave alone*, the same shape as `_apply_themes` — `FULL`
+    is itself the non-null "off" state, so there is no clear flag here the
+    way `_apply_terminology` needs one.
+    """
+    if config.name_display is not None:
+        organization.name_display = config.name_display
+
+
 _TERMINOLOGY_FIELDS = (
     "racing_group_singular",
     "racing_group_plural",
@@ -2746,6 +2858,7 @@ class Mutation:
         data = strawberry.asdict(race)
         clear_weight_limit = data.pop("clear_weight_limit", False)
         clear_terminology = data.pop("clear_terminology", False)
+        clear_name_display = data.pop("clear_name_display", False)
         filtered_data = {k: v for k, v in data.items() if v is not None}
         # Explicit removal beats an absent field, which means "leave alone"
         # here for every other column (#205, following #192).
@@ -2757,6 +2870,11 @@ class Mutation:
         if clear_terminology:
             for field in _TERMINOLOGY_FIELDS:
                 filtered_data[field] = None
+        # Same trap again, for the per-race name-display override (#552):
+        # "FULL" here is a real override, not the inherit state, so getting
+        # back to null needs its own explicit flag too.
+        if clear_name_display:
+            filtered_data["name_display"] = None
         race_update = schemas.RaceUpdate(**typing.cast(Any, filtered_data))
         updated = typing.cast(
             Any, crud.update_race(db, race_id=id, race_update=race_update)
@@ -3875,6 +3993,26 @@ class Mutation:
         return True
 
     @strawberry.mutation
+    async def bulk_set_excluded_from_standings(
+        self, info: Info, racer_ids: list[int], excluded: bool = True
+    ) -> bool:
+        """Bulk set whether racers race but are not ranked (#548).
+
+        Check-in is unchanged — a sibling or parent's car set here still
+        fields in heats exactly as before, and still shows on the audience
+        display. Only `services/scoring.get_leaderboard` reads the flag, so
+        nothing here touches the schedule; no `_admit_late_racers` or
+        `_revalidate_timers` call, unlike `bulk_check_in` beside it.
+        """
+        db = info.context["db"]
+        race_id = _race_id_for_racers(db, racer_ids)
+        if race_id is None:
+            return False
+        crud.bulk_set_excluded_from_standings(db, racer_ids, excluded)
+        await _publish_race_state(race_id, kind=RaceChangeKind.RACER)
+        return True
+
+    @strawberry.mutation
     async def bulk_move_to_racing_group(
         self, info: Info, racer_ids: list[int], racing_group_id: int | None
     ) -> bool:
@@ -3970,6 +4108,7 @@ class Mutation:
             display_theme=organization.display_theme,
             printables_theme=organization.printables_theme,
             **_terminology_status_kwargs(organization),
+            **_name_display_status_kwargs(organization),
         )
 
     @strawberry.mutation
@@ -4008,6 +4147,7 @@ class Mutation:
             _apply_pins(organization, config)
             _apply_themes(organization, config)
             _apply_terminology(organization, config)
+            _apply_name_display(organization, config)
             db.commit()
 
         # Tracks are matched to database rows by id, not by list position
@@ -4128,6 +4268,7 @@ class Mutation:
             if organization
             else "MATCH_APP",
             **_terminology_status_kwargs(organization),
+            **_name_display_status_kwargs(organization),
         )
 
     @strawberry.mutation
@@ -5042,13 +5183,36 @@ class Subscription:
                 )
                 racer_map = {r.id: r for r in racers}
 
+                # This subscription composes its own name strings rather
+                # than handing back first/last for the client to format
+                # (#552) — the results overlay and the record-break banner
+                # are both audience surfaces, so `format_display_name` is
+                # applied here, once, rather than at each of the two spots
+                # below that build one.
+                race_row = crud.get_race(db, race_id)
+                organization_row = (
+                    _loaders(info).organization_by_id(race_row.organization_id)
+                    if race_row
+                    else None
+                )
+                resolved_name_display = domain_name_display.resolve_name_display(
+                    organization=organization_row.name_display
+                    if organization_row
+                    else None,
+                    race=race_row.name_display if race_row else None,
+                )
+
                 lane_stats = []
                 for lane in heat_lanes:
                     racer = racer_map.get(lane.racer_id)
                     lane_stats.append(
                         TimingStatsLane(
                             lane_number=lane.lane,
-                            racer_name=f"{racer.first_name} {racer.last_name}"
+                            racer_name=domain_name_display.format_display_name(
+                                resolved_name_display,
+                                racer.first_name,
+                                racer.last_name,
+                            )
                             if racer
                             else "Unknown",
                             car_name=racer.car_name if racer else None,
@@ -5084,39 +5248,43 @@ class Subscription:
                 # settles, which is what keeps it out of a track record's
                 # population in the first place (see `services.records`).
                 record_break = None
-                if target_heat.kind not in (
-                    models.HeatKind.FREE,
-                    models.HeatKind.RUN_OFF,
+                if (
+                    target_heat.kind
+                    not in (models.HeatKind.FREE, models.HeatKind.RUN_OFF)
+                    and race_row
+                    and race_row.track_id
                 ):
-                    race = crud.get_race(db, race_id)
-                    if race and race.track_id:
-                        baseline = records_service.track_records(
-                            db, race.track_id, limit=1, exclude_race_id=race_id
+                    baseline = records_service.track_records(
+                        db, race_row.track_id, limit=1, exclude_race_id=race_id
+                    )
+                    winning = records_service.broken_record(
+                        [lane.seconds for lane in heat_lanes if lane.seconds],
+                        baseline[0] if baseline else None,
+                    )
+                    if winning is not None:
+                        fastest = min(
+                            (
+                                lane
+                                for lane in heat_lanes
+                                if lane.seconds and lane.seconds > 0
+                            ),
+                            key=lambda lane: lane.seconds,
                         )
-                        winning = records_service.broken_record(
-                            [lane.seconds for lane in heat_lanes if lane.seconds],
-                            baseline[0] if baseline else None,
+                        breaker = racer_map.get(fastest.racer_id)
+                        previous = baseline[0]
+                        record_break = TrackRecordBreak(
+                            new_seconds=winning,
+                            new_holder=domain_name_display.format_display_name(
+                                resolved_name_display,
+                                breaker.first_name,
+                                breaker.last_name,
+                            )
+                            if breaker
+                            else "Unknown",
+                            previous_seconds=previous.time_seconds,
+                            previous_holder=previous.racer_name,
+                            previous_race_name=previous.race_name,
                         )
-                        if winning is not None:
-                            fastest = min(
-                                (
-                                    lane
-                                    for lane in heat_lanes
-                                    if lane.seconds and lane.seconds > 0
-                                ),
-                                key=lambda lane: lane.seconds,
-                            )
-                            breaker = racer_map.get(fastest.racer_id)
-                            previous = baseline[0]
-                            record_break = TrackRecordBreak(
-                                new_seconds=winning,
-                                new_holder=f"{breaker.first_name} {breaker.last_name}"
-                                if breaker
-                                else "Unknown",
-                                previous_seconds=previous.time_seconds,
-                                previous_holder=previous.racer_name,
-                                previous_race_name=previous.race_name,
-                            )
 
                 if is_free:
                     round_name = "Exhibition"

@@ -10,6 +10,8 @@
  * presentation display will want the same sentences the operator screen shows.
  */
 
+import { formatDisplayName, type NameDisplay } from '../core/displayName';
+
 export const ALL_SOURCE = 'ALL';
 
 export interface NamedRound {
@@ -103,13 +105,22 @@ export function describeSpeedAward(
   return `${position} ${where}`;
 }
 
-/** A racer's name for a list: "Ada Lovelace (#42)". */
-export function racerLabel(racer: {
-  firstName: string;
-  lastName: string;
-  carNumber?: number | null;
-}): string {
-  const name = `${racer.firstName} ${racer.lastName}`.trim();
+/** A racer's name for a list: "Ada Lovelace (#42)".
+ *
+ * `nameDisplay` defaults to `'FULL'` — this helper is shared by the
+ * operator's recipient picker (`AwardForm.tsx`) and management list
+ * (`Awards.tsx`), neither of which may abbreviate (#552), and by the
+ * audience-facing ceremony slide (`ceremony.ts`), which is the one caller
+ * that passes the race's resolved setting through. */
+export function racerLabel(
+  racer: {
+    firstName: string;
+    lastName: string;
+    carNumber?: number | null;
+  },
+  nameDisplay: NameDisplay | string = 'FULL',
+): string {
+  const name = formatDisplayName(nameDisplay, racer.firstName, racer.lastName);
   return racer.carNumber ? `${name} (#${racer.carNumber})` : name;
 }
 

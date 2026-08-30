@@ -5,6 +5,7 @@ import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../../settings/ter
 import { useTerminology } from '../../../context/TerminologyContext';
 import { SHARED, TIEBREAKER_OPTIONS, tiebreakerWontFire } from '../../stats/tiebreakText';
 import { SCORING_STRATEGY_OPTIONS } from '../../stats/scoringStrategyText';
+import { NAME_DISPLAY_OPTIONS } from '../../core/displayName';
 
 export interface RaceFormData {
     name: string;
@@ -39,6 +40,14 @@ export interface RaceFormData {
      */
     master_running_order: boolean;
     /**
+     * Once a championship round is decided, its winner(s) stop counting
+     * toward the standings of the round they qualified from (#548) — the
+     * Grand Finals pack champion no longer also holding their own den's
+     * trophy. Off by default, and update-only like `master_running_order`
+     * above: a race being created has no championship round yet to decide.
+     */
+    exclude_round_winners_from_qualifying_standings: boolean;
+    /**
      * A per-race terminology override, null where this race inherits the
      * organization's word (#496 stage 3; #551 adds the vehicle pair and its
      * artwork). All seven travel together — the checkbox below is on when
@@ -57,6 +66,15 @@ export interface RaceFormData {
      * wants the rocket picture at the same moment, not a second toggle to
      * remember. */
     vehicle_artwork_key?: string | null;
+    /**
+     * A per-race override of how much of a racer's name a public screen may
+     * show (#552), null where this race inherits the organization's
+     * setting. Unlike the terminology fields above, `'FULL'` is itself a
+     * real value here (not the inherit state), so the checkbox below is on
+     * exactly when this is non-null, the same "inherited vs. set to the
+     * same word" distinction the terminology override makes.
+     */
+    name_display?: string | null;
 }
 
 
@@ -97,6 +115,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         // default on purpose — see the model.
         weight_limit_oz: DEFAULT_LIMIT_OZ,
         master_running_order: false,
+        exclude_round_winners_from_qualifying_standings: false,
         ...initialData
     });
     const [loading, setLoading] = useState(false);
@@ -344,6 +363,32 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 </div>
             )}
 
+            {/* The Grand Finals half of #548: once a championship round is
+                decided, its winner stops counting toward the standings of
+                the round they qualified from, so the pack champion does not
+                also keep their own den's trophy. Update-only for the same
+                reason the running order checkbox above is — there is no
+                championship round to decide until the race, and its rounds,
+                already exist. */}
+            {isEditing && (
+                <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                        <input
+                            type="checkbox"
+                            id="race-exclude-round-winners"
+                            checked={formData.exclude_round_winners_from_qualifying_standings}
+                            onChange={e => setFormData(prev => ({ ...prev, exclude_round_winners_from_qualifying_standings: e.target.checked }))}
+                        />
+                        <span>Exclude Grand Finals winners from qualifying standings</span>
+                    </label>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                        Once a championship round has a winner, that {vehicleLower} stops counting toward the
+                        standings it qualified from — so the same {vehicleLower} does not win both the overall
+                        trophy and their own {groupLower}&apos;s.
+                    </p>
+                </div>
+            )}
+
             {/* The weight limit (#205). A checkbox as well as a number,
                 because "no limit" and "a limit of nothing" are different
                 answers and an empty box cannot tell them apart. */}
@@ -509,6 +554,58 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                 </select>
                             </div>
                         </div>
+                    )}
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: 0, marginBottom: '1rem' }}>
+                        Overrides the install-wide default from System Settings, for this race only.
+                    </p>
+                </div>
+            )}
+
+            {/* A per-race name-display override (#552). Same checkbox-plus-
+                fields shape as the terminology override above, and the same
+                reason: 'FULL' set explicitly ("show full names at this race
+                regardless of the organization's own setting") is a
+                different answer from inheriting, so the checkbox is on
+                exactly when this is non-null. Every option's description
+                stays visible (#304), the same shape the tiebreaker picker
+                above uses. Only offered once a race exists to override —
+                `updateRace` is the only mutation that accepts this field. */}
+            {isEditing && (
+                <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                        <input
+                            type="checkbox"
+                            id="race-custom-name-display"
+                            checked={formData.name_display != null}
+                            onChange={e =>
+                                setFormData(prev => ({
+                                    ...prev,
+                                    name_display: e.target.checked ? 'FULL' : null,
+                                }))
+                            }
+                        />
+                        <span>Override names on public screens for this race</span>
+                    </label>
+                    {formData.name_display != null && (
+                        <fieldset style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.5rem' }}>
+                            <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem' }}>Names on public screens</legend>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                {NAME_DISPLAY_OPTIONS.map(option => (
+                                    <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>
+                                        <input
+                                            type="radio"
+                                            name="race-name-display"
+                                            checked={formData.name_display === option.value}
+                                            onChange={() => handleChange('name_display', option.value)}
+                                        />{' '}
+                                        {option.label}
+                                        <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}>
+                                            {option.description}
+                                        </small>
+                                    </label>
+                                ))}
+                            </div>
+                        </fieldset>
                     )}
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: 0, marginBottom: '1rem' }}>
                         Overrides the install-wide default from System Settings, for this race only.

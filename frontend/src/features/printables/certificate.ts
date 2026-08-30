@@ -18,6 +18,8 @@
  * decisions worth testing without a browser.
  */
 
+import { formatDisplayName, type NameDisplay } from '../core/displayName';
+
 export interface CertificateAward {
   id: number;
   name: string;
@@ -47,9 +49,12 @@ export interface Certificate {
   raceName: string;
 }
 
-function recipientName(award: CertificateAward): string | null {
+function recipientName(
+  award: CertificateAward,
+  nameDisplay: NameDisplay | string,
+): string | null {
   if (!award.recipient) return null;
-  const name = `${award.recipient.firstName} ${award.recipient.lastName}`.trim();
+  const name = formatDisplayName(nameDisplay, award.recipient.firstName, award.recipient.lastName);
   if (!name) return null;
   return award.recipient.carNumber == null ? name : `${name} (#${award.recipient.carNumber})`;
 }
@@ -65,13 +70,16 @@ function recipientName(award: CertificateAward): string | null {
 export function certificatesFor(
   race: CertificateRace,
   awards: readonly CertificateAward[],
+  /** How much of the recipient's name a certificate prints (#552). Defaults
+   * to `'FULL'`, today's only behaviour. */
+  nameDisplay: NameDisplay | string = 'FULL',
 ): Certificate[] {
   return [...awards]
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id)
     .map((award) => ({
       awardId: award.id,
       awardName: award.name,
-      recipientName: recipientName(award),
+      recipientName: recipientName(award, nameDisplay),
       artworkKey: award.artworkKey ?? null,
       raceName: race.name,
     }));

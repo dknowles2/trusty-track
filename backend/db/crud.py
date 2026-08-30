@@ -289,6 +289,10 @@ def create_initial_config(
         organization.display_theme = config.display_theme
     if config.printables_theme is not None:
         organization.printables_theme = config.printables_theme
+    # Same shape as the themes above: `"FULL"` is itself the reachable "off"
+    # state (#552), so there is no clear flag to carry here.
+    if config.name_display is not None:
+        organization.name_display = config.name_display
     db.add(organization)
 
     # Create Tracks
@@ -2538,6 +2542,22 @@ def bulk_check_in_racers(
     """Bulk update check-in status for racers."""
     db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
         {models.Racer.car_passed_inspection: passed_inspection},
+        synchronize_session=False,
+    )
+    db.commit()
+
+
+def bulk_set_excluded_from_standings(
+    db: Session, racer_ids: list[int], excluded: bool = True
+) -> None:
+    """Bulk set whether racers race but are not ranked (#548).
+
+    Unlike :func:`bulk_check_in_racers`, this touches nothing but the flag
+    itself — check-in still decides who fields in a heat, so there is no
+    schedule to rebuild here.
+    """
+    db.query(models.Racer).filter(models.Racer.id.in_(racer_ids)).update(
+        {models.Racer.excluded_from_standings: excluded},
         synchronize_session=False,
     )
     db.commit()

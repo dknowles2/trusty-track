@@ -62,6 +62,14 @@ describe('cellFor', () => {
             name: 'Sam Okafor',
         });
     });
+
+    it('abbreviates the name when told to (#552)', () => {
+        expect(cellFor({ lane: 1, racerId: 1 }, BY_ID, 'LAST_INITIAL').name).toBe('Ada L.');
+    });
+
+    it('defaults to a full name for a caller that has not resolved the setting', () => {
+        expect(cellFor({ lane: 1, racerId: 1 }, BY_ID).name).toBe('Ada Lovelace');
+    });
 });
 
 describe('roundTitle', () => {

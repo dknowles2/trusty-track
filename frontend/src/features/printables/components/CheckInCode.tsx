@@ -15,6 +15,13 @@ interface Props {
  * they are the shape a scanner's own viewfinder draws, so somebody holding a
  * phone over the sheet knows where to point it without a line of text saying
  * so.
+ *
+ * **Deliberately not abbreviated by the name-display setting (#552).** Every
+ * other printable on this page prints a full name today, but this one is
+ * scanned by the *check-in* desk to find the right child in a queue — the
+ * same job `CheckInScanner.tsx`'s manual entry does — so it belongs with the
+ * operator surfaces the setting leaves alone, not with the pit passes and
+ * licences a scout carries around the venue.
  */
 export default function CheckInCode({ racer, race }: Props) {
     const name = `${racer.first_name} ${racer.last_name}`.trim();

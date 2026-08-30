@@ -22,8 +22,8 @@ keeping, the same "deletion is the schema's job" rule #125 gave
 heats exist before this migration, since the mutation that creates them does
 not either.
 
-Revision ID: 0039_run_off_heats
-Revises: 0038_vehicle_artwork_key
+Revision ID: 0041_run_off_heats
+Revises: 0040_name_display
 Create Date: 2026-08-30
 
 """
@@ -34,8 +34,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0039_run_off_heats"
-down_revision: str | Sequence[str] | None = "0038_vehicle_artwork_key"
+revision: str = "0041_run_off_heats"
+down_revision: str | Sequence[str] | None = "0040_name_display"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

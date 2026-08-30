@@ -235,6 +235,26 @@ class Organization(Base):
     # reaches this column too.
     vehicle_artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # How much of a racer's name a public screen may show, install-wide
+    # (#552) — one of `domain.name_display.NAME_DISPLAY_VALUES`
+    # (`"FULL"`, `"LAST_INITIAL"`, `"FIRST_ONLY"`). Plain `String`, not
+    # `SAEnum`, the same reasoning as `vehicle_artwork_key`: nothing
+    # server-side branches on this value, since every surface that renders a
+    # name does so client-side.
+    #
+    # Null means `"FULL"` — and, unlike the terminology columns above,
+    # that is the *whole* story here: `"FULL"` is itself a real, reachable
+    # value (this is a closed three-value choice, not free text an
+    # organization might legitimately want to store as `"FULL"` for some
+    # other reason), so there is no separate `clearNameDisplay` flag at this
+    # layer. Absent on `updateInitialConfig` leaves the column alone, and an
+    # explicit `"FULL"` is already how an operator resets it — the same
+    # shape `display_theme`'s `"MATCH_APP"` sentinel uses.
+    #
+    # `domain/name_display.py` is the one place this resolves into what a
+    # screen should actually do — never read directly for display.
+    name_display: Mapped[str | None] = mapped_column(String, nullable=True)
+
     races: Mapped[list["Race"]] = relationship("Race", back_populates="organization")
 
 
@@ -434,6 +454,16 @@ class Race(Base):
     # 4), the same shape and the same `clearTerminology` flag as the six
     # columns above. See `Organization.vehicle_artwork_key`.
     vehicle_artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    # A per-race override of the organization's name-display default (#552)
+    # — the venue that wants full names at the March pack derby and last
+    # initials at the May science fair. Null means "inherit the
+    # organization's setting", *unlike* `Organization.name_display` above:
+    # here null and `"FULL"` are different answers (inherit vs. an explicit
+    # override to show full names regardless of what the organization has
+    # chosen), so this column needs the same `clearNameDisplay` escape hatch
+    # as the terminology columns' `clearTerminology` — see
+    # `RaceUpdateInput` in `api/schema.py`.
+    name_display: Mapped[str | None] = mapped_column(String, nullable=True)
     #: One interleaved running order across the race's racing groups, rather
     #: than a block per group (#549 stage 2). Off by default — running one
     #: den at a time is how many packs deliberately structure an event, and
@@ -453,6 +483,18 @@ class Race(Base):
     #: from everybody, and only when everybody has enough runs to drop it.
     drop_worst_runs: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=sa_text("0")
+    )
+    #: A decided championship round's winner(s) stop counting toward the
+    #: standings of the round they qualified from (#548) — the Grand Finals
+    #: pack champion no longer also holding their own den's trophy. Off by
+    #: default, so an upgraded install reads exactly as it did before this
+    #: column existed. Read only in `services/scoring.get_leaderboard`,
+    #: which recomputes the exclusion on every call rather than storing who
+    #: is affected — the same reasoning as everything else in that module
+    #: (#17): a corrected final-round time has to move who is excluded, not
+    #: leave a stale answer behind.
+    exclude_round_winners_from_qualifying_standings: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
     )
 
     organization: Mapped["Organization"] = relationship(
@@ -488,6 +530,19 @@ class Racer(Base):
     car_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     racing_group_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("racing_groups.id"), nullable=True
+    )
+    #: A car that races and is not ranked (#548) — a sibling or parent's car,
+    #: a demonstration entry, an outlaw-class car sharing the track between
+    #: dens. Check-in is unchanged and still decides who is *in* a heat;
+    #: this is read in exactly one place, `services/scoring.get_leaderboard`,
+    #: which drops a flagged racer before ranking so advancement, awards and
+    #: the CSV/results-sheet exports all inherit the exclusion for free
+    #: rather than growing their own copy of the rule (#48). Deliberately
+    #: **not** read by `services/records.py` — the fastest car a track has
+    #: ever seen is a fact about the track, not about who was eligible for a
+    #: trophy, and an exhibition car's time still belongs on that board.
+    excluded_from_standings: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
     )
 
     race: Mapped["Race"] = relationship("Race", back_populates="racers")

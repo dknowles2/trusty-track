@@ -10,6 +10,7 @@ import { useTerminology } from '../../../context/TerminologyContext';
 import { getContrastColor } from '../../../utils/colors';
 import RacerForm, { RacerData, RacingGroup } from '../components/RacerForm';
 import NoHeatsBadge from '../components/NoHeatsBadge';
+import ExcludedFromStandingsBadge from '../components/ExcludedFromStandingsBadge';
 import RacingGroupManager from '../components/RacingGroupManager';
 import Modal from '../../../components/ui/Modal';
 import RaceForm, { RaceFormData } from '../components/RaceForm';
@@ -24,7 +25,7 @@ import {
   mdiMagnify, mdiNumeric,
   mdiChevronDown, mdiLightningBolt, mdiFileUpload, mdiDotsHorizontal, mdiClose,
   mdiCheckDecagram, mdiPencil, mdiPlus, mdiAccountGroup, mdiCamera, mdiPrinter,
-  mdiQrcodeScan
+  mdiQrcodeScan, mdiTrophyBroken
 } from '@mdi/js';
 import CheckInScanner from '../../printables/components/CheckInScanner';
 import * as GQL from '../graphql/queries';
@@ -85,6 +86,7 @@ export default function RaceDetails() {
   const [, bulkAutoNumberMutation] = useMutation(GQL.BULK_AUTO_NUMBER);
   const [, bulkClearNumbersMutation] = useMutation(GQL.BULK_CLEAR_NUMBERS);
   const [, bulkCheckInMutation] = useMutation(GQL.BULK_CHECK_IN);
+  const [, bulkSetExcludedFromStandingsMutation] = useMutation(GQL.BULK_SET_EXCLUDED_FROM_STANDINGS);
   const [, bulkMoveToRacingGroupMutation] = useMutation(GQL.BULK_MOVE_TO_RACING_GROUP);
   const [, bulkDeleteRacersMutation] = useMutation(GQL.BULK_DELETE_RACERS);
   const [, populateRaceMutation] = useMutation(GQL.POPULATE_RACE);
@@ -122,6 +124,11 @@ export default function RaceDetails() {
       vehicle_singular: data.race.vehicleSingular ?? null,
       vehicle_plural: data.race.vehiclePlural ?? null,
       vehicle_artwork_key: data.race.vehicleArtworkKey ?? null,
+      exclude_round_winners_from_qualifying_standings: data.race.excludeRoundWinnersFromQualifyingStandings,
+      // Raw override, null where this race inherits the organization's
+      // name-display setting (#552) — `RaceForm`'s checkbox is on exactly
+      // when this is non-null.
+      name_display: data.race.nameDisplay ?? null,
     } satisfies Race;
   }, [data]);
 
@@ -138,6 +145,7 @@ export default function RaceDetails() {
       car_weight: r.carWeight ?? undefined,
       racer_image_url: r.racerImageUrl ?? undefined,
       car_image_url: r.carImageUrl ?? undefined,
+      excluded_from_standings: r.excludedFromStandings,
     }));
   }, [data]);
 
@@ -260,6 +268,7 @@ export default function RaceDetails() {
               // own clear flag (#549 stage 4) — it is already what every
               // race had before this setting existed.
               masterRunningOrder: updateInput.master_running_order,
+              excludeRoundWinnersFromQualifyingStandings: updateInput.exclude_round_winners_from_qualifying_standings,
               racingGroupSingular: updateInput.racing_group_singular ?? undefined,
               racingGroupPlural: updateInput.racing_group_plural ?? undefined,
               organizationSingular: updateInput.organization_singular ?? undefined,
@@ -272,6 +281,12 @@ export default function RaceDetails() {
               // pair): absent means leave alone, so going back to
               // inheriting needs its own flag.
               clearTerminology: updateInput.racing_group_singular == null,
+              nameDisplay: updateInput.name_display ?? undefined,
+              // Same trap again, for the per-race name-display override
+              // (#552): `'FULL'` set explicitly is a real override here,
+              // distinct from inheriting, so going back to null needs its
+              // own flag too.
+              clearNameDisplay: updateInput.name_display == null,
           };
           const result = await updateRaceMutation({ id: parsedRaceId, race: raceInput });
           if (result.error) throw result.error;
@@ -345,6 +360,7 @@ export default function RaceDetails() {
           carWeight: formData.car_weight,
           racerImageUrl: formData.racer_image_url,
           carImageUrl: formData.car_image_url,
+          excludedFromStandings: formData.excluded_from_standings,
           raceId: parsedRaceId
       };
 
@@ -454,6 +470,25 @@ export default function RaceDetails() {
       setIsMoreMenuOpen(false);
     } catch {
       showAlert("Failed to bulk check-in racers", "Error");
+    }
+  };
+
+  const handleBulkSetExcludedFromStandings = async () => {
+    const confirmed = await showConfirm(
+      `Mark ${selectedRacerIds.length} racers as racing but not ranked? They will still race, and be shown on the audience displays — just left out of the standings, advancement and awards.`,
+      "Racing, Not Ranked",
+      "Mark",
+      "primary"
+    );
+    if (!confirmed) return;
+
+    try {
+      const result = await bulkSetExcludedFromStandingsMutation({ racerIds: selectedRacerIds, excluded: true });
+      if (result.error) throw result.error;
+      refreshData();
+      setIsMoreMenuOpen(false);
+    } catch {
+      showAlert("Failed to update racers", "Error");
     }
   };
 
@@ -595,6 +630,9 @@ export default function RaceDetails() {
                   racer={{ id: racer.id, carPassedInspection: racer.car_passed_inspection }}
                   scheduledRacerIds={scheduledRacerIds}
                   anyHeatsScheduled={anyHeatsScheduled}
+              />
+              <ExcludedFromStandingsBadge
+                  racer={{ id: racer.id, excludedFromStandings: racer.excluded_from_standings }}
               />
           </div>
       </div>
@@ -852,6 +890,15 @@ export default function RaceDetails() {
                 </button>
                 <button
                     className="secondary-btn"
+                    onClick={handleBulkSetExcludedFromStandings}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
+                    data-testid="bulk-excluded-from-standings-btn"
+                    title="Still races and shows on the audience displays — just left out of the standings, advancement and awards"
+                >
+                    <Icon path={mdiTrophyBroken} size={0.6} /> Racing, not ranked
+                </button>
+                <button
+                    className="secondary-btn"
                     onClick={handleBulkAutoNumber}
                     style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8rem', height: '28px' }}
                     data-testid="bulk-auto-number-btn"
@@ -1051,6 +1098,9 @@ export default function RaceDetails() {
                                                      scheduledRacerIds={scheduledRacerIds}
                                                      anyHeatsScheduled={anyHeatsScheduled}
                                                  />
+                                                 <ExcludedFromStandingsBadge
+                                                     racer={{ id: racer.id, excludedFromStandings: racer.excluded_from_standings }}
+                                                 />
                                             </td>
                                         </tr>
                                     ))}
@@ -1140,6 +1190,9 @@ export default function RaceDetails() {
                                              racer={{ id: racer.id, carPassedInspection: racer.car_passed_inspection }}
                                              scheduledRacerIds={scheduledRacerIds}
                                              anyHeatsScheduled={anyHeatsScheduled}
+                                         />
+                                         <ExcludedFromStandingsBadge
+                                             racer={{ id: racer.id, excludedFromStandings: racer.excluded_from_standings }}
                                          />
                                     </span>
                                 </td>

@@ -3,6 +3,7 @@ import { useQuery, useSubscription } from 'urql';
 import { LeaderboardSubscription } from '../../observation/graphql/queries';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { RoundSummary, exclusionNotice, roundLabel } from '../disruptedRounds';
+import { excludedCount, excludedNotice } from '../excludedFromStandings';
 import { dropWorstNotice } from '../dropWorstNotice';
 import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
@@ -50,6 +51,7 @@ const GET_LEADERBOARD_METADATA = `
       track {
         id
       }
+      resolvedNameDisplay
       rounds {
         id
         name
@@ -59,6 +61,10 @@ const GET_LEADERBOARD_METADATA = `
         schedulingStrategy
         eliminationLosses
         disrupted
+      }
+      racers {
+        id
+        excludedFromStandings
       }
     }
   }
@@ -93,7 +99,7 @@ interface LeaderboardProps {
 }
 
 export default function Leaderboard({ raceId }: LeaderboardProps) {
-  const { group, vehicle, vehicles, vehicleLower } = useTerminology();
+  const { group, vehicle, vehicles, vehicleLower, vehiclesLower } = useTerminology();
   // null means the overall standings, which cover preliminary rounds only.
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
 
@@ -160,6 +166,15 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
   // complete some would be a lie.
   const notice = exclusionNotice(rounds, scoringStrategy);
 
+  // "Racing, not ranked" (#548) — said out loud rather than shown as a
+  // shorter list with no explanation, the same rule `notice` above follows
+  // for a disrupted round.
+  const excludedRacersNotice = excludedNotice(
+    excludedCount((race?.racers || []) as { excludedFromStandings: boolean }[]),
+    vehicleLower,
+    vehiclesLower,
+  );
+
   // Empty overall standings only take over the whole page when there is
   // nothing else to offer. A race run entirely as an elimination round has
   // an empty aggregate *by design* — its heats are excluded — and hiding the
@@ -223,6 +238,23 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
           }}
         >
           {notice}
+        </p>
+      )}
+      {excludedRacersNotice && (
+        <p
+          role="status"
+          data-testid="excluded-from-standings-notice"
+          style={{
+            background: 'var(--info-notice-bg-color)',
+            border: '1px solid var(--scouting-blue)',
+            borderRadius: '8px',
+            padding: '0.6rem 0.9rem',
+            fontSize: '0.9rem',
+            color: 'var(--text-heading-alt-color)',
+            marginBottom: '1rem',
+          }}
+        >
+          {excludedRacersNotice}
         </p>
       )}
       {dropWorstMsg && (
@@ -296,7 +328,13 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                     : roundLabel(rounds.find((r) => r.id === selectedRoundId)!),
                 ),
               ),
-              standingsRows(leaderboard, scoringStrategy, group),
+              standingsRows(
+                leaderboard,
+                scoringStrategy,
+                group,
+                vehicle,
+                race?.resolvedNameDisplay ?? 'FULL',
+              ),
             )
           }
           style={{ padding: '8px 14px', fontSize: '0.9rem' }}

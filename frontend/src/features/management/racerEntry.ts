@@ -25,6 +25,11 @@ import type { RacerData } from './components/RacerForm';
  * **Inspection does not carry over either.** Adding a racer to the roster is
  * not the same act as inspecting their car, and a stuck-on toggle would check
  * in a queue of children who are not there yet.
+ *
+ * **Nor does "Racing, not ranked" (#548)**, for the same reason: it is a
+ * judgment about this one car, not a batch property like the racing group —
+ * a stuck-on toggle would silently flag every racer typed in after the one
+ * demonstration car that needed it.
  */
 export function carryOver(previous: RacerData): RacerData {
     return {
@@ -36,6 +41,7 @@ export function carryOver(previous: RacerData): RacerData {
         racer_image_url: undefined,
         car_image_url: undefined,
         car_passed_inspection: false,
+        excluded_from_standings: false,
         racing_group_id: previous.racing_group_id,
     };
 }
