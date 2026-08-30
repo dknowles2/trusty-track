@@ -27,8 +27,11 @@ export const RACES_CHANGED = gql`
   }
 `;
 
-export const INITIAL_CONFIG_QUERY = `
-  query GetInitialConfig {
+// Named `GetInitialConfigStatus` rather than `GetInitialConfig` — that name
+// is already taken by a `gql`-tagged document in `graphqlClient.test.ts`, and
+// codegen requires every operation name in the tree to be unique.
+export const INITIAL_CONFIG_QUERY = gql`
+  query GetInitialConfigStatus {
     initialConfig {
       initialized
       version
@@ -51,7 +54,7 @@ export const INITIAL_CONFIG_QUERY = `
 // itself (#496 stage 4). Kept separate from each page's own race query —
 // those already vary in shape, and this field is cheap and identical
 // everywhere it is needed.
-export const RACE_TERMINOLOGY_QUERY = `
+export const RACE_TERMINOLOGY_QUERY = gql`
   query GetRaceTerminology($raceId: Int!) {
     race(raceId: $raceId) {
       id

@@ -22,7 +22,7 @@ def create_race_context(db):
     return race.id
 
 
-def test_delete_den_logic(client, db):
+def test_delete_racing_group_logic(client, db):
     race_id = create_race_context(db)
 
     # 1. Create a RacingGroup

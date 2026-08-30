@@ -1,6 +1,6 @@
 # Trusty Track — Agent Guide
 
-Trusty Track is a race management system for Cub Scout Pinewood Derby events. It covers the full event lifecycle: racer registration, den/group management, check-in, heat scheduling, race execution, hardware timer integration, audience displays, and standings.
+Trusty Track is a race management system for Cub Scout Pinewood Derby events. It covers the full event lifecycle: racer registration, racing-group management, check-in, heat scheduling, race execution, hardware timer integration, audience displays, and standings.
 
 It is designed to run as a **single process on a machine at the venue** (often a Raspberry Pi), serving one operator plus a few read-only display screens over the local network.
 
@@ -95,7 +95,7 @@ frontend/src/
   App.tsx                     # Routes + first-run config gate
   features/
     core/                     # Navigation, shared queries
-    management/               # Home, RaceDetails, racer/den forms, imports
+    management/               # Home, RaceDetails, racer/racing-group forms, imports
       #   RaceDetails' roster toolbar: three controls, then an overflow
     racing/                   # RaceControl, RaceExecution, scheduling, free race, timer UI
       raceFlow.ts             #   the race-day machine — pure, no React
@@ -619,7 +619,7 @@ Rules in `domain/awards.can_be_voted_on` and `domain/awards.rank_tally`, databas
 
 ### The practice race
 
-`crud.create_practice_race`, behind the `createPracticeRace` mutation and the **Try a practice race** button on Home ([#201](https://github.com/dknowles2/trusty-track/issues/201)). The operator is a parent volunteer who uses this app once a year, and the night before is when they want to know what race day feels like. Everything needed already existed — `populate` builds a believable roster, the fake timer runs heats without hardware — but reaching it meant creating a race, adding dens, populating, checking everybody in and running the round wizard, which is most of the thing being rehearsed.
+`crud.create_practice_race`, behind the `createPracticeRace` mutation and the **Try a practice race** button on Home ([#201](https://github.com/dknowles2/trusty-track/issues/201)). The operator is a parent volunteer who uses this app once a year, and the night before is when they want to know what race day feels like. Everything needed already existed — `populate` builds a believable roster, the fake timer runs heats without hardware — but reaching it meant creating a race, adding racing groups, populating, checking everybody in and running the round wizard, which is most of the thing being rehearsed.
 
 **One mutation, not five round trips.** A rehearsal that fails half way leaves the operator with a broken race to tidy up, which is the opposite of the confidence it exists to give.
 

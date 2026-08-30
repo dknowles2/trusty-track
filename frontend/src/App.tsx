@@ -39,6 +39,7 @@ import ActivityLog from './features/settings/pages/ActivityLog';
 
 import { INITIAL_CONFIG_QUERY, RACE_TERMINOLOGY_QUERY } from './features/core/graphql/queries';
 import { DemoSessionGate } from './features/core/components/DemoSessionGate';
+import type { GetInitialConfigStatusQuery, GetRaceTerminologyQuery } from './gql/operations';
 
 /** Seeds the organization's default terminology for the whole app —
  * `initialConfig.terminology` is the organization default resolved against
@@ -47,7 +48,7 @@ import { DemoSessionGate } from './features/core/components/DemoSessionGate';
  * nothing else. Shares the cache with `ProtectedRoute` and `DemoSession`,
  * which run the identical query. */
 function AppTerminologyProvider({ children }: { children: React.ReactNode }) {
-  const [{ data }] = useQuery({ query: INITIAL_CONFIG_QUERY });
+  const [{ data }] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
   return (
     <TerminologyProvider value={data?.initialConfig?.terminology}>
       {children}
@@ -64,7 +65,7 @@ function AppTerminologyProvider({ children }: { children: React.ReactNode }) {
  * the identical organization ones. */
 function RaceTerminologyGate({ children }: { children: React.ReactNode }) {
   const { raceId } = useParams<{ raceId: string }>();
-  const [{ data }] = useQuery({
+  const [{ data }] = useQuery<GetRaceTerminologyQuery>({
     query: RACE_TERMINOLOGY_QUERY,
     variables: { raceId: Number(raceId) },
     pause: !raceId,
@@ -96,7 +97,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // mount refetches once per page load. What keeps the answer fresh is the
   // cache being told to forget it when a config mutation changes it; see
   // `forgetInitialConfig` in `api/graphqlClient.ts`.
-  const [result] = useQuery({ query: INITIAL_CONFIG_QUERY });
+  const [result] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
 
   const { data, fetching, error } = result;
 
@@ -124,7 +125,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
  * twice.
  */
 function DemoSession() {
-  const [{ data }] = useQuery({ query: INITIAL_CONFIG_QUERY });
+  const [{ data }] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
   return <DemoSessionGate enabled={data?.initialConfig?.demoMode ?? false} />;
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
 import { GET_RACES_NAV, INITIAL_CONFIG_QUERY, RACES_CHANGED } from '../graphql/queries';
+import type { GetInitialConfigStatusQuery } from '../../../gql/operations';
 import { activeNavLink } from '../activeNavLink';
 import { CREATE_RACE } from '../../management/graphql/queries';
 import Modal from '../../../components/ui/Modal';
@@ -33,7 +34,7 @@ export default function Navigation() {
     }
   }, [racesChangedResult.data, reexecuteRacesNav]);
 
-  const [{ data: configData }] = useQuery({ query: INITIAL_CONFIG_QUERY });
+  const [{ data: configData }] = useQuery<GetInitialConfigStatusQuery>({ query: INITIAL_CONFIG_QUERY });
   const version = configData?.initialConfig?.version || '0.0.0';
   // Only shown when the install has a PIN. An event that never turned
   // enforcement on sees no lock at all, which is the point of it being off by
