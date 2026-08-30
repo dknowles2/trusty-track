@@ -82,24 +82,57 @@ jobs:
       # /health afterwards is what proves the thing a visitor lands on actually
       # came up — and with --min-instances=0 there is nothing running to ask
       # until somebody does, so this doubles as the cold start.
-      - name: Check the demo answers
+      #
+      # It also checks *which* version answered, which a 200 does not. A
+      # service whose traffic is pinned to an older revision answers /health
+      # perfectly while ignoring everything this job just deployed, so the
+      # check that only asked whether the demo was up reported success through
+      # four releases that never reached a visitor. The version is asserted
+      # only for a plain X.Y.Z tag: this workflow is also run by hand with a
+      # digest or a floating tag, where there is nothing to compare against,
+      # and it says so rather than passing quietly.
+      - name: Check the demo answers, on the version just deployed
         env:
           PROJECT: ${{ vars.DEMO_CLOUD_RUN_PROJECT }}
           SERVICE: ${{ vars.DEMO_CLOUD_RUN_SERVICE }}
           REGION: ${{ vars.DEMO_CLOUD_RUN_REGION }}
+          IMAGE: ${{ inputs.image }}
         run: |
           URL=$(gcloud run services describe "${SERVICE:-trusty-track-demo}" \
             --project="$PROJECT" \
             --region="${REGION:-us-central1}" \
             --format='value(status.url)')
           echo "Demo at $URL"
+
+          EXPECTED="${IMAGE##*:}"
+          if ! [[ "$EXPECTED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Image [$IMAGE] carries no X.Y.Z tag; checking only that the demo answers."
+            EXPECTED=""
+          fi
+
+          BODY=""
           for i in $(seq 1 30); do
-            if curl -fsS "$URL/health"; then
-              echo "healthy"
-              echo "Deployed [\`${{ inputs.image }}\`]($URL)" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
+            if BODY=$(curl -fsS "$URL/health"); then
+              echo "$BODY"
+              break
             fi
+            BODY=""
             sleep 2
           done
-          echo "the demo never answered /health" >&2
-          exit 1
+
+          if [ -z "$BODY" ]; then
+            echo "the demo never answered /health" >&2
+            exit 1
+          fi
+
+          if [ -n "$EXPECTED" ]; then
+            SERVING=$(printf '%s' "$BODY" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+            if [ "$SERVING" != "$EXPECTED" ]; then
+              echo "the demo answered as $SERVING, not the $EXPECTED just deployed —" >&2
+              echo "traffic is most likely pinned to an older revision" >&2
+              exit 1
+            fi
+            echo "serving $SERVING"
+          fi
+
+          echo "Deployed [\`$IMAGE\`]($URL)" >> "$GITHUB_STEP_SUMMARY"
