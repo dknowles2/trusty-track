@@ -47,6 +47,13 @@ const SCREENSHOT_DIR = path.resolve(
 );
 
 /**
+ * `displayIdentity.ts`'s storage key, mirrored here rather than imported —
+ * same reason as `screenshots-setup.ts`'s copy: this file runs outside the
+ * app's build.
+ */
+const DISPLAY_ID_KEY = 'trustytrack.displayId';
+
+/**
  * One of the app's own sample images, as a data URL.
  *
  * Read from disk rather than inlined: these are the illustrations
@@ -197,9 +204,18 @@ test('screenshot the audience displays', async ({ page, browser }) => {
 
     // A screen that has since dropped off the wifi, which is the row the prose
     // beside this picture is about — and the reason nothing removes one
-    // automatically.
+    // automatically. Left un-renamed on purpose (#522): a screen that vanished
+    // before anyone got to it is exactly the one still showing the whimsical
+    // name it gave itself, and the picture is the only place that claim is
+    // ever illustrated. Seeded with its own fixed id, the same way the `page`
+    // fixture's is seeded in `screenshots-setup.ts`, so the animal it lands on
+    // is stable between runs rather than a fresh one every time.
     const goneContext = await browser.newContext();
     const goneScreen = await goneContext.newPage();
+    await goneScreen.addInitScript(
+        ([key, value]) => window.localStorage.setItem(key, value),
+        [DISPLAY_ID_KEY, 'trustytrack-docs-screenshot-display-gone'],
+    );
     await goneScreen.goto(`/race/${raceId}/observation`);
     await goneScreen.waitForLoadState('networkidle');
     await expect(goneScreen.locator('.heat-card').first()).toBeVisible();
@@ -211,21 +227,26 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     await audienceScreen.waitForLoadState('networkidle');
     await expect(audienceScreen.locator('.heat-card').first()).toBeVisible();
 
-    // Name them, which is what the page beside this picture tells operators to
-    // do — "a list of Display 1, Display 2, Display 3 is no help when you are
-    // trying to change the one at the back".
+    // Name the one that is still connected, which is what the page beside this
+    // picture tells operators to do — "a list of Display 1, Display 2,
+    // Display 3 is no help when you are trying to change the one at the
+    // back". The disconnected row is left alone deliberately: the picture is
+    // meant to show both halves of the feature at once — a screen the
+    // operator has renamed, and one still carrying the default name it chose
+    // for itself.
     const toName = await gql<{ displays: Array<{ displayId: string; connected: boolean }> }>(
         page,
         `query DisplayNames($id: Int!) { displays(raceId: $id) { displayId connected } }`,
         { id: raceId },
     );
     for (const known of toName.displays ?? []) {
+        if (!known.connected) continue;
         await gql(
             page,
             `mutation DisplayRename($id: String!, $name: String!) {
                 renameDisplay(displayId: $id, name: $name) { displayId }
             }`,
-            { id: known.displayId, name: known.connected ? 'Gym north' : 'By the doors' },
+            { id: known.displayId, name: 'Gym north' },
         );
     }
 
@@ -252,9 +273,9 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     // By name, not `.first()`: assigning the ceremony navigates the audience
     // screen to its own route, and while its subscription crosses that gap the
     // row briefly counts as disconnected — the list re-sorts (connected first,
-    // then name) and "By the doors" takes the top slot for a beat. A `.first()`
-    // locator re-resolves at every use, so the screenshot could clip whichever
-    // row had just landed there.
+    // then name) and the still-default-named "gone" row takes the top slot
+    // for a beat. A `.first()` locator re-resolves at every use, so the
+    // screenshot could clip whichever row had just landed there.
     const displayRow = page.locator('[data-testid^="display-"]', { hasText: 'Gym north' });
     await displayRow.getByRole('combobox').selectOption('AWARDS');
     await expect(displayRow.getByRole('button', { name: /Next award/ })).toBeVisible();

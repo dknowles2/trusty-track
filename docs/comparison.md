@@ -8,8 +8,9 @@ hide:
 Several programs run Pinewood Derby races, and most packs would do fine with any
 of them. Here is what the others are, and when one of them is the better pick.
 
-Prices and versions were checked on each program's own site on 28 August 2026.
-They move, so follow the links before you spend anything, and please
+Prices and versions were checked on each program's own site on 28 August 2026;
+the "Telling screens apart" row on 29 August 2026. They move, so follow the
+links before you spend anything, and please
 [tell us](https://github.com/dknowles2/trusty-track/issues) if something here has
 gone stale or reads unfairly.
 
@@ -62,6 +63,7 @@ and a stopwatch it is a perfectly good answer.
 | **Runs on** | macOS, Windows, Docker, Pi | Windows, macOS | Windows, macOS, Linux, Pi | Windows | Windows |
 | **What you install** | One app | One app | A zip holding a bundled web server | One app | One app |
 | **Other screens** | Any browser on the network | Single machine | Any browser on the network | Single machine | Single machine |
+| **Telling screens apart** | Names itself on connect, rename any time | — | Named by hand, one at a time | — | — |
 | **Timer models listed** | 8 | 6, plus custom in Pro | 8 | Their own | By hand or timer |
 | **Race formats** | Perfect-N, championship, elimination, balanced, slowest | Several, more in Pro | Several | Several | Elimination only |
 | **Racer limit** | None | None | None | None | 15 |
@@ -119,8 +121,10 @@ race; see [the words on screen](reference/race-settings.md#the-words-on-screen).
 - GrandPrix Race Manager — [product page](https://www.grandprix-software-central.com/gprm/)
   and [shop](https://grandprix-software-central.com/index.php/shopping/category/70-grandprix-race-manager)
 - DerbyNet — [derbynet.org](https://derbynet.org/), the
-  [source](https://github.com/jeffpiazza/derbynet), and the
-  [playground](https://hosting.derbynet.org/playground.php)
+  [source](https://github.com/jeffpiazza/derbynet), the
+  [playground](https://hosting.derbynet.org/playground.php), and the
+  ["Assign Name" kiosk instructions](https://derbynet.org/builds/docs/Running%20a%20Race%20with%20DerbyNet.pdf)
+  in its manual
 - Derby Magic — [race management](https://derbymagic.com/race-management/) and
   [pricing](https://derbymagic.com/pricing-guide/)
 - Derby Day! — [derbydaysoftware.com](http://www.derbydaysoftware.com/)

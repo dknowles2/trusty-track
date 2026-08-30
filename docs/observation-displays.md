@@ -127,7 +127,7 @@ With four screens taped around a gym, changing one used to mean finding it and
 driving its browser — the operator leaving the timer mid-event. They can be
 told instead.
 
-![The operator's list of audience displays](assets/screenshots/observation/08-displays-panel.png)
+![The operator's list of audience displays: one screen renamed "Gym north", the other still showing the default name it gave itself](assets/screenshots/observation/08-displays-panel.png)
 
 **Race Control → Displays.** Every screen showing this race appears in the
 list on its own — the Live page, or the awards ceremony — and there is
@@ -136,12 +136,13 @@ changes within a second or two.
 
 Two things worth knowing:
 
-- **Every screen already has a name** — an adjective and an animal, like
-  **Plucky Puffin** or **Brisk Badger** — so the list is usable before you
-  have renamed anything, and the same screen keeps the same name across a
-  reload. Rename it if you'd rather — click the pencil and call it what you
-  call it, "gym north", "by the doors" — or click the **🎲** next to the
-  field for another animal, if the room happens to have a real Badger in it.
+- **Every screen already has a name** — an adjective and an animal, like the
+  second row above — so the list is usable before you have renamed anything,
+  and the same screen keeps the same name across a reload. Rename it if
+  you'd rather, the way the top row already has been — click the pencil and
+  call it what you call it, "gym north", "by the doors" — or click the **🎲**
+  next to the field for another animal, if the room happens to have a real
+  Badger in it.
 - **Not sure which row is which screen?** Click **Identify** on a row and
   that screen's name flashes across it for a few seconds — look up, and
   whichever screen just lit up is that row. A screen also names itself
