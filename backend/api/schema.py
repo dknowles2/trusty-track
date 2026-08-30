@@ -537,13 +537,17 @@ class Terminology:
     organization_plural: str
     vehicle_singular: str
     vehicle_plural: str
+    #: Which line-art glyph the vehicle word draws with (#551, stage 4) —
+    #: one of `domain_terminology.VEHICLE_ARTWORK_KEYS`. Never null, like
+    #: every field above: `resolve_terminology` always falls back to `"car"`.
+    vehicle_artwork_key: str
 
 
 def _terminology_overrides(row: Any) -> domain_terminology.TerminologyOverrides:
-    """Read one layer's six override columns off an ORM row.
+    """Read one layer's seven override columns off an ORM row.
 
     Works for both `models.Organization` and `models.Race` — they carry the
-    same six column names for exactly this reason. `crud.default_general_round_name`
+    same seven column names for exactly this reason. `crud.default_general_round_name`
     reads the same way, through `domain_terminology.overrides_from_row`
     directly, since `db.crud` has no business importing from `api.schema`.
     """
@@ -558,6 +562,7 @@ def _terminology_type(t: domain_terminology.Terminology) -> Terminology:
         organization_plural=t.organization_plural,
         vehicle_singular=t.vehicle_singular,
         vehicle_plural=t.vehicle_plural,
+        vehicle_artwork_key=t.vehicle_artwork_key,
     )
 
 
@@ -585,6 +590,9 @@ def _terminology_status_kwargs(organization: Any) -> dict[str, Any]:
         else None,
         "vehicle_singular": organization.vehicle_singular if organization else None,
         "vehicle_plural": organization.vehicle_plural if organization else None,
+        "vehicle_artwork_key": organization.vehicle_artwork_key
+        if organization
+        else None,
         "terminology": _terminology_type(
             domain_terminology.resolve_terminology(organization=overrides)
         ),
@@ -641,6 +649,9 @@ class InitialConfigStatus:
     #: has not renamed "Car" — same distinction as the four fields above.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: The organization's raw vehicle-artwork override (#551, stage 4), null
+    #: where it has not chosen one — same distinction as the fields above.
+    vehicle_artwork_key: str | None = None
     #: The resolved words — organization default over the built-in Scouting
     #: ones, with no race in play here. Defaulted so the unconfigured branch
     #: (no organization yet) still returns something rather than nothing.
@@ -690,6 +701,10 @@ class InitialConfigInput:
     #: above, and covered by the same `clearTerminology` flag.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: The install-wide default vehicle artwork (#551, stage 4) — one of
+    #: `domain_terminology.VEHICLE_ARTWORK_KEYS`. Same shape as the six
+    #: fields above.
+    vehicle_artwork_key: str | None = None
     clear_terminology: bool = False
 
 
@@ -801,6 +816,9 @@ class RaceUpdateInput:
     #: same shape as the four fields above.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: A per-race override of the organization's vehicle artwork (#551,
+    #: stage 4), the same shape as the six fields above.
+    vehicle_artwork_key: str | None = None
     #: The explicit way back to "inherit the organization's word", for the
     #: same reason `clear_weight_limit` exists: absent already means leave
     #: alone, so nothing else can ask for null.
@@ -832,6 +850,9 @@ class TrackInput:
     #: Which timer model, by `TimerProfile.key`. Null detects it (#143).
     timer_profile: str | None = None
     remote_start_installed: bool = False
+    #: The timer's own lane 1 is wired to this track's highest lane. See
+    #: `models.Track.reverse_lanes`.
+    reverse_lanes: bool = False
 
 
 @strawberry.input
@@ -1350,6 +1371,10 @@ class Race:
     #: above.
     vehicle_singular: str | None
     vehicle_plural: str | None
+    #: This race's raw vehicle-artwork override, null where it inherits the
+    #: organization's choice (#551, stage 4) — same distinction as the six
+    #: fields above.
+    vehicle_artwork_key: str | None
     #: How many of each racer's worst counted results are dropped before
     #: scoring (#547 stage 2) — a modifier over `scoringStrategy`, not a
     #: strategy of its own. `0` is the off state.
@@ -1484,6 +1509,9 @@ class Track:
     #: for whether the control is actually available, which also needs the
     #: connected device to have a command for it.
     remote_start_installed: bool
+    #: The timer's own lane 1 is wired to this track's highest lane — a fact
+    #: about this venue's cable, not about the device model (#553).
+    reverse_lanes: bool
 
     @strawberry.field
     def lane_outages(self, info: Info) -> list[int]:
@@ -1547,6 +1575,10 @@ class Organization:
     #: renamed "Car" (#551) — same distinction as the four fields above.
     vehicle_singular: str | None
     vehicle_plural: str | None
+    #: This organization's raw vehicle-artwork override, null where it has
+    #: not chosen one (#551, stage 4) — same distinction as the six fields
+    #: above.
+    vehicle_artwork_key: str | None
 
     @strawberry.field
     def terminology(self) -> Terminology:
@@ -1691,6 +1723,15 @@ class TimerStatus:
     #: marked as having the solenoid it drives. Reported here rather than
     #: derived on the client, because the client has no copy of the profiles.
     can_remote_start: bool = False
+    #: Three plain claims about the connected model, straight off the profile
+    #: (#553) — GPRM's "Indicate Timing Started", "Count Down Clock" and
+    #: "Photo Finish Trigger" columns. Unlike `can_remote_start` these need no
+    #: track-side setting: there is no accessory to install, either the model
+    #: has it or it does not. Datasheet claims, most of them never checked
+    #: against real hardware — read them next to `device_provenance`.
+    indicates_timing_started: bool = False
+    has_countdown_clock: bool = False
+    has_photo_finish_trigger: bool = False
     pending_results: list[LaneResult] = strawberry.field(default_factory=list)
     serial_log: list[SerialLogEntry] = strawberry.field(default_factory=list)
     racer_by_lane: str | None = None  # JSON mapping of lane -> racer_id
@@ -2024,6 +2065,9 @@ def _timer_status(s) -> TimerStatus:
         device_provenance=s.device_provenance,
         port=s.port,
         can_remote_start=s.can_remote_start,
+        indicates_timing_started=s.indicates_timing_started,
+        has_countdown_clock=s.has_countdown_clock,
+        has_photo_finish_trigger=s.has_photo_finish_trigger,
         lane_count=s.lane_count,
         active_heat_id=s.active_heat_id,
         last_error=s.last_error,
@@ -2505,6 +2549,8 @@ def _manager_for(track: Any, info: Info) -> TimerManager:
         device,
         session_factory=_session_factory(info),
         remote_start_installed=track.remote_start_installed,
+        lane_count=track.lane_count,
+        reverse_lanes=track.reverse_lanes,
     )
 
 
@@ -2575,6 +2621,7 @@ _TERMINOLOGY_FIELDS = (
     "organization_plural",
     "vehicle_singular",
     "vehicle_plural",
+    "vehicle_artwork_key",
 )
 
 
@@ -3096,6 +3143,9 @@ class Mutation:
         mgr = timer_managers.get(id)
         if mgr:
             await mgr.set_remote_start_installed(track.remote_start_installed)
+            mgr.set_lane_translation(
+                lane_count=track.lane_count, reverse_lanes=track.reverse_lanes
+            )
 
             # Swap the device when either half of "which timer" moved: the
             # transport, or the model on it (#143).
@@ -3876,6 +3926,10 @@ class Mutation:
             mgr = timer_managers.get(db_track.id)
             if mgr:
                 await mgr.set_remote_start_installed(input_track.remote_start_installed)
+                mgr.set_lane_translation(
+                    lane_count=input_track.lane_count,
+                    reverse_lanes=input_track.reverse_lanes,
+                )
                 device = _device_for(db_track)
                 if (
                     input_track.timer_type != old_timer_type
@@ -4763,13 +4817,10 @@ class Subscription:
             db = info.context["db"]
 
             def _get_on_deck() -> list[Heat]:
-                heats = models.official_heats(
-                    db.query(models.Heat).filter(models.Heat.race_id == race_id)
-                ).all()
-                # Sort by round number and heat number
-                sorted_heats = sorted(
-                    heats, key=lambda h: (h.round.round_number, h.heat_number)
-                )
+                # One door for the running order (#549): under a master
+                # running order the next heat is usually another round's,
+                # and this display is the one staging depends on.
+                sorted_heats = crud.heats_in_running_order(db, race_id)
                 uncompleted = _unfinished(db, sorted_heats)
                 # Index 0 is on the track; the two after it are what to stage.
                 return typing.cast(Any, uncompleted[1 : 1 + ON_DECK_DEPTH])
@@ -4790,12 +4841,9 @@ class Subscription:
             db = info.context["db"]
 
             def _get_current():
-                heats = models.official_heats(
-                    db.query(models.Heat).filter(models.Heat.race_id == race_id)
-                ).all()
-                sorted_heats = sorted(
-                    heats, key=lambda h: (h.round.round_number, h.heat_number)
-                )
+                # Same door as `on_deck` (#549) — the two displays must
+                # agree about where the race is up to.
+                sorted_heats = crud.heats_in_running_order(db, race_id)
                 uncompleted = _unfinished(db, sorted_heats)
                 return uncompleted[0] if uncompleted else None
 

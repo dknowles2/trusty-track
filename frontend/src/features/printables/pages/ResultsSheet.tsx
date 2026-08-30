@@ -17,7 +17,7 @@ import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 
-import { DerbyCar } from '../components/PrintDecor';
+import { VehicleGlyph } from '../components/PrintDecor';
 import { formatEventDate } from '../documents';
 import { GET_RESULTS_SHEET } from '../graphql/queries';
 import {
@@ -36,7 +36,7 @@ import '../PrintSheet.css';
 export default function ResultsSheet() {
     const { raceId } = useParams<{ raceId: string }>();
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
-    const { group, groupLower, vehicle } = useTerminology();
+    const { group, groupLower, vehicle, vehicleArtworkKey } = useTerminology();
 
     const [{ data, fetching, error }] = useQuery({
         query: GET_RESULTS_SHEET,
@@ -108,7 +108,7 @@ export default function ResultsSheet() {
                         {/* The same car that rides the pit passes, so a sheet
                             on the announcer's table and a pass round a scout's
                             neck read as one event. */}
-                        <DerbyCar size={54} className="heat-sheet-mark" color="var(--print-surface-color)" />
+                        <VehicleGlyph artworkKey={vehicleArtworkKey} size={54} className="heat-sheet-mark" color="var(--print-surface-color)" />
                         <div>
                         <h1>{race.name}</h1>
                         <p>

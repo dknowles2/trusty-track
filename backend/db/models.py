@@ -212,6 +212,16 @@ class Organization(Base):
     # shows is configurable.
     vehicle_singular: Mapped[str | None] = mapped_column(String, nullable=True)
     vehicle_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Which line-art glyph the vehicle word draws with (#551, stage 4) — one
+    # of `domain.terminology.VEHICLE_ARTWORK_KEYS` ("car", "rocket", "boat").
+    # A plain string, not `SAEnum`, matching `Award.artwork_key`: the
+    # frontend's `PrintDecor.tsx` holds the one canonical vocabulary, and
+    # nothing server-side branches on which key this is. Null means inherit,
+    # same shape and same reason as the six columns above — an organization's
+    # own artwork choice is a real value a `"DEFAULT"` sentinel might collide
+    # with, so there is no non-null "off" state and `clearTerminology`
+    # reaches this column too.
+    vehicle_artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="organization")
 
@@ -249,6 +259,17 @@ class Track(Base):
     #: cost of a wrong `False` is a button that is not offered, and the cost of
     #: a wrong `True` is a gate that opens with nobody expecting it.
     remote_start_installed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    #: The timer's own lane 1 is wired to this track's *highest* lane.
+    #:
+    #: A finish-line unit is wired to lanes 1..N in whatever order the
+    #: installer plugged it in, and nothing in any protocol says which. A
+    #: setting on ``Track`` rather than on ``TimerProfile``, for the same
+    #: reason as ``remote_start_installed`` (#111): it is a fact about this
+    #: venue's cable, not about the device model — the same MicroWizard can
+    #: be wired either way at two different tables. See #553.
+    reverse_lanes: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
 
@@ -397,6 +418,10 @@ class Race(Base):
     # above.
     vehicle_singular: Mapped[str | None] = mapped_column(String, nullable=True)
     vehicle_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    # A per-race override of the organization's vehicle artwork (#551, stage
+    # 4), the same shape and the same `clearTerminology` flag as the six
+    # columns above. See `Organization.vehicle_artwork_key`.
+    vehicle_artwork_key: Mapped[str | None] = mapped_column(String, nullable=True)
     #: One interleaved running order across the race's racing groups, rather
     #: than a block per group (#549 stage 2). Off by default — running one
     #: den at a time is how many packs deliberately structure an event, and

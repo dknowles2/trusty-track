@@ -32,6 +32,9 @@ class TrackBase(BaseModel):
     #: `TimerProfile.key`, or None to detect the model. See `models.Track`.
     timer_profile: str | None = None
     remote_start_installed: bool = False
+    #: The timer's own lane 1 is wired to this track's highest lane. See
+    #: `models.Track.reverse_lanes`.
+    reverse_lanes: bool = False
 
     @field_validator("lane_count")
     @classmethod
@@ -136,6 +139,7 @@ class InitialConfigCreate(BaseModel):
     organization_plural: str | None = None
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
     clear_terminology: bool = False
 
 
@@ -248,6 +252,9 @@ class RaceUpdate(BaseModel):
     #: four fields above.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: A per-race override of the vehicle artwork (#551, stage 4), same
+    #: shape as the six fields above.
+    vehicle_artwork_key: str | None = None
     #: How many of each racer's worst counted results to drop before scoring
     #: (#547 stage 2). Absent means leave alone; `0` is the off state, so
     #: there is no separate clear flag — sending `0` back on is exactly how

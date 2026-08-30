@@ -66,6 +66,7 @@ test('screenshot the settings panels', async ({ page }) => {
     await terminologyFields.getByLabel('More than one (was “Packs”)').fill('Schools');
     await terminologyFields.getByLabel('One vehicle (was “Car”)').fill('Rocket');
     await terminologyFields.getByLabel('More than one (was “Cars”)').fill('Rockets');
+    await terminologyFields.getByLabel('Vehicle picture').selectOption('rocket');
     await expect(terminologyFields.getByLabel('One racing group (was “Den”)')).toHaveValue('Class');
     await terminologyFields.screenshot({ path: path.join(SCREENSHOT_DIR, '09-terminology.png') });
 

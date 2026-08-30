@@ -26,9 +26,25 @@
  * **Nothing here is scaled past about an inch.** Every shape below is drawn to
  * be read at the size of a footer glyph or a corner ornament, and blowing one
  * up to fill a page turns it into clip art — which is exactly what the
- * certificate's first draft did with `DerbyCar`. The certificate's background
- * is a gradient texture instead; see `.certificate` in the stylesheet.
+ * certificate's first draft did with the car silhouette. The certificate's
+ * background is a gradient texture instead; see `.certificate` in the
+ * stylesheet — and deliberately carries no vehicle glyph of its own kind for
+ * the same reason (#551, stage 4): the guilloche texture replaced a giant
+ * outlined car once already, and a rocket or boat blown up the same way would
+ * repeat a mistake this file already made and un-made.
+ *
+ * `VehicleGlyph` (#551, stage 4) is the whole vehicle-artwork vocabulary — a
+ * car (the built-in default), a rocket for a Space Derby, a boat for a
+ * Raingutter Regatta — mirroring `domain.terminology.VEHICLE_ARTWORK_KEYS`
+ * exactly, the same relationship `features/awards/artwork.tsx`'s `ARTWORK`
+ * has with `backend/domain/awards.py`. An `artworkKey` this module does not
+ * recognise renders nothing, the same "print blank rather than crash" rule
+ * `AwardArtwork` and the heat sheet's deleted-racer case both follow — an
+ * unrecognised key reaches an install only from a future build's data, or an
+ * old install that never set one, and neither should crash the print run.
  */
+
+import type { ReactElement } from 'react';
 
 interface DecorProps {
     /** Square, in CSS pixels. */
@@ -38,6 +54,10 @@ interface DecorProps {
 
 const BLUE = 'var(--print-primary-color, #003F87)';
 const GOLD = 'var(--print-accent-color, #FCD116)';
+
+interface VehicleProps extends DecorProps {
+    color?: string;
+}
 
 /**
  * The car, side on, nose to the right: a block of pine cut to a wedge — high
@@ -54,7 +74,7 @@ const GOLD = 'var(--print-accent-color, #FCD116)';
  * larger than a masthead. It is a silhouette, so what detail there is lives in
  * the outline; anything inside it is a smudge at the size this is used.
  */
-export function DerbyCar({ size = 24, className, color = BLUE }: DecorProps & { color?: string }) {
+function Car({ size = 24, className, color = BLUE }: VehicleProps) {
     return (
         <svg
             width={size}
@@ -73,6 +93,122 @@ export function DerbyCar({ size = 24, className, color = BLUE }: DecorProps & { 
             <circle cx="94" cy="34" r="3" fill="var(--print-surface-color)" />
         </svg>
     );
+}
+
+/**
+ * A Space Derby rocket, side on, nose to the right — the same bounding box
+ * and the same rightward motion as the car, so it drops into the same footer
+ * row without the row's height changing.
+ *
+ * A rocket drawn nose-up is the more familiar pose, and was the first draft;
+ * it read fine alone and wrong beside the car and the boat, tall where they
+ * are wide, so a row mixing vehicle types (there is only ever one on a given
+ * page, but the three are drawn to the same rule) would wobble. Lying it on
+ * its side keeps the family looking like one family: a capsule body tapering
+ * to a nose cone, fins swept back at the tail rather than a wedge, and the
+ * same hub-cutout trick the car's wheels use — here a porthole — so the
+ * three glyphs read as variations on one drawing style rather than three
+ * unrelated pictures.
+ */
+function Rocket({ size = 24, className, color = BLUE }: VehicleProps) {
+    return (
+        <svg
+            width={size}
+            height={size * 0.42}
+            viewBox="0 0 120 50"
+            className={className}
+            aria-hidden="true"
+            focusable="false"
+        >
+            {/* Capsule body, blunt at the tail (left) and drawn out to a
+                point at the nose (right) — the same leftward-blunt,
+                rightward-sharp silhouette rule the car's wedge follows. */}
+            <path
+                d="M22 25 C22 15 31 9 47 9 L86 9 Q110 9 118 25 Q110 41 86 41 L47 41 C31 41 22 35 22 25 Z"
+                fill={color}
+            />
+            {/* Tail fins, swept back rather than outboard like the car's
+                wheels — a rocket has nothing touching the ground. */}
+            <path d="M30 15 L10 3 L36 19 Z" fill={color} />
+            <path d="M30 35 L10 47 L36 31 Z" fill={color} />
+            <circle cx="62" cy="25" r="7.5" fill="var(--print-surface-color)" />
+        </svg>
+    );
+}
+
+/**
+ * A Raingutter Regatta boat, side on, sailing to the right — a shallow hull
+ * riding low in the water with a single triangular sail, the same rightward
+ * motion and the same bounding box as the car and the rocket.
+ *
+ * The hull is a crescent rather than a flat-bottomed shape: a raingutter boat
+ * is displacement-hulled and rides with its belly under the waterline, and a
+ * flat bottom reads as a barge rather than a sailboat. One sail, not two — a
+ * second sail is detail that survives a certificate and disappears at a
+ * footer glyph's quarter-inch, the same "smudge at this size" rule the car's
+ * silhouette follows for its wheel arches.
+ */
+function Boat({ size = 24, className, color = BLUE }: VehicleProps) {
+    return (
+        <svg
+            width={size}
+            height={size * 0.42}
+            viewBox="0 0 120 50"
+            className={className}
+            aria-hidden="true"
+            focusable="false"
+        >
+            {/* Hull: a flattish deck line bowed down into a shallow belly. */}
+            <path
+                d="M14 30 L106 30 C118 30 118 36 106 40 L28 40 C12 40 4 36 14 30 Z"
+                fill={color}
+            />
+            {/* Mast and sail — a single right triangle leaning into the wind
+                the boat is sailing with, nose to the right like its two
+                siblings above. */}
+            <rect x="58" y="6" width="3" height="25" fill={color} />
+            <path d="M61 8 L61 29 L92 27 Z" fill={color} />
+        </svg>
+    );
+}
+
+/** Every vehicle-artwork key this build can draw, mirroring
+ *  `domain.terminology.VEHICLE_ARTWORK_KEYS` on the backend exactly. */
+const VEHICLES: Record<string, (props: VehicleProps) => ReactElement> = {
+    car: Car,
+    rocket: Rocket,
+    boat: Boat,
+};
+
+/** Every vehicle-artwork key this build can draw — for the settings picker
+ *  and for tests, the same role `ARTWORK_KEYS` plays for award artwork. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const VEHICLE_ARTWORK_KEYS: readonly string[] = Object.keys(VEHICLES);
+
+/** Whether a key has a picture — the same question `hasArtwork` answers for
+ *  award artwork, for a caller that needs to know before it lays out a
+ *  spot for the glyph. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function hasVehicleArtwork(key: string | null | undefined): key is string {
+    return !!key && key in VEHICLES;
+}
+
+/**
+ * The vehicle glyph for one artwork key — the pit pass footer, the heat
+ * sheet's and results sheet's masthead mark. `artworkKey` is the resolved
+ * `Terminology.vehicleArtworkKey`; a key this build does not recognise
+ * (`hasVehicleArtwork` returning false) renders nothing rather than a
+ * fallback car, the same "print blank rather than crash" rule
+ * `AwardArtwork` follows — a blank glyph is a smaller surprise than a
+ * printout confidently showing the wrong vehicle.
+ */
+export function VehicleGlyph({
+    artworkKey,
+    ...props
+}: VehicleProps & { artworkKey: string | null | undefined }) {
+    if (!hasVehicleArtwork(artworkKey)) return null;
+    const Component = VEHICLES[artworkKey];
+    return <Component {...props} />;
 }
 
 /**

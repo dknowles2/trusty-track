@@ -27,6 +27,7 @@ import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
 import type { Heat, Lane } from '../types';
 import { hasRun, hasTimes } from '../lanes';
+import { executionComparator } from '../runningOrder';
 
 // Re-exported rather than redeclared: this used to be a hand-written copy that
 // nothing tied to the schema, and it drifted the moment `lanes` was added.
@@ -59,6 +60,12 @@ interface ScheduleManagementProps {
    * per group (#549 stage 4) — the race's own setting, from `RaceForm`. Off
    * for every race until an operator opts in, which is what keeps this
    * screen showing exactly what it always has for every existing race.
+   *
+   * With it on, rounds progress concurrently, so the "complete previous
+   * rounds first" Run gating is off — a later round's heat is runnable the
+   * moment its turn comes up — and within-round dragging is off too, because
+   * `reorderHeats` renumbers a round 1..N, which would yank its heats to the
+   * head of the interleave.
    */
   masterRunningOrder?: boolean;
   /**
@@ -96,6 +103,12 @@ interface ScheduleManagementProps {
    * (#48), and this is only the seeing half.
    */
   contestedRoundIds?: ReadonlySet<number>;
+  /**
+   * Rounds with an `advancementSource` — exempt from the interleave and
+   * placed last in the master-order panel, the same rule the execution flow
+   * sorts by (`runningOrder.ts`).
+   */
+  championshipRoundIds?: ReadonlySet<number>;
 }
 
 
@@ -105,6 +118,7 @@ interface SortableHeatRowProps {
   isRunning: boolean;
   isReordering: boolean;
   isUpcoming: boolean;
+  masterRunningOrder: boolean;
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
@@ -122,6 +136,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   isRunning,
   isReordering,
   isUpcoming,
+  masterRunningOrder,
   getRacerName,
   onRunHeat,
   onDeleteHeat,
@@ -133,8 +148,10 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   const isCompleted = hasRun(lanes);
   const hasPlaceholders = lanes.some((l) => l.placeholderSlot !== null);
 
-  // Disable dragging if heat is running, reordering is in progress, or heat has results
-  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes;
+  // Disable dragging if heat is running, reordering is in progress, or heat
+  // has results — or the race runs a master running order, where a drag's
+  // 1..N renumbering would silently pull this round out of the interleave.
+  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes || masterRunningOrder;
 
   const {
     attributes,
@@ -175,7 +192,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
           width: '40px',
           opacity: isDraggingDisabled ? 0.4 : 1,
         }}
-        title={hasRecordedTimes ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
+        title={masterRunningOrder ? "Heats follow the master running order" : hasRecordedTimes ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
       >
         <Icon path={mdiDragVertical} size={0.8} color="var(--text-faint-color)" />
       </td>
@@ -264,6 +281,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   lastChampionshipRound,
   staleRoundIds,
   contestedRoundIds,
+  championshipRoundIds,
 }) => {
   const { group } = useTerminology();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -340,13 +358,17 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     await onAddRound(config);
   };
 
-  // The whole race's heats, in the order `heat_number` puts them — the
-  // master running order itself once `applyMasterRunningOrder` has written
-  // it, and today's ordinary round-block order until it has (#549 stage 4).
-  // Shown only while the race has opted in; the per-round tables below are
-  // unchanged either way, which is what keeps every existing race's screen
-  // exactly as it was.
-  const masterOrderHeats = [...localHeats].sort((a, b) => a.heatNumber - b.heatNumber);
+  // The whole race's heats in the running order — the same rule the Race tab
+  // and the wall displays sort with (`runningOrder.ts`), so this panel cannot
+  // disagree with the screen that runs the race. Championship rounds sit at
+  // the end whatever numbers they hold, since they are exempt from the
+  // interleave (their heats are renumbered 1..N by every advancement
+  // rebuild). Shown only while the race has opted in; the per-round tables
+  // below are unchanged either way, which is what keeps every existing
+  // race's screen exactly as it was.
+  const masterOrderHeats = [...localHeats].sort(
+    executionComparator(true, championshipRoundIds ?? new Set()),
+  );
 
   const handleApplyMasterRunningOrder = async () => {
     if (!onApplyMasterRunningOrder) return;
@@ -769,7 +791,12 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 heat={heat}
                                 isRunning={activeHeatId === heat.id}
                                 isReordering={reordering}
-                                isUpcoming={roundNum > firstUncompletedRoundNumber}
+                                // Under a master running order rounds progress
+                                // concurrently, so no round is "upcoming" —
+                                // the next group's heat must be runnable while
+                                // this group's round is still open (#549).
+                                isUpcoming={masterRunningOrder ? false : roundNum > firstUncompletedRoundNumber}
+                                masterRunningOrder={masterRunningOrder}
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
                                 onDeleteHeat={onDeleteHeat}

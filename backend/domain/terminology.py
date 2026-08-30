@@ -16,6 +16,19 @@ enum are deliberately *not* renamed — they are API and database identifiers,
 not display copy, and #551 explicitly declines that migration for zero
 user-visible gain. Only the word a screen shows is configurable.
 
+`vehicle_artwork_key` (#551, stage 4) rides alongside the vehicle word rather
+than being derived from it. The certificate seal, the pit pass footer and the
+heat/results sheet mark all draw a small line-art glyph — a car by default —
+and an operator who calls their vehicle "Speedster" still wants the rocket
+picture, not a guess parsed out of a custom string. It is a *third* column
+pair rather than folded into `vehicle_singular`, but a plain string exactly
+like `Award.artwork_key`: `VEHICLE_ARTWORK_KEYS` is the whole recognised
+vocabulary, and `frontend/src/features/printables/components/PrintDecor.tsx`
+is the only place that turns a key into a picture. A key outside that set —
+an old install, or a future build's key reaching an older one — renders the
+neutral/blank treatment, the same "print blank rather than crash" rule
+`AwardArtwork` already follows for an unrecognised award key.
+
 Two scopes, layered:
 
 - an **organization** default, set once for the install and rarely touched
@@ -36,11 +49,21 @@ from dataclasses import dataclass
 
 __all__ = [
     "DEFAULT_TERMINOLOGY",
+    "VEHICLE_ARTWORK_KEYS",
     "Terminology",
     "TerminologyOverrides",
     "overrides_from_row",
     "resolve_terminology",
 ]
+
+#: The whole recognised vocabulary for `vehicle_artwork_key` — a car (the
+#: built-in default), a rocket (Space Derby) or a boat (Raingutter Regatta).
+#: `frontend/src/features/printables/components/PrintDecor.tsx` is the only
+#: place that turns one of these into a picture; a key outside this set
+#: renders nothing there rather than raising, so this set is documentation
+#: and a settings-picker vocabulary, not an enforced constraint — the same
+#: relationship `services/timer` has with `TimerProfile.key`.
+VEHICLE_ARTWORK_KEYS = ("car", "rocket", "boat")
 
 
 @dataclass(frozen=True)
@@ -53,6 +76,12 @@ class Terminology:
     organization_plural: str
     vehicle_singular: str
     vehicle_plural: str
+    #: Which line-art the vehicle word draws with — one of
+    #: `VEHICLE_ARTWORK_KEYS`. Defaulted (rather than positional like the six
+    #: above) so `Terminology(...)` literals written before this field
+    #: existed — the domain tests build one by hand — still construct without
+    #: naming it.
+    vehicle_artwork_key: str = "car"
 
 
 @dataclass(frozen=True)
@@ -73,6 +102,7 @@ class TerminologyOverrides:
     organization_plural: str | None = None
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
 
 
 #: The words every install showed before this existed, and what an
@@ -84,6 +114,7 @@ DEFAULT_TERMINOLOGY = Terminology(
     organization_plural="Packs",
     vehicle_singular="Car",
     vehicle_plural="Cars",
+    vehicle_artwork_key="car",
 )
 
 
@@ -103,6 +134,7 @@ def overrides_from_row(row: object) -> TerminologyOverrides:
         organization_plural=getattr(row, "organization_plural", None),
         vehicle_singular=getattr(row, "vehicle_singular", None),
         vehicle_plural=getattr(row, "vehicle_plural", None),
+        vehicle_artwork_key=getattr(row, "vehicle_artwork_key", None),
     )
 
 
@@ -165,5 +197,12 @@ def resolve_terminology(
             else org.vehicle_plural
             if org.vehicle_plural is not None
             else DEFAULT_TERMINOLOGY.vehicle_plural
+        ),
+        vehicle_artwork_key=(
+            rc.vehicle_artwork_key
+            if rc.vehicle_artwork_key is not None
+            else org.vehicle_artwork_key
+            if org.vehicle_artwork_key is not None
+            else DEFAULT_TERMINOLOGY.vehicle_artwork_key
         ),
     )

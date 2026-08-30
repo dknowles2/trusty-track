@@ -12,7 +12,7 @@ afterwards from the Roster page.
 | **Event Name** | Names the race everywhere. Must be unique |
 | **Date & Time / Location** | Shown on the Home page and printed on pit passes |
 | **Scoring** | **Timed**, **Points**, **Cumulative time**, or **Fastest single run** — see [Scoring](scoring.md). Choose before racing starts. Every option shows its one-line description underneath it, not only the one currently picked |
-| **Drop worst run(s)** | `0` is off. Drops each racer's worst counted results before scoring — only once everyone who has raced has the same number of runs to drop from, with one to spare; otherwise nothing is dropped and the standings say so |
+| **Drop worst run(s)** | `0` is off. Drops each racer's worst counted results before scoring — only once everyone who has raced has the same number of runs to drop from, with one to spare; otherwise nothing is dropped and the standings say so. See [Drop the worst run](scoring.md#drop-the-worst-run) |
 | **Championship Trophies** | How many cars the wizard puts into the final. About the racing, not the physical trophies — those live on the [Awards](../awards.md) page |
 | **Ties** | How a tied score gets settled where it decides something — see [Ties](#ties) below |
 | **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
@@ -91,6 +91,7 @@ both.
 | **Serial Port** | Almost always blank. Fill it only to force a specific port; it is then used exactly as typed |
 | **Timer Model** | Almost always *Detect automatically*. See [the model picker](timers.md#the-timer-model-picker) |
 | **This track has a remote start gate** | Enables the on-screen gate release, if the timer supports it — see [the remote start gate](timers.md#the-remote-start-gate) |
+| **The timer's cable is wired backwards** | Flips every result so the timer's lane 1 matches the track's highest lane, instead of rewiring the timer or renumbering the track — see [reverse lane numbering](timers.md#reverse-lane-numbering) |
 | **Lanes in service** | Untick a lane that has stopped working. Unlike the rest of the card, this **saves the moment you click it** — see [a lane stops working](mid-race-changes.md#a-lane-stops-working) |
 | **Track records from past years** | Records from before Trusty Track, entered by hand for the Stats page's record board. Saves as soon as you add one — see [the track record](stats-and-exports.md#the-track-record) |
 
@@ -115,9 +116,9 @@ scoring method the race itself uses — a free heat is exhibition and is never
 scored, so the Timed/Points question this section answers for a real heat
 does not apply to it.
 
-The **Timer Model**, **Serial Port** and **This track has a remote start
-gate** fields disappear once **No timer** is chosen; none of them mean
-anything without a device.
+The **Timer Model**, **Serial Port**, **This track has a remote start
+gate** and **The timer's cable is wired backwards** fields disappear once
+**No timer** is chosen; none of them mean anything without a device.
 
 ![Timer Type dropdown with No Timer selected](../assets/screenshots/settings/07-no-timer-selected.png)
 _The timer section of a track's card, with **No timer — I'll enter results by hand** chosen from the Timer Type dropdown._
@@ -130,28 +131,30 @@ the PINs; see [Roles and permissions](roles-and-permissions.md).
 
 ## The words on screen
 
-Trusty Track is built for Cub Scout Pinewood Derby, and "Den" and "Pack" are
-just the built-in words for two ideas: a group of racers who race together,
-and the organization holding the event. A school, an AWANA club, a 4-H
-group — anyone running the same kind of race — can rename both, everywhere
-the app uses them: the roster, the standings, printouts, and the audience
-displays.
+Trusty Track is built for Cub Scout Pinewood Derby, and "Den", "Pack" and
+"Car" are just the built-in words for three ideas: a group of racers who
+race together, the organization holding the event, and what a racer's own
+entry is called. A school, an AWANA club, a 4-H group, a Space Derby's
+rockets, a Raingutter Regatta's boats — anyone running the same kind of
+race — can rename all three, everywhere the app uses them: the roster, the
+standings, printouts, and the audience displays.
 
-Two words, each with its own plural, since English plurals do not follow a
+Three words, each with its own plural, since English plurals do not follow a
 rule a computer should be guessing at:
 
 | Word | Default | Replaces |
 | --- | --- | --- |
 | Racing group | Den / Dens | "Den", **Manage Dens**, **Per Den** numbering, the Den column on the roster, standings and printouts |
 | Organization | Pack / Packs | "Pack", "Top Overall (Pack)" |
+| Vehicle | Car / Cars | "Car", car numbers on the roster and check-in, "Fastest Car" on the awards screen, and the vehicle word on printouts |
 
 **Set install-wide** in **System Settings → General**, under **Use different
-words for "Den" and "Pack"** — turning it on offers all four boxes, already
-filled in with the built-in words so none of them starts out blank.
+words for "Den", "Pack" and "Car"** — turning it on offers all six boxes,
+already filled in with the built-in words so none of them starts out blank.
 
-![The terminology fields in System Settings, switched on and filled in with "Class"/"Classes" and "School"/"Schools"](../assets/screenshots/settings/09-terminology.png)
-_Turning on custom terminology offers all four boxes at once — a singular
-and a plural for each word._
+![The terminology fields in System Settings, switched on and filled in with "Class"/"Classes", "School"/"Schools" and "Rocket"/"Rockets", with the vehicle picture set to Rocket](../assets/screenshots/settings/09-terminology.png)
+_Turning on custom terminology offers all six boxes at once — a singular
+and a plural for each word — plus the vehicle picture below them._
 
 **A race can override that default of its own** — one venue running a pack
 derby in March and a school's own derby in May, on the same install, without
@@ -164,6 +167,14 @@ exists.
 **Unticking the checkbox returns to inheriting** — the organization's own
 words if it has set any, the built-in Scouting words otherwise. It does not
 leave the fields blank; there is no way to save an empty word.
+
+**The vehicle word has a picture to go with it: a car, a rocket, or a
+boat.** The **Vehicle picture** dropdown sits under the vehicle word's two
+boxes and is independent of it — renaming "Car" to "Speedster" keeps
+whichever picture is already chosen, and picking the rocket picture does not
+touch the word. It draws the small line-art mark on the pit pass footer and
+on the heat sheet and results sheet's masthead; the certificate does not
+carry it. A car until you change it.
 
 **One label stays fixed for everyone: Category**, the field on a racing
 group that a Cub Scout rank or a school grade goes in — see

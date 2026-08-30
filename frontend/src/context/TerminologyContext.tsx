@@ -1,6 +1,7 @@
 /**
  * The words a screen should use for "Den", "Pack" and "Car" (#496 stage 4;
- * #551 adds the vehicle term).
+ * #551 adds the vehicle term, and stage 4 of that issue adds which picture
+ * goes with it).
  *
  * All three are configurable per `docs`/`domain/terminology.py` on the
  * backend: an organization sets an install-wide default, and a race may
@@ -37,6 +38,11 @@ export interface Terminology {
     organizationPlural: string;
     vehicleSingular: string;
     vehiclePlural: string;
+    /** Which line-art glyph the vehicle draws with — "car", "rocket" or
+     *  "boat" (#551, stage 4). Never empty: the server always resolves it,
+     *  falling back to "car". `features/printables/components/PrintDecor.tsx`'s
+     *  `VehicleGlyph` is the one place that turns this into a picture. */
+    vehicleArtworkKey: string;
 }
 
 /** The words every install showed before this setting existed, and what an
@@ -49,6 +55,7 @@ export const DEFAULT_TERMINOLOGY: Terminology = {
     organizationPlural: 'Packs',
     vehicleSingular: 'Car',
     vehiclePlural: 'Cars',
+    vehicleArtworkKey: 'car',
 };
 
 /** What `useTerminology()` hands back — the resolved words plus a lowercase
@@ -69,6 +76,10 @@ export interface TerminologyWords {
     orgsLower: string;
     vehicleLower: string;
     vehiclesLower: string;
+    /** Which line-art glyph the vehicle draws with (#551, stage 4) — not a
+     *  word to print, so it carries no lowercase sibling. Pass straight
+     *  through to `VehicleGlyph`'s `artworkKey` prop. */
+    vehicleArtworkKey: string;
 }
 
 const TerminologyContext = createContext<Terminology>(DEFAULT_TERMINOLOGY);
@@ -108,6 +119,7 @@ export function useTerminology(): TerminologyWords {
             orgsLower: t.organizationPlural.toLowerCase(),
             vehicleLower: t.vehicleSingular.toLowerCase(),
             vehiclesLower: t.vehiclePlural.toLowerCase(),
+            vehicleArtworkKey: t.vehicleArtworkKey,
         }),
         [
             t.racingGroupSingular,
@@ -116,6 +128,7 @@ export function useTerminology(): TerminologyWords {
             t.organizationPlural,
             t.vehicleSingular,
             t.vehiclePlural,
+            t.vehicleArtworkKey,
         ],
     );
 }

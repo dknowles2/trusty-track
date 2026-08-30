@@ -231,6 +231,7 @@ export type InitialConfigInput = {
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
+  vehicleArtworkKey?: InputMaybe<Scalars['String']['input']>;
   vehiclePlural?: InputMaybe<Scalars['String']['input']>;
   vehicleSingular?: InputMaybe<Scalars['String']['input']>;
 };
@@ -252,6 +253,7 @@ export type InitialConfigStatus = {
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   terminology: Terminology;
   tracks: Array<Track>;
+  vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
   vehiclePlural?: Maybe<Scalars['String']['output']>;
   vehicleSingular?: Maybe<Scalars['String']['output']>;
   version: Scalars['String']['output'];
@@ -698,6 +700,7 @@ export type Organization = {
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   terminology: Terminology;
+  vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
   vehiclePlural?: Maybe<Scalars['String']['output']>;
   vehicleSingular?: Maybe<Scalars['String']['output']>;
 };
@@ -857,6 +860,7 @@ export type Race = {
   tiebreaker: Scalars['String']['output'];
   track?: Maybe<Track>;
   trackId?: Maybe<Scalars['Int']['output']>;
+  vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
   vehiclePlural?: Maybe<Scalars['String']['output']>;
   vehicleSingular?: Maybe<Scalars['String']['output']>;
   votingOpen: Scalars['Boolean']['output'];
@@ -935,6 +939,7 @@ export type RaceUpdateInput = {
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
   tiebreaker?: InputMaybe<Scalars['String']['input']>;
   trackId?: InputMaybe<Scalars['Int']['input']>;
+  vehicleArtworkKey?: InputMaybe<Scalars['String']['input']>;
   vehiclePlural?: InputMaybe<Scalars['String']['input']>;
   vehicleSingular?: InputMaybe<Scalars['String']['input']>;
   votingOpen?: InputMaybe<Scalars['Boolean']['input']>;
@@ -1131,6 +1136,7 @@ export type Terminology = {
   organizationSingular: Scalars['String']['output'];
   racingGroupPlural: Scalars['String']['output'];
   racingGroupSingular: Scalars['String']['output'];
+  vehicleArtworkKey: Scalars['String']['output'];
   vehiclePlural: Scalars['String']['output'];
   vehicleSingular: Scalars['String']['output'];
 };
@@ -1157,6 +1163,9 @@ export type TimerStatus = {
   canRemoteStart: Scalars['Boolean']['output'];
   deviceName?: Maybe<Scalars['String']['output']>;
   deviceProvenance?: Maybe<Scalars['String']['output']>;
+  hasCountdownClock: Scalars['Boolean']['output'];
+  hasPhotoFinishTrigger: Scalars['Boolean']['output'];
+  indicatesTimingStarted: Scalars['Boolean']['output'];
   laneCount?: Maybe<Scalars['Int']['output']>;
   lastError?: Maybe<Scalars['String']['output']>;
   pendingResults: Array<LaneResult>;
@@ -1200,6 +1209,7 @@ export type Track = {
   name: Scalars['String']['output'];
   races: Array<Race>;
   remoteStartInstalled: Scalars['Boolean']['output'];
+  reverseLanes: Scalars['Boolean']['output'];
   serialPort?: Maybe<Scalars['String']['output']>;
   timerProfile?: Maybe<Scalars['String']['output']>;
   timerType: Scalars['String']['output'];
@@ -1211,6 +1221,7 @@ export type TrackInput = {
   lengthFeet?: InputMaybe<Scalars['Int']['input']>;
   name?: Scalars['String']['input'];
   remoteStartInstalled?: Scalars['Boolean']['input'];
+  reverseLanes?: Scalars['Boolean']['input'];
   serialPort?: InputMaybe<Scalars['String']['input']>;
   timerProfile?: InputMaybe<Scalars['String']['input']>;
   timerType?: Scalars['String']['input'];

@@ -50,6 +50,7 @@ export const INITIAL_CONFIG_QUERY = gql`
         organizationPlural
         vehicleSingular
         vehiclePlural
+        vehicleArtworkKey
       }
     }
   }
@@ -71,6 +72,7 @@ export const RACE_TERMINOLOGY_QUERY = gql`
         organizationPlural
         vehicleSingular
         vehiclePlural
+        vehicleArtworkKey
       }
     }
   }

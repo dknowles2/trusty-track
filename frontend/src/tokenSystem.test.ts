@@ -127,7 +127,7 @@ describe('the Printables surface reads its own tokens, not the App surface\'s (#
     expect(css).not.toMatch(/#0b4f9e/i);
   });
 
-  it('PrintDecor.tsx\'s DerbyCar defaults to --print-primary-color, not --scouting-blue', () => {
+  it('PrintDecor.tsx\'s vehicle glyphs default to --print-primary-color, not --scouting-blue', () => {
     expect(read('features/printables/components/PrintDecor.tsx')).toMatch(
       /var\(--print-primary-color/,
     );

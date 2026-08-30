@@ -12,6 +12,11 @@ and [Championship rounds](reference/championship-rounds.md).
 
 ## Choosing how to score
 
+Four methods, each with its own one-line description right on the race
+form. Every one is lower-is-better, and which to pick comes down to two
+questions: do you have a timer, and do you want a car's whole morning to
+count, or just its best moment?
+
 ### Timed — the usual choice
 
 Every car's score is its **average time**, and the fastest average wins.
@@ -49,7 +54,66 @@ Two things to know about points, both handled for you:
   from the trophy standings**, and the Standings page tells you so. Timed
   races keep such rounds, because averages stay fair.
 
-The exact rules for both are in [Scoring](reference/scoring.md).
+### Cumulative time — every heat, added up
+
+Every car's score is its **heat times added together** rather than
+averaged, and the lowest total wins. It needs a timer, the same as Timed,
+and it looks similar on an ordinary race day: while every car runs the same
+number of heats, a total and an average rank cars identically. Pick it if
+your pack wants the number on the trophy to be "how much time this car
+spent on the track altogether" rather than an average — some packs simply
+prefer a running total to a per-heat number.
+
+The trade-off is the reason Timed is the default and Cumulative time is not:
+a total, unlike an average, *does* care how many heats each car ran. If a
+lane goes out of service or a racer arrives late, a round like that is set
+aside from the standings, the same as under Points — see
+[Rounds that are set aside](reference/scoring.md#rounds-that-are-set-aside).
+
+### Fastest single run — the traditional pinewood answer
+
+Every car's score is its **single best recorded time** — what most packs
+mean when they say "fastest run wins." A car that's quick once and unlucky
+twice places on the once; the other heats simply don't count against it.
+Needs a timer.
+
+- A bad run — a wheel comes off, the car jumps the lane — is not penalised
+  at all, because it was never a candidate for the racer's best time.
+- A car that never finishes a single heat has no time to offer, and sorts
+  below every car that finished at least one — never finishing is worse
+  than a bad average, not merely absent from it.
+- Like Timed, it doesn't care how many heats each car ran, so a lane outage
+  or a late arrival never sets a round aside.
+
+The exact rules for all four are in [Scoring](reference/scoring.md).
+
+### Dropping each car's worst run
+
+Next to Scoring on the race form is **Drop worst run(s)** — `0` by default,
+meaning off. Set it to `1` or more and each car's worst counted results are
+set aside before scoring, under whichever of the four methods you picked.
+
+It's the honest version of what Timed, Points and Cumulative time already
+do about a bad run. Today, without it, a DNF is scored as a flat
+9.999-second penalty, or as last place — a number invented because the
+scoring math needs one. Turn dropping on, and the run a wheel came off in
+is usually the run that gets dropped: rather than inventing a bad number for
+it, the car is scored on the heats it actually finished, as though the bad
+one had never been scheduled.
+
+Two things worth knowing before you turn it on:
+
+- **It only fires once every car who has raced has the same number of
+  counted heats, with at least one to spare.** If a lane outage or a late
+  arrival has left the field uneven, nothing is dropped, and the standings
+  say so — dropping one run each from cars with different heat counts would
+  just move the unfairness Points and Cumulative time already guard
+  against one heat later, so Trusty Track refuses to do it.
+- **It does nothing under Fastest single run.** That method already keeps
+  only a car's best time; there is no "worst" left to drop that could ever
+  change which one that is.
+
+The exact rule is in [Drop the worst run](reference/scoring.md#drop-the-worst-run).
 
 ### When two cars tie
 
@@ -64,10 +128,10 @@ or by correcting a time if one was recorded wrong.
 If you'd rather Trusty Track settle it automatically, which of the other
 four to pick depends on how the race is scored:
 
-- **Timed races** usually want **Fastest single heat** — the traditional
-  pinewood answer, and what most packs mean by "fastest run wins" — or
-  **Lowest total time** if consistency across every heat should count for
-  more than one great run.
+- **Timed, Cumulative time, and Fastest single run races** usually want
+  **Fastest single heat** — the traditional pinewood answer, and what most
+  packs mean by "fastest run wins" — or **Lowest total time** if
+  consistency across every heat should count for more than one great run.
 - **Points races with a timer running** can use either of those too, since
   a time is still being recorded even though it is not the score.
 - **Points races on a track with no timer** — see

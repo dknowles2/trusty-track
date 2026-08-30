@@ -357,6 +357,45 @@ class TimerProfile:
     #: configuration will make it — which is different from a track that has
     #: the device but not the accessory, and that is the track's setting.
     remote_start: tuple[bytes, ...] = ()
+    #: The command that begins a start-light-tree sequence, on a device wired
+    #: for one the same way it is wired for an automatic gate release. Empty
+    #: means no such command is known — which is every profile here today
+    #: (#553): GPRM's own compatibility matrix carries no "light tree" column
+    #: at all, and no protocol document or recording in this tree names a
+    #: command distinct from `remote_start`. The field exists so that the day
+    #: a datasheet or a recording does name one, adding it is filling in a
+    #: field rather than inventing a place to put it. The sequence itself — a
+    #: timed run of lamps, not a single command — needs a state machine of its
+    #: own and stays out of scope until then; see #553's discussion.
+    light_tree: tuple[bytes, ...] = ()
+
+    #: True for a device that can say it has begun timing a run through a
+    #: matcher of its own, distinct from inferring the start from a gate poll
+    #: — GPRM's "Indicate Timing Started" column. A profile's ordinary
+    #: `RACE_STARTED` matcher already does the pushing where this is true; the
+    #: flag is a separate, explicit claim rather than something derived from
+    #: the matcher list, because a profile can carry a `RACE_STARTED` matcher
+    #: for a reason that has nothing to do with this column (DerbyTimer's bare
+    #: `RACE`, PDT's `RACING`, the Judge's `Go`) and conflating the two would
+    #: let an unrelated matcher imply support for a specific vendor feature
+    #: nobody has verified.
+    indicates_timing_started: bool = False
+    #: True for a device with a countdown-clock display of its own — GPRM's
+    #: "Count Down Clock" column. Nothing here sends a command for it: the
+    #: models that have one drive it from their own firmware as part of the
+    #: ordinary start sequence, so — like `gate_state_is_knowable` — this is a
+    #: plain claim about the hardware, with no matcher and no wire traffic to
+    #: read.
+    has_countdown_clock: bool = False
+    #: True for a device that fires an external photo-finish camera trigger at
+    #: the line — GPRM's "Photo Finish Trigger" column. The trigger is a
+    #: discrete hardware signal (a contact closure or a flash-sync line)
+    #: outside the RS-232 stream, not a message any matcher could see, so this
+    #: is a plain datasheet claim with nothing to parse, same as
+    #: `has_countdown_clock`. The receiving half — doing something with the
+    #: trigger — is #177, iceboxed; this says only that the device can fire
+    #: one.
+    has_photo_finish_trigger: bool = False
 
     acks: tuple[Ack, ...] = ()
     #: Tried in order, so a specific pattern must precede a general one.

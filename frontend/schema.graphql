@@ -223,6 +223,7 @@ input InitialConfigInput {
   organizationPlural: String = null
   vehicleSingular: String = null
   vehiclePlural: String = null
+  vehicleArtworkKey: String = null
   clearTerminology: Boolean! = false
 }
 
@@ -245,6 +246,7 @@ type InitialConfigStatus {
   organizationPlural: String
   vehicleSingular: String
   vehiclePlural: String
+  vehicleArtworkKey: String
   terminology: Terminology!
 }
 
@@ -360,6 +362,7 @@ type Organization {
   organizationPlural: String
   vehicleSingular: String
   vehiclePlural: String
+  vehicleArtworkKey: String
   terminology: Terminology!
   races: [Race!]!
 }
@@ -424,6 +427,7 @@ type Race {
   organizationPlural: String
   vehicleSingular: String
   vehiclePlural: String
+  vehicleArtworkKey: String
   dropWorstRuns: Int!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
@@ -508,6 +512,7 @@ input RaceUpdateInput {
   organizationPlural: String = null
   vehicleSingular: String = null
   vehiclePlural: String = null
+  vehicleArtworkKey: String = null
   clearTerminology: Boolean! = false
   dropWorstRuns: Int = null
 }
@@ -641,6 +646,7 @@ type Terminology {
   organizationPlural: String!
   vehicleSingular: String!
   vehiclePlural: String!
+  vehicleArtworkKey: String!
 }
 
 type TimerModel {
@@ -669,6 +675,9 @@ type TimerStatus {
   lastError: String
   port: String
   canRemoteStart: Boolean!
+  indicatesTimingStarted: Boolean!
+  hasCountdownClock: Boolean!
+  hasPhotoFinishTrigger: Boolean!
   pendingResults: [LaneResult!]!
   serialLog: [SerialLogEntry!]!
   racerByLane: String
@@ -708,6 +717,7 @@ type Track {
   serialPort: String
   timerProfile: String
   remoteStartInstalled: Boolean!
+  reverseLanes: Boolean!
   laneOutages: [Int!]!
   historicalRecords: [HistoricalTrackRecord!]!
   races: [Race!]!
@@ -722,6 +732,7 @@ input TrackInput {
   serialPort: String = null
   timerProfile: String = null
   remoteStartInstalled: Boolean! = false
+  reverseLanes: Boolean! = false
 }
 
 type TrackRecord {

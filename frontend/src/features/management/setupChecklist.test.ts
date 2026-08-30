@@ -21,6 +21,7 @@ const WORDS: TerminologyWords = {
     orgsLower: 'packs',
     vehicleLower: 'car',
     vehiclesLower: 'cars',
+    vehicleArtworkKey: 'car',
 };
 
 const checklistFor = (p: SetupProgress) => checklistForWords(p, WORDS);

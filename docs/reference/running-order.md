@@ -18,8 +18,12 @@ offered while creating a race — there is nothing yet to interleave — so
 create the race first and turn it on afterwards from the edit form on the
 Roster page. See [Race and track settings](race-settings.md#the-race).
 
-Turning it on changes nothing by itself. It only makes the **Apply master
-order** button, below, do something.
+Turning it on renumbers nothing by itself — clicking **Apply master order**,
+below, is what weaves the heats together. What it does switch straight away
+is how race day runs: the Race tab, the Schedule tab's Run buttons and the
+audience displays all start following the running order rather than one
+round's block at a time. See
+[Race day under the running order](#race-day-under-the-running-order).
 
 ## Applying it
 
@@ -37,7 +41,30 @@ to weave the dens' current heats together into that order.
   who has already called heat 6 will still find it as heat 6.
 - **It is a deliberate, repeatable action, not a one-time setup step.** Press
   it again any time — after adding a round by hand, say — and it recomputes
-  the order from scratch over whatever heats are still pending.
+  the order from scratch over whatever heats are still pending. A round added
+  or regenerated after the last apply numbers its own heats from 1 again, so
+  re-apply once the schedule settles to weave it in properly.
+
+## Race day under the running order
+
+While the setting is on:
+
+- **The Race tab follows the woven order.** After each heat, the next heat
+  offered is the next one in the running order — usually another den's — and
+  the **On Deck** panel shows that heat's line-up so the right cars are
+  staged. The audience displays' Now Racing and On Deck follow the same
+  order, so the wall always agrees with the operator's screen.
+- **Any pending heat can be run from the Schedule tab.** Rounds progress
+  side by side, so **Run** is no longer greyed out on a round that is
+  waiting for an earlier one to finish.
+- **Dragging heats within a round is switched off**, and the drag handle
+  says so. A hand-reorder renumbers the round from 1, which would silently
+  pull it to the front of the running order. Turn the setting off if you
+  need to hand-reorder, then re-apply the master order.
+- **A championship round still runs last.** Its field is drawn from the
+  dens' standings, so it is never woven in between them — it runs in its own
+  order after every den's round is finished, exactly as it would without
+  this setting.
 
 ## What it does and does not change
 

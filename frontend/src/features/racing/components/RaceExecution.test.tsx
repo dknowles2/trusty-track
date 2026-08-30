@@ -592,6 +592,7 @@ describe('RaceExecution', () => {
                     organizationPlural: 'Troops',
                     vehicleSingular: 'Car',
                     vehiclePlural: 'Cars',
+                    vehicleArtworkKey: 'car',
                 }}
             >
                 <RaceExecution {...defaultProps} roundSummary={mockSummary} />
@@ -724,6 +725,35 @@ describe('RaceExecution', () => {
 
         expect(screen.getByText('End of Round')).toBeInTheDocument();
         expect(screen.getByText(/Next: Round 2/)).toBeInTheDocument();
+    });
+
+    it('shows the next heat\'s line-up across rounds under a master running order (#549)', () => {
+        // The next heat is usually another round's when the race runs one
+        // interleaved sequence — announcing "End of Round" between every
+        // heat would hide exactly the staging information the interleave
+        // exists to provide.
+        render(
+            <RaceExecution
+                {...defaultProps}
+                masterRunningOrder={true}
+                activeExecutionHeat={{ ...mockHeat, roundId: 1 }}
+                nextExecutionHeat={{
+                    ...mockHeat,
+                    id: 2,
+                    heatNumber: 7,
+                    roundId: 2,
+                    roundNumber: 2,
+                    roundName: 'Tigers',
+                    lanes: [lane({ lane: 1, racerId: 102 })],
+                }}
+            />
+        );
+
+        expect(screen.queryByText('End of Round')).not.toBeInTheDocument();
+        expect(screen.getByText('Heat 7')).toBeInTheDocument();
+        expect(screen.getByText('Tigers')).toBeInTheDocument();
+        // Once in the active heat's lanes, and again in the on-deck line-up.
+        expect(screen.getAllByText('Jane Smith')).toHaveLength(2);
     });
 
     it('renders "Round Not Ready" when heat has placeholders', () => {

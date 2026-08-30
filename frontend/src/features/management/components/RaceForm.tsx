@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 
 import { DEFAULT_LIMIT_OZ, formatOunces } from '../weightCheck';
-import { DEFAULT_TERMINOLOGY } from '../../settings/terminologyDefaults';
+import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../../settings/terminologyDefaults';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { SHARED, TIEBREAKER_OPTIONS, tiebreakerWontFire } from '../../stats/tiebreakText';
 import { SCORING_STRATEGY_OPTIONS } from '../../stats/scoringStrategyText';
@@ -40,10 +40,10 @@ export interface RaceFormData {
     master_running_order: boolean;
     /**
      * A per-race terminology override, null where this race inherits the
-     * organization's word (#496 stage 3; #551 adds the vehicle pair). All
-     * six travel together — the checkbox below is on when any is non-null,
-     * and turning it off clears all six rather than leaving a partial
-     * override behind.
+     * organization's word (#496 stage 3; #551 adds the vehicle pair and its
+     * artwork). All seven travel together — the checkbox below is on when
+     * any is non-null, and turning it off clears all seven rather than
+     * leaving a partial override behind.
      */
     racing_group_singular?: string | null;
     racing_group_plural?: string | null;
@@ -51,6 +51,12 @@ export interface RaceFormData {
     organization_plural?: string | null;
     vehicle_singular?: string | null;
     vehicle_plural?: string | null;
+    /** A per-race override of the vehicle artwork (#551, stage 4) — travels
+     * with the six fields above rather than as a seventh independent
+     * checkbox: an operator turning on custom terminology for a Space Derby
+     * wants the rocket picture at the same moment, not a second toggle to
+     * remember. */
+    vehicle_artwork_key?: string | null;
 }
 
 
@@ -404,6 +410,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                             organization_plural: DEFAULT_TERMINOLOGY.organizationPlural,
                                             vehicle_singular: DEFAULT_TERMINOLOGY.vehicleSingular,
                                             vehicle_plural: DEFAULT_TERMINOLOGY.vehiclePlural,
+                                            vehicle_artwork_key: DEFAULT_TERMINOLOGY.vehicleArtworkKey,
                                         }
                                         : {
                                             racing_group_singular: null,
@@ -412,6 +419,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                             organization_plural: null,
                                             vehicle_singular: null,
                                             vehicle_plural: null,
+                                            vehicle_artwork_key: null,
                                         }),
                                 }))
                             }
@@ -485,6 +493,20 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                                     className="form-control"
                                     style={inputStyle}
                                 />
+                            </div>
+                            <div>
+                                <label style={labelStyle} htmlFor="race-vehicle-artwork-key">Vehicle picture</label>
+                                <select
+                                    id="race-vehicle-artwork-key"
+                                    value={formData.vehicle_artwork_key ?? DEFAULT_TERMINOLOGY.vehicleArtworkKey}
+                                    onChange={e => handleChange('vehicle_artwork_key', e.target.value)}
+                                    className="form-control"
+                                    style={inputStyle}
+                                >
+                                    {VEHICLE_ARTWORK_OPTIONS.map(option => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
                     )}
