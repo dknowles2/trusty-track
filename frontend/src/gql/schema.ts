@@ -273,6 +273,7 @@ export type LaneTimeStat = {
 
 export type LeaderboardEntry = {
   carNumber?: Maybe<Scalars['Int']['output']>;
+  dropWorstRunsApplied: Scalars['Boolean']['output'];
   firstName: Scalars['String']['output'];
   heatsCompleted: Scalars['Int']['output'];
   lastName: Scalars['String']['output'];
@@ -832,6 +833,7 @@ export type Race = {
   championshipTrophies: Scalars['Int']['output'];
   checkedInCount: Scalars['Int']['output'];
   dateTime?: Maybe<Scalars['String']['output']>;
+  dropWorstRuns: Scalars['Int']['output'];
   globalStartNumber: Scalars['Int']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
@@ -920,6 +922,7 @@ export type RaceUpdateInput = {
   clearTerminology?: Scalars['Boolean']['input'];
   clearWeightLimit?: Scalars['Boolean']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
+  dropWorstRuns?: InputMaybe<Scalars['Int']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
   masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;

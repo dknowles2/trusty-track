@@ -799,6 +799,12 @@ class RaceUpdateInput:
     #: same reason `clear_weight_limit` exists: absent already means leave
     #: alone, so nothing else can ask for null.
     clear_terminology: bool = False
+    #: How many of each racer's worst counted results to drop before scoring
+    #: (#547 stage 2) — a modifier over `scoring_strategy`, not a strategy of
+    #: its own. Absent means leave alone; `0` is the off state, so there is
+    #: no separate clear flag, the same shape `master_running_order`'s
+    #: `false` already uses.
+    drop_worst_runs: int | None = None
 
 
 @strawberry.input
@@ -1051,6 +1057,12 @@ class LeaderboardEntry:
     #: anyone (#540) — null when the row was never tied, or a tie the chain
     #: could not resolve. See `backend.domain.tiebreak`.
     resolved_by: str | None
+    #: Whether `Race.dropWorstRuns` (#547 stage 2) actually dropped a run
+    #: from this standings computation — the same value on every row, since
+    #: it describes the whole leaderboard rather than this one racer. False
+    #: when the setting is off, or when it is on but at least one racer who
+    #: has raced does not yet have enough runs to drop evenly.
+    drop_worst_runs_applied: bool
 
 
 @strawberry.type
@@ -1332,6 +1344,10 @@ class Race:
     #: above.
     vehicle_singular: str | None
     vehicle_plural: str | None
+    #: How many of each racer's worst counted results are dropped before
+    #: scoring (#547 stage 2) — a modifier over `scoringStrategy`, not a
+    #: strategy of its own. `0` is the off state.
+    drop_worst_runs: int
 
     @strawberry.field
     def terminology(self, info: Info) -> Terminology:

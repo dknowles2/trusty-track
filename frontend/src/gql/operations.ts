@@ -106,6 +106,7 @@ export type RaceUpdateInput = {
   clearTerminology?: boolean;
   clearWeightLimit?: boolean;
   dateTime?: string | null | undefined;
+  dropWorstRuns?: number | null | undefined;
   globalStartNumber?: number | null | undefined;
   location?: string | null | undefined;
   masterRunningOrder?: boolean | null | undefined;

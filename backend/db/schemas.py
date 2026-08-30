@@ -235,6 +235,19 @@ class RaceUpdate(BaseModel):
     #: four fields above.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: How many of each racer's worst counted results to drop before scoring
+    #: (#547 stage 2). Absent means leave alone; `0` is the off state, so
+    #: there is no separate clear flag — sending `0` back on is exactly how
+    #: an operator turns it off, the same shape `master_running_order`'s
+    #: `false` already uses.
+    drop_worst_runs: int | None = None
+
+    @field_validator("drop_worst_runs")
+    @classmethod
+    def drop_worst_runs_is_not_negative(cls, value: int | None) -> int | None:
+        if value is not None and value < 0:
+            raise ValueError("drop_worst_runs cannot be negative")
+        return value
 
 
 class OrganizationBase(BaseModel):
