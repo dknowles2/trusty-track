@@ -32,6 +32,8 @@ const GET_INITIAL_CONFIG = `
       racingGroupPlural
       organizationSingular
       organizationPlural
+      vehicleSingular
+      vehiclePlural
       tracks {
         id
         name
@@ -80,6 +82,8 @@ const CREATE_INITIAL_CONFIG = `
       racingGroupPlural
       organizationSingular
       organizationPlural
+      vehicleSingular
+      vehiclePlural
       tracks {
         id
         name
@@ -102,6 +106,8 @@ const UPDATE_INITIAL_CONFIG = `
       racingGroupPlural
       organizationSingular
       organizationPlural
+      vehicleSingular
+      vehiclePlural
     }
   }
 `;
@@ -166,17 +172,20 @@ export default function SystemConfig() {
   const [displayTheme, setDisplayTheme] = useState<SurfaceThemeSetting>('MATCH_APP');
   const [printablesTheme, setPrintablesTheme] = useState<SurfaceThemeSetting>('MATCH_APP');
 
-  // The install-wide terminology default (#496 stage 3) — what every screen
-  // and printout calls a racing group and the organization itself, "Den" and
-  // "Pack" until an operator renames them here. `customTerminology` is
-  // whether the four inputs are shown at all: off means every field is null,
-  // which is what `clearTerminology` sends back on save. There is no
-  // consumer of the resolved words yet — this is only where they are set.
+  // The install-wide terminology default (#496 stage 3; #551 adds the
+  // vehicle term) — what every screen and printout calls a racing group,
+  // the organization itself, and a racer's vehicle: "Den", "Pack" and "Car"
+  // until an operator renames them here. `customTerminology` is whether the
+  // six inputs are shown at all: off means every field is null, which is
+  // what `clearTerminology` sends back on save. There is no consumer of the
+  // resolved vehicle words yet — this is only where they are set.
   const [customTerminology, setCustomTerminology] = useState(false);
   const [racingGroupSingular, setRacingGroupSingular] = useState<string>(DEFAULT_TERMINOLOGY.racingGroupSingular);
   const [racingGroupPlural, setRacingGroupPlural] = useState<string>(DEFAULT_TERMINOLOGY.racingGroupPlural);
   const [organizationSingular, setOrganizationSingular] = useState<string>(DEFAULT_TERMINOLOGY.organizationSingular);
   const [organizationPlural, setOrganizationPlural] = useState<string>(DEFAULT_TERMINOLOGY.organizationPlural);
+  const [vehicleSingular, setVehicleSingular] = useState<string>(DEFAULT_TERMINOLOGY.vehicleSingular);
+  const [vehiclePlural, setVehiclePlural] = useState<string>(DEFAULT_TERMINOLOGY.vehiclePlural);
 
   const [tracks, setTracks] = useState<TrackFields[]>([blankTrack('Main Track')]);
   const [error, setError] = useState('');
@@ -221,16 +230,21 @@ export default function SystemConfig() {
         racingGroupPlural: savedRacingGroupPlural,
         organizationSingular: savedOrganizationSingular,
         organizationPlural: savedOrganizationPlural,
+        vehicleSingular: savedVehicleSingular,
+        vehiclePlural: savedVehiclePlural,
       } = data.initialConfig;
       const hasCustomTerminology = !!(
         savedRacingGroupSingular || savedRacingGroupPlural ||
-        savedOrganizationSingular || savedOrganizationPlural
+        savedOrganizationSingular || savedOrganizationPlural ||
+        savedVehicleSingular || savedVehiclePlural
       );
       setCustomTerminology(hasCustomTerminology);
       setRacingGroupSingular(savedRacingGroupSingular || DEFAULT_TERMINOLOGY.racingGroupSingular);
       setRacingGroupPlural(savedRacingGroupPlural || DEFAULT_TERMINOLOGY.racingGroupPlural);
       setOrganizationSingular(savedOrganizationSingular || DEFAULT_TERMINOLOGY.organizationSingular);
       setOrganizationPlural(savedOrganizationPlural || DEFAULT_TERMINOLOGY.organizationPlural);
+      setVehicleSingular(savedVehicleSingular || DEFAULT_TERMINOLOGY.vehicleSingular);
+      setVehiclePlural(savedVehiclePlural || DEFAULT_TERMINOLOGY.vehiclePlural);
       if (initialized) {
         setIsEditing(true);
         setOrganizationName(savedOrganizationName || '');
@@ -335,6 +349,8 @@ export default function SystemConfig() {
                 racingGroupPlural,
                 organizationSingular,
                 organizationPlural,
+                vehicleSingular,
+                vehiclePlural,
               }
             : { clearTerminology: true }),
           tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
@@ -454,10 +470,11 @@ export default function SystemConfig() {
                   </div>
 
                   {/* Custom terminology (#496 stage 3, consumed by stage 4's
-                      useTerminology()). A checkbox as well as four inputs,
-                      the same shape as the weight limit above: "off" and "on
-                      but blank" have to be different answers, and an empty
-                      box cannot tell them apart. See
+                      useTerminology(); #551 adds the vehicle pair). A
+                      checkbox as well as six inputs, the same shape as the
+                      weight limit above: "off" and "on but blank" have to
+                      be different answers, and an empty box cannot tell
+                      them apart. See
                       docs/reference/race-settings.md#the-words-on-screen. */}
                   <div data-testid="terminology-fields" style={{ marginBottom: '2rem' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.75rem' }}>
@@ -467,10 +484,10 @@ export default function SystemConfig() {
                         checked={customTerminology}
                         onChange={(e) => setCustomTerminology(e.target.checked)}
                       />
-                      <span style={{ fontWeight: 'bold' }}>Use different words for &ldquo;Den&rdquo; and &ldquo;Pack&rdquo;</span>
+                      <span style={{ fontWeight: 'bold' }}>Use different words for &ldquo;Den&rdquo;, &ldquo;Pack&rdquo; and &ldquo;Car&rdquo;</span>
                     </label>
                     <small style={{ color: 'var(--text-muted-color)', display: 'block', marginBottom: customTerminology ? '0.75rem' : 0 }}>
-                      For a school, a club, or anyone racing the same format under a different name. A race can override this on its own settings too.
+                      For a school, a club, a Space Derby, or anyone racing the same format under different words. A race can override this on its own settings too.
                     </small>
                     {customTerminology && (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -514,6 +531,28 @@ export default function SystemConfig() {
                             id="organization_plural"
                             value={organizationPlural}
                             onChange={(e) => setOrganizationPlural(e.target.value)}
+                            required
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="vehicle_singular" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>One vehicle (was &ldquo;Car&rdquo;)</label>
+                          <input
+                            type="text"
+                            id="vehicle_singular"
+                            value={vehicleSingular}
+                            onChange={(e) => setVehicleSingular(e.target.value)}
+                            required
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="vehicle_plural" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>More than one (was &ldquo;Cars&rdquo;)</label>
+                          <input
+                            type="text"
+                            id="vehicle_plural"
+                            value={vehiclePlural}
+                            onChange={(e) => setVehiclePlural(e.target.value)}
                             required
                             style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                           />

@@ -219,6 +219,8 @@ input InitialConfigInput {
   racingGroupPlural: String = null
   organizationSingular: String = null
   organizationPlural: String = null
+  vehicleSingular: String = null
+  vehiclePlural: String = null
   clearTerminology: Boolean! = false
 }
 
@@ -239,6 +241,8 @@ type InitialConfigStatus {
   racingGroupPlural: String
   organizationSingular: String
   organizationPlural: String
+  vehicleSingular: String
+  vehiclePlural: String
   terminology: Terminology!
 }
 
@@ -351,6 +355,8 @@ type Organization {
   racingGroupPlural: String
   organizationSingular: String
   organizationPlural: String
+  vehicleSingular: String
+  vehiclePlural: String
   terminology: Terminology!
   races: [Race!]!
 }
@@ -413,6 +419,8 @@ type Race {
   racingGroupPlural: String
   organizationSingular: String
   organizationPlural: String
+  vehicleSingular: String
+  vehiclePlural: String
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
@@ -493,6 +501,8 @@ input RaceUpdateInput {
   racingGroupPlural: String = null
   organizationSingular: String = null
   organizationPlural: String = null
+  vehicleSingular: String = null
+  vehiclePlural: String = null
   clearTerminology: Boolean! = false
 }
 
@@ -622,6 +632,8 @@ type Terminology {
   racingGroupPlural: String!
   organizationSingular: String!
   organizationPlural: String!
+  vehicleSingular: String!
+  vehiclePlural: String!
 }
 
 type TimerModel {

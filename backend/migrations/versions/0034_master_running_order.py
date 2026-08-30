@@ -9,8 +9,12 @@ and `0032_race_tiebreaker`: this lands on a table that already has rows, and
 a plain ``NOT NULL`` add-column with no default fails against every existing
 install.
 
-Revision ID: 0033_master_running_order
-Revises: 0032_race_tiebreaker
+Re-parented onto `0033_vehicle_terminology` (#551) rather than
+`0032_race_tiebreaker`: both landed as siblings off the same parent, and this
+one merged second.
+
+Revision ID: 0034_master_running_order
+Revises: 0033_vehicle_terminology
 """
 
 from collections.abc import Sequence
@@ -19,8 +23,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0033_master_running_order"
-down_revision: str | Sequence[str] | None = "0032_race_tiebreaker"
+revision: str = "0034_master_running_order"
+down_revision: str | Sequence[str] | None = "0033_vehicle_terminology"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

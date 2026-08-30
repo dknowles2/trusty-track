@@ -1,13 +1,20 @@
-"""What a screen calls a racing group, and what it calls the organization
-that holds them (#496, stage 3).
+"""What a screen calls a racing group, the organization that holds them, and
+the thing being raced (#496, stage 3; #551 adds the third term).
 
-Two configurable terms, each stored as a singular and a plural — English
+Three configurable terms, each stored as a singular and a plural — English
 plurals are irregular, and deriving "Classes" from "Class" is a rule nobody
-should own. The third field the issue considered, the racing group's
-`division` (Cub Scout rank, school grade, ...), stays a fixed "Category"
-label rather than becoming a third configurable term: it is branding on one
-row, not vocabulary a whole screen is built from, and two terms are already
-eight columns across the two scopes below.
+should own. A racing group's `division` (Cub Scout rank, school grade, ...)
+stays a fixed "Category" label rather than becoming a fourth configurable
+term: it is branding on one row, not vocabulary a whole screen is built from,
+and three terms are already twelve columns across the two scopes below.
+
+The third term — what a racer's vehicle is called — is #551's own reason for
+existing: a Space Derby races rockets, a Raingutter Regatta races boats, and
+both were reading "Car #14" on every screen with no way to say otherwise. The
+storage-layer columns (`car_number`, `car_name`, ...) and the `CarNumberingStrategy`
+enum are deliberately *not* renamed — they are API and database identifiers,
+not display copy, and #551 explicitly declines that migration for zero
+user-visible gain. Only the word a screen shows is configurable.
 
 Two scopes, layered:
 
@@ -44,6 +51,8 @@ class Terminology:
     racing_group_plural: str
     organization_singular: str
     organization_plural: str
+    vehicle_singular: str
+    vehicle_plural: str
 
 
 @dataclass(frozen=True)
@@ -53,7 +62,7 @@ class TerminologyOverrides:
     Every field is optional and independent of the others — a race can
     rename "Pack" without touching "Den", and an organization that has
     renamed neither is simply every field left `None`. This is the shape
-    both `models.Organization` and `models.Race` store: four nullable
+    both `models.Organization` and `models.Race` store: six nullable
     columns apiece, read straight into this dataclass at the GraphQL
     boundary.
     """
@@ -62,6 +71,8 @@ class TerminologyOverrides:
     racing_group_plural: str | None = None
     organization_singular: str | None = None
     organization_plural: str | None = None
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
 
 
 #: The words every install showed before this existed, and what an
@@ -71,14 +82,16 @@ DEFAULT_TERMINOLOGY = Terminology(
     racing_group_plural="Dens",
     organization_singular="Pack",
     organization_plural="Packs",
+    vehicle_singular="Car",
+    vehicle_plural="Cars",
 )
 
 
 def overrides_from_row(row: object) -> TerminologyOverrides:
-    """Read one layer's four override columns off an ORM row.
+    """Read one layer's six override columns off an ORM row.
 
     Works for both `models.Organization` and `models.Race` — they carry the
-    same four column names for exactly this reason. Takes a duck-typed
+    same six column names for exactly this reason. Takes a duck-typed
     ``object`` rather than one of those ORM types so this module stays free
     of SQLAlchemy imports (#8); `getattr` with a `None` default reads a row
     that predates a column the same as one that has it and leaves it unset.
@@ -88,6 +101,8 @@ def overrides_from_row(row: object) -> TerminologyOverrides:
         racing_group_plural=getattr(row, "racing_group_plural", None),
         organization_singular=getattr(row, "organization_singular", None),
         organization_plural=getattr(row, "organization_plural", None),
+        vehicle_singular=getattr(row, "vehicle_singular", None),
+        vehicle_plural=getattr(row, "vehicle_plural", None),
     )
 
 
@@ -98,7 +113,7 @@ def resolve_terminology(
     """Layer a race override over an organization default over the built-in
     Scouting words.
 
-    Each of the four fields resolves independently: a race may override only
+    Each of the six fields resolves independently: a race may override only
     `organization_singular` and still inherit `racing_group_singular` from
     the organization (or, if the organization has not set it either, from
     `DEFAULT_TERMINOLOGY`). `organization` absent is the same as every field
@@ -136,5 +151,19 @@ def resolve_terminology(
             else org.organization_plural
             if org.organization_plural is not None
             else DEFAULT_TERMINOLOGY.organization_plural
+        ),
+        vehicle_singular=(
+            rc.vehicle_singular
+            if rc.vehicle_singular is not None
+            else org.vehicle_singular
+            if org.vehicle_singular is not None
+            else DEFAULT_TERMINOLOGY.vehicle_singular
+        ),
+        vehicle_plural=(
+            rc.vehicle_plural
+            if rc.vehicle_plural is not None
+            else org.vehicle_plural
+            if org.vehicle_plural is not None
+            else DEFAULT_TERMINOLOGY.vehicle_plural
         ),
     )
