@@ -735,6 +735,13 @@ class RaceUpdateInput:
     championship_trophies: int | None = None
     auto_advance_heat: bool | None = None
     weight_limit_oz: float | None = None
+    #: One interleaved running order across racing groups, rather than a
+    #: block per group (#549 stage 2) — off by default, since running one
+    #: den at a time is how many packs deliberately structure an event.
+    #: `false` is an ordinary value here, not a sentinel: it is already what
+    #: every race had before this column existed, so there is no separate
+    #: clear flag the way `clearWeightLimit` needs one.
+    master_running_order: bool | None = None
     #: Whether a phone with no PIN may vote right now (#305).
     voting_open: bool | None = None
     # Turning the weight check off, explicitly (#205).
@@ -1260,6 +1267,11 @@ class Race:
     auto_advance_heat: bool
     # Null means the race does not check weights (#205).
     weight_limit_oz: float | None
+    #: One interleaved running order across racing groups, rather than a
+    #: block per group (#549 stage 2). Off by default; applying it is
+    #: `applyMasterRunningOrder`, not this flag by itself — flipping it on
+    #: does not reorder anything until that mutation runs.
+    master_running_order: bool
     #: Whether a phone with no PIN may vote for a `SPECIAL` award right now
     #: (#305). An operator toggle, not tied to racing progress.
     voting_open: bool
@@ -4130,6 +4142,34 @@ class Mutation:
             await _publish_race_state(
                 updated_heats[0].race_id, kind=RaceChangeKind.SCHEDULE
             )
+        return HeatReorderResponse(
+            updated_count=len(updated_heats), heats=typing.cast(Any, updated_heats)
+        )
+
+    @strawberry.mutation
+    async def apply_master_running_order(
+        self, info: Info, race_id: int
+    ) -> HeatReorderResponse:
+        """Interleave the race's current rounds into one running order (#549).
+
+        Every heat some other generator already scheduled — PPC, balanced,
+        elimination — stays exactly as scheduled; this only decides the
+        *sequence* they run in, across rounds rather than one block per
+        racing group. `domain/running_order.py` computes the order and this
+        writes it through `_write_heat_numbers`, the same door `reorderHeats`
+        uses, so a heat is never written a second way.
+
+        Only pending heats move. A heat that already holds a result keeps
+        its `heatNumber` — `recorded_at` is the record of when it ran (#59),
+        and an announcer who already called it must find it unchanged.
+        Nothing here regenerates a heat or reassigns its lanes, so an armed
+        heat's own identity survives exactly as `reorderHeats`'s drag-to-
+        reorder already leaves it.
+        """
+        db = info.context["db"]
+        updated_heats = crud.apply_master_running_order(db, race_id)
+        if updated_heats:
+            await _publish_race_state(race_id, kind=RaceChangeKind.SCHEDULE)
         return HeatReorderResponse(
             updated_count=len(updated_heats), heats=typing.cast(Any, updated_heats)
         )

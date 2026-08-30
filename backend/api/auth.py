@@ -145,6 +145,11 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "deleteRound",
         "deleteHeat",
         "reorderHeats",
+        # One interleaved running order across racing groups (#549). Same
+        # bucket as reorderHeats: it writes heat_number through that same
+        # door, and both change only the running order, never a schedule's
+        # content.
+        "applyMasterRunningOrder",
         # Results and advancement
         "advanceRound",
         "updateHeatResult",

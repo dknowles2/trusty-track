@@ -18,6 +18,7 @@ from backend.domain import (
     elimination,
     lanes,
     latecomers,
+    running_order,
     scheduling,
     terminology,
 )
@@ -2137,6 +2138,36 @@ def auto_number_racers(
     return updated_count
 
 
+def _write_heat_numbers(db: Session, update_map: dict[int, int]) -> list[models.Heat]:
+    """Write ``heat_number`` for a set of heats and commit. The one door.
+
+    Shared by :func:`reorder_heats` (one round, an operator's drag) and
+    :func:`apply_master_running_order` (several rounds, a generated order) —
+    both ultimately do the same thing: point ``Heat.heat_number``, the
+    running order, at new values and persist them. Neither writes a heat row
+    a second way; the difference between the two callers is entirely in what
+    they are allowed to reorder, checked before this is reached.
+    """
+    from fastapi import HTTPException
+
+    if not update_map:
+        return []
+
+    heats = db.query(models.Heat).filter(models.Heat.id.in_(update_map.keys())).all()
+    if len(heats) != len(update_map):
+        raise HTTPException(status_code=404, detail="One or more heat IDs not found")
+
+    for heat in heats:
+        heat.heat_number = update_map[heat.id]
+
+    db.commit()
+
+    for heat in heats:
+        db.refresh(heat)
+
+    return sorted(heats, key=lambda h: h.heat_number)
+
+
 def reorder_heats(db: Session, heat_updates: list[dict]) -> list[models.Heat]:
     """
     Reorder heats within a round by updating their heat_number.
@@ -2156,38 +2187,77 @@ def reorder_heats(db: Session, heat_updates: list[dict]) -> list[models.Heat]:
     if not heat_updates:
         return []
 
-    # Fetch all heats by ID
+    # Fetch all heats by ID up front, only to check they share a round — the
+    # drag-and-drop schedule screen reorders within one round at a time, and
+    # this is the one caller that enforces that. `apply_master_running_order`
+    # deliberately does not, since spanning rounds is the whole point of it.
     heat_ids = [update["heat_id"] for update in heat_updates]
     heats = db.query(models.Heat).filter(models.Heat.id.in_(heat_ids)).all()
 
     if len(heats) != len(heat_ids):
         raise HTTPException(status_code=404, detail="One or more heat IDs not found")
 
-    # Verify all heats belong to the same round
     round_ids = {heat.round_id for heat in heats}
     if len(round_ids) > 1:
         raise HTTPException(
             status_code=400, detail="Cannot reorder heats from different rounds"
         )
 
-    # Create a mapping of heat_id to new_heat_number
     update_map = {
         update["heat_id"]: update["new_heat_number"] for update in heat_updates
     }
+    return _write_heat_numbers(db, update_map)
 
-    # Update each heat's heat_number
-    for heat in heats:
-        if heat.id in update_map:
-            heat.heat_number = update_map[heat.id]
 
-    # Commit the transaction
-    db.commit()
+def apply_master_running_order(db: Session, race_id: int) -> list[models.Heat]:
+    """Interleave every current round's *pending* heats into one running order.
 
-    # Refresh and return updated heats, sorted by heat_number
-    for heat in heats:
-        db.refresh(heat)
+    "Pending" is exactly `recorded_at is None` (#59) — a heat's spot in
+    history is `recorded_at`, and that stays untouched. A recorded heat's own
+    `heat_number` is therefore never rewritten here: an announcer who has
+    already called heat 6 must find heat 6 unchanged.
 
-    return sorted(heats, key=lambda h: h.heat_number)
+    Each round contributes its own pending heats, in their existing order, as
+    one `running_order.GroupSchedule` — `domain/running_order.py` decides how
+    to weave the rounds together, not this function. `round.id` breaks ties
+    between rounds whose credit comes out equal (see `interleave`'s
+    docstring); it means nothing else here.
+
+    New numbers are written through `_write_heat_numbers`, the same door
+    `reorder_heats` uses, starting one past the highest `heat_number` this
+    race has anywhere — recorded or pending, in every round — so a
+    newly-assigned number can never collide with a heat that already has a
+    place in some round's own history.
+    """
+    all_heats = get_heats(db, race_id)
+    if not all_heats:
+        return []
+
+    pending = [h for h in all_heats if h.recorded_at is None]
+    if not pending:
+        return []
+
+    lanes_by_heat = lanes_for_heats(db, pending)
+
+    groups: dict[int, list[running_order.HeatEntry[int]]] = {}
+    for heat, heat_lanes in zip(pending, lanes_by_heat, strict=True):
+        assert heat.round_id is not None  # get_heats excludes free heats (#6)
+        groups.setdefault(heat.round_id, []).append(
+            running_order.HeatEntry(
+                handle=heat.id,
+                racer_ids=frozenset(lanes.real_racer_ids(heat_lanes)),
+            )
+        )
+
+    schedules = [
+        running_order.GroupSchedule(group_id=round_id, heats=entries)
+        for round_id, entries in groups.items()
+    ]
+    order = running_order.interleave(schedules)
+
+    base = max(h.heat_number for h in all_heats) + 1
+    update_map = {heat_id: base + position for position, heat_id in enumerate(order)}
+    return _write_heat_numbers(db, update_map)
 
 
 def bulk_delete_racers(db: Session, racer_ids: list[int]):

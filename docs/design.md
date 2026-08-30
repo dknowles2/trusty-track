@@ -75,6 +75,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `rules_configuration` (JSON string, optional — vestigial; nothing reads or writes it)
     -   `weight_limit_oz` (Float, optional — the pack's weight limit; null means the race does not check weights)
     -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)
+    -   `master_running_order` (Boolean, default `false`) — one interleaved running order across racing groups rather than a block per group (#549). The flag alone reorders nothing; `applyMasterRunningOrder` computes the interleave (`domain/running_order.py`) and writes it through the same door `reorderHeats` uses.
     -   `voting_open` (Boolean, default `false`) — whether a phone holding no PIN may vote for a `SPECIAL` award right now (#305); an operator toggle, not tied to racing progress
     -   `racing_group_singular`, `racing_group_plural`, `organization_singular`, `organization_plural` (`varchar`, nullable — #496 stage 3) — a per-race override of the organization's terminology default, for one install running two differently-worded events. Null means inherit the organization's word; `clearTerminology` on `updateRace` is the explicit way back to null, following `weight_limit_oz`/`clearWeightLimit` above.
     -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
@@ -191,7 +192,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
 -   Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord` — the hand-entered historical records (`HistoricalTrackRecord`), merged into `raceStats.trackRecords` beside the computed ones
 -   Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay` (operator-only — a display is a `VIEWER` and is *told*, never asks) (takes the whole set of out-of-service lanes, since the screen is a row of checkboxes and a repaired lane is simply absent; brings existing scheduled heats into line). `identifyDisplay(displayId)` bumps `Display.identifySeq` (#495) — the same step-not-state shape as `advanceDisplay`'s `slideSeq`, so the screen flashes its own name once rather than on every reconnect.
--   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`
+-   Round/schedule: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `reorderHeats`, `applyMasterRunningOrder` (interleaves the race's current rounds' pending heats into one running order across racing groups, #549 — recorded heats keep their `heatNumber`; off by default via `Race.masterRunningOrder`)
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
 -   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 -   Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`

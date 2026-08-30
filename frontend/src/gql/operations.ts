@@ -106,6 +106,7 @@ export type RaceUpdateInput = {
   dateTime?: string | null | undefined;
   globalStartNumber?: number | null | undefined;
   location?: string | null | undefined;
+  masterRunningOrder?: boolean | null | undefined;
   name?: string | null | undefined;
   organizationPlural?: string | null | undefined;
   organizationSingular?: string | null | undefined;
