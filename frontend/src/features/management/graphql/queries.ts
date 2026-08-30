@@ -14,6 +14,9 @@ export const GET_RACE_DETAILS = gql`
       globalStartNumber
       championshipTrophies
       weightLimitOz
+      # One interleaved running order across racing groups, rather than a
+      # block per group (#549 stage 4) — RaceForm's checkbox for it.
+      masterRunningOrder
       racingGroupSingular
       racingGroupPlural
       organizationSingular
@@ -100,6 +103,7 @@ export const UPDATE_RACE = gql`
       globalStartNumber
       championshipTrophies
       weightLimitOz
+      masterRunningOrder
       racingGroupSingular
       racingGroupPlural
       organizationSingular

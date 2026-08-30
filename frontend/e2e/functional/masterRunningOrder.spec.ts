@@ -175,17 +175,18 @@ test('the schedule lets a later round\'s heat run while an earlier round is open
     );
 
     await page.goto(`/race/${raceId}/control`);
-    await expect(page.getByText(`Heat ${secondPick.heatNumber}`, { exact: true })).toBeVisible({
-        timeout: 30000,
-    });
+    // The stage-4 master-order panel lists every heat too, so scope to the
+    // per-round tables' rows — the ones carrying a Run button.
+    const row = page
+        .getByRole('row')
+        .filter({ hasText: `Heat ${secondPick.heatNumber}` })
+        .filter({ has: page.getByRole('button', { name: 'Run', exact: true }) });
+    await expect(row).toBeVisible({ timeout: 30000 });
 
     // No round is gated behind another any more.
     await expect(page.getByTitle('Complete previous rounds first')).toHaveCount(0);
 
     // Run the other den's heat straight from its row.
-    const row = page.getByRole('row').filter({
-        hasText: `Heat ${secondPick.heatNumber}`,
-    });
     const runButton = row.getByRole('button', { name: 'Run', exact: true });
     await expect(runButton).toBeEnabled();
     await runButton.click();

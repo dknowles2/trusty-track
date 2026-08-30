@@ -20,6 +20,7 @@ import {
   REORDER_HEATS_MUTATION,
   UPDATE_HEAT_RESULT_MUTATION,
   UPDATE_RACE_AUTO_ADVANCE_MUTATION,
+  APPLY_MASTER_RUNNING_ORDER_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
 import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
@@ -65,6 +66,7 @@ export default function RaceControl() {
   const [, reorderHeatsMutation] = useMutation(REORDER_HEATS_MUTATION);
   const [, updateHeatResultMutation] = useMutation(UPDATE_HEAT_RESULT_MUTATION);
   const [, updateRaceMutation] = useMutation(UPDATE_RACE_AUTO_ADVANCE_MUTATION);
+  const [, applyMasterRunningOrderMutation] = useMutation(APPLY_MASTER_RUNNING_ORDER_MUTATION);
 
   // Keep every open tab in sync. Heat results and check-ins arrive with the
   // updated entity and merge into the normalized cache; only structural
@@ -356,6 +358,38 @@ export default function RaceControl() {
           .filter((round: Round) => round.advancementFromBottom)
           .map((round: Round) => round.id)
   );
+
+  // A round's own racing group, by round id (#549 stage 4) — what labels a
+  // heat in the master running order. Absent for a round scoped to no single
+  // group, which `ScheduleManagement` reads as an ordinary state, not a
+  // missing one. Resolved against `race.racingGroups`, which the query
+  // already fetches for the roster toggle — a second name-carrying field on
+  // `Round` would be a second copy of the same name.
+  const roundGroupLabel = useMemo(() => {
+      const groupsById = new Map<number, string>();
+      (race?.racingGroups ?? []).forEach((g: { id: number; name: string }) => {
+          groupsById.set(g.id, g.name);
+      });
+      const labels: Record<number, string> = {};
+      (race?.rounds ?? []).forEach((round: Round) => {
+          if (round.racingGroupId != null) {
+              const name = groupsById.get(round.racingGroupId);
+              if (name) labels[round.id] = name;
+          }
+      });
+      return labels;
+  }, [race?.racingGroups, race?.rounds]);
+
+  // Recomputes the whole interleave from scratch — a deliberate, re-runnable
+  // operator action from the Schedule screen, not the automatic mid-event
+  // repair a lane outage or a latecomer triggers on its own seam (#549
+  // stage 3). Throws on failure, same shape as `handleReorderHeats`, so
+  // `ScheduleManagement`'s own catch/toast runs for it.
+  const handleApplyMasterRunningOrder = useCallback(async () => {
+      const result = await applyMasterRunningOrderMutation({ raceId: id });
+      if (result.error) throw result.error;
+      reExecute({ requestPolicy: 'network-only' });
+  }, [applyMasterRunningOrderMutation, id, reExecute]);
 
   const getRacerName = (id: number, fromBottom?: boolean) => {
       if (id < 0) {
@@ -757,7 +791,6 @@ export default function RaceControl() {
           heats={heats}
           generating={generating}
           activeHeatId={activeHeatId}
-          masterRunningOrder={masterRunningOrder}
           onAddRound={handleAddRound}
           onRegenerateRound={handleRegenerateRound}
           onDeleteRound={handleDeleteRound}
@@ -765,6 +798,10 @@ export default function RaceControl() {
           onRefetchHeats={async () => { reExecute({ requestPolicy: 'network-only' }); }}
           onRunHeat={handleRunHeat}
           onReorderHeats={handleReorderHeats}
+          masterRunningOrder={masterRunningOrder}
+          championshipRoundIds={championshipRoundIds}
+          roundGroupLabel={roundGroupLabel}
+          onApplyMasterRunningOrder={handleApplyMasterRunningOrder}
           getRacerName={getRacerName}
           laneCount={race?.track?.laneCount || 4}
           racerCount={race?.racers?.length || 0}

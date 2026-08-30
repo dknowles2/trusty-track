@@ -144,9 +144,12 @@ export const GET_RACE_CONTROL_DATA = gql`
       championshipTrophies
       scoringStrategy
       autoAdvanceHeat
-      masterRunningOrder
       registeredCount
       checkedInCount
+      # One interleaved running order across racing groups (#549) — the flag
+      # ScheduleManagement reads to show the master order at all, and what
+      # gates the whole execution flow's sort (runningOrder.ts).
+      masterRunningOrder
       track {
         id
         laneCount
@@ -187,6 +190,11 @@ export const GET_RACE_CONTROL_DATA = gql`
         advancementSource
         advancementFromBottom
         schedulingStrategy
+        # Which racing group this round belongs to, if any (#549 stage 4) —
+        # what labels a heat in the master running order view. Resolved to a
+        # name client-side against race.racingGroups, which the query
+        # already fetches.
+        racingGroupId
         advancementStatus {
           isReady
           requiresAdvancement
@@ -243,6 +251,18 @@ export const DELETE_HEAT_MUTATION = gql`
 export const REORDER_HEATS_MUTATION = gql`
   mutation ReorderHeats($heatUpdates: [HeatReorderItemInput!]!) {
     reorderHeats(heatUpdates: $heatUpdates) {
+      updatedCount
+    }
+  }
+`;
+
+// Interleaves the race's current rounds into one running order across
+// racing groups (#549 stage 4). Writes through the same door reorderHeats
+// uses, so nothing here decides what changed — the schedule refetch after
+// the mutation is what shows the result, the same as a drag-and-drop reorder.
+export const APPLY_MASTER_RUNNING_ORDER_MUTATION = gql`
+  mutation ApplyMasterRunningOrder($raceId: Int!) {
+    applyMasterRunningOrder(raceId: $raceId) {
       updatedCount
     }
   }

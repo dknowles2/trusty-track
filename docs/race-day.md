@@ -338,6 +338,37 @@ _Drag the handle at the left-hand end of a heat's row to reorder it within the r
 
 ---
 
+### Running Several Dens at Once (Optional)
+
+By default, each den races its own round as a block — the Lions straight
+through, then the Tigers, and so on — and the track sits idle between blocks
+while the next den's cars are collected and staged. If your pack has several
+dens racing the same event, **Interleave heats across every den** weaves
+every den's heats into one running order instead, so the next den is already
+staged while the current one races.
+
+1. Tick **Interleave heats across every den** on the race form — edit the
+   race from the Roster page if it already exists.
+2. Build your rounds exactly as you would for any other race — one round
+   per den, raced however you like.
+3. On the Schedule tab, a **Master running order** panel appears above the
+   per-round tables. Click **Apply master order** to weave the dens'
+   current heats together.
+
+Once applied, the **Race** tab and the audience displays follow the woven
+order — after a Lion heat the next heat offered is usually a Tiger heat,
+with its line-up already showing in **On Deck**. Any pending heat can also
+be run straight from the Schedule tab, whatever round it belongs to, and
+dragging heats within a round is switched off while the setting is on — a
+hand-reorder would pull that round out of the weave.
+
+Nothing about how a den's own round is scheduled changes — only the order
+the heats run in. Full rules, including how a late arrival or a dead lane is
+folded into the running order without disturbing a heat already called, are
+in [Running order across groups](reference/running-order.md).
+
+---
+
 ## Part 3: Running the Race
 
 ### The Race Execution View

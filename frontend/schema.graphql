@@ -275,6 +275,7 @@ type LeaderboardEntry {
   racerImageUrl: String
   rank: Int!
   resolvedBy: String
+  dropWorstRunsApplied: Boolean!
 }
 
 type LiveLane {
@@ -423,6 +424,7 @@ type Race {
   organizationPlural: String
   vehicleSingular: String
   vehiclePlural: String
+  dropWorstRuns: Int!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
@@ -506,6 +508,7 @@ input RaceUpdateInput {
   vehicleSingular: String = null
   vehiclePlural: String = null
   clearTerminology: Boolean! = false
+  dropWorstRuns: Int = null
 }
 
 type Racer {
@@ -591,6 +594,7 @@ type Round {
   eliminationLosses: Int
   balancedPhases: Int
   disrupted: Boolean!
+  racingGroupId: Int
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
 }
