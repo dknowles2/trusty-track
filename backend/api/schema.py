@@ -520,13 +520,15 @@ class Terminology:
     racing_group_plural: str
     organization_singular: str
     organization_plural: str
+    vehicle_singular: str
+    vehicle_plural: str
 
 
 def _terminology_overrides(row: Any) -> domain_terminology.TerminologyOverrides:
-    """Read one layer's four override columns off an ORM row.
+    """Read one layer's six override columns off an ORM row.
 
     Works for both `models.Organization` and `models.Race` — they carry the
-    same four column names for exactly this reason. `crud.default_general_round_name`
+    same six column names for exactly this reason. `crud.default_general_round_name`
     reads the same way, through `domain_terminology.overrides_from_row`
     directly, since `db.crud` has no business importing from `api.schema`.
     """
@@ -539,6 +541,8 @@ def _terminology_type(t: domain_terminology.Terminology) -> Terminology:
         racing_group_plural=t.racing_group_plural,
         organization_singular=t.organization_singular,
         organization_plural=t.organization_plural,
+        vehicle_singular=t.vehicle_singular,
+        vehicle_plural=t.vehicle_plural,
     )
 
 
@@ -564,6 +568,8 @@ def _terminology_status_kwargs(organization: Any) -> dict[str, Any]:
         "organization_plural": organization.organization_plural
         if organization
         else None,
+        "vehicle_singular": organization.vehicle_singular if organization else None,
+        "vehicle_plural": organization.vehicle_plural if organization else None,
         "terminology": _terminology_type(
             domain_terminology.resolve_terminology(organization=overrides)
         ),
@@ -616,6 +622,10 @@ class InitialConfigStatus:
     racing_group_plural: str | None = None
     organization_singular: str | None = None
     organization_plural: str | None = None
+    #: The organization's raw vehicle-word override (#551), null where it
+    #: has not renamed "Car" — same distinction as the four fields above.
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
     #: The resolved words — organization default over the built-in Scouting
     #: ones, with no race in play here. Defaulted so the unconfigured branch
     #: (no organization yet) still returns something rather than nothing.
@@ -659,6 +669,12 @@ class InitialConfigInput:
     racing_group_plural: str | None = None
     organization_singular: str | None = None
     organization_plural: str | None = None
+    #: The install-wide default word for a racer's vehicle (#551) — "Car" by
+    #: default, wrong for a Space Derby or a Raingutter Regatta. Same
+    #: absent-means-leave-alone shape as the racing-group/organization words
+    #: above, and covered by the same `clearTerminology` flag.
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
     clear_terminology: bool = False
 
 
@@ -753,6 +769,10 @@ class RaceUpdateInput:
     racing_group_plural: str | None = None
     organization_singular: str | None = None
     organization_plural: str | None = None
+    #: A per-race override of the organization's vehicle word (#551), the
+    #: same shape as the four fields above.
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
     #: The explicit way back to "inherit the organization's word", for the
     #: same reason `clear_weight_limit` exists: absent already means leave
     #: alone, so nothing else can ask for null.
@@ -1266,6 +1286,11 @@ class Race:
     racing_group_plural: str | None
     organization_singular: str | None
     organization_plural: str | None
+    #: This race's raw vehicle-word override, null where it inherits the
+    #: organization's word (#551) — same distinction as the four fields
+    #: above.
+    vehicle_singular: str | None
+    vehicle_plural: str | None
 
     @strawberry.field
     def terminology(self, info: Info) -> Terminology:
@@ -1455,6 +1480,10 @@ class Organization:
     racing_group_plural: str | None
     organization_singular: str | None
     organization_plural: str | None
+    #: This organization's raw vehicle-word override, null where it has not
+    #: renamed "Car" (#551) — same distinction as the four fields above.
+    vehicle_singular: str | None
+    vehicle_plural: str | None
 
     @strawberry.field
     def terminology(self) -> Terminology:
@@ -2481,6 +2510,8 @@ _TERMINOLOGY_FIELDS = (
     "racing_group_plural",
     "organization_singular",
     "organization_plural",
+    "vehicle_singular",
+    "vehicle_plural",
 )
 
 

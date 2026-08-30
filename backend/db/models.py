@@ -195,6 +195,16 @@ class Organization(Base):
     racing_group_plural: Mapped[str | None] = mapped_column(String, nullable=True)
     organization_singular: Mapped[str | None] = mapped_column(String, nullable=True)
     organization_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    # The install-wide default word for a racer's vehicle (#551) — "Car" by
+    # default, wrong for a Space Derby (rockets) or a Raingutter Regatta
+    # (boats). Same null-means-inherit shape as the four columns above, and
+    # the same reason there is no non-null sentinel: an organization's own
+    # word for this could legitimately be any string. Deliberately not a
+    # rename of `car_number`/`car_name`/`CarNumberingStrategy` and the rest —
+    # those are storage and API, not display copy; only the word a screen
+    # shows is configurable.
+    vehicle_singular: Mapped[str | None] = mapped_column(String, nullable=True)
+    vehicle_plural: Mapped[str | None] = mapped_column(String, nullable=True)
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="organization")
 
@@ -375,6 +385,11 @@ class Race(Base):
     racing_group_plural: Mapped[str | None] = mapped_column(String, nullable=True)
     organization_singular: Mapped[str | None] = mapped_column(String, nullable=True)
     organization_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    # A per-race override of the organization's vehicle word (#551), the
+    # same shape and the same `clearTerminology` flag as the four columns
+    # above.
+    vehicle_singular: Mapped[str | None] = mapped_column(String, nullable=True)
+    vehicle_plural: Mapped[str | None] = mapped_column(String, nullable=True)
 
     organization: Mapped["Organization"] = relationship(
         "Organization", back_populates="races"

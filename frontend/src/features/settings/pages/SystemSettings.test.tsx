@@ -799,7 +799,7 @@ describe('the Appearance section (#498)', () => {
     });
 });
 
-describe('Terminology (#496 stage 3)', () => {
+describe('Terminology (#496 stage 3; #551 adds the vehicle term)', () => {
     const configured = {
         initialized: true,
         organizationName: 'Pack 42',
@@ -810,6 +810,8 @@ describe('Terminology (#496 stage 3)', () => {
         racingGroupPlural: null,
         organizationSingular: null,
         organizationPlural: null,
+        vehicleSingular: null,
+        vehiclePlural: null,
         tracks: [
             { id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false },
         ],
@@ -828,8 +830,9 @@ describe('Terminology (#496 stage 3)', () => {
 
         await openSection('general');
 
-        expect(screen.getByLabelText('Use different words for “Den” and “Pack”')).not.toBeChecked();
+        expect(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”')).not.toBeChecked();
         expect(screen.queryByLabelText('One racing group (was “Den”)')).toBeNull();
+        expect(screen.queryByLabelText('One vehicle (was “Car”)')).toBeNull();
     });
 
     it('seeds the checkbox and fields from a saved override', async () => {
@@ -841,6 +844,8 @@ describe('Terminology (#496 stage 3)', () => {
                     racingGroupPlural: 'Classes',
                     organizationSingular: 'Club',
                     organizationPlural: 'Clubs',
+                    vehicleSingular: 'Rocket',
+                    vehiclePlural: 'Rockets',
                 },
             },
             fetching: false,
@@ -857,9 +862,37 @@ describe('Terminology (#496 stage 3)', () => {
 
         await openSection('general');
 
-        expect(screen.getByLabelText('Use different words for “Den” and “Pack”')).toBeChecked();
+        expect(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”')).toBeChecked();
         expect(screen.getByLabelText('One racing group (was “Den”)')).toHaveValue('Class');
         expect(screen.getByLabelText('The organization itself (was “Pack”)')).toHaveValue('Club');
+        expect(screen.getByLabelText('One vehicle (was “Car”)')).toHaveValue('Rocket');
+    });
+
+    it('seeds the checkbox when only the vehicle word has been customized', async () => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    ...configured,
+                    vehicleSingular: 'Boat',
+                    vehiclePlural: 'Boats',
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('general');
+
+        expect(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”')).toBeChecked();
+        expect(screen.getByLabelText('One vehicle (was “Car”)')).toHaveValue('Boat');
     });
 
     it('sends clearTerminology when the box is left unchecked', async () => {
@@ -886,9 +919,10 @@ describe('Terminology (#496 stage 3)', () => {
         const sent = mockUpdate.mock.calls[0][0].config;
         expect(sent.clearTerminology).toBe(true);
         expect(sent.racingGroupSingular).toBeUndefined();
+        expect(sent.vehicleSingular).toBeUndefined();
     });
 
-    it('sends the four words, and no clearTerminology, once the box is checked', async () => {
+    it('sends the six words, and no clearTerminology, once the box is checked', async () => {
         const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
         (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
         (useMutation as any).mockImplementation((query: any) =>
@@ -906,9 +940,11 @@ describe('Terminology (#496 stage 3)', () => {
         );
 
         await openSection('general');
-        await user.click(screen.getByLabelText('Use different words for “Den” and “Pack”'));
+        await user.click(screen.getByLabelText('Use different words for “Den”, “Pack” and “Car”'));
         await user.clear(screen.getByLabelText('One racing group (was “Den”)'));
         await user.type(screen.getByLabelText('One racing group (was “Den”)'), 'Class');
+        await user.clear(screen.getByLabelText('One vehicle (was “Car”)'));
+        await user.type(screen.getByLabelText('One vehicle (was “Car”)'), 'Rocket');
         await user.click(screen.getByText('Save Settings'));
 
         await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
@@ -916,10 +952,12 @@ describe('Terminology (#496 stage 3)', () => {
         expect(sent.racingGroupSingular).toBe('Class');
         // The other three were left at the seeded default rather than the
         // organization's own saved words, but they still travel — one box
-        // controls all four together.
+        // controls all six together.
         expect(sent.racingGroupPlural).toBe('Dens');
         expect(sent.organizationSingular).toBe('Pack');
         expect(sent.organizationPlural).toBe('Packs');
+        expect(sent.vehicleSingular).toBe('Rocket');
+        expect(sent.vehiclePlural).toBe('Cars');
         expect(sent.clearTerminology).toBeUndefined();
     });
 });

@@ -134,6 +134,8 @@ class InitialConfigCreate(BaseModel):
     racing_group_plural: str | None = None
     organization_singular: str | None = None
     organization_plural: str | None = None
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
     clear_terminology: bool = False
 
 
@@ -223,6 +225,10 @@ class RaceUpdate(BaseModel):
     racing_group_plural: str | None = None
     organization_singular: str | None = None
     organization_plural: str | None = None
+    #: A per-race override of the vehicle word (#551), same shape as the
+    #: four fields above.
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
 
 
 class OrganizationBase(BaseModel):

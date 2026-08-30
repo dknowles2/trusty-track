@@ -13,4 +13,6 @@ export const DEFAULT_TERMINOLOGY = {
     racingGroupPlural: 'Dens',
     organizationSingular: 'Pack',
     organizationPlural: 'Packs',
+    vehicleSingular: 'Car',
+    vehiclePlural: 'Cars',
 } as const;

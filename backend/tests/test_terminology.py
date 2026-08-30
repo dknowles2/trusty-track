@@ -29,6 +29,8 @@ TERMINOLOGY_FIELDS = """
     racingGroupPlural
     organizationSingular
     organizationPlural
+    vehicleSingular
+    vehiclePlural
 """
 
 
@@ -54,6 +56,8 @@ class TestBuiltInDefault:
             "racingGroupPlural": "Dens",
             "organizationSingular": "Pack",
             "organizationPlural": "Packs",
+            "vehicleSingular": "Car",
+            "vehiclePlural": "Cars",
         }
 
     def test_the_raw_override_fields_are_null_until_something_is_set(self, client, db):
@@ -70,6 +74,8 @@ class TestBuiltInDefault:
             "racingGroupPlural": None,
             "organizationSingular": None,
             "organizationPlural": None,
+            "vehicleSingular": None,
+            "vehiclePlural": None,
         }
 
 
@@ -246,6 +252,9 @@ class TestRaceOverride:
             # organization's own override.
             "organizationSingular": "Pack",
             "organizationPlural": "Packs",
+            # Untouched anywhere, so the built-in word.
+            "vehicleSingular": "Car",
+            "vehiclePlural": "Cars",
         }
 
     def test_an_absent_override_leaves_the_stored_one_alone(self, client, db):
@@ -313,6 +322,121 @@ class TestRaceOverride:
         data = response.json()["data"]["updateRace"]
         assert data["racingGroupSingular"] is None
         assert data["terminology"]["racingGroupSingular"] == "Den"
+
+
+class TestVehicleTerm:
+    """The third configurable term (#551) — a racer's vehicle, "Car" by
+    default and wrong for a Space Derby (rockets) or a Raingutter Regatta
+    (boats). Layers exactly like the other two, so this pins the GraphQL
+    wiring specific to it rather than repeating every case above."""
+
+    def test_the_organization_can_set_an_install_wide_default(self, client, db):
+        db.query(models.Track).delete()
+        db.query(models.Organization).delete()
+        db.commit()
+
+        mutation = """
+        mutation($config: InitialConfigInput!) {
+            createInitialConfig(config: $config) {
+                terminology { vehicleSingular vehiclePlural }
+            }
+        }
+        """
+        variables = {
+            "config": {
+                "organizationName": "Rocket Pack",
+                "vehicleSingular": "Rocket",
+                "vehiclePlural": "Rockets",
+                "tracks": [{"name": "Main Track", "laneCount": 4, "timerType": "FAKE"}],
+            }
+        }
+        response = client.post(
+            "/graphql", json={"query": mutation, "variables": variables}
+        )
+        res = response.json()
+        assert "errors" not in res, res
+        assert res["data"]["createInitialConfig"]["terminology"] == {
+            "vehicleSingular": "Rocket",
+            "vehiclePlural": "Rockets",
+        }
+
+    def test_a_race_override_beats_the_organizations_default(self, client, db):
+        organization = crud.create_organization(
+            db, schemas.OrganizationCreate(name="Boat Organization")
+        )
+        organization.vehicle_singular = "Rocket"
+        organization.vehicle_plural = "Rockets"
+        db.commit()
+        track = crud.create_track(
+            db, schemas.TrackCreate(name="Boat Track", lane_count=4)
+        )
+        race = crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name="Boat Race", organization_id=organization.id, track_id=track.id
+            ),
+        )
+
+        client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{
+                        vehicleSingular: "Boat", vehiclePlural: "Boats"
+                    }}) {{ id }}
+                }}
+                """
+            },
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                {{ race(raceId: {race.id}) {{
+                    terminology {{ vehicleSingular vehiclePlural }}
+                }} }}
+                """
+            },
+        )
+        assert response.json()["data"]["race"]["terminology"] == {
+            "vehicleSingular": "Boat",
+            "vehiclePlural": "Boats",
+        }
+
+    def test_the_override_can_be_cleared_back_to_inheriting(self, client, db):
+        race = _race(db, "Cleared Vehicle Race")
+        client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{
+                        vehicleSingular: "Rocket"
+                    }}) {{ id }}
+                }}
+                """
+            },
+        )
+
+        response = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateRace(id: {race.id}, race: {{clearTerminology: true}}) {{
+                        vehicleSingular
+                        terminology {{ vehicleSingular }}
+                    }}
+                }}
+                """
+            },
+        )
+
+        data = response.json()["data"]["updateRace"]
+        assert data["vehicleSingular"] is None
+        assert data["terminology"]["vehicleSingular"] == "Car"
 
 
 class TestDefaultGeneralRoundName:
