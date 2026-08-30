@@ -139,9 +139,14 @@ if command -v create-dmg >/dev/null 2>&1; then
     if [[ -f "$APP_DIR/Contents/Resources/icon.icns" ]]; then
         ICON_ARG=(--volicon "$APP_DIR/Contents/Resources/icon.icns")
     fi
+    # `${ICON_ARG[@]+...}` rather than a plain `${ICON_ARG[@]}`: macOS ships
+    # bash 3.2, where an empty array counts as unset, and `set -u` at the top
+    # of this file turns expanding one into a fatal error. The app is built by
+    # then, so the failure lands at the very last step with the whole build
+    # already paid for.
     create-dmg \
         --volname "TrustyTrack" \
-        "${ICON_ARG[@]}" \
+        ${ICON_ARG[@]+"${ICON_ARG[@]}"} \
         --window-pos 200 120 \
         --window-size 800 400 \
         --icon-size 100 \

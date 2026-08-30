@@ -21,6 +21,7 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -101,4 +102,29 @@ def test_release_workflow_uploads_both_stable_assets_to_the_release():
     for asset in STABLE_ASSETS.values():
         assert asset in block, (
             f"the `gh release upload` command in release.yml does not reference {asset}"
+        )
+
+
+def test_the_windows_version_step_runs_under_bash():
+    """The Windows job's version stamp must not be left to PowerShell.
+
+    A Windows runner's default shell is PowerShell, where `\\"` is not an
+    escape: the string ends at the first unescaped quote. What reached
+    `backend/version.py` was three lines — `__version__ = \\`, the bare
+    version, and an empty one — so the file was not Python at all. The build
+    script reads the version out of it through `2>$null`, so the job died with
+    a single line of traceback and no cause, after the release had already
+    published the Docker image.
+
+    The same `run:` line is correct on the two Linux and macOS jobs, which is
+    why reading it does not reveal the bug — only the runner it lands on does.
+    """
+    workflow = yaml.safe_load(_release_workflow_text())
+    steps = workflow["jobs"]["windows-exe"]["steps"]
+    stamp = [s for s in steps if s.get("name") == "Set version in version.py"]
+    assert stamp, "the Windows job no longer stamps a version into version.py"
+    for step in stamp:
+        assert step.get("shell") == "bash", (
+            "the Windows job's `Set version in version.py` step must declare "
+            "`shell: bash`; PowerShell writes a version.py that is not Python"
         )
