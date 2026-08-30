@@ -1,6 +1,7 @@
 import { getContrastColor } from '../../../utils/colors';
 import type { PrintableRacingGroup, PrintableRace, PrintableRacer } from '../documents';
 import PrintPhoto from './PrintPhoto';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface Props {
     racer: PrintableRacer;
@@ -20,6 +21,7 @@ interface Props {
  * licence at the check-in table is the point of it.
  */
 export default function DriversLicense({ racer, race, racingGroup }: Props) {
+    const { vehicle } = useTerminology();
     return (
         <div className="print-card drivers-license">
             <div className="print-card-header">
@@ -37,7 +39,7 @@ export default function DriversLicense({ racer, race, racingGroup }: Props) {
                     </div>
 
                     <div>
-                        <div className="print-field-label">Car</div>
+                        <div className="print-field-label">{vehicle}</div>
                         <div className="print-field-value">{racer.car_name || 'Unnamed'}</div>
                     </div>
 
@@ -56,7 +58,7 @@ export default function DriversLicense({ racer, race, racingGroup }: Props) {
                 </div>
 
                 <div className="drivers-license-plate">
-                    <div className="print-field-label">Car No.</div>
+                    <div className="print-field-label">{vehicle} No.</div>
                     <div className="drivers-license-number">{racer.car_number || '—'}</div>
                 </div>
             </div>

@@ -60,7 +60,7 @@ import { useQuery } from 'urql';
 import { GET_TRACKS } from '../../core/graphql/queries';
 
 export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', isEditing = false }: RaceFormProps) {
-    const { group } = useTerminology();
+    const { group, vehicle, vehicleLower } = useTerminology();
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
         date_time: '',
@@ -271,7 +271,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                             }))
                         }
                     />
-                    <span>Check car weights at inspection</span>
+                    <span>Check {vehicleLower} weights at inspection</span>
                 </label>
                 {formData.weight_limit_oz != null && (
                     <>
@@ -291,8 +291,8 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     </>
                 )}
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                    Check-in warns when a car is over this. It is a warning, not a refusal —
-                    the inspector decides.
+                    Check-in warns when a {vehicleLower} is over this. It is a warning, not a
+                    refusal — the inspector decides.
                 </p>
             </div>
 
@@ -437,7 +437,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
             </div>
 
             <div>
-                <label style={labelStyle} htmlFor="race-car-numbering">Car Numbering</label>
+                <label style={labelStyle} htmlFor="race-car-numbering">{vehicle} Numbering</label>
                 <select
                     id="race-car-numbering"
                     value={formData.car_numbering_strategy}

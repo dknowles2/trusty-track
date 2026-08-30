@@ -101,7 +101,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
     const { showConfirm } = useAlert();
-    const { orgLower, groupLower } = useTerminology();
+    const { orgLower, groupLower, vehicle, vehiclesLower } = useTerminology();
 
     // The live view, assembled by the server (#7). What used to be here was a
     // merge of the heat's stored lanes with `timerStatus.pendingResults`,
@@ -743,7 +743,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                                 {racer?.carImageUrl ? (
                                                                                                     <img
                                                                                                         src={racer.carImageUrl}
-                                                                                                        alt={`Car #${racer.carNumber}`}
+                                                                                                        alt={`${vehicle} #${racer.carNumber}`}
                                                                                                         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', border: '1px solid var(--divider-color)' }}
                                                                                                     />
                                                                                                 ) : (
@@ -761,7 +761,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                                         border: '1px solid #d4af37',
                                                                                                         boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)'
                                                                                                     }}>
-                                                                                                        <div style={{ fontSize: '0.6rem', opacity: 0.8, textTransform: 'uppercase', lineHeight: 1 }}>Car</div>
+                                                                                                        <div style={{ fontSize: '0.6rem', opacity: 0.8, textTransform: 'uppercase', lineHeight: 1 }}>{vehicle}</div>
                                                                                                         <div style={{ fontSize: '1.25rem', lineHeight: 1 }}>{racer?.carNumber ?? '-'}</div>
                                                                                                     </div>
                                                                                                 )}
@@ -772,7 +772,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                                     {racer ? `${racer.firstName} ${racer.lastName}` : getRacerName(r.racerId ?? (r.placeholderSlot !== null ? -r.placeholderSlot : 0), slowestRoundIds?.has(nextExecutionHeat?.roundId ?? -1))}
                                                                                                 </div>
                                                                                                 {racer?.carNumber && (
-                                                                                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-subtle-color)' }}>Car #{racer.carNumber}</div>
+                                                                                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-subtle-color)' }}>{vehicle} #{racer.carNumber}</div>
                                                                                                 )}
                                                                                             </div>
                                                                                         </div>
@@ -830,7 +830,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     <p style={{ fontSize: '1.2rem', color: 'var(--text-muted-color)', marginTop: '10px' }}>
                         {roundSummary?.requiresAdvancement
                             ? roundSummary.fromBottom
-                                ? `The ${roundSummary.numRacers} slowest cars race in the next round.`
+                                ? `The ${roundSummary.numRacers} slowest ${vehiclesLower} race in the next round.`
                                 : `Top ${roundSummary.numRacers} racers advance to the next round.`
                             : "This round is complete."
                         }

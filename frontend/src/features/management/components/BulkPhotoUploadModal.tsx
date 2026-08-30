@@ -3,6 +3,7 @@ import { useMutation } from 'urql';
 import Modal from '../../../components/ui/Modal';
 import { UPLOAD_IMAGE, BULK_ASSIGN_PHOTOS } from '../graphql/queries';
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 type UploadStatus = 'uploading' | 'done' | 'error';
 
@@ -309,6 +310,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racers }: Props) {
     const { showAlert } = useAlert();
+    const { vehicle } = useTerminology();
     const [photos, setPhotos] = useState<PhotoEntry[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -517,7 +519,7 @@ export default function BulkPhotoUploadModal({ isOpen, onClose, onSuccess, racer
                                                         p.localId === entry.localId ? { ...p, photoType: 'car' } : p
                                                     ))}
                                                 />
-                                                Car photo
+                                                {vehicle} photo
                                             </label>
                                         </div>
                                     </>

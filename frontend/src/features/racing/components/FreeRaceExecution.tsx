@@ -12,6 +12,7 @@ import type { Lane, LaneInput } from '../types';
 import { assignPlaces, cleared, shouldDerivePlacesForFreeRace, toInput } from '../lanes';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 
 const RESET_TIMER = `
@@ -70,6 +71,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
   onRunAnother,
 }) => {
   const { showConfirm, showAlert } = useAlert();
+  const { vehicle, vehicleLower } = useTerminology();
   const [results, setResults] = useState<Lane[] | null>(null);
   const lastPreparedIdRef = useRef<number | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -505,7 +507,7 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
                     ) : (
                       <>
                         <div style={{ fontSize: '1.3rem', fontWeight: 'bold' }}>{racer?.firstName} {racer?.lastName}</div>
-                        {racer?.carNumber != null && <div style={{ fontSize: '0.9rem', color: 'var(--text-muted-color)' }}>Car #{racer.carNumber}</div>}
+                        {racer?.carNumber != null && <div style={{ fontSize: '0.9rem', color: 'var(--text-muted-color)' }}>{vehicle} #{racer.carNumber}</div>}
                       </>
                     )}
                   </div>
@@ -571,7 +573,8 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
               strategy, since a free heat is never scored either way (#526). */}
           {!hasTimer && (
             <p style={{ margin: 0, color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
-              No timer is connected to this track. Enter each car's finishing place instead.
+              No timer is connected to this track. Enter each {vehicleLower}'s finishing place
+              instead.
             </p>
           )}
           {editingResults.map((r, idx) => (

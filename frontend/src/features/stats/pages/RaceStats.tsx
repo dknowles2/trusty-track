@@ -116,8 +116,8 @@ function recordDate(raceDate: string | null): string | null {
 
 // ---- CSV helpers ----
 
-function exportHeatResults(heatResults: HeatResultRow[], raceName: string) {
-  const header: CsvRow = ['Round', 'Heat #', 'Global Heat #', 'Lane', 'Car #', 'First Name', 'Last Name', 'Time (s)', 'Place'];
+function exportHeatResults(heatResults: HeatResultRow[], raceName: string, vehicleWord = 'Car') {
+  const header: CsvRow = ['Round', 'Heat #', 'Global Heat #', 'Lane', `${vehicleWord} #`, 'First Name', 'Last Name', 'Time (s)', 'Place'];
   const rows = heatResults.map(r => [
     r.roundName,
     r.heatNumber,
@@ -132,8 +132,8 @@ function exportHeatResults(heatResults: HeatResultRow[], raceName: string) {
   downloadCsv(filenameFor(raceName, 'heat-results'), [header, ...rows]);
 }
 
-function exportRacerStats(racerStats: RacerStat[], raceName: string, groupWord = 'Den') {
-  const header: CsvRow = ['Car #', 'First Name', 'Last Name', groupWord, 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev'];
+function exportRacerStats(racerStats: RacerStat[], raceName: string, groupWord = 'Den', vehicleWord = 'Car') {
+  const header: CsvRow = [`${vehicleWord} #`, 'First Name', 'Last Name', groupWord, 'Heats', 'Min (s)', 'Avg (s)', 'Max (s)', 'Std Dev'];
   const rows = racerStats.map(r => [
     r.carNumber,
     r.firstName,
@@ -172,7 +172,7 @@ const fmt = (t: number | null | undefined) =>
 export default function RaceStats() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
-  const { group, groups } = useTerminology();
+  const { group, groups, vehicle, vehicleLower } = useTerminology();
 
   const [result, reExecute] = useQuery({
     query: GET_RACE_STATS,
@@ -406,7 +406,7 @@ export default function RaceStats() {
                   <div className="race-stats__highlight-sub">
                     {stats.trackRecords[0].racerName}
                     {stats.trackRecords[0].carNumber != null && (
-                      <span> (Car #{stats.trackRecords[0].carNumber})</span>
+                      <span> ({vehicle} #{stats.trackRecords[0].carNumber})</span>
                     )}
                     {stats.trackRecords[0].raceName && (
                       <span> — {stats.trackRecords[0].raceName}</span>
@@ -424,7 +424,7 @@ export default function RaceStats() {
                         <th></th>
                         <th>Time</th>
                         <th>Racer</th>
-                        <th>Car #</th>
+                        <th>{vehicle} #</th>
                         <th>Race</th>
                       </tr>
                     </thead>
@@ -452,7 +452,7 @@ export default function RaceStats() {
                   </table>
               )}
               <p className="race-stats__record-note">
-                The fastest run each car has recorded on this track, across
+                The fastest run each {vehicleLower} has recorded on this track, across
                 every race run on it. Correcting a time moves the record;
                 deleting a race removes the records it set.
               </p>
@@ -525,13 +525,13 @@ export default function RaceStats() {
             <div className="race-stats__export-buttons">
               <button
                 className="race-stats__export-btn"
-                onClick={() => exportHeatResults(stats.heatResults, stats.raceName)}
+                onClick={() => exportHeatResults(stats.heatResults, stats.raceName, vehicle)}
               >
                 Export Heat Results
               </button>
               <button
                 className="race-stats__export-btn"
-                onClick={() => exportRacerStats(stats.racerStats, stats.raceName, group)}
+                onClick={() => exportRacerStats(stats.racerStats, stats.raceName, group, vehicle)}
               >
                 Export Racer Stats
               </button>

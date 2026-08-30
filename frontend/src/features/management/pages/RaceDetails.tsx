@@ -56,7 +56,7 @@ export default function RaceDetails() {
   const { raceId } = useParams<{ raceId: string }>();
   const parsedRaceId = useMemo(() => raceId ? parseInt(raceId) : 0, [raceId]);
   const { showAlert, showConfirm } = useAlert();
-  const { group, groups, groupLower, groupsLower } = useTerminology();
+  const { group, groups, groupLower, groupsLower, vehicle } = useTerminology();
   const navigate = useNavigate();
 
   // GraphQL Queries
@@ -532,7 +532,7 @@ export default function RaceDetails() {
                   />
               <div className="racer-card-name-group">
                   <span className="racer-card-name">{racer.first_name} {racer.last_name}</span>
-                  <span className="racer-card-number">Car #{racer.car_number || '-'}</span>
+                  <span className="racer-card-number">{vehicle} #{racer.car_number || '-'}</span>
               </div>
               <input
                   type="checkbox"
@@ -625,7 +625,7 @@ export default function RaceDetails() {
                   'TIMED': 'Timed',
                   'POINTS': 'Points'
               }[race.scoring_strategy] || race.scoring_strategy) : '-'}</div>
-              <div><strong>Car Numbering:</strong> {race?.car_numbering_strategy ? ({
+              <div><strong>{vehicle} Numbering:</strong> {race?.car_numbering_strategy ? ({
                   'MANUAL': 'Manual',
                   'PER_GROUP': 'Per RacingGroup',
                   'GLOBAL': 'Global'
@@ -931,7 +931,7 @@ export default function RaceDetails() {
                                 style={{ transform: 'scale(1.2)' }}
                             />
                         </th>
-                        <SortableHeader label="Car #" sortKey="car_number" sort={sort} onSort={toggleSort} />
+                        <SortableHeader label={`${vehicle} #`} sortKey="car_number" sort={sort} onSort={toggleSort} />
                         {/* Photo is the one column with nothing to sort on. */}
                         <th style={{ padding: '12px', textAlign: 'center' }}>Photo</th>
                         <SortableHeader label="First Name" sortKey="first_name" sort={sort} onSort={toggleSort} />
@@ -991,7 +991,7 @@ export default function RaceDetails() {
                                                     }}
                                                 />
                                             </td>
-                                            <td data-label="Car #" style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
+                                            <td data-label={`${vehicle} #`} style={{ padding: '12px' }}>{racer.car_number || '-'}</td>
                                             <td data-label="Photo" style={{ padding: '12px', textAlign: 'center' }}>
                                                 <RacerAvatar
                                                     racer={racer}
@@ -1076,7 +1076,7 @@ export default function RaceDetails() {
                                         />
                                     </span>
                                 </td>
-                                <td data-label="Car #" style={{ padding: '12px' }}><span className="cell-value">{racer.car_number || '-'}</span></td>
+                                <td data-label={`${vehicle} #`} style={{ padding: '12px' }}><span className="cell-value">{racer.car_number || '-'}</span></td>
                                 <td data-label="Photo" style={{ padding: '12px', textAlign: 'center' }}>
                                     <span className="cell-value">
                                         <RacerAvatar
@@ -1276,7 +1276,7 @@ export default function RaceDetails() {
                           checked={popAddCarPhotos}
                           onChange={(e) => setPopAddCarPhotos(e.target.checked)}
                       />
-                      Add Car Photos
+                      Add {vehicle} Photos
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                       <input

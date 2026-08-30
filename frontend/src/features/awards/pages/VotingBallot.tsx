@@ -28,6 +28,7 @@ import { useMutation, useQuery } from 'urql';
 import StatusBanner from '../../../components/ui/StatusBanner';
 import { useChrome } from '../../../context/ChromeContext';
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 import { useRunMutation } from '../../../context/runMutation';
 import { errorText } from '../../../utils/errors';
 import { forBallot } from '../awardText';
@@ -47,17 +48,21 @@ type BallotAward = {
   votable?: boolean | null;
 };
 
-/** How to name a car back to the voter — the label for "Thanks for voting
+/** How to name an entry back to the voter — the label for "Thanks for voting
  * for ___!". A stray tap is invisible without this: the confirmation is the
- * only thing that tells the voter (or a stray-tap victim) which car the vote
- * landed on, so it has to identify the car even when there is no number and
- * no name to go on. */
-function votedCarLabel(car: BallotCar): string {
-  const number = car.carNumber != null ? `#${car.carNumber}` : null;
-  if (number && car.carName) return `${number} ${car.carName}`;
+ * only thing that tells the voter (or a stray-tap victim) which one the vote
+ * landed on, so it has to identify it even when there is no number and no
+ * name to go on.
+ *
+ * `vehicleWord` is the resolved, lowercase term (#551) — "this rocket" for a
+ * Space Derby, defaulting to the built-in Scouting word so a caller with no
+ * terminology in scope still reads exactly as before. */
+function votedCarLabel(entry: BallotCar, vehicleWord = 'car'): string {
+  const number = entry.carNumber != null ? `#${entry.carNumber}` : null;
+  if (number && entry.carName) return `${number} ${entry.carName}`;
   if (number) return number;
-  if (car.carName) return car.carName;
-  return 'this car';
+  if (entry.carName) return entry.carName;
+  return `this ${vehicleWord}`;
 }
 
 function newBallotKey(): string {
@@ -73,6 +78,7 @@ export default function VotingBallot() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
   const { showToast } = useAlert();
+  const { vehicleLower } = useTerminology();
 
   // A kiosk page, the same as the observation displays — nothing about the
   // app's own navigation belongs on a phone somebody is handed at the cars.
@@ -101,16 +107,16 @@ export default function VotingBallot() {
   const race = result.data?.race;
   const votingOpen: boolean = race?.votingOpen ?? false;
   const awards: BallotAward[] = race?.awards ?? [];
-  const cars: BallotCar[] = useMemo(() => forBallot(race?.racers ?? []), [race]);
+  const entries: BallotCar[] = useMemo(() => forBallot(race?.racers ?? []), [race]);
   const votable = awards.filter((a) => a.kind === 'SPECIAL' && a.votable);
 
   if (!raceId || isNaN(id)) return <div style={{ padding: '2rem' }}>Invalid race.</div>;
 
-  const vote = async (awardId: number, car: BallotCar) => {
+  const vote = async (awardId: number, entry: BallotCar) => {
     setSubmitting(awardId);
     const response = await runMutation(
       castVote,
-      { awardId, racerId: car.id, ballotKey: newBallotKey() },
+      { awardId, racerId: entry.id, ballotKey: newBallotKey() },
       'Your vote could not be sent.',
     );
     setSubmitting(null);
@@ -121,7 +127,7 @@ export default function VotingBallot() {
       showToast(response.data.castVote, 'error');
       return;
     }
-    setJustVoted((current) => ({ ...current, [awardId]: car }));
+    setJustVoted((current) => ({ ...current, [awardId]: entry }));
   };
 
   return (
@@ -172,7 +178,7 @@ export default function VotingBallot() {
                 tone="success"
                 style={{ padding: '0.85rem 1rem', justifyContent: 'space-between', gap: '1rem' }}
               >
-                <span>Thanks for voting for {votedCarLabel(justVoted[award.id])}!</span>
+                <span>Thanks for voting for {votedCarLabel(justVoted[award.id], vehicleLower)}!</span>
                 <button
                   type="button"
                   className="secondary-btn"
@@ -195,12 +201,12 @@ export default function VotingBallot() {
                   gap: '0.75rem',
                 }}
               >
-                {cars.map((car) => (
+                {entries.map((entry) => (
                   <button
-                    key={car.id}
+                    key={entry.id}
                     type="button"
                     disabled={submitting === award.id}
-                    onClick={() => vote(award.id, car)}
+                    onClick={() => vote(award.id, entry)}
                     style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -213,9 +219,9 @@ export default function VotingBallot() {
                       cursor: submitting === award.id ? 'wait' : 'pointer',
                     }}
                   >
-                    {car.carImageUrl ? (
+                    {entry.carImageUrl ? (
                       <img
-                        src={car.carImageUrl}
+                        src={entry.carImageUrl}
                         alt=""
                         style={{
                           width: '100%',
@@ -235,11 +241,11 @@ export default function VotingBallot() {
                       />
                     )}
                     <strong>
-                      {car.carNumber != null ? `#${car.carNumber}` : 'Unnumbered'}
+                      {entry.carNumber != null ? `#${entry.carNumber}` : 'Unnumbered'}
                     </strong>
-                    {car.carName && (
+                    {entry.carName && (
                       <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>
-                        {car.carName}
+                        {entry.carName}
                       </span>
                     )}
                   </button>

@@ -16,6 +16,7 @@ import { useState } from 'react';
 import { gql, useMutation } from 'urql';
 import { useAlert } from '../../../context/AlertContext';
 import { useRunMutation } from '../../../context/runMutation';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 const CREATE_TRACK_RECORD = gql`
   mutation CreateTrackRecord($trackId: Int!, $record: HistoricalTrackRecordInput!) {
@@ -73,6 +74,7 @@ const EMPTY_FORM: FormState = {
 export default function TrackRecords({ trackId, records, onChange }: Props) {
   const { showToast } = useAlert();
   const runMutation = useRunMutation();
+  const { vehicle } = useTerminology();
   const [, createRecord] = useMutation(CREATE_TRACK_RECORD);
   const [, updateRecord] = useMutation(UPDATE_TRACK_RECORD);
   const [, deleteRecord] = useMutation(DELETE_TRACK_RECORD);
@@ -168,7 +170,7 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
               </span>
               <span>
                 {record.racerName}
-                {record.carNumber != null && ` (Car #${record.carNumber})`}
+                {record.carNumber != null && ` (${vehicle} #${record.carNumber})`}
                 {record.raceName && ` — ${record.raceName}`}
                 {record.raceDate && `, ${record.raceDate}`}
               </span>
@@ -217,8 +219,8 @@ export default function TrackRecords({ trackId, records, onChange }: Props) {
         />
         <input
           type="number"
-          placeholder="Car #"
-          aria-label="Car number (optional)"
+          placeholder={`${vehicle} #`}
+          aria-label={`${vehicle} number (optional)`}
           value={form.carNumber}
           onChange={(e) => set('carNumber')(e.target.value)}
           className="form-control"

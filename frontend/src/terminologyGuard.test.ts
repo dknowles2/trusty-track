@@ -3,11 +3,11 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 /**
- * The fiftieth file gets missed (#496 stage 4).
+ * The fiftieth file gets missed (#496 stage 4; #551 adds "Car").
  *
  * Every screen under `src/features` (and, as of #532, `src/components`,
- * `src/context` and `src/theming`) is supposed to say "Den" and "Pack"
- * through `useTerminology()` now, not as a literal. Nothing stops a future
+ * `src/context` and `src/theming`) is supposed to say "Den", "Pack" and
+ * "Car" through `useTerminology()` now, not as a literal. Nothing stops a future
  * change from typing the word straight into JSX again — the mistake this
  * whole stage existed to fix, four different ways, before this guard
  * existed (`RacingGroupManager`'s alerts, `ImportRacersModal`'s template
@@ -63,6 +63,7 @@ const SCAN_ROOTS = ['features', 'components', 'context', 'theming'] as const;
 const WORDS = [
     'Den', 'Dens', 'den', 'dens',
     'Pack', 'Packs', 'pack', 'packs',
+    'Car', 'Cars', 'car', 'cars',
     'Lion', 'Tiger', 'Wolf', 'Bear', 'Webelos',
     'Arrow of Light',
 ] as const;

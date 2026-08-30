@@ -8,6 +8,7 @@ import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import PhotoSlideshow from '../components/PhotoSlideshow';
 import { displayId } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
@@ -75,6 +76,7 @@ export default function Observation() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const id = parseInt(raceId || '0');
+  const { vehicle } = useTerminology();
 
   // This screen's identity, and what it has been told to show (#174). The
   // subscription is also how the display registers itself: it holds no PIN and
@@ -442,7 +444,7 @@ export default function Observation() {
                 <div className="heat-card-racer-name" style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
                   {racer.firstName} {racer.lastName}
                 </div>
-                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: 'var(--display-text-muted-color)' }}>Car #{racer.carNumber}</div>}
+                {racer.carNumber && <div className="heat-card-car-number" style={{ fontSize: '0.8rem', color: 'var(--display-text-muted-color)' }}>{vehicle} #{racer.carNumber}</div>}
                 {racingGroupDivisionFor(racer) && (
                   <div className="heat-card-racing-group-division" style={{ fontSize: '0.75rem', color: 'var(--display-text-subtle-color)' }}>
                     {racingGroupDivisionFor(racer)}
@@ -697,7 +699,7 @@ export default function Observation() {
                               {racer ? `${racer.firstName} ${racer.lastName}` : `Racer #${s.racerId}`}
                             </div>
                             {racer?.carNumber && (
-                              <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '0.9rem' }}>Car #{racer.carNumber}</div>
+                              <div className="standing-car-number" style={{ color: 'var(--display-text-muted-color)', fontSize: '0.9rem' }}>{vehicle} #{racer.carNumber}</div>
                             )}
                             {s.racingGroupDivision && (
                               <div className="standing-racing-group-division" style={{ color: 'var(--display-text-subtle-color)', fontSize: '0.85rem' }}>{s.racingGroupDivision}</div>
@@ -833,7 +835,7 @@ export default function Observation() {
               </div>
               {racer.carNumber && (
                 <div style={{ color: 'var(--display-text-quiet-color)', fontSize: isNowRacing ? '2vmin' : '1.5vmin' }}>
-                  Car #{racer.carNumber}
+                  {vehicle} #{racer.carNumber}
                 </div>
               )}
               {racingGroupDivisionFor(racer) && (
