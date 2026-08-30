@@ -177,6 +177,22 @@ export const RACE_AWARD_COUNT_QUERY = gql`
   }
 `;
 
+/**
+ * A rerolled name suggestion for one display's rename form (#521).
+ *
+ * Goes through the server's `whimsical_name` walk against the race's other
+ * display names, rather than a second, hand-copied word list on the
+ * frontend that cannot see them — which is how the reroll used to be able
+ * to hand back a name a second screen was already using. `avoid` is the
+ * draft currently sitting in the input, so pressing the die again does not
+ * return the same word twice.
+ */
+export const SUGGEST_DISPLAY_NAME = gql`
+  query SuggestDisplayName($displayId: String!, $avoid: String) {
+    suggestDisplayName(displayId: $displayId, avoid: $avoid)
+  }
+`;
+
 export const ASSIGN_DISPLAY = gql`
   mutation AssignDisplay($displayId: String!, $view: DisplayView!, $cycleSeconds: Int) {
     assignDisplay(displayId: $displayId, view: $view, cycleSeconds: $cycleSeconds) {

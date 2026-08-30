@@ -236,6 +236,36 @@ class DisplayRegistry:
         display.name = name.strip()
         return display
 
+    def suggest_name(self, display_id: str, avoid: str | None = None) -> str:
+        """A rerolled suggestion for one display's name (#521).
+
+        Goes through `whimsical_name` — the same walk `_auto_name` runs on
+        first connect — rather than a second copy of the animal vocabulary or
+        its collision rule. `taken` is every *other* display's name in this
+        one's race, so the result can never repeat a name already on a row
+        the operator is looking at.
+
+        `avoid` is the draft currently sitting in the rename input. Without
+        it the walk is seeded from `display_id` alone and pressing the die
+        twice would return the same word both times; passing the draft each
+        press is what makes "give me another" actually give another.
+
+        A display nobody has connected yet has no race to check against, so
+        it gets an unconstrained suggestion — there is nobody for it to
+        collide with.
+        """
+        display = self._displays.get(display_id)
+        taken: set[str] = set()
+        if display is not None:
+            taken = {
+                d.name
+                for d in self._displays.values()
+                if d.race_id == display.race_id and d.display_id != display_id
+            }
+        if avoid:
+            taken = taken | {avoid}
+        return whimsical_name(display_id, taken)
+
     def forget(self, display_id: str) -> bool:
         """Drop a display the operator says is gone.
 

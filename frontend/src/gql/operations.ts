@@ -496,6 +496,14 @@ export type RaceAwardCountQueryVariables = Exact<{
 
 export type RaceAwardCountQuery = { race: { id: number, awards: Array<{ id: number }> } | null };
 
+export type SuggestDisplayNameQueryVariables = Exact<{
+  displayId: string;
+  avoid?: string | null | undefined;
+}>;
+
+
+export type SuggestDisplayNameQuery = { suggestDisplayName: string };
+
 export type AssignDisplayMutationVariables = Exact<{
   displayId: string;
   view: Types.DisplayView;

@@ -1612,12 +1612,13 @@ def _require_operator_role(info: Info) -> None:
     """Refuse anything but an operator.
 
     `RolePolicyExtension` guards *mutations*, and this is a query — the same
-    gap `/api/backup` and `/ws/timer/{track_id}` each close for themselves. It
-    matters more here than most: the log says which device did what, and
-    handing that to a wall display would be worse than the log not existing.
+    gap `/api/backup` and `/ws/timer/{track_id}` each close for themselves.
+    Shared by every operator-only query: the activity log, its `sourceIp`
+    field, and the display-name reroll each matter for their own reason, but
+    the check and its refusal are the same one.
     """
     if auth.resolve_role(info.context) is not auth.Role.OPERATOR:
-        raise auth.PermissionDeniedError("The activity log is operator-only")
+        raise auth.PermissionDeniedError("This is operator-only")
 
 
 def _audit_entry(row: models.AuditEntry) -> audit.Entry:
@@ -1963,6 +1964,24 @@ class Query:
         dropped off the wifi is the one the operator most wants to see.
         """
         return [_display(d) for d in displays_service.registry.for_race(race_id)]
+
+    @strawberry.field
+    def suggest_display_name(
+        self, info: Info, display_id: str, avoid: str | None = None
+    ) -> str:
+        """A rerolled name suggestion for one display (#521).
+
+        Operator-only, like the rest of the display panel's controls, and a
+        query rather than a mutation because it changes nothing — the
+        rerolled word only fills the rename form's draft input, the same way
+        it did before this reached the server. Going through
+        `DisplayRegistry.suggest_name` — which walks `whimsical_name` against
+        the race's other display names — is the whole point: a suggestion
+        drawn from a second, hand-copied word list on the frontend could not
+        know what those names were and could hand back one already in use.
+        """
+        _require_operator_role(info)
+        return displays_service.registry.suggest_name(display_id, avoid=avoid)
 
     @strawberry.field
     def audit_log(

@@ -717,6 +717,7 @@ export type Query = {
   races: Array<Race>;
   randomFreeRaceLanes: Array<FreeRaceLaneAssignment>;
   rounds: Array<Round>;
+  suggestDisplayName: Scalars['String']['output'];
   timerModels: Array<TimerModel>;
   timerStatus?: Maybe<TimerStatus>;
   tracks: Array<Track>;
@@ -796,6 +797,12 @@ export type QueryRandomFreeRaceLanesArgs = {
 
 export type QueryRoundsArgs = {
   raceId: Scalars['Int']['input'];
+};
+
+
+export type QuerySuggestDisplayNameArgs = {
+  avoid?: InputMaybe<Scalars['String']['input']>;
+  displayId: Scalars['String']['input'];
 };
 
 
