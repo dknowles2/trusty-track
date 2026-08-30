@@ -30,12 +30,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
-    type Heat,
-    type Round,
+    collapseFakeTimer,
     dismissRoundSummary,
     docsTrackId,
     ensureConfigured,
+    expandFakeTimer,
     gql,
+    nextUnrunHeatId,
+    runFakeHeat,
+    type Heat,
+    type Round,
 } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -293,8 +297,13 @@ test('take screenshots', async ({ page }) => {
 
     await page.getByRole('button', { name: 'Race', exact: true }).click();
 
-    // The heat arms itself; "Ready to start" is the timer saying so.
-    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
+    // The heat arms itself. "Ready to start" used to be the signal, but that
+    // line is inside the fake timer panel, which is collapsed for every
+    // screenshot now — so the signal is the state the panel's title bar keeps
+    // showing either way.
+    await expect(page.locator('.fake-timer-mole').getByText('ARMED')).toBeVisible({
+        timeout: 30000,
+    });
 
     // The racer and car pictures render a beat after the names: for roughly
     // the first 50ms of this view the lanes show the initials fallback, and
@@ -304,22 +313,16 @@ test('take screenshots', async ({ page }) => {
     // lanes plus three car photos on deck is this view's settled state.
     await expect(page.locator('img[src*="/static/"]')).toHaveCount(6);
 
-    // Collapse the fake timer panel before photographing the screen behind it.
-    // Expanded, it is a floating box over the On Deck column, and this picture
-    // is the one the documentation and the landing page both use to show what
-    // Race Control looks like — so it was advertising a debugging aid over the
-    // thing it is meant to be showing, on a track that in a real hall has a
-    // real timer. Its own close-up is the next shot, which expands it again.
-    await page.getByText('Fake Timer Controls').click();
-    await expect(page.getByRole('button', { name: /Start Timer/i })).toBeHidden();
-
-    // 12: the race execution view, with the lane assignments.
+    // 12: the race execution view, with the lane assignments. The Fake Timer
+    // Controls panel is collapsed to its title bar here, and in every other
+    // docs screenshot, by `screenshots-setup.ts` — it is a debugging aid, and
+    // this is the picture that shows what Race Control looks like.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/12-race-execution-current-heat.png') });
 
-    // 13: the Fake Timer Controls panel itself. It was a second copy of 12, so
-    // the close-up the caption describes did not exist (#144).
-    await page.getByText('Fake Timer Controls').click();
-    await expect(page.getByRole('button', { name: /Start Timer/i })).toBeVisible();
+    // 13: the Fake Timer Controls panel itself, which is the one screenshot
+    // that is *of* the panel, so it expands it again. It was a second copy of
+    // 12, so the close-up the caption describes did not exist (#144).
+    await expandFakeTimer(page);
     const timerPanel = page.locator('.fake-timer-mole');
     const panelBox = await timerPanel.boundingBox();
     await page.screenshot({
@@ -336,14 +339,17 @@ test('take screenshots', async ({ page }) => {
             : {}),
     });
 
+    // Put it back, so every screenshot after this one shows Race Control
+    // rather than the panel.
+    await collapseFakeTimer(page);
+
     // Run the heat, and finish it by hand rather than waiting for the mole to
     // finish it for us. Left alone it fires `fakeTimerFinish` after
     // `3000 + Math.random() * 2000` milliseconds — a delay that exists so a
     // person clicking about has something to watch, and that this spec spent
     // twice on the critical path. The times are the same either way; they come
     // from the seeded generator, not from how long the wait was.
-    await page.getByRole('button', { name: 'Start Timer' }).click();
-    await page.getByRole('button', { name: 'Finish Heat' }).click();
+    await runFakeHeat(page, await nextUnrunHeatId(page, raceId));
     await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
 
     // The pre-flight readiness strip goes away once a heat is recorded, but
@@ -458,9 +464,10 @@ test('take screenshots', async ({ page }) => {
 
     // The last qualifying heat, run on screen — so the client *watches* the
     // round become decided and raises the summary. See the note above.
-    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
-    await page.getByRole('button', { name: 'Start Timer' }).click();
-    await page.getByRole('button', { name: 'Finish Heat' }).click();
+    await expect(page.locator('.fake-timer-mole').getByText('ARMED')).toBeVisible({
+        timeout: 30000,
+    });
+    await runFakeHeat(page, await nextUnrunHeatId(page, raceId));
 
     // 16: the summary naming the racers who made the championship round.
     // Asserted rather than hoped for: a Race tab with no modal on it
@@ -505,9 +512,10 @@ test('take screenshots', async ({ page }) => {
     // there while waiting means the arming is watched through a covered page.
     await dismissRoundSummary(page);
 
-    await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
-    await page.getByRole('button', { name: 'Start Timer' }).click();
-    await page.getByRole('button', { name: 'Finish Heat' }).click();
+    await expect(page.locator('.fake-timer-mole').getByText('ARMED')).toBeVisible({
+        timeout: 30000,
+    });
+    await runFakeHeat(page, await nextUnrunHeatId(page, raceId));
     await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
 
     await page.goto(`/race/${raceId}/standings`);

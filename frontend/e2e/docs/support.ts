@@ -212,6 +212,98 @@ export interface RacerSeed {
     racingGroup?: string;
 }
 
+/** The first heat of `raceId` that nothing has recorded a time in. */
+export async function nextUnrunHeatId(page: Page, raceId: number): Promise<number> {
+    const heats = await readHeats(page, raceId);
+    const next = heats.find((heat) => heat.lanes.every((lane) => lane.time == null));
+    if (!next) throw new Error(`race ${raceId}: every heat has already been recorded`);
+    return next.id;
+}
+
+/** The free race heat currently staged in `raceId`. */
+export async function activeFreeRaceHeatId(page: Page, raceId: number): Promise<number> {
+    const data = await gql<{ activeFreeRaceHeat: { id: number } | null }>(
+        page,
+        `query ActiveFreeRaceHeat($raceId: Int!) {
+            activeFreeRaceHeat(raceId: $raceId) { id }
+        }`,
+        { raceId },
+    );
+    if (!data.activeFreeRaceHeat) throw new Error(`race ${raceId}: no free race heat staged`);
+    return data.activeFreeRaceHeat.id;
+}
+
+/**
+ * Run one heat on the fake timer, through the API.
+ *
+ * The obvious version clicked Start Timer and Finish Heat, which meant
+ * expanding the panel those buttons live in and collapsing it again — and the
+ * panel belongs to the heat on screen, so recording a result can take it away
+ * while the collapse is still running. Guarding with `isVisible()` first does
+ * not help: the panel goes between the check and the click, and CI failed on
+ * exactly that, twice, having passed locally.
+ *
+ * These are the mutations the buttons send. Driving them directly leaves the
+ * panel collapsed throughout, which is what every screenshot wants anyway, and
+ * removes the toggling anything could race with. The screen still updates the
+ * same way — the results arrive over the same subscription either way.
+ *
+ * `settle` is the pause the free-race spec wants between arming and finishing,
+ * so its "Racing…" state is on screen long enough to be real.
+ */
+export async function runFakeHeat(
+    page: Page,
+    heatId: number,
+    options: { isFreeRace?: boolean; settle?: number } = {},
+): Promise<void> {
+    const { isFreeRace = false, settle = 0 } = options;
+    await gql(
+        page,
+        `mutation FakeStart($heatId: Int!, $isFreeRace: Boolean!) {
+            fakeTimerStart(heatId: $heatId, isFreeRace: $isFreeRace)
+        }`,
+        { heatId, isFreeRace },
+    );
+    if (settle) await page.waitForTimeout(settle);
+    await gql(
+        page,
+        `mutation FakeFinish($heatId: Int!, $isFreeRace: Boolean!) {
+            fakeTimerFinish(heatId: $heatId, isFreeRace: $isFreeRace)
+        }`,
+        { heatId, isFreeRace },
+    );
+}
+
+/**
+ * Open the fake timer panel, for the one screenshot that is *of* the panel.
+ *
+ * Nothing else needs it: `runFakeHeat` goes through the API, and every other
+ * picture wants the panel collapsed (`screenshots-setup.ts`).
+ */
+export async function expandFakeTimer(page: Page): Promise<void> {
+    const startButton = page.getByRole('button', { name: /Start Timer/i });
+    if (!(await startButton.isVisible())) {
+        await page.getByText('Fake Timer Controls').click();
+    }
+    await expect(startButton).toBeVisible();
+}
+
+/**
+ * Close the panel again after the one screenshot that opens it.
+ *
+ * Safe here and nowhere else: it runs on an armed heat that is not recording,
+ * so the panel is not about to be taken off the screen underneath the click.
+ * That is exactly what made the previous version — collapsing after a heat
+ * finished — race on CI.
+ */
+export async function collapseFakeTimer(page: Page): Promise<void> {
+    const startButton = page.getByRole('button', { name: /Start Timer/i });
+    if (await startButton.isVisible()) {
+        await page.getByText('Fake Timer Controls').click();
+    }
+    await expect(startButton).toBeHidden();
+}
+
 /**
  * The racer portraits and car photographs that `populateRace` uses, uploaded
  * once and handed out in a fixed order.

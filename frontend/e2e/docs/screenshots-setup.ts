@@ -39,6 +39,8 @@ const HIDE_UNSTABLE = `[data-testid="app-version"] { visibility: hidden !importa
  * rather than imported, since this file runs outside the app's build.
  */
 const DISPLAY_ID_KEY = 'trustytrack.displayId';
+/** Mirrors `FakeTimerMole`'s own key; the panel reads it on mount. */
+const FAKE_TIMER_COLLAPSED_KEY = 'trustytrack.fakeTimerMole.collapsed';
 
 /**
  * Fixed rather than left to mint itself, so the default name #495 derives
@@ -81,6 +83,32 @@ export const test = base.extend({
             },
             { key: DISPLAY_ID_KEY, id: FIXED_DISPLAY_ID },
         );
+
+        // The Fake Timer Controls panel starts collapsed in every docs run.
+        //
+        // Every race in these specs is on a fake timer, because no CI runner
+        // has a finish line — so the panel floats over the corner of every
+        // Race Control and Free Race screenshot, covering the lanes and the
+        // round progress behind it. It is a debugging aid, and a reader of
+        // these guides is looking at a screen that in their hall has a real
+        // timer and no panel at all.
+        //
+        // Seeded rather than clicked, for #48's reason: the first attempt
+        // collapsed it with a click in `race-day.spec.ts`, which fixed the one
+        // picture somebody happened to be looking at and left the free-race
+        // shots — and every future spec — exactly as they were. The panel
+        // reads this key on mount, so setting it here reaches all of them.
+        //
+        // `race-day.spec.ts` expands it explicitly for the one screenshot that
+        // is *of* the panel.
+        await page.addInitScript((key: string) => {
+            try {
+                window.localStorage.setItem(key, 'true');
+            } catch {
+                // Storage refused: the panel opens expanded, which is only a
+                // worse picture, never a failed run.
+            }
+        }, FAKE_TIMER_COLLAPSED_KEY);
 
         // Every screenshot waits for the pictures and freezes the animation.
         //
