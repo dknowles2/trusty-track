@@ -9,6 +9,7 @@ const baseFormData: RaceFormData = {
     track_id: 3,
     scoring_strategy: 'TIMED',
     tiebreaker: 'SHARED',
+    drop_worst_runs: 0,
     car_numbering_strategy: 'GLOBAL',
     global_start_number: 1,
     championship_trophies: 3,
@@ -36,6 +37,12 @@ describe('buildCreateRaceInput', () => {
         );
     });
 
+    it('carries the drop-worst-runs modifier (#547)', () => {
+        expect(
+            buildCreateRaceInput({ ...baseFormData, drop_worst_runs: 1 }).dropWorstRuns,
+        ).toBe(1);
+    });
+
     it('maps every other field from snake_case to camelCase', () => {
         expect(buildCreateRaceInput(baseFormData)).toEqual({
             name: 'Pack 42 Derby',
@@ -44,6 +51,7 @@ describe('buildCreateRaceInput', () => {
             trackId: 3,
             scoringStrategy: 'TIMED',
             tiebreaker: 'SHARED',
+            dropWorstRuns: 0,
             carNumberingStrategy: 'GLOBAL',
             globalStartNumber: 1,
             championshipTrophies: 3,

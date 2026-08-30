@@ -184,6 +184,12 @@ class RaceBase(BaseModel):
     tiebreaker: TiebreakMethod = TiebreakMethod.SHARED
     rules_configuration: str | None = None
     weight_limit_oz: float | None = None
+    #: How many of each racer's worst counted results to drop before scoring
+    #: (#547 stage 2) — a modifier over `scoring_strategy`, not a strategy of
+    #: its own. `0` is the off state, matching the column's own default, so
+    #: a race created with no opinion behaves exactly as one created before
+    #: this field existed.
+    drop_worst_runs: int = 0
 
     @field_validator("name")
     @classmethod
@@ -191,6 +197,13 @@ class RaceBase(BaseModel):
         if not v.strip():
             raise ValueError("Race name cannot be empty or only whitespace")
         return v.strip()
+
+    @field_validator("drop_worst_runs")
+    @classmethod
+    def drop_worst_runs_is_not_negative(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("drop_worst_runs cannot be negative")
+        return value
 
 
 class RaceCreate(RaceBase):

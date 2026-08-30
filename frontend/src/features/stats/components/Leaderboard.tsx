@@ -3,9 +3,11 @@ import { useQuery, useSubscription } from 'urql';
 import { LeaderboardSubscription } from '../../observation/graphql/queries';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { RoundSummary, exclusionNotice, roundLabel } from '../disruptedRounds';
+import { dropWorstNotice } from '../dropWorstNotice';
 import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
 import { resolutionNote } from '../tiebreakText';
+import { formatScore, scoreLabel } from '../scoringStrategyText';
 import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -24,6 +26,10 @@ export interface LeaderboardEntry {
   /** How a shared score was broken, or null if it was never tied or the tie
    * did not resolve (#540). See `resolutionNote`. */
   resolvedBy?: string | null;
+  /** Whether `Race.dropWorstRuns` actually dropped a run from this row's
+   * computation — the same value on every row (#547 stage 2). See
+   * `dropWorstNotice`. */
+  dropWorstRunsApplied?: boolean;
 }
 
 const GET_LEADERBOARD_METADATA = `
@@ -32,6 +38,11 @@ const GET_LEADERBOARD_METADATA = `
       id
       name
       scoringStrategy
+      # How many of each racer's worst runs are dropped before scoring
+      # (drop-worst-runs, issue 547 stage 2) — read here so the "not
+      # applied" notice can tell a configured-but-not-firing modifier
+      # from one that is simply off.
+      dropWorstRuns
       rounds {
         id
         name
@@ -64,6 +75,7 @@ const GET_ROUND_STANDINGS = `
         rank
         racerImageUrl
         resolvedBy
+        dropWorstRunsApplied
       }
     }
   }
@@ -154,20 +166,25 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
     );
   }
 
-
   const isEliminationRound = selectedRound?.schedulingStrategy === 'ELIMINATION';
-  const scoreLabel = isEliminationRound
-    ? 'Losses'
-    : scoringStrategy === 'TIMED' ? 'Avg Time' : 'Points';
-  const formatScore = (score: number, strategy: string) => {
-    if (isEliminationRound) {
-      return `${Math.round(score)}`;
-    }
-    if (strategy === 'TIMED') {
-      return `${score.toFixed(3)}s`;
-    }
-    return score.toString();
-  };
+
+  // "Drop the worst run" (#547 stage 2) is a modifier over the strategy, not
+  // a strategy of its own — it can be configured and still drop nothing, if
+  // the field is not yet even. `dropWorstRunsApplied` rides on every row, so
+  // any one entry answers for the whole computation; there is nothing to say
+  // while the view is empty. An elimination round's own standings never call
+  // `score_heats` at all (its score is losses, not the chosen strategy), so
+  // the modifier is never "not applied" there — it is simply a different
+  // question, and the notice would be telling the operator about a
+  // consequence that does not exist.
+  const dropWorstMsg =
+    nothingHere || isEliminationRound
+      ? null
+      : dropWorstNotice(race?.dropWorstRuns ?? 0, leaderboard[0]?.dropWorstRunsApplied ?? false);
+
+  const scoreColumnLabel = isEliminationRound ? 'Losses' : scoreLabel(scoringStrategy);
+  const formatScoreCell = (score: number, strategy: string) =>
+    isEliminationRound ? `${Math.round(score)}` : formatScore(score, strategy);
 
   const getRankMedal = (rank: number) => {
     if (rank === 1) return '🥇';
@@ -199,6 +216,22 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
           }}
         >
           {notice}
+        </p>
+      )}
+      {dropWorstMsg && (
+        <p
+          role="status"
+          style={{
+            background: 'var(--warning-bg-color)',
+            border: '1px solid var(--warning-notice-border-color)',
+            borderRadius: '8px',
+            padding: '0.6rem 0.9rem',
+            fontSize: '0.9rem',
+            color: 'var(--warning-notice-text-color)',
+            marginBottom: '1rem',
+          }}
+        >
+          {dropWorstMsg}
         </p>
       )}
       <div style={{
@@ -314,7 +347,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
               <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>{group}</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>Heats</th>
-              <th style={{ padding: '12px', textAlign: 'right' }}>{scoreLabel}</th>
+              <th style={{ padding: '12px', textAlign: 'right' }}>{scoreColumnLabel}</th>
             </tr>
           </thead>
           <tbody>
@@ -379,7 +412,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                   fontWeight: entry.rank <= 3 ? 'bold' : 'normal'
                 }}>
                   {entry.heatsCompleted > 0
-                    ? formatScore(entry.score, scoringStrategy)
+                    ? formatScoreCell(entry.score, scoringStrategy)
                     : '-'
                   }
                 </td>

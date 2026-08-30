@@ -372,3 +372,70 @@ describe('export and print actions (#173)', () => {
     expect(screen.getByTestId('print-results')).toHaveAttribute('href', '/race/7/print/results');
   });
 });
+
+describe('the drop-worst-runs indicator (#547 stage 3)', () => {
+  const raceWithDrop = {
+    id: 9,
+    name: 'Pack 42 Derby',
+    scoringStrategy: 'POINTS',
+    dropWorstRuns: 1,
+    rounds: [
+      { id: 1, name: 'Prelim', roundNumber: 1, advancementSource: null },
+      {
+        id: 2,
+        name: 'Semis',
+        roundNumber: 2,
+        advancementSource: null,
+        schedulingStrategy: 'ELIMINATION',
+        eliminationLosses: 3,
+      },
+    ],
+  };
+  const entry = (dropWorstRunsApplied: boolean) => ({
+    racerId: 1,
+    firstName: 'Alex',
+    lastName: 'One',
+    carNumber: 1,
+    racingGroupName: 'Tigers',
+    score: 4,
+    heatsCompleted: 3,
+    rank: 1,
+    dropWorstRunsApplied,
+  });
+
+  function mockDropWorstQuery(overallEntries: unknown[], eliminationEntries: unknown[] = []) {
+    (useQuery as any).mockImplementation(({ pause }: { pause?: boolean }) =>
+      pause === true || pause === undefined
+        ? [{ data: { race: raceWithDrop }, fetching: false, error: null }, vi.fn()]
+        : [
+            { data: { race: { id: raceWithDrop.id, leaderboard: eliminationEntries } }, fetching: false, error: null },
+            vi.fn(),
+          ],
+    );
+    (useSubscription as any).mockReturnValue([{ data: { leaderboard: overallEntries }, error: null }, vi.fn()]);
+  }
+
+  it('warns when the modifier is configured but did not fire', () => {
+    mockDropWorstQuery([entry(false)]);
+    render(<MemoryRouter><Leaderboard raceId={9} /></MemoryRouter>);
+
+    expect(screen.getByText(/Drop the worst 1 run is on/)).toBeInTheDocument();
+  });
+
+  it('says nothing once the modifier actually applied', () => {
+    mockDropWorstQuery([entry(true)]);
+    render(<MemoryRouter><Leaderboard raceId={9} /></MemoryRouter>);
+
+    expect(screen.queryByText(/Drop the worst/)).toBeNull();
+  });
+
+  it("says nothing on an elimination round's own standings, where the modifier never applies", async () => {
+    const user = userEvent.setup();
+    mockDropWorstQuery([entry(false)], [entry(false)]);
+    render(<MemoryRouter><Leaderboard raceId={9} /></MemoryRouter>);
+
+    await user.selectOptions(screen.getByLabelText('Standings scope'), '2');
+
+    expect(screen.queryByText(/Drop the worst/)).toBeNull();
+  });
+});

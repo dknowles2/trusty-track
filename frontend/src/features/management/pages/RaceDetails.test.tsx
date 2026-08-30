@@ -118,7 +118,7 @@ describe('RaceDetails', () => {
         });
 
         // Verify human-readable settings are displayed
-        expect(screen.getByText('Timed')).toBeInTheDocument();
+        expect(screen.getByText('Timed (average)')).toBeInTheDocument();
         expect(screen.getByText('Per RacingGroup')).toBeInTheDocument();
         expect(screen.getByText('Main Track')).toBeInTheDocument();
     });

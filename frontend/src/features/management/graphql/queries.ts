@@ -10,6 +10,10 @@ export const GET_RACE_DETAILS = gql`
       trackId
       scoringStrategy
       tiebreaker
+      # How many of each racer's worst counted results are dropped before
+      # scoring (#547 stage 2/3) — a modifier over scoringStrategy, not a
+      # strategy of its own. RaceForm's number input reads this back.
+      dropWorstRuns
       carNumberingStrategy
       globalStartNumber
       championshipTrophies
@@ -100,6 +104,7 @@ export const UPDATE_RACE = gql`
       trackId
       scoringStrategy
       tiebreaker
+      dropWorstRuns
       carNumberingStrategy
       globalStartNumber
       championshipTrophies

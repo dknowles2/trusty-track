@@ -27,9 +27,19 @@ describe('the score column', () => {
         expect(scoreHeading('POINTS')).toBe('Points');
     });
 
+    it('names cumulative time and fastest time differently, even though both are time-based (#547)', () => {
+        expect(scoreHeading('CUMULATIVE_TIME')).toBe('Total Time (s)');
+        expect(scoreHeading('FASTEST_TIME')).toBe('Best Time (s)');
+    });
+
     it('keeps milliseconds on a time', () => {
         expect(scoreValue(3.2016, 'TIMED')).toBe('3.202');
         expect(scoreValue(3.2, 'TIMED')).toBe('3.200');
+    });
+
+    it('keeps milliseconds under the two new time-based strategies too', () => {
+        expect(scoreValue(3.2016, 'CUMULATIVE_TIME')).toBe('3.202');
+        expect(scoreValue(3.2016, 'FASTEST_TIME')).toBe('3.202');
     });
 
     it('leaves points whole', () => {
