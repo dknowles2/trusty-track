@@ -7,7 +7,17 @@
  *
  * The audience is mostly families looking for their own child, and that single
  * fact decides almost everything here.
+ *
+ * The one exception is the name-display setting (#552): when it abbreviates,
+ * the same control hides a racer's own photograph on this audience surface
+ * (their car photo is a different question and stays). `slidesFor` folds
+ * that in at selection time, not after — a racer whose only photograph is
+ * of themself has nothing left to show once it is hidden, and "no blank
+ * card" is the rule this module already follows for a racer with no
+ * photograph at all.
  */
+
+import { formatDisplayName, shouldShowRacerPhoto, type NameDisplay } from '../core/displayName';
 
 export interface SlideshowRacer {
     id: number;
@@ -43,6 +53,17 @@ export function hasAPhoto(racer: SlideshowRacer): boolean {
 }
 
 /**
+ * A racer with a photograph left to show once the name-display setting has
+ * hidden their own picture (#552) — the car photo is unaffected, so this
+ * differs from `hasAPhoto` only for a racer whose *only* photograph is of
+ * themself.
+ */
+function hasAShowablePhoto(racer: SlideshowRacer, nameDisplay: NameDisplay | string): boolean {
+    const racerPhotoShown = shouldShowRacerPhoto(nameDisplay) && racer.racerImageUrl;
+    return Boolean(racerPhotoShown || racer.carImageUrl);
+}
+
+/**
  * Who is in the slideshow, and in what order.
  *
  * **By car number, not shuffled.** A random order looks livelier and is worse:
@@ -58,10 +79,11 @@ export function hasAPhoto(racer: SlideshowRacer): boolean {
 export function slidesFor(
     racers: readonly SlideshowRacer[],
     racingGroups: readonly SlideshowRacingGroup[],
+    nameDisplay: NameDisplay | string = 'FULL',
 ): Slide[] {
     const racingGroupById = new Map(racingGroups.map((racingGroup) => [racingGroup.id, racingGroup]));
     return racers
-        .filter(hasAPhoto)
+        .filter((racer) => hasAShowablePhoto(racer, nameDisplay))
         .slice()
         .sort((a, b) => {
             // Unnumbered cars last, then by name, so the order is total and
@@ -75,12 +97,12 @@ export function slidesFor(
             const racingGroup = racer.racingGroupId == null ? undefined : racingGroupById.get(racer.racingGroupId);
             return {
                 racerId: racer.id,
-                name: `${racer.firstName} ${racer.lastName}`.trim(),
+                name: formatDisplayName(nameDisplay, racer.firstName, racer.lastName),
                 carNumber: racer.carNumber ?? null,
                 carName: racer.carName ?? null,
                 racingGroupName: racingGroup?.name ?? null,
                 racingGroupColor: racingGroup?.color ?? null,
-                racerImageUrl: racer.racerImageUrl ?? null,
+                racerImageUrl: shouldShowRacerPhoto(nameDisplay) ? (racer.racerImageUrl ?? null) : null,
                 carImageUrl: racer.carImageUrl ?? null,
             };
         });

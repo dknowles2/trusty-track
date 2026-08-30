@@ -225,6 +225,7 @@ input InitialConfigInput {
   vehiclePlural: String = null
   vehicleArtworkKey: String = null
   clearTerminology: Boolean! = false
+  nameDisplay: String = null
 }
 
 type InitialConfigStatus {
@@ -248,6 +249,8 @@ type InitialConfigStatus {
   vehiclePlural: String
   vehicleArtworkKey: String
   terminology: Terminology!
+  nameDisplay: String
+  resolvedNameDisplay: String!
 }
 
 type LaneResult {
@@ -364,7 +367,9 @@ type Organization {
   vehicleSingular: String
   vehiclePlural: String
   vehicleArtworkKey: String
+  nameDisplay: String
   terminology: Terminology!
+  resolvedNameDisplay: String!
   races: [Race!]!
 }
 
@@ -431,6 +436,8 @@ type Race {
   vehicleArtworkKey: String
   dropWorstRuns: Int!
   excludeRoundWinnersFromQualifyingStandings: Boolean!
+  nameDisplay: String
+  resolvedNameDisplay: String!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
@@ -518,6 +525,8 @@ input RaceUpdateInput {
   clearTerminology: Boolean! = false
   dropWorstRuns: Int = null
   excludeRoundWinnersFromQualifyingStandings: Boolean = null
+  nameDisplay: String = null
+  clearNameDisplay: Boolean! = false
 }
 
 type Racer {

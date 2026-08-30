@@ -15,6 +15,7 @@
  */
 
 import { scoreValue } from '../stats/standingsExport';
+import { formatDisplayName, type NameDisplay } from '../core/displayName';
 
 export interface ResultsEntry {
     racerId: number;
@@ -74,14 +75,18 @@ export const NO_DEN = 'No den';
 
 export const OVERALL = 'Overall standings';
 
-function nameOf(entry: { firstName: string; lastName: string }): string {
-    return `${entry.firstName} ${entry.lastName}`.trim();
+function nameOf(
+    entry: { firstName: string; lastName: string },
+    nameDisplay: NameDisplay | string = 'FULL',
+): string {
+    return formatDisplayName(nameDisplay, entry.firstName, entry.lastName);
 }
 
 function rowsFrom(
     entries: readonly ResultsEntry[],
     scoringStrategy: string,
     noGroupLabel: string,
+    nameDisplay: NameDisplay | string,
 ): ResultRow[] {
     return entries.map((entry, index) => ({
         racerId: entry.racerId,
@@ -89,7 +94,7 @@ function rowsFrom(
         // rank across. A racingGroup table headed 4, 9, 17 is a table of pack ranks,
         // and the person reading it wants to know who won the racingGroup.
         place: index + 1,
-        name: nameOf(entry),
+        name: nameOf(entry, nameDisplay),
         carNumber: entry.carNumber == null ? '' : String(entry.carNumber),
         racingGroupName: entry.racingGroupName || noGroupLabel,
         score: scoreValue(entry.score, scoringStrategy),
@@ -114,11 +119,14 @@ export function resultsSections(
     /** The "no racing group" fallback, resolved from `useTerminology()`.
      * Defaults to the built-in Scouting word (#496 stage 4). */
     noGroupLabel: string = NO_DEN,
+    /** How much of a racer's name this sheet prints (#552). Defaults to
+     * `'FULL'`, today's only behaviour. */
+    nameDisplay: NameDisplay | string = 'FULL',
 ): ResultsSection[] {
     if (standings.length === 0) return [];
 
     const sections: ResultsSection[] = [
-        { title: OVERALL, rows: rowsFrom(standings, scoringStrategy, noGroupLabel) },
+        { title: OVERALL, rows: rowsFrom(standings, scoringStrategy, noGroupLabel, nameDisplay) },
     ];
 
     const byRacingGroup = new Map<string, ResultsEntry[]>();
@@ -135,7 +143,10 @@ export function resultsSections(
     // A single racingGroup is the whole pack, so its table would repeat the one above.
     if (byRacingGroup.size > 1) {
         for (const [racingGroupName, entries] of byRacingGroup) {
-            sections.push({ title: racingGroupName, rows: rowsFrom(entries, scoringStrategy, noGroupLabel) });
+            sections.push({
+                title: racingGroupName,
+                rows: rowsFrom(entries, scoringStrategy, noGroupLabel, nameDisplay),
+            });
         }
     }
 
@@ -150,14 +161,19 @@ export function resultsSections(
  * announced — and on paper a missing line reads as an award that does not
  * exist, where "Not awarded" reads as one somebody still has to fill in.
  */
-export function awardLines(awards: readonly ResultsAward[]): AwardLine[] {
+export function awardLines(
+    awards: readonly ResultsAward[],
+    /** How much of a winner's name this sheet prints (#552). Defaults to
+     * `'FULL'`, today's only behaviour. */
+    nameDisplay: NameDisplay | string = 'FULL',
+): AwardLine[] {
     return [...awards]
         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id - b.id)
         .map((award) => ({
             id: award.id,
             name: award.name,
             winner: award.recipient
-                ? `${nameOf(award.recipient)}${
+                ? `${nameOf(award.recipient, nameDisplay)}${
                       award.recipient.carNumber == null ? '' : ` (#${award.recipient.carNumber})`
                   }`
                 : UNDECIDED,

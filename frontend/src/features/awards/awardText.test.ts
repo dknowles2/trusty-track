@@ -149,6 +149,18 @@ describe('naming a racer', () => {
       'Ada Lovelace',
     );
   });
+
+  it('defaults to a full name (#552) — the operator picker and management list never abbreviate', () => {
+    expect(
+      racerLabel({ firstName: 'Ada', lastName: 'Lovelace', carNumber: 42 }, undefined),
+    ).toBe('Ada Lovelace (#42)');
+  });
+
+  it('abbreviates when the caller passes a resolved name-display setting', () => {
+    expect(
+      racerLabel({ firstName: 'Ada', lastName: 'Lovelace', carNumber: 42 }, 'LAST_INITIAL'),
+    ).toBe('Ada L. (#42)');
+  });
 });
 
 describe('naming a car in a vote tally', () => {

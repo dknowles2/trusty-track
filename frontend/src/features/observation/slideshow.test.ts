@@ -125,6 +125,56 @@ describe('slidesFor', () => {
             slidesFor([racer({ racerImageUrl: null, carImageUrl: null })], RACING_GROUPS),
         ).toEqual([]);
     });
+
+    describe('name display (#552)', () => {
+        it('defaults to FULL, so an ordinary caller sees no change', () => {
+            const [slide] = slidesFor([racer()], RACING_GROUPS);
+            expect(slide.name).toBe('Ada Lovelace');
+            expect(slide.racerImageUrl).toBe('/static/ada.png');
+        });
+
+        it('abbreviates the caption under LAST_INITIAL', () => {
+            // A car photo, so the slide survives its own racer photo being
+            // hidden — see the "drops a racer" case below for what happens
+            // without one.
+            const [slide] = slidesFor(
+                [racer({ carImageUrl: '/static/car.png' })],
+                RACING_GROUPS,
+                'LAST_INITIAL',
+            );
+            expect(slide.name).toBe('Ada L.');
+        });
+
+        it('hides the racer photo when not FULL, but keeps the car photo', () => {
+            const [slide] = slidesFor(
+                [racer({ carImageUrl: '/static/car.png' })],
+                RACING_GROUPS,
+                'LAST_INITIAL',
+            );
+            expect(slide.racerImageUrl).toBeNull();
+            expect(slide.carImageUrl).toBe('/static/car.png');
+        });
+
+        it('drops a racer whose only photo was their own, once abbreviated', () => {
+            // Otherwise the slide would show no photo at all — the same "no
+            // blank card" rule `hasAPhoto` already follows.
+            const slides = slidesFor(
+                [racer({ carImageUrl: null })],
+                RACING_GROUPS,
+                'FIRST_ONLY',
+            );
+            expect(slides).toEqual([]);
+        });
+
+        it('keeps a racer whose car photo survives the abbreviation', () => {
+            const slides = slidesFor(
+                [racer({ carImageUrl: '/static/car.png' })],
+                RACING_GROUPS,
+                'FIRST_ONLY',
+            );
+            expect(slides.map((s) => s.racerId)).toEqual([1]);
+        });
+    });
 });
 
 describe('nextIndex', () => {

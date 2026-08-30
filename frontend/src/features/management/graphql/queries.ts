@@ -32,6 +32,12 @@ export const GET_RACE_DETAILS = gql`
       # toward the standings they qualified from (#548) — the race form's
       # checkbox for it.
       excludeRoundWinnersFromQualifyingStandings
+      # A per-race override of how much of a racer's name a public screen
+      # may show (#552), null where this race inherits the organization's
+      # setting — the raw column RaceForm's checkbox reads, mirroring the
+      # terminology overrides above.
+      nameDisplay
+      resolvedNameDisplay
       registeredCount
       checkedInCount
       racingGroups {
@@ -123,6 +129,13 @@ export const UPDATE_RACE = gql`
       vehiclePlural
       vehicleArtworkKey
       excludeRoundWinnersFromQualifyingStandings
+      # Same shape and same reason as the terminology pair below (#552):
+      # the raw column is what the form edits, and resolvedNameDisplay is
+      # what every abbreviating surface actually reads — without it,
+      # graphcache writes the raw column onto this Race and leaves its
+      # cached resolved value exactly as it found it.
+      nameDisplay
+      resolvedNameDisplay
       # The raw override columns above are what the form edits;
       # terminology is the resolved value RaceTerminologyGate reads
       # (#496 stage 4, issue #531). Without it, graphcache writes the raw

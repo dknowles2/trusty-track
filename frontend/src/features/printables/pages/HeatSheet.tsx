@@ -52,6 +52,7 @@ export default function HeatSheet() {
             (race.heats ?? []) as SheetHeat[],
             (race.racers ?? []) as SheetRacer[],
             lanes,
+            race.resolvedNameDisplay ?? 'FULL',
         );
     }, [race, data]);
 

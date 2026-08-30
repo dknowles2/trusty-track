@@ -16,6 +16,7 @@ export const RACE_AWARDS_QUERY = gql`
       id
       name
       votingOpen
+      resolvedNameDisplay
       awards {
         id
         name

@@ -124,7 +124,11 @@ export default function AwardCeremony() {
 
   if (!raceId || isNaN(id)) return <div>Invalid Race ID</div>;
 
-  const slide = slideFor(awards, index, rounds, racingGroups, groupLower);
+  // Resolved server-side (#552); the ceremony is an audience surface, so the
+  // winner's name and photo go through it — the operator's own award screens
+  // do not.
+  const nameDisplay = race?.resolvedNameDisplay ?? 'FULL';
+  const slide = slideFor(awards, index, rounds, racingGroups, groupLower, nameDisplay);
 
   return (
     <div

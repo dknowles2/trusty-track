@@ -44,6 +44,7 @@ const GET_LEADERBOARD_METADATA = `
       # applied" notice can tell a configured-but-not-firing modifier
       # from one that is simply off.
       dropWorstRuns
+      resolvedNameDisplay
       rounds {
         id
         name
@@ -320,7 +321,13 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                     : roundLabel(rounds.find((r) => r.id === selectedRoundId)!),
                 ),
               ),
-              standingsRows(leaderboard, scoringStrategy, group),
+              standingsRows(
+                leaderboard,
+                scoringStrategy,
+                group,
+                vehicle,
+                race?.resolvedNameDisplay ?? 'FULL',
+              ),
             )
           }
           style={{ padding: '8px 14px', fontSize: '0.9rem' }}

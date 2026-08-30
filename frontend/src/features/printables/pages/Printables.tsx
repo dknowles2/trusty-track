@@ -65,6 +65,12 @@ export default function Printables() {
 
     const racingGroups: PrintableRacingGroup[] = useMemo(() => data?.race?.racingGroups ?? [], [data]);
 
+    // How much of a racer's name the pit passes and licences print (#552) —
+    // resolved server-side. `CheckInCode` never receives this: it is scanned
+    // by the check-in desk to identify a racer, the same job that keeps the
+    // roster and check-in screens themselves at full names.
+    const nameDisplay = data?.race?.resolvedNameDisplay ?? 'FULL';
+
     const cards: PrintableRacer[] = useMemo(() => {
         const racers: PrintableRacer[] = (data?.race?.racers ?? []).map((r: GQLRacer) => ({
             id: r.id,
@@ -167,6 +173,7 @@ export default function Printables() {
                                     racer={racer}
                                     race={race}
                                     racingGroup={racingGroup}
+                                    nameDisplay={nameDisplay}
                                 />
                             );
                         }
@@ -177,6 +184,7 @@ export default function Printables() {
                                     racer={racer}
                                     race={race}
                                     racingGroup={racingGroup}
+                                    nameDisplay={nameDisplay}
                                 />
                             );
                         }

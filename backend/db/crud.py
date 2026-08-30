@@ -289,6 +289,10 @@ def create_initial_config(
         organization.display_theme = config.display_theme
     if config.printables_theme is not None:
         organization.printables_theme = config.printables_theme
+    # Same shape as the themes above: `"FULL"` is itself the reachable "off"
+    # state (#552), so there is no clear flag to carry here.
+    if config.name_display is not None:
+        organization.name_display = config.name_display
     db.add(organization)
 
     # Create Tracks

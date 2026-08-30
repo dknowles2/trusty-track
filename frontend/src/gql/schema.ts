@@ -223,6 +223,7 @@ export type InitialConfigInput = {
   clearTerminology?: Scalars['Boolean']['input'];
   debugMode?: Scalars['Boolean']['input'];
   displayTheme?: InputMaybe<Scalars['String']['input']>;
+  nameDisplay?: InputMaybe<Scalars['String']['input']>;
   operatorPin?: InputMaybe<Scalars['String']['input']>;
   organizationName: Scalars['String']['input'];
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
@@ -244,6 +245,7 @@ export type InitialConfigStatus = {
   displayTheme: Scalars['String']['output'];
   initialized: Scalars['Boolean']['output'];
   isOperator: Scalars['Boolean']['output'];
+  nameDisplay?: Maybe<Scalars['String']['output']>;
   organizationName?: Maybe<Scalars['String']['output']>;
   organizationPlural?: Maybe<Scalars['String']['output']>;
   organizationSingular?: Maybe<Scalars['String']['output']>;
@@ -251,6 +253,7 @@ export type InitialConfigStatus = {
   printablesTheme: Scalars['String']['output'];
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
+  resolvedNameDisplay: Scalars['String']['output'];
   terminology: Terminology;
   tracks: Array<Track>;
   vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
@@ -701,11 +704,13 @@ export type MutationUploadImageArgs = {
 export type Organization = {
   id: Scalars['Int']['output'];
   name: Scalars['String']['output'];
+  nameDisplay?: Maybe<Scalars['String']['output']>;
   organizationPlural?: Maybe<Scalars['String']['output']>;
   organizationSingular?: Maybe<Scalars['String']['output']>;
   races: Array<Race>;
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
+  resolvedNameDisplay: Scalars['String']['output'];
   terminology: Terminology;
   vehicleArtworkKey?: Maybe<Scalars['String']['output']>;
   vehiclePlural?: Maybe<Scalars['String']['output']>;
@@ -852,6 +857,7 @@ export type Race = {
   location?: Maybe<Scalars['String']['output']>;
   masterRunningOrder: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
+  nameDisplay?: Maybe<Scalars['String']['output']>;
   organization: Organization;
   organizationId: Scalars['Int']['output'];
   organizationPlural?: Maybe<Scalars['String']['output']>;
@@ -861,6 +867,7 @@ export type Race = {
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   racingGroups: Array<RacingGroup>;
   registeredCount: Scalars['Int']['output'];
+  resolvedNameDisplay: Scalars['String']['output'];
   rounds: Array<Round>;
   scheduledRacerIds: Array<Scalars['Int']['output']>;
   scoringStrategy: Scalars['String']['output'];
@@ -932,6 +939,7 @@ export type RaceUpdateInput = {
   autoAdvanceHeat?: InputMaybe<Scalars['Boolean']['input']>;
   carNumberingStrategy?: InputMaybe<Scalars['String']['input']>;
   championshipTrophies?: InputMaybe<Scalars['Int']['input']>;
+  clearNameDisplay?: Scalars['Boolean']['input'];
   clearTerminology?: Scalars['Boolean']['input'];
   clearWeightLimit?: Scalars['Boolean']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
@@ -941,6 +949,7 @@ export type RaceUpdateInput = {
   location?: InputMaybe<Scalars['String']['input']>;
   masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  nameDisplay?: InputMaybe<Scalars['String']['input']>;
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;

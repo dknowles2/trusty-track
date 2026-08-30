@@ -141,6 +141,13 @@ class InitialConfigCreate(BaseModel):
     vehicle_plural: str | None = None
     vehicle_artwork_key: str | None = None
     clear_terminology: bool = False
+    # The install-wide default for how much of a racer's name a public
+    # screen may show (#552) — one of `domain.name_display.NAME_DISPLAY_VALUES`,
+    # or None to take the column's own default (`"FULL"`). Like
+    # `display_theme` above, an ordinary column value `crud.create_initial_config`
+    # sets directly, and `"FULL"` is itself the reachable "off" state, so
+    # there is no clear flag to carry.
+    name_display: str | None = None
 
 
 class RacerBase(BaseModel):
@@ -270,6 +277,13 @@ class RaceUpdate(BaseModel):
     #: alone; `false` is an ordinary value, not a sentinel — the same shape
     #: `master_running_order` and `voting_open` already use.
     exclude_round_winners_from_qualifying_standings: bool | None = None
+    #: A per-race override of the organization's name-display default
+    #: (#552). Absent means leave alone; `schema.update_race` pops
+    #: `clearNameDisplay` off the input before constructing this and, when
+    #: set, fills this back in as explicit `None` — unlike `weight_limit_oz`,
+    #: because `"FULL"` here is a real value distinct from "inherit", the
+    #: same reason `clearTerminology` exists.
+    name_display: str | None = None
 
     @field_validator("drop_worst_runs")
     @classmethod

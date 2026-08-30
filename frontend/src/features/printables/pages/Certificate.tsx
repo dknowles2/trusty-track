@@ -37,7 +37,14 @@ export default function Certificate() {
     const eventDate = formatEventDate(race?.dateTime);
 
     const certificates = useMemo(
-        () => (race ? certificatesFor(race, (race.awards ?? []) as CertificateAward[]) : []),
+        () =>
+            race
+                ? certificatesFor(
+                      race,
+                      (race.awards ?? []) as CertificateAward[],
+                      race.resolvedNameDisplay ?? 'FULL',
+                  )
+                : [],
         [race],
     );
 

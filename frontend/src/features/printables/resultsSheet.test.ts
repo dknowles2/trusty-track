@@ -130,6 +130,12 @@ describe('resultsSections', () => {
 
         expect(standings.map((s) => s.racerId)).toEqual([1, 2]);
     });
+
+    it('abbreviates a row name when told to (#552)', () => {
+        const [overall] = resultsSections([entry({ racerId: 1 })], 'TIMED', NO_DEN, 'FIRST_ONLY');
+
+        expect(overall.rows[0].name).toBe('Ada');
+    });
 });
 
 const award = (over: Partial<ResultsAward> & { id: number }): ResultsAward => ({
@@ -189,6 +195,15 @@ describe('awardLines', () => {
         awardLines(awards);
 
         expect(awards.map((a) => a.id)).toEqual([1, 2]);
+    });
+
+    it('abbreviates the winner when told to (#552)', () => {
+        const [line] = awardLines(
+            [award({ id: 1, recipient: { firstName: 'Ada', lastName: 'Ant', carNumber: 42 } })],
+            'LAST_INITIAL',
+        );
+
+        expect(line.winner).toBe('Ada A. (#42)');
     });
 });
 

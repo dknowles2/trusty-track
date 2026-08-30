@@ -125,6 +125,10 @@ export default function RaceDetails() {
       vehicle_plural: data.race.vehiclePlural ?? null,
       vehicle_artwork_key: data.race.vehicleArtworkKey ?? null,
       exclude_round_winners_from_qualifying_standings: data.race.excludeRoundWinnersFromQualifyingStandings,
+      // Raw override, null where this race inherits the organization's
+      // name-display setting (#552) — `RaceForm`'s checkbox is on exactly
+      // when this is non-null.
+      name_display: data.race.nameDisplay ?? null,
     } satisfies Race;
   }, [data]);
 
@@ -277,6 +281,12 @@ export default function RaceDetails() {
               // pair): absent means leave alone, so going back to
               // inheriting needs its own flag.
               clearTerminology: updateInput.racing_group_singular == null,
+              nameDisplay: updateInput.name_display ?? undefined,
+              // Same trap again, for the per-race name-display override
+              // (#552): `'FULL'` set explicitly is a real override here,
+              // distinct from inheriting, so going back to null needs its
+              // own flag too.
+              clearNameDisplay: updateInput.name_display == null,
           };
           const result = await updateRaceMutation({ id: parsedRaceId, race: raceInput });
           if (result.error) throw result.error;
