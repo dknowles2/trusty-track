@@ -27,23 +27,23 @@ template: |
   **Full changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
 
 categories:
-  - title: "### Bug fixes"
+  - title: "Bug fixes"
     labels:
       - bug
-  - title: "### Security"
+  - title: "Security"
     labels:
       - security
-  - title: "### Performance"
+  - title: "Performance"
     labels:
       - performance
-  - title: "### Documentation"
+  - title: "Documentation"
     labels:
       - documentation
-  - title: "### Under the hood"
+  - title: "Under the hood"
     labels:
       - architecture
       - tech-debt
-  - title: "### Dependencies"
+  - title: "Dependencies"
     labels:
       - dependencies
       - github_actions
@@ -59,8 +59,11 @@ exclude-labels:
 
 change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
 # A title containing backticks or angle brackets would otherwise render as
-# markup in the release body.
-change-title-escapes: '\<*_&`#@'
+# markup in the release body. `#` is deliberately absent: titles here name the
+# issue they close ("Document the terminology setting (#496, stage 5)"), and
+# escaping it turns a link the reader can follow into literal text with an
+# HTML comment wedged through the middle of it.
+change-title-escapes: '\<*_&`@'
 
 no-changes-template: "- No changes"
 
