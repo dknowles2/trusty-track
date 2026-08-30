@@ -1,0 +1,104 @@
+# Release notes, drafted from merged pull requests.
+#
+# The changelog this project actually wants is its pull request titles: every
+# commit on main is a squashed PR, and those titles are already written as
+# sentences a person can read. Release Drafter collects them; the categories
+# below are the existing repository labels, so a note lands in a section
+# because somebody labelled the PR, not because of anything it says.
+#
+# Two workflows read this file. `release-drafter.yml` keeps a rolling draft up
+# to date on every push to main — so the notes for the next release are always
+# visible and correctable — and `release.yml` runs the same drafter at tag time
+# to fill in that draft's final tag before publishing it with the installers
+# attached.
+
+name-template: "Trusty Track v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+
+# Uncategorized pull requests are rendered first, with no heading of their own.
+# That is deliberate rather than a gap: an unlabelled PR here is a change to
+# the app itself, which is the part somebody opening the release page came to
+# read, and the labelled sections below are the supporting detail.
+template: |
+  ## What's new
+
+  $CHANGES
+
+  **Full changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+categories:
+  - title: "### Bug fixes"
+    labels:
+      - bug
+  - title: "### Security"
+    labels:
+      - security
+  - title: "### Performance"
+    labels:
+      - performance
+  - title: "### Documentation"
+    labels:
+      - documentation
+  - title: "### Under the hood"
+    labels:
+      - architecture
+      - tech-debt
+  - title: "### Dependencies"
+    labels:
+      - dependencies
+      - github_actions
+      - python:uv
+      - javascript
+
+# A PR carrying any of these is not a change anybody shipped.
+exclude-labels:
+  - duplicate
+  - invalid
+  - wontfix
+  - icebox
+
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+# A title containing backticks or angle brackets would otherwise render as
+# markup in the release body.
+change-title-escapes: '\<*_&`#@'
+
+no-changes-template: "- No changes"
+
+# Only the label decides the bump. There is no `breaking` label in this
+# repository, so a major version is a deliberate act by whoever cuts the tag —
+# which is what `tag-template` is for; this only suggests the draft's name.
+version-resolver:
+  minor:
+    labels:
+      - enhancement
+      - architecture
+  patch:
+    labels:
+      - bug
+      - documentation
+      - dependencies
+      - performance
+      - security
+      - tech-debt
+  default: patch
+
+# Titles here are prose, not conventional commits, so most PRs match nothing
+# and stay uncategorized — which is the headline list above. These three
+# prefixes are the ones this project does use.
+autolabeler:
+  - label: documentation
+    title:
+      - '/^docs(\([^)]*\))?:/i'
+      - '/^fix\(docs\):/i'
+    branch:
+      - '/^docs\//'
+  - label: bug
+    # `fix(docs):` is a documentation change, and is excluded here so it lands
+    # in one section rather than two.
+    title:
+      - '/^fix(?!\(docs\))(\([^)]*\))?:/i'
+    branch:
+      - '/^fix\//'
+  - label: dependencies
+    branch:
+      - '/^dependabot\//'

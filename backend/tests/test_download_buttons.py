@@ -83,18 +83,22 @@ def test_release_workflow_publishes_the_stable_asset_name(asset: str):
     )
 
 
-def test_release_workflow_uploads_both_stable_assets_to_gh_release_create():
-    """The stable-named copies must actually reach `gh release create`.
+def test_release_workflow_uploads_both_stable_assets_to_the_release():
+    """The stable-named copies must actually reach `gh release upload`.
 
     Creating the copies and forgetting to list them is the same failure as
     never creating them: the file sits in the runner's workspace and nothing
     ever uploads it.
+
+    The command used to be `gh release create`; the release page is now the
+    draft Release Drafter has been maintaining, so the assets are attached to
+    it and it is published afterwards. What is being guarded is unchanged.
     """
     text = _release_workflow_text()
-    match = re.search(r"gh release create.*?(?=\n\s*\n|\Z)", text, re.S)
-    assert match, "no `gh release create` invocation found in release.yml"
+    match = re.search(r"gh release upload.*?(?=\n\s*\n|\Z)", text, re.S)
+    assert match, "no `gh release upload` invocation found in release.yml"
     block = match.group(0)
     for asset in STABLE_ASSETS.values():
         assert asset in block, (
-            f"the `gh release create` command in release.yml does not reference {asset}"
+            f"the `gh release upload` command in release.yml does not reference {asset}"
         )
