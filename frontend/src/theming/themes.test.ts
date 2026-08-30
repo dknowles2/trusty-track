@@ -239,6 +239,25 @@ describe('contrast — the hard constraints checklist', () => {
     }
   });
 
+  it('display-on-accent-color reads as text on the display accent fill (#527)', () => {
+    // #501 added --display-on-accent-color to close the gap the comment
+    // above describes — the standings thead, the Standings/Timing tab
+    // pills and the exhibition badge (Observation.tsx, standard mode) all
+    // read it now that they are no longer reading an App-surface token for
+    // this role. It is flat #000000 across every theme, so this is really
+    // one check per accent colour, but stating it per theme keeps the
+    // failure message naming the theme that broke it.
+    for (const theme of THEMES) {
+      expect(
+        contrastRatio(
+          theme.display.tokens['--display-on-accent-color'],
+          theme.display.tokens['--display-accent-color'],
+        ),
+        `${theme.key}: display-on-accent-color on display-accent-color`,
+      ).toBeGreaterThanOrEqual(BODY_TEXT_FLOOR);
+    }
+  });
+
   // The three pairings the spec's design work explicitly considered and
   // rejected — pinned here so the reasoning stays checked against the
   // contrast utility itself, not just asserted in prose.
