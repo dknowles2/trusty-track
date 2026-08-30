@@ -94,7 +94,9 @@ def calculate_racer_scores(
     heats = _scoring_heats(db, race_id, round_id, scope)
     parsed = crud.lanes_for_heats(db, heats)
 
-    scores = domain_scoring.score_heats(parsed, race.scoring_strategy)
+    scores = domain_scoring.score_heats(
+        parsed, race.scoring_strategy, race.drop_worst_runs
+    )
     return {racer_id: score.as_dict() for racer_id, score in scores.items()}
 
 
@@ -123,6 +125,14 @@ class _LeaderboardRow(TypedDict):
     #: its own reason for the same shape by setting it to ``None`` outright,
     #: since #540 is explicitly out of scope for that format.
     resolved_by: str | None
+    #: Whether `Race.drop_worst_runs` (#547 stage 2) actually dropped a run
+    #: from this leaderboard — one flag, riding on every row, since it is a
+    #: fact about the whole computation rather than about any one racer (the
+    #: same "riding along" shape `racing_group_division` already uses for
+    #: its own race-wide fact). `False` under an elimination round's own
+    #: leaderboard, which never calls `domain.scoring.score_heats` at all —
+    #: the modifier has nothing to apply to there.
+    drop_worst_runs_applied: bool
 
 
 class LeaderboardEntry(_LeaderboardRow, total=False):
@@ -164,7 +174,12 @@ def get_leaderboard(
 
     heats = _scoring_heats(db, race_id, round_id, scope)
     parsed = crud.lanes_for_heats(db, heats)
-    scores = domain_scoring.score_heats(parsed, race.scoring_strategy)
+    drop_worst_runs_applied = domain_scoring.drop_worst_status(
+        parsed, race.scoring_strategy, race.drop_worst_runs
+    )
+    scores = domain_scoring.score_heats(
+        parsed, race.scoring_strategy, race.drop_worst_runs
+    )
     racer_scores = {racer_id: score.as_dict() for racer_id, score in scores.items()}
 
     racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
@@ -203,6 +218,7 @@ def get_leaderboard(
                 heats_completed=int(score_data["heats_completed"]),
                 racer_image_url=racer.racer_image_url,
                 resolved_by=None,
+                drop_worst_runs_applied=drop_worst_runs_applied,
             )
         )
 
@@ -386,6 +402,10 @@ def _elimination_leaderboard(
                 # above. Always present, never left implicit, same as the
                 # ordinary leaderboard's rows.
                 resolved_by=None,
+                # Drop-worst is a modifier over `domain.scoring.score_heats`,
+                # which this leaderboard never calls — survival is scored by
+                # loss count, not by any of the four strategies it modifies.
+                drop_worst_runs_applied=False,
             )
         )
     return leaderboard
