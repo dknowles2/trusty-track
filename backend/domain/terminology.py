@@ -31,6 +31,7 @@ __all__ = [
     "DEFAULT_TERMINOLOGY",
     "Terminology",
     "TerminologyOverrides",
+    "overrides_from_row",
     "resolve_terminology",
 ]
 
@@ -71,6 +72,23 @@ DEFAULT_TERMINOLOGY = Terminology(
     organization_singular="Pack",
     organization_plural="Packs",
 )
+
+
+def overrides_from_row(row: object) -> TerminologyOverrides:
+    """Read one layer's four override columns off an ORM row.
+
+    Works for both `models.Organization` and `models.Race` — they carry the
+    same four column names for exactly this reason. Takes a duck-typed
+    ``object`` rather than one of those ORM types so this module stays free
+    of SQLAlchemy imports (#8); `getattr` with a `None` default reads a row
+    that predates a column the same as one that has it and leaves it unset.
+    """
+    return TerminologyOverrides(
+        racing_group_singular=getattr(row, "racing_group_singular", None),
+        racing_group_plural=getattr(row, "racing_group_plural", None),
+        organization_singular=getattr(row, "organization_singular", None),
+        organization_plural=getattr(row, "organization_plural", None),
+    )
 
 
 def resolve_terminology(
