@@ -4,7 +4,9 @@ import { resolve } from 'node:path';
 import { Client, gql, type Exchange, type OperationResult } from 'urql';
 import { cacheExchange } from '@urql/exchange-graphcache';
 import { pipe, map, filter } from 'wonka';
+import { print } from 'graphql';
 import { CACHE_CONFIG, CUSTOM_KEYED_TYPES, EMBEDDED_TYPES } from './graphqlClient';
+import { UPDATE_RACE } from '../features/management/graphql/queries';
 
 // Vitest runs with the frontend directory as cwd.
 const schemaPath = resolve(process.cwd(), 'schema.graphql');
@@ -260,5 +262,155 @@ describe('config mutations and the cached answer to initialConfig', () => {
       .toPromise()
       .then(() => client.query(CONFIG_QUERY, {}).toPromise())
       .then(() => expect(queries()).toBe(1));
+  });
+});
+
+/**
+ * Issue #531: renaming the words did not reach a race page already in the
+ * normalized cache. Two routes, matching the two ways `Race.terminology` can
+ * change without the `Race` itself changing (#496 stage 4).
+ */
+describe('terminology and the mutations that change it', () => {
+  const RACE_TERMINOLOGY = gql`
+    query CacheTestRaceTerminology($raceId: Int!) {
+      race(raceId: $raceId) {
+        id
+        terminology {
+          racingGroupSingular
+        }
+      }
+    }
+  `;
+
+  /** A client whose network layer is a list of canned answers. */
+  function clientReplying(answers: object[]) {
+    const asked: string[] = [];
+    const stub: Exchange = () => (ops$) =>
+      pipe(
+        ops$,
+        filter((op) => op.kind !== 'teardown'),
+        map((op) => {
+          asked.push(op.kind);
+          return {
+            operation: op,
+            data: answers[asked.length - 1],
+            stale: false,
+            hasNext: false,
+          } as OperationResult;
+        }),
+      );
+
+    return {
+      client: new Client({ url: '/graphql', exchanges: [cacheExchange(CACHE_CONFIG), stub] }),
+      queries: () => asked.filter((k) => k === 'query').length,
+    };
+  }
+
+  it('selects terminology in UPDATE_RACE, not just the four raw override columns', () => {
+    // The stub network layer in the tests below returns whatever payload a
+    // test hands it, regardless of what the document actually asks for — so
+    // it cannot catch this field being dropped from the real query again.
+    // This is the one test in the file that reads the real document rather
+    // than a synthetic one built to match a canned answer.
+    expect(print(UPDATE_RACE)).toMatch(/terminology\s*\{/);
+  });
+
+  it('route 1: a race-page mutation writes the words it resolved, not just the raw override', async () => {
+    // Uses the real `UPDATE_RACE` document (imported above), so this pins the
+    // actual shape the mutation writes into the cache, not a stand-in.
+    // Because `Terminology` is embedded, a response that carries it
+    // overwrites `Race:1.terminology` directly on write — no updater and no
+    // second round trip needed, which is what the query count below pins.
+    const before = {
+      race: { __typename: 'Race', id: 1, terminology: { __typename: 'Terminology', racingGroupSingular: 'Den' } },
+    };
+    const updated = {
+      updateRace: {
+        __typename: 'Race',
+        id: 1,
+        name: 'Derby',
+        dateTime: '2026-08-29T00:00:00',
+        location: 'Gym',
+        trackId: 1,
+        scoringStrategy: 'TIMED',
+        carNumberingStrategy: 'PER_GROUP',
+        globalStartNumber: 1,
+        championshipTrophies: 3,
+        weightLimitOz: null,
+        racingGroupSingular: 'Class',
+        racingGroupPlural: 'Classes',
+        organizationSingular: 'Pack',
+        organizationPlural: 'Packs',
+        terminology: {
+          __typename: 'Terminology',
+          racingGroupSingular: 'Class',
+          racingGroupPlural: 'Classes',
+          organizationSingular: 'Pack',
+          organizationPlural: 'Packs',
+        },
+      },
+    };
+
+    const { client, queries } = clientReplying([before, updated]);
+
+    await client.query(RACE_TERMINOLOGY, { raceId: 1 }).toPromise();
+    await client.mutation(UPDATE_RACE, { id: 1, race: {} }).toPromise();
+    const after = await client.query(RACE_TERMINOLOGY, { raceId: 1 }).toPromise();
+
+    expect(queries()).toBe(1);
+    expect(after.data.race.terminology.racingGroupSingular).toBe('Class');
+  });
+
+  it('route 2: an organization rename invalidates every cached race resolved words', async () => {
+    // `Race.terminology` layers a race's own override over the organization
+    // default server-side, so an organization rename changes the value of a
+    // field graphcache has no reason to suspect nothing about the `Race`
+    // entity itself changed. `forgetRaceTerminology` walks every cached
+    // `race(raceId: ...)` call and invalidates that race's `terminology`, so
+    // the next read is a genuine cache miss rather than the stale value.
+    const UPDATE_CONFIG = gql`
+      mutation CacheTestUpdateInitialConfig($config: InitialConfigInput!) {
+        updateInitialConfig(config: $config) {
+          initialized
+        }
+      }
+    `;
+
+    const before = {
+      race: { __typename: 'Race', id: 1, terminology: { __typename: 'Terminology', racingGroupSingular: 'Den' } },
+    };
+    const configSaved = { updateInitialConfig: { __typename: 'InitialConfigStatus', initialized: true } };
+    const after = {
+      race: { __typename: 'Race', id: 1, terminology: { __typename: 'Terminology', racingGroupSingular: 'Class' } },
+    };
+
+    const { client, queries } = clientReplying([before, configSaved, after]);
+
+    await client.query(RACE_TERMINOLOGY, { raceId: 1 }).toPromise();
+    await client.mutation(UPDATE_CONFIG, { config: {} }).toPromise();
+    const result = await client.query(RACE_TERMINOLOGY, { raceId: 1 }).toPromise();
+
+    expect(queries()).toBe(2);
+    expect(result.data.race.terminology.racingGroupSingular).toBe('Class');
+  });
+
+  it('does not invalidate a race the cache has never queried', async () => {
+    // `forgetRaceTerminology` only has entities to invalidate for races a
+    // screen has actually visited; a config save must not manufacture a
+    // network request for one nothing has asked about.
+    const configSaved = { updateInitialConfig: { __typename: 'InitialConfigStatus', initialized: true } };
+    const UPDATE_CONFIG = gql`
+      mutation CacheTestUpdateInitialConfigAlone($config: InitialConfigInput!) {
+        updateInitialConfig(config: $config) {
+          initialized
+        }
+      }
+    `;
+
+    const { client, queries } = clientReplying([configSaved]);
+
+    await client.mutation(UPDATE_CONFIG, { config: {} }).toPromise();
+
+    expect(queries()).toBe(0);
   });
 });

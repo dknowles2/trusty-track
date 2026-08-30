@@ -100,6 +100,18 @@ export const UPDATE_RACE = gql`
       racingGroupPlural
       organizationSingular
       organizationPlural
+      # The four raw override columns above are what the form edits;
+      # terminology is the resolved value RaceTerminologyGate reads
+      # (#496 stage 4, issue #531). Without it, graphcache writes the raw
+      # columns onto this Race and leaves its cached terminology exactly
+      # as it found it, so a race page already in the normalized cache keeps
+      # showing the old words until a reload.
+      terminology {
+        racingGroupSingular
+        racingGroupPlural
+        organizationSingular
+        organizationPlural
+      }
     }
   }
 `;
