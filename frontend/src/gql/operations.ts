@@ -163,6 +163,7 @@ export type TrackInput = {
   lengthFeet?: number | null | undefined;
   name?: string;
   remoteStartInstalled?: boolean;
+  reverseLanes?: boolean;
   serialPort?: string | null | undefined;
   timerProfile?: string | null | undefined;
   timerType?: string;

@@ -90,6 +90,7 @@ both.
 | **Serial Port** | Almost always blank. Fill it only to force a specific port; it is then used exactly as typed |
 | **Timer Model** | Almost always *Detect automatically*. See [the model picker](timers.md#the-timer-model-picker) |
 | **This track has a remote start gate** | Enables the on-screen gate release, if the timer supports it — see [the remote start gate](timers.md#the-remote-start-gate) |
+| **The timer's cable is wired backwards** | Flips every result so the timer's lane 1 matches the track's highest lane, instead of rewiring the timer or renumbering the track — see [reverse lane numbering](timers.md#reverse-lane-numbering) |
 | **Lanes in service** | Untick a lane that has stopped working. Unlike the rest of the card, this **saves the moment you click it** — see [a lane stops working](mid-race-changes.md#a-lane-stops-working) |
 | **Track records from past years** | Records from before Trusty Track, entered by hand for the Stats page's record board. Saves as soon as you add one — see [the track record](stats-and-exports.md#the-track-record) |
 
@@ -114,9 +115,9 @@ scoring method the race itself uses — a free heat is exhibition and is never
 scored, so the Timed/Points question this section answers for a real heat
 does not apply to it.
 
-The **Timer Model**, **Serial Port** and **This track has a remote start
-gate** fields disappear once **No timer** is chosen; none of them mean
-anything without a device.
+The **Timer Model**, **Serial Port**, **This track has a remote start
+gate** and **The timer's cable is wired backwards** fields disappear once
+**No timer** is chosen; none of them mean anything without a device.
 
 ![Timer Type dropdown with No Timer selected](../assets/screenshots/settings/07-no-timer-selected.png)
 _The timer section of a track's card, with **No timer — I'll enter results by hand** chosen from the Timer Type dropdown._

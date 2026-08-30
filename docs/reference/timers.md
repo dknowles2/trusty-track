@@ -133,3 +133,20 @@ cannot be recovered.
 
 **This has not been tested against hardware.** It is the only feature here
 that moves something physical — try it with an empty track first.
+
+## Reverse lane numbering
+
+A finish-line timer is wired to its lanes in whatever order the installer
+happened to plug it in. If that order runs opposite to the way the track
+itself is numbered on the wall, every result lands on the wrong car — lane
+1's time is reported for the car in lane 4, and so on.
+
+Tick **The timer's cable is wired backwards** on the track's card, under
+**The timer**, instead of rewiring the timer or renumbering the track. It
+flips every result the timer reports for that track, so lane 1 on the wall
+matches lane 1 on the results the moment it is turned on — no need to
+re-run anything already recorded correctly. Off by default; existing
+tracks are unaffected until you turn it on.
+
+This is Trusty Track's own arithmetic, not something the timer reports, so
+it applies the same way to every model above.
