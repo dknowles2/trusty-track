@@ -47,9 +47,11 @@ Two properties, and they are sometimes in tension:
   trivially no matter what the credits say: no heat from group A can ever
   repeat a car from group B's previous heat.
 
-No storage, no GraphQL, and no callers yet. `crud` will read a race's rounds,
-build a :class:`GroupSchedule` per round from its heats, and write the
-returned order back through `heat_number`.
+No storage and no GraphQL. `crud.apply_master_running_order` reads a race's
+general rounds, builds a :class:`GroupSchedule` per round from its heats, and
+writes the returned order back through `heat_number`;
+:func:`execution_sort_key` is how the execution surfaces read that order back
+out.
 """
 
 from __future__ import annotations
@@ -86,6 +88,48 @@ class GroupSchedule(Generic[H]):
 
     group_id: int
     heats: Sequence[HeatEntry[H]]
+
+
+def execution_sort_key(
+    *,
+    round_number: int,
+    heat_number: int,
+    is_championship: bool,
+    master_order: bool,
+) -> tuple[int, int, int]:
+    """Where one heat sits in the race-wide running order.
+
+    The execution surfaces — the operator's Race tab, and the audience's
+    `currentlyRacing` / `onDeck` — all answer "which heat is next" by sorting
+    the race's heats and finding the first unfinished one. This is the one
+    rule for that sort, so the operator screen and the wall displays cannot
+    disagree about what is next.
+
+    With ``master_order`` off (the default, and every race that predates the
+    flag), the order is ``(round_number, heat_number)``: one round's block,
+    then the next round's — exactly what those surfaces always did.
+
+    With it on, a general round's heats follow ``heat_number`` alone, because
+    that is where :func:`interleave`'s output lives once
+    ``applyMasterRunningOrder`` has written it — globally unique numbers,
+    one interleaved sequence across rounds. ``round_number`` stays as a
+    tiebreak only, for heats the interleave has not renumbered yet (a round
+    generated after the last apply still counts 1..N): colliding numbers then
+    zip deterministically rather than jumping around, until the operator
+    re-applies.
+
+    A championship round is exempt and runs *after* every general round,
+    in its own ``(round_number, heat_number)`` block — two reasons, either
+    sufficient. Its field is drawn from the general rounds' standings, so it
+    cannot meaningfully run before they finish; and the advancement cascade's
+    ``_reset_heats_in_place`` renumbers a championship round's heats 1..N on
+    every rebuild, so a master number written onto one could not survive the
+    first preliminary result recorded after it anyway.
+    """
+    if master_order and not is_championship:
+        return (0, heat_number, round_number)
+    tier = 1 if master_order else 0
+    return (tier, round_number, heat_number)
 
 
 def interleave(groups: Sequence[GroupSchedule[H]]) -> list[H]:

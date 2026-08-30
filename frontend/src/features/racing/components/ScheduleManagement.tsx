@@ -36,6 +36,15 @@ interface ScheduleManagementProps {
   heats: Heat[];
   generating: boolean;
   activeHeatId: number | null;
+  /**
+   * The race runs one interleaved sequence across its rounds (#549). Rounds
+   * then progress concurrently, so the "complete previous rounds first" Run
+   * gating is off — a later round's heat is runnable the moment its turn
+   * comes up — and within-round dragging is off too, because `reorderHeats`
+   * renumbers a round 1..N, which would yank its heats to the head of the
+   * interleave.
+   */
+  masterRunningOrder?: boolean;
   onAddRound: (config: {
     schedulingStrategy?: string;
     name: string;
@@ -82,6 +91,7 @@ interface SortableHeatRowProps {
   isRunning: boolean;
   isReordering: boolean;
   isUpcoming: boolean;
+  masterRunningOrder: boolean;
   getRacerName: (id: number) => string;
   onRunHeat: (heat: Heat, shouldStart?: boolean) => void | Promise<void>;
   onDeleteHeat: (heatId: number) => Promise<void>;
@@ -99,6 +109,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   isRunning,
   isReordering,
   isUpcoming,
+  masterRunningOrder,
   getRacerName,
   onRunHeat,
   onDeleteHeat,
@@ -110,8 +121,10 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
   const isCompleted = hasRun(lanes);
   const hasPlaceholders = lanes.some((l) => l.placeholderSlot !== null);
 
-  // Disable dragging if heat is running, reordering is in progress, or heat has results
-  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes;
+  // Disable dragging if heat is running, reordering is in progress, or heat
+  // has results — or the race runs a master running order, where a drag's
+  // 1..N renumbering would silently pull this round out of the interleave.
+  const isDraggingDisabled = isRunning || isReordering || hasRecordedTimes || masterRunningOrder;
 
   const {
     attributes,
@@ -152,7 +165,7 @@ const SortableHeatRow: React.FC<SortableHeatRowProps> = ({
           width: '40px',
           opacity: isDraggingDisabled ? 0.4 : 1,
         }}
-        title={hasRecordedTimes ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
+        title={masterRunningOrder ? "Heats follow the master running order" : hasRecordedTimes ? "Cannot reorder completed heats" : isRunning ? "Cannot reorder running heat" : "Drag to reorder"}
       >
         <Icon path={mdiDragVertical} size={0.8} color="var(--text-faint-color)" />
       </td>
@@ -223,6 +236,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   heats,
   generating,
   activeHeatId,
+  masterRunningOrder = false,
   onAddRound,
   onRegenerateRound,
   onDeleteRound,
@@ -650,7 +664,12 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                                 heat={heat}
                                 isRunning={activeHeatId === heat.id}
                                 isReordering={reordering}
-                                isUpcoming={roundNum > firstUncompletedRoundNumber}
+                                // Under a master running order rounds progress
+                                // concurrently, so no round is "upcoming" —
+                                // the next group's heat must be runnable while
+                                // this group's round is still open (#549).
+                                isUpcoming={masterRunningOrder ? false : roundNum > firstUncompletedRoundNumber}
+                                masterRunningOrder={masterRunningOrder}
                                 getRacerName={getRacerName}
                                 onRunHeat={onRunHeat}
                                 onDeleteHeat={onDeleteHeat}

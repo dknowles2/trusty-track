@@ -666,6 +666,82 @@ describe('ScheduleManagement', () => {
     expect(runButtons[1]).not.toBeDisabled();
   });
 
+  it('does not gate a later round behind an earlier one under a master running order (#549)', () => {
+    // Rounds progress concurrently under the interleave — the next group's
+    // heat must be runnable while this group's round is still open, or the
+    // whole point of the master order (no idle track between dens) is lost.
+    const multiRoundHeats: Heat[] = [
+      { id: 1, roundNumber: 1, roundId: 1, heatNumber: 3, lanes: [], roundName: 'Lions' },
+      { id: 2, roundNumber: 2, roundId: 2, heatNumber: 4, lanes: [], roundName: 'Tigers' },
+    ];
+
+    render(
+      <MemoryRouter>
+      <AlertProvider>
+        <ScheduleManagement
+          raceId={1}
+          heats={multiRoundHeats}
+          generating={false}
+          activeHeatId={null}
+          masterRunningOrder={true}
+          onAddRound={mockOnAddRound}
+          onRegenerateRound={mockOnRegenerateRound}
+          onDeleteRound={mockOnDeleteRound}
+          onDeleteHeat={mockOnDeleteHeat}
+          onRunHeat={mockOnRunHeat}
+          onReorderHeats={mockOnReorderHeats}
+          getRacerName={mockGetRacerName}
+          onRefetchHeats={vi.fn()}
+          laneCount={4}
+          racerCount={10}
+          racingGroupCount={3}
+          championshipTrophies={3}
+        />
+      </AlertProvider>
+      </MemoryRouter>
+    );
+
+    const runButtons = screen.getAllByText('Run');
+    expect(runButtons[0]).not.toBeDisabled();
+    expect(runButtons[1]).not.toBeDisabled();
+  });
+
+  it('disables within-round dragging under a master running order (#549)', () => {
+    // `reorderHeats` renumbers a round 1..N, which would silently pull its
+    // heats to the head of the interleave — so the drag handle says why
+    // instead of offering it.
+    render(
+      <MemoryRouter>
+      <AlertProvider>
+        <ScheduleManagement
+          raceId={1}
+          heats={[
+            { id: 1, roundNumber: 1, roundId: 1, heatNumber: 3, lanes: [], roundName: 'Lions' },
+          ]}
+          generating={false}
+          activeHeatId={null}
+          masterRunningOrder={true}
+          onAddRound={mockOnAddRound}
+          onRegenerateRound={mockOnRegenerateRound}
+          onDeleteRound={mockOnDeleteRound}
+          onDeleteHeat={mockOnDeleteHeat}
+          onRunHeat={mockOnRunHeat}
+          onReorderHeats={mockOnReorderHeats}
+          getRacerName={mockGetRacerName}
+          onRefetchHeats={vi.fn()}
+          laneCount={4}
+          racerCount={10}
+          racingGroupCount={3}
+          championshipTrophies={3}
+        />
+      </AlertProvider>
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTitle('Heats follow the master running order')).toBeInTheDocument();
+    expect(screen.queryByTitle('Drag to reorder')).not.toBeInTheDocument();
+  });
+
   it('marks a round whose raced field has gone stale (#229)', () => {
     render(
       <MemoryRouter>

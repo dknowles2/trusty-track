@@ -144,6 +144,7 @@ export const GET_RACE_CONTROL_DATA = gql`
       championshipTrophies
       scoringStrategy
       autoAdvanceHeat
+      masterRunningOrder
       registeredCount
       checkedInCount
       track {
