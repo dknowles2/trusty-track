@@ -11,7 +11,7 @@ import logging
 import re
 from collections import deque
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -142,6 +142,8 @@ class TimerManager:
         device: TimerProfile,
         session_factory: SessionFactory | None = None,
         remote_start_installed: bool = False,
+        lane_count: int = 4,
+        reverse_lanes: bool = False,
     ) -> None:
         """Create a manager for one track.
 
@@ -149,10 +151,16 @@ class TimerManager:
         injected rather than imported because recording happens on a background
         task, outside any request — so tests need to point it at their own
         database instead of the process-wide one.
+
+        ``lane_count`` and ``reverse_lanes`` are the track's own facts, not the
+        device's (#553) — the same relationship ``remote_start_installed`` has
+        to the device's `remote_start` command. See `_translated_lane`.
         """
         self._track_id = track_id
         self._device = device
         self._remote_start_installed = remote_start_installed
+        self._lane_count = lane_count
+        self._reverse_lanes = reverse_lanes
         self._session_factory: SessionFactory = session_factory or SessionLocal
         self._buf: bytes = b""
         self._active_heat_id: int | None = None
@@ -227,6 +235,17 @@ class TimerManager:
             return
         self._remote_start_installed = installed
         await pubsub.publish(f"timer_state:{self._track_id}", self.status())
+
+    def set_lane_translation(self, *, lane_count: int, reverse_lanes: bool) -> None:
+        """The track's lane count or cabling direction changed.
+
+        Both feed `_translated_lane`, and unlike `remote_start_installed`
+        neither is shown back on `TimerStatus`, so there is nothing on the
+        operator screen for a publish to update live — the next heat armed
+        just uses the new values.
+        """
+        self._lane_count = lane_count
+        self._reverse_lanes = reverse_lanes
 
     # ------------------------------------------------------------------ #
     # Write-path configuration                                             #
@@ -359,6 +378,88 @@ class TimerManager:
             self._racer_by_lane = {}
             await self._transition(TimerState.IDLE)
 
+    # ------------------------------------------------------------------ #
+    # Reverse lane numbering (#553)                                        #
+    # ------------------------------------------------------------------ #
+    #
+    # `Track.reverse_lanes` is a fact about this venue's cable: the timer's
+    # own lane 1 is wired to the track's highest lane. Everywhere else in
+    # this class — `_lane_mask`, `_racer_by_lane`, `_pending_results`,
+    # `crud.heat_lanes_of` — a lane number is the *track's* number, matching
+    # what is stored on `HeatLane.lane` and shown to the operator. Only two
+    # places cross from that numbering to the device's own, and both are
+    # boundaries of the *wire*, not of `_handle_event`:
+    #
+    # - Read side, `_translate_incoming`, called once in `_process_line`
+    #   right where `TimerProfile.parse_line` turns a Matcher's capture into
+    #   a `LaneResult` — the seam where "a device-reported lane index becomes
+    #   a lane number". Deliberately *not* in `_handle_event`: `inject_event`
+    #   (fake timer, and unit tests) also lands there, already holding track
+    #   lane numbers — it never spoke to a device, so there is nothing on the
+    #   wire to un-mirror, and flipping it there would double-cross a real
+    #   result read normally and wrongly cross a fake one that was never
+    #   reversed to begin with.
+    # - Write side, `_device_lane_mask`, wherever `HeatPrep.mask` commands are
+    #   built — the device's own addressing, for the lanes told to arm.
+    #
+    # Both call `_translated_lane`, and nowhere else does — a reversal applied
+    # in two places is a reversal in none, and applied in zero is simply
+    # wrong. The mirror is its own inverse: flipping device lane 1 to track
+    # lane 4 on a 4-lane track and flipping it right back lands on 1 again, so
+    # one method serves both directions.
+
+    def _translated_lane(self, lane: int) -> int:
+        """Mirror a lane number across the track's own lane count.
+
+        A no-op unless `_reverse_lanes` is set, and only within the lanes
+        this track actually has — a device with more channels than the
+        track is wired for reports lanes beyond `_lane_count` unchanged,
+        since there is no track lane for them to mirror onto.
+        """
+        if not self._reverse_lanes or not 1 <= lane <= self._lane_count:
+            return lane
+        return self._lane_count + 1 - lane
+
+    def _device_lane_mask(self, track_lane_mask: int) -> int:
+        """A lane mask, in the track's own numbering, as the device reads it.
+
+        `HeatPrep.mask` addresses lanes by offsetting `first_lane` — the
+        device's own numbering — so arming or masking a lane on a reversed
+        venue needs the same mirror `_translated_lane` applies to a result
+        coming the other way.
+        """
+        if not self._reverse_lanes:
+            return track_lane_mask
+        mask = 0
+        for lane in range(1, self._lane_count + 1):
+            if track_lane_mask & (1 << (lane - 1)):
+                mask |= 1 << (self._translated_lane(lane) - 1)
+        # Bits for lanes beyond this track's own count (a device with more
+        # channels than are wired here) pass through unchanged.
+        mask |= track_lane_mask & ~((1 << self._lane_count) - 1)
+        return mask
+
+    def _translate_incoming(
+        self, event_or_list: "TimerEvent | list[TimerEvent] | None"
+    ) -> "TimerEvent | list[TimerEvent] | None":
+        """Mirror every `LaneResult`'s lane in what `parse_line` just returned.
+
+        Called once, from `_process_line`, on the value straight out of
+        `TimerProfile.parse_line` — before anything else looks at it, so
+        there is exactly one crossing from the device's lane numbering to
+        the track's.
+        """
+        if not self._reverse_lanes or event_or_list is None:
+            return event_or_list
+        if isinstance(event_or_list, list):
+            return [self._mirror_lane(e) for e in event_or_list]
+        return self._mirror_lane(event_or_list)
+
+    def _mirror_lane(self, event: "TimerEvent") -> "TimerEvent":
+        if isinstance(event, LaneResult):
+            return replace(event, lane=self._translated_lane(event.lane))
+        return event
+
     async def prepare_heat(
         self,
         heat_id: int,
@@ -383,7 +484,9 @@ class TimerManager:
             # A new heat starts from "gate not yet closed", whatever the last
             # one ended on, so staging has to be observed afresh.
             self._gate.reset(closed=False)
-            await self._send_commands(self._device.prepare_heat_commands(lane_mask))
+            await self._send_commands(
+                self._device.prepare_heat_commands(self._device_lane_mask(lane_mask))
+            )
             await self._transition(TimerState.ARMED)
             self._start_gate_polling()
 
@@ -405,7 +508,9 @@ class TimerManager:
             self._racer_by_lane = {}
             self._gate.reset(closed=False)
             await self._send_commands(
-                self._device.prepare_heat_commands(self._lane_mask)
+                self._device.prepare_heat_commands(
+                    self._device_lane_mask(self._lane_mask)
+                )
             )
             await self._transition(TimerState.ARMED)
             self._start_gate_polling()
@@ -732,7 +837,11 @@ class TimerManager:
 
         # Try to parse the line first. Even in CONNECTED state, if it looks like
         # a valid event, we should handle it.
-        event_or_list = self._device.parse_line(line)
+        #
+        # `_translate_incoming` runs right here, once — see "Reverse lane
+        # numbering (#553)" above for why this is the seam and `_handle_event`
+        # is not.
+        event_or_list = self._translate_incoming(self._device.parse_line(line))
 
         events = []
         if event_or_list is not None:
@@ -790,7 +899,9 @@ class TimerManager:
                     self._lane_mask,
                 )
                 await self._send_commands(
-                    self._device.prepare_heat_commands(self._lane_mask)
+                    self._device.prepare_heat_commands(
+                        self._device_lane_mask(self._lane_mask)
+                    )
                 )
 
             await self._transition(next_state)
@@ -1630,6 +1741,8 @@ async def initialize_timer_managers(
                 device,
                 session_factory=session_factory,
                 remote_start_installed=track.remote_start_installed,
+                lane_count=track.lane_count,
+                reverse_lanes=track.reverse_lanes,
             )
             registry[track.id] = manager
             logger.info(

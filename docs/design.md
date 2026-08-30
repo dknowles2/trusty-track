@@ -53,6 +53,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `timer_profile` (optional) — the **model**. Separate from the transport because the same device can be on either, and knowing the model does not tell you which; null means detect it (#143)
     -   `serial_port` (for direct backend connection)
     -   `remote_start_installed` (a solenoid is fitted to the start gate)
+    -   `reverse_lanes` (the timer's own lane 1 is wired to this track's highest lane — a fact about the venue's cable, not the device model, same reasoning as `remote_start_installed` — #553)
 -   **`LaneOutage`**: A lane that does not work (#171).
     -   `id` (PK), `track_id` (FK to Track, `ON DELETE CASCADE`), `lane`, unique on (`track_id`, `lane`)
     -   A row means the lane is out of service and its absence means it works. There is deliberately no `is_out_of_service` flag, which could disagree with the row's own absence, and no list-of-lanes column — a schedule asks for a *set* of lanes, and a set of small integers in a string column is the shape #5 spent a release removing.

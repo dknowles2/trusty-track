@@ -20,6 +20,7 @@ prove.
 
 from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -32,6 +33,8 @@ from backend.services.timer.devices.base import (
     RaceStarted,
 )
 from backend.services.timer.devices.derbynet import DERBY_TIMER, PDT
+from backend.services.timer.manager import TimerManager
+from backend.services.timer.state_machine import TimerState
 
 RECORDINGS = Path(__file__).parent / "timer_recordings"
 
@@ -200,6 +203,51 @@ def test_the_derby_timer_session_reads_end_to_end():
         (2, 1.7269),
         (3, 2.0396),
     ]
+
+
+async def test_a_recorded_session_is_mirrored_through_the_manager():
+    """Stage 1 of #553, proved against real device output rather than a line
+    we wrote down ourselves.
+
+    Every other test in this file checks a profile's own `parse_line` —
+    `TimerManager` never enters. `Track.reverse_lanes` lives entirely in the
+    manager (see "Reverse lane numbering (#553)" in `manager.py`), so this
+    replays the same recording through a real `TimerManager` instead, once
+    with the flag off and once with it on, and checks every one of the
+    Derby Timer's three genuine results lands on `lane_count + 1 - lane`.
+
+    The recording's own identification lines ("RESET") are skipped: this
+    manager is started already `RUNNING`, standing in for a heat already
+    under way, rather than replaying the connect handshake `test_timer_ws.py`
+    and `test_timer_reconnect.py` already cover.
+    """
+    lane_count = 3
+
+    async def replay(*, reverse_lanes: bool) -> dict[int, float]:
+        mgr = TimerManager(
+            track_id=1,
+            device=DERBY_TIMER,
+            lane_count=lane_count,
+            reverse_lanes=reverse_lanes,
+        )
+        mgr._state = TimerState.RUNNING
+        mgr._record_results = AsyncMock()
+        for trigger, line in device_lines("derbytimer"):
+            if trigger is not None and line == trigger.encode():
+                continue  # the device echoing a command back
+            if DERBY_TIMER.is_identified_by(line):
+                continue  # a reboot in the script we never asked for
+            await mgr.receive_bytes(line + b"\n")
+        return {lane: r.time_seconds for lane, r in mgr._pending_results.items()}
+
+    as_recorded = await replay(reverse_lanes=False)
+    mirrored = await replay(reverse_lanes=True)
+
+    assert as_recorded == {1: 1.3186, 2: 1.7269, 3: 2.0396}
+    assert mirrored == {
+        lane_count + 1 - lane: time_seconds
+        for lane, time_seconds in as_recorded.items()
+    }
 
 
 def test_the_pdt_session_reads_its_results():

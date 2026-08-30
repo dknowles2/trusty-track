@@ -826,6 +826,9 @@ class TrackInput:
     #: Which timer model, by `TimerProfile.key`. Null detects it (#143).
     timer_profile: str | None = None
     remote_start_installed: bool = False
+    #: The timer's own lane 1 is wired to this track's highest lane. See
+    #: `models.Track.reverse_lanes`.
+    reverse_lanes: bool = False
 
 
 @strawberry.input
@@ -1478,6 +1481,9 @@ class Track:
     #: for whether the control is actually available, which also needs the
     #: connected device to have a command for it.
     remote_start_installed: bool
+    #: The timer's own lane 1 is wired to this track's highest lane — a fact
+    #: about this venue's cable, not about the device model (#553).
+    reverse_lanes: bool
 
     @strawberry.field
     def lane_outages(self, info: Info) -> list[int]:
@@ -2499,6 +2505,8 @@ def _manager_for(track: Any, info: Info) -> TimerManager:
         device,
         session_factory=_session_factory(info),
         remote_start_installed=track.remote_start_installed,
+        lane_count=track.lane_count,
+        reverse_lanes=track.reverse_lanes,
     )
 
 
@@ -3090,6 +3098,9 @@ class Mutation:
         mgr = timer_managers.get(id)
         if mgr:
             await mgr.set_remote_start_installed(track.remote_start_installed)
+            mgr.set_lane_translation(
+                lane_count=track.lane_count, reverse_lanes=track.reverse_lanes
+            )
 
             # Swap the device when either half of "which timer" moved: the
             # transport, or the model on it (#143).
@@ -3870,6 +3881,10 @@ class Mutation:
             mgr = timer_managers.get(db_track.id)
             if mgr:
                 await mgr.set_remote_start_installed(input_track.remote_start_installed)
+                mgr.set_lane_translation(
+                    lane_count=input_track.lane_count,
+                    reverse_lanes=input_track.reverse_lanes,
+                )
                 device = _device_for(db_track)
                 if (
                     input_track.timer_type != old_timer_type

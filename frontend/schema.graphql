@@ -707,6 +707,7 @@ type Track {
   serialPort: String
   timerProfile: String
   remoteStartInstalled: Boolean!
+  reverseLanes: Boolean!
   laneOutages: [Int!]!
   historicalRecords: [HistoricalTrackRecord!]!
   races: [Race!]!
@@ -721,6 +722,7 @@ input TrackInput {
   serialPort: String = null
   timerProfile: String = null
   remoteStartInstalled: Boolean! = false
+  reverseLanes: Boolean! = false
 }
 
 type TrackRecord {
