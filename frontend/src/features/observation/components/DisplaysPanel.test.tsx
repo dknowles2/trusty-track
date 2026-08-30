@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '../../../setupTests';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import DisplaysPanel from './DisplaysPanel';
-import { useQuery, useMutation } from 'urql';
+import { useQuery, useMutation, useClient } from 'urql';
 import { ADVANCE_DISPLAY, ASSIGN_DISPLAY, IDENTIFY_DISPLAY, RENAME_DISPLAY } from '../graphql/queries';
 
 vi.mock('urql', async (importOriginal) => {
@@ -13,6 +13,7 @@ vi.mock('urql', async (importOriginal) => {
         useQuery: vi.fn(),
         useSubscription: vi.fn(() => [{ data: undefined }, vi.fn()]),
         useMutation: vi.fn(),
+        useClient: vi.fn(),
     };
 });
 
@@ -20,6 +21,10 @@ const assignDisplay = vi.fn().mockResolvedValue({ data: {} });
 const advanceDisplay = vi.fn().mockResolvedValue({ data: {} });
 const identifyDisplay = vi.fn().mockResolvedValue({ data: {} });
 const renameDisplay = vi.fn().mockResolvedValue({ data: {} });
+// The reroll (#521) is an imperative `client.query` call rather than a
+// mutation — asked of the server so it can be checked against every other
+// display's name, which a component-local list could never see.
+const suggestDisplayName = vi.fn();
 
 function renderPanel(view: string, cycleSeconds = 10, connected = true, awards = 2) {
     // Two queries, and they answer different questions: the list of screens,
@@ -74,6 +79,9 @@ function renderPanel(view: string, cycleSeconds = 10, connected = true, awards =
         if (query === IDENTIFY_DISPLAY) return [{ fetching: false }, identifyDisplay];
         if (query === RENAME_DISPLAY) return [{ fetching: false }, renameDisplay];
         return [{ fetching: false }, vi.fn()];
+    });
+    (vi.mocked(useClient) as ReturnType<typeof vi.fn>).mockReturnValue({
+        query: suggestDisplayName,
     });
     render(<DisplaysPanel raceId={1} />);
 }
@@ -212,8 +220,11 @@ describe('identifying a screen (#495)', () => {
     });
 });
 
-describe("the rename form's new-name reroll (#495)", () => {
-    it('fills the draft input with a suggestion rather than saving it', () => {
+describe("the rename form's new-name reroll (#521)", () => {
+    it('asks the server rather than a component-local list, so it fills the draft with a name that cannot collide', async () => {
+        suggestDisplayName.mockReturnValue({
+            toPromise: () => Promise.resolve({ data: { suggestDisplayName: 'Bold Beaver' } }),
+        });
         renderPanel('STANDINGS');
         fireEvent.click(screen.getByLabelText('Rename Gym north'));
 
@@ -222,20 +233,64 @@ describe("the rename form's new-name reroll (#495)", () => {
         // It only ever fills the draft — renameDisplay is still what commits
         // a name, and clicking the suggestion must not call it on its own.
         expect(renameDisplay).not.toHaveBeenCalled();
-        const input = screen.getByPlaceholderText('e.g. Gym north') as HTMLInputElement;
-        expect(input.value).not.toBe('');
-        expect(input.value).not.toBe('Gym north');
+        await waitFor(() => {
+            const input = screen.getByPlaceholderText('e.g. Gym north') as HTMLInputElement;
+            expect(input.value).toBe('Bold Beaver');
+        });
+        expect(suggestDisplayName).toHaveBeenCalledWith(
+            expect.anything(),
+            { displayId: 'd-1', avoid: 'Gym north' },
+            expect.objectContaining({ requestPolicy: 'network-only' }),
+        );
     });
 
-    it('saves the suggestion once the operator submits the form', () => {
+    it('sends the draft already on screen, so pressing the die twice cannot return the same word both times', async () => {
+        suggestDisplayName
+            .mockReturnValueOnce({
+                toPromise: () => Promise.resolve({ data: { suggestDisplayName: 'Bold Beaver' } }),
+            })
+            .mockReturnValueOnce({
+                toPromise: () => Promise.resolve({ data: { suggestDisplayName: 'Plucky Puffin' } }),
+            });
+        renderPanel('STANDINGS');
+        fireEvent.click(screen.getByLabelText('Rename Gym north'));
+
+        fireEvent.click(screen.getByLabelText('Suggest a new name'));
+        await waitFor(() => {
+            expect(
+                (screen.getByPlaceholderText('e.g. Gym north') as HTMLInputElement).value,
+            ).toBe('Bold Beaver');
+        });
+
+        fireEvent.click(screen.getByLabelText('Suggest a new name'));
+        await waitFor(() => {
+            expect(
+                (screen.getByPlaceholderText('e.g. Gym north') as HTMLInputElement).value,
+            ).toBe('Plucky Puffin');
+        });
+
+        expect(suggestDisplayName).toHaveBeenLastCalledWith(
+            expect.anything(),
+            { displayId: 'd-1', avoid: 'Bold Beaver' },
+            expect.objectContaining({ requestPolicy: 'network-only' }),
+        );
+    });
+
+    it('saves the suggestion once the operator submits the form', async () => {
+        suggestDisplayName.mockReturnValue({
+            toPromise: () => Promise.resolve({ data: { suggestDisplayName: 'Bold Beaver' } }),
+        });
         renderPanel('STANDINGS');
         fireEvent.click(screen.getByLabelText('Rename Gym north'));
         fireEvent.click(screen.getByLabelText('Suggest a new name'));
-        const input = screen.getByPlaceholderText('e.g. Gym north') as HTMLInputElement;
-        const suggested = input.value;
+        await waitFor(() => {
+            expect(
+                (screen.getByPlaceholderText('e.g. Gym north') as HTMLInputElement).value,
+            ).toBe('Bold Beaver');
+        });
 
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-        expect(renameDisplay).toHaveBeenCalledWith({ displayId: 'd-1', name: suggested });
+        expect(renameDisplay).toHaveBeenCalledWith({ displayId: 'd-1', name: 'Bold Beaver' });
     });
 });

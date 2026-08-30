@@ -13,7 +13,7 @@
  */
 
 import { useState } from 'react';
-import { useMutation, useQuery, useSubscription } from 'urql';
+import { useClient, useMutation, useQuery, useSubscription } from 'urql';
 import { Icon } from '@mdi/react';
 import { mdiCheckCircle, mdiCircleOutline, mdiClose, mdiDice5, mdiPencil, mdiFlashOutline } from '@mdi/js';
 
@@ -26,38 +26,9 @@ import {
     IDENTIFY_DISPLAY,
     RACE_AWARD_COUNT_QUERY,
     RENAME_DISPLAY,
+    SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
 import { viewCycles, viewOptionsFor, type DisplayView } from '../displayView';
-
-/**
- * Suggestions for the rename form's "new name" reroll (#495).
- *
- * Deliberately not the backend's `whimsical_name` — this button is a cheap
- * convenience for "the room has a real Badger on it and the coincidence is
- * confusing", not a second copy of the collision-avoiding vocabulary. It only
- * ever fills the draft input; `renameDisplay` is still what saves it, so a
- * repeat within a race is merely unlucky rather than a bug.
- */
-const NAME_SUGGESTIONS = [
-    'Brisk Badger',
-    'Plucky Puffin',
-    'Cheerful Chipmunk',
-    'Bold Beaver',
-    'Daring Dolphin',
-    'Friendly Fox',
-    'Happy Hedgehog',
-    'Jolly Jaguar',
-    'Lively Lynx',
-    'Merry Meerkat',
-    'Sunny Squirrel',
-    'Witty Walrus',
-];
-
-function randomNameSuggestion(currentName: string): string {
-    const choices = NAME_SUGGESTIONS.filter((name) => name !== currentName);
-    const pool = choices.length > 0 ? choices : NAME_SUGGESTIONS;
-    return pool[Math.floor(Math.random() * pool.length)];
-}
 
 interface DisplayRow {
     displayId: string;
@@ -94,9 +65,29 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
     const [, renameDisplay] = useMutation(RENAME_DISPLAY);
     const [, forgetDisplay] = useMutation(FORGET_DISPLAY);
     const [, identifyDisplay] = useMutation(IDENTIFY_DISPLAY);
+    // Imperative rather than `useQuery`: the reroll fires once per click
+    // rather than tracking a variable the render loop would re-fetch on
+    // (#521). `renameDisplay` still commits it — this only fills the draft.
+    const client = useClient();
 
     const [renaming, setRenaming] = useState<string | null>(null);
     const [draftName, setDraftName] = useState('');
+
+    const rerollName = async (displayId: string, currentDraft: string) => {
+        // network-only: this is a suggestion, not data to cache, and a
+        // cached answer would defeat the die — pressing it twice with the
+        // same draft must still be able to return a *different* word.
+        const result = await client
+            .query(
+                SUGGEST_DISPLAY_NAME,
+                { displayId, avoid: currentDraft },
+                { requestPolicy: 'network-only' },
+            )
+            .toPromise();
+        if (result.data?.suggestDisplayName) {
+            setDraftName(result.data.suggestDisplayName);
+        }
+    };
 
     const displays: DisplayRow[] = liveResult.data?.displays ?? queryResult.data?.displays ?? [];
 
@@ -152,15 +143,15 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                                     placeholder="e.g. Gym north"
                                     style={{ flex: 1, padding: '0.3rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                                 />
-                                {/* Covers the case where the room has a real
-                                    Badger on it and the coincidence is
-                                    confusing — cheap, and it only fills the
-                                    draft; Save is still what commits it. */}
+                                {/* Asks the server for a name that isn't
+                                    already on another row (#521) — it only
+                                    fills the draft; Save is still what
+                                    commits it. */}
                                 <button
                                     type="button"
                                     aria-label="Suggest a new name"
                                     title="Suggest a new name"
-                                    onClick={() => setDraftName(randomNameSuggestion(draftName))}
+                                    onClick={() => void rerollName(display.displayId, draftName)}
                                     className="secondary-btn"
                                     style={{ padding: '0.3rem 0.5rem' }}
                                 >

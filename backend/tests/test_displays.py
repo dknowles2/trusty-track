@@ -222,6 +222,70 @@ class TestNaming:
         assert registry.get("abc").name == "Gym north"
 
 
+class TestSuggestingAName:
+    """`DisplayRegistry.suggest_name` — the rename form's reroll (#521).
+
+    Before this the reroll drew from a hand-copied word list on the
+    frontend, filtered only against the one name being edited — it had no
+    way to see any *other* row on screen and could, and did, hand back a
+    name a second display was already using. This runs the same
+    collision-avoiding walk `_auto_name` runs on first connect, against the
+    same taken set, so there is one vocabulary and one rule rather than two.
+    """
+
+    def test_never_repeats_a_name_already_on_another_row(self, registry):
+        registry.connect("first", race_id=1, name="Bold Beaver")
+        registry.connect("second", race_id=1)
+
+        suggestion = registry.suggest_name("second")
+
+        assert suggestion != "Bold Beaver"
+        assert "beaver" not in suggestion.lower()
+
+    def test_a_display_does_not_collide_with_its_own_current_name(self, registry):
+        # Self must be excluded from the taken set, or the very first
+        # candidate — which is what a fresh display is auto-named — would
+        # always be skipped as "already in use" by itself.
+        from backend.domain.display_names import whimsical_name
+
+        display = registry.connect("abc", race_id=1)
+        assert display.name == whimsical_name("abc", taken=set())
+
+        assert registry.suggest_name("abc") == display.name
+
+    def test_avoid_keeps_a_second_press_from_repeating_the_first(self, registry):
+        registry.connect("abc", race_id=1)
+
+        first = registry.suggest_name("abc")
+        second = registry.suggest_name("abc", avoid=first)
+
+        assert second != first
+
+    def test_is_deterministic_given_the_same_inputs(self, registry):
+        # Not a random draw — seeded from the display id, the same as the
+        # auto name, so asking twice with nothing new to avoid answers the
+        # same both times. The frontend relies on this to walk forward
+        # rather than jump around: each press passes the previous
+        # suggestion as `avoid`, which is what actually varies the answer.
+        registry.connect("abc", race_id=1)
+
+        assert registry.suggest_name("abc") == registry.suggest_name("abc")
+
+    def test_a_display_in_another_race_cannot_collide(self, registry):
+        registry.connect("other-race", race_id=2, name="Bold Beaver")
+        registry.connect("abc", race_id=1)
+
+        # Nothing here should raise or refuse — a same-named screen two
+        # gyms over is not this race's problem.
+        assert registry.suggest_name("abc")
+
+    def test_a_display_nobody_has_connected_still_gets_a_suggestion(self, registry):
+        # No race to check against yet, so nothing to collide with — the
+        # panel never actually asks for one that does not exist, but the
+        # method should not require it either.
+        assert registry.suggest_name("never-seen")
+
+
 class TestForgetting:
     def test_the_operator_can_drop_a_display(self, registry):
         registry.connect("abc", race_id=1)
@@ -501,3 +565,78 @@ class TestIdentifyDisplayMutation:
         assert body.get("errors"), "a viewer must not be able to identify a display"
         assert "VIEWER is not allowed" in body["errors"][0]["message"]
         assert displays_service.registry.get("gql-display").identify_seq == 0
+
+
+class TestSuggestDisplayNameQuery:
+    """The GraphQL layer over `DisplayRegistry.suggest_name` (#521).
+
+    A query rather than a mutation — it changes nothing, it only answers —
+    so `RolePolicyExtension` does not reach it and the resolver has to guard
+    itself the same way `auditLog` does.
+    """
+
+    QUERY = """
+    query($displayId: String!, $avoid: String) {
+        suggestDisplayName(displayId: $displayId, avoid: $avoid)
+    }
+    """
+
+    @pytest.fixture(autouse=True)
+    def clean_registry(self):
+        saved = dict(displays_service.registry._displays)
+        displays_service.registry.clear()
+        yield
+        displays_service.registry.clear()
+        displays_service.registry._displays.update(saved)
+
+    def _suggest(self, client, display_id, avoid=None):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": self.QUERY,
+                "variables": {"displayId": display_id, "avoid": avoid},
+            },
+        )
+        assert resp.status_code == 200
+        return resp.json()
+
+    def test_returns_a_name_for_a_known_display(self, client):
+        displays_service.registry.connect("gql-display", race_id=7)
+
+        body = self._suggest(client, "gql-display")
+
+        assert "errors" not in body, body.get("errors")
+        assert body["data"]["suggestDisplayName"]
+
+    def test_never_repeats_a_name_already_on_another_row(self, client):
+        displays_service.registry.connect("first", race_id=7, name="Bold Beaver")
+        displays_service.registry.connect("second", race_id=7)
+
+        body = self._suggest(client, "second")
+
+        assert "errors" not in body, body.get("errors")
+        assert body["data"]["suggestDisplayName"] != "Bold Beaver"
+
+    def test_a_display_nobody_has_seen_still_gets_an_answer(self, client):
+        body = self._suggest(client, "unknown")
+
+        assert "errors" not in body, body.get("errors")
+        assert body["data"]["suggestDisplayName"]
+
+    def test_viewer_cannot_reroll_a_display_name(self, client, db):
+        # Same asymmetry as `identifyDisplay` and the rest of the panel's
+        # controls: unlike those, this is a query, so the role policy never
+        # sees it and the resolver checks for itself.
+        from backend.api import auth
+        from backend.db import schemas
+        from backend.db.crud import create_organization
+
+        group = create_organization(db, schemas.OrganizationCreate(name="Pack"))
+        group.operator_pin_hash = auth.hash_pin("1111")
+        db.commit()
+        displays_service.registry.connect("gql-display", race_id=7)
+
+        body = self._suggest(client, "gql-display")
+
+        assert body.get("errors"), "a viewer must not be able to reroll a display name"
+        assert body["data"] is None
