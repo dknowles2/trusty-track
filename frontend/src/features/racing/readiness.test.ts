@@ -134,6 +134,19 @@ describe('the check-in item', () => {
     it('is fine once everybody is through', () => {
         expect(levelOf('checkin')).toBe('OK');
     });
+
+    it('renders the default vehicle word exactly as before #551', () => {
+        expect(detailOf('checkin', { checkedInCount: 0 })).toBe(
+            '0 of 20 checked in. Only checked-in cars are put into heats.',
+        );
+    });
+
+    it('names the resolved vehicle word when one is given (#551)', () => {
+        const detail = readinessItems(input({ checkedInCount: 0 }), 'rockets').find(
+            (item) => item.key === 'checkin',
+        )!.detail;
+        expect(detail).toBe('0 of 20 checked in. Only checked-in rockets are put into heats.');
+    });
 });
 
 describe('the schedule item', () => {

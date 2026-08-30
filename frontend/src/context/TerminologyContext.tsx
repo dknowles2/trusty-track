@@ -1,9 +1,10 @@
 /**
- * The words a screen should use for "Den" and "Pack" (#496, stage 4).
+ * The words a screen should use for "Den", "Pack" and "Car" (#496 stage 4;
+ * #551 adds the vehicle term).
  *
- * Both are configurable per `docs`/`domain/terminology.py` on the backend:
- * an organization sets an install-wide default, and a race may override it.
- * The server already layers those two — `Race.terminology` and
+ * All three are configurable per `docs`/`domain/terminology.py` on the
+ * backend: an organization sets an install-wide default, and a race may
+ * override it. The server already layers those two — `Race.terminology` and
  * `InitialConfigStatus.terminology` are both *resolved*, never null — so
  * this context holds only the finished answer and never merges anything
  * itself. That mirrors why the live heat view lives on the server (#7):
@@ -27,13 +28,15 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
-/** Mirrors the GraphQL `Terminology` type — the four resolved, never-null
+/** Mirrors the GraphQL `Terminology` type — the six resolved, never-null
  * words a query already returned. */
 export interface Terminology {
     racingGroupSingular: string;
     racingGroupPlural: string;
     organizationSingular: string;
     organizationPlural: string;
+    vehicleSingular: string;
+    vehiclePlural: string;
 }
 
 /** The words every install showed before this setting existed, and what an
@@ -44,6 +47,8 @@ export const DEFAULT_TERMINOLOGY: Terminology = {
     racingGroupPlural: 'Dens',
     organizationSingular: 'Pack',
     organizationPlural: 'Packs',
+    vehicleSingular: 'Car',
+    vehiclePlural: 'Cars',
 };
 
 /** What `useTerminology()` hands back — the resolved words plus a lowercase
@@ -56,10 +61,14 @@ export interface TerminologyWords {
     groups: string;
     org: string;
     orgs: string;
+    vehicle: string;
+    vehicles: string;
     groupLower: string;
     groupsLower: string;
     orgLower: string;
     orgsLower: string;
+    vehicleLower: string;
+    vehiclesLower: string;
 }
 
 const TerminologyContext = createContext<Terminology>(DEFAULT_TERMINOLOGY);
@@ -91,11 +100,22 @@ export function useTerminology(): TerminologyWords {
             groups: t.racingGroupPlural,
             org: t.organizationSingular,
             orgs: t.organizationPlural,
+            vehicle: t.vehicleSingular,
+            vehicles: t.vehiclePlural,
             groupLower: t.racingGroupSingular.toLowerCase(),
             groupsLower: t.racingGroupPlural.toLowerCase(),
             orgLower: t.organizationSingular.toLowerCase(),
             orgsLower: t.organizationPlural.toLowerCase(),
+            vehicleLower: t.vehicleSingular.toLowerCase(),
+            vehiclesLower: t.vehiclePlural.toLowerCase(),
         }),
-        [t.racingGroupSingular, t.racingGroupPlural, t.organizationSingular, t.organizationPlural],
+        [
+            t.racingGroupSingular,
+            t.racingGroupPlural,
+            t.organizationSingular,
+            t.organizationPlural,
+            t.vehicleSingular,
+            t.vehiclePlural,
+        ],
     );
 }

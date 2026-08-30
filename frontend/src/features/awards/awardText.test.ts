@@ -171,6 +171,13 @@ describe('naming a car in a vote tally', () => {
   it('says so when the racer behind the vote has since been removed', () => {
     expect(carLabel(undefined)).toBe('A car that has since been removed');
   });
+
+  it('uses the resolved vehicle word when one is given (#551)', () => {
+    expect(carLabel(undefined, 'rocket')).toBe('A rocket that has since been removed');
+    expect(carLabel({ carNumber: null, carName: 'Blue Streak' }, 'rocket')).toBe(
+      'Unnumbered rocket — Blue Streak',
+    );
+  });
 });
 
 describe('ordering the ballot', () => {
