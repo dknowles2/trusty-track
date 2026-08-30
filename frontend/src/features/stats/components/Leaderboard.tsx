@@ -5,6 +5,7 @@ import RacerAvatar from '../../management/components/RacerAvatar';
 import { RoundSummary, exclusionNotice, roundLabel } from '../disruptedRounds';
 import { standingsRows, standingsSuffix } from '../standingsExport';
 import { slowestFirst } from '../slowestFirst';
+import { resolutionNote } from '../tiebreakText';
 import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -20,6 +21,9 @@ export interface LeaderboardEntry {
   heatsCompleted: number;
   rank: number;
   racerImageUrl?: string;
+  /** How a shared score was broken, or null if it was never tied or the tie
+   * did not resolve (#540). See `resolutionNote`. */
+  resolvedBy?: string | null;
 }
 
 const GET_LEADERBOARD_METADATA = `
@@ -59,6 +63,7 @@ const GET_ROUND_STANDINGS = `
         heatsCompleted
         rank
         racerImageUrl
+        resolvedBy
       }
     }
   }
@@ -323,6 +328,22 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
               >
                 <td style={{ padding: '12px', fontSize: '1.1rem' }}>
                   {getRankMedal(entry.rank)} {entry.rank}
+                  {/* A resolved tie stops sharing a rank and says why —
+                      "2nd, on fastest single heat" — rather than silently
+                      un-sharing it (#540). An unresolved tie shows nothing
+                      extra, exactly as it always has. */}
+                  {resolutionNote(entry.rank, entry.resolvedBy) && (
+                    <span
+                      style={{
+                        display: 'block',
+                        fontSize: '0.7rem',
+                        fontWeight: 'normal',
+                        color: 'var(--text-muted-color)',
+                      }}
+                    >
+                      {resolutionNote(entry.rank, entry.resolvedBy)}
+                    </span>
+                  )}
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>
                   <RacerAvatar

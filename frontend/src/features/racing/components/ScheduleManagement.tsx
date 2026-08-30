@@ -66,6 +66,13 @@ interface ScheduleManagementProps {
    * how the operator finds out it happened.
    */
   staleRoundIds?: ReadonlySet<number>;
+  /**
+   * Rounds whose last qualifying slot is a tie the tiebreak chain did not
+   * settle (#540) — `fieldIsStale`'s pattern, for a different silence. The
+   * pick shown for that slot is still provisional: the round stays runnable
+   * (#48), and this is only the seeing half.
+   */
+  contestedRoundIds?: ReadonlySet<number>;
 }
 
 
@@ -230,6 +237,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
   championshipTrophies,
   lastChampionshipRound,
   staleRoundIds,
+  contestedRoundIds,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -544,6 +552,24 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           }}
                         >
                           Line-up out of date
+                        </span>
+                      )}
+                      {contestedRoundIds?.has(Number(roundId)) && (
+                        <span
+                          data-testid={`contested-cut-badge-${roundId}`}
+                          title="The last qualifying slot is a tie your tiebreaker setting could not settle. The pick below is provisional — settle it yourself, or change the tiebreaker in the race's settings."
+                          style={{
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            color: 'var(--warning-soft-color)',
+                            background: 'var(--warning-soft-bg-color)',
+                            border: '1px solid var(--warning-soft-border-color)',
+                            borderRadius: '10px',
+                            padding: '2px 10px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Tie unresolved
                         </span>
                       )}
                     </div>

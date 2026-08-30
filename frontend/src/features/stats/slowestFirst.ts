@@ -22,8 +22,16 @@ interface Rankable {
  *
  * Racers with no recorded result keep their place at the end — a car that
  * never ran is not the slowest car — and keep strictly increasing ranks after
- * the raced ones, exactly as the ordinary standings treat them. Ties still
- * share a rank: two cars on the same time are the same amount of slow.
+ * the raced ones, exactly as the ordinary standings treat them.
+ *
+ * "Tied" is read off the server's own `rank`, not recomputed from `score`
+ * (#540). Before a tiebreaker existed the two questions had the same answer
+ * — equal score meant equal rank, always — so re-deriving it here cost
+ * nothing. A resolved pair breaks that: the tiebreak chain can separate two
+ * rows with the *same* score into different ranks, and a version of this
+ * function that still asked "same score?" would silently re-merge them back
+ * onto one shared rank the moment they came in reversed, undoing the
+ * resolution this screen is supposed to be showing.
  */
 export function slowestFirst<T extends Rankable>(entries: T[]): T[] {
   const raced = entries.filter((e) => e.heatsCompleted > 0);
@@ -32,7 +40,7 @@ export function slowestFirst<T extends Rankable>(entries: T[]): T[] {
   const reversed = [...raced].reverse();
   const restamped: T[] = [];
   for (let i = 0; i < reversed.length; i++) {
-    const tied = i > 0 && reversed[i].score === reversed[i - 1].score;
+    const tied = i > 0 && reversed[i].rank === reversed[i - 1].rank;
     restamped.push({
       ...reversed[i],
       rank: tied ? restamped[i - 1].rank : i + 1,

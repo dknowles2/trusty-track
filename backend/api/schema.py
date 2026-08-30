@@ -316,6 +316,12 @@ class AdvancementStatus:
     #: stale field the operator can see and fix beats silently wiping heats
     #: people ran" — and this is the seeing half, which did not exist.
     field_is_stale: bool = False
+    #: The last qualifying slot is a tie the tiebreak chain did not settle
+    #: (#540) — the same "seeing half" reasoning as `field_is_stale`, for a
+    #: different silence: `advancing_racers` still names somebody for that
+    #: slot (the provisional pick, so the round stays runnable), and this is
+    #: what says the pick is not the whole story.
+    contested_cut: bool = False
 
 
 def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementStatus:
@@ -390,12 +396,13 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
             adv_from_bottom = next_round.advancement_from_bottom
 
     winner_ids: set[int] = set()
+    contested_cut = False
     if requires_advancement:
-        winner_ids = set(
-            scoring.get_advancing_racers(
-                db, race_id, adv_source, adv_num, from_bottom=adv_from_bottom
-            )
+        pick = scoring.pick_advancing_racers(
+            db, race_id, adv_source, adv_num, from_bottom=adv_from_bottom
         )
+        winner_ids = set(pick.winner_ids)
+        contested_cut = pick.contested
 
     advancing_racers = [
         AdvancementRacer(
@@ -433,6 +440,7 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
         num_racers=adv_num,
         from_bottom=adv_from_bottom,
         field_is_stale=field_is_stale,
+        contested_cut=contested_cut,
     )
 
 
@@ -1193,6 +1201,16 @@ class Award:
         if racer_id is None:
             return None
         return typing.cast(Any, _loaders(info).racer_by_id(self.race_id, racer_id))
+
+    @strawberry.field
+    def place_contested(self, info: Info) -> bool:
+        """A `SPEED` award's place is a tie the tiebreak chain did not settle
+        (#540) — always false for `SPECIAL`, which has no place to contest.
+
+        The operator is choosing trophies; "this could go either way" is what
+        they need to know before it is engraved.
+        """
+        return _loaders(info).award_contested(self.race_id).get(self.id, False)
 
     @strawberry.field
     def racing_group(self, info: Info) -> RacingGroup | None:

@@ -526,7 +526,8 @@ describe('RaceExecution', () => {
             source: 'ALL',
             numRacers: 1,
             fromBottom: false,
-            fieldIsStale: false
+            fieldIsStale: false,
+            contestedCut: false
         };
 
         render(
@@ -554,6 +555,7 @@ describe('RaceExecution', () => {
             numRacers: 1,
             fromBottom: false,
             fieldIsStale: false,
+            contestedCut: false,
         });
 
         const { rerender } = render(
@@ -578,6 +580,7 @@ describe('RaceExecution', () => {
             numRacers: 1,
             fromBottom: false,
             fieldIsStale: false,
+            contestedCut: false,
         };
 
         render(
@@ -616,7 +619,8 @@ describe('RaceExecution', () => {
             source: 'ALL',
             numRacers: 3,
             fromBottom: false,
-            fieldIsStale: false
+            fieldIsStale: false,
+            contestedCut: false
         };
 
         render(
@@ -646,7 +650,8 @@ describe('RaceExecution', () => {
             source: 'ALL',
             numRacers: 3,
             fromBottom: true,
-            fieldIsStale: false
+            fieldIsStale: false,
+            contestedCut: false
         };
 
         render(

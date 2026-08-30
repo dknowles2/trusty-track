@@ -750,6 +750,13 @@ export default function RaceControl() {
                 .map((round: Round) => round.id),
             )
           }
+          contestedRoundIds={
+            new Set(
+              (race?.rounds ?? [])
+                .filter((round: Round) => round.advancementStatus.contestedCut)
+                .map((round: Round) => round.id),
+            )
+          }
         />
       )}
     </div>

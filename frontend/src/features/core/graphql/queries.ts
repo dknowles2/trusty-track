@@ -5,6 +5,10 @@ export const GET_TRACKS = gql`
     tracks {
       id
       name
+      # RaceForm reads this to know whether a tiebreaker method that needs
+      # recorded times can ever fire on the track a race would use (#540) —
+      # a POINTS race on a NONE-timer track told BEST_TIME will never fire.
+      timerType
     }
   }
 `;

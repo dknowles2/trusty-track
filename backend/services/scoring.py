@@ -8,6 +8,7 @@ the answer for callers.
 Scoring is always computed on demand — there is no stored leaderboard.
 """
 
+from dataclasses import dataclass
 from typing import TypedDict
 
 from sqlalchemy.orm import Session
@@ -408,20 +409,36 @@ def _standings_for(db: Session, race_id: int, rule) -> list[LeaderboardEntry]:
     return get_leaderboard(db, race_id)
 
 
-def get_advancing_racers(
+@dataclass
+class AdvancementPick:
+    """A championship round's provisional field, and whether the cut holding
+    it together is a tie the tiebreak chain did not settle (#540).
+
+    Two fields off one computation rather than two functions each re-running
+    it: `_advancement_status` needs both, and a second call would mean a
+    second full `get_leaderboard` pass for every round on screen.
+    """
+
+    winner_ids: list[int]
+    #: The last qualifying slot is contested and unresolved — see
+    #: `domain.advancement.cut_is_contested`. The pick above is still made,
+    #: provisionally, so the round stays runnable (#48).
+    contested: bool
+
+
+def pick_advancing_racers(
     db: Session,
     race_id: int,
     source: str,
     num_top: int | None,
     from_bottom: bool = False,
-) -> list[int]:
-    """Racer ids that should advance into a championship round, in rank order.
+) -> AdvancementPick:
+    """Both the provisional field and the contested-cut flag, in one pass.
 
-    ``source`` is ``"ALL"``, ``"EACH_GROUP"``, or ``"ROUND:<id>"``; see
-    :class:`backend.domain.advancement.AdvancementRule`. With ``from_bottom``
-    the same standings are read from the other end — a Slowest Race bracket —
-    and racers with no recorded result are excluded, slowest first in the
-    returned order.
+    :func:`get_advancing_racers` is a thin wrapper over this that keeps its
+    old signature and return type for its three other callers, which only
+    ever wanted the ids. `_advancement_status` in `schema.py` calls this
+    directly so computing both costs one `get_leaderboard` pass, not two.
     """
     rule = domain_advancement.AdvancementRule(
         source=source, num_racers=num_top, from_bottom=from_bottom
@@ -445,6 +462,10 @@ def get_advancing_racers(
             racer_id=e["racer_id"],
             racing_group_id=e["racing_group_id"],
             has_raced=e["heats_completed"] > 0,
+            # The rank `standings_ranks` stamped this row with (#540) — two
+            # rows sharing one is the standings' own record of an unresolved
+            # tie, which `cut_is_contested` reads.
+            rank=e["rank"],
         )
         for e in entries
         if e["racer_id"] in checked_in
@@ -465,4 +486,28 @@ def get_advancing_racers(
             .all()
         ]
 
-    return domain_advancement.advancing_racer_ids(rule, standings, racing_group_ids)
+    winner_ids = domain_advancement.advancing_racer_ids(
+        rule, standings, racing_group_ids
+    )
+    contested = domain_advancement.cut_is_contested(rule, standings, racing_group_ids)
+    return AdvancementPick(winner_ids=winner_ids, contested=contested)
+
+
+def get_advancing_racers(
+    db: Session,
+    race_id: int,
+    source: str,
+    num_top: int | None,
+    from_bottom: bool = False,
+) -> list[int]:
+    """Racer ids that should advance into a championship round, in rank order.
+
+    ``source`` is ``"ALL"``, ``"EACH_GROUP"``, or ``"ROUND:<id>"``; see
+    :class:`backend.domain.advancement.AdvancementRule`. With ``from_bottom``
+    the same standings are read from the other end — a Slowest Race bracket —
+    and racers with no recorded result are excluded, slowest first in the
+    returned order.
+    """
+    return pick_advancing_racers(
+        db, race_id, source, num_top, from_bottom=from_bottom
+    ).winner_ids

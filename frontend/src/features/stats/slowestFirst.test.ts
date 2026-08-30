@@ -43,4 +43,17 @@ describe('slowestFirst', () => {
     expect(result.map((e) => e.rank)).toEqual([1, 1, 3]);
     expect(result[2].racerId).toBe(1);
   });
+
+  it('does not re-merge a rank the tiebreak chain already separated (#540)', () => {
+    // Same score, but the server already gave them different ranks — a
+    // resolved tie. A version that re-derived "tied" from score alone would
+    // put them back on one shared rank the moment they came in reversed.
+    const standings = [
+      entry(1, 3.0, 1, 1),
+      entry(2, 4.0, 1, 2),
+      entry(3, 4.0, 1, 3),
+    ];
+    const result = slowestFirst(standings);
+    expect(result.map((e) => e.rank)).toEqual([1, 2, 3]);
+  });
 });

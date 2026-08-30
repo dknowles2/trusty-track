@@ -51,7 +51,38 @@ def _standings_cache(
     Keyed on the source string rather than the award, because a race giving
     first, second and third from the same round asks the same question three
     times, and `get_leaderboard` is a full scoring pass over every heat.
+
+    Every row carries its `rank` — see `domain.advancement.Standing` — so a
+    caller resolving contested places (#540) reads it off the same load
+    `recipient_of` uses, rather than a second pass. An elimination round's
+    rank means something else entirely — survival order, not a tiebreak
+    outcome — and #540 leaves that format alone, so those rows carry `rank =
+    None` and read as never contested, the same "no data" fallback a race
+    with no tiebreaker gives.
     """
+    # Every round-scoped source in one query, not one per source — the same
+    # amortization `award_recipients` already relies on, extended to the
+    # lookup this function's own docstring added.
+    round_ids = {
+        rid
+        for source in sources
+        if (rid := domain_advancement.round_id_in(source)) is not None
+    }
+    elimination_round_ids = (
+        {
+            r.id
+            for r in db.query(models.Round.id)
+            .filter(
+                models.Round.id.in_(round_ids),
+                models.Round.scheduling_strategy
+                == models.SchedulingStrategy.ELIMINATION,
+            )
+            .all()
+        }
+        if round_ids
+        else set()
+    )
+
     cache: dict[str, list[domain_advancement.Standing]] = {}
     for source in sources:
         round_id = domain_advancement.round_id_in(source)
@@ -59,6 +90,7 @@ def _standings_cache(
             # A malformed source names no round, so nobody qualifies.
             cache[source] = []
             continue
+        is_elimination = round_id in elimination_round_ids
         entries = scoring.get_leaderboard(db, race_id, round_id=round_id)
         cache[source] = [
             domain_advancement.Standing(
@@ -69,6 +101,7 @@ def _standings_cache(
                 # with no result below every car that raced, so without it the
                 # slowest-car trophy goes to somebody who never ran.
                 has_raced=entry["heats_completed"] > 0,
+                rank=None if is_elimination else entry["rank"],
             )
             for entry in entries
         ]
@@ -111,6 +144,45 @@ def recipients_of(
             continue
         resolved[award.id] = domain_awards.recipient_of(rule, cache[rule.source])
     return resolved
+
+
+def contested_for(db: Session, race_id: int) -> dict[int, bool]:
+    """``{award_id: bool}`` — whether a `SPEED` award's place is a tie the
+    tiebreak chain left standing (#540), for every award in a race.
+
+    Whole-race and shared, the same shape as :func:`recipients_for` and for
+    the same reason: an awards screen showing a dozen trophies at once should
+    not repeat a scoring pass per trophy.
+    """
+    awards = (
+        db.query(models.Award)
+        .filter(models.Award.race_id == race_id)
+        .order_by(models.Award.sort_order, models.Award.id)
+        .all()
+    )
+    return contested_of(db, race_id, awards)
+
+
+def contested_of(
+    db: Session, race_id: int, awards: list[models.Award]
+) -> dict[int, bool]:
+    """As :func:`contested_for`, for awards the caller has already loaded."""
+    rules = {award.id: _rule_for(award) for award in awards}
+    sources = {rule.source for rule in rules.values() if rule is not None}
+
+    cache = _standings_cache(db, race_id, sources) if sources else {}
+
+    contested: dict[int, bool] = {}
+    for award in awards:
+        rule = rules[award.id]
+        # SPECIAL, or a SPEED row that cannot be resolved: nothing computed
+        # named the place, so there is nothing to contest.
+        contested[award.id] = (
+            False
+            if rule is None
+            else domain_awards.place_is_contested(rule, cache[rule.source])
+        )
+    return contested
 
 
 def vote_tallies_for(

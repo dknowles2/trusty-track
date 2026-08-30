@@ -50,6 +50,9 @@ type AwardRow = {
   fromBottom?: boolean | null;
   artworkKey?: string | null;
   votable?: boolean | null;
+  /** A `SPEED` award whose place is a tie the tiebreak chain did not settle
+   * (#540) — always false for `SPECIAL`, which has no place to contest. */
+  placeContested?: boolean | null;
   voteTally?: VoteTallyRow[] | null;
   recipient?: {
     id: number;
@@ -349,6 +352,27 @@ export default function Awards() {
                     />
                   )}
                   <span>{racerLabel(award.recipient)}</span>
+                  {award.kind === 'SPEED' && award.placeContested && (
+                    // The place is a tie the tiebreak chain did not settle
+                    // (#540) — the operator is choosing trophies, and "this
+                    // could go either way" is what they need to know before
+                    // it is engraved.
+                    <span
+                      title="This place is a tie your tiebreaker setting could not settle. The recipient shown is a provisional pick — settle it yourself, or change the tiebreaker in the race's settings."
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: 'var(--warning-soft-color)',
+                        background: 'var(--warning-soft-bg-color)',
+                        border: '1px solid var(--warning-soft-border-color)',
+                        borderRadius: '10px',
+                        padding: '1px 8px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Tied
+                    </span>
+                  )}
                 </>
               ) : (
                 <em style={{ color: 'var(--text-faint-color)' }}>

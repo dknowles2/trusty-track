@@ -51,6 +51,7 @@ __all__ = [
     "SpeedRule",
     "can_be_voted_on",
     "default_artwork_key",
+    "place_is_contested",
     "rank_tally",
     "recipient_of",
     "sources_for",
@@ -118,6 +119,23 @@ class SpeedRule:
         return round_id_in(self.source)
 
 
+def _eligible(rule: SpeedRule, standings: Sequence[Standing]) -> Sequence[Standing]:
+    """``standings``, narrowed to the racing group and put in the rule's own
+    direction — the shared first half of :func:`recipient_of` and
+    :func:`place_is_contested`, so the two cannot narrow differently.
+    """
+    eligible = standings
+    if rule.racing_group_id is not None:
+        eligible = [s for s in standings if s.racing_group_id == rule.racing_group_id]
+
+    if rule.from_bottom:
+        # Narrow first, then reverse: "slowest Wolf" is the Wolves read
+        # backwards, not the pack read backwards and then filtered.
+        eligible = [s for s in reversed(eligible) if s.has_raced]
+
+    return eligible
+
+
 def recipient_of(rule: SpeedRule, standings: Sequence[Standing]) -> int | None:
     """The racer holding this award's place, or ``None`` if nobody does yet.
 
@@ -138,19 +156,41 @@ def recipient_of(rule: SpeedRule, standings: Sequence[Standing]) -> int | None:
     this award goes wrong in a room. Same rule, same reason, as
     :func:`backend.domain.advancement._picking_order`.
     """
-    eligible = standings
-    if rule.racing_group_id is not None:
-        eligible = [s for s in standings if s.racing_group_id == rule.racing_group_id]
-
-    if rule.from_bottom:
-        # Narrow first, then reverse: "slowest Wolf" is the Wolves read
-        # backwards, not the pack read backwards and then filtered.
-        eligible = [s for s in reversed(eligible) if s.has_raced]
-
+    eligible = _eligible(rule, standings)
     index = rule.place - 1
     if index >= len(eligible):
         return None
     return eligible[index].racer_id
+
+
+def place_is_contested(rule: SpeedRule, standings: Sequence[Standing]) -> bool:
+    """Whether this award's place is a tie the tiebreak chain left standing (#540).
+
+    ``standings`` must carry each row's ``rank`` — see
+    :class:`backend.domain.advancement.Standing` — the same value
+    :func:`backend.domain.scoring.standings_ranks` stamped it with. Narrowed
+    and ordered exactly as :func:`recipient_of` narrows and orders, so the two
+    always agree on which row *is* the recipient.
+
+    A place shares its rank with the row immediately above or below it in
+    that narrowed order — never both at once being required, since a rank can
+    be shared by more than two rows — and that sharing is exactly what an
+    unresolved tie looks like once it has been stamped: a resolved pair stops
+    sharing a rank. ``False`` once nobody yet holds this place, the same as
+    :func:`recipient_of`'s ``None``: there is nothing to contest about a
+    trophy nobody has run for.
+    """
+    eligible = _eligible(rule, standings)
+    index = rule.place - 1
+    if index >= len(eligible):
+        return False
+
+    rank = eligible[index].rank
+    if rank is None:
+        return False
+    tied_above = index > 0 and eligible[index - 1].rank == rank
+    tied_below = index + 1 < len(eligible) and eligible[index + 1].rank == rank
+    return tied_above or tied_below
 
 
 def default_artwork_key(rule: SpeedRule) -> str:

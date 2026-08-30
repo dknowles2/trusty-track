@@ -346,6 +346,7 @@ describe('the fields GetRaceDetails actually asks for', () => {
             'location',
             'trackId',
             'scoringStrategy',
+            'tiebreaker',
             'carNumberingStrategy',
             'globalStartNumber',
             'championshipTrophies',

@@ -18,6 +18,7 @@ type AdvancementStatus {
   numRacers: Int
   fromBottom: Boolean!
   fieldIsStale: Boolean!
+  contestedCut: Boolean!
 }
 
 type AuditLogEntry {
@@ -46,6 +47,7 @@ type Award {
   artworkKey: String
   votable: Boolean!
   recipient: Racer
+  placeContested: Boolean!
   racingGroup: RacingGroup
   voteTally: [AwardVoteTally!]!
 }
