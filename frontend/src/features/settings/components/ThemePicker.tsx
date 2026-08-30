@@ -3,9 +3,13 @@
  * theme swatches rather than a bare `<select>`, since "what does Old Glory
  * look like" is exactly the question a name alone cannot answer.
  *
- * The Display and Printables pickers include an explicit "Match App theme"
- * option, shown first — the App picker never does, since the App surface has
- * nothing to match.
+ * The Display and Printables pickers include an explicit "Field Uniform
+ * (default)" option, shown first — the App picker never does, since Field
+ * Uniform is already in the ordinary list there. It used to be called "Match
+ * App theme", which promised a relationship these two surfaces cannot
+ * deliver: the App theme is per-device `localStorage` and never reaches the
+ * server, so a wall display or a printed page has no App picker to match
+ * (#528) — the name now says what the option actually does.
  */
 
 import { THEMES, type PickerSurface, type ThemeKey } from '../../../theming/themes';
@@ -53,12 +57,12 @@ export default function ThemePicker({ id, label, blurb, surface, value, onChange
             aria-pressed={value === 'MATCH_APP'}
             onClick={() => onChange('MATCH_APP')}
             className="theme-swatch-btn"
-            title="Use whichever theme the App picker above is set to"
+            title="The standard look — Field Uniform's colors, unless you pick something else here"
           >
             <span className="theme-swatch theme-swatch-match-app" aria-hidden="true">
               ↳
             </span>
-            <span>Match App theme</span>
+            <span>Field Uniform (default)</span>
           </button>
         )}
         {THEMES.map((theme) => (

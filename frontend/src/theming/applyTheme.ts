@@ -81,28 +81,25 @@ export function applyPrintablesSurface(
 /**
  * What `setting` actually resolves to.
  *
- * `'MATCH_APP'` means "whichever `ThemeKey` the App surface currently
- * holds" — but the App theme lives only in each device's own `localStorage`
- * and never reaches the server (see `appTheme.ts`), so nothing outside the
- * settings page's own live preview can know "the App picker's current
- * value" for a device other than itself. Every other surface — a wall
- * display, a printed page — resolves `'MATCH_APP'` against the one
- * `ThemeKey` that is the same on every device: the default, Field Uniform.
- * That is also why Field Uniform's Display definition is exactly today's
- * shipped `.projector-mode` palette: an install that has never touched
- * Settings renders identically to before this feature existed.
+ * `'MATCH_APP'` is the stored sentinel behind the Display/Printables
+ * pickers' default option (labelled "Field Uniform (default)" in
+ * `ThemePicker.tsx` — see #528) — and it always resolves to Field Uniform.
+ * The App theme lives only in each device's own `localStorage` and never
+ * reaches the server (see `appTheme.ts`), so there is no "the App picker's
+ * current value" that a wall display or a printed page could resolve
+ * against even if the option's name once suggested there was; Field Uniform
+ * is the one `ThemeKey` that is the same on every device. That is also why
+ * Field Uniform's Display definition is exactly today's shipped
+ * `.projector-mode` palette: an install that has never touched Settings
+ * renders identically to before this feature existed.
  *
- * The settings page's live preview is the one caller that passes a real
- * `appThemeKey` — the value its own App picker currently holds, entirely
- * client-side state — so a Display/Printables picker showing "Match App
- * theme" previews *that* theme's Display/Printables definition rather than
- * always previewing Field Uniform's.
+ * No caller passes anything else — the settings page's own live preview
+ * (`AppearancePreview.tsx`) resolves Display/Printables exactly this way
+ * too, so previewing the default shows what the wall and the printer will
+ * actually render rather than a theme the preview alone could see (#528).
  */
-export function resolveSurfaceKey(
-  setting: SurfaceThemeSetting,
-  appThemeKey: ThemeKey = DEFAULT_THEME_KEY,
-): ThemeKey {
-  return setting === 'MATCH_APP' ? appThemeKey : setting;
+export function resolveSurfaceKey(setting: SurfaceThemeSetting): ThemeKey {
+  return setting === 'MATCH_APP' ? DEFAULT_THEME_KEY : setting;
 }
 
 /** The resolved Display theme for `setting` (see `resolveSurfaceKey`).
@@ -113,22 +110,22 @@ export function resolveSurfaceKey(
  * returned here has to agree with `theme`, or a caller using it for
  * `data-theme` would tag the element with a key whose tokens are not the
  * ones actually applied. */
-export function resolveDisplayTheme(
-  setting: SurfaceThemeSetting,
-  appThemeKey: ThemeKey = DEFAULT_THEME_KEY,
-): { key: ThemeKey; theme: SurfaceTheme } {
-  const requested = resolveSurfaceKey(setting, appThemeKey);
+export function resolveDisplayTheme(setting: SurfaceThemeSetting): {
+  key: ThemeKey;
+  theme: SurfaceTheme;
+} {
+  const requested = resolveSurfaceKey(setting);
   const theme = themeByKey(requested);
   return { key: theme.key, theme: theme.display };
 }
 
 /** The resolved Printables theme for `setting` (see `resolveSurfaceKey` and
  *  `resolveDisplayTheme`'s note on why `key` is the validated theme's own). */
-export function resolvePrintablesTheme(
-  setting: SurfaceThemeSetting,
-  appThemeKey: ThemeKey = DEFAULT_THEME_KEY,
-): { key: ThemeKey; theme: PrintablesSurfaceTheme } {
-  const requested = resolveSurfaceKey(setting, appThemeKey);
+export function resolvePrintablesTheme(setting: SurfaceThemeSetting): {
+  key: ThemeKey;
+  theme: PrintablesSurfaceTheme;
+} {
+  const requested = resolveSurfaceKey(setting);
   const theme = themeByKey(requested);
   return { key: theme.key, theme: theme.printables };
 }

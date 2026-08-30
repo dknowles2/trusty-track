@@ -139,7 +139,8 @@ test('screenshot the settings panels', async ({ page }) => {
     // for docs/reference/themes.md. Only the *picker selection* is exercised
     // here, never Save Settings — Display and Printables are install-wide,
     // and this spec runs in the parallel pool beside others that assume
-    // Field Uniform / Match App is what the install is actually set to.
+    // Field Uniform (the "Field Uniform (default)" option, #528) is what the
+    // install is actually set to.
     // The preview updates from local, unsaved component state, which is
     // what makes a real picture possible without ever touching the
     // install's own settings the way the Access panel and the activity log

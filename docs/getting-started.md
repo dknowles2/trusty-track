@@ -36,11 +36,11 @@ to bottom. Afterwards the page splits into sections listed down the left —
 
 ### Appearance
 
-Every picker here already defaults to the app's usual look and to matching
-your own screen, so this section is entirely safe to skip on a first run —
-come back to it later if you want the wall display to look different for an
-evening race, a patriotic-themed derby, or a print run that needs to save
-ink. See [Themes](reference/themes.md) for the full list.
+Every picker here already defaults to the app's usual look, so this section
+is entirely safe to skip on a first run — come back to it later if you want
+the wall display to look different for an evening race, a patriotic-themed
+derby, or a print run that needs to save ink. See
+[Themes](reference/themes.md) for the full list.
 
 ### Access
 

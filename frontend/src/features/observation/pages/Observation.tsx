@@ -188,10 +188,11 @@ export default function Observation() {
 
   // The Display surface's theme (#498) — this whole page, projector mode or
   // not, is the audience-facing surface the spec means by "Display". Every
-  // screen resolves "Match App theme" the same way regardless of what any
-  // one device's own App theme happens to be — see `resolveSurfaceKey`'s own
+  // screen resolves the default option (stored as 'MATCH_APP', shown as
+  // "Field Uniform (default)") the same way regardless of what any one
+  // device's own App theme happens to be — see `resolveSurfaceKey`'s own
   // comment for why that is the only resolution that can be the same on
-  // every wall display in the room.
+  // every wall display in the room (#528).
   const displayThemeSetting: SurfaceThemeSetting =
     (initialData?.initialConfig?.displayTheme as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
   const { key: displayThemeKey, theme: displayTheme } = resolveDisplayTheme(displayThemeSetting);

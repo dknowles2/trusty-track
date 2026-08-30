@@ -27,15 +27,15 @@ Every printer at the event prints the same look for the same reason — a
 pack's check-in desk is often more than one laptop, and every pit pass
 should look like the same event no matter which one printed it.
 
-**"Match App theme."** The Display and Printables pickers offer this first,
-selected by default. It does not copy your own screen's colours — Under the
-Lights, for example, uses a mid-tone dark for your own screen and full
-projector black for the Display, on purpose, since nobody reads fine print
-off a wall from forty feet away. "Match App theme" means: whichever theme
-the App picker is set to, use *that* theme's own Display (or Printables)
-look. On a wall display or a printed page, which has no App picker of its
-own, this resolves to Field Uniform — so an install that has never opened
-this page looks exactly as it always has.
+**"Field Uniform (default)."** The Display and Printables pickers offer this
+first, selected by default. It is not a fourth look of its own — it is Field
+Uniform's own Display (or Printables) colours, so an install that has never
+opened this page looks exactly as it always has. This option used to be
+called "Match App theme," which suggested it would follow whichever theme
+your own screen is set to; it never did, on either surface — the App theme
+lives only on this device and never reaches a wall display or a printer, so
+there is no App picker for either of them to follow, and the option is named
+for what it actually shows now.
 
 **Changing Display or Printables does not repaint a screen that is already
 open.** A wall display or projector already running mid-event picks up a
@@ -57,8 +57,8 @@ before the race starts, not mid-ceremony.
 
 Each theme also sets its own Display (wall/projector) and Printables
 (paper) look — picking a theme on the App picker does not, by itself,
-change what the wall or the printer show unless Display or Printables is
-also set to it, or left on "Match App theme."
+change what the wall or the printer show. Set Display or Printables to it
+directly if you want the same theme in the room and on paper too.
 
 ![The Appearance section with Old Glory selected for all three pickers](../assets/screenshots/settings/08-appearance-old-glory.png)
 _A swatch for each theme, and a live preview of all three surfaces below

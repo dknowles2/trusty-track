@@ -54,41 +54,39 @@ describe('applyTheme', () => {
   });
 });
 
-describe('resolveSurfaceKey — "Match App theme"', () => {
+describe('resolveSurfaceKey — the "Field Uniform (default)" option (#528)', () => {
   it('an explicit ThemeKey passes through untouched', () => {
-    expect(resolveSurfaceKey('old-glory', 'clear-sight')).toBe('old-glory');
+    expect(resolveSurfaceKey('old-glory')).toBe('old-glory');
   });
 
-  it('MATCH_APP resolves to the given App theme key', () => {
-    expect(resolveSurfaceKey('MATCH_APP', 'clear-sight')).toBe('clear-sight');
-  });
-
-  it('MATCH_APP with no App key given falls back to Field Uniform', () => {
+  it('MATCH_APP always resolves to Field Uniform — there is no App key to resolve against', () => {
     expect(resolveSurfaceKey('MATCH_APP')).toBe('field-uniform');
   });
 });
 
 describe('resolveDisplayTheme / resolvePrintablesTheme', () => {
-  it('MATCH_APP reproduces exactly today\'s shipped Display behavior by default', () => {
+  it('MATCH_APP reproduces exactly today\'s shipped Display behavior', () => {
     const { key, theme } = resolveDisplayTheme('MATCH_APP');
     expect(key).toBe('field-uniform');
     expect(theme.tokens['--display-bg-color']).toBe('#0A0A0A');
   });
 
-  it('does not copy the App theme\'s literal colors — it defers to that theme\'s own Display definition', () => {
-    // Under the Lights' App surface is a mid-tone dark (#12161d); its
-    // Display surface goes all the way to projector black (#0A0A0A) — a
-    // different value, deliberately, per the spec.
-    const { theme: appTheme } = { theme: themeByKey('under-the-lights').app };
-    const { theme: displayTheme } = resolveDisplayTheme('MATCH_APP', 'under-the-lights');
+  it('never copies another theme\'s literal colors — MATCH_APP is always Field Uniform\'s own Display definition (#528)', () => {
+    // Under the Lights' App surface is a mid-tone dark (#12161d); Field
+    // Uniform's Display surface goes all the way to projector black
+    // (#0A0A0A) — the point being that MATCH_APP resolves to the latter
+    // regardless of what any device's own App theme is set to, since
+    // nothing outside that one device can know it (#528).
+    const { theme: underTheLightsApp } = { theme: themeByKey('under-the-lights').app };
+    const { theme: displayTheme } = resolveDisplayTheme('MATCH_APP');
     expect(displayTheme.tokens['--display-bg-color']).not.toBe(
-      appTheme.tokens['--background-color'],
+      underTheLightsApp.tokens['--background-color'],
     );
     expect(displayTheme.tokens['--display-bg-color']).toBe('#0A0A0A');
   });
 
-  it('an explicit setting ignores the App key entirely', () => {
-    const { key, theme } = resolvePrintablesTheme('newsprint', 'old-glory');
+  it('an explicit setting is used exactly as given', () => {
+    const { key, theme } = resolvePrintablesTheme('newsprint');
     expect(key).toBe('newsprint');
     expect(theme.printBehavior).toBe('lightened');
   });
