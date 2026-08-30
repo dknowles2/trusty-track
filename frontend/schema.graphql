@@ -402,6 +402,7 @@ type Race {
   globalStartNumber: Int!
   championshipTrophies: Int!
   scoringStrategy: String!
+  tiebreaker: String!
   autoAdvanceHeat: Boolean!
   weightLimitOz: Float
   votingOpen: Boolean!
@@ -439,6 +440,7 @@ input RaceInput {
   organizationId: Int! = 1
   trackId: Int!
   scoringStrategy: String! = "TIMED"
+  tiebreaker: String! = "SHARED"
   carNumberingStrategy: String! = "MANUAL"
   globalStartNumber: Int! = 1
   championshipTrophies: Int! = 3
@@ -475,6 +477,7 @@ input RaceUpdateInput {
   location: String = null
   trackId: Int = null
   scoringStrategy: String = null
+  tiebreaker: String = null
   carNumberingStrategy: String = null
   globalStartNumber: Int = null
   championshipTrophies: Int = null

@@ -180,6 +180,7 @@ Heat            id, race_id, round_id?, kind, heat_number,
 | `HeatKind`             | `OFFICIAL`, `FREE`                                                           |
 | `SchedulingStrategy`   | `PPC`, `ELIMINATION`, `BALANCED`                                             |
 | `ScoringStrategy`      | `TIMED` (avg time), `POINTS` (sum of placements) — lower is better for both  |
+| `TiebreakMethod`       | `SHARED` (not resolved — the default), `BEST_TIME`, `TOTAL_TIME`, `COUNTBACK`, `HEAD_TO_HEAD` — see `domain/tiebreak.py` (#540) |
 | `TimerType`            | `FAKE`, `AUTO_DETECT_BACKEND`, `AUTO_DETECT_PROXY`, `NONE`                   |
 
 ### `heat_lanes` is where a heat's lanes live

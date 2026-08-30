@@ -92,6 +92,7 @@ export type RaceInput = {
   name: string;
   organizationId?: number;
   scoringStrategy?: string;
+  tiebreaker?: string;
   trackId: number;
   weightLimitOz?: number | null | undefined;
 };
@@ -111,6 +112,7 @@ export type RaceUpdateInput = {
   racingGroupPlural?: string | null | undefined;
   racingGroupSingular?: string | null | undefined;
   scoringStrategy?: string | null | undefined;
+  tiebreaker?: string | null | undefined;
   trackId?: number | null | undefined;
   votingOpen?: boolean | null | undefined;
   weightLimitOz?: number | null | undefined;
