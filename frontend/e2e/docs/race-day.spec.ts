@@ -36,6 +36,7 @@ import {
     ensureConfigured,
     expandFakeTimer,
     gql,
+    nextUnrunHeatId,
     runFakeHeat,
     type Heat,
     type Round,
@@ -348,7 +349,7 @@ test('take screenshots', async ({ page }) => {
     // person clicking about has something to watch, and that this spec spent
     // twice on the critical path. The times are the same either way; they come
     // from the seeded generator, not from how long the wait was.
-    await runFakeHeat(page);
+    await runFakeHeat(page, await nextUnrunHeatId(page, raceId));
     await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
 
     // The pre-flight readiness strip goes away once a heat is recorded, but
@@ -466,7 +467,7 @@ test('take screenshots', async ({ page }) => {
     await expect(page.locator('.fake-timer-mole').getByText('ARMED')).toBeVisible({
         timeout: 30000,
     });
-    await runFakeHeat(page);
+    await runFakeHeat(page, await nextUnrunHeatId(page, raceId));
 
     // 16: the summary naming the racers who made the championship round.
     // Asserted rather than hoped for: a Race tab with no modal on it
@@ -514,7 +515,7 @@ test('take screenshots', async ({ page }) => {
     await expect(page.locator('.fake-timer-mole').getByText('ARMED')).toBeVisible({
         timeout: 30000,
     });
-    await runFakeHeat(page);
+    await runFakeHeat(page, await nextUnrunHeatId(page, raceId));
     await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
 
     await page.goto(`/race/${raceId}/standings`);

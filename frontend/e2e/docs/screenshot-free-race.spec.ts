@@ -13,7 +13,7 @@ import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { ensureConfigured, gql, organizationId, photosFor, runFakeHeat } from './support';
+import { activeFreeRaceHeatId, ensureConfigured, gql, organizationId, photosFor, runFakeHeat } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/free-race');
@@ -42,6 +42,8 @@ test('screenshot free race', async ({ page }) => {
         { track: { name: 'Free Race Track', laneCount: 4, timerType: 'FAKE' } },
     );
 
+    const trackId = track.createTrack.id;
+
     const race = await gql(
         page,
         `mutation Create($race: RaceInput!) { createRace(race: $race) { id } }`,
@@ -54,7 +56,7 @@ test('screenshot free race', async ({ page }) => {
                 dateTime: '2026-03-14T09:30:00',
                 location: 'St Anne’s Parish Hall',
                 organizationId: raceOrganizationId,
-                trackId: track.createTrack.id,
+                trackId,
                 scoringStrategy: 'TIMED',
                 carNumberingStrategy: 'MANUAL',
             },
@@ -116,7 +118,10 @@ test('screenshot free race', async ({ page }) => {
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '04-heat-armed.png') });
 
     // The fake timer mole: arm, then finish, which records times.
-    await runFakeHeat(page, 600);
+    await runFakeHeat(page, await activeFreeRaceHeatId(page, raceId), {
+        isFreeRace: true,
+        settle: 600,
+    });
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(SCREENSHOT_DIR, '05-heat-results.png') });
 });
