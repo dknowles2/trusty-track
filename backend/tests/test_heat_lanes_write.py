@@ -356,6 +356,115 @@ def test_an_empty_lane_list_is_refused_for_a_free_race_heat(client, db, race, ra
     assert [row.lane for row in _lanes(db, heat.id)] == [1]
 
 
+# --------------------------------------------------------------------------- #
+# Validating a hand-entered place (#524)                                      #
+# --------------------------------------------------------------------------- #
+#
+# #490 gave `updateHeatResult` its first way to receive a *place* the server
+# did not derive itself. `POINTS` sums places with lower winning, so a bad
+# one here is not merely wrong — a non-positive place is a reward, a
+# duplicate double-counts a finish, and one past the field is points against
+# a racer who never lost that badly. Each test asserts both halves, the same
+# convention as the #307 section above: the mutation is refused *and* the
+# stored lanes are untouched.
+
+
+@pytest.mark.parametrize("bad_place", [0, -1])
+def test_a_non_positive_place_is_refused(client, db, race, racer, bad_place):
+    heat = _heat(db, race, [{"lane": 1, "racer_id": racer.id}])
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input({"lane": 1, "racer_id": racer.id, "place": bad_place})
+            ],
+        },
+    )
+
+    assert "errors" in body
+    assert [row.place for row in _lanes(db, heat.id)] == [None]
+
+
+def test_a_place_above_the_field_is_refused(client, db, race, racer):
+    other = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Bea", last_name="B", race_id=race.id, car_passed_inspection=True
+        ),
+    )
+    heat = _heat(
+        db,
+        race,
+        [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": other.id}],
+    )
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input({"lane": 1, "racer_id": racer.id, "place": 1}),
+                lane_input({"lane": 2, "racer_id": other.id, "place": 5}),
+            ],
+        },
+    )
+
+    assert "errors" in body
+    assert [row.place for row in _lanes(db, heat.id)] == [None, None]
+
+
+def test_duplicate_places_are_refused(client, db, race, racer):
+    other = crud.create_racer(
+        db,
+        schemas.RacerCreate(
+            first_name="Bea", last_name="B", race_id=race.id, car_passed_inspection=True
+        ),
+    )
+    heat = _heat(
+        db,
+        race,
+        [{"lane": 1, "racer_id": racer.id}, {"lane": 2, "racer_id": other.id}],
+    )
+
+    body = _post(
+        client,
+        UPDATE_HEAT_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [
+                lane_input({"lane": 1, "racer_id": racer.id, "place": 1}),
+                lane_input({"lane": 2, "racer_id": other.id, "place": 1}),
+            ],
+        },
+    )
+
+    assert "errors" in body
+    assert [row.place for row in _lanes(db, heat.id)] == [None, None]
+
+
+def test_a_negative_place_is_refused_for_a_free_race_heat(client, db, race, racer):
+    heat = crud.create_free_race_heat(
+        db, race.id, as_lanes([{"lane": 1, "racer_id": racer.id}])
+    )
+    db.commit()
+
+    body = _post(
+        client,
+        RECORD_FREE_RACE_RESULT,
+        {
+            "heatId": heat.id,
+            "lanes": [lane_input({"lane": 1, "racer_id": racer.id, "place": -1})],
+        },
+    )
+
+    assert "errors" in body
+    assert [row.place for row in _lanes(db, heat.id)] == [None]
+
+
 def test_only_one_place_writes_a_heats_lanes():
     """`crud.set_heat_lanes` is the one door (#72).
 

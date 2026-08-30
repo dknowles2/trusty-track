@@ -237,6 +237,27 @@ describe('RaceExecution', () => {
                 expect(mockOnUpdateResult.mock.calls[0][1][0].place).toBeNull();
             });
         });
+
+        it.each(['0', '-1'])('typing a non-positive place ("%s") sends null, not the raw value (#524)', async (value) => {
+            // `min="1"` on the input is not enforced by the browser here — the
+            // field lives outside a <form> and Save is a plain button, so
+            // constraint validation never runs. Without a deliberate check, a
+            // "0" or "-1" was either accepted as-is or turned to null only by
+            // coincidence of JS falsiness.
+            const untimed = { ...mockHeat, lanes: mockHeat.lanes.map((l) => ({ ...l, time: null, place: null })) };
+            render(<RaceExecution {...defaultProps} activeExecutionHeat={untimed} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Override'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            fireEvent.change(inputs[0], { target: { value } });
+
+            fireEvent.click(screen.getByText('Save Results'));
+
+            await waitFor(() => {
+                expect(mockOnUpdateResult).toHaveBeenCalled();
+                expect(mockOnUpdateResult.mock.calls[0][1][0].place).toBeNull();
+            });
+        });
     });
 
     describe('a track with no timer (#490)', () => {

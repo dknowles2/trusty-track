@@ -85,7 +85,10 @@ def test_auto_advancement_with_placeholders(client, db):
             racer_id = lane_res.get("racer_id")
             if racer_id:
                 lane_res["time"] = 1.0 + (racer_id * 0.1)
-                lane_res["place"] = 1
+                # `place` is recomputed by scoring for this TIMED race, so it
+                # is left unset — the same value on every lane used to do
+                # fine before #524 started refusing a duplicate place at the
+                # write boundary.
 
         record_heat_result(client, heat.id, current_results)
 
