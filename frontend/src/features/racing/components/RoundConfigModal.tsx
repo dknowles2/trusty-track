@@ -39,7 +39,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
   hasGeneralRound,
   lastChampionshipRound
 }) => {
-  const { group, groupLower, org } = useTerminology();
+  const { group, groupLower, org, vehicles, vehicleLower, vehiclesLower } = useTerminology();
   const [type, setType] = useState<'GENERAL' | 'CHAMPIONSHIP'>('GENERAL');
   const [generalType, setGeneralType] = useState<'ALL' | 'EACH_GROUP'>('ALL');
   const [raceStyle, setRaceStyle] = useState<'PPC' | 'ELIMINATION' | 'BALANCED'>('PPC');
@@ -243,12 +243,12 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       onChange={() => chooseStyle('BALANCED')}
                       disabled={loading}
                     />
-                    <span>Balanced — each round of heats matches cars doing about as well</span>
+                    <span>Balanced — each round of heats matches {vehiclesLower} doing about as well</span>
                   </label>
                 </div>
                 {raceStyle === 'BALANCED' && (
                   <div style={{ marginTop: '12px' }}>
-                    <label htmlFor="balancedPhases" style={labelStyle}>Times each car races</label>
+                    <label htmlFor="balancedPhases" style={labelStyle}>Times each {vehicleLower} races</label>
                     <input
                       id="balancedPhases"
                       type="number"
@@ -269,7 +269,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                 )}
                 {raceStyle === 'ELIMINATION' && (
                   <div style={{ marginTop: '12px' }}>
-                    <label htmlFor="eliminationLosses" style={labelStyle}>Losses before a car is out</label>
+                    <label htmlFor="eliminationLosses" style={labelStyle}>Losses before a {vehicleLower} is out</label>
                     <input
                       id="eliminationLosses"
                       type="number"
@@ -282,8 +282,8 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       disabled={loading}
                     />
                     <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                      New heats appear after each round of racing, matching cars
-                      with the same record. The last car left wins.
+                      New heats appear after each round of racing, matching {vehiclesLower}
+                      with the same record. The last {vehicleLower} left wins.
                     </p>
                   </div>
                 )}
@@ -330,7 +330,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
             <>
               {/* Which end of the standings the field comes from. */}
               <div>
-                <label style={labelStyle}>Which cars race</label>
+                <label style={labelStyle}>Which {vehiclesLower} race</label>
                 <div style={{ display: 'flex', gap: '20px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
@@ -339,7 +339,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       onChange={() => chooseDirection(false)}
                       disabled={loading}
                     />
-                    <span>The fastest cars</span>
+                    <span>The fastest {vehiclesLower}</span>
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
@@ -348,12 +348,12 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
                       onChange={() => chooseDirection(true)}
                       disabled={loading}
                     />
-                    <span>The slowest cars</span>
+                    <span>The slowest {vehiclesLower}</span>
                   </label>
                 </div>
                 {fromBottom && (
                   <p style={{ margin: '8px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted-color)', fontStyle: 'italic' }}>
-                    A just-for-fun race for the slowest cars. Cars without a
+                    A just-for-fun race for the slowest {vehiclesLower}. {vehicles} without a
                     recorded time are left out.
                   </p>
                 )}
@@ -362,7 +362,7 @@ export const RoundConfigModal: React.FC<RoundConfigModalProps> = ({
               {/* Championship Config */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div>
-                  <label style={labelStyle}>{fromBottom ? 'Slowest cars from' : 'Top performers from'}</label>
+                  <label style={labelStyle}>{fromBottom ? `Slowest ${vehiclesLower} from` : 'Top performers from'}</label>
                   <select
                     value={source}
                     onChange={(e) => setSource(e.target.value as 'ALL' | 'EACH_GROUP' | 'PREVIOUS')}

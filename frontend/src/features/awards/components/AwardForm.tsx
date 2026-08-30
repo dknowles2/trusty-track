@@ -80,7 +80,7 @@ export default function AwardForm({
   onSubmit,
   onCancel,
 }: Props) {
-  const { groupLower, orgLower } = useTerminology();
+  const { groupLower, orgLower, vehicleLower } = useTerminology();
   const [draft, setDraft] = useState<AwardDraft>({ ...EMPTY, ...initial });
   // Which template the picker last applied, purely to show its blurb as help
   // text (#440) — the name and artwork fields it wrote are the only lasting
@@ -205,8 +205,8 @@ export default function AwardForm({
                 onChange={(e) => set('fromBottom', e.target.value === 'BOTTOM')}
                 className="form-control"
               >
-                <option value="TOP">The fastest car</option>
-                <option value="BOTTOM">The slowest car</option>
+                <option value="TOP">The fastest {vehicleLower}</option>
+                <option value="BOTTOM">The slowest {vehicleLower}</option>
               </select>
             </div>
             <div style={{ flex: 1, minWidth: '9rem' }}>

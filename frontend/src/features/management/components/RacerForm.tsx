@@ -68,7 +68,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
   });
 
   const racingGroups: RacingGroup[] = racingGroupsResult.data?.race?.racingGroups || [];
-  const { group } = useTerminology();
+  const { group, vehicle } = useTerminology();
 
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
@@ -175,7 +175,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
             <div>
-                 <label htmlFor="racer-car-number" style={{ display: 'block', marginBottom: '5px' }}>Car Number</label>
+                 <label htmlFor="racer-car-number" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Number</label>
                  <input
                    type="number"
                    name="car_number"
@@ -186,7 +186,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                  />
             </div>
             <div>
-                 <label htmlFor="racer-car-weight" style={{ display: 'block', marginBottom: '5px' }}>Car Weight (oz)</label>
+                 <label htmlFor="racer-car-weight" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Weight (oz)</label>
                  <input
                    type="number"
                    step="0.01"
@@ -219,7 +219,7 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
         </div>
 
         <div style={{ marginBottom: '10px' }}>
-             <label htmlFor="racer-car-name" style={{ display: 'block', marginBottom: '5px' }}>Car Name</label>
+             <label htmlFor="racer-car-name" style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Name</label>
              <input
                type="text"
                name="car_name"
@@ -298,9 +298,9 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             </div>
              {/* Car Image Upload */}
              <div>
-                <label style={{ display: 'block', marginBottom: '5px' }}>Car Photo</label>
+                <label style={{ display: 'block', marginBottom: '5px' }}>{vehicle} Photo</label>
                 {formData.car_image_url && (
-                    <img src={formData.car_image_url} alt="Car" style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
+                    <img src={formData.car_image_url} alt={vehicle} style={{ width: '100%', height: '150px', objectFit: 'cover', display: 'block', marginBottom: '5px', borderRadius: '4px', backgroundColor: 'var(--divider-color)' }} />
                 )}
                 <div style={{ display: 'flex', gap: '5px' }}>
                     <input

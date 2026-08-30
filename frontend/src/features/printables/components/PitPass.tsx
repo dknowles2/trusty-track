@@ -8,6 +8,7 @@ import {
 } from '../documents';
 import { DerbyCar } from './PrintDecor';
 import PrintPhoto from './PrintPhoto';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface Props {
     racer: PrintableRacer;
@@ -27,6 +28,7 @@ interface Props {
 export default function PitPass({ racer, race, racingGroup }: Props) {
     const date = formatEventDate(race.dateTime);
     const time = formatEventTime(race.dateTime);
+    const { vehicle } = useTerminology();
 
     return (
         <div className="print-card pit-pass">
@@ -59,7 +61,7 @@ export default function PitPass({ racer, race, racingGroup }: Props) {
                 )}
 
                 <div className="pit-pass-car">
-                    Car #{racer.car_number || '—'}
+                    {vehicle} #{racer.car_number || '—'}
                     {racer.car_name ? ` · ${racer.car_name}` : ''}
                 </div>
 

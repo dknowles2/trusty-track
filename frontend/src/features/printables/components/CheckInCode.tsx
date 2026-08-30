@@ -1,4 +1,5 @@
 import { barcodeSrc, type PrintableRace, type PrintableRacer } from '../documents';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface Props {
     racer: PrintableRacer;
@@ -17,6 +18,7 @@ interface Props {
  */
 export default function CheckInCode({ racer, race }: Props) {
     const name = `${racer.first_name} ${racer.last_name}`.trim();
+    const { vehicle } = useTerminology();
 
     return (
         <div className="print-card check-in-code">
@@ -35,7 +37,7 @@ export default function CheckInCode({ racer, race }: Props) {
                     />
                 </div>
                 <div className="print-card-name">{name}</div>
-                <div className="check-in-code-number">Car #{racer.car_number || '—'}</div>
+                <div className="check-in-code-number">{vehicle} #{racer.car_number || '—'}</div>
             </div>
         </div>
     );

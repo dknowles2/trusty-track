@@ -24,6 +24,7 @@
 import { resolveDisplayTheme, resolvePrintablesTheme } from '../../../theming/applyTheme';
 import { themeByKey, type SurfaceThemeSetting, type ThemeKey } from '../../../theming/themes';
 import PitPass from '../../printables/components/PitPass';
+import { useTerminology } from '../../../context/TerminologyContext';
 import '../../printables/PrintSheet.css';
 
 interface Props {
@@ -56,6 +57,7 @@ export default function AppearancePreview({
   const appTheme = themeByKey(appThemeKey).app;
   const { key: displayKey, theme: displayTheme } = resolveDisplayTheme(displaySetting);
   const { key: printablesKey, theme: printablesTheme } = resolvePrintablesTheme(printablesSetting);
+  const { vehicle } = useTerminology();
 
   return (
     <div
@@ -104,7 +106,7 @@ export default function AppearancePreview({
           }}
         >
           <div style={{ fontWeight: 'bold' }}>{SAMPLE_RACER.first_name} {SAMPLE_RACER.last_name}</div>
-          <div style={{ color: 'var(--text-muted-color)' }}>Car #{SAMPLE_RACER.car_number}</div>
+          <div style={{ color: 'var(--text-muted-color)' }}>{vehicle} #{SAMPLE_RACER.car_number}</div>
         </div>
       </div>
 

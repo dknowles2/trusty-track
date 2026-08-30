@@ -69,7 +69,7 @@ interface LeaderboardProps {
 }
 
 export default function Leaderboard({ raceId }: LeaderboardProps) {
-  const { group } = useTerminology();
+  const { group, vehicle, vehicles, vehicleLower } = useTerminology();
   // null means the overall standings, which cover preliminary rounds only.
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
 
@@ -208,13 +208,13 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
           {selectedRound === null ? 'Current Standings' : roundLabel(selectedRound)}
           {selectedRound?.advancementFromBottom && (
             <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-muted-color)' }}>
-              Slowest car first — the last one down the track wins.
+              Slowest {vehicleLower} first — the last one down the track wins.
             </span>
           )}
           {isEliminationRound && (
             <span style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-muted-color)' }}>
               Lose {selectedRound?.eliminationLosses ?? 3} heats and you&apos;re
-              out — the last car left wins.
+              out — the last {vehicleLower} left wins.
             </span>
           )}
         </h2>
@@ -305,7 +305,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
             <tr style={{ background: 'var(--scouting-blue)', color: 'var(--on-primary-color)' }}>
               <th style={{ padding: '12px', textAlign: 'left', width: '60px' }}>Rank</th>
               <th style={{ padding: '12px', textAlign: 'center', width: '60px' }}>Avatar</th>
-              <th style={{ padding: '12px', textAlign: 'left', width: '80px' }}>Car #</th>
+              <th style={{ padding: '12px', textAlign: 'left', width: '80px' }}>{vehicle} #</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Name</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>{group}</th>
               <th style={{ padding: '12px', textAlign: 'center' }}>Heats</th>
@@ -376,7 +376,7 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
         textAlign: 'center'
       }}>
         {isEliminationRound
-          ? 'A loss is any heat a car does not win. Cars still racing are listed first.'
+          ? `A loss is any heat a ${vehicleLower} does not win. ${vehicles} still racing are listed first.`
           : selectedRound?.advancementFromBottom
           ? scoringStrategy === 'TIMED'
             ? 'Higher average time wins this round'

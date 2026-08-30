@@ -18,6 +18,7 @@ import { buildDisplayLines } from '../../racing/serialLog';
 import type { SerialLogEntry } from '../../racing/serialLog';
 import { SerialProxyConnector } from '../../racing/components/SerialProxyConnector';
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 import { fetchTimerReport, issueUrl, testInstruction } from '../timerTest';
 
@@ -100,7 +101,7 @@ interface Track {
  * could sit there all event — so an operator seeing it needs to know whether
  * to wait or to start unplugging things.
  */
-type StateHelp = { label: string; tone: string; detail: string | ((timerType: string) => string) };
+type StateHelp = { label: string; tone: string; detail: string | ((timerType: string, vehiclesLower: string) => string) };
 
 // DISCONNECTED is the one state whose fix depends on the transport: a
 // backend-direct track is plugged into this machine and the Connect button
@@ -111,6 +112,13 @@ const disconnectedDetail = (timerType: string): string =>
     timerType === 'AUTO_DETECT_PROXY'
         ? 'Trusty Track cannot see a timer. Check the cable, then use Connect Hardware Timer below — on the laptop the timer is plugged into.'
         : 'Trusty Track cannot see a timer. Check the cable, then press Connect.';
+
+// READY's wording names the vehicle (#551) — "cars" by default, but this
+// reads as nonsense at a rocket or boat event. Takes the resolved plural
+// rather than appending an "s" to the singular — English plurals are
+// irregular, and that rule already has one owner (`resolve_terminology`).
+const readyDetail = (_timerType: string, vehiclesLower: string): string =>
+    `The start gate is closed with ${vehiclesLower} behind it.`;
 
 const STATE_HELP: Record<string, StateHelp> = {
     DISCONNECTED: {
@@ -138,7 +146,7 @@ const STATE_HELP: Record<string, StateHelp> = {
     READY: {
         label: 'Staged',
         tone: 'var(--info-accent-color)',
-        detail: 'The start gate is closed with cars behind it.',
+        detail: readyDetail,
     },
     RUNNING: {
         label: 'Racing',
@@ -348,6 +356,7 @@ const TimerTestPanel: React.FC<{
 
 const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, highlighted }) => {
     const { showAlert } = useAlert();
+    const { vehiclesLower } = useTerminology();
     const logEndRef = useRef<HTMLDivElement>(null);
     const [, reconnect] = useMutation(DIAGNOSTIC_RECONNECT);
     const [, reset] = useMutation(DIAGNOSTIC_RESET);
@@ -373,7 +382,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
               tone: 'var(--neutral-accent-color)',
               detail: '',
           });
-    const detail = typeof help.detail === 'function' ? help.detail(track.timerType) : help.detail;
+    const detail = typeof help.detail === 'function' ? help.detail(track.timerType, vehiclesLower) : help.detail;
 
     useEffect(() => {
         logEndRef.current?.scrollIntoView({ behavior: 'smooth' });

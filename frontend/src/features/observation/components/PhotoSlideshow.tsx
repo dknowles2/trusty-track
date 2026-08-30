@@ -20,6 +20,7 @@ import {
     type SlideshowRacingGroup,
     type SlideshowRacer,
 } from '../slideshow';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface Props {
     racers: readonly SlideshowRacer[];
@@ -40,6 +41,7 @@ interface Props {
 export default function PhotoSlideshow({ racers, racingGroups, intervalMs, loading = false }: Props) {
     const slides = slidesFor(racers, racingGroups);
     const [index, setIndex] = useState(0);
+    const { vehicleLower } = useTerminology();
 
     // Hold position when the roster changes underneath us. A photo uploaded at
     // the desk mid-round adds a slide, and resetting to the first child every
@@ -116,7 +118,7 @@ export default function PhotoSlideshow({ racers, racingGroups, intervalMs, loadi
                 {slide.carImageUrl && (
                     <img
                         src={slide.carImageUrl}
-                        alt={slide.carName ? `${slide.name}'s car, ${slide.carName}` : `${slide.name}'s car`}
+                        alt={slide.carName ? `${slide.name}'s ${vehicleLower}, ${slide.carName}` : `${slide.name}'s ${vehicleLower}`}
                         style={{ maxHeight: '100%', maxWidth: '45%', objectFit: 'contain', borderRadius: '2vmin' }}
                     />
                 )}

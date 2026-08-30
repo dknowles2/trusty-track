@@ -36,7 +36,7 @@ import '../PrintSheet.css';
 export default function ResultsSheet() {
     const { raceId } = useParams<{ raceId: string }>();
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
-    const { group, groupLower } = useTerminology();
+    const { group, groupLower, vehicle } = useTerminology();
 
     const [{ data, fetching, error }] = useQuery({
         query: GET_RESULTS_SHEET,
@@ -161,7 +161,7 @@ export default function ResultsSheet() {
                                 <thead>
                                     <tr>
                                         <th className="heat-sheet-num">Place</th>
-                                        <th className="heat-sheet-num">Car #</th>
+                                        <th className="heat-sheet-num">{vehicle} #</th>
                                         <th>Racer</th>
                                         {isOverall && <th>{group}</th>}
                                         <th>{scoreHeading(scoringStrategy)}</th>

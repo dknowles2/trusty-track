@@ -23,6 +23,7 @@ import { SerialProxyConnector } from './SerialProxyConnector';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { RacerCombobox } from '../../management/components/RacerCombobox';
 import RacerAvatar from '../../management/components/RacerAvatar';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 export interface LaneAssignment {
   id: string;
@@ -92,12 +93,15 @@ const laneNumber = {
  * against the lane. "No racer" beside a dashed avatar said the opposite, and
  * read as a lane nobody would be racing in.
  */
-const AnonymousLaneItem: React.FC<{ lane: number }> = ({ lane }) => (
-  <div style={{ ...laneCard, background: 'var(--surface-tint-color)', padding: '14px 15px' }}>
-    <div style={laneNumber}>Lane {lane}</div>
-    <div style={{ flex: 1, color: 'var(--text-quiet-color)' }}>Any car</div>
-  </div>
-);
+const AnonymousLaneItem: React.FC<{ lane: number }> = ({ lane }) => {
+  const { vehicleLower } = useTerminology();
+  return (
+    <div style={{ ...laneCard, background: 'var(--surface-tint-color)', padding: '14px 15px' }}>
+      <div style={laneNumber}>Lane {lane}</div>
+      <div style={{ flex: 1, color: 'var(--text-quiet-color)' }}>Any {vehicleLower}</div>
+    </div>
+  );
+};
 
 interface SortableLaneItemProps {
   assignment: LaneAssignment;
@@ -119,6 +123,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
   manualAssignments,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const { vehicle } = useTerminology();
   const {
     attributes,
     listeners,
@@ -233,7 +238,7 @@ const SortableLaneItem: React.FC<SortableLaneItemProps> = ({
               </div>
               {racer?.carNumber != null && (
                 <div style={{ fontSize: '1rem', color: 'var(--text-muted-color)' }}>
-                  Car #{racer.carNumber}
+                  {vehicle} #{racer.carNumber}
                 </div>
               )}
             </>
@@ -257,6 +262,7 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
   mode,
   onModeChange,
 }) => {
+  const { vehicleLower, vehiclesLower } = useTerminology();
   // Every physical lane the track has — the one place `i + 1` is the right
   // lane number, because this *is* the definition of "the track's lanes".
   // Everything downstream reads lane numbers off `enabledLanes` instead, not
@@ -508,9 +514,9 @@ export const FreeRaceLaneSetup: React.FC<FreeRaceLaneSetupProps & { racers: Reco
 
         {mode === 'anonymous' && (
           <p style={{ color: 'var(--text-muted-color)', marginTop: 0, marginBottom: '20px' }}>
-            Put any car in any lane — the time is kept against the lane, not
+            Put any {vehicleLower} in any lane — the time is kept against the lane, not
             against a racer. Use it to test the track or the timer, or to run
-            cars that are not on the roster.
+            {' '}{vehiclesLower} that are not on the roster.
           </p>
         )}
 

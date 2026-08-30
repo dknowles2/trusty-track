@@ -8,6 +8,7 @@ import {
     resolveScan,
     type ScannableRacer,
 } from '../scanning';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 interface Props {
     raceId: number;
@@ -46,10 +47,15 @@ const MESSAGES = {
 export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Props) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const [cameraError, setCameraError] = useState('');
+    // Whether the camera itself failed to open — the message names the
+    // vehicle word (#551), read fresh at render rather than captured by the
+    // effect below, so a terminology change does not need to restart the
+    // camera stream just to reword an error nobody is seeing yet.
+    const [cameraBlocked, setCameraBlocked] = useState(false);
     const [message, setMessage] = useState('');
     const [typed, setTyped] = useState('');
     const scanning = canScan();
+    const { vehicle, vehicleLower } = useTerminology();
 
     // Which payload the last message was about, so a code held in front of the
     // camera does not re-report itself forty times a second.
@@ -96,9 +102,7 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
                 if (videoRef.current) videoRef.current.srcObject = stream;
             } catch (err) {
                 console.error('Error accessing camera:', err);
-                setCameraError(
-                    'Could not open the camera. Type a car number instead.',
-                );
+                setCameraBlocked(true);
                 return;
             }
 
@@ -140,16 +144,16 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
         }
         if (result.status === 'ambiguous') {
             setMessage(
-                `More than one racer has car number ${typed.trim()} — find them by name.`,
+                `More than one racer has ${vehicleLower} number ${typed.trim()} — find them by name.`,
             );
             return;
         }
-        setMessage(`No racer has car number ${typed.trim()}.`);
+        setMessage(`No racer has ${vehicleLower} number ${typed.trim()}.`);
     };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {scanning && !cameraError ? (
+            {scanning && !cameraBlocked ? (
                 <div
                     style={{
                         position: 'relative',
@@ -200,9 +204,10 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
                 >
                     <Icon path={mdiAlertCircleOutline} size={0.9} color="var(--caution-icon-color)" />
                     <span>
-                        {cameraError ||
-                            'This browser cannot scan QR codes — Chrome and Edge can. ' +
-                                'Type the car number instead; everything else works the same.'}
+                        {cameraBlocked
+                            ? `Could not open the camera. Type a ${vehicleLower} number instead.`
+                            : 'This browser cannot scan QR codes — Chrome and Edge can. ' +
+                                `Type the ${vehicleLower} number instead; everything else works the same.`}
                     </span>
                 </div>
             )}
@@ -215,7 +220,7 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
 
             <form onSubmit={submitTyped} style={{ display: 'flex', gap: '8px' }}>
                 <label htmlFor="scan-car-number" style={{ alignSelf: 'center' }}>
-                    Car number
+                    {vehicle} number
                 </label>
                 <input
                     id="scan-car-number"
