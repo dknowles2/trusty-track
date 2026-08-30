@@ -133,6 +133,7 @@ export type Heat = {
   roundId: Scalars['Int']['output'];
   roundName?: Maybe<Scalars['String']['output']>;
   roundNumber: Scalars['Int']['output'];
+  runOffPlacement?: Maybe<Scalars['Int']['output']>;
 };
 
 export type HeatHighlight = {
@@ -321,6 +322,7 @@ export type Mutation = {
   createRacingGroup: RacingGroup;
   createRound: Array<Round>;
   createRoundWizard: Array<Round>;
+  createRunOffHeat: RunOffHeat;
   createTrack: Track;
   createTrackRecord: HistoricalTrackRecord;
   deleteAward: Scalars['Boolean']['output'];
@@ -330,6 +332,7 @@ export type Mutation = {
   deleteRacer: Scalars['Boolean']['output'];
   deleteRacingGroup: Scalars['Boolean']['output'];
   deleteRound: Scalars['Boolean']['output'];
+  deleteRunOffHeat: Scalars['Boolean']['output'];
   deleteTrack: Scalars['Boolean']['output'];
   deleteTrackRecord: Scalars['Boolean']['output'];
   fakeTimerFinish: Scalars['Boolean']['output'];
@@ -479,6 +482,13 @@ export type MutationCreateRoundWizardArgs = {
 };
 
 
+export type MutationCreateRunOffHeatArgs = {
+  raceId: Scalars['Int']['input'];
+  racerIds: Array<Scalars['Int']['input']>;
+  settlesRoundId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
 export type MutationCreateTrackArgs = {
   track: TrackInput;
 };
@@ -522,6 +532,11 @@ export type MutationDeleteRacingGroupArgs = {
 
 export type MutationDeleteRoundArgs = {
   roundId: Scalars['Int']['input'];
+};
+
+
+export type MutationDeleteRunOffHeatArgs = {
+  heatId: Scalars['Int']['input'];
 };
 
 
@@ -854,6 +869,7 @@ export type Race = {
   racingGroups: Array<RacingGroup>;
   registeredCount: Scalars['Int']['output'];
   rounds: Array<Round>;
+  runOffHeats: Array<RunOffHeat>;
   scheduledRacerIds: Array<Scalars['Int']['output']>;
   scoringStrategy: Scalars['String']['output'];
   terminology: Terminology;
@@ -1044,6 +1060,16 @@ export type RoundCreateInput = {
   name?: InputMaybe<Scalars['String']['input']>;
   runsPerLane?: Scalars['Int']['input'];
   schedulingStrategy?: Scalars['String']['input'];
+};
+
+export type RunOffHeat = {
+  createdAt?: Maybe<Scalars['String']['output']>;
+  id: Scalars['Int']['output'];
+  lanes: Array<HeatLane>;
+  placement?: Maybe<Scalars['Int']['output']>;
+  raceId: Scalars['Int']['output'];
+  recorded: Scalars['Boolean']['output'];
+  settlesRoundId?: Maybe<Scalars['Int']['output']>;
 };
 
 export type SerialLogEntry = {

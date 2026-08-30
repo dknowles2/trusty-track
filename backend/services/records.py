@@ -46,9 +46,13 @@ def track_records(
 
     One entry per racer — a car's record is its single best run, not its
     three best, or the list would be one good car repeated. Only official
-    heats count: a free race heat is an exhibition run (#6). A time of zero
-    or less is a DNF marker rather than a result, and a lane whose racer has
-    been deleted has no holder, so neither can set a record.
+    heats count: a free race heat is an exhibition run (#6), and a run-off
+    heat is real but scoped — its result "applies at that cut and nowhere
+    else," which is what keeps a fast run-off lap from leaking into a track
+    record's population (#550). Both are excluded here the same way, by
+    `models.official_heats` below, since neither is `kind = OFFICIAL`. A time
+    of zero or less is a DNF marker rather than a result, and a lane whose
+    racer has been deleted has no holder, so neither can set a record.
 
     Historical records — entered by hand for events from before Trusty
     Track (`models.HistoricalTrackRecord`) — compete in the same list, as

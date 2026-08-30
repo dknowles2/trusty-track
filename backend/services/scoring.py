@@ -38,7 +38,19 @@ def _scoring_heats(db: Session, race_id: int, round_id: int | None, scope: str) 
     one round's standings means that round, disrupted or not, and the screen
     asking is showing that round rather than the race.
     """
-    heats = crud.get_heats(db, race_id, round_id=round_id)
+    # A run-off heat (#550) never feeds an aggregate score, the same rule and
+    # the same reason as an elimination round below: its whole point is to
+    # decide a placement *without* joining the score that produced the tie.
+    # `crud.get_heats` already excludes it via `models.official_heats` — it
+    # is `kind = RUN_OFF`, not `OFFICIAL` — so this is belt and braces rather
+    # than load-bearing, and it is unconditional, unlike every other filter
+    # below: `round_id` and `scope == ALL` both short-circuit past those, and
+    # a run-off must never slip through either shortcut.
+    heats = [
+        h
+        for h in crud.get_heats(db, race_id, round_id=round_id)
+        if h.kind != models.HeatKind.RUN_OFF
+    ]
     if round_id is not None or scope == domain_scoring.ALL:
         return heats
 
@@ -228,11 +240,18 @@ def get_leaderboard(
         )
     )
 
+    # Every decided run-off heat scoped to *this* standings view (#550) —
+    # `round_id` here is the same value `get_leaderboard`'s own parameter
+    # carries, so a run-off created against the overall standings
+    # (`settles_round_id is None`) never resolves a round-scoped tie and
+    # vice versa. Loaded once per call, not once per cluster.
+    run_off_lookup = _run_off_lookup(db, race_id, round_id)
+
     # Break same-score clusters per the race's tiebreaker (#540) — reorders
     # `leaderboard` in place within each cluster, stamps `resolved_by` on
     # every row it separated, and reports which adjacent pairs stopped being
     # tied so the rank stamped below does not share one for them.
-    separated = _resolve_ties(leaderboard, parsed, race.tiebreaker)
+    separated = _resolve_ties(leaderboard, parsed, race.tiebreaker, run_off_lookup)
 
     # Competition ranks: a tie shares a rank rather than being silently
     # resolved by registration order (#226).
@@ -246,10 +265,77 @@ def get_leaderboard(
     return leaderboard
 
 
+def _run_off_lookup(
+    db: Session, race_id: int, settles_round_id: int | None
+) -> dict[frozenset[int], list[Lane]]:
+    """Decided-or-not run-off heats scoped to one standings view (#550).
+
+    Keyed by the exact set of racer ids each run-off heat holds — a run-off
+    is created against a specific tied cluster, and ``_resolve_ties`` only
+    ever wants one back for a cluster whose racer ids match it exactly (see
+    the class docstring on ``Heat.settles_round_id`` for why a subset or
+    superset match would be the wrong rule: the tied cluster it was created
+    for may have grown or shrunk since, and a run-off decided for a
+    different set of cars decides nothing here).
+
+    Every matching heat is loaded regardless of whether it has actually been
+    run — :func:`backend.domain.tiebreak.tiebreak`'s ``run_off`` argument
+    already falls through to the configured method when a heat's lanes hold
+    no result, so an armed-but-unrun run-off changes nothing on its own.
+    """
+    heats = crud.run_off_heats_settling(db, race_id, settles_round_id)
+    if not heats:
+        return {}
+    parsed = crud.lanes_for_heats(db, heats)
+    lookup: dict[frozenset[int], list[Lane]] = {}
+    for heat_lanes in parsed:
+        racer_ids = frozenset(
+            lane.racer_id for lane in heat_lanes if lane.racer_id is not None
+        )
+        if racer_ids:
+            lookup[racer_ids] = heat_lanes
+    return lookup
+
+
+def run_off_contested_rank(db: Session, race_id: int, heat: models.Heat) -> int | None:
+    """The standings rank a run-off heat is racing to decide, right now (#550).
+
+    Computed fresh from the current standings — never stored — the same rule
+    as the standings themselves (#17): a run-off heat records the *racers*
+    it settled, not the *rank*, so a time corrected anywhere in
+    ``heat.settles_round_id``'s standings after the run-off was created can
+    move who is tied, or dissolve the tie outright. When that happens this
+    returns ``None`` rather than a rank that no longer means anything, and
+    the operator screen and the audience announcement both fall silent —
+    the same "computed, not stored" shape a `SPEED` award's recipient
+    follows (#170).
+
+    Only ever returns a rank when this heat's racers are *exactly* the
+    cluster sharing it — a subset or a superset means the tie has moved
+    since, and there is nothing honest to report.
+    """
+    heat_lanes = crud.lanes_for_heats(db, [heat])[0]
+    racer_ids = frozenset(
+        lane.racer_id for lane in heat_lanes if lane.racer_id is not None
+    )
+    if not racer_ids:
+        return None
+    leaderboard = get_leaderboard(db, race_id, round_id=heat.settles_round_id)
+    for entry in leaderboard:
+        if entry["racer_id"] not in racer_ids:
+            continue
+        cluster_ids = frozenset(
+            e["racer_id"] for e in leaderboard if e["rank"] == entry["rank"]
+        )
+        return entry["rank"] if cluster_ids == racer_ids else None
+    return None
+
+
 def _resolve_ties(
     leaderboard: list[LeaderboardEntry],
     heats: list[list[Lane]],
     method: str,
+    run_off_lookup: dict[frozenset[int], list[Lane]] | None = None,
 ) -> list[bool]:
     """Break each same-score cluster in ``leaderboard`` per ``method`` (#540).
 
@@ -261,6 +347,13 @@ def _resolve_ties(
     sharing its rank with anyone it was tied with. A row still sharing a group
     with somebody keeps ``resolved_by`` at its initial ``None``: the chain did
     not decide it, so it is reported exactly like a tie always has been.
+
+    ``run_off_lookup`` (#550) is checked before ``method`` for every cluster,
+    by the cluster's exact racer-id set — see :func:`_run_off_lookup`. When a
+    matching, decided run-off exists it wins outright and ``resolved_by``
+    reports ``"RUN_OFF"`` rather than ``method`` for the rows it separated;
+    :func:`backend.domain.tiebreak.tiebreak` is what actually applies that
+    precedence, this function only finds the matching heat to hand it.
 
     Returns a same-length list of booleans: ``[i]`` is ``True`` when row ``i``
     is no longer considered tied with row ``i - 1`` despite an equal score —
@@ -293,7 +386,8 @@ def _resolve_ties(
         if end > start:
             cluster = leaderboard[start : end + 1]
             racer_ids = [entry["racer_id"] for entry in cluster]
-            result = domain_tiebreak.tiebreak(racer_ids, heats, method)
+            run_off = (run_off_lookup or {}).get(frozenset(racer_ids))
+            result = domain_tiebreak.tiebreak(racer_ids, heats, method, run_off=run_off)
 
             order_position = {
                 racer_id: position for position, racer_id in enumerate(result.order)
@@ -312,7 +406,7 @@ def _resolve_ties(
             }
             for entry in cluster:
                 if group_size[entry["racer_id"]] == 1:
-                    entry["resolved_by"] = method
+                    entry["resolved_by"] = result.resolved_by
 
         index += 1
 

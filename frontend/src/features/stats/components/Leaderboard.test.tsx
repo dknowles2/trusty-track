@@ -4,8 +4,9 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { AlertProvider } from '../../../context/AlertContext';
 import Leaderboard from './Leaderboard';
-import { useQuery, useSubscription } from 'urql';
+import { useMutation, useQuery, useSubscription } from 'urql';
 import { tiedLeaderboardEntries, twoRacerLeaderboardEntries } from '../testFixtures';
 import { filenameFor } from '../../../utils/csv';
 import { standingsRows, standingsSuffix } from '../standingsExport';
@@ -17,6 +18,10 @@ vi.mock('urql', async (importOriginal) => {
     ...actual,
     useQuery: vi.fn(),
     useSubscription: vi.fn(),
+    // `RunOffControl` (#550), nested under a tied cluster's row, calls
+    // `useMutation` — real urql needs a `Provider`, which nothing here sets
+    // up.
+    useMutation: vi.fn(),
   };
 });
 
@@ -38,6 +43,7 @@ afterEach(() => {
 // Default no-op subscription mock
 beforeEach(() => {
   (useSubscription as any).mockReturnValue([{ data: undefined }, vi.fn()]);
+  (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
 });
 
 describe('Leaderboard', () => {
@@ -62,7 +68,7 @@ describe('Leaderboard', () => {
       error: null
     }, vi.fn()]);
 
-    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
 
     expect(screen.getByText('Current Standings')).toBeInTheDocument();
 
@@ -100,16 +106,19 @@ describe('Leaderboard', () => {
       error: null
     }, vi.fn()]);
 
-    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
 
     const rows = screen.getAllByRole('row');
-    expect(rows).toHaveLength(3);
+    // Header, both tied rows, and the run-off control's own row underneath
+    // them (#550) — one per shared rank, offering to settle it.
+    expect(rows).toHaveLength(4);
     // Both rows carry rank 1 — and so both get the gold-medal styling — rather
     // than one of them silently becoming rank 2.
     expect(rows[1]).toHaveTextContent('🥇 1');
     expect(rows[1]).toHaveTextContent('John Doe');
     expect(rows[2]).toHaveTextContent('🥇 1');
     expect(rows[2]).toHaveTextContent('Jane Smith');
+    expect(screen.getByTestId('start-run-off-btn')).toBeInTheDocument();
   });
 
   it('says how a resolved tie was broken, and stops sharing the rank (#540)', () => {
@@ -133,7 +142,7 @@ describe('Leaderboard', () => {
       vi.fn(),
     ]);
 
-    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
 
     const rows = screen.getAllByRole('row');
     expect(rows[1]).toHaveTextContent('🥇 1');
@@ -175,7 +184,7 @@ describe('Leaderboard', () => {
       error: null
     }, vi.fn()]);
 
-    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
 
     expect(screen.getByText('Points')).toBeInTheDocument();
     expect(screen.getByText('5')).toBeInTheDocument();
@@ -226,7 +235,7 @@ describe('Leaderboard', () => {
       error: null
     }, vi.fn()]);
 
-    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
 
     expect(screen.getByText('(Wolf)')).toBeInTheDocument();
     // A racingGroup with no division stored gets no label — no stray parentheses.
@@ -261,7 +270,7 @@ describe('Leaderboard round scope (issue #17)', () => {
     }, vi.fn()]);
     (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
 
-    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
     expect(screen.queryByLabelText('Standings scope')).toBeNull();
   });
 
@@ -275,7 +284,7 @@ describe('Leaderboard round scope (issue #17)', () => {
     }, vi.fn()]);
     (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
 
-    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
     expect(screen.getByLabelText('Standings scope')).toBeTruthy();
     expect(screen.getByText(/cover the qualifying rounds/i)).toBeTruthy();
     // Only championship rounds are offered — the prelim view is "Overall".
@@ -298,7 +307,7 @@ describe('Leaderboard round scope (issue #17)', () => {
     );
     (useSubscription as any).mockReturnValue([{ data: { leaderboard: entries }, error: null }, vi.fn()]);
 
-    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={1} /></MemoryRouter></AlertProvider>);
     expect(screen.getByText('Pre Lim')).toBeTruthy();
 
     await user.selectOptions(screen.getByLabelText('Standings scope'), '2');
@@ -339,7 +348,7 @@ describe('export and print actions (#173)', () => {
   it('exports the overall standings under a filename naming the race', async () => {
     const user = userEvent.setup();
     mockRoundAwareQuery();
-    render(<MemoryRouter><Leaderboard raceId={7} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={7} /></MemoryRouter></AlertProvider>);
 
     await user.click(screen.getByTestId('export-standings'));
 
@@ -352,7 +361,7 @@ describe('export and print actions (#173)', () => {
   it('exports the selected round\'s own standings once one is picked', async () => {
     const user = userEvent.setup();
     mockRoundAwareQuery();
-    render(<MemoryRouter><Leaderboard raceId={7} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={7} /></MemoryRouter></AlertProvider>);
 
     await user.selectOptions(screen.getByLabelText('Standings scope'), '2');
     await user.click(screen.getByTestId('export-standings'));
@@ -367,7 +376,7 @@ describe('export and print actions (#173)', () => {
 
   it('points "Print results" at this race\'s printable results page', () => {
     mockRoundAwareQuery();
-    render(<MemoryRouter><Leaderboard raceId={7} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={7} /></MemoryRouter></AlertProvider>);
 
     expect(screen.getByTestId('print-results')).toHaveAttribute('href', '/race/7/print/results');
   });
@@ -417,14 +426,14 @@ describe('the drop-worst-runs indicator (#547 stage 3)', () => {
 
   it('warns when the modifier is configured but did not fire', () => {
     mockDropWorstQuery([entry(false)]);
-    render(<MemoryRouter><Leaderboard raceId={9} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={9} /></MemoryRouter></AlertProvider>);
 
     expect(screen.getByText(/Drop the worst 1 run is on/)).toBeInTheDocument();
   });
 
   it('says nothing once the modifier actually applied', () => {
     mockDropWorstQuery([entry(true)]);
-    render(<MemoryRouter><Leaderboard raceId={9} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={9} /></MemoryRouter></AlertProvider>);
 
     expect(screen.queryByText(/Drop the worst/)).toBeNull();
   });
@@ -432,7 +441,7 @@ describe('the drop-worst-runs indicator (#547 stage 3)', () => {
   it("says nothing on an elimination round's own standings, where the modifier never applies", async () => {
     const user = userEvent.setup();
     mockDropWorstQuery([entry(false)], [entry(false)]);
-    render(<MemoryRouter><Leaderboard raceId={9} /></MemoryRouter>);
+    render(<AlertProvider><MemoryRouter><Leaderboard raceId={9} /></MemoryRouter></AlertProvider>);
 
     await user.selectOptions(screen.getByLabelText('Standings scope'), '2');
 

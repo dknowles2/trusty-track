@@ -28,6 +28,14 @@ enum whose values equal these):
     Among the tied cars only, the heats where two of them raced together:
     more wins over each other takes it.
 
+A sixth value, ``RUN_OFF``, is not in ``ALL_METHODS`` and cannot be chosen as
+a race's ``tiebreaker`` — it is not a policy an operator picks in advance, it
+is what happens when they put the tied cars back on the track (#550). See
+:func:`tiebreak`'s ``run_off`` parameter: when a decided run-off heat exists
+for exactly the tied set being resolved, it beats whichever method the race
+is configured with, and ``TiebreakResult.resolved_by`` reports ``RUN_OFF``
+rather than the configured method for the rows it separated.
+
 **Inconclusive is a real answer.** `HEAD_TO_HEAD` between two cars that never
 shared a heat, `BEST_TIME` on a race with no timer, two cars with identical
 values on whichever metric — every one of those returns "still tied" rather
@@ -54,9 +62,13 @@ BEST_TIME = "BEST_TIME"
 TOTAL_TIME = "TOTAL_TIME"
 COUNTBACK = "COUNTBACK"
 HEAD_TO_HEAD = "HEAD_TO_HEAD"
+#: An operator's own run-off heat (#550) — not a race-configurable policy,
+#: see the module docstring. Never appears in ``ALL_METHODS``.
+RUN_OFF = "RUN_OFF"
 
 #: Every method this module knows, in the order the vocabulary table in the
 #: issue lists them — also the order `RaceForm` (stage 3) offers them in.
+#: ``RUN_OFF`` is deliberately absent — see the module docstring.
 ALL_METHODS: tuple[str, ...] = (SHARED, BEST_TIME, TOTAL_TIME, COUNTBACK, HEAD_TO_HEAD)
 
 
@@ -76,6 +88,13 @@ class TiebreakResult:
     """
 
     groups: tuple[tuple[int, ...], ...]
+    #: Which method produced this grouping — usually whatever the caller
+    #: asked :func:`tiebreak` for, but ``RUN_OFF`` when a decided run-off
+    #: heat took precedence over it (#550). Set regardless of whether the
+    #: result is actually :attr:`resolved`; a caller only reads it for a row
+    #: it separated, the same way :func:`services.scoring._resolve_ties`
+    #: only stamps ``resolved_by`` when a group settled to size one.
+    resolved_by: str = SHARED
 
     @property
     def order(self) -> tuple[int, ...]:
@@ -108,7 +127,10 @@ class TiebreakResult:
 
 
 def tiebreak(
-    racer_ids: Sequence[int], heats: Iterable[Sequence[Lane]], method: str
+    racer_ids: Sequence[int],
+    heats: Iterable[Sequence[Lane]],
+    method: str,
+    run_off: Sequence[Lane] | None = None,
 ) -> TiebreakResult:
     """Resolve a tie among ``racer_ids`` using ``method``.
 
@@ -116,6 +138,17 @@ def tiebreak(
     takes — an iterable of a heat's parsed lanes — so a caller that already
     loaded them for scoring can hand them straight through; nothing here
     queries anything.
+
+    ``run_off`` is a decided run-off heat's own lanes (#550) — the same shape
+    as one entry of ``heats`` — already matched by the caller to exactly this
+    ``racer_ids`` set (:func:`services.scoring._resolve_ties` does that
+    matching; this function does not query anything, so it cannot). When
+    given and it separates anybody, it wins outright: the method argument is
+    never consulted, because an operator's own run-off is more authoritative
+    than a passive tiebreaker nobody watched happen. When it is absent, or
+    every racer in it is still tied (no results yet, or a genuine dead heat),
+    resolution falls through to ``method`` exactly as if ``run_off`` had not
+    been passed.
 
     Racers not among ``racer_ids`` are ignored even if they appear in
     ``heats``: a duel between two tied cars still counts under
@@ -129,12 +162,17 @@ def tiebreak(
     """
     ids = tuple(sorted(set(racer_ids)))
     if len(ids) <= 1:
-        return TiebreakResult(groups=(ids,) if ids else ())
+        return TiebreakResult(groups=(ids,) if ids else (), resolved_by=method)
+
+    if run_off is not None:
+        from_run_off = _by_run_off(ids, list(run_off))
+        if from_run_off.resolved:
+            return from_run_off
 
     heat_list = [list(lanes) for lanes in heats]
 
     if method == SHARED:
-        return _all_tied(ids)
+        return _all_tied(ids, SHARED)
     if method == BEST_TIME:
         return _by_best_time(ids, heat_list)
     if method == TOTAL_TIME:
@@ -146,8 +184,8 @@ def tiebreak(
     raise ValueError(f"unknown tiebreak method: {method!r}")
 
 
-def _all_tied(ids: tuple[int, ...]) -> TiebreakResult:
-    return TiebreakResult(groups=(ids,))
+def _all_tied(ids: tuple[int, ...], method: str) -> TiebreakResult:
+    return TiebreakResult(groups=(ids,), resolved_by=method)
 
 
 def _racer_lanes(
@@ -169,7 +207,9 @@ def _racer_lanes(
 _Metric = float | tuple[int, ...]
 
 
-def _ranked_groups(ids: tuple[int, ...], values: dict[int, _Metric]) -> TiebreakResult:
+def _ranked_groups(
+    ids: tuple[int, ...], values: dict[int, _Metric], method: str
+) -> TiebreakResult:
     """Group ``ids`` by their entry in ``values``, best (lowest) value first.
 
     Inconclusive — one group holding everyone — the moment even one of
@@ -181,16 +221,19 @@ def _ranked_groups(ids: tuple[int, ...], values: dict[int, _Metric]) -> Tiebreak
 
     Equal values land in the same group without any special case for it —
     "identical times answer nothing" is this, not a separate rule.
+
+    ``method`` is stamped onto the result regardless of whether it actually
+    resolves anything — see :attr:`TiebreakResult.resolved_by`.
     """
     if any(racer_id not in values for racer_id in ids):
-        return _all_tied(ids)
+        return _all_tied(ids, method)
 
     buckets: dict[_Metric, list[int]] = {}
     for racer_id in ids:
         buckets.setdefault(values[racer_id], []).append(racer_id)
 
     groups = tuple(tuple(sorted(buckets[key])) for key in sorted(buckets))
-    return TiebreakResult(groups=groups)
+    return TiebreakResult(groups=groups, resolved_by=method)
 
 
 def _by_best_time(ids: tuple[int, ...], heats: list[list[Lane]]) -> TiebreakResult:
@@ -212,7 +255,7 @@ def _by_best_time(ids: tuple[int, ...], heats: list[list[Lane]]) -> TiebreakResu
         ]
         if times:
             values[racer_id] = min(times)
-    return _ranked_groups(ids, values)
+    return _ranked_groups(ids, values, BEST_TIME)
 
 
 def _by_total_time(ids: tuple[int, ...], heats: list[list[Lane]]) -> TiebreakResult:
@@ -233,7 +276,7 @@ def _by_total_time(ids: tuple[int, ...], heats: list[list[Lane]]) -> TiebreakRes
                 DNF_PENALTY_SECONDS if seconds <= 0.0 else seconds
                 for seconds in recorded
             )
-    return _ranked_groups(ids, values)
+    return _ranked_groups(ids, values, TOTAL_TIME)
 
 
 def _by_countback(ids: tuple[int, ...], heats: list[list[Lane]]) -> TiebreakResult:
@@ -257,13 +300,13 @@ def _by_countback(ids: tuple[int, ...], heats: list[list[Lane]]) -> TiebreakResu
             worst_place = max(worst_place, max(places))
 
     if not placings:
-        return _all_tied(ids)
+        return _all_tied(ids, COUNTBACK)
 
     values: dict[int, _Metric] = {
         racer_id: tuple(-counts.get(place, 0) for place in range(1, worst_place + 1))
         for racer_id, counts in placings.items()
     }
-    return _ranked_groups(ids, values)
+    return _ranked_groups(ids, values, COUNTBACK)
 
 
 def _duel_value(lane: Lane) -> float | None:
@@ -324,7 +367,31 @@ def _by_head_to_head(ids: tuple[int, ...], heats: list[list[Lane]]) -> TiebreakR
                     wins[b] += 1
 
     if not met:
-        return _all_tied(ids)
+        return _all_tied(ids, HEAD_TO_HEAD)
 
     values: dict[int, _Metric] = {racer_id: -wins[racer_id] for racer_id in met}
-    return _ranked_groups(ids, values)
+    return _ranked_groups(ids, values, HEAD_TO_HEAD)
+
+
+def _by_run_off(ids: tuple[int, ...], run_off: list[Lane]) -> TiebreakResult:
+    """Resolve ``ids`` by a run-off heat's own recorded order (#550).
+
+    Reads a lane the same way a `HEAD_TO_HEAD` duel does (:func:`_duel_value`):
+    a recorded place first, a recorded time otherwise, a DNF (a time of zero
+    or less) penalised at the ordinary `TIMED` rate rather than read as the
+    fastest lap in the heat.
+
+    A racer named in ``ids`` who holds no lane in ``run_off``, or whose lane
+    has neither a place nor a time yet, has no entry — the same "no data"
+    fall-through every other method uses. That is what lets a run-off heat
+    that has been created but not yet armed change nothing: the tie stays
+    exactly as unresolved as it was before the heat existed, until it is
+    actually run.
+    """
+    values: dict[int, _Metric] = {}
+    for lane in run_off:
+        if lane.racer_id in ids:
+            value = _duel_value(lane)
+            if value is not None:
+                values[lane.racer_id] = value
+    return _ranked_groups(ids, values, RUN_OFF)

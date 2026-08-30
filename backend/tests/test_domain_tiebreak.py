@@ -18,6 +18,7 @@ from backend.domain.tiebreak import (
     BEST_TIME,
     COUNTBACK,
     HEAD_TO_HEAD,
+    RUN_OFF,
     SHARED,
     TOTAL_TIME,
     TiebreakResult,
@@ -280,6 +281,62 @@ def test_head_to_head_scores_a_dnf_as_a_loss_not_the_fastest_lap():
     heats = [_heat((1, 5.0, None), (2, 0.0, None))]
     result = tiebreak([1, 2], heats, HEAD_TO_HEAD)
     assert result.groups == ((1,), (2,))
+
+
+# --------------------------------------------------------------------------
+# A run-off heat (#550) beats whichever method the race is configured with.
+# --------------------------------------------------------------------------
+
+
+def test_a_decided_run_off_beats_the_configured_method():
+    """A run-off's own result wins even when the configured method would
+    have decided the tie the other way."""
+    heats = [_heat((1, 2.0, None), (2, 4.0, None))]  # TOTAL_TIME favours 1
+    run_off = _heat((1, 5.0, None), (2, 3.0, None))  # the run-off favours 2
+
+    result = tiebreak([1, 2], heats, TOTAL_TIME, run_off=run_off)
+
+    assert result.groups == ((2,), (1,))
+    assert result.resolved_by == RUN_OFF
+
+
+def test_an_unrun_run_off_falls_through_to_the_configured_method():
+    """A run-off heat that exists but holds no result yet changes nothing —
+    the same "no data" fall-through every other method uses."""
+    heats = [_heat((1, 2.0, None), (2, 4.0, None))]
+    run_off = [Lane(lane=1, racer_id=1), Lane(lane=2, racer_id=2)]  # armed, not run
+
+    result = tiebreak([1, 2], heats, TOTAL_TIME, run_off=run_off)
+
+    assert result.resolved_by == TOTAL_TIME
+    assert result.groups == ((1,), (2,))
+
+
+def test_a_run_off_that_is_itself_a_dead_heat_falls_through():
+    heats = [_heat((1, 2.0, None), (2, 4.0, None))]
+    run_off = _heat((1, 3.5, None), (2, 3.5, None))  # identical — decides nothing
+
+    result = tiebreak([1, 2], heats, TOTAL_TIME, run_off=run_off)
+
+    assert result.resolved_by == TOTAL_TIME
+    assert result.groups == ((1,), (2,))
+
+
+def test_a_run_off_wins_even_over_shared():
+    """SHARED is "not resolved" as a race-wide default; an operator's own
+    run-off still settles it — the whole point of building one."""
+    heats = [_heat((1, 3.0, None), (2, 3.0, None))]
+    run_off = _heat((1, 4.0, None), (2, 2.0, None))
+
+    result = tiebreak([1, 2], heats, SHARED, run_off=run_off)
+
+    assert result.groups == ((2,), (1,))
+    assert result.resolved_by == RUN_OFF
+
+
+def test_run_off_is_absent_from_all_methods():
+    """Not a race-configurable policy — see the module docstring."""
+    assert RUN_OFF not in ALL_METHODS
 
 
 # --------------------------------------------------------------------------

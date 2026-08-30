@@ -284,3 +284,58 @@ export const UPDATE_RACE_AUTO_ADVANCE_MUTATION = gql`
     }
   }
 `;
+
+// Run-off heats (#550): settling a tie without joining the score that
+// produced it. `settlesRoundId` must match the standings view the tie was
+// spotted on — `null` for the race's own overall (prelim-scoped) standings,
+// a round id for that round's own — the same scope `Race.leaderboard`'s
+// `roundId` argument already carries; see `RunOffControl.tsx`.
+export const CREATE_RUN_OFF_HEAT_MUTATION = gql`
+  mutation CreateRunOffHeat(
+    $raceId: Int!
+    $racerIds: [Int!]!
+    $settlesRoundId: Int
+  ) {
+    createRunOffHeat(
+      raceId: $raceId
+      racerIds: $racerIds
+      settlesRoundId: $settlesRoundId
+    ) {
+      id
+      settlesRoundId
+      recorded
+      placement
+      lanes {
+        lane
+        racerId
+      }
+    }
+  }
+`;
+
+export const DELETE_RUN_OFF_HEAT_MUTATION = gql`
+  mutation DeleteRunOffHeat($heatId: Int!) {
+    deleteRunOffHeat(heatId: $heatId)
+  }
+`;
+
+// The run-off heats a race currently holds, for the standings and schedule
+// screens to filter by their own `settlesRoundId` and show what applies to
+// them — see `RunOffControl.tsx`.
+export const GET_RUN_OFF_HEATS = gql`
+  query GetRunOffHeats($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      runOffHeats {
+        id
+        settlesRoundId
+        recorded
+        placement
+        lanes {
+          lane
+          racerId
+        }
+      }
+    }
+  }
+`;

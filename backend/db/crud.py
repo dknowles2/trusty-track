@@ -475,14 +475,31 @@ def get_heats(
             .all()
         )
     return (
-        query.join(models.Round)
+        # Explicit `onclause`: `heats` now has two foreign keys into
+        # `rounds` (#550's `settles_round_id`, alongside `round_id`), so a
+        # bare `.join(models.Round)` can no longer infer which one this
+        # join is about.
+        query.join(models.Round, models.Heat.round_id == models.Round.id)
         .order_by(models.Round.round_number, models.Heat.heat_number)
         .all()
     )
 
 
+#: A run-off heat has no `round_id`, so it has no natural position in
+#: `(round_number, heat_number)` order. Sorting it after every real heat
+#: everywhere it could plausibly land — the round it settles, or the whole
+#: race when it settles the overall standings — is what lets it slot into
+#: `execution_sort_key`'s scheme without that function knowing run-offs
+#: exist: nothing generated ever reaches a heat_number this large.
+_RUN_OFF_HEAT_NUMBER = 10_000_000
+#: Sorts after every real round when a run-off settles the overall standings
+#: (`settles_round_id is None`) rather than one specific round's.
+_RUN_OFF_NO_ROUND_NUMBER = 1_000_000
+
+
 def heats_in_running_order(db: Session, race_id: int) -> list[models.Heat]:
-    """A race's official heats in the order they are meant to be *run*.
+    """A race's official heats, plus any run-off heats, in the order they are
+    meant to be *run*.
 
     The one door for "which heat is next" (#549): the `currentlyRacing` and
     `onDeck` subscriptions both read through it, so the wall displays cannot
@@ -496,14 +513,36 @@ def heats_in_running_order(db: Session, race_id: int) -> list[models.Heat]:
     schedule readers — the heat sheet, `applyMasterRunningOrder` itself, the
     stats — where round-then-heat is the shape a *schedule* has, and only the
     execution surfaces ask about the running order.
+
+    A run-off heat (#550) is included here — not through
+    `models.official_heats`, which excludes it along with every other
+    non-`OFFICIAL` kind, but by name — because the audience is meant to see
+    it: `onDeck`/`currentlyRacing` are what tell the wall displays a run-off
+    is what is happening right now. It sorts immediately after every heat of
+    the round it settles (or after every round, if it settles the race's
+    overall standings) via the two sentinels above; `heat.round` is `None`
+    for it, so it cannot use `heat.round.round_number` the way an official
+    heat's key does below.
     """
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     master = bool(race is not None and race.master_running_order)
-    heats = models.official_heats(
+    heats = models.scheduled_or_run_off_heats(
         db.query(models.Heat).filter(models.Heat.race_id == race_id)
     ).all()
 
     def _key(heat: models.Heat) -> tuple[int, int, int]:
+        if heat.kind == models.HeatKind.RUN_OFF:
+            settles = heat.settles_round
+            return running_order.execution_sort_key(
+                round_number=settles.round_number
+                if settles
+                else _RUN_OFF_NO_ROUND_NUMBER,
+                heat_number=_RUN_OFF_HEAT_NUMBER + heat.id,
+                is_championship=(settles.advancement_source is not None)
+                if settles
+                else True,
+                master_order=master,
+            )
         round_obj = heat.round
         assert round_obj is not None  # official heats always belong to a round (#6)
         return running_order.execution_sort_key(
@@ -2608,6 +2647,135 @@ def get_free_race_heats(
         .limit(limit)
         .all()
     )
+
+
+def create_run_off_heat(
+    db: Session,
+    race_id: int,
+    settles_round_id: int | None,
+    racer_ids: Sequence[int],
+) -> models.Heat:
+    """Create a run-off heat to settle a tie (#550).
+
+    Mirrors :func:`create_free_race_heat`'s shape almost exactly — a heat
+    with no ``round_id``, its lane assignments written through the one door
+    (:func:`set_heat_lanes`) — because a run-off is exactly as much "not part
+    of a generated round's schedule" as a free heat is. The one thing it adds
+    is ``settles_round_id``, which names the cut it is racing to decide.
+
+    Lanes are assigned automatically, one tied racer per usable lane, in the
+    order given — the whole point is that these specific cars race each
+    other once, not that the operator picks who stands where. Raises if
+    there are fewer than two racers (nothing to break a tie between) or more
+    racers than usable lanes (nowhere to put them); the resolver turns that
+    into a GraphQL error.
+    """
+    if len(set(racer_ids)) < 2:
+        raise ValueError("A run-off needs at least two racers.")
+    usable = sorted(usable_lanes_for_race(db, race_id))
+    if len(racer_ids) > len(usable):
+        raise ValueError("More tied racers than usable lanes.")
+
+    assignments = [
+        lanes.Lane(lane=lane_num, racer_id=racer_id)
+        for lane_num, racer_id in zip(usable, racer_ids, strict=False)
+    ]
+    heat = models.Heat(
+        race_id=race_id,
+        round_id=None,
+        settles_round_id=settles_round_id,
+        kind=models.HeatKind.RUN_OFF,
+        heat_number=_next_run_off_heat_number(db, race_id),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+    set_heat_lanes(heat, assignments)
+    db.add(heat)
+    db.commit()
+    db.refresh(heat)
+    return heat
+
+
+def _next_run_off_heat_number(db: Session, race_id: int) -> int:
+    """Run-off heats have no round, so this is only a label (#550) — the same
+    reasoning as :func:`_next_free_heat_number`."""
+    highest = (
+        db.query(func.max(models.Heat.heat_number))
+        .filter(
+            models.Heat.race_id == race_id,
+            models.Heat.kind == models.HeatKind.RUN_OFF,
+        )
+        .scalar()
+    )
+    return (highest or 0) + 1
+
+
+def get_run_off_heat(db: Session, heat_id: int) -> models.Heat | None:
+    """One run-off heat by id — the same ``kind`` guard `get_free_race_heat`
+    uses, for the same reason (#4, #6): heat ids are shared across kinds."""
+    return (
+        db.query(models.Heat)
+        .filter(
+            models.Heat.id == heat_id,
+            models.Heat.kind == models.HeatKind.RUN_OFF,
+        )
+        .first()
+    )
+
+
+def run_off_heats_for_race(db: Session, race_id: int) -> list[models.Heat]:
+    """Every run-off heat on a race (#550), for the GraphQL field that lists
+    them all — the standings page and the schedule each filter this by their
+    own `settlesRoundId` client-side."""
+    return (
+        db.query(models.Heat)
+        .filter(
+            models.Heat.race_id == race_id,
+            models.Heat.kind == models.HeatKind.RUN_OFF,
+        )
+        .order_by(models.Heat.id)
+        .all()
+    )
+
+
+def run_off_heats_settling(
+    db: Session, race_id: int, settles_round_id: int | None
+) -> list[models.Heat]:
+    """A race's run-off heats scoped to exactly one standings view (#550).
+
+    ``settles_round_id=None`` is a real, meaningful filter here — the race's
+    *overall* standings, the same thing ``get_leaderboard``'s own
+    ``round_id`` parameter means when absent — not "don't filter"; that is
+    what :func:`run_off_heats_for_race` is for.
+    """
+    return (
+        db.query(models.Heat)
+        .filter(
+            models.Heat.race_id == race_id,
+            models.Heat.kind == models.HeatKind.RUN_OFF,
+            models.Heat.settles_round_id == settles_round_id,
+        )
+        .order_by(models.Heat.id)
+        .all()
+    )
+
+
+def delete_run_off_heat(db: Session, heat_id: int) -> bool:
+    """Delete a run-off heat. Only if it hasn't been run.
+
+    Mirrors :func:`delete_free_race_heat` — the operator's way to undo a
+    run-off created by mistake, before anyone has raced it. A recorded one
+    stands, the same as any other heat with results: this module's write
+    path is one door, and that door does not include silently discarding a
+    result.
+    """
+    heat = get_run_off_heat(db, heat_id)
+    if heat:
+        if lanes.has_results(heat_lanes_of(db, heat)):
+            raise ValueError("Cannot delete run-off heat: it has results.")
+        db.delete(heat)
+        db.commit()
+        return True
+    return False
 
 
 def get_random_lane_assignments(

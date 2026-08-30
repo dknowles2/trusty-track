@@ -277,6 +277,21 @@ class Heat:
         number = _loaders(info).global_heat_number(self.race_id, self.id)
         return number if number is not None else self.heat_number
 
+    @strawberry.field
+    def run_off_placement(self, info: Info) -> int | None:
+        """The standings rank this heat is racing off to decide, or ``None``
+        for an ordinary heat — or for a run-off whose tie has since moved
+        (#550). This is how `onDeck`/`currentlyRacing` (the only two
+        subscriptions that hand back a run-off heat as a plain `Heat`) tell
+        the audience display it is watching one: a non-null value both
+        identifies the heat as a run-off and names what to announce
+        ("racing off for Nth place"), computed fresh on every read rather
+        than carried as a stored fact that could disagree with it.
+        """
+        if self.kind != models.HeatKind.RUN_OFF:
+            return None
+        return scoring.run_off_contested_rank(info.context["db"], self.race_id, self)
+
 
 @strawberry.type
 class AdvancementRacer:
@@ -1483,6 +1498,18 @@ class Race:
         return typing.cast(Any, _loaders(info).heats_for_race(self.id))
 
     @strawberry.field
+    def run_off_heats(self, info: Info) -> list["RunOffHeat"]:
+        """Every run-off heat on this race (#550), newest first is not
+        guaranteed — the standings and schedule screens each filter by their
+        own ``settlesRoundId`` and show what they need. Not batched through
+        `RequestLoaders`: a race holds a handful of these at most, unlike the
+        heats a whole schedule generates.
+        """
+        return typing.cast(
+            Any, crud.run_off_heats_for_race(info.context["db"], self.id)
+        )
+
+    @strawberry.field
     def track(self, info: Info) -> Optional["Track"]:
         """Get the track configuration for this race."""
         if not self.track_id:
@@ -1636,6 +1663,56 @@ class FreeRaceHeat:
         return lanes.has_results(
             _loaders(info).lane_values_for_heat(self.race_id, self.id)
         )
+
+
+@strawberry.type
+class RunOffHeat:
+    """A run-off heat, held to settle a tie without joining the score that
+    produced it (#550).
+
+    Backed by a ``Heat`` row with ``kind = RUN_OFF`` — the same "a flag on
+    the one table, not a second table" shape #6 gave free heats. Its own
+    type, for the same reason `FreeRaceHeat` is one: it has no round of
+    generated heats around it (``round_id`` is null, just as a free heat's
+    is), and the standings/schedule screens ask a different question of it
+    — "is this settling anything, and what" — than the race-control screens
+    ask of an ordinary `Heat`.
+    """
+
+    id: int
+    race_id: int
+    settles_round_id: int | None
+    created_at: str | None
+
+    @strawberry.field
+    def lanes(self, info: Info) -> list[HeatLane]:
+        """This heat's lanes, in lane order — the tied racers it holds."""
+        return _heat_lanes(info, self, self.id)
+
+    @strawberry.field
+    def recorded(self, info: Info) -> bool:
+        """Whether a result has been recorded. Same rule as
+        `FreeRaceHeat.recorded`."""
+        return lanes.has_results(
+            _loaders(info).lane_values_for_heat(self.race_id, self.id)
+        )
+
+    @strawberry.field
+    def placement(self, info: Info) -> int | None:
+        """The standings rank this run-off is currently racing to decide —
+        see `scoring.run_off_contested_rank` and `Heat.run_off_placement`,
+        which answers the same question for a `Heat` returned from
+        `onDeck`/`currentlyRacing`. ``None`` when the tie it was created for
+        has since moved (#550, rule 4): a corrected time elsewhere in
+        ``settlesRoundId``'s standings can dissolve it, and this heat then
+        settles nothing until a fresh one is created for whatever the field
+        looks like now.
+        """
+        db = info.context["db"]
+        heat = db.query(models.Heat).filter(models.Heat.id == self.id).first()
+        if heat is None:
+            return None
+        return scoring.run_off_contested_rank(db, self.race_id, heat)
 
 
 @strawberry.type
@@ -3371,6 +3448,59 @@ class Mutation:
             await _publish_race_state(race_id)
         return result
 
+    # Run-off heats (#550)
+    @strawberry.mutation
+    async def create_run_off_heat(
+        self,
+        info: Info,
+        race_id: int,
+        racer_ids: list[int],
+        settles_round_id: int | None = None,
+    ) -> RunOffHeat:
+        """Create a run-off heat to settle a tie.
+
+        Lanes are assigned automatically, one usable lane per racer in the
+        order given — `crud.create_run_off_heat` raises if there are fewer
+        than two racers or more racers than usable lanes, which reaches the
+        caller as an ordinary GraphQL error, the same shape
+        `updateHeatResult`'s own validation takes.
+
+        The heat comes back armable and recordable through the ordinary
+        timer path (`prepareHeat`/`updateHeatResult`) exactly like any other
+        heat, by heat id — it needs no special-casing there because neither
+        mutation reads `kind`.
+
+        Publishes on `race_state:{race_id}` so the standings and schedule
+        screens see it without a manual refetch, and `onDeck`/
+        `currentlyRacing` pick it up once it is armed.
+        """
+        db = info.context["db"]
+        heat = crud.create_run_off_heat(db, race_id, settles_round_id, racer_ids)
+        await _publish_race_state(race_id)
+        return typing.cast(Any, heat)
+
+    @strawberry.mutation
+    async def delete_run_off_heat(self, info: Info, heat_id: int) -> bool:
+        """Delete a run-off heat that has not been run yet.
+
+        The operator's undo for one created by mistake — mirrors
+        `deleteFreeRaceHeat`. Calls `_revalidate_timers` for the same
+        reason `deleteHeat` does: the operator may have armed it and then
+        changed their mind rather than running it, and an armed heat must
+        not be swapped underneath them (#50).
+        """
+        db = info.context["db"]
+        heat = crud.get_run_off_heat(db, heat_id)
+        race_id = heat.race_id if heat else None
+        try:
+            result = crud.delete_run_off_heat(db, heat_id)
+        except ValueError:
+            return False
+        await _revalidate_timers(info)
+        if race_id:
+            await _publish_race_state(race_id)
+        return result
+
     @strawberry.mutation
     async def advance_round(self, info: Info, race_id: int, round_id: int) -> int:
         """Advance racers to a round."""
@@ -4896,6 +5026,14 @@ class Subscription:
 
                 target_heat = max(recorded, key=_most_recent)
                 is_free = target_heat.kind is models.HeatKind.FREE
+                # A run-off heat (#550) has no `round_id` either, the same
+                # as a free heat — it belongs to no generated round, only to
+                # the round its own `settles_round_id` names. Anything below
+                # that dereferences `target_heat.round` has to treat the two
+                # alike; only the record-break gate (further down) tells
+                # them apart, since a run-off is a real run and a free heat
+                # is not.
+                has_no_round = target_heat.round_id is None
 
                 heat_lanes = _stored_lanes(db, target_heat)
                 racer_ids = lanes.real_racer_ids(heat_lanes)
@@ -4920,7 +5058,7 @@ class Subscription:
                         )
                     )
 
-                if is_free:
+                if has_no_round:
                     global_num = 0
                 else:
                     this_round = target_heat.round
@@ -4941,9 +5079,15 @@ class Subscription:
 
                 # Did this heat beat the record as it stood before this race?
                 # Never for an exhibition run — a free heat cannot hold a
-                # record, so it cannot break one either.
+                # record, so it cannot break one either — and never for a
+                # run-off (#550): its result is scoped to the cut it
+                # settles, which is what keeps it out of a track record's
+                # population in the first place (see `services.records`).
                 record_break = None
-                if not is_free:
+                if target_heat.kind not in (
+                    models.HeatKind.FREE,
+                    models.HeatKind.RUN_OFF,
+                ):
                     race = crud.get_race(db, race_id)
                     if race and race.track_id:
                         baseline = records_service.track_records(
@@ -4974,10 +5118,17 @@ class Subscription:
                                 previous_race_name=previous.race_name,
                             )
 
+                if is_free:
+                    round_name = "Exhibition"
+                elif target_heat.kind is models.HeatKind.RUN_OFF:
+                    round_name = "Run-off"
+                else:
+                    round_name = target_heat.round.name
+
                 return TimingStats(
                     heat_id=target_heat.id,
-                    round_name="Exhibition" if is_free else target_heat.round.name,
-                    heat_number=0 if is_free else target_heat.heat_number,
+                    round_name=round_name,
+                    heat_number=0 if has_no_round else target_heat.heat_number,
                     global_heat_number=global_num,
                     lanes=lane_stats,
                     record_break=record_break,

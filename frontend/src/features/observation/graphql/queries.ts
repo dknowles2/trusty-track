@@ -28,6 +28,10 @@ export const OnDeckSubscription = gql`
       globalHeatNumber
       roundNumber
       roundName
+      # Non-null only for a run-off heat whose tie is still live (#550) —
+      # both "is this a run-off" and "what to announce" in one field, see
+      # runOff.ts's runOffAnnouncement.
+      runOffPlacement
       lanes {
         lane
         racerId
@@ -45,6 +49,7 @@ export const CurrentlyRacingSubscription = gql`
       globalHeatNumber
       roundNumber
       roundName
+      runOffPlacement
       lanes {
         lane
         racerId

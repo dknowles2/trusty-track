@@ -515,14 +515,14 @@ export type OnDeckSubscriptionSubscriptionVariables = Exact<{
 }>;
 
 
-export type OnDeckSubscriptionSubscription = { onDeck: Array<{ id: number, heatNumber: number, globalHeatNumber: number, roundNumber: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null }> }> };
+export type OnDeckSubscriptionSubscription = { onDeck: Array<{ id: number, heatNumber: number, globalHeatNumber: number, roundNumber: number, roundName: string | null, runOffPlacement: number | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null }> }> };
 
 export type CurrentlyRacingSubscriptionSubscriptionVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type CurrentlyRacingSubscriptionSubscription = { currentlyRacing: { id: number, heatNumber: number, globalHeatNumber: number, roundNumber: number, roundName: string | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null }> } | null };
+export type CurrentlyRacingSubscriptionSubscription = { currentlyRacing: { id: number, heatNumber: number, globalHeatNumber: number, roundNumber: number, roundName: string | null, runOffPlacement: number | null, lanes: Array<{ lane: number, racerId: number | null, placeholderSlot: number | null }> } | null };
 
 export type TimingStatsSubscriptionSubscriptionVariables = Exact<{
   raceId: number;
@@ -789,6 +789,29 @@ export type UpdateRaceAutoAdvanceMutationVariables = Exact<{
 
 
 export type UpdateRaceAutoAdvanceMutation = { updateRace: { id: number, autoAdvanceHeat: boolean } | null };
+
+export type CreateRunOffHeatMutationVariables = Exact<{
+  raceId: number;
+  racerIds: Array<number> | number;
+  settlesRoundId?: number | null | undefined;
+}>;
+
+
+export type CreateRunOffHeatMutation = { createRunOffHeat: { id: number, settlesRoundId: number | null, recorded: boolean, placement: number | null, lanes: Array<{ lane: number, racerId: number | null }> } };
+
+export type DeleteRunOffHeatMutationVariables = Exact<{
+  heatId: number;
+}>;
+
+
+export type DeleteRunOffHeatMutation = { deleteRunOffHeat: boolean };
+
+export type GetRunOffHeatsQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetRunOffHeatsQuery = { race: { id: number, runOffHeats: Array<{ id: number, settlesRoundId: number | null, recorded: boolean, placement: number | null, lanes: Array<{ lane: number, racerId: number | null }> }> } | null };
 
 export type SetLaneOutagesMutationVariables = Exact<{
   trackId: number;

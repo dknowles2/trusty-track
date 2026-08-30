@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery, useSubscription } from 'urql';
 import { LeaderboardSubscription } from '../../observation/graphql/queries';
 import RacerAvatar from '../../management/components/RacerAvatar';
@@ -11,6 +11,7 @@ import { formatScore, scoreLabel } from '../scoringStrategyText';
 import { Link } from 'react-router-dom';
 import { downloadCsv, filenameFor } from '../../../utils/csv';
 import { useTerminology } from '../../../context/TerminologyContext';
+import RunOffControl from '../../racing/components/RunOffControl';
 
 export interface LeaderboardEntry {
   racerId: number;
@@ -43,6 +44,12 @@ const GET_LEADERBOARD_METADATA = `
       # applied" notice can tell a configured-but-not-firing modifier
       # from one that is simply off.
       dropWorstRuns
+      # Scopes RunOffControl's arm/record subscription (run-off heats) — a
+      # run-off can still be created and manually timed with no track
+      # configured, but nothing can be armed without one.
+      track {
+        id
+      }
       rounds {
         id
         name
@@ -351,14 +358,24 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
             </tr>
           </thead>
           <tbody>
-            {leaderboard.map((entry: LeaderboardEntry, index: number) => (
-              <tr
-                key={entry.racerId}
-                style={{
-                  ...getRankStyle(entry.rank),
-                  borderBottom: index < leaderboard.length - 1 ? '1px solid var(--divider-color)' : 'none'
-                }}
-              >
+            {leaderboard.map((entry: LeaderboardEntry, index: number) => {
+              // A run-off control appears once per shared rank, under its
+              // last row — computed here rather than carried by the
+              // leaderboard itself, the same "derive it from what's on
+              // screen" shape `resolutionNote` already uses (#550). Not
+              // offered for an elimination round: its survival ranks never
+              // go through the tiebreak chain a run-off resolves through.
+              const cluster = leaderboard.filter((e) => e.rank === entry.rank);
+              const isEndOfTiedCluster =
+                cluster.length > 1 && leaderboard[index + 1]?.rank !== entry.rank;
+              return (
+                <Fragment key={entry.racerId}>
+                  <tr
+                    style={{
+                      ...getRankStyle(entry.rank),
+                      borderBottom: index < leaderboard.length - 1 ? '1px solid var(--divider-color)' : 'none'
+                    }}
+                  >
                 <td style={{ padding: '12px', fontSize: '1.1rem' }}>
                   {getRankMedal(entry.rank)} {entry.rank}
                   {/* A resolved tie stops sharing a rank and says why —
@@ -416,8 +433,25 @@ export default function Leaderboard({ raceId }: LeaderboardProps) {
                     : '-'
                   }
                 </td>
-              </tr>
-            ))}
+                  </tr>
+                  {isEndOfTiedCluster && !isEliminationRound && (
+                    <tr style={{ borderBottom: index < leaderboard.length - 1 ? '1px solid var(--divider-color)' : 'none' }}>
+                      <td colSpan={7} style={{ padding: '0 12px 10px' }}>
+                        <RunOffControl
+                          raceId={raceId}
+                          trackId={race?.track?.id ?? null}
+                          settlesRoundId={selectedRoundId}
+                          racers={cluster.map((e) => ({
+                            racerId: e.racerId,
+                            name: `${e.firstName} ${e.lastName}`,
+                          }))}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
