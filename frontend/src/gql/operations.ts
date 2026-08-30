@@ -839,7 +839,7 @@ export type DiagnosticTimerStatusSubscriptionVariables = Exact<{
 }>;
 
 
-export type DiagnosticTimerStatusSubscription = { timerStatus: { trackId: number, status: { state: string, deviceName: string | null, deviceProvenance: string | null, port: string | null, laneCount: number | null, lastError: string | null, testRun: boolean, pendingResults: Array<{ lane: number, time: number | null, place: number | null }>, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
+export type DiagnosticTimerStatusSubscription = { timerStatus: { trackId: number, status: { state: string, deviceName: string | null, deviceProvenance: string | null, port: string | null, laneCount: number | null, lastError: string | null, testRun: boolean, indicatesTimingStarted: boolean, hasCountdownClock: boolean, hasPhotoFinishTrigger: boolean, pendingResults: Array<{ lane: number, time: number | null, place: number | null }>, serialLog: Array<{ direction: string, data: string, timestamp: string }> } } };
 
 export type DiagnosticReconnectTimerMutationVariables = Exact<{
   trackId: number;

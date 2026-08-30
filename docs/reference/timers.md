@@ -150,3 +150,31 @@ tracks are unaffected until you turn it on.
 
 This is Trusty Track's own arithmetic, not something the timer reports, so
 it applies the same way to every model above.
+
+## Other capabilities
+
+Some timer datasheets describe more than a start-and-finish sensor. The
+timer check page lists what the connected model *claims* under **This model
+claims**, once it has identified itself:
+
+| Model | Indicates timing started | Countdown clock | Photo-finish trigger |
+| --- | --- | --- | --- |
+| Micro Wizard K1 / K2 / K3 (FastTrack) | Yes | Yes | No |
+| "The Champ" (SmartLine / BestTrack) | No | No | Yes (double-sided units only) |
+| Derby Timer, PDT, Bert Drake, The Judge, JIT Racemaster, NewBold | No | No | No |
+
+**Indicates timing started** means the timer says, on its own, the instant a
+run begins — the same signal Trusty Track uses to move a heat from *Staged*
+to *Racing* — rather than that being worked out from a polled gate reading.
+**Countdown clock** means the timer drives a countdown display of its own
+before release; nothing on this page controls it; it is the timer's own
+hardware doing what it already does. **Photo-finish trigger** means the
+timer can fire an external camera at the line — a discrete signal outside
+the USB/serial cable, not something Trusty Track reads or acts on. There is
+nothing on the receiving end of that signal yet.
+
+These three are claims about the *model*, the same caveat as the "how well
+tested" column above: most have never been checked against a real device.
+The Micro Wizard's two are documented by the manufacturer for the K2F, K3F,
+Q1 and Q2 variants specifically — Trusty Track cannot tell those apart from
+a plain K1/K2/K3 over the wire, so the claim is shown for the whole family.

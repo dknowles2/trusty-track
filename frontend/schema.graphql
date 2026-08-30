@@ -674,6 +674,9 @@ type TimerStatus {
   lastError: String
   port: String
   canRemoteStart: Boolean!
+  indicatesTimingStarted: Boolean!
+  hasCountdownClock: Boolean!
+  hasPhotoFinishTrigger: Boolean!
   pendingResults: [LaneResult!]!
   serialLog: [SerialLogEntry!]!
   racerByLane: String

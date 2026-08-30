@@ -21,6 +21,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 import { fetchTimerReport, issueUrl, testInstruction } from '../timerTest';
+import { claimedCapabilities } from '../timerCapabilities';
 
 const DIAGNOSTIC_TRACKS = gql`
   query DiagnosticTracks {
@@ -46,6 +47,9 @@ const DIAGNOSTIC_TIMER_STATUS = gql`
         laneCount
         lastError
         testRun
+        indicatesTimingStarted
+        hasCountdownClock
+        hasPhotoFinishTrigger
         pendingResults {
           lane
           time
@@ -367,6 +371,7 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
     });
 
     const status = result.data?.timerStatus?.status;
+    const capabilities = status ? claimedCapabilities(status) : [];
     const state: string = status?.state ?? 'DISCONNECTED';
     const serialLog: SerialLogEntry[] = status?.serialLog ?? [];
     const isNoTimer = track.timerType === 'NONE';
@@ -492,6 +497,24 @@ const TrackTimer: React.FC<{ track: Track; highlighted: boolean }> = ({ track, h
                 >
                     {status.deviceProvenance}
                 </p>
+            )}
+
+            {/*
+              Datasheet claims about the connected model (#553) — shown only
+              once a device has identified itself, and only when it claims at
+              least one, so a model with none does not grow an empty heading.
+            */}
+            {status?.deviceName && capabilities.length > 0 && (
+                <div style={{ margin: '0 0 0.75rem' }}>
+                    <h3 style={{ fontSize: '0.85rem', margin: '0 0 0.3rem', color: 'var(--text-muted-color)' }}>
+                        This model claims
+                    </h3>
+                    <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.9rem' }}>
+                        {capabilities.map((capability) => (
+                            <li key={capability.key}>{capability.label}</li>
+                        ))}
+                    </ul>
+                </div>
             )}
 
             {status?.lastError && (
