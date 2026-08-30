@@ -1,0 +1,60 @@
+name: Release Drafter
+
+on:
+  # Every merge to main updates the draft, so the notes for the next release
+  # are written as the work lands rather than reconstructed at tag time.
+  push:
+    branches:
+      - main
+  # `pull_request_target` rather than `pull_request` so the labeller has a
+  # token that can write labels on a PR from a fork. It is safe here because
+  # nothing in this workflow checks out or runs the PR's code.
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  # -------------------------------------------------------------------
+  # The rolling draft. One at a time: two pushes landing together would
+  # otherwise both read the draft, and the slower one would write back notes
+  # missing the other's pull request.
+  # -------------------------------------------------------------------
+  draft:
+    name: Update the draft release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    concurrency:
+      group: release-drafter
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          disable-autolabeler: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -------------------------------------------------------------------
+  # Labels are what put a note in a section, so they are applied when the pull
+  # request is opened rather than remembered at merge time. Only the three
+  # title prefixes this project actually uses are matched; everything else
+  # stays unlabelled and heads the release notes.
+  # -------------------------------------------------------------------
+  autolabel:
+    name: Label the pull request
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          disable-releaser: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

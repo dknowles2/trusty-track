@@ -311,6 +311,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Read by Release Drafter below, which builds the notes out of the pull
+      # requests merged since the last published release.
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
 
@@ -339,16 +342,48 @@ jobs:
           cp release-artifacts/windows-exe/TrustyTrack-*-setup.exe \
              release-artifacts/windows-exe/TrustyTrack-setup.exe
 
-      - name: Create release
+      # The notes come from the draft Release Drafter has been maintaining on
+      # every merge to main (`.github/workflows/release-drafter.yml`), which is
+      # what makes them correctable before the tag rather than after it. Run
+      # again here with the concrete tag, it rewrites that draft's name and
+      # version and picks up anything merged since the last push — so what is
+      # published is the draft the maintainer has already been reading.
+      #
+      # `publish: false` deliberately: the draft is filled in first, the
+      # installers are attached to it while it is still a draft, and only then
+      # is it made public. A release page that appears with no assets on it is
+      # the thing every install guide's download link points at.
+      - name: Draft the release notes
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          tag: ${{ github.ref_name }}
+          version: ${{ steps.version.outputs.version }}
+          name: Trusty Track v${{ steps.version.outputs.version }}
+          publish: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach the installers
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          gh release create "$GITHUB_REF_NAME" \
-            --title "Trusty Track v$VERSION" \
-            --generate-notes \
+          gh release upload "$GITHUB_REF_NAME" --clobber \
             release-artifacts/macos-dmg/TrustyTrack-*-mac.dmg \
             release-artifacts/macos-dmg/TrustyTrack-mac.dmg \
             release-artifacts/windows-exe/TrustyTrack-*-setup.exe \
             release-artifacts/windows-exe/TrustyTrack-setup.exe \
             release-artifacts/docker-compose/docker-compose-release.yml#docker-compose.yml
+
+      # A pre-release must not become `latest` here for the same reason it does
+      # not claim the `latest` Docker tag: releases/latest/download/<asset> is
+      # what the landing page and the install guides link to (#474).
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ needs.docker.outputs.stable }}" = "true" ]; then
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false --latest
+          else
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease --latest=false
+          fi
