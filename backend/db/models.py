@@ -261,6 +261,17 @@ class Track(Base):
     remote_start_installed: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: The timer's own lane 1 is wired to this track's *highest* lane.
+    #:
+    #: A finish-line unit is wired to lanes 1..N in whatever order the
+    #: installer plugged it in, and nothing in any protocol says which. A
+    #: setting on ``Track`` rather than on ``TimerProfile``, for the same
+    #: reason as ``remote_start_installed`` (#111): it is a fact about this
+    #: venue's cable, not about the device model — the same MicroWizard can
+    #: be wired either way at two different tables. See #553.
+    reverse_lanes: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="track")
     lane_outages: Mapped[list["LaneOutage"]] = relationship(

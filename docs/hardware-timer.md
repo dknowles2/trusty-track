@@ -49,8 +49,8 @@ its manual if you have it, genuinely helps.
 Both are chosen per track in **Settings → Tracks**, on the track's card under
 **The timer**.
 
-![A track's timer settings: the connection under Timer Type, the model picker beneath it, and the remote start gate setting at the bottom](assets/screenshots/timers/01-timer-settings.png)
-_Everything about a track's timer lives on the track's own card in System Settings: how it connects, which model it is, and whether a remote start gate is fitted._
+![A track's timer settings: the connection under Timer Type, the model picker beneath it, and the remote start gate and reverse lanes settings below that](assets/screenshots/timers/01-timer-settings.png)
+_Everything about a track's timer lives on the track's own card in System Settings: how it connects, which model it is, whether a remote start gate is fitted, and whether its cable is wired backwards._
 
 ### Plugged into the machine running Trusty Track
 
@@ -207,6 +207,18 @@ More in [the timer reference](reference/timers.md#the-remote-start-gate).
 > **This has not been tested against hardware**, and it is the only part
 > that moves something physical. Try it with an empty track before you try
 > it with a queue.
+
+## If the timer's cable runs backwards
+
+A finish-line unit is wired to its lanes in whatever order the installer
+plugged it in. If that order is the reverse of how the track itself is
+numbered — the timer's lane 1 is actually the track's lane 4 — every result
+lands on the wrong car.
+
+Rather than rewiring the timer or renumbering the track, tick **The timer's
+cable is wired backwards** on the track's card in System Settings, under
+**The timer**. Every result from then on is flipped to match the track. More
+in [the timer reference](reference/timers.md#reverse-lane-numbering).
 
 ## If a lane stops working
 

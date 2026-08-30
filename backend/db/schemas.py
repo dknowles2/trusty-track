@@ -32,6 +32,9 @@ class TrackBase(BaseModel):
     #: `TimerProfile.key`, or None to detect the model. See `models.Track`.
     timer_profile: str | None = None
     remote_start_installed: bool = False
+    #: The timer's own lane 1 is wired to this track's highest lane. See
+    #: `models.Track.reverse_lanes`.
+    reverse_lanes: bool = False
 
     @field_validator("lane_count")
     @classmethod

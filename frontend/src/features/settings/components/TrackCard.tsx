@@ -29,6 +29,7 @@ export interface TrackFields {
   serialPort: string;
   timerProfile: string;
   remoteStartInstalled: boolean;
+  reverseLanes: boolean;
   laneOutages?: number[];
   historicalRecords?: HistoricalRecord[];
 }
@@ -307,6 +308,28 @@ export default function TrackCard({
           <small style={{ color: 'var(--text-muted-color)' }}>
             Tick this only if a solenoid is fitted to the start gate and wired to the timer.
             With it on, an armed heat can be launched from the race screen instead of by hand.
+          </small>
+        </div>
+      )}
+
+      {/*
+        Same gating as remote start, just above, and for the same reason:
+        there is no cable to run backwards on a fake or no-timer track, so a
+        control that could not change anything is worse than no control.
+      */}
+      {track.timerType !== 'FAKE' && track.timerType !== 'NONE' && (
+        <div style={{ marginTop: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+            <input
+              type="checkbox"
+              checked={!!track.reverseLanes}
+              onChange={(e) => onChange('reverseLanes', e.target.checked)}
+            />
+            The timer's cable is wired backwards
+          </label>
+          <small style={{ color: 'var(--text-muted-color)' }}>
+            The timer's lane 1 is the track's highest lane. Tick this instead of rewiring
+            the timer or renumbering the track.
           </small>
         </div>
       )}

@@ -44,6 +44,7 @@ const GET_INITIAL_CONFIG = `
         serialPort
         timerProfile
         remoteStartInstalled
+        reverseLanes
         laneOutages
         historicalRecords { id timeSeconds racerName carNumber raceName raceDate }
       }
@@ -129,6 +130,7 @@ const blankTrack = (name: string): TrackFields => ({
   serialPort: '',
   timerProfile: '',
   remoteStartInstalled: false,
+  reverseLanes: false,
 });
 
 /**
@@ -265,6 +267,7 @@ export default function SystemConfig() {
             serialPort?: string;
             timerProfile?: string | null;
             remoteStartInstalled?: boolean;
+            reverseLanes?: boolean;
             laneOutages?: number[];
             historicalRecords?: HistoricalRecord[];
           }) => ({
@@ -280,6 +283,7 @@ export default function SystemConfig() {
             serialPort: t.serialPort || '',
             timerProfile: t.timerProfile || '',
             remoteStartInstalled: !!t.remoteStartInstalled,
+            reverseLanes: !!t.reverseLanes,
             laneOutages: t.laneOutages ?? [],
             historicalRecords: t.historicalRecords ?? []
           })));
@@ -360,7 +364,7 @@ export default function SystemConfig() {
                 vehicleArtworkKey,
               }
             : { clearTerminology: true }),
-          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
+          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled, reverseLanes }) => ({
             // Absent for a track just added on this screen, which has no row
             // yet; present for a saved one, so the server matches it to its
             // database row by id rather than by its position in this list
@@ -377,7 +381,8 @@ export default function SystemConfig() {
             // with one — otherwise a track switched to FAKE and back would
             // silently keep a model the operator had stopped seeing.
             timerProfile: timerType === 'FAKE' ? null : (timerProfile || null),
-            remoteStartInstalled
+            remoteStartInstalled,
+            reverseLanes
           }))
         }
       };

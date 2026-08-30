@@ -16,8 +16,8 @@ prints exactly what it always has.
 No ``CHECK`` constraint, no server default, and no data to carry either way.
 The downgrade is a plain drop.
 
-Revision ID: 0037_vehicle_artwork_key
-Revises: 0036_race_drop_worst_runs
+Revision ID: 0038_vehicle_artwork_key
+Revises: 0037_track_reverse_lanes
 """
 
 from collections.abc import Sequence
@@ -26,8 +26,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0037_vehicle_artwork_key"
-down_revision: str | Sequence[str] | None = "0036_race_drop_worst_runs"
+revision: str = "0038_vehicle_artwork_key"
+down_revision: str | Sequence[str] | None = "0037_track_reverse_lanes"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
