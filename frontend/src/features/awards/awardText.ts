@@ -122,9 +122,14 @@ export interface TalliedCar {
  * What a car in a vote tally is called, for the operator screen — never a
  * child's name, the same anonymity the ballot page itself keeps.
  */
-export function carLabel(racer?: TalliedCar | null): string {
-  if (!racer) return 'A car that has since been removed';
-  const number = racer.carNumber != null ? `#${racer.carNumber}` : 'Unnumbered car';
+export function carLabel(
+  racer?: TalliedCar | null,
+  /** The lowercase vehicle word, for the "removed"/"unnumbered" fallbacks.
+   * Defaults to the built-in Scouting one (#551). */
+  vehicleWord = 'car',
+): string {
+  if (!racer) return `A ${vehicleWord} that has since been removed`;
+  const number = racer.carNumber != null ? `#${racer.carNumber}` : `Unnumbered ${vehicleWord}`;
   return racer.carName ? `${number} — ${racer.carName}` : number;
 }
 

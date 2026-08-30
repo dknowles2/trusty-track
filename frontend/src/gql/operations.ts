@@ -319,14 +319,14 @@ export type RacesChangedSubscription = { racesChanged: boolean };
 export type GetInitialConfigStatusQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetInitialConfigStatusQuery = { initialConfig: { initialized: boolean, version: string, debugMode: boolean, pinRequired: boolean, isOperator: boolean, demoMode: boolean, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string } } };
+export type GetInitialConfigStatusQuery = { initialConfig: { initialized: boolean, version: string, debugMode: boolean, pinRequired: boolean, isOperator: boolean, demoMode: boolean, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string } } };
 
 export type GetRaceTerminologyQueryVariables = Exact<{
   raceId: number;
 }>;
 
 
-export type GetRaceTerminologyQuery = { race: { id: number, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string } } | null };
+export type GetRaceTerminologyQuery = { race: { id: number, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string, vehicleSingular: string, vehiclePlural: string } } | null };
 
 export type GetRaceDetailsQueryVariables = Exact<{
   raceId: number;

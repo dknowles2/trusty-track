@@ -43,11 +43,17 @@ export const FIELD_LABELS: Record<Field, string> = {
   passedInspection: 'Passed Inspection',
 };
 
-/** `FIELD_LABELS`, with the racing-group column's word swapped for the
- * resolved one — the one field name here that is also a configurable term.
- */
-export function fieldLabels(groupWord: string): Record<Field, string> {
-  return { ...FIELD_LABELS, racingGroup: groupWord };
+/** `FIELD_LABELS`, with the racing-group and vehicle columns' words swapped
+ * for the resolved ones — the field names here that are also configurable
+ * terms. `vehicleWord` defaults to the built-in Scouting one so a caller
+ * that has not been threaded through yet (#551) sees today's wording. */
+export function fieldLabels(groupWord: string, vehicleWord = 'Car'): Record<Field, string> {
+  return {
+    ...FIELD_LABELS,
+    racingGroup: groupWord,
+    carNumber: `${vehicleWord} Number`,
+    carName: `${vehicleWord} Name`,
+  };
 }
 
 /** The header each field is written out as — what `import_racers` reads. */
@@ -265,7 +271,13 @@ const FALSY = new Set(['', 'n', 'no', 'false', '0', 'failed', 'fail']);
  * cannot use is to skip it and return a count — so a file whose names are in
  * one `Name` column imports zero racers and says only "Successfully imported 0".
  */
-export function validate(rows: readonly RacerRow[], mapping: Mapping): Problem[] {
+export function validate(
+  rows: readonly RacerRow[],
+  mapping: Mapping,
+  /** The singular vehicle word for the row-problem messages, defaulting to
+   * the built-in Scouting one (#551). */
+  vehicleWord = 'Car',
+): Problem[] {
   const problems: Problem[] = [];
 
   if (mapping.firstName === UNMAPPED || mapping.lastName === UNMAPPED) {
@@ -294,14 +306,14 @@ export function validate(rows: readonly RacerRow[], mapping: Mapping): Problem[]
       if (!/^\d+$/.test(row.carNumber)) {
         problems.push({
           line,
-          message: `Car number "${row.carNumber}" is not a whole number — it will be left blank.`,
+          message: `${vehicleWord} number "${row.carNumber}" is not a whole number — it will be left blank.`,
         });
       } else {
         const first = seenNumbers.get(row.carNumber);
         if (first !== undefined) {
           problems.push({
             line,
-            message: `Car number ${row.carNumber} is already used on line ${first}.`,
+            message: `${vehicleWord} number ${row.carNumber} is already used on line ${first}.`,
           });
         } else {
           seenNumbers.set(row.carNumber, line);
