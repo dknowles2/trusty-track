@@ -13,6 +13,9 @@ after — "what exactly counts toward the standings?", "which timers work?",
   heats count toward the standings.
 - **[Round styles](round-styles.md)** — the full rules for the three ways a
   round can be raced: everyone in every lane, Balanced, and Elimination.
+- **[Running order across groups](running-order.md)** — the opt-in setting
+  that interleaves every den's heats into one running order instead of a
+  block per den, so the track need not idle between them.
 - **[Championship rounds](championship-rounds.md)** — where a championship
   round's racers come from, how the line-up fills itself in, what happens
   when a time is corrected, and the Slowest Race.
