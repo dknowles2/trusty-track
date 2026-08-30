@@ -122,8 +122,9 @@ way. Ties happen a lot with points and only rarely with times.
 
 Whether anything beyond that gets decided is up to the race's **Tiebreaker**
 setting, next to Scoring on the race form. The default, **Leave it shared**,
-is a judgment call left to you, same as always: settle it with a race-off,
-or by correcting a time if one was recorded wrong.
+is a judgment call left to you, same as always: settle it with a
+[race-off](reference/scoring.md#settling-a-tie-with-a-race-off), or by
+correcting a time if one was recorded wrong.
 
 If you'd rather Trusty Track settle it automatically, which of the other
 four to pick depends on how the race is scored:

@@ -39,6 +39,15 @@ class HeatKind(str, enum.Enum):
     ``FREE`` is an exhibition run: the timer records it and the audience display
     shows it, but scoring, scheduling and advancement ignore it.
 
+    ``RUN_OFF`` (#550) is neither a schedule slot nor an exhibition — it is the
+    operator putting two or more *tied* cars back on the track to settle the
+    tie their own heats produced. It shares `FREE`'s shape (``round_id`` is
+    null; it belongs to no generated round) but not `FREE`'s meaning: a free
+    heat decides nothing, and a run-off decides a placement — see
+    ``Heat.settles_round_id`` and ``domain.tiebreak.RUN_OFF``. Like `FREE` it
+    is excluded by :func:`official_heats`, and for the same reason: it must
+    never feed the aggregate score its own result exists to disentangle from.
+
     Historically this distinguished two *tables* with overlapping autoincrement
     sequences, so a bare heat id was ambiguous and had to be carried around with
     its kind (issue #4). Issue #6 makes it a column on the one table, which is
@@ -47,6 +56,9 @@ class HeatKind(str, enum.Enum):
 
     OFFICIAL = "OFFICIAL"
     FREE = "FREE"
+    #: Settles a tie without joining the score that produced it (#550). See
+    #: the class docstring and ``Heat.settles_round_id``.
+    RUN_OFF = "RUN_OFF"
 
 
 class RacingGroup(Base):
@@ -590,7 +602,14 @@ class Round(Base):
 
     race: Mapped["Race"] = relationship("Race", back_populates="rounds")
     heats: Mapped[list["Heat"]] = relationship(
-        "Heat", back_populates="round", cascade="all, delete-orphan"
+        "Heat",
+        back_populates="round",
+        cascade="all, delete-orphan",
+        # `Heat` now has two foreign keys into `rounds` (#550's
+        # `settles_round_id`, alongside `round_id`), so SQLAlchemy can no
+        # longer infer which one this relationship — a round's own
+        # generated heats — is about.
+        foreign_keys="Heat.round_id",
     )
     racing_group: Mapped[Optional["RacingGroup"]] = relationship("RacingGroup")
 
@@ -636,7 +655,7 @@ class Round(Base):
 
 
 class Heat(Base):
-    """A heat, official or free (issue #6).
+    """A heat, official, free, or a run-off (issues #6, #550).
 
     ``kind`` is the difference. A free race heat is a heat that does not count
     toward standings — a flag, not a second table. Anything that reads heats for
@@ -648,7 +667,8 @@ class Heat(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     race_id: Mapped[int] = mapped_column(Integer, ForeignKey("races.id"))
-    # Null for free race heats, which belong to no round.
+    # Null for free race heats and run-off heats, neither of which belongs to
+    # a generated round.
     round_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("rounds.id"), nullable=True
     )
@@ -674,20 +694,69 @@ class Heat(Base):
     # A string rather than a DateTime to match `created_at` in the same table.
     # ISO 8601 UTC sorts lexicographically the same as chronologically.
     recorded_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    # `kind = RUN_OFF` only: which round's standings this heat settles a tie
+    # for (#550). Null means the race's own overall (prelim-scoped) standings
+    # rather than any one round — the same `round_id=None` meaning
+    # `services.scoring.get_leaderboard`'s own `round_id` parameter already
+    # carries. Deliberately not the same column as `round_id` above: a
+    # run-off's racers are not a slot in that round's *schedule* — folding it
+    # in would pull it into every piece of code that rebuilds, renumbers or
+    # counts a round's heats (`_reset_heats_in_place`, `invalidate_future_
+    # rounds`, `is_round_complete`, the runs-per-lane divisor in #230/#311),
+    # all of which assume a round's heats are exactly the ones it generated.
+    # `ON DELETE CASCADE`: a run-off with nothing left to settle is not worth
+    # keeping, the same "deletion is the schema's job" rule `heat_lanes`
+    # follows (#125) — and it is reachable only when the round it names has
+    # no results (`delete_round` refuses otherwise), which a round a run-off
+    # was created against always does.
+    settles_round_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("rounds.id", ondelete="CASCADE"), nullable=True
+    )
 
     race: Mapped["Race"] = relationship("Race", back_populates="heats")
-    round: Mapped[Optional["Round"]] = relationship("Round", back_populates="heats")
+    round: Mapped[Optional["Round"]] = relationship(
+        "Round", back_populates="heats", foreign_keys=[round_id]
+    )
+    settles_round: Mapped[Optional["Round"]] = relationship(
+        "Round", foreign_keys=[settles_round_id]
+    )
 
 
 def official_heats(query):
     """Restrict a ``Heat`` query to the heats that count.
 
-    Free race heats live in the same table (#6), so every query that feeds
-    standings, scheduling, advancement or statistics has to exclude them. Naming
-    the filter makes its absence visible at the call site, which a bare
-    ``.filter(Heat.kind == ...)`` scattered 25 times does not.
+    Free race heats and run-off heats live in the same table (#6, #550), so
+    every query that feeds standings, scheduling, advancement or statistics
+    has to exclude them. Naming the filter makes its absence visible at the
+    call site, which a bare ``.filter(Heat.kind == ...)`` scattered 25 times
+    does not.
+
+    A run-off heat is not excluded for the same reason a free heat is,
+    though: it is a real, decisive run, not an exhibition one. It is excluded
+    because what it decides is scoped to one cut (#550's rule 2) — folding it
+    into a schedule, a stats page, or a track record's population would let
+    its result leak into places it was never asked to settle. The audience
+    subscriptions (`crud.heats_in_running_order`) and `timingStats` are the
+    two deliberate exceptions that include it anyway — see their own
+    docstrings.
     """
     return query.filter(Heat.kind == HeatKind.OFFICIAL)
+
+
+def scheduled_or_run_off_heats(query):
+    """Restrict a ``Heat`` query to the heats that belong on an execution
+    surface: generated heats, and run-off heats (#550) — everything but a
+    free race's exhibition runs.
+
+    The one deliberate exception to :func:`official_heats`, named for the
+    same reason: ``crud.heats_in_running_order`` is what backs the
+    `onDeck`/`currentlyRacing` subscriptions, and the audience is meant to
+    see a run-off while it races, unlike a free heat. Spelled as "not
+    `FREE`" rather than "`OFFICIAL` or `RUN_OFF`" so a fourth kind, should
+    one ever exist, has to be placed deliberately rather than silently
+    falling on whichever side this filter's own wording happened to omit.
+    """
+    return query.filter(Heat.kind != HeatKind.FREE)
 
 
 class HeatLane(Base):

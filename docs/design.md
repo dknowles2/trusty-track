@@ -121,14 +121,15 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `advancement_from_bottom` (Boolean, default `false`) — a "Slowest Race" bracket: the field is drawn from the *bottom* of the source standings rather than the top, slowest first, and cars with no recorded result are never picked. The source vocabulary is unchanged; only the end of the standings changes.
     -   `disrupted` — set when the round was raced on an uneven field: a lane went out of service part-way through (#171), or a latecomer was admitted and heats were appended (#172). Either way some racers ran more often than others, which `TIMED` tolerates (an average is scale-free) and `POINTS` does not (a sum where lower is better). Disrupted rounds are dropped from `POINTS` standings only. The same asymmetry has two more routes — a skipped heat and a DNF — which `POINTS` handles by scoring the lane as last place in its heat rather than by dropping the round (#225); equal scores share a rank rather than being split by registration order (#226).
 
--   **`Heat`**: Individual race instances. Official heats belong to a round; free race heats do not.
+-   **`Heat`**: Individual race instances. Official heats belong to a round; free race heats and run-off heats do not.
     -   `id` (PK)
     -   `race_id` (FK to Race)
-    -   `round_id` (FK to Round, **nullable** — null for a free race heat)
-    -   `kind` (Enum: `OFFICIAL`, `FREE`)
+    -   `round_id` (FK to Round, **nullable** — null for a free race heat or a run-off heat)
+    -   `kind` (Enum: `OFFICIAL`, `FREE`, `RUN_OFF`) — a `RUN_OFF` heat (#550) settles a tie in the standings without joining the score that produced it: it holds the tied racers (as ordinary `HeatLane` rows) and is armed and recorded through the same `prepareHeat`/`updateHeatResult` path as any other heat.
     -   `heat_number`
     -   `created_at` — when the row was written. For an official heat that is when its *round* was generated, not when it ran.
     -   `recorded_at` — when a result was last recorded, cleared on a re-run. The only field the two heat kinds can be ranked on together.
+    -   `settles_round_id` (FK to Round, **nullable**, `RUN_OFF` only) — which round's standings this run-off is racing to decide; null means the race's own overall standings rather than one round's. `ON DELETE CASCADE`: a run-off with nothing left to settle is not worth keeping.
 -   **`HeatLane`**: One row per lane of a heat.
     -   `heat_id` (FK to Heat, `ON DELETE CASCADE`), `lane`, `racer_id` (FK to Racer, `ON DELETE SET NULL`), `placeholder_slot`, `time_seconds`, `place`, `skipped`
     -   Rows are built from the lane *values* a writer supplied: `crud.set_heat_lanes` is the one door, and a session listener writes the rows once the flush has given a new heat its id. This is the **only** copy — `heats.lane_results` was dropped in migration `0013`, which rebuilt every blob from these rows and compared before dropping (#72).
@@ -203,6 +204,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Heat: `updateHeatResult` (takes `[HeatLaneInput!]!` — the same shape the read path returns)
 -   Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 -   Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
+-   Run-off heats (#550): `createRunOffHeat(raceId, racerIds, settlesRoundId)` — a `RunOffHeat` (`kind = RUN_OFF`, no `roundId`) holding the tied racers, armed and recorded through the ordinary `prepareHeat`/`updateHeatResult` path like any other heat by id. It never feeds an aggregate score, a track record, or the schedule it did not come from — `Race.runOffHeats`, `RunOffHeat.placement` and `Heat.runOffPlacement` are all computed fresh on every read (never stored), and `domain.tiebreak`'s `RUN_OFF` resolution beats the race's own configured tiebreaker whenever a decided run-off exists for exactly the tied cluster in question. `deleteRunOffHeat` removes one that has not been run yet, the operator's undo for a mistake.
 -   Config: `createInitialConfig`, `updateInitialConfig` — both accept the organization's terminology default (racing group, organization, and, since #551, vehicle) the same way they accept the PINs and the themes: absent leaves it alone, and `clearTerminology` (not a non-null sentinel — the built-in Scouting words *are* the null state) is the way back to it (#496 stage 3). Both also accept the organization's name-display default (#552) the same way they accept the themes: `"FULL"` *is* the non-null off state here, so absent leaves it alone and no clear flag is needed at this layer
 -   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data), `createPracticeRace` (a whole rehearsal event on a fake timer)
 

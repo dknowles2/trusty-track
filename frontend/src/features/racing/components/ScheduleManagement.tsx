@@ -713,6 +713,20 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           Tie unresolved
                         </span>
                       )}
+                      {contestedRoundIds?.has(Number(roundId)) && (
+                        // The control that actually creates a run-off heat
+                        // lives on the Standings page (#550), against the
+                        // shared rank it settles — this is a one-click
+                        // bridge from where the tie is *seen* to where it
+                        // is *settled*, not a second copy of the control.
+                        <Link
+                          to={`/race/${raceId}/standings`}
+                          data-testid={`contested-cut-run-off-link-${roundId}`}
+                          style={{ fontSize: '0.8rem', color: 'var(--scouting-blue)' }}
+                        >
+                          Start a run-off →
+                        </Link>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', gap: '10px' }}>

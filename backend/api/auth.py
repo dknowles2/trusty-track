@@ -175,6 +175,11 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         "startFreeRaceHeat",
         "recordFreeRaceResult",
         "deleteFreeRaceHeat",
+        # Run-off heats (#550). Operator: same bucket as scheduling and
+        # results — a run-off changes what the standings say, exactly like
+        # `updateHeatResult` above.
+        "createRunOffHeat",
+        "deleteRunOffHeat",
         # System
         "createInitialConfig",
         "updateInitialConfig",

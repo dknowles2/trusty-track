@@ -5,6 +5,7 @@ import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import Standings from './Standings';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
+import { AlertProvider } from '../../../context/AlertContext';
 import { tiedLeaderboardEntries } from '../testFixtures';
 
 // Mock urql
@@ -14,6 +15,10 @@ vi.mock('urql', async (importOriginal) => {
         ...actual,
         useQuery: vi.fn(),
         useSubscription: vi.fn(() => [{ data: undefined }, vi.fn()]),
+        // `RunOffControl` (#550), which the tied-standings test below
+        // renders nested under the shared rank, calls `useMutation` — real
+        // urql needs a `Provider`, which nothing here sets up.
+        useMutation: vi.fn(() => [{ fetching: false }, vi.fn()]),
     };
 });
 
@@ -50,11 +55,13 @@ describe('Standings', () => {
         }, vi.fn()]);
 
         render(
-            <MemoryRouter initialEntries={['/race/1/standings']}>
-                <Routes>
-                    <Route path="/race/:raceId/standings" element={<Standings />} />
-                </Routes>
-            </MemoryRouter>
+            <AlertProvider>
+                <MemoryRouter initialEntries={['/race/1/standings']}>
+                    <Routes>
+                        <Route path="/race/:raceId/standings" element={<Standings />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
         );
 
         await waitFor(() => {
@@ -66,7 +73,9 @@ describe('Standings', () => {
         // tie down to a single rank 1, would still pass a bare presence
         // check.
         const rows = screen.getAllByRole('row');
-        expect(rows).toHaveLength(3);
+        // Header, both tied rows, and the run-off control's own row
+        // underneath them (#550).
+        expect(rows).toHaveLength(4);
         expect(rows[1]).toHaveTextContent('John Doe');
         expect(rows[1]).toHaveTextContent('Tigers');
         expect(rows[1]).toHaveTextContent('🥇 1');
@@ -100,11 +109,13 @@ describe('Standings', () => {
         }, vi.fn()]);
 
         render(
-            <MemoryRouter initialEntries={['/race/1/standings']}>
-                <Routes>
-                    <Route path="/race/:raceId/standings" element={<Standings />} />
-                </Routes>
-            </MemoryRouter>
+            <AlertProvider>
+                <MemoryRouter initialEntries={['/race/1/standings']}>
+                    <Routes>
+                        <Route path="/race/:raceId/standings" element={<Standings />} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
         );
 
         await waitFor(() => {

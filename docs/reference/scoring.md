@@ -123,10 +123,10 @@ should be settled is the pack's call, not one Trusty Track can guess.
 
 The default, **Leave it shared**, is today's behaviour and nothing more:
 a tied slot in a final or a tied trophy stays a judgment call, settled with
-a race-off or by correcting a time that was recorded wrong. Choose one of
-the other four and Trusty Track settles it for you, wherever a tie actually
-decides something — the last qualifying slot in a final, or who gets a
-speed trophy:
+a [race-off](#settling-a-tie-with-a-race-off) or by correcting a time that
+was recorded wrong. Choose one of the other four and Trusty Track settles
+it for you, wherever a tie actually decides something — the last qualifying
+slot in a final, or who gets a speed trophy:
 
 | Choice | Wins the tie |
 | --- | --- |
@@ -148,6 +148,28 @@ either way; both are just asking you to make the final call.
 
 Cars that have not raced yet do not tie with each other; they are listed
 below every car that has, in a stable order.
+
+## Settling a tie with a race-off
+
+A **Start run-off** button appears against a shared rank on the Standings
+page, and beside a **Tie unresolved** badge on the schedule. Click it and
+Trusty Track builds a heat holding exactly the tied cars; arm and record it
+through the ordinary race-day screen, same as any other heat. Whoever wins
+the run-off takes the tie — no need to change the Tiebreaker setting, and
+no need to hand-edit anyone's time.
+
+A run-off's own time never joins anybody's average, sum, or any other
+number the standings compute. It settles one thing only — the shared rank
+it was created against — and leaves everything else exactly as it was,
+including a track's own speed records: a blazing-fast run-off lap does not
+become the fastest car the track has ever seen, because it was never a
+real qualifying run to begin with.
+
+If a time is corrected afterward and the tie the run-off settled no longer
+exists — the cars are not tied any more, or a different pair is now tied
+instead — the run-off simply stops applying. Nothing is deleted; it just
+has nothing left to decide, the same as if it had never been run. A fresh
+one covers whatever the standings show now.
 
 ## What the overall standings cover
 

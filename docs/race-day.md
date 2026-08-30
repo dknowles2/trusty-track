@@ -541,8 +541,11 @@ _The standings show rank, car number, name, den — with the den's category in p
 > [!NOTE]
 > **A tie shares a rank** — 1st, 1st, 3rd. Whether anything more gets
 > decided is the race's **Tiebreaker** setting: left on the default, settle
-> it yourself with a race-off or a corrected time from the
-> [result editor](#correcting-a-result); pick one of the other four and
+> it yourself with a
+> [race-off](reference/scoring.md#settling-a-tie-with-a-race-off) — a
+> **Start run-off** button appears against the shared rank — or a corrected
+> time from the [result editor](#correcting-a-result); pick one of the
+> other four and
 > Trusty Track settles it wherever the tie actually matters — the last spot
 > in a final, a speed trophy — reporting rather than guessing when the data
 > cannot support an answer. See

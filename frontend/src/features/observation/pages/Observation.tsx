@@ -13,6 +13,7 @@ import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName'
 import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
+import { runOffAnnouncement } from '../../racing/runOff';
 import IdentifyPresence from '../IdentifyPresence';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
@@ -607,7 +608,11 @@ export default function Observation() {
             isExhibition
               ? undefined
               : officialCurrentHeat
-                ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}`
+                ? // A run-off heat (#550) has no round or schedule position
+                  // worth announcing — `runOffAnnouncement` takes over the
+                  // whole line when it has something to say.
+                  (runOffAnnouncement(officialCurrentHeat.runOffPlacement) ??
+                  `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}`)
                 : undefined,
             isExhibition
           )}
@@ -863,7 +868,10 @@ export default function Observation() {
   };
 
   const top5Standings = standings.slice(0, 5);
-  const nowRacingHeatInfo = officialCurrentHeat ? `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}` : undefined;
+  const nowRacingHeatInfo = officialCurrentHeat
+    ? (runOffAnnouncement(officialCurrentHeat.runOffPlacement) ??
+      `Round ${officialCurrentHeat.roundNumber}, Heat ${officialCurrentHeat.globalHeatNumber ?? officialCurrentHeat.heatNumber}`)
+    : undefined;
 
   return (
     <div
