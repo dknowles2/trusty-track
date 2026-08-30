@@ -510,9 +510,10 @@ class Terminology:
     Never null — `domain.terminology.resolve_terminology` always falls back
     to the built-in Scouting words. Served on `Race` (organization default
     layered under a race override) and on `InitialConfigStatus` (organization
-    default alone, for the screens with no race — Home, System Settings).
-    There are no consumers of this yet; the frontend keeps saying "Den" and
-    "Pack" until stage 4.
+    default alone, for the screens with no race — Home, System Settings). The
+    frontend reads it through `TerminologyContext`/`useTerminology`: race
+    pages get the race's own resolved terms, and screens with no race in view
+    get the organization default off `initialConfig`.
     """
 
     racing_group_singular: str
@@ -1264,8 +1265,10 @@ class Race:
 
         A race override layered over the organization's own default, layered
         over the built-in Scouting words — see
-        `domain.terminology.resolve_terminology`. No consumer reads this yet;
-        stage 4 is the frontend actually saying "Class" instead of "Den".
+        `domain.terminology.resolve_terminology`. `RaceTerminologyGate` reads
+        this for every `/race/:raceId` route and overrides the organization
+        default `AppTerminologyProvider` seeded the app with, so a race page
+        shows this race's own resolved terms.
         """
         organization = _loaders(info).organization_by_id(self.organization_id)
         return _terminology_type(
