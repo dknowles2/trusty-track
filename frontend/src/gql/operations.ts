@@ -54,6 +54,21 @@ export type HistoricalTrackRecordInput = {
   timeSeconds: number;
 };
 
+export type InitialConfigInput = {
+  checkinPin?: string | null | undefined;
+  clearTerminology?: boolean;
+  debugMode?: boolean;
+  displayTheme?: string | null | undefined;
+  operatorPin?: string | null | undefined;
+  organizationName: string;
+  organizationPlural?: string | null | undefined;
+  organizationSingular?: string | null | undefined;
+  printablesTheme?: string | null | undefined;
+  racingGroupPlural?: string | null | undefined;
+  racingGroupSingular?: string | null | undefined;
+  tracks: Array<TrackInput>;
+};
+
 export type PhotoAssignmentInput = {
   photoType: string;
   racerId: number;
@@ -134,6 +149,17 @@ export type RoundCreateInput = {
   schedulingStrategy?: string;
 };
 
+export type TrackInput = {
+  id?: number | null | undefined;
+  laneCount?: number;
+  lengthFeet?: number | null | undefined;
+  name?: string;
+  remoteStartInstalled?: boolean;
+  serialPort?: string | null | undefined;
+  timerProfile?: string | null | undefined;
+  timerType?: string;
+};
+
 export type WizardChampionshipRoundInput = {
   name?: string;
   numTopRacers?: number;
@@ -180,6 +206,27 @@ export type UpdateInitialConfigMutationVariables = Exact<{ [key: string]: never;
 
 
 export type UpdateInitialConfigMutation = { updateInitialConfig: { initialized: boolean } };
+
+export type CacheTestRaceTerminologyQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type CacheTestRaceTerminologyQuery = { race: { id: number, terminology: { racingGroupSingular: string } } | null };
+
+export type CacheTestUpdateInitialConfigMutationVariables = Exact<{
+  config: Types.InitialConfigInput;
+}>;
+
+
+export type CacheTestUpdateInitialConfigMutation = { updateInitialConfig: { initialized: boolean } };
+
+export type CacheTestUpdateInitialConfigAloneMutationVariables = Exact<{
+  config: Types.InitialConfigInput;
+}>;
+
+
+export type CacheTestUpdateInitialConfigAloneMutation = { updateInitialConfig: { initialized: boolean } };
 
 export type RaceAwardsQueryVariables = Exact<{
   raceId: number;
@@ -283,7 +330,7 @@ export type UpdateRaceMutationVariables = Exact<{
 }>;
 
 
-export type UpdateRaceMutation = { updateRace: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null } | null };
+export type UpdateRaceMutation = { updateRace: { id: number, name: string, dateTime: string | null, location: string | null, trackId: number | null, scoringStrategy: string, carNumberingStrategy: string, globalStartNumber: number, championshipTrophies: number, weightLimitOz: number | null, racingGroupSingular: string | null, racingGroupPlural: string | null, organizationSingular: string | null, organizationPlural: string | null, terminology: { racingGroupSingular: string, racingGroupPlural: string, organizationSingular: string, organizationPlural: string } } | null };
 
 export type DeleteRaceMutationVariables = Exact<{
   id: number;

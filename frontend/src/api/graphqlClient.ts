@@ -158,6 +158,42 @@ const forgetRaceList: UpdateResolver = (_result, _args, cache) => {
 };
 
 /**
+ * Forget every cached race's resolved terminology when the organization
+ * default changes (issue #531).
+ *
+ * `Race.terminology` is resolved server-side by layering a race's own
+ * override over the organization default (#496 stage 4), so renaming the
+ * organization default changes the value of a field graphcache has no reason
+ * to suspect — nothing about the `Race` entity itself was touched by this
+ * mutation. `Terminology` is embedded (see `EMBEDDED_TYPES` above), so there
+ * is no entity of its own to invalidate directly.
+ *
+ * `cache.inspectFields('Query')` lists every root field the cache has
+ * answered, including one `race(raceId: ...)` call per race a screen has
+ * visited; `cache.resolve` turns each back into the `Race:N` key it wrote,
+ * and `terminology` is invalidated on each in turn — "this answer is stale,
+ * ask again", the same move `forgetInitialConfig` and `forgetRaceList` make.
+ * A race the cache has never queried needs nothing done to it: it has no
+ * stale `terminology` to hold.
+ */
+const forgetRaceTerminology: UpdateResolver = (_result, _args, cache) => {
+  for (const field of cache.inspectFields('Query')) {
+    if (field.fieldName !== 'race') continue;
+    const raceKey = cache.resolve('Query', 'race', field.arguments ?? undefined);
+    if (typeof raceKey === 'string') {
+      cache.invalidate(raceKey, 'terminology');
+    }
+  }
+};
+
+/** Both consequences of a config save: the first-run gate's cached answer,
+ * and every race's resolved terminology (issue #531). */
+const forgetInitialConfigAndTerminology: UpdateResolver = (result, args, cache, info) => {
+  forgetInitialConfig(result, args, cache, info);
+  forgetRaceTerminology(result, args, cache, info);
+};
+
+/**
  * The cache's whole configuration, exported so a test can build a client with
  * it. Testing the real thing matters here: what broke was not a component but
  * the agreement between a mutation and a query about one cached field.
@@ -166,8 +202,8 @@ export const CACHE_CONFIG = {
   keys,
   updates: {
     Mutation: {
-      createInitialConfig: forgetInitialConfig,
-      updateInitialConfig: forgetInitialConfig,
+      createInitialConfig: forgetInitialConfigAndTerminology,
+      updateInitialConfig: forgetInitialConfigAndTerminology,
       createRace: forgetRaceList,
       createPracticeRace: forgetRaceList,
       deleteRace: forgetRaceList,
