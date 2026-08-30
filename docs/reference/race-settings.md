@@ -13,6 +13,7 @@ afterwards from the Roster page.
 | **Date & Time / Location** | Shown on the Home page and printed on pit passes |
 | **Scoring** | **Timed** or **Points** — see [Scoring](scoring.md). Choose before racing starts |
 | **Championship Trophies** | How many cars the wizard puts into the final. About the racing, not the physical trophies — those live on the [Awards](../awards.md) page |
+| **Ties** | How a tied score gets settled where it decides something — see [Ties](#ties) below |
 | **Check car weights at inspection** | See [the weight check](#the-weight-check) below |
 | **Track / Timer** | Which track this race runs on |
 | **Car Numbering** | See [car numbering](#car-numbering) below |
@@ -20,6 +21,35 @@ afterwards from the Roster page.
 
 **Auto-advance**, on the race screen itself, is also remembered per race:
 when on, the screen moves to the next heat ten seconds after results land.
+
+### Ties
+
+Set once, when the race is created, and editable afterwards from the same
+place as every other race field. Five choices, in a fieldset next to
+Scoring — every option shows its one-line description underneath it, not
+only the one currently picked:
+
+| Choice | How it settles a tie |
+| --- | --- |
+| **Leave it shared** | Not settled. The default: cars keep the shared rank, and a cut takes a provisional pick that stays yours to decide |
+| **Fastest single heat** | Whoever's best recorded heat time is lowest |
+| **Lowest total time** | Whoever's heats add up to the least total time |
+| **Countback** | Most 1st-place finishes; a tie on that goes to most 2nds, and so on |
+| **Head-to-head** | Among the tied cars, whoever won more of the heats they actually shared |
+
+Picking a method that needs a recorded time — **Fastest single heat** or
+**Lowest total time** — on a Points race running with [no timer](#no-timer)
+gets a warning right there in the fieldset: that combination never records a
+time to compare, so the method will never fire. Nothing stops you choosing
+it anyway; the warning is there so you find out on the form rather than on
+race day.
+
+Whichever method is chosen, it settles a tie only where a tie actually
+decides something — the last qualifying slot in a championship round, or a
+speed award's recipient — and only when the recorded results actually
+support an answer. The full rules, including what "cannot settle it" means
+and where that shows up, are in
+[When two cars tie](scoring.md#when-two-cars-tie).
 
 ### The weight check
 

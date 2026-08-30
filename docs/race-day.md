@@ -508,9 +508,13 @@ one down the track wins.
 _The standings show rank, car number, name, den — with the den's category in parentheses when one is set, like "Wolves (Wolf)" — heats completed, and average time for every racer. The top three rows are shaded gold, silver, and bronze._
 
 > [!NOTE]
-> **A tie shares a rank** — 1st, 1st, 3rd. The app deliberately does not
-> break a tie for you; settle it with a race-off or a corrected time from
-> the [result editor](#correcting-a-result). See
+> **A tie shares a rank** — 1st, 1st, 3rd. Whether anything more gets
+> decided is the race's **Tiebreaker** setting: left on the default, settle
+> it yourself with a race-off or a corrected time from the
+> [result editor](#correcting-a-result); pick one of the other four and
+> Trusty Track settles it wherever the tie actually matters — the last spot
+> in a final, a speed trophy — reporting rather than guessing when the data
+> cannot support an answer. See
 > [ties](scoring-and-championships.md#when-two-cars-tie).
 
 ---

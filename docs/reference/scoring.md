@@ -48,8 +48,35 @@ reward:
 ## When two cars tie
 
 Tied cars **share the rank** — 1st, 1st, 3rd — and every page that shows
-standings shows it that way. Trusty Track never breaks a tie itself: settle
-it with a race-off, or by correcting a time if one was recorded wrong.
+standings shows it that way. What happens beyond that is up to the race's
+**Tiebreaker** setting, next to Scoring on the race form — see
+[Ties](race-settings.md#ties) in Race and Track Settings — because how a tie
+should be settled is the pack's call, not one Trusty Track can guess.
+
+The default, **Leave it shared**, is today's behaviour and nothing more:
+a tied slot in a final or a tied trophy stays a judgment call, settled with
+a race-off or by correcting a time that was recorded wrong. Choose one of
+the other four and Trusty Track settles it for you, wherever a tie actually
+decides something — the last qualifying slot in a final, or who gets a
+speed trophy:
+
+| Choice | Wins the tie |
+| --- | --- |
+| **Fastest single heat** | Whoever's best recorded heat time is lowest |
+| **Lowest total time** | Whoever's heats add up to the least total time |
+| **Countback** | Most 1st-place finishes; a tie on that goes to most 2nds, and so on |
+| **Head-to-head** | Among the tied cars, whoever won more of the heats they actually shared |
+
+None of the four invents an answer the data does not support. Identical
+times, a race with no timer to compare, two cars that never actually raced
+each other — every one of those leaves the tie **unresolved**, exactly as
+if **Leave it shared** had been chosen. A row the chosen method did settle
+says so on the standings — "2nd, on fastest single heat" — so the tie is
+still visible even once it is decided. Where a tie decides who advances or
+who wins a trophy and the chosen method could not settle it, the schedule
+shows a **Tie unresolved** badge and the Awards page marks the recipient as
+provisional — the round stays runnable and the trophy stays assignable
+either way; both are just asking you to make the final call.
 
 Cars that have not raced yet do not tie with each other; they are listed
 below every car that has, in a stable order.

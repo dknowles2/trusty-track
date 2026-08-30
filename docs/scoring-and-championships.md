@@ -54,9 +54,37 @@ The exact rules for both are in [Scoring](reference/scoring.md).
 ### When two cars tie
 
 They share the rank — 1st, 1st, 3rd — and the Standings page shows it that
-way. Trusty Track never breaks a tie for you, because that is a judgment
-call: settle it with a race-off, or by correcting a time if one was recorded
-wrong. Ties happen a lot with points and only rarely with times.
+way. Ties happen a lot with points and only rarely with times.
+
+Whether anything beyond that gets decided is up to the race's **Tiebreaker**
+setting, next to Scoring on the race form. The default, **Leave it shared**,
+is a judgment call left to you, same as always: settle it with a race-off,
+or by correcting a time if one was recorded wrong.
+
+If you'd rather Trusty Track settle it automatically, which of the other
+four to pick depends on how the race is scored:
+
+- **Timed races** usually want **Fastest single heat** — the traditional
+  pinewood answer, and what most packs mean by "fastest run wins" — or
+  **Lowest total time** if consistency across every heat should count for
+  more than one great run.
+- **Points races with a timer running** can use either of those too, since
+  a time is still being recorded even though it is not the score.
+- **Points races on a track with no timer** — see
+  [No timer](reference/race-settings.md#no-timer) — have no time to compare,
+  so **Fastest single heat** and **Lowest total time** will never fire.
+  **Countback** (most 1st places, then most 2nds…) is the one that works
+  from places alone, which every points race has whether or not a timer is
+  running.
+- **Head-to-head** suits a small, close field — den-sized rounds where the
+  tied cars are likely to have actually raced each other more than once.
+  In a large field it resolves less often, since two tied cars may never
+  have shared a heat.
+
+Whichever is picked, a tie the method cannot settle — identical times, cars
+that never met, no data at all — is reported rather than guessed at. The
+full rules are in
+[When two cars tie](reference/scoring.md#when-two-cars-tie).
 
 ## What the Standings page shows
 
