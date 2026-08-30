@@ -296,7 +296,11 @@ export default function SystemConfig() {
     // and with one section showing at a time most of them are not. So the
     // whole form is checked here, and a failure takes the operator to the
     // section holding it rather than reporting a problem they cannot see.
-    const problem = firstProblem(organizationName, tracks);
+    const problem = firstProblem(
+      organizationName,
+      tracks,
+      organizationSingular.trim() || DEFAULT_TERMINOLOGY.organizationSingular,
+    );
     if (problem) {
       setError(problem.message);
       if (isEditing) setSection(problem.section);

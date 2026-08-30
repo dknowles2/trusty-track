@@ -12,6 +12,8 @@
  * doing is in `SystemSettings.tsx`. Same split as `raceFlow.ts`.
  */
 
+import { DEFAULT_TERMINOLOGY } from './terminologyDefaults';
+
 export type SectionId = 'general' | 'appearance' | 'access' | 'tracks' | 'backup';
 
 export interface Section {
@@ -102,11 +104,20 @@ export interface Problem {
 export function firstProblem(
   organizationName: string,
   tracks: readonly TrackForValidation[],
+  /**
+   * The organization word for the example message — "Pack" by default. This
+   * is deliberately the *form's own* current value, not a resolved
+   * `useTerminology()` word: the organization name and the terminology
+   * fields live in the same section, so an operator who just renamed "Pack"
+   * to "Squad" and left the name blank should see the vocabulary they just
+   * chose, not the one they replaced (#532).
+   */
+  orgWord: string = DEFAULT_TERMINOLOGY.organizationSingular,
 ): Problem | null {
   if (!organizationName.trim()) {
     return {
       section: 'general',
-      message: 'Your organization needs a name — for example Pack 123.',
+      message: `Your organization needs a name — for example ${orgWord} 123.`,
     };
   }
   if (tracks.length === 0) {

@@ -58,6 +58,17 @@ describe('what stops a save', () => {
         });
     });
 
+    it('names the example in whatever the operator just called the organization (#532)', () => {
+        // The organization name and the terminology fields are in the same
+        // section — an operator who renamed "Pack" to "Squad" and left the
+        // name blank should see "Squad 123", not the vocabulary they just
+        // replaced.
+        expect(firstProblem('   ', [track('Main Track')], 'Squad')).toEqual({
+            section: 'general',
+            message: 'Your organization needs a name — for example Squad 123.',
+        });
+    });
+
     it('names the track at fault by its number', () => {
         expect(firstProblem('Pack 42', [track('Main Track'), track('')])).toEqual({
             section: 'tracks',
