@@ -27,6 +27,7 @@ export const RACE_AWARDS_QUERY = gql`
         racingGroupId
         artworkKey
         votable
+        placeContested
         racingGroup {
           id
           name

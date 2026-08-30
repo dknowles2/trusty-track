@@ -734,6 +734,74 @@ describe('ScheduleManagement', () => {
     expect(screen.queryByTestId('stale-field-badge-7')).not.toBeInTheDocument();
   });
 
+  it('marks a round whose last qualifying slot is a tie nothing settled (#540)', () => {
+    render(
+      <MemoryRouter>
+        <AlertProvider>
+          <ScheduleManagement
+            raceId={1}
+            heats={[
+              {
+                id: 1,
+                roundNumber: 2,
+                roundId: 7,
+                heatNumber: 1,
+                roundName: 'Finals',
+                lanes: [lane({ lane: 1, racerId: 1, time: 3.1, place: 1 })],
+              },
+            ]}
+            generating={false}
+            activeHeatId={null}
+            onAddRound={vi.fn()}
+            onRegenerateRound={vi.fn()}
+            onDeleteRound={vi.fn()}
+            onDeleteHeat={vi.fn()}
+            onRunHeat={vi.fn()}
+            onReorderHeats={vi.fn()}
+            getRacerName={(id) => `Racer ${id}`}
+            onRefetchHeats={vi.fn()}
+            laneCount={4}
+            racerCount={10}
+            racingGroupCount={3}
+            championshipTrophies={3}
+            contestedRoundIds={new Set([7])}
+          />
+        </AlertProvider>
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('contested-cut-badge-7')).toHaveTextContent('Tie unresolved');
+  });
+
+  it('shows no contested-cut badge without the flag', () => {
+    render(
+      <MemoryRouter>
+        <AlertProvider>
+          <ScheduleManagement
+            raceId={1}
+            heats={[
+              { id: 1, roundNumber: 2, roundId: 7, heatNumber: 1, roundName: 'Finals', lanes: [] },
+            ]}
+            generating={false}
+            activeHeatId={null}
+            onAddRound={vi.fn()}
+            onRegenerateRound={vi.fn()}
+            onDeleteRound={vi.fn()}
+            onDeleteHeat={vi.fn()}
+            onRunHeat={vi.fn()}
+            onReorderHeats={vi.fn()}
+            getRacerName={(id) => `Racer ${id}`}
+            onRefetchHeats={vi.fn()}
+            laneCount={4}
+            racerCount={10}
+            racingGroupCount={3}
+            championshipTrophies={3}
+          />
+        </AlertProvider>
+      </MemoryRouter>
+    );
+    expect(screen.queryByTestId('contested-cut-badge-7')).not.toBeInTheDocument();
+  });
+
   describe('reordering (drag end)', () => {
     const threeHeats: Heat[] = [
       { id: 1, roundNumber: 1, roundId: 1, heatNumber: 1, lanes: [], roundName: 'Round 1' },

@@ -14,6 +14,7 @@ export const LeaderboardSubscription = gql`
       heatsCompleted
       racerImageUrl
       rank
+      resolvedBy
     }
   }
 `;

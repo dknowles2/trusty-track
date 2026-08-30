@@ -12,6 +12,7 @@ from backend.domain.advancement import (
     AdvancementRule,
     Standing,
     advancing_racer_ids,
+    cut_is_contested,
     field_is_short,
     field_is_stale,
     field_size,
@@ -410,3 +411,118 @@ def test_a_den_field_with_no_dens_is_empty():
 def test_no_racer_count_means_no_slots():
     assert field_size(AdvancementRule(source="ALL", num_racers=None), 0) == 0
     assert field_size(AdvancementRule(source="EACH_GROUP", num_racers=None), 3) == 0
+
+
+# --------------------------------------------------------------------------- #
+# `cut_is_contested` — the last-slot tie flag (#540)                          #
+# --------------------------------------------------------------------------- #
+
+
+def test_a_clean_cut_is_not_contested():
+    """No two adjacent ranks straddling the boundary share a value."""
+    rule = AdvancementRule(source="ALL", num_racers=2)
+    standings = [
+        Standing(racer_id=1, rank=1),
+        Standing(racer_id=2, rank=2),
+        Standing(racer_id=3, rank=3),
+    ]
+    assert not cut_is_contested(rule, standings)
+
+
+def test_a_tie_straddling_the_cut_is_contested():
+    """Two racers share the rank that would be the last qualifying slot."""
+    rule = AdvancementRule(source="ALL", num_racers=2)
+    standings = [
+        Standing(racer_id=1, rank=1),
+        Standing(racer_id=2, rank=2),
+        Standing(racer_id=3, rank=2),
+    ]
+    assert cut_is_contested(rule, standings)
+
+
+def test_a_tie_entirely_inside_the_field_is_not_contested():
+    """Both tied racers advance regardless of which order they are in —
+    nothing about the *cut* is in question."""
+    rule = AdvancementRule(source="ALL", num_racers=3)
+    standings = [
+        Standing(racer_id=1, rank=1),
+        Standing(racer_id=2, rank=1),
+        Standing(racer_id=3, rank=3),
+        Standing(racer_id=4, rank=4),
+    ]
+    assert not cut_is_contested(rule, standings)
+
+
+def test_a_resolved_tie_no_longer_contests_the_cut():
+    """Once the tiebreak chain separated the pair, `standings_ranks` would not
+    have stamped them the same rank — the caller building `Standing` reflects
+    that, and this reads it rather than re-deciding anything."""
+    rule = AdvancementRule(source="ALL", num_racers=2)
+    standings = [
+        Standing(racer_id=1, rank=1),
+        Standing(racer_id=2, rank=2),
+        Standing(racer_id=3, rank=3),
+    ]
+    assert not cut_is_contested(rule, standings)
+
+
+def test_a_caller_with_no_rank_never_contests():
+    """A `Standing` built without a rank (every caller before #540) fails
+    closed rather than flagging every cut."""
+    rule = AdvancementRule(source="ALL", num_racers=1)
+    standings = [Standing(racer_id=1), Standing(racer_id=2)]
+    assert not cut_is_contested(rule, standings)
+
+
+def test_no_racer_count_is_never_contested():
+    standings = [Standing(racer_id=1, rank=1), Standing(racer_id=2, rank=1)]
+    assert not cut_is_contested(
+        AdvancementRule(source="ALL", num_racers=None), standings
+    )
+    assert not cut_is_contested(AdvancementRule(source="ALL", num_racers=0), standings)
+
+
+def test_a_cut_at_the_end_of_the_field_is_never_contested():
+    """Nothing is outside the field to tie the last slot with."""
+    rule = AdvancementRule(source="ALL", num_racers=2)
+    standings = [Standing(racer_id=1, rank=1), Standing(racer_id=2, rank=1)]
+    assert not cut_is_contested(rule, standings)
+
+
+def test_a_round_scoped_cut_is_contested_the_same_way():
+    rule = AdvancementRule(source="ROUND:9", num_racers=1)
+    standings = [Standing(racer_id=1, rank=1), Standing(racer_id=2, rank=1)]
+    assert cut_is_contested(rule, standings)
+
+
+def test_each_group_checks_the_cut_within_its_own_group():
+    """A tie between two racers of *different* racing groups does not contest
+    an `EACH_GROUP` cut — each group has its own boundary."""
+    rule = AdvancementRule(source="EACH_GROUP", num_racers=1)
+    standings = [
+        Standing(racer_id=1, racing_group_id=10, rank=1),
+        Standing(racer_id=2, racing_group_id=20, rank=1),
+    ]
+    assert not cut_is_contested(rule, standings, racing_group_ids=[10, 20])
+
+
+def test_each_group_flags_a_tie_within_one_group():
+    rule = AdvancementRule(source="EACH_GROUP", num_racers=1)
+    standings = [
+        Standing(racer_id=1, racing_group_id=10, rank=1),
+        Standing(racer_id=2, racing_group_id=10, rank=1),
+        Standing(racer_id=3, racing_group_id=20, rank=1),
+    ]
+    assert cut_is_contested(rule, standings, racing_group_ids=[10, 20])
+
+
+def test_a_from_bottom_cut_reads_the_reversed_order():
+    """The mirror of the top-picking cases: the boundary is between the
+    slowest ``num_racers`` racers and the one just faster than them."""
+    rule = AdvancementRule(source="ALL", num_racers=1, from_bottom=True)
+    standings = [
+        Standing(racer_id=1, rank=1),
+        Standing(racer_id=2, rank=2),
+        Standing(racer_id=3, rank=2),
+    ]
+    assert cut_is_contested(rule, standings)

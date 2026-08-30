@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { DEFAULT_LIMIT_OZ, formatOunces } from '../weightCheck';
 import { DEFAULT_TERMINOLOGY } from '../../settings/terminologyDefaults';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { SHARED, TIEBREAKER_OPTIONS, tiebreakerWontFire } from '../../stats/tiebreakText';
 
 export interface RaceFormData {
     name: string;
@@ -15,6 +16,10 @@ export interface RaceFormData {
     // how it reached `tracks[0]` unnoticed.
     track_id?: number;
     scoring_strategy: string;
+    /** How a tie at a cut — a championship slot, an award's place — is
+     * settled (#540). `SHARED` is the default and is a no-op: it is what
+     * every race already did before this setting existed. */
+    tiebreaker: string;
     car_numbering_strategy: string;
     global_start_number: number;
     championship_trophies: number;
@@ -60,6 +65,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         organization_id: 1, // Default
         track_id: 0,
         scoring_strategy: 'TIMED',
+        tiebreaker: SHARED,
         car_numbering_strategy: 'GLOBAL',
         global_start_number: 1,
         championship_trophies: 3,
@@ -90,6 +96,13 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
     // last track is allowed while no race uses it — so the same test covers
     // both, and the field below says which of the two it is.
     const hasTrack = trackId !== 0;
+
+    // Which tiebreaker methods are worth offering depends on this track's
+    // timer, not just the scoring strategy (#540) — `tiebreakerWontFire`
+    // reads both.
+    const trackTimerType: string | null | undefined = tracks.find(
+        (track: { id: number; timerType?: string | null }) => track.id === trackId,
+    )?.timerType;
 
     const handleChange = (field: keyof RaceFormData, value: string | number) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -198,6 +211,46 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     </p>
                 </div>
             </div>
+
+            {/* Which way a tie is settled (#540) — beside Scoring, since
+                choosing one is what makes ties common or rare. Every
+                option's description is always visible (#304), not only the
+                one currently picked, and an option whose data this race
+                cannot produce says so rather than being hidden. */}
+            <fieldset style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem' }}>
+                <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem' }}>Ties</legend>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {TIEBREAKER_OPTIONS.map(option => {
+                        const wontFire = tiebreakerWontFire(
+                            option.value,
+                            formData.scoring_strategy,
+                            trackTimerType,
+                        );
+                        return (
+                            <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>
+                                <input
+                                    type="radio"
+                                    name="race-tiebreaker"
+                                    checked={formData.tiebreaker === option.value}
+                                    onChange={() => handleChange('tiebreaker', option.value)}
+                                />{' '}
+                                {option.label}
+                                <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}>
+                                    {option.description}
+                                </small>
+                                {wontFire && (
+                                    <small
+                                        style={{ color: 'var(--warning-soft-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}
+                                    >
+                                        Won&apos;t fire for this race — Points scoring on a track with no
+                                        timer never records a time to compare.
+                                    </small>
+                                )}
+                            </label>
+                        );
+                    })}
+                </div>
+            </fieldset>
 
             {/* The weight limit (#205). A checkbox as well as a number,
                 because "no limit" and "a limit of nothing" are different

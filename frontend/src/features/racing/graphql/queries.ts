@@ -191,6 +191,7 @@ export const GET_RACE_CONTROL_DATA = gql`
           requiresAdvancement
           alreadyAdvanced
           fieldIsStale
+          contestedCut
           source
           numRacers
           fromBottom

@@ -28,6 +28,7 @@ const RACE = {
       racingGroupId: 5,
       artworkKey: 'trophy',
       votable: false,
+      placeContested: false,
       voteTally: [],
       racingGroup: { id: 5, name: 'Wolves' },
       recipient: {
@@ -48,6 +49,7 @@ const RACE = {
       racingGroupId: null,
       artworkKey: null,
       votable: true,
+      placeContested: false,
       voteTally: [
         { racerId: 100, voteCount: 3, racer: { id: 100, carNumber: 42, carName: null } },
         { racerId: 101, voteCount: 1, racer: { id: 101, carNumber: 7, carName: null } },
@@ -65,6 +67,7 @@ const RACE = {
       racingGroupId: null,
       artworkKey: null,
       votable: false,
+      placeContested: false,
       voteTally: [],
       racingGroup: null,
       recipient: {
@@ -140,6 +143,7 @@ describe('the awards page', () => {
       'place',
       'racingGroupId',
       'artworkKey',
+      'placeContested',
       'recipient',
       'racerImageUrl',
       'votingOpen',
@@ -157,6 +161,37 @@ describe('the awards page', () => {
     expect(screen.getByText('Fastest Wolf')).toBeInTheDocument();
     expect(screen.getByText('Fastest in Wolves')).toBeInTheDocument();
     expect(screen.getByText('Ada Lovelace (#42)')).toBeInTheDocument();
+  });
+
+  it('notes a contested SPEED place beside the recipient (#540)', () => {
+    renderPage({
+      ...RACE,
+      awards: [{ ...RACE.awards[0], placeContested: true }, ...RACE.awards.slice(1)],
+    });
+
+    const row = screen.getByText('Fastest Wolf').closest('li')!;
+    expect(within(row).getByText('Ada Lovelace (#42)')).toBeInTheDocument();
+    expect(within(row).getByText('Tied')).toBeInTheDocument();
+  });
+
+  it('says nothing extra when the place is not contested', () => {
+    renderPage();
+
+    const row = screen.getByText('Fastest Wolf').closest('li')!;
+    expect(within(row).queryByText('Tied')).not.toBeInTheDocument();
+  });
+
+  it('never notes a contested place for a judged award', () => {
+    // SPECIAL has no `place` to contest — `placeContested` is always false
+    // server-side, but the component's own kind check is what a stale mock
+    // (or a future server change) cannot silently defeat.
+    renderPage({
+      ...RACE,
+      awards: [RACE.awards[0], { ...RACE.awards[2], placeContested: true }],
+    });
+
+    const row = screen.getByText('Judges’ Choice').closest('li')!;
+    expect(within(row).queryByText('Tied')).not.toBeInTheDocument();
   });
 
   it('says a judged award is undecided rather than showing nothing', () => {

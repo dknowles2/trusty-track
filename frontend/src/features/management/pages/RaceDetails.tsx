@@ -104,6 +104,7 @@ export default function RaceDetails() {
       // is exactly what made a *missing* value destructive when editing.
       track_id: data.race.trackId ?? undefined,
       scoring_strategy: data.race.scoringStrategy,
+      tiebreaker: data.race.tiebreaker,
       car_numbering_strategy: data.race.carNumberingStrategy,
       global_start_number: data.race.globalStartNumber,
       championship_trophies: data.race.championshipTrophies,
@@ -240,6 +241,7 @@ export default function RaceDetails() {
               location: updateInput.location,
               trackId: updateInput.track_id,
               scoringStrategy: updateInput.scoring_strategy,
+              tiebreaker: updateInput.tiebreaker,
               carNumberingStrategy: updateInput.car_numbering_strategy,
               globalStartNumber: updateInput.global_start_number,
               championshipTrophies: updateInput.championship_trophies,

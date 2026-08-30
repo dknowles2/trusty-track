@@ -9,6 +9,7 @@ export const GET_RACE_DETAILS = gql`
       location
       trackId
       scoringStrategy
+      tiebreaker
       carNumberingStrategy
       globalStartNumber
       championshipTrophies
@@ -92,6 +93,7 @@ export const UPDATE_RACE = gql`
       location
       trackId
       scoringStrategy
+      tiebreaker
       carNumberingStrategy
       globalStartNumber
       championshipTrophies

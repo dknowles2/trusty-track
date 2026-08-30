@@ -4,6 +4,7 @@ import {
     scoreValue,
     standingsRows,
     standingsSuffix,
+    tieBrokenByValue,
     type StandingsEntry,
 } from './standingsExport';
 
@@ -51,7 +52,24 @@ describe('standingsRows', () => {
             'Den',
             'Points',
             'Heats',
+            'Tie Broken By',
         ]);
+    });
+
+    it('leaves the Tie Broken By cell blank for a row that was never tied', () => {
+        const rows = standingsRows([entry({ resolvedBy: null })], 'TIMED');
+        expect(rows[1][7]).toBe('');
+    });
+
+    it('leaves the Tie Broken By cell blank for an unresolved tie', () => {
+        // Same "nothing to say" the standings page itself shows (#540).
+        const rows = standingsRows([entry({ resolvedBy: undefined })], 'TIMED');
+        expect(rows[1][7]).toBe('');
+    });
+
+    it('names how a resolved tie was broken', () => {
+        const rows = standingsRows([entry({ resolvedBy: 'BEST_TIME' })], 'TIMED');
+        expect(rows[1][7]).toBe('Fastest single heat');
     });
 
     it('writes one row per racer, in the order given', () => {
@@ -71,6 +89,19 @@ describe('standingsRows', () => {
 
     it('exports nothing but the header for empty standings', () => {
         expect(standingsRows([], 'TIMED')).toHaveLength(1);
+    });
+});
+
+describe('tieBrokenByValue', () => {
+    it('capitalises the method phrase', () => {
+        expect(tieBrokenByValue('COUNTBACK')).toBe('Countback');
+        expect(tieBrokenByValue('HEAD_TO_HEAD')).toBe('Head-to-head');
+    });
+
+    it('is blank for SHARED, and for a row never tied', () => {
+        expect(tieBrokenByValue('SHARED')).toBe('');
+        expect(tieBrokenByValue(null)).toBe('');
+        expect(tieBrokenByValue(undefined)).toBe('');
     });
 });
 

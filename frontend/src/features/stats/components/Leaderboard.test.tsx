@@ -112,6 +112,37 @@ describe('Leaderboard', () => {
     expect(rows[2]).toHaveTextContent('Jane Smith');
   });
 
+  it('says how a resolved tie was broken, and stops sharing the rank (#540)', () => {
+    const resolvedData = {
+      race: {
+        id: 1,
+        scoringStrategy: 'TIMED',
+        leaderboard: [
+          { ...tiedLeaderboardEntries[0], rank: 1, resolvedBy: 'BEST_TIME' },
+          { ...tiedLeaderboardEntries[1], rank: 2, resolvedBy: 'BEST_TIME' },
+        ],
+      },
+    };
+
+    (useQuery as any).mockReturnValue([
+      { data: { race: resolvedData.race }, fetching: false, error: null },
+      vi.fn(),
+    ]);
+    (useSubscription as any).mockReturnValue([
+      { data: { leaderboard: resolvedData.race.leaderboard }, fetching: false, error: null },
+      vi.fn(),
+    ]);
+
+    render(<MemoryRouter><Leaderboard raceId={1} /></MemoryRouter>);
+
+    const rows = screen.getAllByRole('row');
+    expect(rows[1]).toHaveTextContent('🥇 1');
+    expect(rows[1]).toHaveTextContent('1st, on fastest single heat');
+    expect(rows[2]).toHaveTextContent('2');
+    expect(rows[2]).not.toHaveTextContent('🥇');
+    expect(rows[2]).toHaveTextContent('2nd, on fastest single heat');
+  });
+
   it('shows non-timed scores correctly (POINTS strategy)', async () => {
     const pointsData = {
       race: {

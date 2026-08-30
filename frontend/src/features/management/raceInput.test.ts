@@ -8,6 +8,7 @@ const baseFormData: RaceFormData = {
     location: 'Church Gym',
     track_id: 3,
     scoring_strategy: 'TIMED',
+    tiebreaker: 'SHARED',
     car_numbering_strategy: 'GLOBAL',
     global_start_number: 1,
     championship_trophies: 3,
@@ -28,6 +29,12 @@ describe('buildCreateRaceInput', () => {
         ).toBeNull();
     });
 
+    it('carries the tiebreaker method (#540)', () => {
+        expect(buildCreateRaceInput({ ...baseFormData, tiebreaker: 'COUNTBACK' }).tiebreaker).toBe(
+            'COUNTBACK',
+        );
+    });
+
     it('maps every other field from snake_case to camelCase', () => {
         expect(buildCreateRaceInput(baseFormData)).toEqual({
             name: 'Pack 42 Derby',
@@ -35,6 +42,7 @@ describe('buildCreateRaceInput', () => {
             location: 'Church Gym',
             trackId: 3,
             scoringStrategy: 'TIMED',
+            tiebreaker: 'SHARED',
             carNumberingStrategy: 'GLOBAL',
             globalStartNumber: 1,
             championshipTrophies: 3,

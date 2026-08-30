@@ -28,11 +28,19 @@ class Standing:
     ran is not the slowest car, it is an absent one. Defaults true so the
     top-picking callers, for whom the distinction changes nothing, need not
     say anything.
+
+    ``rank`` is the competition rank :func:`backend.domain.scoring.
+    standings_ranks` stamped on the row this came from — ``None`` when a
+    caller has not supplied one (every caller before #540). Two standings
+    sharing a rank are, by that function's own rule, a tie the tiebreak chain
+    did not separate; :func:`cut_is_contested` reads it for exactly that
+    reason and nothing here compares it to anything else.
     """
 
     racer_id: int
     racing_group_id: int | None = None
     has_raced: bool = True
+    rank: int | None = None
 
 
 def is_round_scoped(source: str) -> bool:
@@ -347,3 +355,56 @@ def field_is_stale(heats_lanes: Iterable[Sequence], winner_ids: Iterable[int]) -
     winners = set(winner_ids)
     raced = any(lanes_module.has_results(lanes) for lanes in heats)
     return raced and bool(actual_field) and actual_field != winners
+
+
+def _boundary_contested(ordered: Sequence[Standing], num_racers: int) -> bool:
+    """Whether slot ``num_racers`` and the one just past it are still tied.
+
+    ``ordered`` is standings already arranged the way the field is picked —
+    see :func:`_picking_order` — each carrying the rank its row was stamped
+    with. Two adjacent rows sharing a rank is exactly what
+    :func:`backend.domain.scoring.standings_ranks` means by "still tied":
+    a resolved pair stops sharing one. A rank of ``None`` — a caller that
+    built ``Standing`` without one — never counts as contested, so a caller
+    that forgets to supply it fails closed rather than flagging every cut.
+    """
+    if num_racers <= 0 or num_racers >= len(ordered):
+        return False
+    last_in = ordered[num_racers - 1].rank
+    first_out = ordered[num_racers].rank
+    return last_in is not None and last_in == first_out
+
+
+def cut_is_contested(
+    rule: AdvancementRule,
+    standings: Sequence[Standing],
+    racing_group_ids: Sequence[int] = (),
+) -> bool:
+    """Whether the last qualifying slot is a tie the chain did not settle (#540).
+
+    ``standings`` must carry each row's ``rank`` — see :class:`Standing` — and
+    the same population and order :func:`advancing_racer_ids` would pick from;
+    the caller that builds one builds the other. A ``num_racers`` of ``None``
+    or non-positive needs no answer: there is no boundary to be contested.
+
+    The flag says nothing about *which* racer holds the slot — that pick is
+    still made, provisionally, by :func:`advancing_racer_ids`, exactly as it
+    always was, so the round stays runnable (#48: a placeholder that can never
+    fill locks the operator screen entirely). This is only the seeing half,
+    the same shape as :func:`field_is_stale`.
+    """
+    if rule.num_racers is None or rule.num_racers <= 0:
+        return False
+
+    if rule.is_round_scoped or rule.source == ALL:
+        return _boundary_contested(_picking_order(rule, standings), rule.num_racers)
+
+    if rule.source == EACH_GROUP:
+        ordered = _picking_order(rule, standings)
+        for racing_group_id in racing_group_ids:
+            in_group = [s for s in ordered if s.racing_group_id == racing_group_id]
+            if _boundary_contested(in_group, rule.num_racers):
+                return True
+        return False
+
+    return False

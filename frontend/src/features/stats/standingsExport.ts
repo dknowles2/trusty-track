@@ -11,6 +11,7 @@
  */
 
 import type { CsvRow } from '../../utils/csv';
+import { methodPhrase } from './tiebreakText';
 
 export interface StandingsEntry {
     rank: number;
@@ -20,6 +21,9 @@ export interface StandingsEntry {
     racingGroupName: string;
     score: number;
     heatsCompleted: number;
+    /** How a shared score was broken, or null/undefined if it was never tied
+     * or the tie did not resolve (#540). */
+    resolvedBy?: string | null;
 }
 
 /**
@@ -38,6 +42,19 @@ export function scoreValue(score: number, scoringStrategy: string): string {
     return scoringStrategy === 'TIMED' ? score.toFixed(3) : String(score);
 }
 
+/**
+ * The "Tie Broken By" cell for one row (#540) — capitalised, since a
+ * spreadsheet is read on its own with no page around it to say the word is
+ * an option label rather than a sentence fragment. Empty for a row that was
+ * never tied, or was tied and the chain left it that way — the same
+ * "nothing to say" the standings page itself shows.
+ */
+export function tieBrokenByValue(resolvedBy: string | null | undefined): string {
+    const phrase = methodPhrase(resolvedBy ?? '');
+    if (!phrase) return '';
+    return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
+
 export function standingsRows(
     standings: readonly StandingsEntry[],
     scoringStrategy: string,
@@ -54,6 +71,10 @@ export function standingsRows(
         groupWord,
         scoreHeading(scoringStrategy),
         'Heats',
+        // A blank column reads as "not tied" the same way it does on the
+        // standings page itself — no separate "no" to type for every row
+        // that was never in question (#540).
+        'Tie Broken By',
     ];
     return [
         header,
@@ -65,6 +86,7 @@ export function standingsRows(
             entry.racingGroupName,
             scoreValue(entry.score, scoringStrategy),
             entry.heatsCompleted,
+            tieBrokenByValue(entry.resolvedBy),
         ]),
     ];
 }

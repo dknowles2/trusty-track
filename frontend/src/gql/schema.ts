@@ -23,6 +23,7 @@ export type AdvancementRacer = {
 export type AdvancementStatus = {
   advancingRacers: Array<AdvancementRacer>;
   alreadyAdvanced: Scalars['Boolean']['output'];
+  contestedCut: Scalars['Boolean']['output'];
   fieldIsStale: Scalars['Boolean']['output'];
   fromBottom: Scalars['Boolean']['output'];
   isReady: Scalars['Boolean']['output'];
@@ -51,6 +52,7 @@ export type Award = {
   kind: Scalars['String']['output'];
   name: Scalars['String']['output'];
   place?: Maybe<Scalars['Int']['output']>;
+  placeContested: Scalars['Boolean']['output'];
   raceId: Scalars['Int']['output'];
   racingGroup?: Maybe<RacingGroup>;
   racingGroupId?: Maybe<Scalars['Int']['output']>;

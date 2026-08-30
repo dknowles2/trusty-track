@@ -283,3 +283,136 @@ class TestAwardsInheritTheTiebreak:
         recipients = awards_service.recipients_for(db, race.id)
 
         assert recipients[award.id] == slow_id
+
+
+class TestContestedCut:
+    """The seeing half for a cut a tiebreaker did not settle (#540) — see
+    `test_domain_advancement.py` for the rule itself. This is the wiring:
+    `scoring.pick_advancing_racers` and `AdvancementStatus.contestedCut`.
+    """
+
+    def test_an_inconclusive_tie_at_the_cut_is_contested(self, db: Session):
+        race, fast_id, slow_id = _tied_pair(db, models.TiebreakMethod.TOTAL_TIME)
+
+        pick = scoring.pick_advancing_racers(db, race.id, "ALL", 1)
+
+        assert pick.winner_ids == [slow_id]
+        assert pick.contested is True
+
+    def test_a_resolved_tie_at_the_cut_is_not_contested(self, db: Session):
+        race, fast_id, slow_id = _tied_pair(db, models.TiebreakMethod.BEST_TIME)
+
+        pick = scoring.pick_advancing_racers(db, race.id, "ALL", 1)
+
+        assert pick.winner_ids == [fast_id]
+        assert pick.contested is False
+
+    def test_a_cut_that_clears_the_whole_field_is_not_contested(self, db: Session):
+        race, fast_id, slow_id = _tied_pair(db, models.TiebreakMethod.TOTAL_TIME)
+
+        pick = scoring.pick_advancing_racers(db, race.id, "ALL", 2)
+
+        assert set(pick.winner_ids) == {fast_id, slow_id}
+        assert pick.contested is False
+
+    def test_contested_cut_reaches_graphql_on_the_advancement_status(
+        self, client, db: Session
+    ):
+        race, fast_id, slow_id = _tied_pair(db, models.TiebreakMethod.TOTAL_TIME)
+        final = crud.create_round(
+            db,
+            race.id,
+            round_number=2,
+            scheduling_strategy=models.SchedulingStrategy.PPC,
+            name="Final",
+            advancement_source="ALL",
+            advancement_num_racers=1,
+        )
+
+        query = f"""
+        query {{
+          race(raceId: {race.id}) {{
+            rounds {{
+              id
+              advancementStatus {{ contestedCut }}
+            }}
+          }}
+        }}
+        """
+        response = client.post("/graphql", json={"query": query})
+        assert response.status_code == 200
+        body = response.json()
+        assert "errors" not in body
+        rounds = {r["id"]: r for r in body["data"]["race"]["rounds"]}
+        assert rounds[final.id]["advancementStatus"]["contestedCut"] is True
+
+
+class TestPlaceContested:
+    """The awards-screen half of the same flag: `Award.placeContested`."""
+
+    def test_an_inconclusive_tie_for_the_place_is_contested(self, db: Session):
+        race, fast_id, slow_id = _tied_pair(db, models.TiebreakMethod.TOTAL_TIME)
+        award = crud.create_award(
+            db,
+            race.id,
+            schemas.AwardCreate(
+                name="Fastest Overall",
+                kind=models.AwardKind.SPEED,
+                source="ALL",
+                place=1,
+            ),
+        )
+
+        assert awards_service.contested_for(db, race.id)[award.id] is True
+
+    def test_a_resolved_place_is_not_contested(self, db: Session):
+        race, fast_id, slow_id = _tied_pair(db, models.TiebreakMethod.BEST_TIME)
+        award = crud.create_award(
+            db,
+            race.id,
+            schemas.AwardCreate(
+                name="Fastest Overall",
+                kind=models.AwardKind.SPEED,
+                source="ALL",
+                place=1,
+            ),
+        )
+
+        assert awards_service.contested_for(db, race.id)[award.id] is False
+
+    def test_a_special_award_is_never_contested(self, db: Session):
+        race, _fast_id, _slow_id = _tied_pair(db, models.TiebreakMethod.TOTAL_TIME)
+        award = crud.create_award(
+            db,
+            race.id,
+            schemas.AwardCreate(name="Best Paint", kind=models.AwardKind.SPECIAL),
+        )
+
+        assert awards_service.contested_for(db, race.id)[award.id] is False
+
+    def test_place_contested_reaches_graphql(self, client, db: Session):
+        race, fast_id, slow_id = _tied_pair(db, models.TiebreakMethod.TOTAL_TIME)
+        award = crud.create_award(
+            db,
+            race.id,
+            schemas.AwardCreate(
+                name="Fastest Overall",
+                kind=models.AwardKind.SPEED,
+                source="ALL",
+                place=1,
+            ),
+        )
+
+        query = f"""
+        query {{
+          race(raceId: {race.id}) {{
+            awards {{ id placeContested }}
+          }}
+        }}
+        """
+        response = client.post("/graphql", json={"query": query})
+        assert response.status_code == 200
+        body = response.json()
+        assert "errors" not in body
+        rows = {row["id"]: row for row in body["data"]["race"]["awards"]}
+        assert rows[award.id]["placeContested"] is True

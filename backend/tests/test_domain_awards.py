@@ -17,6 +17,7 @@ from backend.domain.awards import (
     SpeedRule,
     can_be_voted_on,
     default_artwork_key,
+    place_is_contested,
     rank_tally,
     recipient_of,
     sources_for,
@@ -28,6 +29,15 @@ def standings(*pairs: tuple[int, int | None]) -> list[Standing]:
     return [
         Standing(racer_id=racer_id, racing_group_id=racing_group_id)
         for racer_id, racing_group_id in pairs
+    ]
+
+
+def ranked_standings(*rows: tuple[int, int, int | None]) -> list[Standing]:
+    """Standings best-first, as ``(racer_id, rank, racing_group_id)`` rows —
+    for :func:`place_is_contested`, which reads the rank."""
+    return [
+        Standing(racer_id=racer_id, rank=rank, racing_group_id=racing_group_id)
+        for racer_id, rank, racing_group_id in rows
     ]
 
 
@@ -191,3 +201,52 @@ class TestRankTally:
 
     def test_an_empty_tally_is_an_empty_list(self) -> None:
         assert rank_tally({}) == []
+
+
+class TestPlaceIsContested:
+    """Whether an award's place is a tie the tiebreak chain left standing
+    (#540)."""
+
+    def test_a_clear_winner_is_not_contested(self) -> None:
+        rule = SpeedRule(source=ALL, place=1)
+        rows = ranked_standings((7, 1, None), (8, 2, None))
+        assert place_is_contested(rule, rows) is False
+
+    def test_a_tie_for_the_place_is_contested(self) -> None:
+        rule = SpeedRule(source=ALL, place=1)
+        rows = ranked_standings((7, 1, None), (8, 1, None))
+        assert place_is_contested(rule, rows) is True
+
+    def test_a_tie_one_step_below_the_place_is_still_contested(self) -> None:
+        """Second place, sharing a rank with third: there is no clean "2nd"
+        to hand out."""
+        rule = SpeedRule(source=ALL, place=2)
+        rows = ranked_standings((7, 1, None), (8, 2, None), (9, 2, None))
+        assert place_is_contested(rule, rows) is True
+
+    def test_a_place_nobody_has_reached_is_not_contested(self) -> None:
+        rule = SpeedRule(source=ALL, place=3)
+        rows = ranked_standings((7, 1, None), (8, 2, None))
+        assert place_is_contested(rule, rows) is False
+
+    def test_a_caller_with_no_rank_is_never_contested(self) -> None:
+        rule = SpeedRule(source=ALL, place=1)
+        rows = standings((7, None), (8, None))
+        assert place_is_contested(rule, rows) is False
+
+    def test_a_racing_group_narrows_before_checking(self) -> None:
+        """Tied overall, but the only Wolf in the race — nothing to contest
+        within the group."""
+        rule = SpeedRule(source=ALL, place=1, racing_group_id=10)
+        rows = ranked_standings((7, 1, 10), (8, 1, 20))
+        assert place_is_contested(rule, rows) is False
+
+    def test_a_racing_group_tie_is_contested(self) -> None:
+        rule = SpeedRule(source=ALL, place=1, racing_group_id=10)
+        rows = ranked_standings((7, 1, 10), (8, 1, 10))
+        assert place_is_contested(rule, rows) is True
+
+    def test_a_from_bottom_award_reads_the_reversed_order(self) -> None:
+        rule = SpeedRule(source=ALL, place=1, from_bottom=True)
+        rows = ranked_standings((7, 1, None), (8, 2, None), (9, 2, None))
+        assert place_is_contested(rule, rows) is True

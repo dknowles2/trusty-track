@@ -50,6 +50,7 @@ class RequestLoaders:
         self._awards_by_race: dict[int, list[models.Award]] = {}
         self._award_recipients: dict[int, dict[int, int | None]] = {}
         self._award_vote_tallies: dict[int, dict[int, list[tuple[int, int]]]] = {}
+        self._award_contested: dict[int, dict[int, bool]] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -71,6 +72,7 @@ class RequestLoaders:
         self._awards_by_race.clear()
         self._award_recipients.clear()
         self._award_vote_tallies.clear()
+        self._award_contested.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -266,6 +268,19 @@ class RequestLoaders:
                 self._db, self.awards_for_race(race_id)
             )
         return self._award_vote_tallies[race_id]
+
+    def award_contested(self, race_id: int) -> dict[int, bool]:
+        """Memoised ``{award_id: bool}`` — a `SPEED` award's place is a tie
+        the tiebreak chain left standing (#540).
+
+        Whole-race, the same shape as :meth:`award_recipients` and for the
+        same reason.
+        """
+        if race_id not in self._award_contested:
+            self._award_contested[race_id] = awards_service.contested_of(
+                self._db, race_id, self.awards_for_race(race_id)
+            )
+        return self._award_contested[race_id]
 
     def global_heat_number(self, race_id: int, heat_id: int) -> int | None:
         """Position of a heat across the whole race, 1-indexed.
