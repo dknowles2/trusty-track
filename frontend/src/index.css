@@ -668,13 +668,6 @@ input:checked + .slider:before {
   box-shadow: 0 0.5vmin 1.5vmin rgba(0,0,0,0.5) !important;
 }
 
-/* Ensure empty heat card also follows theme */
-.projector-mode .heat-card[style*="background: rgb(245, 245, 245)"],
-.projector-mode .heat-card[style*="background: #f5f5f5"] {
-  background-color: var(--display-surface-alt-color) !important;
-  opacity: 0.5 !important;
-}
-
 /* Card Title */
 .projector-mode .heat-card-title {
   font-size: 3.5vmin !important;
@@ -696,7 +689,7 @@ input:checked + .slider:before {
 
 .projector-mode .heat-card-car-number {
   font-size: 1.8vmin !important; /* Car Number */
-  color: #ccc !important;
+  color: var(--display-text-muted-color) !important;
 }
 
 /* Force Avatar Size in Heat Cards */
@@ -716,7 +709,10 @@ input:checked + .slider:before {
 
 .projector-mode .standings-table thead {
   background-color: var(--display-accent-color) !important;
-  color: #000 !important;
+  /* --display-on-accent-color (#527) — the "text on Display accent" role
+     #501 added to close the gap #498's own comments flagged. Every theme's
+     accent clears 4.5:1 against it (see themes.test.ts). */
+  color: var(--display-on-accent-color) !important;
 }
 
 .projector-mode .standings-table thead th {
@@ -795,15 +791,6 @@ input:checked + .slider:before {
 /* Time */
 .projector-mode .timing-time {
   font-size: 6vmin !important;
-}
-
-.projector-mode .timing-list-item[style*="background: rgb(212, 175, 55, 0.1)"] {
-  background-color: rgba(252, 209, 22, 0.15) !important;
-  border-left-width: 2vmin !important;
-}
-
-.projector-mode .timing-list-item[style*="background: #f9f9f9"] {
-  background-color: #222 !important;
 }
 
 /* Heat Result Overlay Animations */

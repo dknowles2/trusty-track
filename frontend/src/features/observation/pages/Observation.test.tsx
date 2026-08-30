@@ -343,6 +343,58 @@ describe('Observation Page', () => {
             expect(screen.getByText('3.500s')).toBeInTheDocument();
         });
     });
+
+    it('renders the timing rows with Display tokens, not App tokens (#527)', async () => {
+        // #527: these rows used to read --surface-color / --text-color /
+        // --text-muted-color / --border-color, which inherit from the
+        // *viewing device's own* App theme rather than the organisation's
+        // Display theme — white-on-white once the old .projector-mode
+        // !important overrides masking it stopped matching. A second-place
+        // lane exercises the non-gold-highlight background branch.
+        setupMocks({
+            timingStats: {
+                heatId: 1,
+                roundName: 'Round 1',
+                heatNumber: 1,
+                lanes: [
+                    { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.5, place: 2 },
+                ],
+            },
+        });
+
+        const { container } = render(
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        const timingTab = screen.getByText('Timing Stats');
+        timingTab.click();
+
+        await waitFor(() => {
+            expect(screen.getByText('Speedy McQueen')).toBeInTheDocument();
+        });
+
+        const row = container.querySelector('.timing-list-item') as HTMLElement;
+        const racerName = container.querySelector('.timing-racer-name') as HTMLElement;
+        const carName = container.querySelector('.timing-car-name') as HTMLElement;
+        expect(row).toBeTruthy();
+        expect(row.getAttribute('style')).toMatch(/var\(--display-card-bg-color\)/);
+        expect(row.getAttribute('style')).toMatch(/var\(--display-border-color\)/);
+        expect(row.getAttribute('style')).not.toMatch(/var\(--surface-tint-color/);
+        expect(row.getAttribute('style')).not.toMatch(/var\(--border-color\)/);
+        expect(carName.getAttribute('style')).toMatch(/var\(--display-text-muted-color\)/);
+        expect(carName.getAttribute('style')).not.toMatch(/var\(--text-muted-color\)/);
+        // Ancestors set --display-text-color rather than --text-color, so the
+        // rank/name inherit the right colour instead of the viewing device's
+        // own App theme.
+        expect(racerName.closest('.timing-list-wrapper')?.getAttribute('style')).toMatch(
+            /var\(--display-surface-color\)/,
+        );
+    });
+
     it('renders in Projector Mode correctly', async () => {
         setupMocks({
             leaderboard: [

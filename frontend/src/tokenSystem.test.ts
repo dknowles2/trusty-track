@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { APP_TOKEN_NAMES, DISPLAY_TOKEN_NAMES } from './theming/themes';
 
 /**
  * Regression guard for #439 — the award/voting pages had grown their own
@@ -241,10 +242,17 @@ describe('the Display surface has been fully converged — no App-token colour r
     expect(css).toMatch(/color: var\(--display-bg-color\);/);
   });
 
-  it('Observation.tsx keeps --scouting-blue only for its "Launch Projector Mode" button — an operator control on the light standard-mode preview, not audience content', () => {
+  it('Observation.tsx no longer reads --scouting-blue at all, including for its "Launch Projector Mode" button (#527)', () => {
+    // Stage 2 kept two --scouting-blue reads here on the theory that the
+    // "Launch Projector Mode" button is "an operator control on the light
+    // standard-mode preview, not audience content" — but the whole page,
+    // preview included, is the Display surface (#527's own framing), and
+    // that button sits inside the same root that already applies the
+    // Display theme's tokens. It now reads --display-accent-color, the
+    // same token every other brand-coloured mark on this page uses.
     const observation = read('features/observation/pages/Observation.tsx');
-    const matches = observation.match(/var\(--scouting-blue/g) ?? [];
-    expect(matches.length).toBe(2);
+    expect(observation).not.toMatch(/var\(--scouting-blue/);
+    expect(observation).toMatch(/var\(--display-accent-color/);
   });
 });
 
@@ -444,4 +452,44 @@ describe('issue #501: the app-wide token sweep does not regrow raw colour litera
       expect(usedSomewhere, `${token} is defined but never read anywhere`).toBe(true);
     }
   });
+});
+
+/**
+ * Regression guard for #527 — Observation.tsx read eleven App-surface
+ * tokens directly (`--surface-color`, `--text-color` and friends), which
+ * inherit from whatever the *viewing device's own* App theme happens to be
+ * (localStorage, normally Field Uniform) rather than from the organisation's
+ * chosen Display theme. Under a non-default Display theme this produced
+ * white-on-white timing rows once `.projector-mode`'s old `!important`
+ * overrides — themselves keyed to inline colour literals #504 removed —
+ * stopped masking it.
+ *
+ * This is deliberately scoped to the files that actually render on the wall
+ * (the Display surface), not a blind walk of everything under
+ * `features/observation/` — `DisplaysPanel.tsx` is the operator's own list
+ * at Race Control → Displays, part of the App surface, and legitimately
+ * reads App tokens.
+ */
+const DISPLAY_SURFACE_FILES = [
+  'features/observation/pages/Observation.tsx',
+  'features/observation/IdentifyPresence.tsx',
+  'features/observation/components/PhotoSlideshow.tsx',
+  'features/awards/pages/AwardCeremony.tsx',
+];
+
+describe('the Display surface reads no App-only token (#527)', () => {
+  for (const file of DISPLAY_SURFACE_FILES) {
+    it(`${file} reads no APP_TOKEN_NAMES entry that DISPLAY_TOKEN_NAMES lacks`, () => {
+      const content = read(file);
+      const leaked = APP_TOKEN_NAMES.filter(
+        (name) => !DISPLAY_TOKEN_NAMES.includes(name) && content.includes(`var(${name}`),
+      );
+      expect(
+        leaked,
+        `${file} reads App-surface token(s) with no Display equivalent: ${leaked.join(', ')} — ` +
+          `either give the Display surface its own token for the role, or read an existing ` +
+          `--display-* token that already covers it.`,
+      ).toEqual([]);
+    });
+  }
 });
