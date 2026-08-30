@@ -139,6 +139,21 @@ gcloud run deploy "$SERVICE" \
   --cpu-boost \
   --set-env-vars="^|^TRUSTYTRACK_DEMO_MODE=1|TRUSTYTRACK_DEMO_SEED=${DEMO_SEED}|TRUSTYTRACK_ALLOWED_ORIGINS=${ALLOWED_ORIGINS}|TRUSTYTRACK_DATA_DIR=${DATA_DIR}"
 
+# Said out loud rather than assumed. `gcloud run deploy` moves traffic to the
+# revision it just created only while the service's traffic still names LATEST;
+# a service pinned to one revision -- which is what `update-traffic
+# --to-revisions` leaves behind, and it is how a rollback is spelled -- keeps
+# serving that revision, and the deploy reports success either way.
+#
+# That is not hypothetical. This demo sat pinned to a revision from 2026-08-25
+# through four releases: each built a healthy revision that served nobody,
+# while the front page's demo ran a build old enough to predate the version
+# stamp. Nothing said so, because every part of it had worked.
+gcloud run services update-traffic "$SERVICE" \
+  --project="$PROJECT" \
+  --region="$REGION" \
+  --to-latest
+
 cat <<'NOTE'
 
 Deployed. Three things that are not flags:
