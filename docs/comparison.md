@@ -9,7 +9,8 @@ Several programs run Pinewood Derby races, and most packs would do fine with any
 of them. Here is what the others are, and when one of them is the better pick.
 
 Prices and versions were checked on each program's own site on 28 August 2026;
-the "Telling screens apart" row on 29 August 2026. They move, so follow the
+the "Telling screens apart" row on 29 August 2026, and the "Words on screen"
+row on 30 August 2026. They move, so follow the
 links before you spend anything, and please
 [tell us](https://github.com/dknowles2/trusty-track/issues) if something here has
 gone stale or reads unfairly.
@@ -25,10 +26,10 @@ have not built yet.
 
 [**GrandPrix Race Manager**](https://www.grandprix-software-central.com/gprm/) is
 the one you will hear named most often. It is on its twenty-sixth annual version,
-covers Awana Grand Prix and Raingutter Regatta as well as Pinewood, and costs $60
-for Lite or $80 for Pro. One Windows or Mac machine runs the event. If somebody in
-your pack already knows this program, that is worth more than anything on this
-page.
+covers Awana Grand Prix, Space Derby and Raingutter Regatta as well as Pinewood,
+and costs $60 for Lite or $80 for Pro. One Windows or Mac machine runs the
+event. If somebody in your pack already knows this program, that is worth more
+than anything on this page.
 
 [**DerbyNet**](https://derbynet.org/) is free, MIT-licensed, and has been
 developed in the open since 2015. It works much the way Trusty Track does: a small
@@ -68,6 +69,7 @@ and a stopwatch it is a perfectly good answer.
 | **Race formats** | Perfect-N, championship, elimination, balanced, slowest | Several, more in Pro | Several | Several | Elimination only |
 | **Racer limit** | None | None | None | None | 15 |
 | **Racer and car photos** | Yes | Pro only | Yes | — | — |
+| **Words on screen** | Free text — group, organization and vehicle, plus a vehicle picture | Built-in presets for Pinewood, Awana Grand Prix, Space Derby and Raingutter Regatta, with their own vehicle names | — | — | — |
 | **Try before installing** | One shared demo | — | A private instance, a few hours | — | — |
 | **Public since** | Jan 2026 | Version 26 | Jul 2015 | Long-established | Long-established |
 
@@ -113,9 +115,14 @@ The rules are also written down. When a parent asks why their child came fourth,
 
 Trusty Track started as a Cub Scout Pinewood Derby program, and some of the
 others on this page did too — but here the words on screen are not fixed. A
-school, a club, or any group racing the same format can rename "Den" and
-"Pack" to their own, install-wide or per race; see
+school, a club, a Space Derby, or a Raingutter Regatta can rename "Den",
+"Pack" and "Car" to their own, in any words at all, install-wide or per
+race; see
 [the words on screen](reference/race-settings.md#the-words-on-screen).
+GrandPrix Race Manager already covers those same formats, with its own
+built-in vehicle names (car, truck, rocket, boat) — the difference here is
+that the words are free text rather than a fixed list, and the racing group
+and organization can be renamed alongside the vehicle.
 
 ## Sources
 
