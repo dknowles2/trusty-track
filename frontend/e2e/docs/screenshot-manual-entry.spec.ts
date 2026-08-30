@@ -71,16 +71,21 @@ test('screenshot the manual result-entry modal on a track with no timer', async 
     const modal = page.getByRole('dialog', { name: /Edit Results/ });
     await expect(modal).toBeVisible();
     await expect(modal.getByText('Place')).toBeVisible();
-    await expect(modal.getByText('Time (s)')).not.toBeVisible();
+    // #525: a Points race now shows a Time column too, so a stored or
+    // spurious time can be corrected from this same modal — it stays empty
+    // here since there is no timer on this track to have recorded one.
+    await expect(modal.getByText('Time (s) — optional')).toBeVisible();
 
     // The finishing order as somebody at the line would call it — filled in
     // lane order, which is not the field's car-number order, so the picture
     // shows the column doing its job rather than four lanes reading 1-2-3-4
-    // by coincidence.
-    const placeInputs = modal.getByRole('spinbutton');
-    const count = await placeInputs.count();
-    for (let i = 0; i < count; i++) {
-        await placeInputs.nth(i).fill(String(count - i));
+    // by coincidence. Only the Place spinbutton per row — #525 added a
+    // second, optional Time one beside it, and this picture is meant to show
+    // the no-timer case leaving Time exactly as blank as it is today.
+    const rows = modal.locator('tbody tr');
+    const rowCount = await rows.count();
+    for (let i = 0; i < rowCount; i++) {
+        await rows.nth(i).getByRole('spinbutton').first().fill(String(rowCount - i));
     }
 
     // 32: the modal itself, places entered and ready to save.

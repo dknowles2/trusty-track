@@ -230,4 +230,37 @@ describe('assignPlaces and shouldDerivePlaces together (#490)', () => {
     expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
     expect(saved.find((r) => r.lane === 1)?.place).toBe(2);
   });
+
+  /**
+   * #525: the Edit/Override modal now shows a Time column for a POINTS race
+   * too, so a stored or spurious time can be corrected without going through
+   * the Place column. This is the "both columns" case the issue's suggested
+   * fix names — `shouldDerivePlaces` must still say `false` for `POINTS`,
+   * or a hand-typed finishing order sent alongside a present time would be
+   * overwritten by `assignPlaces` deriving places from that time instead.
+   */
+  it('a hand-typed place under POINTS survives even when a time is present (#525)', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: 3.5, place: 2 }),
+      input({ lane: 2, racerId: 2, time: 3.6, place: 1 }),
+    ];
+    const saved = shouldDerivePlaces('POINTS') ? assignPlaces(results) : results;
+    // Unchanged: the hand-typed places, not what assignPlaces would derive
+    // from the times (which would rank lane 1 first, not lane 2).
+    expect(saved.find((r) => r.lane === 1)?.place).toBe(2);
+    expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
+    expect(saved.find((r) => r.lane === 1)?.time).toBe(3.5);
+  });
+
+  it('clearing a POINTS heat\'s time to correct a spurious record leaves the place alone (#525)', () => {
+    const results = [
+      input({ lane: 1, racerId: 1, time: null, place: 3 }),
+      input({ lane: 2, racerId: 2, time: 0.412, place: 1 }), // a spurious sensor misfire
+    ];
+    // The operator clears lane 2's stored time to correct it.
+    const corrected = results.map((r) => (r.lane === 2 ? { ...r, time: null } : r));
+    const saved = shouldDerivePlaces('POINTS') ? assignPlaces(corrected) : corrected;
+    expect(saved.find((r) => r.lane === 2)?.time).toBeNull();
+    expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
+  });
 });

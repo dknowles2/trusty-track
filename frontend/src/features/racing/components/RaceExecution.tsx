@@ -907,16 +907,26 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                 title={`Edit Results - Heat ${activeExecutionHeat.globalHeatNumber ?? activeExecutionHeat.heatNumber}`}
             >
                 <div className="form-group">
-                    {/* Which column this shows follows the race's scoring
+                    {/* Which column is *required* follows the race's scoring
                         strategy (#490) rather than being a fourth thing for
                         the operator to decide: `TIMED` averages times, so
                         that is what gets typed in and turned into places on
-                        save (see `shouldDerivePlaces` in `lanes.ts`); `POINTS`
-                        sums places, so the finishing order is what somebody
-                        at the line actually has to report by hand. */}
+                        save (see `shouldDerivePlaces` in `lanes.ts`) — no
+                        Place column, since nothing is ever typed into one.
+                        `POINTS` sums places, so the finishing order is what
+                        somebody at the line actually has to report by hand —
+                        that stays the primary column. But a `POINTS` race can
+                        still have a timer (#525): it records a time nothing
+                        else in the app can correct once this modal hides the
+                        column, and that time still feeds the track record
+                        board, the record-break banner and the Stats page
+                        regardless of how the race scores. So a `POINTS` heat
+                        shows Time too — optional, for fixing or clearing a
+                        stored or spurious one — while `shouldDerivePlaces`
+                        keeps it from ever overwriting the hand-typed places. */}
                     <p className="form-help">
                         {isPointsStrategy
-                            ? 'Manually enter finishing order for this heat.'
+                            ? 'Manually enter finishing order for this heat. If a time was recorded, you can correct or clear it below too — it will not change the finishing order.'
                             : 'Manually update times for this heat.'}
                     </p>
                     <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
@@ -924,7 +934,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                             <tr>
                                 <th style={{ textAlign: 'left', padding: '8px' }}>Lane</th>
                                 <th style={{ textAlign: 'left', padding: '8px' }}>Racer</th>
-                                <th style={{ textAlign: 'left', padding: '8px' }}>{isPointsStrategy ? 'Place' : 'Time (s)'}</th>
+                                {isPointsStrategy && <th style={{ textAlign: 'left', padding: '8px' }}>Place</th>}
+                                <th style={{ textAlign: 'left', padding: '8px' }}>
+                                    {isPointsStrategy ? 'Time (s) — optional' : 'Time (s)'}
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -932,8 +945,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 <tr key={r.lane} style={{ borderBottom: '1px solid var(--divider-color)' }}>
                                     <td style={{ padding: '8px' }}>{r.lane}</td>
                                     <td style={{ padding: '8px' }}>{getRacerName(r.racerId ?? (r.placeholderSlot ? -r.placeholderSlot : 0), slowestRoundIds?.has(activeExecutionHeat.roundId))}</td>
-                                    <td style={{ padding: '8px' }}>
-                                        {isPointsStrategy ? (
+                                    {isPointsStrategy && (
+                                        <td style={{ padding: '8px' }}>
                                             <input
                                                 type="number"
                                                 step="1"
@@ -943,17 +956,18 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                 className="form-control"
                                                 style={{ width: '100px' }}
                                             />
-                                        ) : (
-                                            <input
-                                                type="number"
-                                                step="0.0001"
-                                                min="0"
-                                                value={r.timeText}
-                                                onChange={(e) => handleResultChange(idx, 'time', e.target.value)}
-                                                className="form-control"
-                                                style={{ width: '100px' }}
-                                            />
-                                        )}
+                                        </td>
+                                    )}
+                                    <td style={{ padding: '8px' }}>
+                                        <input
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            value={r.timeText}
+                                            onChange={(e) => handleResultChange(idx, 'time', e.target.value)}
+                                            className="form-control"
+                                            style={{ width: '100px' }}
+                                        />
                                     </td>
                                 </tr>
                             ))}
