@@ -466,6 +466,7 @@ input RaceInput {
   globalStartNumber: Int! = 1
   championshipTrophies: Int! = 3
   weightLimitOz: Float = null
+  dropWorstRuns: Int! = 0
 }
 
 type RaceStateChangedEvent {

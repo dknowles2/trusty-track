@@ -89,7 +89,7 @@ describe('the tiebreaker control', () => {
         tracksQuery([{ id: 1, name: 'No-Timer Track', timerType: 'NONE' }]);
         form(submitSpy());
 
-        await userEvent.selectOptions(screen.getByLabelText('Scoring'), 'Points (1st=1pt, 2nd=2pts...)');
+        await userEvent.click(screen.getByLabelText(/^Points \(by finish\)/));
 
         const fastestRow = screen.getByLabelText(/^Fastest single heat/).closest('label')!;
         expect(fastestRow).toHaveTextContent(/won.t fire for this race/i);
@@ -116,7 +116,7 @@ describe('the tiebreaker control', () => {
         ]);
         form(submitSpy());
 
-        await userEvent.selectOptions(screen.getByLabelText('Scoring'), 'Points (1st=1pt, 2nd=2pts...)');
+        await userEvent.click(screen.getByLabelText(/^Points \(by finish\)/));
         await userEvent.selectOptions(screen.getByLabelText('Track / Timer'), 'Fake Timer Track');
 
         const fastestRow = screen.getByLabelText(/^Fastest single heat/).closest('label')!;

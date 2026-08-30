@@ -15,6 +15,7 @@ export const LeaderboardSubscription = gql`
       racerImageUrl
       rank
       resolvedBy
+      dropWorstRunsApplied
     }
   }
 `;

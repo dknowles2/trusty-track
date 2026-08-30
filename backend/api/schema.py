@@ -763,6 +763,12 @@ class RaceInput:
     championship_trophies: int = 3
     # The pack's weight limit in ounces, or null for no check (#205).
     weight_limit_oz: float | None = None
+    #: How many of each racer's worst counted results to drop before scoring
+    #: (#547 stage 2) — a modifier over `scoring_strategy`, not a strategy of
+    #: its own. `0` (the default) is the off state — the same value the
+    #: column defaults to, so a race created with no opinion on this behaves
+    #: exactly as one created before the column existed.
+    drop_worst_runs: int = 0
 
 
 @strawberry.input

@@ -9,6 +9,11 @@ the next heat by itself ten seconds after results are recorded.
 heats match cars that are doing about as well, so more children get a heat
 they can win. See [Round styles](round-styles.md#balanced).
 
+**Car** — the built-in word for what a racer's entry is called. A pack can
+rename it — "Rocket" for a Space Derby, "Boat" for a Raingutter Regatta — and
+pick which of three pictures goes with it; see
+[the words on screen](race-settings.md#the-words-on-screen).
+
 **Car number** — the number on the car, called out at the track and printed
 on everything. How numbers are handed out is a race setting; see
 [Race and track settings](race-settings.md#car-numbering).
@@ -94,9 +99,10 @@ car in it scratched. See
 qualifying rounds; each championship round has its own page. See
 [Scoring](scoring.md#what-the-overall-standings-cover).
 
-**Terminology** — the words the app uses for a racing group and for the
-organization itself, "Den" and "Pack" by default and renameable install-wide
-or per race. See [the words on screen](race-settings.md#the-words-on-screen).
+**Terminology** — the words the app uses for a racing group, for the
+organization itself, and for a racer's own entry — "Den", "Pack" and "Car"
+by default, renameable install-wide or per race. See
+[the words on screen](race-settings.md#the-words-on-screen).
 
 **Timed** — the default scoring choice: each car's score is its average
 time, fastest average wins. See [Scoring](scoring.md#timed).

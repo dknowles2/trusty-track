@@ -4,6 +4,7 @@ import { DEFAULT_LIMIT_OZ, formatOunces } from '../weightCheck';
 import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../../settings/terminologyDefaults';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { SHARED, TIEBREAKER_OPTIONS, tiebreakerWontFire } from '../../stats/tiebreakText';
+import { SCORING_STRATEGY_OPTIONS } from '../../stats/scoringStrategyText';
 
 export interface RaceFormData {
     name: string;
@@ -20,6 +21,12 @@ export interface RaceFormData {
      * settled (#540). `SHARED` is the default and is a no-op: it is what
      * every race already did before this setting existed. */
     tiebreaker: string;
+    /** How many of each racer's worst counted results to drop before
+     * scoring (#547 stage 2) — a modifier over `scoring_strategy`, not a
+     * fifth strategy. `0` is the off state, and there is no separate clear
+     * flag: sending `0` back is exactly how an operator turns it off, same
+     * shape `master_running_order`'s `false` already uses. */
+    drop_worst_runs: number;
     car_numbering_strategy: string;
     global_start_number: number;
     championship_trophies: number;
@@ -89,6 +96,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         track_id: 0,
         scoring_strategy: 'TIMED',
         tiebreaker: SHARED,
+        drop_worst_runs: 0,
         car_numbering_strategy: 'GLOBAL',
         global_start_number: 1,
         championship_trophies: 3,
@@ -205,19 +213,56 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                 />
             </div>
 
+            {/* Scoring (#547 stage 3): four strategies, each with its
+                one-line description always visible (#304), not only the one
+                currently picked — the same rule and the same fieldset shape
+                Ties (#540) uses just below. */}
+            <fieldset style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem' }}>
+                <legend style={{ fontSize: '0.9rem', padding: '0 0.4rem' }}>Scoring</legend>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {SCORING_STRATEGY_OPTIONS.map(option => (
+                        <label key={option.value} style={{ display: 'block', cursor: 'pointer' }}>
+                            <input
+                                type="radio"
+                                name="race-scoring"
+                                checked={formData.scoring_strategy === option.value}
+                                onChange={() => handleChange('scoring_strategy', option.value)}
+                            />{' '}
+                            {option.label}
+                            <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.15rem', marginLeft: '1.4rem' }}>
+                                {option.description}
+                            </small>
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                {/* Drop the worst run(s) (#547 stage 2/3) — a modifier over
+                    whichever strategy is chosen above, not a strategy of its
+                    own, so it sits beside Scoring rather than inside it. `0`
+                    is off. It only ever fires when every racer who has
+                    raced has the same number of runs, with at least one more
+                    than the number dropped — otherwise nothing is dropped,
+                    and the standings say so (`dropWorstNotice`). */}
                 <div>
-                    <label style={labelStyle} htmlFor="race-scoring">Scoring</label>
-                    <select
-                        id="race-scoring"
-                        value={formData.scoring_strategy}
-                        onChange={e => handleChange('scoring_strategy', e.target.value)}
+                    <label style={labelStyle} htmlFor="race-drop-worst-runs">Drop worst run(s)</label>
+                    <input
+                        id="race-drop-worst-runs"
+                        type="number"
+                        value={formData.drop_worst_runs}
+                        onChange={e =>
+                            handleChange('drop_worst_runs', Math.max(0, parseInt(e.target.value) || 0))
+                        }
+                        min="0"
                         className="form-control"
                         style={inputStyle}
-                    >
-                        <option value="TIMED">Timed (Fastest Avg Time)</option>
-                        <option value="POINTS">Points (1st=1pt, 2nd=2pts...)</option>
-                    </select>
+                    />
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                        {formData.drop_worst_runs > 0
+                            ? `Each racer's worst ${formData.drop_worst_runs} counted result${formData.drop_worst_runs === 1 ? '' : 's'} ${formData.drop_worst_runs === 1 ? 'is' : 'are'} dropped before scoring. Only applies once everyone who has raced has the same number of runs, with at least ${formData.drop_worst_runs + 1} each — otherwise nothing is dropped, and the standings say so.`
+                            : "Off. Set above 0 to drop each racer's worst runs before scoring — everyone who has raced needs the same number of runs to drop from, with one to spare."}
+                    </p>
                 </div>
                 <div>
                     <label style={labelStyle} htmlFor="race-trophies">Championship Trophies</label>

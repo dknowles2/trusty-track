@@ -11,6 +11,7 @@
  */
 
 import type { CsvRow } from '../../utils/csv';
+import { isTimeBasedStrategy } from '../racing/lanes';
 import { methodPhrase } from './tiebreakText';
 
 export interface StandingsEntry {
@@ -29,17 +30,32 @@ export interface StandingsEntry {
 /**
  * What the score column is called.
  *
- * The number means different things under the two strategies and a column
- * headed "Score" in a spreadsheet is unreadable a week later — 4.2 is seconds,
- * 4 is placement points, and nothing on the page says which once it is a file.
+ * The number means different things under the four strategies (#547 stage 1)
+ * and a column headed "Score" in a spreadsheet is unreadable a week later —
+ * 4.2 is seconds, 4 is placement points, and nothing on the page says which
+ * once it is a file. `CUMULATIVE_TIME` and `FASTEST_TIME` are both
+ * time-based (`isTimeBasedStrategy`) but mean different things to an
+ * operator — "total" and "best" are not "average" — so each gets its own
+ * word here even though all three format the same way below.
  */
 export function scoreHeading(scoringStrategy: string): string {
-    return scoringStrategy === 'TIMED' ? 'Average Time (s)' : 'Points';
+    switch (scoringStrategy) {
+        case 'CUMULATIVE_TIME':
+            return 'Total Time (s)';
+        case 'FASTEST_TIME':
+            return 'Best Time (s)';
+        case 'TIMED':
+            return 'Average Time (s)';
+        default:
+            return 'Points';
+    }
 }
 
-/** A time keeps its milliseconds; points are whole numbers and should look it. */
+/** A time keeps its milliseconds; points are whole numbers and should look
+ * it. `isTimeBasedStrategy` is the one predicate for which is which — see
+ * its own docstring on why it is not restated per site. */
 export function scoreValue(score: number, scoringStrategy: string): string {
-    return scoringStrategy === 'TIMED' ? score.toFixed(3) : String(score);
+    return isTimeBasedStrategy(scoringStrategy) ? score.toFixed(3) : String(score);
 }
 
 /**

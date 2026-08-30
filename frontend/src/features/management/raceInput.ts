@@ -18,6 +18,7 @@ export function buildCreateRaceInput(data: RaceFormData) {
         trackId: data.track_id,
         scoringStrategy: data.scoring_strategy,
         tiebreaker: data.tiebreaker,
+        dropWorstRuns: data.drop_worst_runs,
         carNumberingStrategy: data.car_numbering_strategy,
         globalStartNumber: data.global_start_number,
         championshipTrophies: data.championship_trophies,
