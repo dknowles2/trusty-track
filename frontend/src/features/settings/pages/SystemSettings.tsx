@@ -161,8 +161,7 @@ export default function SystemConfig() {
   // The three theme pickers (#498). The App theme is this device's own
   // `localStorage` — read once, lazily, never from the server, since it is
   // never part of `data.initialConfig` — and every picker defaults to Field
-  // Uniform / Match App, so an operator who does not care never sees a
-  // decision to make.
+  // Uniform, so an operator who does not care never sees a decision to make.
   const [appTheme, setAppTheme] = useState<ThemeKey>(() => readAppTheme());
   const [displayTheme, setDisplayTheme] = useState<SurfaceThemeSetting>('MATCH_APP');
   const [printablesTheme, setPrintablesTheme] = useState<SurfaceThemeSetting>('MATCH_APP');

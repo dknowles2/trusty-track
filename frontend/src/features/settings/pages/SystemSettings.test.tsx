@@ -174,7 +174,9 @@ describe('SystemSettings', () => {
                 organizationName: 'Test Pack',
                 debugMode: false,
                 // Every picker's own default (#498) — Field Uniform never
-                // needing to be picked, and Display/Printables "Match App".
+                // needing to be picked, and Display/Printables their own
+                // "Field Uniform (default)" option, still stored as
+                // 'MATCH_APP' (#528).
                 displayTheme: 'MATCH_APP',
                 printablesTheme: 'MATCH_APP',
                 // The terminology checkbox was never touched, so this is
@@ -718,7 +720,7 @@ describe('the Appearance section (#498)', () => {
         ],
     };
 
-    it('opens on Field Uniform / Match App by default, with a live preview', async () => {
+    it('opens on Field Uniform by default, with a live preview', async () => {
         (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
         (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
         render(
@@ -734,10 +736,43 @@ describe('the Appearance section (#498)', () => {
         expect(screen.getByTestId('app-theme-option-field-uniform')).toHaveAttribute('aria-pressed', 'true');
         expect(screen.getByTestId('display-theme-option-MATCH_APP')).toHaveAttribute('aria-pressed', 'true');
         expect(screen.getByTestId('printables-theme-option-MATCH_APP')).toHaveAttribute('aria-pressed', 'true');
-        // The App picker itself has no "Match App theme" option — there is
-        // nothing for the App surface to match.
+        // The option's own label — renamed from "Match App theme" (#528),
+        // which promised a relationship the Display/Printables surfaces
+        // cannot deliver.
+        expect(screen.getAllByText('Field Uniform (default)')).toHaveLength(2);
+        expect(screen.queryByText('Match App theme')).toBeNull();
+        // The App picker itself has no "Field Uniform (default)" option — it
+        // already lists Field Uniform among the seven ordinary swatches.
         expect(screen.queryByTestId('app-theme-option-MATCH_APP')).toBeNull();
         expect(screen.getByTestId('appearance-preview')).toBeInTheDocument();
+    });
+
+    it('previews what the wall and the printer will actually render, not the App picker\'s own theme (#528)', async () => {
+        // A device whose own App theme is Sawdust & Pine, with Display and
+        // Printables both left on the default ("Field Uniform (default)",
+        // stored as 'MATCH_APP'). Before #528 the preview resolved MATCH_APP
+        // against the App picker's current value, so this scenario showed
+        // Sawdust & Pine's Display/Printables palettes in Settings while the
+        // actual wall display and printed page rendered Field Uniform's —
+        // the exact preview-disagrees-with-reality bug the issue reports.
+        window.localStorage.setItem('trustytrack.appTheme', 'sawdust-and-pine');
+        (useQuery as any).mockReturnValue([{ data: { initialConfig: configured }, fetching: false, error: null }, vi.fn()]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('appearance');
+
+        expect(screen.getByTestId('appearance-preview-app')).toHaveAttribute('data-theme', 'sawdust-and-pine');
+        // Both resolve to Field Uniform — what the wall/printer actually
+        // show — not to the App panel's Sawdust & Pine.
+        expect(screen.getByTestId('appearance-preview-display')).toHaveAttribute('data-theme', 'field-uniform');
+        expect(screen.getByTestId('appearance-preview-printables')).toHaveAttribute('data-theme', 'field-uniform');
     });
 
     it('seeds the pickers from a saved install-wide theme', async () => {

@@ -37,11 +37,13 @@ export type ThemeKey =
 /**
  * What Display and Printables are actually set to.
  *
- * `'MATCH_APP'` does not copy the App theme's literal colors — it means "use
- * *this* theme's own Display (or Printables) definition, for whichever
- * `ThemeKey` the App surface currently holds." See `resolveSurfaceKey` in
- * `applyTheme.ts` for what "currently holds" resolves to outside the
- * settings page's own live preview.
+ * `'MATCH_APP'` is the stored sentinel behind the pickers' default option —
+ * labelled "Field Uniform (default)" in `ThemePicker.tsx`, not "Match App
+ * theme": the App theme is per-device `localStorage` and never reaches the
+ * server, so nothing outside one device could ever resolve it against "the
+ * App picker's current value" (#528). It always resolves to Field Uniform's
+ * own Display (or Printables) definition. See `resolveSurfaceKey` in
+ * `applyTheme.ts`.
  */
 export type SurfaceThemeSetting = 'MATCH_APP' | ThemeKey;
 

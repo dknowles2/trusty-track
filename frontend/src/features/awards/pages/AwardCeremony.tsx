@@ -66,8 +66,9 @@ export default function AwardCeremony() {
   const racingGroups = race?.racingGroups ?? [];
 
   // The Display surface's theme (#498) — same reasoning as Observation.tsx's
-  // own root: this is the audience-facing surface, and "Match App theme"
-  // resolves the same way on every screen in the room.
+  // own root: this is the audience-facing surface, and the default option
+  // (stored as 'MATCH_APP', shown as "Field Uniform (default)") resolves
+  // the same way on every screen in the room (#528).
   const displayThemeSetting: SurfaceThemeSetting =
     (result.data?.initialConfig?.displayTheme as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
   const { key: displayThemeKey, theme: displayTheme } = resolveDisplayTheme(displayThemeSetting);

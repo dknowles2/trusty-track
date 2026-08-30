@@ -302,8 +302,8 @@ CSS custom property redefinition at that surface's own scoping root
 (`applyTheme` in `frontend/src/theming/applyTheme.ts`), never a generated
 stylesheet — the seven records in `frontend/src/theming/themes.ts` are the
 one place their values live. See `docs/reference/themes.md` for the full
-rule set: what each theme is for, the "Match App theme" default, and which
-settings are per-device versus per-install.
+rule set: what each theme is for, the "Field Uniform (default)" option, and
+which settings are per-device versus per-install.
 
 -   **Typography:**
     -   Headers: `Roboto Condensed Bold`

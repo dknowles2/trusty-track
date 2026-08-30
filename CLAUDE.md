@@ -966,22 +966,28 @@ token name a surface *could* hold and either sets it or calls
 `--print-decor-color`) to a theme that does not would leave a stale inline
 override nothing clears.
 
-**"Match App theme" resolves against Field Uniform outside the settings
-page, never against a live App theme.** The App theme lives only in each
-device's own `localStorage` and never reaches the server, so nothing outside
-the settings page's own component state can know "the App picker's current
-value" for a device other than itself — a wall display resolving `MATCH_APP`
-has no App theme to defer to. `resolveSurfaceKey(setting, appThemeKey =
-DEFAULT_THEME_KEY)` states this as a default parameter: every real caller
-(`Observation.tsx`, `AwardCeremony.tsx`, the four Printables pages) calls it
-with no second argument, so `MATCH_APP` always resolves to Field Uniform —
+**`MATCH_APP` always resolves against Field Uniform, everywhere, never
+against a live App theme** (#528). The App theme lives only in each
+device's own `localStorage` and never reaches the server, so nothing — not a
+wall display, not a printed page, not even the settings page's own preview —
+can know "the App picker's current value" for a device other than itself;
+there is no App picker for either surface to defer to. `resolveSurfaceKey(setting)`
+takes no App theme argument at all, and every caller (`Observation.tsx`,
+`AwardCeremony.tsx`, the four Printables pages, and `AppearancePreview.tsx`)
+resolves it the same way, so `MATCH_APP` always resolves to Field Uniform —
 which is also why Field Uniform's Display definition is exactly today's
 shipped `.projector-mode` palette: an install that has never opened Settings
-renders identically to before this feature existed. The settings page's own
-live preview is the one caller that passes a real `appThemeKey` — the App
-picker's current (unsaved) selection — so previewing "Match App theme" for
-Display/Printables shows *that* theme's own Display/Printables definition,
-not always Field Uniform's.
+renders identically to before this feature existed. The Display/Printables
+pickers show this option as **"Field Uniform (default)"**, not "Match App
+theme" — the old name promised a relationship the architecture cannot
+deliver (the App theme is per-device, Display and Printables are
+per-install), and it briefly meant something different in the settings
+preview alone: before #528, `AppearancePreview.tsx` was the one caller
+passing a real `appThemeKey`, so previewing the default showed whichever
+theme the App picker's own (unsaved) selection happened to be, not what the
+wall or the printer would actually render. The preview now resolves
+Display/Printables exactly as they resolve everywhere else — showing the
+operator a look they would not get was worse than showing them the truth.
 
 **Per-device App theme, per-install Display and Printables.** `Organization.
 display_theme` / `Organization.printables_theme` are `varchar` columns, server

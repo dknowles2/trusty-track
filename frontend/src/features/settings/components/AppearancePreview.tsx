@@ -12,6 +12,13 @@
  * three panels are wrapped in the *candidate* theme's own `data-theme` and
  * tokens, purely as inline styles on this component's own subtree, and
  * update on every selection change.
+ *
+ * The Display and Printables panels resolve their setting exactly as the
+ * wall display and a printed page do — `resolveDisplayTheme` /
+ * `resolvePrintablesTheme` take no App theme, so the default option (Field
+ * Uniform) previews Field Uniform there even while the App panel beside it
+ * shows a different theme (#528). Showing anything else would be a preview
+ * that disagrees with what the gym actually sees.
  */
 
 import { resolveDisplayTheme, resolvePrintablesTheme } from '../../../theming/applyTheme';
@@ -47,14 +54,8 @@ export default function AppearancePreview({
   printablesSetting,
 }: Props) {
   const appTheme = themeByKey(appThemeKey).app;
-  const { key: displayKey, theme: displayTheme } = resolveDisplayTheme(
-    displaySetting,
-    appThemeKey,
-  );
-  const { key: printablesKey, theme: printablesTheme } = resolvePrintablesTheme(
-    printablesSetting,
-    appThemeKey,
-  );
+  const { key: displayKey, theme: displayTheme } = resolveDisplayTheme(displaySetting);
+  const { key: printablesKey, theme: printablesTheme } = resolvePrintablesTheme(printablesSetting);
 
   return (
     <div
