@@ -18,11 +18,10 @@ because nothing else in the tree looks at `www/` or the release workflow.
 """
 
 import re
-
-import yaml
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
