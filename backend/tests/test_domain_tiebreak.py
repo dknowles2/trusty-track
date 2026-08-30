@@ -158,7 +158,7 @@ def test_total_time_penalises_a_dnf_rather_than_rewarding_it():
     result = tiebreak([1, 2], heats, TOTAL_TIME)
     assert result.groups == ((1,), (2,))
     # Pin the actual arithmetic, not just the ordering.
-    assert 10.0 < 5.0 + DNF_PENALTY_SECONDS
+    assert 5.0 + DNF_PENALTY_SECONDS > 10.0
 
 
 def test_total_time_no_recorded_times_is_inconclusive():
