@@ -28,6 +28,7 @@ import {
     type ResultsAward,
     type ResultsEntry,
 } from '../resultsSheet';
+import { excludedCount, excludedNotice } from '../../stats/excludedFromStandings';
 import { scoreHeading } from '../../stats/standingsExport';
 import { printablesThemeRootProps } from '../printablesTheme';
 import { useTerminology } from '../../../context/TerminologyContext';
@@ -36,7 +37,7 @@ import '../PrintSheet.css';
 export default function ResultsSheet() {
     const { raceId } = useParams<{ raceId: string }>();
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
-    const { group, groupLower, vehicle, vehicleArtworkKey } = useTerminology();
+    const { group, groupLower, vehicle, vehicleArtworkKey, vehicleLower, vehiclesLower } = useTerminology();
 
     const [{ data, fetching, error }] = useQuery({
         query: GET_RESULTS_SHEET,
@@ -54,6 +55,14 @@ export default function ResultsSheet() {
     const awards = useMemo(
         () => awardLines((race?.awards ?? []) as ResultsAward[]),
         [race?.awards],
+    );
+    // "Racing, not ranked" (#548) — the sheet's half of the same rule the
+    // Standings page follows: a flagged car needs to look flagged, even on
+    // paper, rather than simply being a shorter list than the roster.
+    const excludedRacersNotice = excludedNotice(
+        excludedCount((race?.racers ?? []) as { excludedFromStandings: boolean }[]),
+        vehicleLower,
+        vehiclesLower,
     );
 
     if (fetching && !data) return <p style={{ padding: '2rem' }}>Loading…</p>;
@@ -117,6 +126,12 @@ export default function ResultsSheet() {
                         </p>
                         </div>
                     </header>
+
+                    {excludedRacersNotice && (
+                        <p className="results-note" data-testid="results-sheet-excluded-notice">
+                            {excludedRacersNotice}
+                        </p>
+                    )}
 
                     {awards.length > 0 && (
                         <section className="heat-sheet-round">

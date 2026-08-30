@@ -311,6 +311,7 @@ export type Mutation = {
   bulkClearNumbers: Scalars['Boolean']['output'];
   bulkDeleteRacers: Scalars['Boolean']['output'];
   bulkMoveToRacingGroup: Scalars['Boolean']['output'];
+  bulkSetExcludedFromStandings: Scalars['Boolean']['output'];
   castVote?: Maybe<Scalars['String']['output']>;
   checkInRacer?: Maybe<Racer>;
   createAward: Award;
@@ -421,6 +422,12 @@ export type MutationBulkDeleteRacersArgs = {
 export type MutationBulkMoveToRacingGroupArgs = {
   racerIds: Array<Scalars['Int']['input']>;
   racingGroupId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type MutationBulkSetExcludedFromStandingsArgs = {
+  excluded?: Scalars['Boolean']['input'];
+  racerIds: Array<Scalars['Int']['input']>;
 };
 
 
@@ -837,6 +844,7 @@ export type Race = {
   checkedInCount: Scalars['Int']['output'];
   dateTime?: Maybe<Scalars['String']['output']>;
   dropWorstRuns: Scalars['Int']['output'];
+  excludeRoundWinnersFromQualifyingStandings: Scalars['Boolean']['output'];
   globalStartNumber: Scalars['Int']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
@@ -927,6 +935,7 @@ export type RaceUpdateInput = {
   clearWeightLimit?: Scalars['Boolean']['input'];
   dateTime?: InputMaybe<Scalars['String']['input']>;
   dropWorstRuns?: InputMaybe<Scalars['Int']['input']>;
+  excludeRoundWinnersFromQualifyingStandings?: InputMaybe<Scalars['Boolean']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
   masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;
@@ -951,6 +960,7 @@ export type Racer = {
   carNumber?: Maybe<Scalars['Int']['output']>;
   carPassedInspection: Scalars['Boolean']['output'];
   carWeight?: Maybe<Scalars['Float']['output']>;
+  excludedFromStandings: Scalars['Boolean']['output'];
   firstName: Scalars['String']['output'];
   id: Scalars['Int']['output'];
   lastName: Scalars['String']['output'];
@@ -966,6 +976,7 @@ export type RacerInput = {
   carNumber?: InputMaybe<Scalars['Int']['input']>;
   carPassedInspection?: Scalars['Boolean']['input'];
   carWeight?: InputMaybe<Scalars['Float']['input']>;
+  excludedFromStandings?: Scalars['Boolean']['input'];
   firstName: Scalars['String']['input'];
   lastName: Scalars['String']['input'];
   raceId?: InputMaybe<Scalars['Int']['input']>;

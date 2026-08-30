@@ -188,7 +188,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 
 -   Race: `createRace`, `updateRace` (absent means leave alone throughout, so a per-race terminology override — racing group, organization, and, since #551, vehicle — takes `clearTerminology` to get back to inheriting — the same shape as `clearWeightLimit`, #496 stage 3), `deleteRace`
 -   Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
--   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToRacingGroup`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`
+-   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToRacingGroup`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`, `bulkSetExcludedFromStandings`
 -   RacingGroup: `createRacingGroup`, `updateRacingGroup`, `deleteRacingGroup`
 -   Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards` (all take/return `Award`, whose `recipient` is resolved from the standings rather than stored; `artworkKey` is accepted but overwritten server-side for a `SPEED` award — see `crud._set_speed_artwork_key` — since only `SPECIAL` offers a picker for it, #306)
 -   Voting (#305): `castVote(awardId, racerId, ballotKey)` — returns null on success or a sentence saying why the vote was refused, the same shape as `releaseStartGate`. The **one mutation `VIEWER` may run** (`api.auth.VOTE_MUTATIONS`): a phone with no PIN can cast a ballot only while the award's `votable` and the race's `votingOpen` are both true — `crud.cast_vote` checks both, and the role policy only says the attempt is allowed. Toggling `votingOpen` is an ordinary field on `updateRace`, not a separate mutation; applying a tally's winner is an ordinary `updateAward` setting `racerId`.

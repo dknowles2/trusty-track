@@ -58,6 +58,7 @@ describe('RaceDetails Bulk Actions', () => {
     const mockBulkDelete = vi.fn().mockResolvedValue({ data: { bulkDeleteRacers: true } });
     const mockBulkMoveToRacingGroup = vi.fn().mockResolvedValue({ data: { bulkMoveToRacingGroup: true } });
     const mockBulkCheckIn = vi.fn().mockResolvedValue({ data: { bulkCheckIn: true } });
+    const mockBulkSetExcludedFromStandings = vi.fn().mockResolvedValue({ data: { bulkSetExcludedFromStandings: true } });
     const mockBulkClearNumbers = vi.fn().mockResolvedValue({ data: { bulkClearNumbers: true } });
 
     const setupMocks = () => {
@@ -91,6 +92,7 @@ describe('RaceDetails Bulk Actions', () => {
             if (query === GQL.BULK_DELETE_RACERS) return [{ fetching: false }, mockBulkDelete];
             if (query === GQL.BULK_MOVE_TO_RACING_GROUP) return [{ fetching: false }, mockBulkMoveToRacingGroup];
             if (query === GQL.BULK_CHECK_IN) return [{ fetching: false }, mockBulkCheckIn];
+            if (query === GQL.BULK_SET_EXCLUDED_FROM_STANDINGS) return [{ fetching: false }, mockBulkSetExcludedFromStandings];
             if (query === GQL.BULK_CLEAR_NUMBERS) return [{ fetching: false }, mockBulkClearNumbers];
             return [{ fetching: false }, vi.fn()];
         });
@@ -252,6 +254,38 @@ describe('RaceDetails Bulk Actions', () => {
 
         // #420: check-in is additive too — the selection (and the bar it
         // shows) survives so the desk can move straight to the next action.
+        expect(screen.getByTestId('roster-selection-bar')).toBeInTheDocument();
+        expect(screen.getByText('2 selected')).toBeInTheDocument();
+    });
+
+    it('triggers the bulk "racing, not ranked" action after confirmation (#548)', async () => {
+        setupMocks();
+        mockShowConfirm.mockResolvedValue(true);
+
+        const user = (await import('@testing-library/user-event')).default.setup();
+
+        render(
+            <MemoryRouter initialEntries={['/races/1']}>
+                <Routes><Route path="/races/:raceId" element={<RaceDetails />} /></Routes>
+            </MemoryRouter>
+        );
+
+        await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+
+        const selectAllCheckbox = screen.getByTestId('select-all-header');
+        await user.click(selectAllCheckbox);
+
+        const excludeBtn = await screen.findByTestId('bulk-excluded-from-standings-btn');
+        await user.click(excludeBtn);
+
+        expect(mockShowConfirm).toHaveBeenCalled();
+        expect(mockBulkSetExcludedFromStandings).toHaveBeenCalledWith({
+            racerIds: [1, 2],
+            excluded: true
+        });
+
+        // The same additive shape as check-in (#420) — nothing about this
+        // action removes data, so the selection stands.
         expect(screen.getByTestId('roster-selection-bar')).toBeInTheDocument();
         expect(screen.getByText('2 selected')).toBeInTheDocument();
     });

@@ -442,6 +442,18 @@ class Race(Base):
     drop_worst_runs: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=sa_text("0")
     )
+    #: A decided championship round's winner(s) stop counting toward the
+    #: standings of the round they qualified from (#548) — the Grand Finals
+    #: pack champion no longer also holding their own den's trophy. Off by
+    #: default, so an upgraded install reads exactly as it did before this
+    #: column existed. Read only in `services/scoring.get_leaderboard`,
+    #: which recomputes the exclusion on every call rather than storing who
+    #: is affected — the same reasoning as everything else in that module
+    #: (#17): a corrected final-round time has to move who is excluded, not
+    #: leave a stale answer behind.
+    exclude_round_winners_from_qualifying_standings: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     organization: Mapped["Organization"] = relationship(
         "Organization", back_populates="races"
@@ -476,6 +488,19 @@ class Racer(Base):
     car_image_url: Mapped[str | None] = mapped_column(String, nullable=True)
     racing_group_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("racing_groups.id"), nullable=True
+    )
+    #: A car that races and is not ranked (#548) — a sibling or parent's car,
+    #: a demonstration entry, an outlaw-class car sharing the track between
+    #: dens. Check-in is unchanged and still decides who is *in* a heat;
+    #: this is read in exactly one place, `services/scoring.get_leaderboard`,
+    #: which drops a flagged racer before ranking so advancement, awards and
+    #: the CSV/results-sheet exports all inherit the exclusion for free
+    #: rather than growing their own copy of the rule (#48). Deliberately
+    #: **not** read by `services/records.py` — the fastest car a track has
+    #: ever seen is a fact about the track, not about who was eligible for a
+    #: trophy, and an exhibition car's time still belongs on that board.
+    excluded_from_standings: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
     )
 
     race: Mapped["Race"] = relationship("Race", back_populates="racers")

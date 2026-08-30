@@ -144,6 +144,63 @@ class LeaderboardEntry(_LeaderboardRow, total=False):
     rank: int
 
 
+def _grand_final_exclusions(
+    db: Session,
+    race: models.Race,
+    race_id: int,
+    round_id: int | None,
+    scope: str,
+) -> set[int]:
+    """Racer ids to drop because a decided championship round already gave
+    them something, and ``Race.exclude_round_winners_from_qualifying_standings``
+    says the round they qualified from should not also credit them (#548) —
+    a Grand Finals pack champion who should not also hold their own den's
+    trophy.
+
+    Applies only to the exact standings a championship round's field was
+    actually drawn from: ``round_id`` for a ``"ROUND:<id>"`` source, or the
+    aggregate prelim scope (``round_id=None``, ``scope=PRELIM``) for
+    ``"ALL"`` and ``"EACH_GROUP"`` — the same scope :func:`_standings_for`
+    reads when it picks a championship round's field. A round that has not
+    yet decided a winner excludes nobody; a correction that un-decides one
+    un-excludes them on the very next read, the same #17 rule as everything
+    else here. Elimination rounds are skipped — their "winner" is whoever
+    survives, not a rank-1 leaderboard row, and #548 does not ask for that
+    format to be covered.
+    """
+    if not race.exclude_round_winners_from_qualifying_standings:
+        return set()
+    if scope != domain_scoring.PRELIM:
+        return set()
+
+    excluded: set[int] = set()
+    championship_rounds = (
+        db.query(models.Round)
+        .filter(
+            models.Round.race_id == race_id,
+            models.Round.advancement_source.isnot(None),
+            models.Round.scheduling_strategy != models.SchedulingStrategy.ELIMINATION,
+        )
+        .all()
+    )
+    for champ_round in championship_rounds:
+        # `round_id_in` already answers `None` for `"ALL"` and
+        # `"EACH_GROUP"` — the aggregate prelim scope this function is
+        # itself called with when `round_id` is `None`.
+        source_round_id = domain_advancement.round_id_in(
+            champ_round.advancement_source or ""
+        )
+        if source_round_id != round_id:
+            continue
+        if not crud.is_round_complete(db, champ_round.id):
+            continue
+        champ_leaderboard = get_leaderboard(db, race_id, round_id=champ_round.id)
+        excluded.update(
+            entry["racer_id"] for entry in champ_leaderboard if entry.get("rank") == 1
+        )
+    return excluded
+
+
 def get_leaderboard(
     db: Session,
     race_id: int,
@@ -174,6 +231,30 @@ def get_leaderboard(
 
     heats = _scoring_heats(db, race_id, round_id, scope)
     parsed = crud.lanes_for_heats(db, heats)
+
+    racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
+    grand_final_excluded = _grand_final_exclusions(db, race, race_id, round_id, scope)
+    excluded_ids = {
+        racer_id for racer_id, r in racer_map.items() if r.excluded_from_standings
+    } | grand_final_excluded
+
+    # A car that races and is not ranked (#548) — check-in, heat generation
+    # and the live views never read this flag; only this one place does. Its
+    # lanes are stripped *before* scoring, not merely dropped from the rows
+    # below, so `drop_worst_status`'s "did every ranked racer have the same
+    # number of counted results" reasons about the ranked population only —
+    # an exhibition car with an irregular heat count must not silently turn
+    # the modifier off for everybody else. The trade a caller accepts for
+    # that: under POINTS, a DNF or skipped lane in the same heat as an
+    # excluded racer is now scored last among the *ranked* cars still in it
+    # rather than the true physical field size — a minor, deliberate cost,
+    # not an oversight.
+    if excluded_ids:
+        parsed = [
+            [lane for lane in heat_lanes if lane.racer_id not in excluded_ids]
+            for heat_lanes in parsed
+        ]
+
     drop_worst_runs_applied = domain_scoring.drop_worst_status(
         parsed, race.scoring_strategy, race.drop_worst_runs
     )
@@ -182,7 +263,6 @@ def get_leaderboard(
     )
     racer_scores = {racer_id: score.as_dict() for racer_id, score in scores.items()}
 
-    racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
     racing_group_map = {
         d.id: d
         for d in db.query(models.RacingGroup)
@@ -193,6 +273,8 @@ def get_leaderboard(
     leaderboard: list[LeaderboardEntry] = []
     for racer_id, score_data in racer_scores.items():
         # Skips placeholders and anyone deleted since the heat was scheduled.
+        # An excluded racer never reaches this loop at all — their lanes were
+        # stripped above, so `score_heats` never produced an entry for them.
         racer = racer_map.get(racer_id)
         if not racer:
             continue
@@ -334,6 +416,12 @@ def _elimination_leaderboard(
     withdrawn car that never lost a heat — every lane it held was skipped,
     never raced — would otherwise sit at zero losses and tie the actual
     winner for first, though it never crossed the line.
+
+    Also filtered to who is not `excluded_from_standings` (#548) — survival
+    order is still a ranking. Elimination has no "round they qualified
+    from" in the sense `Race.exclude_round_winners_from_qualifying_standings`
+    means, so only the racer-level flag applies here, not the Grand Finals
+    one.
     """
     from backend.domain import elimination as domain_elimination
 
@@ -341,10 +429,15 @@ def _elimination_leaderboard(
     parsed = crud.lanes_for_heats(db, heats)
     threshold = round_obj.elimination_losses or 1
     eligible = set(crud.eligible_racer_ids(db, race_id, round_obj.racing_group_id))
+
+    racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
+    excluded_ids = {
+        racer_id for racer_id, r in racer_map.items() if r.excluded_from_standings
+    }
     entries = [
         entry
         for entry in domain_elimination.standings(parsed, threshold)
-        if entry.racer_id in eligible
+        if entry.racer_id in eligible and entry.racer_id not in excluded_ids
     ]
 
     completed: dict[int, int] = {}
@@ -356,7 +449,6 @@ def _elimination_leaderboard(
             ):
                 completed[racer_id] = completed.get(racer_id, 0) + 1
 
-    racer_map = {r.id: r for r in crud.get_racers(db, race_id=race_id)}
     racing_group_map = {
         d.id: d
         for d in db.query(models.RacingGroup)
@@ -527,6 +619,10 @@ def get_advancing_racers(
     the same standings are read from the other end — a Slowest Race bracket —
     and racers with no recorded result are excluded, slowest first in the
     returned order.
+
+    A racer with ``excluded_from_standings`` set never appears here (#548):
+    ``_standings_for`` reads ``get_leaderboard``, which already dropped them,
+    so this falls out for free rather than needing its own copy of the rule.
     """
     return pick_advancing_racers(
         db, race_id, source, num_top, from_bottom=from_bottom

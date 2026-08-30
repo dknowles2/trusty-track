@@ -24,6 +24,10 @@ export const GET_RACE_DETAILS = gql`
       vehicleSingular
       vehiclePlural
       vehicleArtworkKey
+      # Once a championship round is decided, its winner stops counting
+      # toward the standings they qualified from (#548) — the race form's
+      # checkbox for it.
+      excludeRoundWinnersFromQualifyingStandings
       registeredCount
       checkedInCount
       racingGroups {
@@ -45,6 +49,7 @@ export const GET_RACE_DETAILS = gql`
         carWeight
         racerImageUrl
         carImageUrl
+        excludedFromStandings
       }
       leaderboard {
         racerId
@@ -112,6 +117,7 @@ export const UPDATE_RACE = gql`
       vehicleSingular
       vehiclePlural
       vehicleArtworkKey
+      excludeRoundWinnersFromQualifyingStandings
       # The raw override columns above are what the form edits;
       # terminology is the resolved value RaceTerminologyGate reads
       # (#496 stage 4, issue #531). Without it, graphcache writes the raw
@@ -214,6 +220,12 @@ export const BULK_CLEAR_NUMBERS = gql`
 export const BULK_CHECK_IN = gql`
   mutation BulkCheckIn($racerIds: [Int!]!, $passedInspection: Boolean!) {
     bulkCheckIn(racerIds: $racerIds, passedInspection: $passedInspection)
+  }
+`;
+
+export const BULK_SET_EXCLUDED_FROM_STANDINGS = gql`
+  mutation BulkSetExcludedFromStandings($racerIds: [Int!]!, $excluded: Boolean!) {
+    bulkSetExcludedFromStandings(racerIds: $racerIds, excluded: $excluded)
   }
 `;
 

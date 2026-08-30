@@ -195,9 +195,11 @@ test('take screenshots', async ({ page }) => {
     await page.getByRole('button', { name: 'Check In' }).first().click();
     await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeVisible();
 
-    // The inspection toggle, inside the modal — which is appended last to the
-    // body through a portal.
-    await page.locator('label.toggle-switch').last().click();
+    // The inspection toggle, inside the modal — found by its input's id
+    // rather than by position now that the form holds a second toggle-switch
+    // for "Racing, not ranked" (#548); `.last()` stopped being unambiguous
+    // the moment that one landed right after this one in the DOM.
+    await page.locator('label.toggle-switch:has(#car-passed-inspection)').click();
 
     // 02: the modal with the inspection toggle on.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-day/02-check-in-modal-inspected.png') });
@@ -225,7 +227,7 @@ test('take screenshots', async ({ page }) => {
     // being a second copy of 04 (#144).
     await page.getByRole('button', { name: 'Check In' }).first().click();
     await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeVisible();
-    await page.locator('label.toggle-switch').last().click();
+    await page.locator('label.toggle-switch:has(#car-passed-inspection)').click();
     await page.getByRole('button', { name: 'Save Check-in' }).click();
     await expect(page.getByRole('heading', { name: 'Racer Check In' })).toBeHidden();
     await expect(checkedInRows).toHaveCount(2);
