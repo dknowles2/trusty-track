@@ -136,6 +136,7 @@ class InitialConfigCreate(BaseModel):
     organization_plural: str | None = None
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    vehicle_artwork_key: str | None = None
     clear_terminology: bool = False
 
 
@@ -235,6 +236,9 @@ class RaceUpdate(BaseModel):
     #: four fields above.
     vehicle_singular: str | None = None
     vehicle_plural: str | None = None
+    #: A per-race override of the vehicle artwork (#551, stage 4), same
+    #: shape as the six fields above.
+    vehicle_artwork_key: str | None = None
 
 
 class OrganizationBase(BaseModel):

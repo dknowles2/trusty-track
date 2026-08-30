@@ -20,6 +20,7 @@ export const GET_RACE_DETAILS = gql`
       organizationPlural
       vehicleSingular
       vehiclePlural
+      vehicleArtworkKey
       registeredCount
       checkedInCount
       racingGroups {
@@ -106,6 +107,7 @@ export const UPDATE_RACE = gql`
       organizationPlural
       vehicleSingular
       vehiclePlural
+      vehicleArtworkKey
       # The raw override columns above are what the form edits;
       # terminology is the resolved value RaceTerminologyGate reads
       # (#496 stage 4, issue #531). Without it, graphcache writes the raw
@@ -119,6 +121,7 @@ export const UPDATE_RACE = gql`
         organizationPlural
         vehicleSingular
         vehiclePlural
+        vehicleArtworkKey
       }
     }
   }

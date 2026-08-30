@@ -14,7 +14,7 @@ import { errorText } from '../../../utils/errors';
 import { applyStoredAppTheme, readAppTheme, writeAppTheme } from '../../../theming/appTheme';
 import type { SurfaceThemeSetting, ThemeKey } from '../../../theming/themes';
 import type { HistoricalRecord } from '../components/TrackRecords';
-import { DEFAULT_TERMINOLOGY } from '../terminologyDefaults';
+import { DEFAULT_TERMINOLOGY, VEHICLE_ARTWORK_OPTIONS } from '../terminologyDefaults';
 
 const GET_INITIAL_CONFIG = `
   query GetInitialConfig {
@@ -34,6 +34,7 @@ const GET_INITIAL_CONFIG = `
       organizationPlural
       vehicleSingular
       vehiclePlural
+      vehicleArtworkKey
       tracks {
         id
         name
@@ -84,6 +85,7 @@ const CREATE_INITIAL_CONFIG = `
       organizationPlural
       vehicleSingular
       vehiclePlural
+      vehicleArtworkKey
       tracks {
         id
         name
@@ -108,6 +110,7 @@ const UPDATE_INITIAL_CONFIG = `
       organizationPlural
       vehicleSingular
       vehiclePlural
+      vehicleArtworkKey
     }
   }
 `;
@@ -173,12 +176,12 @@ export default function SystemConfig() {
   const [printablesTheme, setPrintablesTheme] = useState<SurfaceThemeSetting>('MATCH_APP');
 
   // The install-wide terminology default (#496 stage 3; #551 adds the
-  // vehicle term) — what every screen and printout calls a racing group,
-  // the organization itself, and a racer's vehicle: "Den", "Pack" and "Car"
+  // vehicle term, and stage 4 of that issue adds which picture goes with
+  // it) — what every screen and printout calls a racing group, the
+  // organization itself, and a racer's vehicle: "Den", "Pack" and "Car"
   // until an operator renames them here. `customTerminology` is whether the
-  // six inputs are shown at all: off means every field is null, which is
-  // what `clearTerminology` sends back on save. There is no consumer of the
-  // resolved vehicle words yet — this is only where they are set.
+  // seven inputs are shown at all: off means every field is null, which is
+  // what `clearTerminology` sends back on save.
   const [customTerminology, setCustomTerminology] = useState(false);
   const [racingGroupSingular, setRacingGroupSingular] = useState<string>(DEFAULT_TERMINOLOGY.racingGroupSingular);
   const [racingGroupPlural, setRacingGroupPlural] = useState<string>(DEFAULT_TERMINOLOGY.racingGroupPlural);
@@ -186,6 +189,7 @@ export default function SystemConfig() {
   const [organizationPlural, setOrganizationPlural] = useState<string>(DEFAULT_TERMINOLOGY.organizationPlural);
   const [vehicleSingular, setVehicleSingular] = useState<string>(DEFAULT_TERMINOLOGY.vehicleSingular);
   const [vehiclePlural, setVehiclePlural] = useState<string>(DEFAULT_TERMINOLOGY.vehiclePlural);
+  const [vehicleArtworkKey, setVehicleArtworkKey] = useState<string>(DEFAULT_TERMINOLOGY.vehicleArtworkKey);
 
   const [tracks, setTracks] = useState<TrackFields[]>([blankTrack('Main Track')]);
   const [error, setError] = useState('');
@@ -232,11 +236,12 @@ export default function SystemConfig() {
         organizationPlural: savedOrganizationPlural,
         vehicleSingular: savedVehicleSingular,
         vehiclePlural: savedVehiclePlural,
+        vehicleArtworkKey: savedVehicleArtworkKey,
       } = data.initialConfig;
       const hasCustomTerminology = !!(
         savedRacingGroupSingular || savedRacingGroupPlural ||
         savedOrganizationSingular || savedOrganizationPlural ||
-        savedVehicleSingular || savedVehiclePlural
+        savedVehicleSingular || savedVehiclePlural || savedVehicleArtworkKey
       );
       setCustomTerminology(hasCustomTerminology);
       setRacingGroupSingular(savedRacingGroupSingular || DEFAULT_TERMINOLOGY.racingGroupSingular);
@@ -245,6 +250,7 @@ export default function SystemConfig() {
       setOrganizationPlural(savedOrganizationPlural || DEFAULT_TERMINOLOGY.organizationPlural);
       setVehicleSingular(savedVehicleSingular || DEFAULT_TERMINOLOGY.vehicleSingular);
       setVehiclePlural(savedVehiclePlural || DEFAULT_TERMINOLOGY.vehiclePlural);
+      setVehicleArtworkKey(savedVehicleArtworkKey || DEFAULT_TERMINOLOGY.vehicleArtworkKey);
       if (initialized) {
         setIsEditing(true);
         setOrganizationName(savedOrganizationName || '');
@@ -351,6 +357,7 @@ export default function SystemConfig() {
                 organizationPlural,
                 vehicleSingular,
                 vehiclePlural,
+                vehicleArtworkKey,
               }
             : { clearTerminology: true }),
           tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled }) => ({
@@ -556,6 +563,19 @@ export default function SystemConfig() {
                             required
                             style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
                           />
+                        </div>
+                        <div>
+                          <label htmlFor="vehicle_artwork_key" style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9rem' }}>Vehicle picture</label>
+                          <select
+                            id="vehicle_artwork_key"
+                            value={vehicleArtworkKey}
+                            onChange={(e) => setVehicleArtworkKey(e.target.value)}
+                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid var(--input-border-color)' }}
+                          >
+                            {VEHICLE_ARTWORK_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     )}

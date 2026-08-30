@@ -17,15 +17,17 @@ import { Icon } from '@mdi/react';
 import { mdiArrowLeft, mdiPrinter } from '@mdi/js';
 
 import { buildHeatSheet, totalHeats, type SheetHeat, type SheetRacer } from '../heatSheet';
-import { DerbyCar } from '../components/PrintDecor';
+import { VehicleGlyph } from '../components/PrintDecor';
 import { formatEventDate } from '../documents';
 import { GET_HEAT_SHEET } from '../graphql/queries';
 import { printablesThemeRootProps } from '../printablesTheme';
+import { useTerminology } from '../../../context/TerminologyContext';
 import '../PrintSheet.css';
 
 export default function HeatSheet() {
     const { raceId } = useParams<{ raceId: string }>();
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
+    const { vehicleArtworkKey } = useTerminology();
 
     const [{ data, fetching, error }] = useQuery({
         query: GET_HEAT_SHEET,
@@ -106,7 +108,7 @@ export default function HeatSheet() {
                         {/* The same car that rides the pit passes, so a sheet
                             on the announcer's table and a pass round a scout's
                             neck read as one event. */}
-                        <DerbyCar size={54} className="heat-sheet-mark" color="var(--print-surface-color)" />
+                        <VehicleGlyph artworkKey={vehicleArtworkKey} size={54} className="heat-sheet-mark" color="var(--print-surface-color)" />
                         <div>
                         <h1>{race.name}</h1>
                         <p>
