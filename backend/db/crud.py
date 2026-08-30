@@ -1842,7 +1842,7 @@ def validate_lane_replacement(
     db: Session, heat: models.Heat, heat_lanes: Sequence[lanes.Lane]
 ) -> str | None:
     """The first problem with replacing ``heat``'s lanes with ``heat_lanes``,
-    or ``None`` if there isn't one (#307).
+    or ``None`` if there isn't one (#307, extended by #524).
 
     ``updateHeatResult`` and ``recordFreeRaceResult`` replace a heat's whole
     lane set with whatever a client sends, and until now nothing checked it
@@ -1851,6 +1851,13 @@ def validate_lane_replacement(
     a raw ``sqlite3.IntegrityError``. This is the guard the armed-heat write
     path already had (``_record_results`` verifies the lane assignment it
     armed with) and the direct edit path did not.
+
+    #490 gave a client its first way to send a *place* directly rather than
+    one the server derived from a time, and nothing checked that number
+    either: a negative one subtracts under ``POINTS``, where lower wins, and a
+    duplicate or out-of-range one is silently wrong. Checked here for the
+    same reason the lane-set checks are — this is the boundary a client's
+    malformed input actually crosses.
 
     Every legitimate caller — the Edit Results modal, the skip button, the
     re-run clear, the timer's own write, the demo seed — builds its payload by
@@ -1900,6 +1907,30 @@ def validate_lane_replacement(
         missing_racers = racer_ids - found
         if missing_racers:
             return f"Racer {sorted(missing_racers)[0]} is not part of this heat's race."
+
+    # A place has never been validated (#524). It cost nothing while a timer
+    # supplied every one of them; #490 lets a person type one directly, and
+    # `POINTS` sums places with lower winning, so a bad number here is not
+    # merely wrong, it is a reward. Checked here, not in
+    # `record_heat_result`/`update_free_race_heat_result` themselves, for the
+    # same reason the checks above are: those two are also the timer's write
+    # path, running outside a request with nowhere to surface a refusal, and
+    # the timer only ever writes places it derived itself.
+    below_one = lanes.places_below_one(heat_lanes)
+    if below_one:
+        return f"Lane {below_one[0]}'s place must be 1 or higher."
+
+    above_field = lanes.places_above_field(heat_lanes)
+    if above_field:
+        field = len(lanes.real_racer_ids(heat_lanes))
+        return (
+            f"Lane {above_field[0]}'s place is higher than the {field} "
+            "racer(s) in this heat."
+        )
+
+    dupe_places = lanes.duplicate_places(heat_lanes)
+    if dupe_places:
+        return f"Place {dupe_places[0]} is assigned to more than one lane."
 
     return None
 

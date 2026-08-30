@@ -102,9 +102,10 @@ def test_full_advancement_flow(client, db):
                 res["time"] = 3.0
             else:
                 res["time"] = 4.0
-            # Place is recomputed by scoring for TIMED races; any value will do.
-            res["place"] = 1
-            # Actually scoring.py calculates score based on strategy. Default is TIMED.
+            # `place` is recomputed by scoring for TIMED races from the time
+            # above, so it is left unset here. A same value on every lane
+            # used to do fine before #524 started refusing a duplicate place
+            # at the write boundary.
 
         record_heat_result(client, h.id, lane_res)
 

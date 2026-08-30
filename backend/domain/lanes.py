@@ -83,6 +83,15 @@ class Lane:
         ``heat_session.is_recorded`` — blind to it. Data recorded before
         #490 never had a place without a time, so this changes nothing for
         it.
+
+        This is also what makes a *one-lane* hand-entered save read as a
+        finished heat (#524): saving a single place is enough for ``recorded``
+        to go true and the schedule to move on, while the lanes left blank are
+        never placed at all and simply drop out of ``POINTS``'s sum — fewer
+        counted heats scores *better*. Nothing here refuses that; it is a
+        legitimate mid-entry state while the operator is still typing. The
+        seam that should say something about it is the modal, before the
+        save, not this predicate or the boundary it feeds.
         """
         return self.time is not None or self.place is not None
 
@@ -234,6 +243,57 @@ def duplicate_lane_numbers(lanes: Sequence[Lane]) -> list[int]:
                 dupes.append(lane.lane)
         else:
             seen.add(lane.lane)
+    return dupes
+
+
+def places_below_one(lanes: Sequence[Lane]) -> list[int]:
+    """Lane numbers whose hand-entered place is not a positive number (#524).
+
+    A timer never produced one of these — a place always came from
+    :mod:`backend.domain.scoring` enumerating finish order, which starts at 1.
+    #490 lets a person type a place directly, and ``POINTS`` sums places with
+    lower winning, so a ``0`` or a negative number is not a bad value, it is a
+    reward: it *subtracts* from the racer's total. Named by lane, in lane
+    order, so the error can point at one row rather than an unordered set.
+    """
+    return [lane.lane for lane in lanes if lane.place is not None and lane.place < 1]
+
+
+def places_above_field(lanes: Sequence[Lane]) -> list[int]:
+    """Lane numbers whose place exceeds the number of racers actually racing.
+
+    The bound is the count of *real* racers in ``lanes`` — an empty lane or an
+    unadvanced placeholder is not a competitor to place behind. A field of
+    zero (every lane anonymous, as a free race allows) has no bound to check
+    against, so nothing is flagged. Typing 11 in a four-car heat is otherwise
+    ten points against that racer under ``POINTS``, and looks deliberate on
+    the standings.
+    """
+    field = len(real_racer_ids(lanes))
+    if not field:
+        return []
+    return [
+        lane.lane for lane in lanes if lane.place is not None and lane.place > field
+    ]
+
+
+def duplicate_places(lanes: Sequence[Lane]) -> list[int]:
+    """Place values claimed by more than one lane, each named once.
+
+    Two lanes both placed 1st is accepted silently without this: both cars
+    score a point under ``POINTS`` and nobody scores two, which is not what a
+    finishing order means. Mirrors :func:`duplicate_lane_numbers`.
+    """
+    seen: set[int] = set()
+    dupes: list[int] = []
+    for lane in lanes:
+        if lane.place is None:
+            continue
+        if lane.place in seen:
+            if lane.place not in dupes:
+                dupes.append(lane.place)
+        else:
+            seen.add(lane.place)
     return dupes
 
 

@@ -203,6 +203,73 @@ def test_duplicate_lane_numbers_empty_for_a_clean_set():
     assert lanes.duplicate_lane_numbers(parsed) == []
 
 
+def test_places_below_one_flags_zero_and_negative():
+    """#524: a hand-entered `0` or negative place is a reward under `POINTS`,
+    not merely a bad number — it subtracts from the racer's total."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "place": 0},
+        {"lane": 2, "racer_id": 9, "place": -1},
+        {"lane": 3, "racer_id": 3, "place": 1},
+    )
+    assert lanes.places_below_one(parsed) == [1, 2]
+
+
+def test_places_below_one_empty_for_a_clean_set():
+    parsed = _lanes({"lane": 1, "racer_id": 5, "place": 1}, {"lane": 2, "racer_id": 9})
+    assert lanes.places_below_one(parsed) == []
+
+
+def test_places_above_field_flags_a_place_past_the_racers_present():
+    """A four-car heat has no 5th place to hand out."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "place": 1},
+        {"lane": 2, "racer_id": 9, "place": 5},
+        {"lane": 3, "racer_id": 3, "place": 3},
+        {"lane": 4, "racer_id": 7, "place": 4},
+    )
+    assert lanes.places_above_field(parsed) == [2]
+
+
+def test_places_above_field_ignores_placeholders_and_empty_lanes():
+    """The bound is real racers, not lane count."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "place": 1},
+        {"lane": 2, "place": 2},  # an empty lane — no racer, no placeholder
+    )
+    assert lanes.places_above_field(parsed) == [2]
+
+
+def test_places_above_field_is_unbounded_when_nobody_is_a_real_racer():
+    """An anonymous free race heat has no field to bound against."""
+    parsed = _lanes({"lane": 1, "racer_id": None, "place": 1})
+    assert lanes.places_above_field(parsed) == []
+
+
+def test_duplicate_places_finds_a_repeat():
+    """Two lanes both placed 1st: both cars score a point, nobody scores two."""
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "place": 1},
+        {"lane": 2, "racer_id": 9, "place": 1},
+    )
+    assert lanes.duplicate_places(parsed) == [1]
+
+
+def test_duplicate_places_names_each_repeat_once():
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "place": 2},
+        {"lane": 2, "racer_id": 9, "place": 2},
+        {"lane": 3, "racer_id": 3, "place": 2},
+    )
+    assert lanes.duplicate_places(parsed) == [2]
+
+
+def test_duplicate_places_ignores_unplaced_lanes():
+    parsed = _lanes(
+        {"lane": 1, "racer_id": 5, "place": None}, {"lane": 2, "racer_id": 9}
+    )
+    assert lanes.duplicate_places(parsed) == []
+
+
 def test_real_racer_ids_is_dense():
     """It drops unused lanes and undecided slots rather than yielding None."""
     assert lanes.real_racer_ids(

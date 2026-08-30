@@ -281,7 +281,21 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const handleResultChange = (index: number, field: 'time' | 'place', value: string) => {
         const newResults = [...editingResults];
         if (field === 'time') newResults[index].timeText = value;
-        else if (field === 'place') newResults[index].place = parseInt(value) || null;
+        else if (field === 'place') {
+            // `min="1"` on the input below is not a fourth layer of
+            // validation (#524): the field lives outside a <form> and Save is
+            // a plain button, so the browser never runs constraint
+            // validation against it. A cleared field and "0" both parse to
+            // falsy, so `|| null` used to treat them alike by accident; "-1"
+            // parsed straight through untouched. This makes the same
+            // outcome — not a positive whole number is not a place — a
+            // deliberate check rather than a coincidence of falsiness, and
+            // the server (`crud.validate_lane_replacement`) is the backstop
+            // for anything that still reaches it, e.g. a duplicate place or
+            // one past the field.
+            const parsed = parseInt(value, 10);
+            newResults[index].place = Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
+        }
         setEditingResults(newResults);
     };
 
