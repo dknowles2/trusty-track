@@ -112,13 +112,16 @@ export const assignPlaces = (results: readonly LaneInput[]): LaneInput[] => {
  * Whether saving an official heat's edited results should run them through
  * {@link assignPlaces} (issue #490).
  *
- * Mirrors which column the Override/Edit modal shows: a `TIMED` race enters
- * times and always wants them turned into places — the rule `FreeRaceExecution`
- * already follows unconditionally, since free racing has no place column to
- * enter by hand. A `POINTS` race enters places directly, with no time to
- * derive them from — `assignPlaces` reads "no time anywhere" as "clear every
- * place", which is exactly backwards for a lane the operator just placed by
- * hand, so it must not run at all.
+ * Mirrors which column the Override/Edit modal requires: a `TIMED` race
+ * enters times and always wants them turned into places — the rule
+ * `FreeRaceExecution` already follows unconditionally, since free racing has
+ * no place column to enter by hand. A `POINTS` race enters places directly,
+ * with no time to derive them from — `assignPlaces` reads "no time anywhere"
+ * as "clear every place", which is exactly backwards for a lane the operator
+ * just placed by hand, so it must not run at all. The modal shows a Time
+ * column for a `POINTS` race too (#525), so a stored or spurious time stays
+ * correctable, but that column is optional there and must never drive
+ * derivation the way it does for `TIMED`.
  *
  * Deciding this from the strategy rather than from the edited lanes' own
  * shape (e.g. "times present and places absent") matters for a *correction*:

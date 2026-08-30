@@ -376,13 +376,13 @@ When a heat finishes:
 
 - **Hardware timer**: Results appear automatically in the lane cards, showing each racer's finish time and placement.
 - **Fake timer**: Results appear when the run ends — either on its own a few seconds after **Start Timer**, or as soon as you click **Finish Heat**.
-- **Manual override**: Click **Override** (before the heat) or **Edit** (after) — or **Enter Results** on a track with no timer — to enter results by hand. What you type depends on how the race is scored: times for a Timed race, finishing order for a Points race (see [Scoring](reference/scoring.md#points)).
+- **Manual override**: Click **Override** (before the heat) or **Edit** (after) — or **Enter Results** on a track with no timer — to enter results by hand. A Timed race enters times, turned into places automatically on save. A Points race enters finishing order directly in a **Place** field; a **Time** field sits alongside it too, for correcting or clearing a time a timer recorded even though points scoring does not use it — the track's record board and stats still read it (see [Scoring](reference/scoring.md#points)).
 
 ![Heat Results After Finish](assets/screenshots/race-day/14-heat-results.png)
 _After a heat completes, each lane shows the racer's finish time and placement (1st, 2nd, 3rd, etc.). The 1st-place racer is highlighted in gold._
 
 ![The manual entry modal on a Points race](assets/screenshots/race-day/32-manual-place-entry-modal.png)
-_A Points race shows a **Place** column instead of a **Time** column — the finishing order somebody at the line called out, typed straight in._
+_A Points race's entry modal: the **Place** column is what gets typed in — the finishing order somebody at the line called out — and an optional **Time** column sits beside it for correcting or clearing a time a timer recorded._
 
 After reviewing results, click **Next Heat** to advance to the next heat — or enable **Auto-advance** to move forward automatically after 10 seconds.
 

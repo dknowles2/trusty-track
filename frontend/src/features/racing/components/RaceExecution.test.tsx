@@ -181,8 +181,8 @@ describe('RaceExecution', () => {
         });
     });
 
-    describe('the Edit/Override modal follows the scoring strategy (#490)', () => {
-        it('shows a Time column for a TIMED race, and none for POINTS', () => {
+    describe('the Edit/Override modal follows the scoring strategy (#490, #525)', () => {
+        it('shows a Time column for a TIMED race, and no Place column', () => {
             render(<RaceExecution {...defaultProps} scoringStrategy="TIMED" />);
             fireEvent.click(screen.getByText('Edit'));
 
@@ -190,12 +190,67 @@ describe('RaceExecution', () => {
             expect(screen.queryByText('Place')).not.toBeInTheDocument();
         });
 
-        it('shows a Place column for a POINTS race, and no Time column', () => {
+        // #525: a POINTS race can still have a timer, and a stored or
+        // spurious time is otherwise uncorrectable and can stand as a track
+        // record forever. Both columns render; Place stays the one the
+        // operator has to fill in.
+        it('shows both a Place and an optional Time column for a POINTS race', () => {
             render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
             fireEvent.click(screen.getByText('Edit'));
 
             expect(screen.getByText('Place')).toBeInTheDocument();
-            expect(screen.queryByText('Time (s)')).not.toBeInTheDocument();
+            expect(screen.getByText('Time (s) — optional')).toBeInTheDocument();
+        });
+
+        it('seeds the Time field from the stored time on a POINTS heat, so it can be corrected', () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            // mockHeat's lane 1 was stored with time: 3.5, place: 1.
+            const inputs = screen.getAllByRole('spinbutton');
+            expect(inputs[0]).toHaveValue(1); // Place
+            expect(inputs[1]).toHaveValue(3.5); // Time
+        });
+
+        it('clearing a POINTS heat\'s Time field sends null, leaving the hand-typed place untouched (#525)', async () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            // inputs[0] is Place (lane 1), inputs[1] is Time (lane 1).
+            fireEvent.change(inputs[1], { target: { value: '' } });
+
+            fireEvent.click(screen.getByText('Save Results'));
+
+            await waitFor(() => {
+                expect(mockOnUpdateResult).toHaveBeenCalled();
+                const [, saved] = mockOnUpdateResult.mock.calls[0];
+                expect(saved[0].time).toBeNull();
+                // The place the timer recorded survives the correction —
+                // this is a time fix, not a re-placement.
+                expect(saved[0].place).toBe(1);
+            });
+        });
+
+        it('a hand-typed place survives a save alongside a present time (both-columns case, #525)', async () => {
+            render(<RaceExecution {...defaultProps} scoringStrategy="POINTS" />);
+            fireEvent.click(screen.getByText('Edit'));
+
+            const inputs = screen.getAllByRole('spinbutton');
+            // Correct the place by hand; leave the recorded time as-is.
+            fireEvent.change(inputs[0], { target: { value: '2' } });
+
+            fireEvent.click(screen.getByText('Save Results'));
+
+            await waitFor(() => {
+                expect(mockOnUpdateResult).toHaveBeenCalled();
+                const [, saved] = mockOnUpdateResult.mock.calls[0];
+                expect(saved[0].place).toBe(2);
+                // The stored time rides along unchanged — the point of #525
+                // is that this modal is still the only route to correct or
+                // clear it, not that saving a place should touch it.
+                expect(saved[0].time).toBe(3.5);
+            });
         });
 
         it('typing a place under POINTS writes it to the saved lane', async () => {
