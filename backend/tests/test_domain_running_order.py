@@ -261,3 +261,93 @@ def test_a_small_den_does_not_finish_long_before_a_large_one() -> None:
     second_half_groups = {gid for gid, _ in order[8:]}
     assert first_half_groups == {0, 1}
     assert second_half_groups == {0, 1}
+
+
+# ---------------------------------------------------------------------------
+# Reading the order back out: `execution_sort_key`.
+# ---------------------------------------------------------------------------
+
+# (round_number, heat_number, is_championship) — two general rounds whose
+# pending heats carry interleaved (globally unique) numbers, one championship
+# round numbered 1..2 by its own generator, and two recorded heats keeping the
+# per-round numbers they were announced under.
+_HEATS = [
+    (1, 1, False),  # round 1, recorded before the interleave
+    (2, 1, False),  # round 2, recorded before the interleave
+    (1, 5, False),  # interleaved pending heats: 5, 6, 7 across rounds 1 and 2
+    (2, 6, False),
+    (1, 7, False),
+    (3, 1, True),  # the final, numbered 1..2 by its own generator
+    (3, 2, True),
+]
+
+
+def _sorted_heats(master_order: bool) -> list[tuple[int, int, bool]]:
+    from backend.domain.running_order import execution_sort_key
+
+    return sorted(
+        _HEATS,
+        key=lambda h: execution_sort_key(
+            round_number=h[0],
+            heat_number=h[1],
+            is_championship=h[2],
+            master_order=master_order,
+        ),
+    )
+
+
+def test_default_order_is_round_then_heat() -> None:
+    """With the flag off — every race that predates it — nothing changes:
+    one round's block, then the next round's, championship included.
+    """
+    assert _sorted_heats(master_order=False) == sorted(
+        _HEATS, key=lambda h: (h[0], h[1])
+    )
+
+
+def test_master_order_follows_heat_number_across_general_rounds() -> None:
+    """With the flag on, the general rounds' heats run in `heat_number` order
+    regardless of which round each belongs to — that is where the interleave
+    lives — while a recorded heat's old per-round number keeps it ahead of
+    every interleaved pending heat (apply numbers past the race-wide max).
+    """
+    ordered = _sorted_heats(master_order=True)
+    general = [h for h in ordered if not h[2]]
+    assert general == [
+        (1, 1, False),
+        (2, 1, False),
+        (1, 5, False),
+        (2, 6, False),
+        (1, 7, False),
+    ]
+
+
+def test_championship_rounds_run_after_every_general_round() -> None:
+    """A championship round is exempt from the interleave — its field comes
+    from the general rounds' standings, and the advancement cascade renumbers
+    its heats 1..N on every rebuild — so its low numbers must not put it at
+    the head of the master order.
+    """
+    ordered = _sorted_heats(master_order=True)
+    assert ordered[-2:] == [(3, 1, True), (3, 2, True)]
+
+
+def test_colliding_numbers_zip_deterministically() -> None:
+    """A round the interleave has not renumbered yet (generated after the
+    last apply) still counts 1..N. Its numbers collide with other rounds'
+    and the tiebreak is `round_number`, so the order stays deterministic —
+    a zip, not a jumble — until the operator re-applies.
+    """
+    from backend.domain.running_order import execution_sort_key
+
+    heats = [(1, 1, False), (2, 1, False), (1, 2, False), (2, 2, False)]
+    ordered = sorted(
+        heats,
+        key=lambda h: execution_sort_key(
+            round_number=h[0],
+            heat_number=h[1],
+            is_championship=h[2],
+            master_order=True,
+        ),
+    )
+    assert ordered == [(1, 1, False), (2, 1, False), (1, 2, False), (2, 2, False)]

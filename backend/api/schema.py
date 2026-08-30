@@ -4757,13 +4757,10 @@ class Subscription:
             db = info.context["db"]
 
             def _get_on_deck() -> list[Heat]:
-                heats = models.official_heats(
-                    db.query(models.Heat).filter(models.Heat.race_id == race_id)
-                ).all()
-                # Sort by round number and heat number
-                sorted_heats = sorted(
-                    heats, key=lambda h: (h.round.round_number, h.heat_number)
-                )
+                # One door for the running order (#549): under a master
+                # running order the next heat is usually another round's,
+                # and this display is the one staging depends on.
+                sorted_heats = crud.heats_in_running_order(db, race_id)
                 uncompleted = _unfinished(db, sorted_heats)
                 # Index 0 is on the track; the two after it are what to stage.
                 return typing.cast(Any, uncompleted[1 : 1 + ON_DECK_DEPTH])
@@ -4784,12 +4781,9 @@ class Subscription:
             db = info.context["db"]
 
             def _get_current():
-                heats = models.official_heats(
-                    db.query(models.Heat).filter(models.Heat.race_id == race_id)
-                ).all()
-                sorted_heats = sorted(
-                    heats, key=lambda h: (h.round.round_number, h.heat_number)
-                )
+                # Same door as `on_deck` (#549) — the two displays must
+                # agree about where the race is up to.
+                sorted_heats = crud.heats_in_running_order(db, race_id)
                 uncompleted = _unfinished(db, sorted_heats)
                 return uncompleted[0] if uncompleted else None
 

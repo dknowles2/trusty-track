@@ -146,9 +146,9 @@ export const GET_RACE_CONTROL_DATA = gql`
       autoAdvanceHeat
       registeredCount
       checkedInCount
-      # One interleaved running order across racing groups (#549 stage 4) —
-      # the flag ScheduleManagement reads to show the master order at all,
-      # and RaceForm's control for it.
+      # One interleaved running order across racing groups (#549) — the flag
+      # ScheduleManagement reads to show the master order at all, and what
+      # gates the whole execution flow's sort (runningOrder.ts).
       masterRunningOrder
       track {
         id

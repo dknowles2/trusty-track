@@ -73,6 +73,10 @@ interface RaceExecutionProps {
     remainingHeatsInRound?: number;
     totalHeatsInRound?: number;
     upcomingRounds?: { roundNumber: number, roundName: string | null, totalHeats: number }[];
+    /** The race runs one interleaved sequence across its rounds (#549), so
+     * the next heat is usually another round's — the On Deck panel shows its
+     * line-up rather than announcing "End of Round" between every heat. */
+    masterRunningOrder?: boolean;
     debugMode?: boolean;
 }
 
@@ -94,6 +98,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     remainingHeatsInRound,
     totalHeatsInRound,
     upcomingRounds,
+    masterRunningOrder,
     debugMode,
 }) => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -721,7 +726,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                         <Icon path={mdiChevronDoubleRight} size={1} /> On Deck
                     </h3>
                     <div style={{ background: 'var(--surface-color)', borderRadius: '12px', padding: '15px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', height: 'fit-content' }}>
-                        {!nextExecutionHeat || nextExecutionHeat.roundId !== activeExecutionHeat.roundId ? (
+                        {!nextExecutionHeat || (!masterRunningOrder && nextExecutionHeat.roundId !== activeExecutionHeat.roundId) ? (
                             <div style={{ padding: '30px 20px', textAlign: 'center', color: 'var(--text-strong-muted-color)' }}>
                                 <Icon path={mdiTrophy} size={2} color="var(--cub-scouting-gold)" style={{ marginBottom: '10px' }} />
                                 <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>End of Round</div>

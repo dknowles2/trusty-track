@@ -355,6 +355,13 @@ staged while the current one races.
    per-round tables. Click **Apply master order** to weave the dens'
    current heats together.
 
+Once applied, the **Race** tab and the audience displays follow the woven
+order — after a Lion heat the next heat offered is usually a Tiger heat,
+with its line-up already showing in **On Deck**. Any pending heat can also
+be run straight from the Schedule tab, whatever round it belongs to, and
+dragging heats within a round is switched off while the setting is on — a
+hand-reorder would pull that round out of the weave.
+
 Nothing about how a den's own round is scheduled changes — only the order
 the heats run in. Full rules, including how a late arrival or a dead lane is
 folded into the running order without disturbing a heat already called, are
