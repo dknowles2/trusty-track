@@ -1,7 +1,7 @@
 # Scoring
 
 The full rules for how a score is worked out and what makes the standings.
-For help *choosing* between Timed and Points, see
+For help *choosing* among the four methods, see
 [Scoring & Championships](../scoring-and-championships.md).
 
 ## Timed
@@ -44,6 +44,74 @@ reward:
   refuses the save and says why, rather than storing a number that would
   score wrong — a `0` or a negative place would otherwise *subtract* from a
   car's total.
+
+## Cumulative time
+
+Each car's score is its **recorded heat times added together**, rather than
+averaged, and the lowest total wins. While every car races the same number
+of heats, this orders racers identically to Timed — it is a real third
+method only because that condition can break: a lane going out of service, a
+late arrival, or a track reconfigured to fewer lanes can all leave some cars
+with a heat count the rest of the field does not share.
+
+Because it is a total rather than an average, a car with one fewer heat has
+one fewer time to add up — which sums to *less*, the same reward for a
+missing heat that Points guards against. Cumulative time follows both of
+Points's own protections for that reason:
+
+- A car that never reaches the finish is given **9.999 seconds** for that
+  heat, the same DNF penalty Timed uses — a bad time, not a vanished one.
+- A round where some cars ended up racing fewer times than others is
+  [set aside](#rounds-that-are-set-aside) from the standings entirely, the
+  same as under Points.
+
+## Fastest single run
+
+Each car's score is its **single best recorded time** — the traditional
+pinewood answer, and what most packs mean by "fastest run wins." A car that
+is quick once and unlucky twice places on the once.
+
+- A car that never reaches the finish is not a candidate at all for that
+  heat: the DNF is **ignored outright**, not penalised. A bad run never
+  drags a car's best time down, because it was never in the running to be
+  the racer's score.
+- A car whose *every* run is a DNF has no time to offer, and sorts **below
+  every car that finished at least one heat** — worse than being left out
+  of an average, the way a DNF is under Timed.
+- Like Timed, it does not care how many heats each car ran: a round
+  disrupted by a lane outage or a late arrival still counts toward the
+  standings.
+
+## Drop the worst run
+
+An optional setting next to Scoring on the race form, off by default (`0`).
+It is not a fifth method — it is a modifier over whichever of the four you
+picked: each racer's worst counted results are set aside before scoring,
+the same number for every racer.
+
+- **It only fires when everyone who has raced has the same number of
+  counted results**, and that number is at least one more than what is
+  being dropped. Dropping one run from a racer with three heats and one
+  from a racer with four still leaves them uneven — two against three —
+  which is exactly the missing-heat reward every rule above exists to
+  prevent. So when the field is uneven, nothing is dropped at all, and the
+  standings say so rather than pretending the setting is off.
+- **It is the honest version of the DNF penalty.** Under Timed and
+  Cumulative time, a DNF is still recorded as 9.999 seconds; under Points,
+  it is still last place — those inventions have not gone away, because a
+  bad run is still a fact the scoring math has to hold a number for. What
+  changes is what happens next: an invented penalty is usually the highest
+  value a racer has, so it is usually the one that gets dropped. A racer
+  whose one bad heat was a DNF ends up scored entirely on the heats they
+  actually finished, as if the bad one had never been scheduled — no
+  9.999 seconds, no invented last place, because it was never counted in
+  the first place.
+- A racer with more than one DNF still has the extras count. Dropping the
+  worst run removes exactly as many results as the setting says, however
+  many of a racer's results were bad ones.
+- Under Fastest single run, dropping the worst run changes nothing: that
+  method already keeps only a racer's single lowest time, and removing the
+  *highest* of the rest can never be the value it was already using.
 
 ## When two cars tie
 
@@ -91,16 +159,17 @@ races. Left out, each for its own reason:
 | --- | --- |
 | **Championship rounds** | Their cars were *picked from* the standings, so feeding their times back in would be circular — a final's result could change who was supposed to be in the final. Each has its own page in the selector. |
 | **Elimination rounds** | A car knocked out early races fewer heats, so there is no fair average or total. The round's own page shows its result in losses. |
-| **Rounds set aside in a points race** | See below. |
+| **Rounds set aside under Points or Cumulative time** | See below. |
 | **Free race heats** | They count for nothing, by design. |
 
 ## Rounds that are set aside
 
-In a **points** race, a round where some cars raced fewer heats than others
-is left out of the overall standings. The round still runs — its heats show
-on the schedule and are recorded as normal — but it does not get a page of
-its own in the round selector; the Standings page instead shows a banner
-naming the round and explaining why it isn't counted.
+Under **Points** or **Cumulative time**, a round where some cars raced fewer
+heats than others is left out of the overall standings — both are totals, so
+both are vulnerable to the same missing-heat reward. The round still runs —
+its heats show on the schedule and are recorded as normal — but it does not
+get a page of its own in the round selector; the Standings page instead
+shows a banner naming the round and explaining why it isn't counted.
 
 Three things cause it:
 
@@ -111,8 +180,8 @@ Three things cause it:
 - a latecomer joined a [Balanced round](round-styles.md#balanced) part-way
   through.
 
-A **timed** race keeps these rounds: averages do not care how many heats
-each car ran.
+**Timed** and **Fastest single run** keep these rounds: an average and a
+single best time don't care how many heats each car ran.
 
 A withdrawal does *not* set a round aside — an absent car empties a lane, it
 does not give anyone extra heats.
