@@ -28,6 +28,8 @@ import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime'
 import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
 import { useAlert } from '../../../context/AlertContext';
+import { useTerminology } from '../../../context/TerminologyContext';
+import { advancingFromLabel } from '../roundSummaryText';
 
 /**
  * A lane being edited by hand. `time` is held as text while the operator types
@@ -99,6 +101,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
     const { showConfirm } = useAlert();
+    const { orgLower, groupLower } = useTerminology();
 
     // The live view, assembled by the server (#7). What used to be here was a
     // merge of the heat's stored lanes with `timerStatus.pendingResults`,
@@ -835,12 +838,10 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     {roundSummary?.source && (
                         <div style={{ fontSize: '0.9rem', color: 'var(--text-subtle-color)', fontStyle: 'italic' }}>
                             {/* Human words, not the raw source value — "ALL"
-                                on a projector means nothing to the room. */}
-                            Advancing from {roundSummary.source === 'ALL'
-                                ? 'the whole pack'
-                                : roundSummary.source === 'EACH_GROUP'
-                                ? 'each racing group'
-                                : 'an earlier round'}
+                                on a projector means nothing to the room, and
+                                the resolved terminology rather than the
+                                internal EACH_GROUP name (#532). */}
+                            Advancing from {advancingFromLabel(roundSummary.source, { orgLower, groupLower })}
                         </div>
                     )}
                 </div>

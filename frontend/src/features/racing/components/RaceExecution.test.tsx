@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useMutation, useSubscription } from 'urql';
 import { RaceExecution, Heat } from './RaceExecution';
 import { lane } from '../testFixtures';
+import { TerminologyProvider } from '../../../context/TerminologyContext';
 
 vi.mock('urql', async (importOriginal) => {
   const actual = await importOriginal<typeof import('urql')>();
@@ -538,6 +539,62 @@ describe('RaceExecution', () => {
         const modal = screen.getByTestId('mock-modal');
         expect(within(modal).getByText('Round Complete!')).toBeInTheDocument();
         expect(within(modal).getByText('Top 1 racers advance to the next round.')).toBeInTheDocument();
+    });
+
+    it('says who is advancing from, in the built-in words (#532)', () => {
+        // ALL reads "the whole pack" and EACH_GROUP reads "each den" — never
+        // "each racing group", the internal source vocabulary leaking to the
+        // operator.
+        const summaryFor = (source: string) => ({
+            isReady: true,
+            requiresAdvancement: true,
+            alreadyAdvanced: false,
+            advancingRacers: [],
+            source,
+            numRacers: 1,
+            fromBottom: false,
+            fieldIsStale: false,
+        });
+
+        const { rerender } = render(
+            <RaceExecution {...defaultProps} roundSummary={summaryFor('ALL')} />
+        );
+        expect(within(screen.getByTestId('mock-modal')).getByText('Advancing from the whole pack')).toBeInTheDocument();
+
+        rerender(<RaceExecution {...defaultProps} roundSummary={summaryFor('EACH_GROUP')} />);
+        expect(within(screen.getByTestId('mock-modal')).getByText('Advancing from each den')).toBeInTheDocument();
+
+        rerender(<RaceExecution {...defaultProps} roundSummary={summaryFor('ROUND:4')} />);
+        expect(within(screen.getByTestId('mock-modal')).getByText('Advancing from an earlier round')).toBeInTheDocument();
+    });
+
+    it('phrases who is advancing from in a race\'s overridden terminology (#532)', () => {
+        const mockSummary = {
+            isReady: true,
+            requiresAdvancement: true,
+            alreadyAdvanced: false,
+            advancingRacers: [],
+            source: 'EACH_GROUP',
+            numRacers: 1,
+            fromBottom: false,
+            fieldIsStale: false,
+        };
+
+        render(
+            <TerminologyProvider
+                value={{
+                    racingGroupSingular: 'Patrol',
+                    racingGroupPlural: 'Patrols',
+                    organizationSingular: 'Troop',
+                    organizationPlural: 'Troops',
+                }}
+            >
+                <RaceExecution {...defaultProps} roundSummary={mockSummary} />
+            </TerminologyProvider>
+        );
+
+        expect(within(screen.getByTestId('mock-modal')).getByText('Advancing from each patrol')).toBeInTheDocument();
+        expect(within(screen.getByTestId('mock-modal')).queryByText(/each den/i)).toBeNull();
     });
 
     it('uses the shared rank rather than renumbering ties in the Round Complete table (#329)', () => {
