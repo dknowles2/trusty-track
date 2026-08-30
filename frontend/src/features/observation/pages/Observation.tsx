@@ -11,7 +11,7 @@ import { useChrome } from '../../../context/ChromeContext';
 import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
-import { observeIdentify, type SeenIdentifySeq } from '../identifyOverlay';
+import IdentifyPresence from '../IdentifyPresence';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
@@ -123,15 +123,6 @@ export default function Observation() {
     recordBreak?: RecordBreak | null;
   } | null>(null);
   const [seenHeatResult, setSeenHeatResult] = useState<SeenHeatResult>(null);
-
-  // Naming this screen (#495): a small badge on connect, and a full-screen
-  // flash when the operator presses Identify on its row. One `identifySeq`
-  // drives both, and `observeIdentify` is the `seen === null` rule again —
-  // the value this display arrives holding, on connect or reconnect, is
-  // history, not an instruction.
-  const [seenIdentifySeq, setSeenIdentifySeq] = useState<SeenIdentifySeq>(null);
-  const [showIdentifyFlash, setShowIdentifyFlash] = useState(false);
-  const [showConnectBadge, setShowConnectBadge] = useState(false);
 
   // Auto-cycling logic (disabled in projector mode)
   useEffect(() => {
@@ -272,35 +263,6 @@ export default function Observation() {
       return () => clearTimeout(timer);
     }
   }, [showResultsOverlay, seenHeatResult]);
-
-  // Sync the identify badge/flash during render, the same shape as the
-  // results overlay above: `assignment` arrives over the subscription, and
-  // `observeIdentify` decides which of the two treatments (if either) this
-  // payload deserves.
-  if (assignment) {
-    const observation = observeIdentify(seenIdentifySeq, assignment.identifySeq);
-    if (observation.seen !== seenIdentifySeq) {
-      setSeenIdentifySeq(observation.seen);
-      if (observation.showConnectBadge) setShowConnectBadge(true);
-      if (observation.showFlash) setShowIdentifyFlash(true);
-    }
-  }
-
-  useEffect(() => {
-    if (!showIdentifyFlash) return;
-    // A few seconds is enough to look up and read a name across a room; any
-    // longer and it stops being a flash and starts being a mode.
-    const timer = setTimeout(() => setShowIdentifyFlash(false), 4000);
-    return () => clearTimeout(timer);
-  }, [showIdentifyFlash, seenIdentifySeq]);
-
-  useEffect(() => {
-    if (!showConnectBadge) return;
-    // Must fade — a permanent badge is chrome on a projector, which is the
-    // whole reason `ChromeContext` exists (#175).
-    const timer = setTimeout(() => setShowConnectBadge(false), 4000);
-    return () => clearTimeout(timer);
-  }, [showConnectBadge]);
 
   interface Racer {
     id: number;
@@ -550,63 +512,6 @@ export default function Observation() {
     );
   };
 
-  const thisDisplayName = assignment?.name;
-
-  // A small corner badge naming this screen, shown briefly the moment it
-  // connects (#495). Plugging a screen in and opening it is the cheapest
-  // possible time for somebody to learn its name.
-  const renderIdentifyBadge = () => {
-    if (!showConnectBadge || !thisDisplayName) return null;
-    return (
-      <div
-        className="identify-connect-badge"
-        data-testid="identify-connect-badge"
-        style={{
-          position: 'fixed',
-          top: '16px',
-          right: '16px',
-          zIndex: 4900,
-          background: 'var(--display-badge-bg-color)',
-          color: 'var(--display-text-color)',
-          padding: '0.5rem 1rem',
-          borderRadius: '20px',
-          fontSize: '0.9rem',
-          fontWeight: 'bold',
-          pointerEvents: 'none',
-        }}
-      >
-        {thisDisplayName}
-      </div>
-    );
-  };
-
-  // The full-screen flash for an Identify command from the operator's list
-  // (#495) — press it, look up, see the name on the right screen.
-  const renderIdentifyFlash = () => {
-    if (!showIdentifyFlash || !thisDisplayName) return null;
-    return (
-      <div
-        className="identify-flash"
-        data-testid="identify-flash"
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 5000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'var(--display-flash-bg-color)',
-          color: 'var(--display-text-color)',
-          pointerEvents: 'none',
-        }}
-      >
-        <div style={{ fontSize: '9vmin', fontWeight: 'bold', textAlign: 'center', padding: '0 5vmin' }}>
-          {thisDisplayName}
-        </div>
-      </div>
-    );
-  };
-
   // --- SLIDESHOW (#175) ---
   // Ahead of both other modes: it is a full-screen view of its own rather than
   // a tab, and it deliberately shows none of the race furniture — the point is
@@ -618,8 +523,7 @@ export default function Observation() {
         data-theme={displayThemeKey}
         style={{ maxWidth: '100%', padding: 0, background: 'var(--display-surface-alt-color)', ...displayThemeStyle }}
       >
-        {renderIdentifyBadge()}
-        {renderIdentifyFlash()}
+        <IdentifyPresence assignment={assignment} />
         <PhotoSlideshow
           racers={initialData?.race?.racers ?? []}
           racingGroups={initialData?.race?.racingGroups ?? []}
@@ -639,8 +543,7 @@ export default function Observation() {
         style={{ maxWidth: '100%', padding: '20px', ...displayThemeStyle }}
       >
         {renderResultsOverlay()}
-        {renderIdentifyBadge()}
-        {renderIdentifyFlash()}
+        <IdentifyPresence assignment={assignment} />
         <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {initialData?.race?.track?.id && (
             <TimerStatusBadge trackId={initialData.race.track.id} />
@@ -937,8 +840,7 @@ export default function Observation() {
       style={{ maxWidth: '100%', padding: '2vmin', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box', ...displayThemeStyle }}
     >
       {renderResultsOverlay()}
-      {renderIdentifyBadge()}
-      {renderIdentifyFlash()}
+      <IdentifyPresence assignment={assignment} />
 
       <div className="projector-grid" style={{ display: 'flex', flex: '1', gap: '3vmin', height: '100%' }}>
         {/* Left Column: Active and Upcoming Heats */}

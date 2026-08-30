@@ -76,6 +76,10 @@ across it in large type for a few seconds — press it, look up, and see which
 physical screen just lit up. It is dead (greyed out) while the row says *Not
 connected*, since there is no screen to flash a name on.
 
+This works on the awards ceremony too, even though it is its own page rather
+than a tab on the rest of the display — the projector at the front is usually
+exactly the screen an operator wants to find.
+
 A screen also names itself briefly, in a small corner badge, the moment it
 first connects — plugging it in and opening it is the cheapest moment for
 whoever is standing there to learn its name. The badge fades on its own.

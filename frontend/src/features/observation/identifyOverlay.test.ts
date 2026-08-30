@@ -38,17 +38,52 @@ describe('observeIdentify', () => {
         expect(again.showConnectBadge).toBe(false);
     });
 
-    it('ignores the seq a reconnect arrives holding', () => {
-        // The whole reason this shape exists: a wifi hiccup must not flash
-        // the name across the screen as though the operator pressed Identify.
+    it('re-badges rather than flashes on a genuine remount', () => {
+        // A page reload (not a reconnect: the component itself is gone and
+        // comes back) starts a fresh `seen` history from `null`, exactly like
+        // the very first connect. Whatever `identifySeq` it arrives holding —
+        // even one this display already obeyed before the reload — is history.
         const opening = observeIdentify(null, 3);
         const identified = observeIdentify(opening.seen, 4);
-        // The subscription drops and reopens; a fresh `seen` history starts.
-        const reconnected = observeIdentify(null, 4);
+        const remounted = observeIdentify(null, 4);
 
         expect(identified.showFlash).toBe(true);
-        expect(reconnected.showFlash).toBe(false);
-        expect(reconnected.showConnectBadge).toBe(true);
+        expect(remounted.showFlash).toBe(false);
+        expect(remounted.showConnectBadge).toBe(true);
+    });
+
+    it('does not flash when the seq falls — the server restarted (#520)', () => {
+        // Presence lives in memory (services/displays.py), so a restart mid-
+        // event rebuilds every display's identifySeq at zero. The page never
+        // unmounted — liveConnection.ts just reconnects it — so `seen` still
+        // holds whatever this screen last obeyed, and the counter arrives
+        // *lower* than that. A falling counter must read as history, the same
+        // as a fresh connection, never as a command that flashes every screen
+        // in the room the moment the Pi comes back.
+        const opening = observeIdentify(null, 3);
+        const identified = observeIdentify(opening.seen, 4);
+        const restarted = observeIdentify(identified.seen, 0);
+
+        expect(identified.showFlash).toBe(true);
+        expect(restarted.showFlash).toBe(false);
+        expect(restarted.showConnectBadge).toBe(false);
+        expect(restarted.seen).toBe(0);
+    });
+
+    it('does not flash when a forgotten display reconnects at zero (#520)', () => {
+        // A row goes quiet, the operator clears it with the ✕, and the wifi
+        // comes back. The page never unmounted, so it still holds `seen`;
+        // `registry.connect` built a fresh Display with identify_seq = 0.
+        const opening = observeIdentify(null, 5);
+        const identified = observeIdentify(opening.seen, 6);
+        const reconnectedAfterForget = observeIdentify(identified.seen, 0);
+
+        expect(reconnectedAfterForget.showFlash).toBe(false);
+        expect(reconnectedAfterForget.seen).toBe(0);
+
+        // And a real Identify command afterwards still works.
+        const identifiedAgain = observeIdentify(reconnectedAfterForget.seen, 1);
+        expect(identifiedAgain.showFlash).toBe(true);
     });
 
     it('does nothing before any payload has arrived', () => {

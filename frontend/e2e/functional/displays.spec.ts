@@ -210,6 +210,43 @@ test('an operator can drive the ceremony on a screen across the room', async ({ 
     await displayContext.close();
 });
 
+test('Identify reaches a screen showing the awards ceremony', async ({ browser, page }) => {
+    // The reported bug (#519): the ceremony is its own route with its own
+    // `displayAssignment` subscription (#174, for the leash), so it received
+    // the identify counter over the wire and dropped it on the floor —
+    // `AwardCeremony.tsx` knew nothing about `identifySeq`. A unit test on
+    // that page alone would pass against the treatment being merely absent;
+    // this is the round trip the bug report itself specified: assign a
+    // screen to the ceremony, press Identify from the operator's page, and
+    // assert the flash appears on the audience page.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Ceremony Identify Race');
+
+    await gql(
+        page,
+        `mutation Award($raceId: Int!, $award: AwardInput!) {
+            createAward(raceId: $raceId, award: $award) { id }
+        }`,
+        { raceId, award: { name: 'Best Paint', kind: 'SPECIAL' } },
+    );
+
+    const displayContext = await browser.newContext();
+    const display = await displayContext.newPage();
+    await openDisplay(display, raceId, 'spec-display-6');
+
+    await page.goto(`/race/${raceId}/control/displays`);
+    const row = page.getByTestId('display-spec-display-6');
+    await expect(row).toBeVisible();
+
+    await row.getByRole('combobox').selectOption('AWARDS');
+    await display.waitForURL('**/awards/present', { timeout: 10000 });
+
+    await row.getByRole('button', { name: /^Identify/ }).click();
+    await expect(display.getByTestId('identify-flash')).toBeVisible({ timeout: 10000 });
+
+    await displayContext.close();
+});
+
 test('the ceremony is offered only once the race has awards', async ({ browser, page }) => {
     // The reported bug: every race offered "Awards ceremony", and choosing it
     // for a race with no awards sent the screen to a page whose only content
