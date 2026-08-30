@@ -298,6 +298,7 @@ export type Mutation = {
   abortHeat: Scalars['Boolean']['output'];
   advanceDisplay?: Maybe<Display>;
   advanceRound: Scalars['Int']['output'];
+  applyMasterRunningOrder: HeatReorderResponse;
   assignDisplay?: Maybe<Display>;
   bulkAssignPhotos: Scalars['Int']['output'];
   bulkAutoNumber: Scalars['Int']['output'];
@@ -371,6 +372,11 @@ export type MutationAdvanceDisplayArgs = {
 export type MutationAdvanceRoundArgs = {
   raceId: Scalars['Int']['input'];
   roundId: Scalars['Int']['input'];
+};
+
+
+export type MutationApplyMasterRunningOrderArgs = {
+  raceId: Scalars['Int']['input'];
 };
 
 
@@ -829,6 +835,7 @@ export type Race = {
   id: Scalars['Int']['output'];
   leaderboard: Array<LeaderboardEntry>;
   location?: Maybe<Scalars['String']['output']>;
+  masterRunningOrder: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
   organization: Organization;
   organizationId: Scalars['Int']['output'];
@@ -913,6 +920,7 @@ export type RaceUpdateInput = {
   dateTime?: InputMaybe<Scalars['String']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
+  masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;

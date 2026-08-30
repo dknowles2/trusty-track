@@ -359,7 +359,7 @@ Defined entirely in `backend/api/schema.py`.
 - RacingGroup: `createRacingGroup`, `updateRacingGroup`, `deleteRacingGroup`
 - Track: `createTrack`, `updateTrack`, `deleteTrack`, `setLaneOutages`
 - Track records: `createTrackRecord`, `updateTrackRecord`, `deleteTrackRecord`
-- Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`
+- Round/Heat: `createRoundWizard`, `createRound`, `regenerateRound`, `deleteRound`, `deleteHeat`, `advanceRound`, `updateHeatResult`, `reorderHeats`, `applyMasterRunningOrder`
 - Timer: `prepareHeat`, `abortHeat`, `forceResults`, `releaseStartGate`, `resetTimer`, `reconnectTimer`, `startTimerTest`, `fakeTimerStart`, `fakeTimerFinish`
 - Award: `createAward`, `updateAward`, `deleteAward`, `reorderAwards`
 - Voting: `castVote` — the one mutation `VIEWER` may run
@@ -494,6 +494,20 @@ Five rules that are each a way of getting it wrong:
 - **An elimination round cannot be a championship round** — a wave of placeholders is nonsense; `createRound` refuses the combination.
 
 The UI is the add-round dialog's "How it's raced" choice (`RoundConfigModal`), and the Standings page's round selector includes elimination rounds beside championship ones, labelled in losses.
+
+### Master running order
+
+`domain/running_order.py` (stage 1), `Race.master_running_order` and `applyMasterRunningOrder` (stage 2, [#549](https://github.com/dknowles2/trusty-track/issues/549)). A pack with several racing groups otherwise runs one block per group — the Lions' round, then the Tigers' — and the track idles between blocks while the next den's cars are staged. A master running order interleaves the heats of the race's current rounds into one sequence instead, so the next den is already queued while the current one races.
+
+**Not a new scheduling algorithm, not a merged round.** Every heat in the interleave is a heat some generator (PPC, balanced, elimination) already produced, in the order that generator wants it run; rounds stay separate rows, so advancement, `is_round_complete`, `field_is_short` and the round-summary edge detector are untouched. This only decides which heat lands at which *position* — `Heat.heat_number` — across rounds rather than within one.
+
+**Off by default**, per race. Running one den at a time is how many events are deliberately structured, and interleaving is a visible change to the schedule an operator has to choose.
+
+**`crud.apply_master_running_order` writes through `_write_heat_numbers`, the one door `reorderHeats` already used** — extracted from it so neither function writes a heat row a second way. `reorderHeats` keeps its own restriction to a single round (the drag-and-drop schedule screen's contract); the master order deliberately does not, since spanning rounds is the whole point. Each of the race's current rounds contributes one `running_order.GroupSchedule`, built from that round's own heats in their existing order; `interleave` decides how the groups are woven together, never reorders within one.
+
+**Only pending heats move.** "Pending" is exactly `Heat.recorded_at is None` — the record of when a heat ran (#59) — so a heat that already holds a result keeps its `heatNumber` unchanged: an announcer who already called heat 6 must find heat 6 unchanged. New numbers for the pending heats start one past the highest `heat_number` anywhere in the race, recorded or not, in any round — so a freshly assigned number can never collide with a heat that already has a place in some round's own history, including a *different* round's.
+
+**This stage applies once; it does not yet repair.** A lane outage or a latecomer changing a group's heat count after the order was applied is stage 3 ([#549](https://github.com/dknowles2/trusty-track/issues/549)) — append-and-repair, the same rule elimination's wave growth already follows (#50: an armed heat is never swapped underneath the operator). Nothing in this stage regenerates a heat or reassigns its lanes, so an armed heat's identity survives exactly as `reorderHeats`'s reordering already leaves it — which is also why this mutation does not call `_revalidate_timers`, the same as `reorderHeats`.
 
 ### Scoring
 

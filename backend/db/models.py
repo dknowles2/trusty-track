@@ -390,6 +390,16 @@ class Race(Base):
     # above.
     vehicle_singular: Mapped[str | None] = mapped_column(String, nullable=True)
     vehicle_plural: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: One interleaved running order across the race's racing groups, rather
+    #: than a block per group (#549 stage 2). Off by default — running one
+    #: den at a time is how many packs deliberately structure an event, and
+    #: this changes only the *sequence* heats run in, never what a round
+    #: schedules or how it scores (`domain/running_order.py`). Applied by
+    #: `applyMasterRunningOrder`, which writes `Heat.heat_number` through the
+    #: same door `reorderHeats` uses; nothing here reorders heats by itself.
+    master_running_order: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     organization: Mapped["Organization"] = relationship(
         "Organization", back_populates="races"
