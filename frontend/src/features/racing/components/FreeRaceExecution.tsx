@@ -9,7 +9,7 @@ import { mdiRefresh, mdiPencil, mdiRacingHelmet, mdiTrophy, mdiArrowRight } from
 import { LaneAssignment } from './FreeRaceLaneSetup';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import type { Lane, LaneInput } from '../types';
-import { assignPlaces, cleared, toInput } from '../lanes';
+import { assignPlaces, cleared, shouldDerivePlacesForFreeRace, toInput } from '../lanes';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
@@ -189,7 +189,14 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
     // A recorded 0.0 (or any time <= 0) is a DNF, not a finish — assignPlaces
     // mirrors the backend rule (issue #308) so a hand-corrected DNF is never
     // stamped first place by an ascending sort that treats it as the fastest.
-    const finalResults = assignPlaces(editingResults);
+    // That only applies on a timed track, though: on a no-timer track (#490)
+    // the modal below takes a hand-typed place directly, and assignPlaces
+    // reading "no time anywhere" as "clear every place" would erase it
+    // (#526) — shouldDerivePlacesForFreeRace is the same gate the official
+    // Override/Edit modal applies via shouldDerivePlaces.
+    const finalResults = shouldDerivePlacesForFreeRace(hasTimer)
+      ? assignPlaces(editingResults)
+      : editingResults;
 
     const res = await recordResult({ heatId, lanes: finalResults });
     if (res.error) {
@@ -263,6 +270,14 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
       }
       lastPreparedIdRef.current = heatId;
     }
+  };
+
+  const handlePlaceChange = (index: number, value: string) => {
+    // Same sanity check the official Override/Edit modal applies to a
+    // hand-typed place (#524): a positive whole number, or unplaced.
+    const parsed = parseInt(value, 10);
+    const place = Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
+    setEditingResults((prev) => prev.map((x, i) => (i === index ? { ...x, place } : x)));
   };
 
   const getRacerDisplay = (racerId: number | null) => {
@@ -549,27 +564,50 @@ export const FreeRaceExecution: React.FC<FreeRaceExecutionProps> = ({
       {/* Edit results modal */}
       <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Free Race Results">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* A no-timer track (#490) has nothing to arm and no time to read
+              off, so the modal takes a hand-typed finishing order instead —
+              the same column swap the official Override/Edit modal makes,
+              keyed here on the track's timer rather than the race's scoring
+              strategy, since a free heat is never scored either way (#526). */}
+          {!hasTimer && (
+            <p style={{ margin: 0, color: 'var(--text-muted-color)', fontSize: '0.9rem' }}>
+              No timer is connected to this track. Enter each car's finishing place instead.
+            </p>
+          )}
           {editingResults.map((r, idx) => (
             <div key={r.lane} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span style={{ minWidth: '60px', fontWeight: 'bold', color: 'var(--text-muted-color)' }}>Lane {r.lane}</span>
               <span style={{ flex: 1 }}>
                 {r.racerId == null ? <em style={{ color: 'var(--text-faint-color)' }}>(empty)</em> : getRacerDisplay(r.racerId)}
               </span>
-              <input
-                type="number"
-                step="0.0001"
-                min="0"
-                value={r.time ?? ''}
-                onChange={(e) => {
-                  const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                  setEditingResults((prev) =>
-                    prev.map((x, i) => (i === idx ? { ...x, time: val } : x))
-                  );
-                }}
-                placeholder="Time (s)"
-                style={{ padding: '6px', borderRadius: '4px', border: '1px solid var(--input-border-color)', width: '120px', textAlign: 'right' }}
-                disabled={r.racerId == null}
-              />
+              {hasTimer ? (
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={r.time ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                    setEditingResults((prev) =>
+                      prev.map((x, i) => (i === idx ? { ...x, time: val } : x))
+                    );
+                  }}
+                  placeholder="Time (s)"
+                  style={{ padding: '6px', borderRadius: '4px', border: '1px solid var(--input-border-color)', width: '120px', textAlign: 'right' }}
+                  disabled={r.racerId == null}
+                />
+              ) : (
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={r.place ?? ''}
+                  onChange={(e) => handlePlaceChange(idx, e.target.value)}
+                  placeholder="Place"
+                  style={{ padding: '6px', borderRadius: '4px', border: '1px solid var(--input-border-color)', width: '120px', textAlign: 'right' }}
+                  disabled={r.racerId == null}
+                />
+              )}
             </div>
           ))}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>

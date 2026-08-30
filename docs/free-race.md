@@ -89,6 +89,10 @@ _A staged free race heat. With a fake timer configured, the Fake Timer Controls 
 
 - **With a hardware timer**: release the cars as normal; times arrive on their own.
 - **With the fake timer**: click **Start Timer**. The heat finishes on its own a few seconds later, or click **Finish Heat** to end it at once.
+- **With no timer at all**: nothing is armed, and the main button is **Enter
+  Results**. A free heat is exhibition — never scored — so this always asks
+  for finishing order by hand rather than a time, whichever scoring method
+  the race itself uses. See [No timer](reference/race-settings.md#no-timer).
 
 Results appear as soon as the heat finishes, with places and the winner
 highlighted.
@@ -101,7 +105,7 @@ Three buttons sit above the results:
 | Button | What it does |
 | --- | --- |
 | **Reset Heat** | Clears the times and re-arms the timer, so the same lane-up can race again |
-| **Edit** | Enter or correct times by hand |
+| **Edit** | Enter or correct times by hand — finishing order instead, on a track with no timer |
 | **Next Heat** | Goes back to lane setup for another run |
 
 **Next Heat** on a heat that never ran throws it away rather than leaving an

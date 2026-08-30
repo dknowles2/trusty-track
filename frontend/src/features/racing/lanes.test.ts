@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasTimes, hasRun, wasSkipped, byPlace, assignPlaces, shouldDerivePlaces, toInput } from './lanes';
+import { hasTimes, hasRun, wasSkipped, byPlace, assignPlaces, shouldDerivePlaces, shouldDerivePlacesForFreeRace, toInput } from './lanes';
 import { lane } from './testFixtures';
 import type { LaneInput } from './types';
 
@@ -229,5 +229,35 @@ describe('assignPlaces and shouldDerivePlaces together (#490)', () => {
     const saved = shouldDerivePlaces('TIMED') ? assignPlaces(corrected) : corrected;
     expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
     expect(saved.find((r) => r.lane === 1)?.place).toBe(2);
+  });
+});
+
+/**
+ * Issue #526. `FreeRaceExecution` keys the same gate off the *track* having
+ * a timer rather than the race's scoring strategy — a free heat is never
+ * scored under either strategy, so `shouldDerivePlaces` is the wrong
+ * question there.
+ */
+describe('shouldDerivePlacesForFreeRace', () => {
+  it('derives places from times on a track with a timer', () => {
+    expect(shouldDerivePlacesForFreeRace(true)).toBe(true);
+  });
+
+  it('leaves a hand-typed place alone on a track with no timer', () => {
+    expect(shouldDerivePlacesForFreeRace(false)).toBe(false);
+  });
+
+  it('a hand-typed place on a no-timer track is sent exactly as entered', () => {
+    // The bug #526 fixes: calling assignPlaces unconditionally here would
+    // read "no time anywhere" as "clear every place" and silently discard
+    // the finishing order the operator just typed in — free racing has no
+    // scoring strategy to key off, so this has to be tested on its own.
+    const results = [
+      input({ lane: 1, racerId: 1, time: null, place: 2 }),
+      input({ lane: 2, racerId: 2, time: null, place: 1 }),
+    ];
+    const saved = shouldDerivePlacesForFreeRace(false) ? assignPlaces(results) : results;
+    expect(saved.find((r) => r.lane === 1)?.place).toBe(2);
+    expect(saved.find((r) => r.lane === 2)?.place).toBe(1);
   });
 });
