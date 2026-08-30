@@ -59,11 +59,13 @@ test('screenshot the settings panels', async ({ page }) => {
     await page.getByTestId('settings-nav-general').click();
     const terminologyFields = page.getByTestId('terminology-fields');
     await expect(terminologyFields).toBeVisible();
-    await terminologyFields.getByLabel('Use different words for “Den” and “Pack”').click();
+    await terminologyFields.getByLabel('Use different words for “Den”, “Pack” and “Car”').click();
     await terminologyFields.getByLabel('One racing group (was “Den”)').fill('Class');
     await terminologyFields.getByLabel('More than one (was “Dens”)').fill('Classes');
     await terminologyFields.getByLabel('The organization itself (was “Pack”)').fill('School');
     await terminologyFields.getByLabel('More than one (was “Packs”)').fill('Schools');
+    await terminologyFields.getByLabel('One vehicle (was “Car”)').fill('Rocket');
+    await terminologyFields.getByLabel('More than one (was “Cars”)').fill('Rockets');
     await expect(terminologyFields.getByLabel('One racing group (was “Den”)')).toHaveValue('Class');
     await terminologyFields.screenshot({ path: path.join(SCREENSHOT_DIR, '09-terminology.png') });
 

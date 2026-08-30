@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyMapping,
   canImport,
+  fieldLabels,
   guessMapping,
   parseCsv,
   templateCsv,
@@ -192,6 +193,14 @@ describe('validate', () => {
     expect(problems[0].message).toMatch(/not a whole number/);
   });
 
+  it('names the resolved vehicle word in its messages (#551)', () => {
+    const map = mapping({ firstName: 'first', lastName: 'last', carNumber: 'car' });
+    const csv = 'first,last,car\nAlex,Rivera,7\nSam,Okafor,7';
+    const problems = validate(applyMapping(parsed(csv), map), map, 'Rocket');
+
+    expect(problems).toEqual([{ line: 3, message: 'Rocket number 7 is already used on line 2.' }]);
+  });
+
   it('accepts the usual spellings of yes and no', () => {
     const map = mapping({ firstName: 'first', lastName: 'last', passedInspection: 'ok' });
     const csv = 'first,last,ok\nA,B,Yes\nC,D,n\nE,F,TRUE\nG,H,0\nI,J,x\nK,L,';
@@ -281,5 +290,29 @@ describe('templateCsv', () => {
 
     expect(canImport(validate(applyMapping(parsed, guess), guess))).toBe(true);
     expect(validate(applyMapping(parsed, guess), guess)).toEqual([]);
+  });
+});
+
+describe('fieldLabels', () => {
+  it('renders the default racing-group and vehicle words exactly as before #551', () => {
+    expect(fieldLabels('Den')).toEqual({
+      firstName: 'First Name',
+      lastName: 'Last Name',
+      carNumber: 'Car Number',
+      carName: 'Car Name',
+      racingGroup: 'Den',
+      passedInspection: 'Passed Inspection',
+    });
+  });
+
+  it('swaps in the resolved vehicle word (#551)', () => {
+    expect(fieldLabels('Class', 'Rocket')).toEqual({
+      firstName: 'First Name',
+      lastName: 'Last Name',
+      carNumber: 'Rocket Number',
+      carName: 'Rocket Name',
+      racingGroup: 'Class',
+      passedInspection: 'Passed Inspection',
+    });
   });
 });

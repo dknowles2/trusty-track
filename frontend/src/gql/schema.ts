@@ -231,6 +231,8 @@ export type InitialConfigInput = {
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   tracks: Array<TrackInput>;
+  vehiclePlural?: InputMaybe<Scalars['String']['input']>;
+  vehicleSingular?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type InitialConfigStatus = {
@@ -250,6 +252,8 @@ export type InitialConfigStatus = {
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   terminology: Terminology;
   tracks: Array<Track>;
+  vehiclePlural?: Maybe<Scalars['String']['output']>;
+  vehicleSingular?: Maybe<Scalars['String']['output']>;
   version: Scalars['String']['output'];
 };
 
@@ -296,6 +300,7 @@ export type Mutation = {
   abortHeat: Scalars['Boolean']['output'];
   advanceDisplay?: Maybe<Display>;
   advanceRound: Scalars['Int']['output'];
+  applyMasterRunningOrder: HeatReorderResponse;
   assignDisplay?: Maybe<Display>;
   bulkAssignPhotos: Scalars['Int']['output'];
   bulkAutoNumber: Scalars['Int']['output'];
@@ -369,6 +374,11 @@ export type MutationAdvanceDisplayArgs = {
 export type MutationAdvanceRoundArgs = {
   raceId: Scalars['Int']['input'];
   roundId: Scalars['Int']['input'];
+};
+
+
+export type MutationApplyMasterRunningOrderArgs = {
+  raceId: Scalars['Int']['input'];
 };
 
 
@@ -687,6 +697,8 @@ export type Organization = {
   racingGroupPlural?: Maybe<Scalars['String']['output']>;
   racingGroupSingular?: Maybe<Scalars['String']['output']>;
   terminology: Terminology;
+  vehiclePlural?: Maybe<Scalars['String']['output']>;
+  vehicleSingular?: Maybe<Scalars['String']['output']>;
 };
 
 export type PhotoAssignmentInput = {
@@ -825,6 +837,7 @@ export type Race = {
   id: Scalars['Int']['output'];
   leaderboard: Array<LeaderboardEntry>;
   location?: Maybe<Scalars['String']['output']>;
+  masterRunningOrder: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
   organization: Organization;
   organizationId: Scalars['Int']['output'];
@@ -842,6 +855,8 @@ export type Race = {
   tiebreaker: Scalars['String']['output'];
   track?: Maybe<Track>;
   trackId?: Maybe<Scalars['Int']['output']>;
+  vehiclePlural?: Maybe<Scalars['String']['output']>;
+  vehicleSingular?: Maybe<Scalars['String']['output']>;
   votingOpen: Scalars['Boolean']['output'];
   weightLimitOz?: Maybe<Scalars['Float']['output']>;
 };
@@ -907,6 +922,7 @@ export type RaceUpdateInput = {
   dateTime?: InputMaybe<Scalars['String']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
+  masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
@@ -915,6 +931,8 @@ export type RaceUpdateInput = {
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
   tiebreaker?: InputMaybe<Scalars['String']['input']>;
   trackId?: InputMaybe<Scalars['Int']['input']>;
+  vehiclePlural?: InputMaybe<Scalars['String']['input']>;
+  vehicleSingular?: InputMaybe<Scalars['String']['input']>;
   votingOpen?: InputMaybe<Scalars['Boolean']['input']>;
   weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
 };
@@ -1108,6 +1126,8 @@ export type Terminology = {
   organizationSingular: Scalars['String']['output'];
   racingGroupPlural: Scalars['String']['output'];
   racingGroupSingular: Scalars['String']['output'];
+  vehiclePlural: Scalars['String']['output'];
+  vehicleSingular: Scalars['String']['output'];
 };
 
 export type TimerModel = {

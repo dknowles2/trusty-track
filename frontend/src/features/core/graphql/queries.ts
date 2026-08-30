@@ -48,6 +48,8 @@ export const INITIAL_CONFIG_QUERY = gql`
         racingGroupPlural
         organizationSingular
         organizationPlural
+        vehicleSingular
+        vehiclePlural
       }
     }
   }
@@ -67,6 +69,8 @@ export const RACE_TERMINOLOGY_QUERY = gql`
         racingGroupPlural
         organizationSingular
         organizationPlural
+        vehicleSingular
+        vehiclePlural
       }
     }
   }

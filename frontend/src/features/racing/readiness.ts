@@ -120,7 +120,14 @@ function timerItem(input: ReadinessInput): ReadinessItem {
     };
 }
 
-function checkinItem(input: ReadinessInput): ReadinessItem {
+function checkinItem(
+    input: ReadinessInput,
+    /** The lowercase plural vehicle word, mirroring the identical sentence in
+     * `setupChecklist.ts`'s check-in step. Defaults to the built-in Scouting
+     * word so a caller that has not been threaded through `useTerminology()`
+     * yet still renders what it always did (#551). */
+    vehicleWord = 'cars',
+): ReadinessItem {
     const { registeredCount, checkedInCount } = input;
 
     if (registeredCount === 0) {
@@ -136,7 +143,7 @@ function checkinItem(input: ReadinessInput): ReadinessItem {
         return {
             key: 'checkin',
             label: 'Check-in',
-            detail: `0 of ${registeredCount} checked in. Only checked-in cars are put into heats.`,
+            detail: `0 of ${registeredCount} checked in. Only checked-in ${vehicleWord} are put into heats.`,
             level: 'BLOCKED',
         };
     }
@@ -191,8 +198,13 @@ function displaysItem(input: ReadinessInput): ReadinessItem {
     };
 }
 
-export function readinessItems(input: ReadinessInput): ReadinessItem[] {
-    return [timerItem(input), checkinItem(input), scheduleItem(input), displaysItem(input)];
+export function readinessItems(
+    input: ReadinessInput,
+    /** The lowercase plural vehicle word for the check-in item. Defaults to
+     * the built-in Scouting word (#551). */
+    vehicleWord = 'cars',
+): ReadinessItem[] {
+    return [timerItem(input), checkinItem(input, vehicleWord), scheduleItem(input), displaysItem(input)];
 }
 
 /** The worst thing on the list, which is what the strip as a whole says. */

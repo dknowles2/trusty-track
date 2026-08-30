@@ -13,10 +13,14 @@ const WORDS: TerminologyWords = {
     groups: 'Dens',
     org: 'Pack',
     orgs: 'Packs',
+    vehicle: 'Car',
+    vehicles: 'Cars',
     groupLower: 'den',
     groupsLower: 'dens',
     orgLower: 'pack',
     orgsLower: 'packs',
+    vehicleLower: 'car',
+    vehiclesLower: 'cars',
 };
 
 const checklistFor = (p: SetupProgress) => checklistForWords(p, WORDS);
@@ -75,8 +79,27 @@ describe('checklistFor', () => {
         expect(checkin.hint).not.toContain('0 of 0');
     });
 
+    it('renders the default vehicle word exactly as before #551', () => {
+        const [, , checkin] = checklistFor(progress());
+        expect(checkin.label).toBe('Check in cars');
+        expect(checkin.hint).toBe('Only checked-in cars are put into heats.');
+    });
+
     it('needs a round for the schedule step, not merely racers', () => {
         expect(doneKeys(progress({ racerCount: 20, checkedInCount: 20 }))).not.toContain('schedule');
+    });
+
+    it('names the check-in step for the resolved vehicle word (#551)', () => {
+        const rocketWords: TerminologyWords = {
+            ...WORDS,
+            vehicle: 'Rocket',
+            vehicles: 'Rockets',
+            vehicleLower: 'rocket',
+            vehiclesLower: 'rockets',
+        };
+        const [, , checkin] = checklistForWords(progress(), rocketWords);
+        expect(checkin.label).toBe('Check in rockets');
+        expect(checkin.hint).toBe('Only checked-in rockets are put into heats.');
     });
 });
 

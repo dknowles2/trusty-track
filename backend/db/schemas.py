@@ -134,6 +134,8 @@ class InitialConfigCreate(BaseModel):
     racing_group_plural: str | None = None
     organization_singular: str | None = None
     organization_plural: str | None = None
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
     clear_terminology: bool = False
 
 
@@ -210,6 +212,12 @@ class RaceUpdate(BaseModel):
     championship_trophies: int | None = None
     auto_advance_heat: bool | None = None
     weight_limit_oz: float | None = None
+    #: One interleaved running order across racing groups, rather than a
+    #: block per group (#549 stage 2). Absent means leave alone, same as
+    #: every other field here; `false` is an ordinary value, not a sentinel
+    #: needing its own clear flag, since it is already what every race had
+    #: before this column existed.
+    master_running_order: bool | None = None
     #: Whether a phone with no PIN may vote right now (#305). An ordinary
     #: field on this update, not a separate mutation: `update_race` already
     #: drops absent fields, so a screen can send just this without touching
@@ -223,6 +231,10 @@ class RaceUpdate(BaseModel):
     racing_group_plural: str | None = None
     organization_singular: str | None = None
     organization_plural: str | None = None
+    #: A per-race override of the vehicle word (#551), same shape as the
+    #: four fields above.
+    vehicle_singular: str | None = None
+    vehicle_plural: str | None = None
 
 
 class OrganizationBase(BaseModel):

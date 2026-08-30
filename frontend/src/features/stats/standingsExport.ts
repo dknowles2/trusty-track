@@ -62,10 +62,14 @@ export function standingsRows(
      * the built-in Scouting one, `DEFAULT_TERMINOLOGY.racingGroupSingular`
      * (#496 stage 4). */
     groupWord = 'Den',
+    /** The singular vehicle word for the number column header, defaulting to
+     * the built-in Scouting one, `DEFAULT_TERMINOLOGY.vehicleSingular`
+     * (#551). */
+    vehicleWord = 'Car',
 ): CsvRow[] {
     const header: CsvRow = [
         'Rank',
-        'Car #',
+        `${vehicleWord} #`,
         'First Name',
         'Last Name',
         groupWord,

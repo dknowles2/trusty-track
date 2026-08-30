@@ -64,7 +64,7 @@ export interface ChecklistStep {
  */
 export function checklistFor(progress: SetupProgress, words: TerminologyWords): ChecklistStep[] {
     const { racingGroupCount, racerCount, checkedInCount, roundCount } = progress;
-    const { groupsLower } = words;
+    const { groupsLower, vehiclesLower } = words;
 
     return [
         {
@@ -83,11 +83,11 @@ export function checklistFor(progress: SetupProgress, words: TerminologyWords): 
         },
         {
             key: 'checkin',
-            label: 'Check in cars',
+            label: `Check in ${vehiclesLower}`,
             hint:
                 racerCount > 0
-                    ? `${checkedInCount} of ${racerCount} checked in. Only checked-in cars are put into heats.`
-                    : 'Only checked-in cars are put into heats.',
+                    ? `${checkedInCount} of ${racerCount} checked in. Only checked-in ${vehiclesLower} are put into heats.`
+                    : `Only checked-in ${vehiclesLower} are put into heats.`,
             done: checkedInCount > 0,
             action: null,
         },

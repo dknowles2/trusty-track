@@ -110,12 +110,14 @@ export default function RaceDetails() {
       championship_trophies: data.race.championshipTrophies,
       weight_limit_oz: data.race.weightLimitOz,
       // Raw overrides, null where this race inherits the organization's
-      // word (#496 stage 3) — `RaceForm`'s checkbox is on exactly when
-      // these are non-null.
+      // word (#496 stage 3; #551 adds the vehicle pair) — `RaceForm`'s
+      // checkbox is on exactly when these are non-null.
       racing_group_singular: data.race.racingGroupSingular ?? null,
       racing_group_plural: data.race.racingGroupPlural ?? null,
       organization_singular: data.race.organizationSingular ?? null,
       organization_plural: data.race.organizationPlural ?? null,
+      vehicle_singular: data.race.vehicleSingular ?? null,
+      vehicle_plural: data.race.vehiclePlural ?? null,
     } satisfies Race;
   }, [data]);
 
@@ -253,9 +255,12 @@ export default function RaceDetails() {
               racingGroupPlural: updateInput.racing_group_plural ?? undefined,
               organizationSingular: updateInput.organization_singular ?? undefined,
               organizationPlural: updateInput.organization_plural ?? undefined,
+              vehicleSingular: updateInput.vehicle_singular ?? undefined,
+              vehiclePlural: updateInput.vehicle_plural ?? undefined,
               // Same trap as the weight limit above, for the per-race
-              // terminology override (#496 stage 3): absent means leave
-              // alone, so going back to inheriting needs its own flag.
+              // terminology override (#496 stage 3; #551 adds the vehicle
+              // pair): absent means leave alone, so going back to
+              // inheriting needs its own flag.
               clearTerminology: updateInput.racing_group_singular == null,
           };
           const result = await updateRaceMutation({ id: parsedRaceId, race: raceInput });

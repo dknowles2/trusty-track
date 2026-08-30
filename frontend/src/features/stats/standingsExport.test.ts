@@ -90,6 +90,20 @@ describe('standingsRows', () => {
     it('exports nothing but the header for empty standings', () => {
         expect(standingsRows([], 'TIMED')).toHaveLength(1);
     });
+
+    it('names the number column for the resolved words (#551)', () => {
+        const [header] = standingsRows([entry()], 'POINTS', 'Class', 'Rocket');
+        expect(header).toEqual([
+            'Rank',
+            'Rocket #',
+            'First Name',
+            'Last Name',
+            'Class',
+            'Points',
+            'Heats',
+            'Tie Broken By',
+        ]);
+    });
 });
 
 describe('tieBrokenByValue', () => {

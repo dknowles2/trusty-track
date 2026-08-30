@@ -221,6 +221,8 @@ input InitialConfigInput {
   racingGroupPlural: String = null
   organizationSingular: String = null
   organizationPlural: String = null
+  vehicleSingular: String = null
+  vehiclePlural: String = null
   clearTerminology: Boolean! = false
 }
 
@@ -241,6 +243,8 @@ type InitialConfigStatus {
   racingGroupPlural: String
   organizationSingular: String
   organizationPlural: String
+  vehicleSingular: String
+  vehiclePlural: String
   terminology: Terminology!
 }
 
@@ -340,6 +344,7 @@ type Mutation {
   importRacers(raceId: Int!, csvData: String!): Int!
   createRound(raceId: Int!, roundData: RoundCreateInput!): [Round!]!
   reorderHeats(heatUpdates: [HeatReorderItemInput!]!): HeatReorderResponse!
+  applyMasterRunningOrder(raceId: Int!): HeatReorderResponse!
   startFreeRaceHeat(raceId: Int!, laneAssignments: [FreeRaceLaneAssignmentInput!]!): FreeRaceHeat!
   recordFreeRaceResult(heatId: Int!, lanes: [HeatLaneInput!]!): FreeRaceHeat
   uploadImage(dataUrl: String!): String!
@@ -352,6 +357,8 @@ type Organization {
   racingGroupPlural: String
   organizationSingular: String
   organizationPlural: String
+  vehicleSingular: String
+  vehiclePlural: String
   terminology: Terminology!
   races: [Race!]!
 }
@@ -408,11 +415,14 @@ type Race {
   tiebreaker: String!
   autoAdvanceHeat: Boolean!
   weightLimitOz: Float
+  masterRunningOrder: Boolean!
   votingOpen: Boolean!
   racingGroupSingular: String
   racingGroupPlural: String
   organizationSingular: String
   organizationPlural: String
+  vehicleSingular: String
+  vehiclePlural: String
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
   awards: [Award!]!
@@ -486,12 +496,15 @@ input RaceUpdateInput {
   championshipTrophies: Int = null
   autoAdvanceHeat: Boolean = null
   weightLimitOz: Float = null
+  masterRunningOrder: Boolean = null
   votingOpen: Boolean = null
   clearWeightLimit: Boolean! = false
   racingGroupSingular: String = null
   racingGroupPlural: String = null
   organizationSingular: String = null
   organizationPlural: String = null
+  vehicleSingular: String = null
+  vehiclePlural: String = null
   clearTerminology: Boolean! = false
 }
 
@@ -621,6 +634,8 @@ type Terminology {
   racingGroupPlural: String!
   organizationSingular: String!
   organizationPlural: String!
+  vehicleSingular: String!
+  vehiclePlural: String!
 }
 
 type TimerModel {
