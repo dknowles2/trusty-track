@@ -258,6 +258,79 @@ describe('contrast — the hard constraints checklist', () => {
     }
   });
 
+  // #498's checklist covered five pairings. By the time APP_TOKEN_NAMES had
+  // grown to 110 entries, the rest of the vocabulary was untested — and
+  // three tokens (the ones #529 is about) failed the floor in every theme,
+  // Clear Sight included. This extends coverage to every token whose name
+  // says it is text — `--text-*` and `--display-text-*` — plus
+  // `--on-accent-color` against `--cub-scouting-gold`, which #529's own
+  // audit found already clears the floor everywhere (5.93:1 at the
+  // tightest) and was simply never checked.
+  describe('every --text-* and --display-text-* token, plus on-accent (#529)', () => {
+    // --text-placeholder-color is the one deliberate exception, in six of
+    // the seven themes: darkened to clear the floor it would stop reading
+    // as an empty field and start reading as typed text (placeholder text
+    // is not content — see each theme's own comment in themes.ts). Clear
+    // Sight is not in this set: its whole purpose is legibility, so its
+    // placeholder is pushed to clear the floor like everything else on that
+    // theme rather than carrying the same exception.
+    const PLACEHOLDER_EXCEPTION_THEMES = new Set([
+      'field-uniform',
+      'under-the-lights',
+      'old-glory',
+      'sawdust-and-pine',
+      'trail-colors',
+      'newsprint',
+    ]);
+
+    const APP_TEXT_TOKEN_NAMES = APP_TOKEN_NAMES.filter(
+      (name) => name.startsWith('--text-') && name !== '--text-color',
+    );
+    const DISPLAY_TEXT_TOKEN_NAMES = DISPLAY_TOKEN_NAMES.filter(
+      (name) => name.startsWith('--display-text-') && name !== '--display-text-color',
+    );
+
+    for (const theme of THEMES) {
+      for (const name of APP_TEXT_TOKEN_NAMES) {
+        const ratio = contrastRatio(theme.app.tokens[name], theme.app.tokens['--surface-color']);
+        const isDocumentedException =
+          name === '--text-placeholder-color' && PLACEHOLDER_EXCEPTION_THEMES.has(theme.key);
+
+        if (isDocumentedException) {
+          it(`${theme.key}: ${name} on surface is a documented below-floor exception (placeholder text is not content)`, () => {
+            // Still darkened on purpose, not the pre-#529 1.92:1 — an
+            // unchecked token and a knowingly-exempt one must not look
+            // identical, so this pins the exception explicitly rather than
+            // omitting the pairing.
+            expect(ratio).toBeGreaterThanOrEqual(LARGE_TEXT_FLOOR);
+            expect(ratio).toBeLessThan(BODY_TEXT_FLOOR);
+          });
+        } else {
+          it(`${theme.key}: ${name} on surface clears ${BODY_TEXT_FLOOR}:1`, () => {
+            expect(ratio).toBeGreaterThanOrEqual(BODY_TEXT_FLOOR);
+          });
+        }
+      }
+
+      for (const name of DISPLAY_TEXT_TOKEN_NAMES) {
+        it(`${theme.key}: ${name} on display background clears ${BODY_TEXT_FLOOR}:1`, () => {
+          expect(
+            contrastRatio(theme.display.tokens[name], theme.display.tokens['--display-bg-color']),
+          ).toBeGreaterThanOrEqual(BODY_TEXT_FLOOR);
+        });
+      }
+
+      it(`${theme.key}: on-accent-color on cub-scouting-gold clears ${BODY_TEXT_FLOOR}:1`, () => {
+        expect(
+          contrastRatio(
+            theme.app.tokens['--on-accent-color'],
+            theme.app.tokens['--cub-scouting-gold'],
+          ),
+        ).toBeGreaterThanOrEqual(BODY_TEXT_FLOOR);
+      });
+    }
+  });
+
   // The three pairings the spec's design work explicitly considered and
   // rejected — pinned here so the reasoning stays checked against the
   // contrast utility itself, not just asserted in prose.

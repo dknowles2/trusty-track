@@ -60,6 +60,14 @@ Each theme also sets its own Display (wall/projector) and Printables
 change what the wall or the printer show unless Display or Printables is
 also set to it, or left on "Match App theme."
 
+Clear Sight is the one theme where every tier of text — down to the
+faintest captions and hints, not just headings and body copy — is dark
+enough to read easily against its background. Every other theme keeps
+its lightest labels a shade paler; a placeholder in an empty field is the
+one place any theme, Clear Sight included, keeps that lighter touch on
+purpose, so an empty field still looks empty rather than already filled
+in.
+
 ![The Appearance section with Old Glory selected for all three pickers](../assets/screenshots/settings/08-appearance-old-glory.png)
 _A swatch for each theme, and a live preview of all three surfaces below
 the pickers — nothing here is saved until **Save Settings** is clicked._
