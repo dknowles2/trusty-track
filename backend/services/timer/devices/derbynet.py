@@ -342,13 +342,26 @@ THE_JUDGE = TimerProfile(
 # DerbyNet additionally interrogates this timer for its lane count with an `on`
 # query whose answer is a bare digit. A matcher that broad would claim any
 # single-digit line, so it is left out until there is somewhere safe to put it.
+#
+# GPRM's compatibility matrix lists a "Photo Finish Trigger" for this model,
+# on double-sided units only (#553). The trigger is a discrete hardware signal
+# — a contact closure or a flash-sync line firing a camera at the line — not a
+# serial message, so there is nothing to match here and no way for us to tell
+# a single-sided unit from a double-sided one over the wire. The flag below is
+# a plain datasheet claim for that reason, same as every other capability on
+# this profile: nobody here has run one.
 
 CHAMP = TimerProfile(
     name='"The Champ" (SmartLine / BestTrack)',
     key="champ",
-    provenance=_UNTESTED.format("Champ"),
+    provenance=_UNTESTED.format("Champ")
+    + (
+        " Its Photo Finish Trigger is documented for double-sided units only, "
+        "which this profile cannot distinguish from a single-sided one."
+    ),
     command_eol=b"\r",
     max_lanes=6,
+    has_photo_finish_trigger=True,
     pre_probe=(b"",),
     probe=(b"v",),
     identification=(re.compile(rb"eTekGadget SmartLine Timer"),),

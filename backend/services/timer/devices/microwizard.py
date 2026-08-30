@@ -3,6 +3,18 @@
 Sold by Micro Wizard as the FastTrack K-series. The protocol notes below come
 from the device documentation and from DerbyNet's FastTrack profile, which has
 been in front of this hardware at real events for years.
+
+DerbyNet ships one class for the whole family — "FastTrack K- or Q-series" —
+and this profile follows that: the K2F, K3F, Q1 and Q2 variants speak the same
+commands and identify with the same banner as a plain K1/K2/K3, so there is no
+way to tell them apart from the wire. That matters for the two capability
+flags below (#553): GPRM's compatibility matrix lists "Indicate Timing
+Started" and "Count Down Clock" only for the F/Q variants, not the plain
+K-series, and this profile cannot make that distinction — a K1 owner could be
+seeing an optimistic claim. DerbyNet's own `setup()` sends the enhanced-format
+command (`N2`) to the whole family unconditionally, which is the closest thing
+to real-world evidence that treating them alike is survivable; the timer check
+page's provenance note is where the caveat lives.
 """
 
 import re
@@ -64,7 +76,11 @@ MICROWIZARD = TimerProfile(
         "DerbyNet's notes, and checked against a recording of a real K3 — its "
         "start-up message and a full set of results, including two cars that "
         "never finished, all read correctly. No real heat has ever been run "
-        "through it, though; a two-minute timer test would tell us it works."
+        "through it, though; a two-minute timer test would tell us it works. "
+        "The Indicate Timing Started and Count Down Clock capabilities below "
+        "are documented for the K2F/K3F/Q1/Q2 variants specifically, which "
+        "this profile cannot tell apart from a plain K1/K2/K3 — treat them as "
+        "a claim about the family, not a confirmation for your unit."
     ),
     baud_rate=9600,
     delimiter=b"\r",
@@ -104,6 +120,17 @@ MICROWIZARD = TimerProfile(
     # timer without the accessory does nothing; offering the operator a button
     # that does nothing is the failure worth avoiding.
     remote_start=(b"LG",),
+    # N2 above is what makes this true: the device pushes `@` the instant the
+    # gate opens (matched straight to RACE_STARTED below), rather than us
+    # inferring a start from a polled gate reading the way #340 has to for the
+    # Champ. That is exactly GPRM's "Indicate Timing Started" column. See the
+    # module docstring for why this is claimed for the whole family rather
+    # than only the K2F/K3F/Q1/Q2 units GPRM lists it for.
+    indicates_timing_started=True,
+    # GPRM's "Count Down Clock" column. Nothing to send: the F/Q variants
+    # drive their own countdown display from firmware as part of the ordinary
+    # LR arm sequence. Same family caveat as above.
+    has_countdown_clock=True,
     acks=(
         Ack(re.compile(rb"^MG$", re.IGNORECASE), _AC),
         Ack(re.compile(rb"^(N1|N2|LR|M[A-P])$", re.IGNORECASE), _STAR),

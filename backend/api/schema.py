@@ -1691,6 +1691,15 @@ class TimerStatus:
     #: marked as having the solenoid it drives. Reported here rather than
     #: derived on the client, because the client has no copy of the profiles.
     can_remote_start: bool = False
+    #: Three plain claims about the connected model, straight off the profile
+    #: (#553) — GPRM's "Indicate Timing Started", "Count Down Clock" and
+    #: "Photo Finish Trigger" columns. Unlike `can_remote_start` these need no
+    #: track-side setting: there is no accessory to install, either the model
+    #: has it or it does not. Datasheet claims, most of them never checked
+    #: against real hardware — read them next to `device_provenance`.
+    indicates_timing_started: bool = False
+    has_countdown_clock: bool = False
+    has_photo_finish_trigger: bool = False
     pending_results: list[LaneResult] = strawberry.field(default_factory=list)
     serial_log: list[SerialLogEntry] = strawberry.field(default_factory=list)
     racer_by_lane: str | None = None  # JSON mapping of lane -> racer_id
@@ -2024,6 +2033,9 @@ def _timer_status(s) -> TimerStatus:
         device_provenance=s.device_provenance,
         port=s.port,
         can_remote_start=s.can_remote_start,
+        indicates_timing_started=s.indicates_timing_started,
+        has_countdown_clock=s.has_countdown_clock,
+        has_photo_finish_trigger=s.has_photo_finish_trigger,
         lane_count=s.lane_count,
         active_heat_id=s.active_heat_id,
         last_error=s.last_error,

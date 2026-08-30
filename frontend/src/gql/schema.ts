@@ -1156,6 +1156,9 @@ export type TimerStatus = {
   canRemoteStart: Scalars['Boolean']['output'];
   deviceName?: Maybe<Scalars['String']['output']>;
   deviceProvenance?: Maybe<Scalars['String']['output']>;
+  hasCountdownClock: Scalars['Boolean']['output'];
+  hasPhotoFinishTrigger: Scalars['Boolean']['output'];
+  indicatesTimingStarted: Scalars['Boolean']['output'];
   laneCount?: Maybe<Scalars['Int']['output']>;
   lastError?: Maybe<Scalars['String']['output']>;
   pendingResults: Array<LaneResult>;

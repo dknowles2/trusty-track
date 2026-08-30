@@ -205,6 +205,44 @@ describe('TimerDiagnostics', () => {
         expect(await screen.findByText(/Never run against this hardware/)).toBeInTheDocument();
     });
 
+    it('lists the capabilities a connected model claims', async () => {
+        setup([track()], {
+            state: 'IDLE',
+            deviceName: 'MicroWizard K1/K2/K3',
+            deviceProvenance: 'Checked against a recording of a real K3.',
+            port: '/dev/ttyUSB0',
+            laneCount: 4,
+            lastError: null,
+            serialLog: [],
+            indicatesTimingStarted: true,
+            hasCountdownClock: true,
+            hasPhotoFinishTrigger: false,
+        });
+
+        expect(await screen.findByText('This model claims')).toBeInTheDocument();
+        expect(screen.getByText('Indicates timing started')).toBeInTheDocument();
+        expect(screen.getByText('Countdown clock')).toBeInTheDocument();
+        expect(screen.queryByText('Photo-finish trigger')).not.toBeInTheDocument();
+    });
+
+    it('shows nothing under "This model claims" for a model with no claims', async () => {
+        setup([track()], {
+            state: 'IDLE',
+            deviceName: 'PDT timer (dfgtec.com/pdt)',
+            deviceProvenance: null,
+            port: '/dev/ttyUSB0',
+            laneCount: 4,
+            lastError: null,
+            serialLog: [],
+            indicatesTimingStarted: false,
+            hasCountdownClock: false,
+            hasPhotoFinishTrigger: false,
+        });
+
+        await screen.findByText('PDT timer (dfgtec.com/pdt)');
+        expect(screen.queryByText('This model claims')).not.toBeInTheDocument();
+    });
+
     it('points at settings when there are no tracks', async () => {
         setup([], null);
 

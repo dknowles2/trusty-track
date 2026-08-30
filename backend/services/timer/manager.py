@@ -125,6 +125,16 @@ class TimerStatus:
     #: Whether the operator can be offered a "release the gate" control: the
     #: device has the command *and* this track has the hardware it drives.
     can_remote_start: bool = False
+    #: Three plain datasheet claims about the connected model, straight off
+    #: the profile — none of them needs a track-side setting the way
+    #: `can_remote_start` does, because there is no accessory to install:
+    #: either the device can do it or it cannot (#553). Shown on the timer
+    #: check page next to `device_provenance`, which is exactly the caveat
+    #: they need — most of these profiles have never run against real
+    #: hardware.
+    indicates_timing_started: bool = False
+    has_countdown_clock: bool = False
+    has_photo_finish_trigger: bool = False
     pending_results: list[dict[str, Any]] = field(default_factory=list)
     serial_log: list[SerialLogEntry] = field(default_factory=list)
     racer_by_lane: dict[int, int | None] = field(default_factory=dict)
@@ -317,6 +327,9 @@ class TimerManager:
             device_provenance=self._device.provenance or None,
             port=self._direct_port,
             can_remote_start=self.can_remote_start(),
+            indicates_timing_started=self._device.indicates_timing_started,
+            has_countdown_clock=self._device.has_countdown_clock,
+            has_photo_finish_trigger=self._device.has_photo_finish_trigger,
             lane_count=lane_count,
             active_heat_id=self._active_heat_id,
             last_error=self._last_error,
