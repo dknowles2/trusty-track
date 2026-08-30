@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { ScheduleManagement, Heat } from './ScheduleManagement';
@@ -884,6 +884,194 @@ describe('ScheduleManagement', () => {
       expect(heatCells[0]).toHaveTextContent('Heat 1');
       expect(heatCells[1]).toHaveTextContent('Heat 2');
       expect(heatCells[2]).toHaveTextContent('Heat 3');
+    });
+  });
+
+  describe('the master running order (#549 stage 4)', () => {
+    const twoGroupHeats: Heat[] = [
+      { id: 1, roundNumber: 1, roundId: 10, heatNumber: 2, lanes: [], roundName: 'Lions' },
+      { id: 2, roundNumber: 2, roundId: 20, heatNumber: 1, lanes: [], roundName: 'Tigers' },
+      { id: 3, roundNumber: 1, roundId: 10, heatNumber: 3, lanes: [lane({ lane: 1, racerId: 1, time: 3.1 })], roundName: 'Lions' },
+    ];
+
+    it('shows nothing extra when the race has not opted in', () => {
+      render(
+        <MemoryRouter>
+          <AlertProvider>
+            <ScheduleManagement
+              raceId={1}
+              heats={twoGroupHeats}
+              generating={false}
+              activeHeatId={null}
+              onAddRound={mockOnAddRound}
+              onRegenerateRound={mockOnRegenerateRound}
+              onDeleteRound={mockOnDeleteRound}
+              onDeleteHeat={mockOnDeleteHeat}
+              onRunHeat={mockOnRunHeat}
+              onReorderHeats={mockOnReorderHeats}
+              getRacerName={mockGetRacerName}
+              onRefetchHeats={vi.fn()}
+              laneCount={4}
+              racerCount={10}
+              racingGroupCount={2}
+              championshipTrophies={3}
+            />
+          </AlertProvider>
+        </MemoryRouter>
+      );
+
+      expect(screen.queryByTestId('master-running-order')).not.toBeInTheDocument();
+    });
+
+    it('lists every heat once, in heat_number order, labelled by racing group', () => {
+      render(
+        <MemoryRouter>
+          <AlertProvider>
+            <ScheduleManagement
+              raceId={1}
+              heats={twoGroupHeats}
+              generating={false}
+              activeHeatId={null}
+              onAddRound={mockOnAddRound}
+              onRegenerateRound={mockOnRegenerateRound}
+              onDeleteRound={mockOnDeleteRound}
+              onDeleteHeat={mockOnDeleteHeat}
+              onRunHeat={mockOnRunHeat}
+              onReorderHeats={mockOnReorderHeats}
+              masterRunningOrder
+              roundGroupLabel={{ 10: 'Lions', 20: 'Tigers' }}
+              onApplyMasterRunningOrder={vi.fn()}
+              getRacerName={mockGetRacerName}
+              onRefetchHeats={vi.fn()}
+              laneCount={4}
+              racerCount={10}
+              racingGroupCount={2}
+              championshipTrophies={3}
+            />
+          </AlertProvider>
+        </MemoryRouter>
+      );
+
+      const panel = screen.getByTestId('master-running-order');
+      const rows = within(panel).getAllByRole('row').slice(1); // drop the header row
+      expect(rows).toHaveLength(3);
+      // heat_number order across rounds, not round-then-heat block order.
+      expect(rows[0]).toHaveTextContent('Heat 1');
+      expect(rows[0]).toHaveTextContent('Tigers');
+      expect(rows[1]).toHaveTextContent('Heat 2');
+      expect(rows[1]).toHaveTextContent('Lions');
+      expect(rows[2]).toHaveTextContent('Heat 3');
+      expect(rows[2]).toHaveTextContent('Lions');
+      expect(rows[2]).toHaveTextContent('Done');
+      expect(rows[1]).toHaveTextContent('Upcoming');
+    });
+
+    it('shows an em dash rather than a name for a round scoped to no single group', () => {
+      render(
+        <MemoryRouter>
+          <AlertProvider>
+            <ScheduleManagement
+              raceId={1}
+              heats={[{ id: 1, roundNumber: 1, roundId: 10, heatNumber: 1, lanes: [], roundName: 'Finals' }]}
+              generating={false}
+              activeHeatId={null}
+              onAddRound={mockOnAddRound}
+              onRegenerateRound={mockOnRegenerateRound}
+              onDeleteRound={mockOnDeleteRound}
+              onDeleteHeat={mockOnDeleteHeat}
+              onRunHeat={mockOnRunHeat}
+              onReorderHeats={mockOnReorderHeats}
+              masterRunningOrder
+              roundGroupLabel={{}}
+              onApplyMasterRunningOrder={vi.fn()}
+              getRacerName={mockGetRacerName}
+              onRefetchHeats={vi.fn()}
+              laneCount={4}
+              racerCount={10}
+              racingGroupCount={2}
+              championshipTrophies={3}
+            />
+          </AlertProvider>
+        </MemoryRouter>
+      );
+
+      const panel = screen.getByTestId('master-running-order');
+      const row = within(panel).getAllByRole('row')[1];
+      expect(row).toHaveTextContent('Finals');
+      expect(row).toHaveTextContent('—');
+    });
+
+    it('applies the order and toasts success', async () => {
+      const user = (await import('@testing-library/user-event')).default.setup();
+      const onApply = vi.fn(async () => {});
+      render(
+        <MemoryRouter>
+          <AlertProvider>
+            <ScheduleManagement
+              raceId={1}
+              heats={twoGroupHeats}
+              generating={false}
+              activeHeatId={null}
+              onAddRound={mockOnAddRound}
+              onRegenerateRound={mockOnRegenerateRound}
+              onDeleteRound={mockOnDeleteRound}
+              onDeleteHeat={mockOnDeleteHeat}
+              onRunHeat={mockOnRunHeat}
+              onReorderHeats={mockOnReorderHeats}
+              masterRunningOrder
+              roundGroupLabel={{ 10: 'Lions', 20: 'Tigers' }}
+              onApplyMasterRunningOrder={onApply}
+              getRacerName={mockGetRacerName}
+              onRefetchHeats={vi.fn()}
+              laneCount={4}
+              racerCount={10}
+              racingGroupCount={2}
+              championshipTrophies={3}
+            />
+          </AlertProvider>
+        </MemoryRouter>
+      );
+
+      await user.click(screen.getByTestId('apply-master-running-order'));
+
+      expect(onApply).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText('Master running order applied')).toBeInTheDocument();
+    });
+
+    it('toasts an error when applying the order fails', async () => {
+      const user = (await import('@testing-library/user-event')).default.setup();
+      const onApply = vi.fn(async () => { throw new Error('boom'); });
+      render(
+        <MemoryRouter>
+          <AlertProvider>
+            <ScheduleManagement
+              raceId={1}
+              heats={twoGroupHeats}
+              generating={false}
+              activeHeatId={null}
+              onAddRound={mockOnAddRound}
+              onRegenerateRound={mockOnRegenerateRound}
+              onDeleteRound={mockOnDeleteRound}
+              onDeleteHeat={mockOnDeleteHeat}
+              onRunHeat={mockOnRunHeat}
+              onReorderHeats={mockOnReorderHeats}
+              masterRunningOrder
+              roundGroupLabel={{ 10: 'Lions', 20: 'Tigers' }}
+              onApplyMasterRunningOrder={onApply}
+              getRacerName={mockGetRacerName}
+              onRefetchHeats={vi.fn()}
+              laneCount={4}
+              racerCount={10}
+              racingGroupCount={2}
+              championshipTrophies={3}
+            />
+          </AlertProvider>
+        </MemoryRouter>
+      );
+
+      await user.click(screen.getByTestId('apply-master-running-order'));
+
+      expect(await screen.findByText('boom')).toBeInTheDocument();
     });
   });
 });

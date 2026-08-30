@@ -591,6 +591,7 @@ type Round {
   eliminationLosses: Int
   balancedPhases: Int
   disrupted: Boolean!
+  racingGroupId: Int
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
 }

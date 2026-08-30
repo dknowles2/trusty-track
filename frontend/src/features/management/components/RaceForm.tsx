@@ -26,6 +26,12 @@ export interface RaceFormData {
     /** The pack's weight limit in ounces, or null for no check (#205). */
     weight_limit_oz?: number | null;
     /**
+     * One interleaved running order across racing groups, instead of a
+     * block per group (#549 stage 4). Off by default — running one group
+     * at a time is how many events are deliberately structured.
+     */
+    master_running_order: boolean;
+    /**
      * A per-race terminology override, null where this race inherits the
      * organization's word (#496 stage 3; #551 adds the vehicle pair). All
      * six travel together — the checkbox below is on when any is non-null,
@@ -60,7 +66,7 @@ import { useQuery } from 'urql';
 import { GET_TRACKS } from '../../core/graphql/queries';
 
 export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', isEditing = false }: RaceFormProps) {
-    const { group, vehicle, vehicleLower } = useTerminology();
+    const { group, groupLower, groupsLower, vehicle, vehicleLower } = useTerminology();
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
         date_time: '',
@@ -76,6 +82,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         // keeps whatever it has, including nothing. The column has no server
         // default on purpose — see the model.
         weight_limit_oz: DEFAULT_LIMIT_OZ,
+        master_running_order: false,
         ...initialData
     });
     const [loading, setLoading] = useState(false);
@@ -254,6 +261,37 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                     })}
                 </div>
             </fieldset>
+
+            {/* The master running order (#549 stage 4): one interleaved
+                sequence across racing groups instead of a block per group,
+                so the track need not idle while the next group's cars are
+                staged. Off by default — applying it is a separate step on
+                the Schedule screen, not this checkbox by itself. The
+                description is always visible (#304), not only revealed once
+                checked. Gated on `isEditing` for the same reason the
+                terminology override below is: `updateRace` is the only
+                mutation that accepts this field, so there is nothing to
+                submit while creating (`buildCreateRaceInput` does not send
+                it — see that file). */}
+            {isEditing && (
+                <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem' }}>
+                        <input
+                            type="checkbox"
+                            id="race-master-running-order"
+                            checked={formData.master_running_order}
+                            onChange={e => setFormData(prev => ({ ...prev, master_running_order: e.target.checked }))}
+                        />
+                        <span>Interleave heats across every {groupLower}</span>
+                    </label>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                        Runs one {groupLower}&apos;s heat, then the next {groupLower}&apos;s, instead of every
+                        {' '}{groupLower} running its whole round back to back — so the track need not sit
+                        empty between {groupsLower}. Apply it from the Schedule screen once the rounds are
+                        set up.
+                    </p>
+                </div>
+            )}
 
             {/* The weight limit (#205). A checkbox as well as a number,
                 because "no limit" and "a limit of nothing" are different

@@ -109,6 +109,7 @@ export default function RaceDetails() {
       global_start_number: data.race.globalStartNumber,
       championship_trophies: data.race.championshipTrophies,
       weight_limit_oz: data.race.weightLimitOz,
+      master_running_order: data.race.masterRunningOrder,
       // Raw overrides, null where this race inherits the organization's
       // word (#496 stage 3; #551 adds the vehicle pair) — `RaceForm`'s
       // checkbox is on exactly when these are non-null.
@@ -251,6 +252,10 @@ export default function RaceDetails() {
               // Absent means "leave alone" for every field here, so turning
               // the weight check off has to be said explicitly (#205).
               clearWeightLimit: updateInput.weight_limit_oz == null,
+              // `false` is an ordinary value here, not a sentinel needing its
+              // own clear flag (#549 stage 4) — it is already what every
+              // race had before this setting existed.
+              masterRunningOrder: updateInput.master_running_order,
               racingGroupSingular: updateInput.racing_group_singular ?? undefined,
               racingGroupPlural: updateInput.racing_group_plural ?? undefined,
               organizationSingular: updateInput.organization_singular ?? undefined,
