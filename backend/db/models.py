@@ -104,6 +104,27 @@ class ScoringStrategy(str, enum.Enum):
     POINTS = "POINTS"
 
 
+class TiebreakMethod(str, enum.Enum):
+    """How a shared score is broken at a cut — advancement, an award's place,
+    the standings themselves (#540). Values equal names, same as
+    `ScoringStrategy`, so they cross into `backend.domain.tiebreak` as plain
+    strings unchanged; that module holds the same five constants and the
+    rules for each.
+
+    `SHARED` is the default and is not a no-op *feature* so much as a no-op
+    *outcome*: it leaves a tie exactly as unresolved as it is today, which is
+    what an install upgrading into this needs — the same reasoning
+    `weight_limit_oz` (#205) and `display_theme`'s `"MATCH_APP"` (#498) both
+    follow for their own off states.
+    """
+
+    SHARED = "SHARED"
+    BEST_TIME = "BEST_TIME"
+    TOTAL_TIME = "TOTAL_TIME"
+    COUNTBACK = "COUNTBACK"
+    HEAD_TO_HEAD = "HEAD_TO_HEAD"
+
+
 class Organization(Base):
     __tablename__ = "organizations"
 
@@ -308,6 +329,17 @@ class Race(Base):
 
     scoring_strategy: Mapped[ScoringStrategy] = mapped_column(
         SAEnum(ScoringStrategy), default=ScoringStrategy.TIMED
+    )
+    # How a shared score is broken at a cut — advancement, an award's place
+    # (#540). `SHARED` (not resolved, today's silent behaviour made visible)
+    # is the default, and needs a `server_default` — unlike `scoring_strategy`
+    # above — because it is landing on a table that already has rows; every
+    # existing race gets `SHARED` and reads no differently than it did before
+    # this column existed. See `domain.tiebreak` for what each value does.
+    tiebreaker: Mapped[TiebreakMethod] = mapped_column(
+        SAEnum(TiebreakMethod),
+        default=TiebreakMethod.SHARED,
+        server_default=sa_text("'SHARED'"),
     )
     rules_configuration: Mapped[str | None] = mapped_column(String, nullable=True)
     # The pack's weight limit, in ounces (#205).

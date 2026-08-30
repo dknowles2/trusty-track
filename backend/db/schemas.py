@@ -18,6 +18,7 @@ from .models import (
     AwardKind,
     CarNumberingStrategy,
     ScoringStrategy,
+    TiebreakMethod,
     TimerType,
 )
 
@@ -172,6 +173,9 @@ class RaceBase(BaseModel):
     global_start_number: int = 1
     championship_trophies: int = 3
     scoring_strategy: ScoringStrategy = ScoringStrategy.TIMED
+    #: How a shared score is broken at a cut (#540). `SHARED` — not resolved —
+    #: is the default; see `domain.tiebreak` for what each value does.
+    tiebreaker: TiebreakMethod = TiebreakMethod.SHARED
     rules_configuration: str | None = None
     weight_limit_oz: float | None = None
 
@@ -197,6 +201,10 @@ class RaceUpdate(BaseModel):
     date_time: str | None = None
     location: str | None = None
     scoring_strategy: ScoringStrategy | None = None
+    #: Absent means leave alone, same as everything else on this update —
+    #: `SHARED` is the non-null "off" state, the same shape `display_theme`'s
+    #: `"MATCH_APP"` uses, so there is no separate clear flag to carry.
+    tiebreaker: TiebreakMethod | None = None
     car_numbering_strategy: CarNumberingStrategy | None = None
     global_start_number: int | None = None
     championship_trophies: int | None = None

@@ -71,6 +71,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `global_start_number` (if GLOBAL, default 1)
     -   `championship_trophies` (int, number of top finishers for championship, default 3)
     -   `scoring_strategy` (Enum: `TIMED`, `POINTS` - default `TIMED`)
+    -   `tiebreaker` (Enum: `SHARED`, `BEST_TIME`, `TOTAL_TIME`, `COUNTBACK`, `HEAD_TO_HEAD` - default `SHARED`) — how a shared score is broken at a cut: advancement, an award's place (#540). `SHARED` means not resolved — a cut still reports the tie and takes a provisional pick, today's behaviour made visible rather than a new default nobody chose. Resolved in `services.scoring.get_leaderboard` alone (`domain/tiebreak.py` holds the five rules), never stored — the same "computed on every read" shape the standings themselves follow (#17).
     -   `rules_configuration` (JSON string, optional — vestigial; nothing reads or writes it)
     -   `weight_limit_oz` (Float, optional — the pack's weight limit; null means the race does not check weights)
     -   `auto_advance_heat` (Boolean — move to the next heat on a countdown after a result)

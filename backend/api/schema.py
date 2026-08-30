@@ -705,6 +705,9 @@ class RaceInput:
     organization_id: int = 1
     track_id: int
     scoring_strategy: str = "TIMED"
+    #: How a shared score is broken at a cut — advancement, an award's place
+    #: (#540). `SHARED` (not resolved) is the default; see `domain.tiebreak`.
+    tiebreaker: str = "SHARED"
     car_numbering_strategy: str = "MANUAL"
     global_start_number: int = 1
     championship_trophies: int = 3
@@ -723,6 +726,10 @@ class RaceUpdateInput:
     location: str | None = None
     track_id: int | None = None
     scoring_strategy: str | None = None
+    #: Absent means leave alone, the same as every other field here —
+    #: `SHARED` is the non-null "off" state, so there is no separate clear
+    #: flag, the `display_theme`/`"MATCH_APP"` precedent (#498).
+    tiebreaker: str | None = None
     car_numbering_strategy: str | None = None
     global_start_number: int | None = None
     championship_trophies: int | None = None
@@ -1242,6 +1249,10 @@ class Race:
     global_start_number: int
     championship_trophies: int
     scoring_strategy: str
+    #: How a shared score is broken at a cut — advancement, an award's place
+    #: (#540). `SHARED` means not resolved, today's behaviour made visible;
+    #: see `domain.tiebreak` for what the other four values do.
+    tiebreaker: str
     auto_advance_heat: bool
     # Null means the race does not check weights (#205).
     weight_limit_oz: float | None

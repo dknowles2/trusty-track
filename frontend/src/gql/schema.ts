@@ -836,6 +836,7 @@ export type Race = {
   scheduledRacerIds: Array<Scalars['Int']['output']>;
   scoringStrategy: Scalars['String']['output'];
   terminology: Terminology;
+  tiebreaker: Scalars['String']['output'];
   track?: Maybe<Track>;
   trackId?: Maybe<Scalars['Int']['output']>;
   votingOpen: Scalars['Boolean']['output'];
@@ -865,6 +866,7 @@ export type RaceInput = {
   name: Scalars['String']['input'];
   organizationId?: Scalars['Int']['input'];
   scoringStrategy?: Scalars['String']['input'];
+  tiebreaker?: Scalars['String']['input'];
   trackId: Scalars['Int']['input'];
   weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
 };
@@ -908,6 +910,7 @@ export type RaceUpdateInput = {
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;
   racingGroupSingular?: InputMaybe<Scalars['String']['input']>;
   scoringStrategy?: InputMaybe<Scalars['String']['input']>;
+  tiebreaker?: InputMaybe<Scalars['String']['input']>;
   trackId?: InputMaybe<Scalars['Int']['input']>;
   votingOpen?: InputMaybe<Scalars['Boolean']['input']>;
   weightLimitOz?: InputMaybe<Scalars['Float']['input']>;
