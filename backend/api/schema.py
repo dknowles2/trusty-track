@@ -1005,6 +1005,10 @@ class LeaderboardEntry:
     heats_completed: int
     racer_image_url: str | None
     rank: int
+    #: The tiebreak method that gave this row a rank it no longer shares with
+    #: anyone (#540) — null when the row was never tied, or a tie the chain
+    #: could not resolve. See `backend.domain.tiebreak`.
+    resolved_by: str | None
 
 
 @strawberry.type

@@ -276,6 +276,7 @@ export type LeaderboardEntry = {
   racingGroupId?: Maybe<Scalars['Int']['output']>;
   racingGroupName: Scalars['String']['output'];
   rank: Scalars['Int']['output'];
+  resolvedBy?: Maybe<Scalars['String']['output']>;
   score: Scalars['Float']['output'];
 };
 
