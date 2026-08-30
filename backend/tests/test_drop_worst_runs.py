@@ -145,7 +145,9 @@ class TestCreateRaceMutation:
         assert response.json()["data"]["createRace"]["dropWorstRuns"] == 2
 
     def test_absent_defaults_to_off(self, client, db: Session):
-        org = crud.create_organization(db, schemas.OrganizationCreate(name="New Pack 2"))
+        org = crud.create_organization(
+            db, schemas.OrganizationCreate(name="New Pack 2")
+        )
         track = crud.create_track(
             db, schemas.TrackCreate(name="New Track 2", lane_count=2, timer_type="FAKE")
         )
@@ -166,7 +168,9 @@ class TestCreateRaceMutation:
         assert response.json()["data"]["createRace"]["dropWorstRuns"] == 0
 
     def test_negative_is_refused(self, client, db: Session):
-        org = crud.create_organization(db, schemas.OrganizationCreate(name="New Pack 3"))
+        org = crud.create_organization(
+            db, schemas.OrganizationCreate(name="New Pack 3")
+        )
         track = crud.create_track(
             db, schemas.TrackCreate(name="New Track 3", lane_count=2, timer_type="FAKE")
         )
