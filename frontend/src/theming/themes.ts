@@ -319,11 +319,20 @@ export const THEMES: readonly Theme[] = [
         '--focus-ring-color': '#003F87',
         '--divider-color': '#eeeeee',
         '--input-border-color': '#cccccc',
-        '--text-subtle-color': '#888888',
-        '--text-faint-color': '#999999',
-        '--text-placeholder-color': '#bbbbbb',
-        '--text-quiet-color': '#777777',
-        '--text-faintest-color': '#aaaaaa',
+        // #888/#999/#bbb/#777/#aaa all failed the 4.5:1 body-text floor on
+        // this white surface (#498 tested only text-color and on-primary;
+        // #529 found the rest). Deepened to the tightest band that still
+        // clears it and keeps the five tiers distinct, muted -> faintest:
+        // quiet 5.33:1, subtle 4.95:1, faint 4.67:1, faintest 4.54:1 — see
+        // contrastRatio() in themes.test.ts. Placeholder is the one
+        // deliberate exception: darkening it to 4.5:1 would make it read as
+        // ordinary text rather than an empty field, so it stops at ~3:1
+        // instead (rejected pairing, pinned in themes.test.ts).
+        '--text-subtle-color': '#707070',
+        '--text-faint-color': '#747474',
+        '--text-placeholder-color': '#949494',
+        '--text-quiet-color': '#6b6b6b',
+        '--text-faintest-color': '#767676',
         '--text-strong-color': '#222222',
         '--text-heading-alt-color': '#444444',
         '--text-strong-muted-color': '#555555',
@@ -421,6 +430,16 @@ export const THEMES: readonly Theme[] = [
     // rather than redesigned (#498's stage-1 groundwork). App text
     // #333333 on #f5f5f5: 11.6:1. On-primary #ffffff on #003F87: 10.2:1.
     // Display text #ffffff on #0A0A0A: ~19:1.
+    //
+    // --display-text-quiet-color is uniform #878787 across every theme
+    // (#529) rather than tuned per theme like the App-surface secondary
+    // tiers above — its old value, #777777, cleared 4.5:1 against six of
+    // the seven Display backgrounds but not Old Glory's navy (#0A1E3D,
+    // 3.70:1), and one shared value that clears the tightest case (Old
+    // Glory, 4.62:1) clears the rest with room to spare. The other
+    // --display-text-* tiers (subtle #cccccc, faint #dddddd, faintest
+    // #888888, dim #bbbbbb) were already well clear of the floor on every
+    // theme's Display background and are unchanged.
     display: {
       isDark: true,
       tokens: {
@@ -441,7 +460,7 @@ export const THEMES: readonly Theme[] = [
         '--display-placeholder-color': '#666666',
         '--display-on-accent-color': '#000000',
         '--display-text-dim-color': '#bbbbbb',
-        '--display-text-quiet-color': '#777777',
+        '--display-text-quiet-color': '#878787',
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
@@ -505,11 +524,22 @@ export const THEMES: readonly Theme[] = [
         '--focus-ring-color': '#FCD116',
         '--divider-color': '#2a3140',
         '--input-border-color': '#3a4557',
-        '--text-subtle-color': '#7d8ba0',
-        '--text-faint-color': '#6b7789',
-        '--text-placeholder-color': '#5a6578',
+        // #529: this theme already deepened these off the plain defaults,
+        // but three of the five still missed the 4.5:1 floor against this
+        // dark surface (#1c222c) — text-quiet-color (5.41:1) was already
+        // clear and stays as-is. text-subtle-color is deepened slightly
+        // beyond its own already-passing 4.62:1 to open enough headroom for
+        // text-faint-color and text-faintest-color to sit below it and still
+        // clear the floor themselves (4.93/4.56/4.52:1) — the same
+        // convergence-near-the-floor the light themes hit, just off a
+        // different base hue. text-placeholder-color is the deliberate
+        // below-floor exception, computed against this theme's own surface:
+        // ~3.27:1 rather than the light themes' ~3.03:1.
+        '--text-subtle-color': '#8290a5',
+        '--text-faint-color': '#7c8a9f',
+        '--text-placeholder-color': '#647287',
         '--text-quiet-color': '#8798ac',
-        '--text-faintest-color': '#4d5769',
+        '--text-faintest-color': '#7f8999',
         '--text-strong-color': '#cfd6e0',
         '--text-heading-alt-color': '#b7c0cf',
         '--text-strong-muted-color': '#a3adbd',
@@ -626,7 +656,7 @@ export const THEMES: readonly Theme[] = [
         '--display-placeholder-color': '#666666',
         '--display-on-accent-color': '#000000',
         '--display-text-dim-color': '#bbbbbb',
-        '--display-text-quiet-color': '#777777',
+        '--display-text-quiet-color': '#878787',
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
@@ -693,11 +723,14 @@ export const THEMES: readonly Theme[] = [
         '--focus-ring-color': '#0A3161',
         '--divider-color': '#eeeeee',
         '--input-border-color': '#cccccc',
-        '--text-subtle-color': '#888888',
-        '--text-faint-color': '#999999',
-        '--text-placeholder-color': '#bbbbbb',
-        '--text-quiet-color': '#777777',
-        '--text-faintest-color': '#aaaaaa',
+        // Same fix and same values as Field Uniform's block above (#529) —
+        // this theme's surface is the same white, so the same greys clear
+        // the same floor. Placeholder is the same deliberate exception.
+        '--text-subtle-color': '#707070',
+        '--text-faint-color': '#747474',
+        '--text-placeholder-color': '#949494',
+        '--text-quiet-color': '#6b6b6b',
+        '--text-faintest-color': '#767676',
         '--text-strong-color': '#222222',
         '--text-heading-alt-color': '#444444',
         '--text-strong-muted-color': '#555555',
@@ -817,7 +850,7 @@ export const THEMES: readonly Theme[] = [
         '--display-placeholder-color': '#666666',
         '--display-on-accent-color': '#000000',
         '--display-text-dim-color': '#bbbbbb',
-        '--display-text-quiet-color': '#777777',
+        '--display-text-quiet-color': '#878787',
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
@@ -885,11 +918,23 @@ export const THEMES: readonly Theme[] = [
         '--focus-ring-color': '#000000',
         '--divider-color': '#eeeeee',
         '--input-border-color': '#cccccc',
-        '--text-subtle-color': '#888888',
-        '--text-faint-color': '#999999',
-        '--text-placeholder-color': '#bbbbbb',
-        '--text-quiet-color': '#777777',
-        '--text-faintest-color': '#aaaaaa',
+        // #529: these five were byte-identical to Field Uniform's defaults —
+        // the one real defect the issue found, since this theme's entire
+        // purpose is legibility ("bigger, bolder, and unmistakable") and its
+        // primary pair and --text-muted-color were already deepened while
+        // these were not. Deepened further than the other six themes'
+        // matching fix, in keeping with that purpose: quiet 8.45:1, subtle
+        // 7.01:1, faint 6.01:1, faintest 5.33:1. --text-placeholder-color is
+        // the one token every other theme treats as a deliberate below-floor
+        // exception (a placeholder at 4.5:1 stops reading as a placeholder)
+        // — here it is pushed to clear the floor anyway, 4.95:1, because a
+        // volunteer who picked this theme for low vision should not meet the
+        // one text tier this build lets fail.
+        '--text-subtle-color': '#595959',
+        '--text-faint-color': '#636363',
+        '--text-placeholder-color': '#707070',
+        '--text-quiet-color': '#4d4d4d',
+        '--text-faintest-color': '#6b6b6b',
         '--text-strong-color': '#222222',
         '--text-heading-alt-color': '#444444',
         '--text-strong-muted-color': '#555555',
@@ -1007,7 +1052,7 @@ export const THEMES: readonly Theme[] = [
         '--display-placeholder-color': '#666666',
         '--display-on-accent-color': '#000000',
         '--display-text-dim-color': '#bbbbbb',
-        '--display-text-quiet-color': '#777777',
+        '--display-text-quiet-color': '#878787',
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
@@ -1072,11 +1117,14 @@ export const THEMES: readonly Theme[] = [
         '--focus-ring-color': '#5C3B21',
         '--divider-color': '#eeeeee',
         '--input-border-color': '#cccccc',
-        '--text-subtle-color': '#888888',
-        '--text-faint-color': '#999999',
-        '--text-placeholder-color': '#bbbbbb',
-        '--text-quiet-color': '#777777',
-        '--text-faintest-color': '#aaaaaa',
+        // Same fix and same values as Field Uniform's block (#529) — this
+        // theme's surface is the same white. Placeholder is the same
+        // deliberate exception.
+        '--text-subtle-color': '#707070',
+        '--text-faint-color': '#747474',
+        '--text-placeholder-color': '#949494',
+        '--text-quiet-color': '#6b6b6b',
+        '--text-faintest-color': '#767676',
         '--text-strong-color': '#222222',
         '--text-heading-alt-color': '#444444',
         '--text-strong-muted-color': '#555555',
@@ -1194,7 +1242,7 @@ export const THEMES: readonly Theme[] = [
         '--display-placeholder-color': '#666666',
         '--display-on-accent-color': '#000000',
         '--display-text-dim-color': '#bbbbbb',
-        '--display-text-quiet-color': '#777777',
+        '--display-text-quiet-color': '#878787',
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
@@ -1259,11 +1307,14 @@ export const THEMES: readonly Theme[] = [
         '--focus-ring-color': '#2F6B3A',
         '--divider-color': '#eeeeee',
         '--input-border-color': '#cccccc',
-        '--text-subtle-color': '#888888',
-        '--text-faint-color': '#999999',
-        '--text-placeholder-color': '#bbbbbb',
-        '--text-quiet-color': '#777777',
-        '--text-faintest-color': '#aaaaaa',
+        // Same fix and same values as Field Uniform's block (#529) — this
+        // theme's surface is the same white. Placeholder is the same
+        // deliberate exception.
+        '--text-subtle-color': '#707070',
+        '--text-faint-color': '#747474',
+        '--text-placeholder-color': '#949494',
+        '--text-quiet-color': '#6b6b6b',
+        '--text-faintest-color': '#767676',
         '--text-strong-color': '#222222',
         '--text-heading-alt-color': '#444444',
         '--text-strong-muted-color': '#555555',
@@ -1379,7 +1430,7 @@ export const THEMES: readonly Theme[] = [
         '--display-placeholder-color': '#666666',
         '--display-on-accent-color': '#000000',
         '--display-text-dim-color': '#bbbbbb',
-        '--display-text-quiet-color': '#777777',
+        '--display-text-quiet-color': '#878787',
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',
@@ -1444,11 +1495,14 @@ export const THEMES: readonly Theme[] = [
         '--focus-ring-color': '#B31B1B',
         '--divider-color': '#eeeeee',
         '--input-border-color': '#cccccc',
-        '--text-subtle-color': '#888888',
-        '--text-faint-color': '#999999',
-        '--text-placeholder-color': '#bbbbbb',
-        '--text-quiet-color': '#777777',
-        '--text-faintest-color': '#aaaaaa',
+        // Same fix and same values as Field Uniform's block (#529) — this
+        // theme's surface is the same white. Placeholder is the same
+        // deliberate exception.
+        '--text-subtle-color': '#707070',
+        '--text-faint-color': '#747474',
+        '--text-placeholder-color': '#949494',
+        '--text-quiet-color': '#6b6b6b',
+        '--text-faintest-color': '#767676',
         '--text-strong-color': '#222222',
         '--text-heading-alt-color': '#444444',
         '--text-strong-muted-color': '#555555',
@@ -1568,7 +1622,7 @@ export const THEMES: readonly Theme[] = [
         '--display-placeholder-color': '#666666',
         '--display-on-accent-color': '#000000',
         '--display-text-dim-color': '#bbbbbb',
-        '--display-text-quiet-color': '#777777',
+        '--display-text-quiet-color': '#878787',
         '--display-border-subtle-color': '#555555',
         '--display-card-bg-color': '#222222',
         '--display-accent-muted-color': '#999999',

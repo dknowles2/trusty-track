@@ -70,11 +70,11 @@
    */
   --divider-color: #eeeeee;
   --input-border-color: #cccccc;
-  --text-subtle-color: #888888;
-  --text-faint-color: #999999;
-  --text-placeholder-color: #bbbbbb;
-  --text-quiet-color: #777777;
-  --text-faintest-color: #aaaaaa;
+  --text-subtle-color: #707070;
+  --text-faint-color: #747474;
+  --text-placeholder-color: #949494;
+  --text-quiet-color: #6b6b6b;
+  --text-faintest-color: #767676;
   --text-strong-color: #222222;
   --text-heading-alt-color: #444444;
   --text-strong-muted-color: #555555;
@@ -202,7 +202,7 @@
   --display-placeholder-color: #666666;
   --display-on-accent-color: #000000;
   --display-text-dim-color: #bbbbbb;
-  --display-text-quiet-color: #777777;
+  --display-text-quiet-color: #878787;
   --display-border-subtle-color: #555555;
   --display-card-bg-color: #222222;
   --display-accent-muted-color: #999999;
