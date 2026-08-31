@@ -114,14 +114,39 @@ echo "Stamping version $VERSION into Info.plist..."
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION"            "$APP_DIR/Contents/Info.plist"
 
-# 6. Optional code signing
+# 6. Re-sign, which is not optional even with no Developer ID
+#
+# PyInstaller's BUNDLE step signs the app -- ad-hoc when there is no identity,
+# which on arm64 is mandatory rather than decorative. Step 5 above then edits
+# Info.plist, and an edited Info.plist breaks the signature that sealed it:
+# `codesign -dv` reports `Info.plist=not bound` and verification fails with
+# "plist or signature have been modified".
+#
+# That is worse than shipping no signature at all. A quarantined app with a
+# *valid* ad-hoc signature gets the ordinary "unidentified developer" refusal,
+# which the install guide walks a reader past with Open Anyway; a quarantined
+# app with a *broken* one is reported as "damaged and can't be opened. You
+# should move it to the Trash", and macOS offers no way past that at all. It
+# reached users in v1.1.1, whose only remedy was `xattr` from a terminal.
+#
+# So the signing step runs either way: with the Developer ID when there is one,
+# ad-hoc when there is not. Stamping the version before signing rather than
+# re-signing after would work too, and is the wrong shape -- it would leave the
+# next edit to the bundle free to break it again in the same silent way.
 if [[ -n "${APPLE_SIGN_IDENTITY:-}" ]]; then
     echo "Code signing..."
     codesign --deep --force --verify --verbose \
         --sign "$APPLE_SIGN_IDENTITY" \
         --options runtime \
         "$APP_DIR"
+else
+    echo "No APPLE_SIGN_IDENTITY; re-signing ad-hoc so the bundle verifies..."
+    codesign --deep --force --sign - "$APP_DIR"
 fi
+
+# Cheap, and the whole point of the block above. A bundle that does not verify
+# here is one macOS will call damaged on somebody's machine.
+codesign --verify --deep --strict "$APP_DIR"
 
 if [[ "$APP_ONLY" == "true" ]]; then
     echo ""

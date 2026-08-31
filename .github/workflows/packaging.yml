@@ -74,6 +74,24 @@ jobs:
           test -d "$APP/Contents/Resources/backend/migrations" \
             || test -d "$APP/Contents/Frameworks/backend/migrations"
 
+      # A bundle whose signature does not verify is reported by macOS as
+      # "damaged and can't be opened", with no way past it in the interface --
+      # a strictly worse outcome than being unsigned, and invisible to every
+      # check above, all of which passed on the v1.1.1 build that shipped
+      # broken. Stamping the version into Info.plist after PyInstaller signed
+      # the bundle is what breaks it.
+      - name: Check the bundle's signature verifies
+        run: |
+          APP="packaging/dist/TrustyTrack.app"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          # `Info.plist=not bound` is the specific damage: the seal no longer
+          # covers the file the version was written into.
+          codesign -dv --verbose=2 "$APP" 2>&1 | tee /tmp/codesign.txt
+          if grep -q "Info.plist=not bound" /tmp/codesign.txt; then
+            echo "Info.plist is not covered by the signature" >&2
+            exit 1
+          fi
+
   windows:
     name: Windows Installer
     runs-on: windows-latest

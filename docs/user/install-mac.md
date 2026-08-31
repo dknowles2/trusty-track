@@ -58,6 +58,30 @@ Sequoia removed the right-click bypass, so use System Settings instead:
 
 You only need to do this the first time you open the app.
 
+### If macOS says the app is "damaged"
+
+If the message is **"TrustyTrack is damaged and can't be opened. You should
+move it to the Trash"**, the app is not damaged and there is nothing wrong with
+your download. Version 1.1.1 was built in a way macOS reads as tampered-with,
+and that particular refusal has no **Open Anyway** button, so the steps above
+will not help.
+
+Later versions do not have this problem, so the easiest fix is to
+[download the current version](https://github.com/dknowles2/trusty-track/releases/latest)
+and install it over the top.
+
+To keep the copy you have, open **Terminal** (in Applications → Utilities) and
+paste this line, then press Return:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/TrustyTrack.app
+```
+
+That clears the "downloaded from the internet" flag macOS attaches to the app,
+which is what triggers the check. You may be asked for your password. Open the
+app normally afterwards.
+
+
 ---
 
 ## Step 4 — Use Trusty Track
