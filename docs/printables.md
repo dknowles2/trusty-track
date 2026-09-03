@@ -1,8 +1,9 @@
 # Printables
 
-Trusty Track prints three things: **pit passes**, **driver's licences**, and
-**check-in codes**. All three come off a normal printer on plain paper or card
-— there is nothing to install and no PDF to download.
+Trusty Track prints four things: **pit passes**, **driver's licences**,
+**check-in codes**, and **car labels** for the impound pit. All four come off
+a normal printer on plain paper, card, or adhesive label sheets — there is
+nothing to install and no PDF to download.
 
 Print before check-in opens. The whole roster is one job, and the sheets are
 laid out to be printed and then cut up.
@@ -19,7 +20,7 @@ prints the whole roster.
 
 ## Choosing what to print
 
-The three buttons across the top switch between documents. The line underneath
+The four buttons across the top switch between documents. The line underneath
 tells you how much paper the job is before you commit any:
 
 > 6 cards · 1 sheet of Letter · 10 per sheet
@@ -71,6 +72,32 @@ The code identifies **that racer at that race**. A code printed at last year's
 derby will not scan into this year's, which is deliberate: the racer it points
 at could well be a different scout this year, and scanning the wrong child in
 at check-in is expensive.
+
+### Car labels for the pit
+
+Once a car is checked in and weighed, it goes into impound — the staging pits
+where nobody may touch or modify it until their racing is done. With fifty
+near-identical wedges in shoeboxes and cubbies, a label on the car (or on its
+box) is what lets a pit wrangler find car #24 without flipping cars over or
+disturbing the graphite on the axles.
+
+![A sheet of car labels](assets/screenshots/printables/car-sticker-sheet.png)
+_Ten to a sheet, sized for Avery 5163 shipping labels. The car number is the
+biggest thing on it; the name, the den, the weight, and a scan code are
+alongside it. No photo — this label rides on the car, not on the scout._
+
+![A single car label](assets/screenshots/printables/car-sticker-card.png){ width=260 }
+
+Buy **Avery 5163** (2in × 4in shipping labels, ten per sheet) if you want
+these on real adhesive stock; plain paper and a pair of scissors works too.
+
+Pit crews usually print these twice. Tick **Leave the weight blank (printing
+before check-in)** to run a batch off before the scale opens — every label
+prints `____ oz` so nobody hands out a label claiming a weight that hasn't
+been checked yet. Once the scale has weighed everybody, untick it and print
+again to get the recorded weights on the labels. Either way, selecting
+racers first (or leaving nothing ticked for the whole roster) works exactly
+as it does for the other documents on this page.
 
 ## Scanning at check-in
 
