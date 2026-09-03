@@ -14,6 +14,8 @@ regex and mine are both wrong about the hardware, these tests agree with both.
 so, and the timer check page shows it.
 """
 
+import asyncio
+
 import pytest
 
 from backend.services.timer.devices import ALL_PROFILES
@@ -34,6 +36,8 @@ from backend.services.timer.devices.derbynet import (
     PDT,
     THE_JUDGE,
 )
+from backend.services.timer.manager import TimerManager
+from backend.services.timer.state_machine import TimerState
 
 
 def one(result) -> object:
@@ -123,6 +127,35 @@ def test_the_bert_drake_announces_the_gate_rather_than_the_start():
     different events. Conflating them starts a heat whenever somebody lifts
     the gate to reload."""
     assert one(BERT_DRAKE.parse_line(b"B")) == GateOpen()
+
+
+async def test_the_bert_drake_starts_a_race_from_its_pushed_gate_open():
+    """The bug issue #636 pins, driven through the real profile end to end
+    rather than a synthetic double.
+
+    Bert Drake has no push of its own for the gate *closing* — only the
+    on-demand `C` query, answered `Gc`/`Go` — so it needs polling to ever
+    reach READY. Once there, its pushed `B` (the previous test) must start
+    the race rather than falling back to ARMED, or the operator's screen
+    would sit at "Waiting for Timer..." however many cars ran, and the poll
+    loop would keep asking `C` straight through the live run.
+    """
+    manager = TimerManager(track_id=1, device=BERT_DRAKE)
+    manager._state = TimerState.ARMED
+    manager._active_heat_id = 1
+    manager._gate.min_change_seconds = 0.0
+    manager._start_gate_polling()
+    assert manager._gate_poll_task is not None
+
+    manager._gate_window_until = asyncio.get_event_loop().time() + 5
+    await manager.receive_bytes(b"Gc\n")
+    assert manager._state is TimerState.READY
+
+    await manager.receive_bytes(b"B\n")
+
+    assert manager._state is TimerState.RUNNING
+    assert manager._gate_poll_task is None
+    await manager.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -312,19 +345,26 @@ def test_polling_the_gate_is_only_safe_where_the_start_has_its_own_signal():
     the gate (`RACE`, `B`/`RACING`), so polling can safely stop the moment a
     race starts (issue #338).
 
-    The Champ has no such matcher — a race start is visible to it only as the
-    gate opening — but it carries ``gate_open_starts_race``, so the manager
-    reads a polled gate-open from READY as the race starting rather than
-    "gate reopened", and stops polling at the same point the other two do
-    (issue #340). Bert Drake has neither a start matcher nor that flag, so
-    polling stays off for it — turning it on would send gate queries straight
-    through a live run."""
+    The Champ has no such matcher — a race start is visible to it only as a
+    *polled* gate opening — but it carries ``gate_open_starts_race``, so the
+    manager reads a polled gate-open from READY as the race starting rather
+    than "gate reopened", and stops polling at the same point the other two
+    do (issue #340).
+
+    Bert Drake has no start matcher either, and its race start is visible only
+    as a *pushed* `B` — but it carries the same flag, read by
+    ``TimerManager._handle_event``'s pushed ``GateOpen`` branch rather than
+    the polled one (issue #636). Polling stays on for it regardless, because
+    that is the only way it ever reaches READY (no pushed matcher of its own
+    for the gate closing); the pushed `B` is what stops polling once the race
+    is actually under way, the same as the Champ's polled one does.
+    """
     assert DERBY_TIMER.polls_the_gate() is True
     assert PDT.polls_the_gate() is True
-    assert BERT_DRAKE.polls_the_gate() is False
+    assert BERT_DRAKE.polls_the_gate() is True
     assert CHAMP.polls_the_gate() is True
     assert CHAMP.gate_open_starts_race is True
-    assert BERT_DRAKE.gate_open_starts_race is False
+    assert BERT_DRAKE.gate_open_starts_race is True
 
 
 def test_no_two_profiles_answer_the_same_probe_the_same_way():
