@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
 import { CREATE_PRACTICE_RACE, CREATE_RACE } from '../graphql/queries';
@@ -8,7 +8,7 @@ import { buildCreateRaceInput } from '../raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { Icon } from '@mdi/react';
-import { mdiPlus, mdiFlagCheckered, mdiEye, mdiSchool } from '@mdi/js';
+import { mdiPlus, mdiFlagCheckered, mdiVideo, mdiSchool, mdiDotsHorizontal, mdiAccountGroup, mdiPencil } from '@mdi/js';
 import logoFullUrl from '../../../assets/logo_full_transparent.png';
 
 const GET_RACES = gql`
@@ -47,6 +47,25 @@ export default function Home() {
     const navigate = useNavigate();
     const [showCreate, setShowCreate] = useState(false);
     // Location state check removed as per user request
+
+    // Which row's overflow menu is open, one at a time (#589). The two
+    // destinations reached for over and over — Control, Live — stay as
+    // their own buttons; Roster (the race title link's own destination,
+    // named explicitly here too) and Edit race sit behind the `⋯`, the same
+    // split the roster toolbar itself makes between what is reached for
+    // constantly and what is set up once.
+    const [openMenuRaceId, setOpenMenuRaceId] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (openMenuRaceId === null) return;
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Element;
+            if (target.closest('.dropdown')) return;
+            setOpenMenuRaceId(null);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [openMenuRaceId]);
 
     const [{ data, fetching, error }] = useQuery({
         query: GET_RACES,
@@ -217,7 +236,16 @@ export default function Home() {
                             ) : races.map(race => (
                                 <tr key={race.id} style={{ borderBottom: '1px solid var(--divider-color)' }}>
                                     <td style={{ padding: '15px' }}>
-                                        <Link to={`/race/${race.id}`} style={{ fontWeight: 'bold', color: 'var(--scouting-blue)', textDecoration: 'none', fontSize: '1.1rem' }}>
+                                        {/* Goes to the Roster page — the race's central hub, and
+                                            the same destination the overflow menu's own "Roster"
+                                            entry below names explicitly (#589). The title attribute
+                                            says so on hover for anyone who expected this to open
+                                            race settings instead. */}
+                                        <Link
+                                            to={`/race/${race.id}`}
+                                            title="Go to the roster & check-in"
+                                            style={{ fontWeight: 'bold', color: 'var(--scouting-blue)', textDecoration: 'none', fontSize: '1.1rem' }}
+                                        >
                                             {race.name}
                                         </Link>
                                     </td>
@@ -228,12 +256,50 @@ export default function Home() {
                                     <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.registeredCount || 0}</td>
                                     <td className="mobile-hide" style={{ padding: '15px', textAlign: 'center' }}>{race.checkedInCount || 0}</td>
                                      <td style={{ padding: '15px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                        {/* Same words as the race navigation row (Roster, Control,
+                                            Live) rather than a third vocabulary — "View" here and
+                                            "Live" there were the same destination under two names
+                                            (#589). */}
                                         <Link to={`/race/${race.id}/control`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <Icon path={mdiFlagCheckered} size={0.7} /> Control
                                         </Link>
                                         <Link to={`/race/${race.id}/observation`} className="secondary-btn" style={{ textDecoration: 'none', fontSize: '0.9rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <Icon path={mdiEye} size={0.7} /> View
+                                            <Icon path={mdiVideo} size={0.7} /> Live
                                         </Link>
+                                        <div className="dropdown" style={{ position: 'relative' }}>
+                                            <button
+                                                className="secondary-btn"
+                                                onClick={() => setOpenMenuRaceId(openMenuRaceId === race.id ? null : race.id)}
+                                                style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', fontSize: '0.9rem' }}
+                                                aria-label={`More actions for ${race.name}`}
+                                                aria-expanded={openMenuRaceId === race.id}
+                                                data-testid={`race-more-menu-${race.id}`}
+                                            >
+                                                <Icon path={mdiDotsHorizontal} size={0.8} />
+                                            </button>
+                                            {openMenuRaceId === race.id && (
+                                                <div className="dropdown-content" style={{ display: 'block', right: 0, left: 'auto', minWidth: '180px' }}>
+                                                    <button
+                                                        onClick={() => { setOpenMenuRaceId(null); navigate(`/race/${race.id}`); }}
+                                                        data-testid={`race-menu-roster-${race.id}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                                    >
+                                                        <Icon path={mdiAccountGroup} size={0.7} /> Roster
+                                                    </button>
+                                                    {/* Opens the edit form that has always lived on the
+                                                        Roster page, rather than a new `/settings` route
+                                                        for a form that has never had one of its own —
+                                                        see RaceDetails's `?edit=true` handling. */}
+                                                    <button
+                                                        onClick={() => { setOpenMenuRaceId(null); navigate(`/race/${race.id}?edit=true`); }}
+                                                        data-testid={`race-menu-edit-${race.id}`}
+                                                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                                    >
+                                                        <Icon path={mdiPencil} size={0.7} /> Edit race
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

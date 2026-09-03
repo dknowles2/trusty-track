@@ -5,7 +5,7 @@ import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RaceDetails from './RaceDetails';
 
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useSubscription } from 'urql';
 import * as GQL from '../graphql/queries';
 
@@ -59,7 +59,87 @@ vi.mock('../../../context/AlertContext', () => ({
     }),
 }))
 
+/** Surfaces the current URL's search string so a test can assert on it. */
+function LocationSearchProbe() {
+    const location = useLocation();
+    return <div data-testid="location-search">{location.search}</div>;
+}
+
 describe('RaceDetails', () => {
+    describe('opening the edit form directly (#589)', () => {
+        // Home's "Edit race" row action and Race Control's own settings link
+        // both land on the Roster page with `?edit=true` rather than a
+        // `/settings` route of its own — the edit form has always been this
+        // page's modal.
+        function mockRaceQuery() {
+            (useQuery as any).mockReturnValue([{
+                data: {
+                    race: {
+                        id: 1,
+                        name: 'Test Race',
+                        dateTime: '2024-03-15T10:00:00',
+                        location: 'Test Location',
+                        schedulingStrategy: 'LANE_ROTATION',
+                        scoringStrategy: 'TIMED',
+                        carNumberingStrategy: 'PER_GROUP',
+                        trackId: 1,
+                        organizationId: 1,
+                        globalStartNumber: 1,
+                        championshipTrophies: 3,
+                        track: { name: 'Main Track' },
+                        racers: [],
+                        racingGroups: [],
+                        leaderboard: []
+                    },
+                    tracks: [{ id: 1, name: 'Main Track' }]
+                },
+                fetching: false,
+                error: null
+            }, vi.fn()]);
+            mockMutations();
+        }
+
+        it('opens the edit modal when the URL asks for it', async () => {
+            mockRaceQuery();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1?edit=true']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<><RaceDetails /><LocationSearchProbe /></>} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByText('Edit Race Details')).toBeInTheDocument();
+            });
+
+            // Stripped rather than left in the URL, or reloading the tab —
+            // or coming back to it with the browser's Back button — would
+            // reopen a modal nobody asked for this time.
+            await waitFor(() => {
+                expect(screen.getByTestId('location-search')).toHaveTextContent('');
+            });
+        });
+
+        it('does not open the edit modal on an ordinary visit', async () => {
+            mockRaceQuery();
+
+            render(
+                <MemoryRouter initialEntries={['/races/1']}>
+                    <Routes>
+                        <Route path="/races/:raceId" element={<RaceDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByText('Race Settings')).toBeInTheDocument();
+            });
+            expect(screen.queryByText('Edit Race Details')).not.toBeInTheDocument();
+        });
+    });
+
     it('displays human-readable race settings', async () => {
         // Mock race data
         const mockRace = {
