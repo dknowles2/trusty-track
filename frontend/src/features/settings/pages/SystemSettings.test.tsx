@@ -192,8 +192,8 @@ describe('SystemSettings', () => {
                     // travelling with one would linger unseen if the operator switched back.
                     // Neither track has an id yet — both were added on this screen, before
                     // ever being saved (#318).
-                    { id: null, name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, reverseLanes: false },
-                    { id: null, name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, reverseLanes: false }
+                    { id: null, name: 'Fast Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, reverseLanes: false, scaleRatio: 25, showScaleSpeed: true },
+                    { id: null, name: 'Slow Track', laneCount: 3, lengthFeet: 40, timerType: 'FAKE', serialPort: null, timerProfile: null, remoteStartInstalled: false, reverseLanes: false, scaleRatio: 25, showScaleSpeed: true }
                 ]
             }
         });

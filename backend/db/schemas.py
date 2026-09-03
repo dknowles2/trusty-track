@@ -14,6 +14,8 @@ check that something actually constructs it.
 
 from pydantic import BaseModel, field_validator
 
+from backend.domain.scale_speed import DEFAULT_SCALE
+
 from .models import (
     AwardKind,
     CarNumberingStrategy,
@@ -35,6 +37,12 @@ class TrackBase(BaseModel):
     #: The timer's own lane 1 is wired to this track's highest lane. See
     #: `models.Track.reverse_lanes`.
     reverse_lanes: bool = False
+    #: The vehicle-to-real-life ratio scale speed is computed against
+    #: (#610). See `models.Track.scale_ratio`.
+    scale_ratio: float = DEFAULT_SCALE
+    #: Whether scale speed is offered on this track's surfaces at all. See
+    #: `models.Track.show_scale_speed`.
+    show_scale_speed: bool = True
 
     @field_validator("lane_count")
     @classmethod
@@ -50,6 +58,21 @@ class TrackBase(BaseModel):
         """
         if not 1 <= value <= 8:
             raise ValueError("lane_count must be between 1 and 8")
+        return value
+
+    @field_validator("scale_ratio")
+    @classmethod
+    def scale_ratio_is_positive(cls, value: float) -> float:
+        """Refuse a ratio `scale_mph` could never use.
+
+        A zero or negative ratio is not a smaller scale, it is nonsense —
+        `domain.scale_speed.scale_mph` already treats a non-positive scale
+        as "cannot compute" and returns `None`, so a track saved with one
+        would silently never show a speed. Catching it here gives the
+        operator a sentence instead of a quiet no-op.
+        """
+        if value <= 0:
+            raise ValueError("the scale ratio must be greater than zero")
         return value
 
 

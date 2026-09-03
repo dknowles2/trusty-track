@@ -1264,7 +1264,9 @@ export type Track = {
   races: Array<Race>;
   remoteStartInstalled: Scalars['Boolean']['output'];
   reverseLanes: Scalars['Boolean']['output'];
+  scaleRatio: Scalars['Float']['output'];
   serialPort?: Maybe<Scalars['String']['output']>;
+  showScaleSpeed: Scalars['Boolean']['output'];
   timerProfile?: Maybe<Scalars['String']['output']>;
   timerType: Scalars['String']['output'];
 };
@@ -1276,7 +1278,9 @@ export type TrackInput = {
   name?: Scalars['String']['input'];
   remoteStartInstalled?: Scalars['Boolean']['input'];
   reverseLanes?: Scalars['Boolean']['input'];
+  scaleRatio?: Scalars['Float']['input'];
   serialPort?: InputMaybe<Scalars['String']['input']>;
+  showScaleSpeed?: Scalars['Boolean']['input'];
   timerProfile?: InputMaybe<Scalars['String']['input']>;
   timerType?: Scalars['String']['input'];
 };

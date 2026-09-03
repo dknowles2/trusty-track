@@ -47,6 +47,8 @@ const GET_INITIAL_CONFIG = `
         timerProfile
         remoteStartInstalled
         reverseLanes
+        scaleRatio
+        showScaleSpeed
         laneOutages
         historicalRecords { id timeSeconds racerName carNumber raceName raceDate }
       }
@@ -126,6 +128,12 @@ const UPDATE_INITIAL_CONFIG = `
 // saved tracks are seeded below.
 const DEFAULT_LENGTH_FEET = 40;
 
+// Mirrors `domain.scale_speed.DEFAULT_SCALE` on the backend — the standard
+// BSA Pinewood Derby ratio, and what `Track.scale_ratio` defaults to for a
+// track this screen has not yet saved. There is no control for either field
+// yet (#610 stage 3); this only has to round-trip what the server sends.
+const DEFAULT_SCALE_RATIO = 25;
+
 const blankTrack = (name: string): TrackFields => ({
   name,
   laneCount: 3,
@@ -135,6 +143,8 @@ const blankTrack = (name: string): TrackFields => ({
   timerProfile: '',
   remoteStartInstalled: false,
   reverseLanes: false,
+  scaleRatio: DEFAULT_SCALE_RATIO,
+  showScaleSpeed: true,
 });
 
 /**
@@ -280,6 +290,8 @@ export default function SystemConfig() {
             timerProfile?: string | null;
             remoteStartInstalled?: boolean;
             reverseLanes?: boolean;
+            scaleRatio?: number;
+            showScaleSpeed?: boolean;
             laneOutages?: number[];
             historicalRecords?: HistoricalRecord[];
           }) => ({
@@ -296,6 +308,11 @@ export default function SystemConfig() {
             timerProfile: t.timerProfile || '',
             remoteStartInstalled: !!t.remoteStartInstalled,
             reverseLanes: !!t.reverseLanes,
+            // Both are `NOT NULL` on the server, so `t.scaleRatio` and
+            // `t.showScaleSpeed` are always present in practice — the
+            // fallback only covers a fixture or a build that predates them.
+            scaleRatio: t.scaleRatio ?? DEFAULT_SCALE_RATIO,
+            showScaleSpeed: t.showScaleSpeed ?? true,
             laneOutages: t.laneOutages ?? [],
             historicalRecords: t.historicalRecords ?? []
           })));
@@ -380,7 +397,7 @@ export default function SystemConfig() {
                 vehicleArtworkKey,
               }
             : { clearTerminology: true }),
-          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled, reverseLanes }) => ({
+          tracks: tracks.map(({ id, name, laneCount, lengthFeet, timerType, serialPort, timerProfile, remoteStartInstalled, reverseLanes, scaleRatio, showScaleSpeed }) => ({
             // Absent for a track just added on this screen, which has no row
             // yet; present for a saved one, so the server matches it to its
             // database row by id rather than by its position in this list
@@ -398,7 +415,9 @@ export default function SystemConfig() {
             // silently keep a model the operator had stopped seeing.
             timerProfile: timerType === 'FAKE' ? null : (timerProfile || null),
             remoteStartInstalled,
-            reverseLanes
+            reverseLanes,
+            scaleRatio,
+            showScaleSpeed
           }))
         }
       };

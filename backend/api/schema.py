@@ -32,6 +32,7 @@ from backend.domain import heat_session as domain_heat_session
 from backend.domain import name_display as domain_name_display
 from backend.domain import scoring as domain_scoring
 from backend.domain import terminology as domain_terminology
+from backend.domain.scale_speed import DEFAULT_SCALE
 from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
@@ -926,6 +927,12 @@ class TrackInput:
     #: The timer's own lane 1 is wired to this track's highest lane. See
     #: `models.Track.reverse_lanes`.
     reverse_lanes: bool = False
+    #: The vehicle-to-real-life ratio scale speed is computed against
+    #: (#610). See `models.Track.scale_ratio`.
+    scale_ratio: float = DEFAULT_SCALE
+    #: Whether scale speed is offered on this track's surfaces at all. See
+    #: `models.Track.show_scale_speed`.
+    show_scale_speed: bool = True
 
 
 @strawberry.input
@@ -1629,6 +1636,16 @@ class Track:
     #: The timer's own lane 1 is wired to this track's highest lane — a fact
     #: about this venue's cable, not about the device model (#553).
     reverse_lanes: bool
+    #: The vehicle-to-real-life ratio scale speed is computed against
+    #: (#610) — see `domain.scale_speed.scale_mph`. A fact about this
+    #: track's cars, not a global constant: `DEFAULT_SCALE` (1:25) is the
+    #: standard BSA Pinewood Derby ratio, but a Space Derby or Raingutter
+    #: Regatta track needs a different number.
+    scale_ratio: float
+    #: Whether scale speed is offered on this track's surfaces at all.
+    #: Stage 4's renderers AND this with a positive `length_feet` — this
+    #: flag alone does not promise a length exists to compute from.
+    show_scale_speed: bool
 
     @strawberry.field
     def lane_outages(self, info: Info) -> list[int]:
