@@ -30,6 +30,8 @@ from backend.services.timer.devices.base import (
 from backend.services.timer.devices.derbynet import (
     BERT_DRAKE,
     CHAMP,
+    DERBY_MAGIC,
+    DERBY_MAGIC_9600,
     DERBY_TIMER,
     JIT_RACEMASTER,
     NEWBOLD,
@@ -74,6 +76,13 @@ def one(result) -> object:
         # The Champ letters its lanes, like the MicroWizard.
         (CHAMP, b"A=3.456", 1, 3.456),
         (CHAMP, b"C=3.456", 3, 3.456),
+        # Derby Magic numbers its lanes, and an optional place character can
+        # trail the time -- DerbyNet's own pattern, `([1-8])=(\d\.\d+)([!-/:-@])?
+        # *`, taken verbatim from DerbyMagic.java.
+        (DERBY_MAGIC, b"1=3.4567", 1, 3.4567),
+        (DERBY_MAGIC, b"3=3.4567!", 3, 3.4567),
+        # The 9600 variant is the same protocol at a different baud rate.
+        (DERBY_MAGIC_9600, b"7=3.4567", 7, 3.4567),
     ],
 )
 def test_a_result_line_is_read_as_a_result(
@@ -89,6 +98,14 @@ def test_a_result_line_is_read_as_a_result(
 def test_the_champ_reports_every_lane_on_one_line():
     """Like the MicroWizard, so the matcher repeats."""
     events = CHAMP.parse_line(b' A=3.001! B=3.002" C=3.003#')
+
+    assert isinstance(events, list)
+    assert [e.lane for e in events] == [1, 2, 3]
+
+
+def test_derby_magic_reports_every_lane_on_one_line():
+    """Same shape as the Champ's, but numbered rather than lettered."""
+    events = DERBY_MAGIC.parse_line(b'1=3.001! 2=3.002" 3=3.003#')
 
     assert isinstance(events, list)
     assert [e.lane for e in events] == [1, 2, 3]
@@ -116,6 +133,8 @@ def test_a_dnf_on_the_judge_is_an_ordinary_result():
         (PDT, b"B"),
         (THE_JUDGE, b"Go"),
         (THE_JUDGE, b"GO!"),
+        (DERBY_MAGIC, b"B"),
+        (DERBY_MAGIC_9600, b"B"),
     ],
 )
 def test_the_start_signal_is_read(profile: TimerProfile, line: bytes):
@@ -301,6 +320,24 @@ def test_the_pdt_is_reset_once_the_gate_is_closed():
     assert PDT.commands_for(Event.GATE_CLOSED) == [b"R"]
 
 
+def test_derby_magic_can_release_the_start_gate():
+    """Both variants carry the same `S` command -- DerbyMagic9600.java only
+    overrides the port speed."""
+    assert DERBY_MAGIC.releases_the_gate() is True
+    assert DERBY_MAGIC_9600.releases_the_gate() is True
+
+
+def test_only_the_19200_derby_magic_can_be_probed_for():
+    """The two variants are indistinguishable on the wire except by framing
+    (see the module docstring in `derbynet.py`), so only one carries a
+    prober -- the 9600 one has to be chosen by hand, the same as NEWBOLD."""
+    assert DERBY_MAGIC.probe and DERBY_MAGIC.identification
+    assert not DERBY_MAGIC_9600.probe
+    assert not DERBY_MAGIC_9600.identification
+    assert DERBY_MAGIC.baud_rate == 19200
+    assert DERBY_MAGIC_9600.baud_rate == 9600
+
+
 def test_lane_masking_uses_each_timers_own_lane_naming():
     # Numbered from '1'...
     assert DERBY_TIMER.prepare_heat_commands(0b101)[:1] == [b"C"]
@@ -357,7 +394,16 @@ def test_a_bare_k_is_never_read_as_identification():
 
 
 def test_the_adapted_profiles_are_registered():
-    for profile in (DERBY_TIMER, BERT_DRAKE, PDT, THE_JUDGE, CHAMP, JIT_RACEMASTER):
+    for profile in (
+        DERBY_TIMER,
+        BERT_DRAKE,
+        PDT,
+        THE_JUDGE,
+        CHAMP,
+        JIT_RACEMASTER,
+        DERBY_MAGIC,
+        DERBY_MAGIC_9600,
+    ):
         assert profile in ALL_PROFILES
 
 
@@ -393,7 +439,15 @@ def test_the_replayed_ones_say_which_evidence_they_have():
     for profile in (DERBY_TIMER, PDT):
         assert "recording of a real" in profile.provenance
 
-    for profile in (NEWBOLD, JIT_RACEMASTER, BERT_DRAKE, THE_JUDGE, CHAMP):
+    for profile in (
+        NEWBOLD,
+        JIT_RACEMASTER,
+        BERT_DRAKE,
+        THE_JUDGE,
+        CHAMP,
+        DERBY_MAGIC,
+        DERBY_MAGIC_9600,
+    ):
         assert "never been tried with the real device" in profile.provenance
 
 
