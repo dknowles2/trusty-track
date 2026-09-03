@@ -7,6 +7,8 @@ import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
 import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../graphql/queries';
 import { heatsEstimate } from '../../../utils/duration';
+import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
+import { estimatedFinishTime, formatClockTime, paceLabel, type PaceEstimate } from '../pace';
 import RacerAvatar from '../../management/components/RacerAvatar';
 import { Icon } from '@mdi/react';
 import { mdiTrophy, mdiPencil, mdiRefresh, mdiArrowRight, mdiChevronDoubleRight, mdiCloseOctagon, mdiAlertCircleOutline, mdiCalendarRange, mdiPlay } from '@mdi/js';
@@ -37,6 +39,17 @@ import { advancingFromLabel } from '../roundSummaryText';
  * for the cursor. It becomes a number on save.
  */
 type EditableLane = LaneInput & { timeText: string };
+
+/**
+ * The pace to show before the parent has learned one (#591) — a caller with
+ * no heats recorded yet, or a caller (a test, mostly) that has not been
+ * updated to pass one at all.
+ */
+const BASELINE_PACE: PaceEstimate = {
+    minutesPerHeat: ESTIMATED_HEAT_DURATION_MIN,
+    sampleCount: 0,
+    isLearned: false,
+};
 
 /** How a keyboard hint looks on the button it mirrors (#207). */
 const KBD_STYLE: React.CSSProperties = {
@@ -72,6 +85,10 @@ interface RaceExecutionProps {
     onToggleAutoAdvance?: (value: boolean) => void;
     remainingHeatsInRound?: number;
     totalHeatsInRound?: number;
+    /** This race's learned turnaround pace (#591), used for both the
+     * remaining-time estimate and the estimated finish clock time below it.
+     * Falls back to the static baseline when the caller has none to give. */
+    pace?: PaceEstimate;
     upcomingRounds?: { roundNumber: number, roundName: string | null, totalHeats: number }[];
     /** The race runs one interleaved sequence across its rounds (#549), so
      * the next heat is usually another round's — the On Deck panel shows its
@@ -97,6 +114,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     onToggleAutoAdvance,
     remainingHeatsInRound,
     totalHeatsInRound,
+    pace = BASELINE_PACE,
     upcomingRounds,
     masterRunningOrder,
     debugMode,
@@ -803,8 +821,14 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                 {remainingHeatsInRound} {remainingHeatsInRound === 1 ? 'Heat' : 'Heats'} Remaining
                             </div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '4px' }}>
-                                Estimated time remaining: {heatsEstimate(remainingHeatsInRound)}
+                                Estimated time remaining: {heatsEstimate(remainingHeatsInRound, pace.minutesPerHeat)}
                             </div>
+                            {remainingHeatsInRound > 0 && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', marginTop: '2px' }}>
+                                    Est. finish: {formatClockTime(estimatedFinishTime(remainingHeatsInRound, pace, new Date()))}{' '}
+                                    ({paceLabel(pace)})
+                                </div>
+                            )}
                         </div>
                     )}
                     {upcomingRounds && upcomingRounds.length > 0 && (

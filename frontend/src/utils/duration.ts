@@ -11,7 +11,17 @@ export function minutesEstimate(minutes: number): string {
     return `~${minutes} ${minutes === 1 ? 'min' : 'mins'}`;
 }
 
-/** The same estimate for a number of heats still to run. */
-export function heatsEstimate(heats: number): string {
-    return minutesEstimate(Math.ceil(heats * ESTIMATED_HEAT_DURATION_MIN));
+/**
+ * The same estimate for a number of heats still to run.
+ *
+ * `minutesPerHeat` defaults to the static baseline, but a caller sitting on
+ * this race's own recorded heats should pass `features/racing/pace.ts`'s
+ * learned pace instead (#591) — the baseline is only ever a guess for a race
+ * that has not shown its own turnaround time yet.
+ */
+export function heatsEstimate(
+    heats: number,
+    minutesPerHeat: number = ESTIMATED_HEAT_DURATION_MIN
+): string {
+    return minutesEstimate(Math.ceil(heats * minutesPerHeat));
 }

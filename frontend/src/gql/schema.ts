@@ -130,6 +130,7 @@ export type Heat = {
   id: Scalars['Int']['output'];
   lanes: Array<HeatLane>;
   raceId: Scalars['Int']['output'];
+  recordedAt?: Maybe<Scalars['String']['output']>;
   roundId: Scalars['Int']['output'];
   roundName?: Maybe<Scalars['String']['output']>;
   roundNumber: Scalars['Int']['output'];

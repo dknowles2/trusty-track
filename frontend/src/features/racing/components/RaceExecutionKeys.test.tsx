@@ -26,6 +26,7 @@ describe('race day keys and sound', () => {
         roundId: 1,
         heatNumber: 1,
         roundName: 'Round 1',
+        recordedAt: null,
         lanes: [
             lane({ lane: 1, racerId: 101, time: 3.5, place: 1 }),
             lane({ lane: 2, racerId: 102, time: 3.6, place: 2 }),
@@ -38,6 +39,7 @@ describe('race day keys and sound', () => {
         roundId: 1,
         heatNumber: 2,
         roundName: 'Round 1',
+        recordedAt: null,
         lanes: [lane({ lane: 1, racerId: 101 }), lane({ lane: 2, racerId: 102 })],
     };
 

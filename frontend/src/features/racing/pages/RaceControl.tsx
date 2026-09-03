@@ -29,6 +29,8 @@ import { hasRun, hasTimes, byPlace, cleared, assignPlaces, shouldDerivePlaces } 
 import { executionComparator } from '../runningOrder';
 import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompletion';
 import { shouldShowReadiness } from '../readiness';
+import { estimatePace } from '../pace';
+import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 
 export default function RaceControl() {
   const { showAlert, showConfirm, showToast } = useAlert();
@@ -76,6 +78,14 @@ export default function RaceControl() {
   const { data, fetching } = result;
   const race = data?.race;
   const heats = useMemo(() => race?.heats || [], [race?.heats]);
+
+  // This race's learned turnaround pace (#591), over every recorded heat in
+  // the race — not just the round on screen, since staging and reset time is
+  // a property of how this event is being run, not of any one round.
+  const pace = useMemo(
+    () => estimatePace(heats.map((h: Heat) => h.recordedAt), ESTIMATED_HEAT_DURATION_MIN),
+    [heats]
+  );
   const racers = useMemo(() => {
     const map: Record<number, Racer> = {};
     (race?.racers || []).forEach((r: Racer) => {
@@ -704,6 +714,7 @@ export default function RaceControl() {
               masterRunningOrder={masterRunningOrder}
               remainingHeatsInRound={remainingHeatsInRound}
               totalHeatsInRound={totalHeatsInRound}
+              pace={pace}
               upcomingRounds={upcomingRounds}
               debugMode={data?.initialConfig?.debugMode ?? false}
               onToggleAutoAdvance={async (value) => {

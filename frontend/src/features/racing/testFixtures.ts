@@ -26,6 +26,7 @@ export const heat = (
     roundNumber: 1,
     roundId: 1,
     roundName: 'Round 1',
+    recordedAt: null,
     lanes,
     ...rest,
   };

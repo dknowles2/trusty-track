@@ -257,6 +257,12 @@ class Heat:
     race_id: int
     round_id: int
     heat_number: int
+    #: When this heat's result was last saved, or ``None`` for one still
+    #: pending (#59). Read by `features/racing/pace.ts` on the frontend: the
+    #: gaps between consecutive recorded heats are the only record of how
+    #: long a heat actually took, so this is what a schedule estimate learns
+    #: from once racing is under way (#591).
+    recorded_at: str | None
 
     @strawberry.field
     def lanes(self, info: Info) -> list[HeatLane]:
