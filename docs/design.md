@@ -31,6 +31,7 @@ The backend will be developed in Python, leveraging a robust framework (e.g., Fa
 -   **Race Management:** Heat scheduling (PPC — see [Scheduling Algorithms](scheduling-algorithms.md)), championship advancement, and overall race progression. The rules live in `backend/domain/` as plain functions over plain values, with the database I/O in their callers.
 
 -   **Data Processing:** Coalescing race results, calculating standings based on predefined rules.
+-   **Roster import from other derby programs:** `backend/domain/roster_import.py` is the shared result type (`ParsedRoster`: groups, racers, problems) every importer returns; `backend/domain/gprm.py` maps GrandPrix Race Manager's `RegistrationInfo`/`Classes`/`Ranks` tables onto it over a plain-rows `TableSet` protocol; `backend/services/importers/` owns the files (read-only SQLite, header sniffing, the refusal sentences). Stage 1 of #618 — the parser only, with no mutation or screen calling it yet; #661 (DerbyNet, the same table family) is queued to reuse the seam. See CLAUDE.md's "Importing a roster from another derby program".
 -   **Configuration Management:** Handling global settings and race-specific configurations.
 
 ### 3.2. Data Storage
