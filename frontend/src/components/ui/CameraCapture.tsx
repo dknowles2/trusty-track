@@ -12,8 +12,24 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
 
     useEffect(() => {
         const startCamera = async () => {
+            // `navigator.mediaDevices` does not exist at all outside a secure
+            // context (https:// or localhost), so calling straight into it
+            // throws a bare TypeError that reads, to a volunteer, exactly
+            // like a permissions problem — the wrong thing to go troubleshoot
+            // when the actual cause is TRUSTYTRACK_HTTP_ONLY or a second
+            // device reached by plain http://<lan-ip>. Checked against
+            // `=== false` rather than falsy: a real browser always reports a
+            // boolean here, and only an explicit `false` is worth a
+            // different message than the ordinary permissions one below.
+            if (window.isSecureContext === false) {
+                setError(
+                    'The camera needs a secure connection. Open Trusty Track on ' +
+                        'the computer running the server, or switch HTTPS back on.',
+                );
+                return;
+            }
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
+                const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'environment' } // Prefer back camera on mobile
                 });
                 streamRef.current = stream;

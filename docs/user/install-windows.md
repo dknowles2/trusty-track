@@ -68,6 +68,11 @@ After installation, Trusty Track will open your browser to **[https://localhost:
     machine — the certificate exists so that the camera and the barcode scanner
     work, which browsers only allow on a secure connection.
 
+    If the warning is a bigger problem for your event than losing the camera
+    on a second device, the tray icon has a **Use Plain HTTP** option that
+    turns it off — see [HTTPS, certificates, and plain
+    HTTP](../reference/roles-and-permissions.md#https-certificates-and-plain-http).
+
 
 The first time you run it, you'll see a setup wizard to configure your organization and track.
 
