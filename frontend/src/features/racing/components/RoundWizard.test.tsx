@@ -116,7 +116,9 @@ describe('RoundWizard Component', () => {
         // This used to divide by the lane count and answer 4, which is the
         // arithmetic for a scheduler that packs racers into heats (#140).
         expect(screen.getByText('Total Heats: 14')).toBeInTheDocument();
-        expect(screen.getByText(/Estimated Grand Total: ~14 mins/i)).toBeInTheDocument();
+        // 14 heats at the 1.75-minute baseline (#591) — no pace has been
+        // learned yet, since this race has no recorded heats.
+        expect(screen.getByText(/Estimated Grand Total: ~25 mins/i)).toBeInTheDocument();
     });
 
     it('navigates through steps', async () => {
@@ -131,7 +133,7 @@ describe('RoundWizard Component', () => {
 
         // Step 2 -> Step 3
         await user.click(screen.getByText('Next'));
-        expect(screen.getByText('Estimated Grand Total: ~14 mins')).toBeInTheDocument();
+        expect(screen.getByText('Estimated Grand Total: ~25 mins')).toBeInTheDocument();
         expect(screen.getByText('Review')).toBeInTheDocument(); // Step indicator or content
 
         // Step 3 -> Step 2

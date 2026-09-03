@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { RoundConfigModal } from './RoundConfigModal';
 import { RoundWizard } from './RoundWizard';
 import { Icon } from '@mdi/react';
@@ -25,6 +25,8 @@ import { useAlert } from '../../../context/AlertContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 import { heatsEstimate } from '../../../utils/duration';
+import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
+import { estimatePace } from '../pace';
 import type { Heat, Lane } from '../types';
 import { hasRun, hasTimes } from '../lanes';
 import { executionComparator } from '../runningOrder';
@@ -311,6 +313,14 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
     return acc;
   }, {} as Record<number, Heat[]>);
 
+  // This race's learned turnaround pace (#591) — over every heat in the
+  // race, not just the round being shown, since staging and reset time is a
+  // property of how this event is run rather than of any one round.
+  const pace = useMemo(
+    () => estimatePace(heats.map((h) => h.recordedAt), ESTIMATED_HEAT_DURATION_MIN),
+    [heats]
+  );
+
   // Note: We'll eventually want to move advancement status to GraphQL too if possible
   // For now, we'll keep it as is or handle it via a manual fetch/prop
 
@@ -588,6 +598,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
           racingGroupCount={racingGroupCount}
           laneCount={laneCount}
           championshipTrophies={championshipTrophies}
+          minutesPerHeat={pace.minutesPerHeat}
           onCreated={async () => {
               await onRefetchHeats();
           }}
@@ -673,7 +684,9 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({
                           <span style={{ color: 'var(--success-color)' }}>Completed</span>
                         ) : (
                           <>
-                            {uncompletedHeats < totalHeats ? `${heatsEstimate(uncompletedHeats)} remaining` : `${heatsEstimate(totalHeats)} duration`}
+                            {uncompletedHeats < totalHeats
+                              ? `${heatsEstimate(uncompletedHeats, pace.minutesPerHeat)} remaining`
+                              : `${heatsEstimate(totalHeats, pace.minutesPerHeat)} duration`}
                           </>
                         )}
                       </span>

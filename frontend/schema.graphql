@@ -119,6 +119,7 @@ type Heat {
   raceId: Int!
   roundId: Int!
   heatNumber: Int!
+  recordedAt: String
   lanes: [HeatLane!]!
   roundNumber: Int!
   roundName: String

@@ -54,6 +54,7 @@ describe('RaceExecution', () => {
         roundId: 1,
         heatNumber: 1,
         roundName: "Round 1",
+        recordedAt: null,
         lanes: [
             lane({ lane: 1, racerId: 101, time: 3.5, place: 1 }),
             lane({ lane: 2, racerId: 102, time: 3.6, place: 2 }),
@@ -763,6 +764,7 @@ describe('RaceExecution', () => {
             roundId: 2,
             heatNumber: 1,
             roundName: "Finals",
+            recordedAt: null,
             lanes: [lane({ lane: 1, placeholderSlot: 1 })],
         };
 

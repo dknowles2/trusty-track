@@ -174,6 +174,9 @@ export const GET_RACE_CONTROL_DATA = gql`
         roundNumber
         roundId
         roundName
+        # When this heat's result was last saved (#59) — the raw material
+        # pace.ts learns this race's own turnaround time from (#591).
+        recordedAt
         lanes {
           lane
           racerId

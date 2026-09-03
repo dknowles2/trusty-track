@@ -16,6 +16,11 @@ interface RoundWizardProps {
   racingGroupCount: number;
   laneCount: number;
   championshipTrophies: number;
+  /** This race's learned pace (#591), so a round added mid-event previews
+   * against how this event is actually running rather than the static
+   * baseline. Defaults to the baseline for a race with no heats recorded
+   * yet — the ordinary case for the very first round. */
+  minutesPerHeat?: number;
   onCreated: () => void;
 }
 
@@ -40,6 +45,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
   racingGroupCount,
   laneCount,
   championshipTrophies,
+  minutesPerHeat = ESTIMATED_HEAT_DURATION_MIN,
   onCreated,
 }) => {
   const { group, groupLower, groupsLower, org, orgLower } = useTerminology();
@@ -88,7 +94,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
     rounds.push({
       name: `${generalConfig.type === 'ALL' ? `All ${org}` : group} Round`,
       heats: generalHeats,
-      duration: Math.ceil(generalHeats * ESTIMATED_HEAT_DURATION_MIN)
+      duration: Math.ceil(generalHeats * minutesPerHeat)
     });
 
     // Championship Rounds
@@ -103,7 +109,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
       rounds.push({
         name: round.name,
         heats: roundHeats,
-        duration: Math.ceil(roundHeats * ESTIMATED_HEAT_DURATION_MIN)
+        duration: Math.ceil(roundHeats * minutesPerHeat)
       });
     }
 
