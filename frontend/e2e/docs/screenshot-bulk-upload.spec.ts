@@ -12,43 +12,68 @@
 import { test, expect } from './screenshots-setup';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as zlib from 'zlib';
 import { fileURLToPath } from 'url';
 import { BACKEND_URL, ensureConfigured } from './support';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, '../../../docs/assets/screenshots/race-day');
 
-// Minimal valid 1×1 white JPEG (SOI + APP0 + DQT + SOF0 + DHT + SOS + EOI)
-const MINIMAL_JPEG = Buffer.from([
-    0xff,0xd8,0xff,0xe0,0x00,0x10,0x4a,0x46,0x49,0x46,0x00,0x01,
-    0x01,0x00,0x00,0x01,0x00,0x01,0x00,0x00,0xff,0xdb,0x00,0x43,
-    0x00,0x10,0x0b,0x0c,0x0e,0x0c,0x0a,0x10,0x0e,0x0d,0x0e,0x12,
-    0x11,0x10,0x13,0x18,0x28,0x1a,0x18,0x16,0x16,0x18,0x31,0x23,
-    0x25,0x1d,0x28,0x3a,0x33,0x3d,0x3c,0x39,0x33,0x38,0x37,0x40,
-    0x48,0x5c,0x4e,0x40,0x44,0x57,0x45,0x37,0x38,0x50,0x6d,0x51,
-    0x57,0x5f,0x62,0x67,0x68,0x67,0x3e,0x4d,0x71,0x79,0x70,0x64,
-    0x78,0x5c,0x65,0x67,0x63,0xff,0xc0,0x00,0x0b,0x08,0x00,0x01,
-    0x00,0x01,0x01,0x01,0x11,0x00,0xff,0xc4,0x00,0x1f,0x00,0x00,
-    0x01,0x05,0x01,0x01,0x01,0x01,0x01,0x01,0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,
-    0x09,0x0a,0x0b,0xff,0xc4,0x00,0xb5,0x10,0x00,0x02,0x01,0x03,
-    0x03,0x02,0x04,0x03,0x05,0x05,0x04,0x04,0x00,0x00,0x01,0x7d,
-    0x01,0x02,0x03,0x00,0x04,0x11,0x05,0x12,0x21,0x31,0x41,0x06,
-    0x13,0x51,0x61,0x07,0x22,0x71,0x14,0x32,0x81,0x91,0xa1,0x08,
-    0x23,0x42,0xb1,0xc1,0x15,0x52,0xd1,0xf0,0x24,0x33,0x62,0x72,
-    0x82,0x09,0x0a,0x16,0x17,0x18,0x19,0x1a,0x25,0x26,0x27,0x28,
-    0x29,0x2a,0x34,0x35,0x36,0x37,0x38,0x39,0x3a,0x43,0x44,0x45,
-    0x46,0x47,0x48,0x49,0x4a,0x53,0x54,0x55,0x56,0x57,0x58,0x59,
-    0x5a,0x63,0x64,0x65,0x66,0x67,0x68,0x69,0x6a,0x73,0x74,0x75,
-    0x76,0x77,0x78,0x79,0x7a,0x83,0x84,0x85,0x86,0x87,0x88,0x89,
-    0x8a,0x92,0x93,0x94,0x95,0x96,0x97,0x98,0x99,0x9a,0xa2,0xa3,
-    0xa4,0xa5,0xa6,0xa7,0xa8,0xa9,0xaa,0xb2,0xb3,0xb4,0xb5,0xb6,
-    0xb7,0xb8,0xb9,0xba,0xc2,0xc3,0xc4,0xc5,0xc6,0xc7,0xc8,0xc9,
-    0xca,0xd2,0xd3,0xd4,0xd5,0xd6,0xd7,0xd8,0xd9,0xda,0xe1,0xe2,
-    0xe3,0xe4,0xe5,0xe6,0xe7,0xe8,0xe9,0xea,0xf1,0xf2,0xf3,0xf4,
-    0xf5,0xf6,0xf7,0xf8,0xf9,0xfa,0xff,0xda,0x00,0x08,0x01,0x01,
-    0x00,0x00,0x3f,0x00,0xf5,0x0f,0xff,0xd9,
-]);
+// A tiny PNG encoder for a solid-colour square (#606). The modal previews
+// straight from the picked file's own bytes (`PhotoPreview` in
+// `BulkPhotoUploadModal.tsx` uses `URL.createObjectURL`, never the server's
+// answer), so three copies of the same placeholder JPEG rendered as three
+// identical black thumbnails — a real, if minimal, image was still the wrong
+// picture for a page whose whole subject is photographs. No image library is
+// needed for a single-colour square: a 4-byte CRC table and one `zlib.deflateSync`
+// call over the raw scanlines is the whole of the PNG format that matters here.
+function crc32(buf: Buffer): number {
+    let crc = 0xffffffff;
+    for (const byte of buf) {
+        crc ^= byte;
+        for (let bit = 0; bit < 8; bit++) {
+            crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+        }
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+    const typeBuf = Buffer.from(type, 'ascii');
+    const lengthBuf = Buffer.alloc(4);
+    lengthBuf.writeUInt32BE(data.length, 0);
+    const crcBuf = Buffer.alloc(4);
+    crcBuf.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])), 0);
+    return Buffer.concat([lengthBuf, typeBuf, data, crcBuf]);
+}
+
+function solidColorPng(size: number, [r, g, b]: [number, number, number]): Buffer {
+    const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const ihdr = Buffer.alloc(13);
+    ihdr.writeUInt32BE(size, 0); // width
+    ihdr.writeUInt32BE(size, 4); // height
+    ihdr.writeUInt8(8, 8); // bit depth
+    ihdr.writeUInt8(2, 9); // colour type: truecolour (RGB)
+    ihdr.writeUInt8(0, 10); // compression
+    ihdr.writeUInt8(0, 11); // filter
+    ihdr.writeUInt8(0, 12); // interlace
+    const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array(size).fill([r, g, b]).flat())]);
+    const raw = Buffer.concat(Array(size).fill(row));
+    return Buffer.concat([
+        signature,
+        pngChunk('IHDR', ihdr),
+        pngChunk('IDAT', zlib.deflateSync(raw)),
+        pngChunk('IEND', Buffer.alloc(0)),
+    ]);
+}
+
+// Three distinct colours, so the three sample photos are visibly different in
+// the docs rather than three copies of the same thumbnail.
+const SAMPLE_PHOTOS: Array<{ name: string; color: [number, number, number] }> = [
+    { name: 'racer-01.png', color: [198, 40, 40] }, // red
+    { name: 'racer-02.png', color: [21, 101, 192] }, // blue
+    { name: 'racer-03.png', color: [46, 125, 50] }, // green
+];
 
 test('screenshot bulk photo upload modal', async ({ page }) => {
     fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -149,14 +174,18 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
     // ── Inject 3 test image files into the hidden file input ────────────────
     const tmpDir = path.resolve(__dirname, '../.playwright-tmp');
     fs.mkdirSync(tmpDir, { recursive: true });
-    // Deliberately byte-identical, which is the case that used to hang: three
-    // `uploadImage` mutations with the same data URL are one urql operation and
-    // only one of them came back, so two photos sat on "Uploading..." forever
-    // (#116). The modal issues one request per distinct image now, so this
-    // stays as the end-to-end guard for that.
-    const filePaths = ['racer-01.jpg', 'racer-02.jpg', 'racer-03.jpg'].map(name => {
+    // Three distinct images (#606) — this spec is illustrating the modal, not
+    // guarding #116, so byte-identical files (which used to be the point:
+    // three `uploadImage` mutations with the same data URL are one urql
+    // operation, and only one of them ever came back) are not needed here.
+    // That regression is pinned against a real mocked client in
+    // `BulkPhotoUploadModal.test.tsx` ("uploads an image picked twice only
+    // once, and finishes both" / "gives both copies the same uploaded
+    // image"), independent of this spec. Distinct files still exercise "one
+    // request per distinct image" — each is its own `uploadImage` call below.
+    const filePaths = SAMPLE_PHOTOS.map(({ name, color }) => {
         const p = path.join(tmpDir, name);
-        fs.writeFileSync(p, MINIMAL_JPEG);
+        fs.writeFileSync(p, solidColorPng(80, color));
         return p;
     });
 
@@ -176,9 +205,20 @@ test('screenshot bulk photo upload modal', async ({ page }) => {
     });
 
     // ── Open the first combobox (focus shows full racer list) ───────────────
+    // Wait for the dropdown's own settled content rather than a fixed sleep,
+    // per the docs' "wait for the settled content, not just an element" rule.
+    // #606 asked whether the bare-text rows were an avatar-loading race, the
+    // same shape as the readiness-strip and roster-count races that rule was
+    // written for — they are not: this modal's combobox is a second,
+    // avatar-less implementation (defined inline in `BulkPhotoUploadModal.tsx`),
+    // distinct from `RacerCombobox.tsx`'s shared one that Free Race uses and
+    // that does render `RacerAvatar`. There is no image here to wait on, so
+    // this waits for every racer's row to exist instead — the actual thing
+    // the caption is showing ("full racer list").
     const firstCombobox = page.locator('input[placeholder="— Assign to racer —"]').first();
     await firstCombobox.click();
-    await page.waitForTimeout(350);
+    const firstDropdown = firstCombobox.locator('xpath=following-sibling::ul');
+    await expect(firstDropdown.locator('li')).toHaveCount(roster.length);
 
     // ── Screenshot 4: combobox open, showing full racer list ────────────────
     await page.screenshot({
