@@ -130,6 +130,21 @@ describe('Home Page', () => {
         expect(checkedInValue).toHaveClass('mobile-hide');
     });
 
+    it('badges a locked race, and only a locked one (#585)', async () => {
+        renderHome({
+            races: [
+                { id: 1, name: 'Locked Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0, isLocked: true },
+                { id: 2, name: 'Open Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0, isLocked: false },
+            ],
+        });
+
+        await waitFor(() => {
+            expect(screen.getByText('Locked Derby')).toBeInTheDocument();
+        });
+
+        expect(screen.getAllByText('Locked')).toHaveLength(1);
+    });
+
     it('shows empty state when no races found', async () => {
         (useQuery as any).mockReturnValue([{
             data: { races: [] },

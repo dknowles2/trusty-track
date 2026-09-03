@@ -75,6 +75,13 @@ export interface RaceFormData {
      * same word" distinction the terminology override makes.
      */
     name_display?: string | null;
+    /**
+     * Locked against further edits (#585) — an event that has concluded,
+     * guarded against an accidental change rather than a person with
+     * something to hide. Update-only, the same reason `master_running_order`
+     * is: a race being created has nothing yet to lock.
+     */
+    is_locked?: boolean;
 }
 
 
@@ -116,6 +123,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
         weight_limit_oz: DEFAULT_LIMIT_OZ,
         master_running_order: false,
         exclude_round_winners_from_qualifying_standings: false,
+        is_locked: false,
         ...initialData
     });
     const [loading, setLoading] = useState(false);
@@ -186,6 +194,40 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
 
     return (
         <form onSubmit={handleSubmit}>
+            {/* The lock (#585), prominent and first — an event that has
+                concluded is the reason an operator opens this form again, so
+                the control it is here for should not be buried under nine
+                others. Update-only, the same reason `master_running_order`
+                and the terminology override below are: a race being created
+                has nothing yet to lock. */}
+            {isEditing && (
+                <div
+                    style={{
+                        border: `1px solid ${formData.is_locked ? 'var(--warning-strong-border-color)' : 'var(--border-color)'}`,
+                        borderRadius: '8px',
+                        padding: '0.75rem 1rem',
+                        marginBottom: '1rem',
+                        background: formData.is_locked ? 'var(--warning-bg-color)' : 'transparent',
+                    }}
+                >
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.4rem', fontWeight: 'bold' }}>
+                        <input
+                            type="checkbox"
+                            id="race-is-locked"
+                            checked={formData.is_locked ?? false}
+                            onChange={e => setFormData(prev => ({ ...prev, is_locked: e.target.checked }))}
+                        />
+                        <span>{formData.is_locked ? 'Unlock race' : 'Lock race'}</span>
+                    </label>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted-color)', margin: 0 }}>
+                        Once an event has concluded, locking it guards against an accidental edit — a
+                        stray tap on a shared machine, not a step you have to remember to undo. While
+                        locked, scheduling, results, racer registrations and awards cannot be changed;
+                        the race stays fully readable, and can still be deleted.
+                    </p>
+                </div>
+            )}
+
             <div>
                 <label style={labelStyle} htmlFor="race-name">Event Name</label>
                 <input

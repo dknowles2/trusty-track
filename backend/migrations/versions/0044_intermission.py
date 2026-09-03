@@ -11,8 +11,8 @@ All three are nullable with no server default, and every existing race gets
 all three null — exactly "no intermission", the state every race was already
 in before this column existed.
 
-Revision ID: 0043_intermission
-Revises: 0042_track_scale_speed
+Revision ID: 0044_intermission
+Revises: 0043_race_is_locked
 Create Date: 2026-09-03
 
 """
@@ -23,8 +23,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0043_intermission"
-down_revision: str | Sequence[str] | None = "0042_track_scale_speed"
+revision: str = "0044_intermission"
+down_revision: str | Sequence[str] | None = "0043_race_is_locked"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -87,6 +87,7 @@ A relational database (e.g., PostgreSQL or SQLite for simpler deployments) will 
     -   `vehicle_singular`, `vehicle_plural` (`varchar`, nullable — #551) — a per-race override of the organization's vehicle word, same shape as the four columns above.
     -   `vehicle_artwork_key` (`varchar`, nullable — #551 stage 4) — a per-race override of the organization's vehicle picture, same shape as the two columns above.
     -   `name_display` (`varchar`, nullable — #552) — a per-race override of the organization's name-display default, for the venue running two differently-worded events. Null means inherit the organization's setting — *unlike* `Organization.name_display`, here null and `"FULL"` are different answers (inherit vs. an explicit override to show full names regardless of the organization's own choice), so `clearNameDisplay` on `updateRace` is the explicit way back to null, following `clearTerminology` above.
+    -   `is_locked` (Boolean, `NOT NULL`, default `false` — #585) — whether the race is locked against further edits, once an event has concluded. Enforced by `api.race_lock.RaceLockExtension`, a third schema extension beside the role policy and the demo policy; this column is otherwise a plain field like `voting_open`.
     -   Note: Per-race `scheduling_strategy` was moved to the `Round` level. Rounds each have their own scheduling strategy.
 -   **`RacingGroup`**: Sub-divisions within a race (table `racing_groups`; called `Den` before #496). A *different* table of the same name, a vestigial shadow of this concept, briefly existed early on and was dropped (`0008_drop_racing_groups`) once it turned out to be written on every racer save and read by nothing — this table is the rename, not a resurrection of that one.
     -   `id` (PK)
@@ -194,7 +195,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 
 **GraphQL Mutations:**
 
--   Race: `createRace`, `updateRace` (absent means leave alone throughout, so a per-race terminology override — racing group, organization, and, since #551, vehicle — takes `clearTerminology` to get back to inheriting — the same shape as `clearWeightLimit`, #496 stage 3; a per-race name-display override, #552, takes `clearNameDisplay` the same way, since `"FULL"` set explicitly is a real override there rather than the null state), `deleteRace`
+-   Race: `createRace`, `updateRace` (absent means leave alone throughout, so a per-race terminology override — racing group, organization, and, since #551, vehicle — takes `clearTerminology` to get back to inheriting — the same shape as `clearWeightLimit`, #496 stage 3; a per-race name-display override, #552, takes `clearNameDisplay` the same way, since `"FULL"` set explicitly is a real override there rather than the null state; `isLocked` toggles the lock, #585 — while the race is locked, this mutation itself is refused unless the payload touches nothing else, see `api.race_lock`), `deleteRace` (stays reachable on a locked race — see `api.race_lock`)
 -   Racer: `createRacer`, `updateRacer`, `deleteRacer`, `checkInRacer`
 -   Bulk racer actions: `bulkAutoNumber`, `bulkClearNumbers`, `bulkMoveToRacingGroup`, `bulkDeleteRacers`, `bulkCheckIn`, `bulkAssignPhotos`, `bulkSetExcludedFromStandings`
 -   RacingGroup: `createRacingGroup`, `updateRacingGroup`, `deleteRacingGroup`

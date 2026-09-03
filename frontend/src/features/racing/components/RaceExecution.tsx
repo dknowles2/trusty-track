@@ -34,6 +34,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { advancingFromLabel } from '../roundSummaryText';
+import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 /**
  * A lane being edited by hand. `time` is held as text while the operator types
@@ -100,6 +101,12 @@ interface RaceExecutionProps {
      * line-up rather than announcing "End of Round" between every heat. */
     masterRunningOrder?: boolean;
     debugMode?: boolean;
+    /**
+     * The race is locked against further edits (#585). Disables every
+     * control here that would arm the timer, record, edit or skip a
+     * result — the operator can still watch the heat, only not change it.
+     */
+    raceLocked?: boolean;
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
@@ -124,7 +131,9 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     upcomingRounds,
     masterRunningOrder,
     debugMode,
+    raceLocked = false,
 }) => {
+    const lockedTitle = RACE_LOCKED_MESSAGE;
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingResults, setEditingResults] = useState<EditableLane[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
@@ -574,6 +583,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                     <>
                                         <button
                                             onClick={handleEditOpen}
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{
                                                 padding: '6px 14px',
                                                 fontSize: '0.9rem',
@@ -594,6 +605,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         </button>
                                         <button
                                             onClick={() => onRunHeat(activeExecutionHeat, false)}
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{
                                                 padding: '6px 14px',
                                                 fontSize: '0.9rem',
@@ -617,6 +630,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={() => prepareHeat({ heatId: activeExecutionHeat.id })}
                                             className="secondary-btn"
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--background-color)', color: 'var(--text-emphasis-color)', border: '1px solid var(--input-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiRefresh} size={0.7} /> Reset Heat
@@ -625,6 +640,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                             <button
                                                 onClick={() => forceResults({ trackId })}
                                                 className="secondary-btn"
+                                                disabled={raceLocked}
+                                                title={raceLocked ? lockedTitle : undefined}
                                                 style={{ padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                             >
                                                 <Icon path={mdiAlertCircleOutline} size={0.7} /> Force Results
@@ -633,6 +650,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={handleSkipHeat}
                                             className="secondary-btn"
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', border: '1px solid var(--danger-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat
@@ -647,6 +666,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={handleEditOpen}
                                             className={hasTimer ? 'secondary-btn' : 'primary-btn'}
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={hasTimer ? {
                                                 padding: '6px 14px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px'
                                             } : {
@@ -659,6 +680,8 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                         <button
                                             onClick={handleSkipHeat}
                                             className="secondary-btn"
+                                            disabled={raceLocked}
+                                            title={raceLocked ? lockedTitle : undefined}
                                             style={{ padding: '6px 14px', fontSize: '0.9rem', background: 'var(--danger-bg-color)', color: 'var(--danger-strong-color)', border: '1px solid var(--danger-border-color)', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '6px', height: '36px' }}
                                         >
                                             <Icon path={mdiCloseOctagon} size={0.7} /> Skip Heat

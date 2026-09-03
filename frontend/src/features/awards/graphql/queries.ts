@@ -13,6 +13,9 @@ export const RACE_AWARDS_QUERY = gql`
       id
       name
       votingOpen
+      # Whether the race is locked against further edits (#585) — disables
+      # the award editor.
+      isLocked
       resolvedNameDisplay
       awards {
         id

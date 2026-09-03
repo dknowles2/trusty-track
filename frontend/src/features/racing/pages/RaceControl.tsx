@@ -32,6 +32,8 @@ import { decidedRoundIds, observeAdvanced, type SeenRounds } from '../roundCompl
 import { shouldShowReadiness } from '../readiness';
 import { estimatePace } from '../pace';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
+import LockedBadge from '../../core/components/LockedBadge';
+import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 export default function RaceControl() {
   const { showAlert, showConfirm, showToast } = useAlert();
@@ -572,7 +574,10 @@ export default function RaceControl() {
   return (
     <div className="container" style={{ padding: '20px' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0 }}>Race Control</h1>
+        <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+          Race Control
+          {race?.isLocked && <LockedBadge />}
+        </h1>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1, minWidth: '300px', justifyContent: 'center' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', background: 'var(--surface-strong-color)', padding: '5px', borderRadius: '25px' }}>
@@ -676,6 +681,26 @@ export default function RaceControl() {
         </div>
       </div>
 
+      {/* The lock (#585). Scheduling and result entry below are disabled
+          rather than hidden — see ScheduleManagement's and RaceExecution's
+          own `raceLocked` prop — and this is the one sentence saying why. */}
+      {race?.isLocked && (
+        <div
+          data-testid="race-locked-banner"
+          style={{
+            background: 'var(--warning-bg-color)',
+            color: 'var(--warning-strong-color)',
+            border: '1px solid var(--warning-strong-border-color)',
+            borderRadius: '8px',
+            padding: '10px 16px',
+            marginBottom: '16px',
+            fontSize: '0.9rem',
+          }}
+        >
+          {RACE_LOCKED_MESSAGE}
+        </div>
+      )}
+
       {/* Pre-flight (#200). Not on the Free Race tab, where an exhibition run
           does not care whether the championship schedule exists, and not on
           Displays, which is itself one of the four answers. */}
@@ -738,6 +763,7 @@ export default function RaceControl() {
               pace={pace}
               upcomingRounds={upcomingRounds}
               debugMode={data?.initialConfig?.debugMode ?? false}
+              raceLocked={race?.isLocked ?? false}
               onToggleAutoAdvance={async (value) => {
                 await updateRaceMutation({ id, race: { autoAdvanceHeat: value } });
                 reExecute({ requestPolicy: 'network-only' });
@@ -831,6 +857,7 @@ export default function RaceControl() {
           onRunHeat={handleRunHeat}
           onReorderHeats={handleReorderHeats}
           masterRunningOrder={masterRunningOrder}
+          raceLocked={race?.isLocked ?? false}
           championshipRoundIds={championshipRoundIds}
           roundGroupLabel={roundGroupLabel}
           onApplyMasterRunningOrder={handleApplyMasterRunningOrder}

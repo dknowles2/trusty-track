@@ -1374,6 +1374,47 @@ Before `AuditExtension`, so a demo refusal is recorded like any other (#219's ru
 
 **One insert per mutation, and `test_query_counts.py` measures it.** `record_audit` returns a value object rather than the ORM row: `db.commit()` expires the instance, so handing the row back made reading any field a second SELECT.
 
+### Locking a race
+
+`Race.is_locked`, enforced by `backend/api/race_lock.py`'s `RaceLockExtension` ([#585](https://github.com/dknowles2/trusty-track/issues/585)). An event concludes and the machine sits at the venue, or comes home to a shelf until next year — a shared laptop a curious sibling can reach, or an operator's own muscle memory reopening the wrong race weeks later. This is a guard against an accidental edit to a record that is otherwise done, not a permission system for a person with something to hide.
+
+**A third schema extension, on the model `DemoPolicyExtension` already set.** A denylist rather than an allowlist, and for the same reason theirs is: enumerated so it reads next to the thing it protects, and checked against the schema in **one direction only** — a mutation `race_lock` has not heard of yet is ordinary behaviour on a locked race, and failing closed would mean every mutation added after this file silently stops working the moment a race is locked, with nothing to say so. `test_race_lock.py::test_every_locked_mutation_exists` is that one-direction check; contrast with `test_auth_policy.py`'s two-direction one, which is right for a table where an unclassified mutation should be refused to everyone.
+
+**One resolver per argument shape, not one per mutation.** A locked race has to refuse a heat result, a racer edit, a round regeneration, a check-in — mutations that name a `raceId` directly (`createRacingGroup`, `createAward`, `createRound`…), a `heatId` (`updateHeatResult`, `prepareHeat`, `deleteHeat`…), a `roundId` (`regenerateRound`, `deleteRound`), a bare `id` meaning a racer, a racing group, or an award depending on which mutation it is, a `racerIds` list (the bulk roster actions), or a nested input object carrying its own `raceId`/`racerId` (`createRacer`, `bulkAssignPhotos`, `reorderHeats`). `LOCKED_MUTATION_RESOLVERS` maps each mutation name to the one function that knows its shape, several mutations sharing a function where the shape is identical. Resolving up to the race costs one query in the worst case (a heat's own `race_id`, a round's own `race_id`) — cheap next to what it protects, and the same trade `_race_id_from` in `api/auth.py` already makes for the audit log, just carried one step further since this module actually has to *find* the id rather than only reading one already named `raceId`.
+
+**A mutation argument can arrive two ways, and this module cannot assume either.** An inline GraphQL literal argument reaches a resolver's own `**kwargs` as the input's dataclass instance; one supplied through `variables` — every test here, and every real client, since `urql`'s `gql` documents always use variables — arrives as a plain `dict` with **camelCase** keys instead (`heatId`, not `heat_id`). `_arg`/`_fields_of` check both shapes, mirroring `domain.audit._fields_of`'s own dict-or-dataclass branch; a single-word argument (`id`, `race`, `racer`) is unaffected either way, which is why this was easy to miss until a multi-word one (`heatId`, `roundId`, `racerIds`) was actually tested against real `variables`.
+
+**`updateRace` and `deleteRace` are handled directly, not through the resolver table.** `deleteRace` stays reachable on a locked race — the issue's own requirement — and is never in the denylist at all; the frontend's own safeguard is typing the race's name into the confirmation, not a second server-side gate, since the operator PIN is already the credential that matters here. `updateRace` is refused unless the payload would change **nothing but `isLocked`**.
+
+**That comparison is against the race's own current stored values, not against each field's schema default, and getting this backwards was a real bug caught before it shipped.** `RaceForm` is the operator's own way to unlock a race, and `RaceDetails.handleUpdateRace` — the only caller that matters — resends the *whole* race on every save, not a diff: `name`, `trackId`, `scoringStrategy`, every field, all non-null and unchanged, alongside `isLocked: false`. A first draft of `is_lock_only_update` treated any non-null field (other than the three explicit clear flags) as "touching" the race, which is correct for the *schema's* notion of absent-means-leave-alone but refused the unlock checkbox's own save outright — the payload it produces is indistinguishable, by that rule, from a rename smuggled in alongside the unlock. `is_lock_only_update(race, race_update)` takes the current `Race` row and asks whether applying the payload would actually move any field: `getattr(race, name) != value`, field by field, with the three clear flags translated to "does this flag's target column already hold `None`" first. A `str` `Enum` column compares equal to its own value as a plain string (`ScoringStrategy.TIMED == "TIMED"`), so no unwrapping is needed there. `test_race_lock.py::test_unlocking_works_when_the_form_resends_every_field_unchanged` is the regression test, built from exactly the shape `RaceForm` actually sends; `test_a_field_genuinely_changed_alongside_a_full_resend_is_still_refused` is its twin, proving the comparison still catches a real change hiding in the same full payload.
+
+**Allowed while locked, and each is a deliberate exception:**
+
+| Stays reachable | Why |
+| --- | --- |
+| Every read (a query or a subscription) | `resolve` only looks at fields whose parent is `Mutation` |
+| `deleteRace` | The issue's own requirement — see above |
+| `updateRace`, payload touching only `isLocked` | The operator's own way back out |
+| `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay` | About which screen shows what, not the race's own record |
+| `castVote` | Gated by its own `Race.votingOpen` switch (#305) already; a second opinion here would be a rule with two homes |
+| `createTrack`/`updateTrack`/`deleteTrack`, `setLaneOutages`, the historical track record mutations, `reconnectTimer`/`abortHeat`/`forceResults`/`startTimerTest`/`releaseStartGate`/`resetTimer` | A track is shared, global state — it can be running a second, unlocked race at the same venue, and disarming its timer over a *different* race's lock would break that race for no reason |
+| `createInitialConfig`, `updateInitialConfig`, `uploadImage`, `createPracticeRace`, `createRace` | None names an existing race in its arguments, so there is nothing here to resolve a lock against |
+
+**Extension order is load-bearing and reads backwards, same as its two neighbours — and `RaceLockExtension` sits at the far end from `AuditExtension`, innermost of all four:**
+
+```python
+extensions = [
+    RaceLockExtension,
+    RolePolicyExtension,
+    DemoPolicyExtension,
+    AuditExtension,
+]
+```
+
+A *later* extension wraps an earlier one and so runs its own check *first*. `RaceLockExtension` is listed **before** `RolePolicyExtension` — to its left, the more deeply nested position — specifically so the role policy's own check runs first: a `VIEWER` attempting `updateHeatResult` on a locked race should be told their role cannot do that, not that the race happens to be locked; the lock check never runs unless the role policy has already let the mutation through. `test_race_lock.py::test_the_role_policy_is_asked_before_the_lock` is the test that fails to a one-line reordering, the same shape as `test_audit_log.py::TestRefusals` for the two extensions on the other end. Still inside `AuditExtension`'s wrap regardless of exactly where between it and the role policy it sits, so a lock refusal is recorded exactly like any other (#219).
+
+**The frontend does not gate deletion by name server-side.** The issue asks that deleting a locked race require typing the race's name into the confirmation — a pure client-side rule (`features/management/deleteConfirmation.ts`), not a second credential: the operator PIN is what actually protects `deleteRace`, and a name-match check the server enforced would just be a worse copy of that.
+
 ### Backup and restore
 
 `backend/services/backup.py`, `GET /api/backup` and `POST /api/backup/restore`, the panel at the foot of System Settings. An archive is a zip of three things: a database snapshot, the uploads directory, and a `manifest.json`.
