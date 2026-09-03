@@ -16,10 +16,13 @@ walkthrough, see [Connecting a Hardware Timer](../hardware-timer.md).
 | "The Champ" (SmartLine / BestTrack) | Yes | Protocol documentation only |
 | JIT Racemaster | Yes | Protocol documentation only |
 | NewBold DT / TURBO / DerbyStick | **No — pick it by hand** | Protocol documentation only |
+| Bill V's Derby Timer | Yes | Protocol documentation only |
 
-The Micro Wizard is the timer Trusty Track has been built against. The other
-seven descriptions are adapted from
-[DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions.
+The Micro Wizard is the timer Trusty Track has been built against. Seven of
+the rest are adapted from
+[DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions; Bill V's
+Derby Timer is its own protocol, transcribed from the manufacturer's own
+documentation.
 
 **None of these has run a real heat on real hardware yet** — including the
 Micro Wizard. Recordings are the stronger evidence, but they are not a live
@@ -58,7 +61,7 @@ timer**:
 
 ### The Timer Model picker
 
-**Detect automatically** works for seven of the eight models. Pick one
+**Detect automatically** works for eight of the nine models. Pick one
 yourself when:
 
 - **Yours is the NewBold family.** It never announces itself and talks at a
@@ -125,7 +128,7 @@ these hold:
    release is fitted; on a Micro Wizard it is a separately-sold accessory,
    and without it the command is accepted and quietly ignored.
 2. **The timer model has a command for it.** The Micro Wizard and the PDT
-   do; the other six do not.
+   do; the other seven do not.
 
 The button only appears while a heat is armed. Releasing the gate with no
 heat armed would send cars down a track nothing is timing, and those runs
@@ -161,7 +164,7 @@ claims**, once it has identified itself:
 | --- | --- | --- | --- |
 | Micro Wizard K1 / K2 / K3 (FastTrack) | Yes | Yes | No |
 | "The Champ" (SmartLine / BestTrack) | No | No | Yes (double-sided units only) |
-| Derby Timer, PDT, Bert Drake, The Judge, JIT Racemaster, NewBold | No | No | No |
+| Derby Timer, PDT, Bert Drake, The Judge, JIT Racemaster, NewBold, Bill V's Derby Timer | No | No | No |
 
 **Indicates timing started** means the timer says, on its own, the instant a
 run begins — the same signal Trusty Track uses to move a heat from *Staged*
