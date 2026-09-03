@@ -23,6 +23,7 @@ the **Edit race** button on Race Control. All three open the same form.
 | **Track / Timer** | Which track this race runs on |
 | **Car Numbering** | See [car numbering](#car-numbering) below |
 | **Use different words for this race** | Not offered until the race is created — edit it afterwards from the Roster page. See [the words on screen](#the-words-on-screen) below |
+| **Lock race** | Not offered until the race is created. Guards a concluded race against an accidental edit — see [locking a race](#locking-a-race) below |
 
 **Auto-advance**, on the race screen itself, is also remembered per race:
 when on, the screen moves to the next heat ten seconds after results land.
@@ -78,6 +79,33 @@ the limit is typed at check-in, the box turns red and says so.
 | **Per Den** | **Auto number** fills from each den's own range — 100–199 for the first den, 200–299 for the next. The ranges are on each den in Manage Dens, and can be changed or cleared |
 | **Global** | Sequentially from one starting number, den regardless |
 | **Manual** | You type every number yourself; **Auto number** leaves the race alone. Duplicates are allowed — which is why the check-in scanner's car number box only matches when exactly one racer holds the number |
+
+### Locking a race
+
+Once an event has concluded, **Lock race** in the edit form guards against an
+accidental edit — a stray tap on a shared laptop weeks later, not a control for
+keeping anyone out. It is not offered while creating a race, only afterwards.
+
+While a race is locked:
+
+- Scheduling, results, racer registrations and awards cannot be changed. Every
+  screen that would change one of those shows a **Locked** badge and explains
+  why its controls are disabled.
+- The race stays fully readable — the roster, standings, stats and every
+  audience display keep working exactly as before.
+- **Voting** and the audience displays are unaffected — a display is told what
+  to show separately from the race's own record, and a vote is gated by its
+  own **Voting is open** switch, not by the lock.
+- **Deleting the race is still allowed.** A locked race is exactly the one an
+  operator might delete without reading every word of a confirmation, so
+  deleting one asks for the race's exact name to be typed first, rather than
+  the ordinary yes/no confirmation every other race gets.
+- Unlocking is the one change a locked race still accepts — from the same
+  **Lock race** checkbox, now labelled **Unlock race**, in the edit form on the
+  Roster page, on Race Control, or from a race row's **⋯** menu on Home.
+
+A locked race is marked with a **Locked** badge on Home's race list, in the
+race picker at the top of every screen, and on Race Control's own header.
 
 ## The track
 

@@ -876,6 +876,7 @@ export type Race = {
   globalStartNumber: Scalars['Int']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
+  isLocked: Scalars['Boolean']['output'];
   leaderboard: Array<LeaderboardEntry>;
   location?: Maybe<Scalars['String']['output']>;
   masterRunningOrder: Scalars['Boolean']['output'];
@@ -970,6 +971,7 @@ export type RaceUpdateInput = {
   dropWorstRuns?: InputMaybe<Scalars['Int']['input']>;
   excludeRoundWinnersFromQualifyingStandings?: InputMaybe<Scalars['Boolean']['input']>;
   globalStartNumber?: InputMaybe<Scalars['Int']['input']>;
+  isLocked?: InputMaybe<Scalars['Boolean']['input']>;
   location?: InputMaybe<Scalars['String']['input']>;
   masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;

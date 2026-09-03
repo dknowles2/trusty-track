@@ -146,6 +146,9 @@ export const GET_RACE_CONTROL_DATA = gql`
       autoAdvanceHeat
       registeredCount
       checkedInCount
+      # Whether the race is locked against further edits (#585) — gates
+      # scheduling and result entry, and drives the header's "Locked" badge.
+      isLocked
       # One interleaved running order across racing groups (#549) — the flag
       # ScheduleManagement reads to show the master order at all, and what
       # gates the whole execution flow's sort (runningOrder.ts).
@@ -328,6 +331,9 @@ export const GET_RUN_OFF_HEATS = gql`
   query GetRunOffHeats($raceId: Int!) {
     race(raceId: $raceId) {
       id
+      # Whether the race is locked against further edits (#585) — disables
+      # the run-off control's own buttons.
+      isLocked
       runOffHeats {
         id
         settlesRoundId
