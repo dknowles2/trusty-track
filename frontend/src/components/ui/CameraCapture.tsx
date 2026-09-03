@@ -177,8 +177,18 @@ export default function CameraCapture({ onCapture, onClose, aspect }: CameraCapt
  * `atob`/`Uint8Array` rather than `fetch(dataUrl)`, which is unnecessary
  * ceremony for bytes already in hand and not something every test
  * environment implements for a `data:` URL.
+ *
+ * Exported rather than kept module-private: `RacerForm.tsx`'s rotate/recrop
+ * control on an already-uploaded photo (#619 stage 3) needs the identical
+ * conversion — its `ImageCropModal` also hands back a data URL, which then
+ * has to become a `File` before it can go through the same `uploadFile`
+ * path an ordinary file picker or camera capture already uses. One
+ * function rather than two copies free to disagree about MIME sniffing.
  */
-function dataUrlToFile(dataUrl: string, filename: string): File {
+// A plain data-conversion helper, not a component; TerminologyContext.tsx
+// carries the same disable for the same reason.
+// eslint-disable-next-line react-refresh/only-export-components
+export function dataUrlToFile(dataUrl: string, filename: string): File {
     const [header, base64] = dataUrl.split(',');
     const mime = /data:(.*?);base64/.exec(header)?.[1] ?? 'image/jpeg';
     const binary = atob(base64);
