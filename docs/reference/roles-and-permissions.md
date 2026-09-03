@@ -73,12 +73,63 @@ This is a database edit, not a feature of the app, and it is the only way
 back in short of restoring an earlier [backup](backups.md) taken before the
 PIN was set.
 
+## HTTPS, certificates, and plain HTTP
+
+The macOS app, the Windows app, the Raspberry Pi installer and a from-source
+install all serve **https://** by default, using a certificate Trusty Track
+generates for itself. That is not about hiding your PIN from anyone — it is
+what lets the camera and the check-in scanner turn on at all. A modern
+browser refuses to open a camera except on a "secure" connection, and it only
+counts `https://` and the machine's own `localhost` as secure — a plain
+`http://192.168.1.42:8000` on a second device does not qualify, whatever
+network it is on.
+
+Because the certificate is one Trusty Track made up on the spot rather than
+one a browser already trusts, every browser warns about it the first time —
+"Your connection is not private" or similar. That is expected; the install
+guides for [macOS/Windows](../user/install-windows.md#step-4-use-trusty-track)
+and the [Raspberry Pi](../user/install-raspberry-pi.md#accepting-the-security-certificate-warning)
+walk through clicking past it. Docker is the exception: the container image
+serves plain `http://` from the start, with no certificate at all, so the
+camera and scanner already only work on the machine running Docker itself —
+see [Camera features need HTTPS away from the host
+machine](../user/install-docker.md#accessing-from-other-devices-on-your-network).
+
+### Turning HTTPS off
+
+If the certificate warning is a bigger problem for your event than losing
+the camera on a second device — a shared school iPad nobody wants to explain
+"Advanced → Proceed anyway" to, say — you can opt out and serve plain HTTP
+everywhere instead. Everything except photo capture and the check-in scanner
+keeps working exactly the same on every device: the roster, Race Control,
+standings, the audience displays.
+
+- **macOS and Windows app:** the tray/menu-bar icon has a **Use Plain HTTP
+  (no certificate warnings)** item. Click it, then quit and reopen Trusty
+  Track — it does not take effect until the app restarts.
+- **Raspberry Pi:** run the installer with the flag set —
+  `sudo TRUSTYTRACK_HTTP_ONLY=1 ./scripts/install-pi.sh` — or, on an install
+  that already exists, add `TRUSTYTRACK_HTTP_ONLY=1` to
+  `/etc/trustytrack/env` and run `sudo systemctl restart trustytrack`.
+- **From source:** set the same variable before `scripts/serve.sh` or
+  `scripts/run_dev.sh` — `TRUSTYTRACK_HTTP_ONLY=1 ./scripts/serve.sh`.
+- **Docker:** nothing to do — it is already plain HTTP.
+
+Turning it back on undoes all of this: switch the toggle again (or unset the
+variable) and restart. The default has not changed — this is an opt-out for
+one event, not a setting anybody has to think about to get HTTPS.
+
 ## What is not protected
 
-- **Traffic is not encrypted.** Plain HTTP on a local network; someone
-  already on it with the right tools could read a PIN as it goes past.
-  Against the intended threat — casual mischief in the room — that changes
-  little, but it is the honest position.
+- **Traffic is encrypted by default, but not verified.** The self-signed
+  certificate above still encrypts the connection — nobody merely watching
+  the network sees a PIN in plain text — but it is Trusty Track's own
+  certificate rather than one a browser already trusts, so it proves nothing
+  about who is on the other end. With `TRUSTYTRACK_HTTP_ONLY` set, or on
+  Docker's default plain HTTP, there is no encryption at all: a PIN travels
+  as ordinary text, and anyone already on the network with the right tools
+  could read it. Against the intended threat — casual mischief in the room —
+  that changes little either way, but it is the honest position.
 - **There are no user accounts.** One shared PIN per role. The log records
   which *role* did what and from which device, not which person.
 

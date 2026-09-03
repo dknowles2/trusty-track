@@ -73,6 +73,38 @@ POLLED = TimerProfile(
 )
 
 
+#: Bert Drake's shape (issue #636): a pushed `B` for the gate opening, with no
+#: pushed matcher of its own for the gate closing — only the on-demand `C`
+#: query, answered `Gc`/`Go` inside a poll window. Push and poll coexist for
+#: opposite edges rather than being alternatives, which is why this is its own
+#: profile instead of a `replace(POLLED, ...)`: POLLED's own `B` already means
+#: RACE_STARTED.
+PUSHES_OPEN_POLLS_CLOSED = TimerProfile(
+    name="Pushes Gate Open, Polls Gate Closed",
+    key="pushes-open-polls-closed",
+    delimiter=b"\n",
+    gate_state_is_knowable=True,
+    identification=(re.compile(rb"^BD$"),),
+    probe=(b"V",),
+    gate_watcher=GateWatcher(
+        command=b"C",
+        matchers=(
+            Matcher(re.compile(rb"^Gc$"), Event.GATE_CLOSED),
+            Matcher(re.compile(rb"^Go$"), Event.GATE_OPEN),
+        ),
+    ),
+    matchers=(
+        Matcher(re.compile(rb"^B$"), Event.GATE_OPEN),
+        Matcher(
+            re.compile(rb"^(\d) - (\d+\.\d+)$"),
+            Event.LANE_RESULT,
+            lane=Group(1, lane_number),
+            time=Group(2, seconds),
+        ),
+    ),
+)
+
+
 def armed(profile: TimerProfile = POLLED, *, instant: bool = True) -> TimerManager:
     """A manager with a heat armed and the debounce out of the way."""
     manager = TimerManager(track_id=1, device=profile)
@@ -285,6 +317,46 @@ async def test_gate_open_starts_race_does_nothing_from_armed():
     manager._gate_window_until = asyncio.get_event_loop().time() + 5
 
     await manager.receive_bytes(b"O\n")
+
+    assert manager._state is TimerState.ARMED
+    await manager.stop()
+
+
+async def test_a_pushed_open_gate_starts_the_race_when_the_flag_is_set():
+    """Bert Drake's shape (issue #636), the pushed twin of the Champ's polled
+    one above. The pushed `B` needs no poll window and no
+    ``gate_state_is_knowable`` of its own to act on — this device sets that
+    flag only to reach READY in the first place, via the ordinary polled
+    `C`/`Gc` above. Once READY, the pushed edge starts the race and stops the
+    poll task, the same as ``_start_race`` always does.
+    """
+    profile = replace(PUSHES_OPEN_POLLS_CLOSED, gate_open_starts_race=True)
+    manager = armed(profile)
+    manager._start_gate_polling()
+    manager._gate_window_until = asyncio.get_event_loop().time() + 5
+    await manager.receive_bytes(b"Gc\n")
+    assert manager._state is TimerState.READY
+    assert manager._gate_poll_task is not None
+
+    await manager.receive_bytes(b"B\n")
+
+    assert manager._state is TimerState.RUNNING
+    assert manager._gate_poll_task is None
+    await manager.stop()
+
+
+async def test_a_pushed_open_gate_falls_back_to_armed_without_the_flag():
+    """A device that pushes an edge but does not claim ``gate_open_starts_race``
+    (the MicroWizard's shape — it starts a race from its own ``RaceStarted``
+    matcher instead) must be unaffected by this branch: a pushed GateOpen from
+    READY still just means "not staged any more", exactly as it did before
+    issue #636. A regression here would double-start a device that already
+    has its own start signal.
+    """
+    manager = armed(PUSHES_OPEN_POLLS_CLOSED)
+    manager._state = TimerState.READY
+
+    await manager.receive_bytes(b"B\n")
 
     assert manager._state is TimerState.ARMED
     await manager.stop()

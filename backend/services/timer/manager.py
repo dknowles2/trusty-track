@@ -960,9 +960,9 @@ class TimerManager:
         await pubsub.publish(f"timer_state:{self._track_id}", self.status())
 
     async def _start_race(self) -> None:
-        """Common to a matched ``RaceStarted`` and a polled gate-open standing
-        in for one (``gate_open_starts_race``) — both mean the same thing: the
-        car is away.
+        """Common to a matched ``RaceStarted`` and a gate-open standing in for
+        one (``gate_open_starts_race``, polled or pushed) — all three mean the
+        same thing: the car is away.
         """
         self._running_since = asyncio.get_event_loop().time()
         # Nothing the gate says can change a run that is under way, and
@@ -999,7 +999,18 @@ class TimerManager:
         elif isinstance(event, GateOpen):
             if self._state == TimerState.READY:
                 self._gate.reset(closed=False)
-                await self._transition(TimerState.ARMED)
+                if self._device.gate_open_starts_race:
+                    # Same reasoning as the polled case in
+                    # `_handle_gate_reading` — this device has no independent
+                    # start signal, so a gate-open observed from READY *is*
+                    # the race starting rather than somebody reloading. A
+                    # pushed edge needs no debounce and no
+                    # `gate_state_is_knowable`: that flag only governs
+                    # whether polling (and so READY) is reachable at all,
+                    # and this event did not come from a poll.
+                    await self._start_race()
+                else:
+                    await self._transition(TimerState.ARMED)
 
         elif isinstance(event, GateWatcherUnsupported):
             self._gate_watcher_off = True

@@ -14,6 +14,7 @@ import asyncio
 import contextlib
 import datetime
 import ipaddress
+import json
 import logging
 import os
 import platform
@@ -27,12 +28,13 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
-# A sibling module, not `packaging.log_viewer`: this script has no package
-# `__init__.py` (nor should it — PyPI's own `packaging` library is a common
-# transitive dependency, and a real package here would shadow or collide
-# with it). Python and PyInstaller both resolve a bare `import log_viewer`
-# against this script's own directory, which is the ordinary way a launcher
-# script keeps a helper module beside it.
+# Sibling modules, not `packaging.log_viewer` / `packaging.http_mode`: this
+# script has no package `__init__.py` (nor should it — PyPI's own `packaging`
+# library is a common transitive dependency, and a real package here would
+# shadow or collide with it). Python and PyInstaller both resolve a bare
+# `import log_viewer` against this script's own directory, which is the
+# ordinary way a launcher script keeps a helper module beside it.
+import http_mode
 from log_viewer import build_view_logs_command, console_app_available
 
 try:
@@ -62,10 +64,56 @@ LOG_PATH = DATA_DIR / "server.log"
 DB_PATH = DATA_DIR / "trusty-track.db"
 CERT_PATH = DATA_DIR / "server.crt"
 KEY_PATH = DATA_DIR / "server.key"
+SETTINGS_PATH = DATA_DIR / "launcher_settings.json"
 PORT = int(os.environ.get("PORT", "8000"))
 
 # Must be set before importing backend (database.py reads it at import time).
 os.environ.setdefault("TRUSTYTRACK_DATA_DIR", str(DATA_DIR))
+
+# ── Plain HTTP vs HTTPS (#593) ──────────────────────────────────────────────
+#
+# `TRUSTYTRACK_HTTP_ONLY`, if set, always wins — that is what lets
+# `scripts/serve.sh`, the Pi's systemd unit and a test override the choice
+# without touching this file. Absent, the launcher falls back to whatever the
+# tray/menu-bar toggle last persisted to `SETTINGS_PATH`; a fresh install has
+# neither, and gets HTTPS, exactly as every install did before this existed.
+
+
+def _read_persisted_http_only() -> bool:
+    try:
+        data = json.loads(SETTINGS_PATH.read_text())
+    except (OSError, ValueError):
+        return False
+    return bool(data.get("http_only", False))
+
+
+def _write_persisted_http_only(value: bool) -> None:
+    SETTINGS_PATH.write_text(json.dumps({"http_only": value}))
+
+
+_HTTP_TOGGLE_LABEL = "Use Plain HTTP (no certificate warnings)"
+
+
+def _http_restart_message(new_value: bool) -> str:
+    # Not an in-process restart: APP_URL, NETWORK_URL and whether a
+    # certificate is generated are all resolved once, above, before uvicorn
+    # or the backend are even imported — changing them under a running
+    # server would mean re-deriving every one of those live and reopening
+    # whatever browser tab is already pointed at the old scheme. Asking for
+    # a full quit-and-reopen is the honest version of "restart required".
+    mode = "plain HTTP" if new_value else "HTTPS"
+    return (
+        f"Trusty Track will use {mode} the next time it starts.\n\n"
+        "Quit and reopen Trusty Track for this to take effect."
+    )
+
+
+_env_http_only = os.environ.get(http_mode.HTTP_ONLY_VARIABLE)
+HTTP_ONLY = (
+    http_mode.http_only_enabled(_env_http_only)
+    if _env_http_only is not None
+    else _read_persisted_http_only()
+)
 
 # Always log to file; on frozen builds stderr is /dev/null anyway.
 logging.basicConfig(
@@ -79,6 +127,18 @@ logging.basicConfig(
 _SSL_CTX = ssl.create_default_context()
 _SSL_CTX.check_hostname = False
 _SSL_CTX.verify_mode = ssl.CERT_NONE
+
+
+def _health_check_kwargs() -> dict[str, ssl.SSLContext]:
+    """`urlopen`'s extra kwargs for polling `/health`.
+
+    `context` is simply ignored for a plain `http://` URL, so passing it
+    unconditionally would work — but a reader seeing an SSL context handed to
+    an HTTP request would reasonably wonder why, and plain-HTTP mode is the
+    one case with a real answer: there is no certificate to skip verifying.
+    """
+    return {} if HTTP_ONLY else {"context": _SSL_CTX}
+
 
 # ── Networking helpers ─────────────────────────────────────────────────────────
 
@@ -167,12 +227,15 @@ def _ensure_cert() -> None:
     logging.info("Certificate written to %s", CERT_PATH)
 
 
-# Generate the cert before importing the backend (uvicorn needs the files).
-_ensure_cert()
+# Generate the cert before importing the backend (uvicorn needs the files) —
+# skipped entirely in plain-HTTP mode, where there is nothing to generate.
+if http_mode.needs_certificate(HTTP_ONLY):
+    _ensure_cert()
 
 LOCAL_IP = _get_local_ip()
-APP_URL = f"https://localhost:{PORT}"
-NETWORK_URL = f"https://{LOCAL_IP}:{PORT}"
+_SCHEME = http_mode.scheme(HTTP_ONLY)
+APP_URL = f"{_SCHEME}://localhost:{PORT}"
+NETWORK_URL = f"{_SCHEME}://{LOCAL_IP}:{PORT}"
 
 # ── Backend imports (after env vars are set) ───────────────────────────────────
 
@@ -204,8 +267,7 @@ class ServerController:
             host="0.0.0.0",
             port=PORT,
             log_level="info",
-            ssl_keyfile=str(KEY_PATH),
-            ssl_certfile=str(CERT_PATH),
+            **http_mode.uvicorn_ssl_kwargs(HTTP_ONLY, CERT_PATH, KEY_PATH),
         )
         self._server = uvicorn.Server(config)
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -225,7 +287,7 @@ class ServerController:
                 return
             try:
                 with urllib.request.urlopen(
-                    f"{APP_URL}/health", timeout=1, context=_SSL_CTX
+                    f"{APP_URL}/health", timeout=1, **_health_check_kwargs()
                 ) as r:
                     if r.status == 200:
                         self._notify("running")
@@ -288,6 +350,10 @@ if sys.platform == "darwin":
             )
             self._controller = controller
             self._status_item = rumps.MenuItem(_STATUS_LABEL["starting"])
+            self._http_only_item = rumps.MenuItem(
+                _HTTP_TOGGLE_LABEL, callback=self._toggle_http_only
+            )
+            self._http_only_item.state = HTTP_ONLY
 
             self.menu = [
                 rumps.MenuItem("Open App in Browser", callback=self._open_browser),
@@ -297,6 +363,7 @@ if sys.platform == "darwin":
                 None,
                 rumps.MenuItem("Restart Server", callback=self._restart),
                 rumps.MenuItem("Reset Database…", callback=self._reset_db),
+                self._http_only_item,
                 rumps.MenuItem("View Logs", callback=self._view_logs),
                 None,
                 rumps.MenuItem(f"Trusty Track v{TT_VERSION}", callback=None),
@@ -315,6 +382,14 @@ if sys.platform == "darwin":
 
         def _restart(self, _) -> None:
             threading.Thread(target=self._controller.restart, daemon=True).start()
+
+        def _toggle_http_only(self, _) -> None:
+            new_value = not _read_persisted_http_only()
+            _write_persisted_http_only(new_value)
+            self._http_only_item.state = new_value
+            rumps.alert(
+                title="Restart Required", message=_http_restart_message(new_value)
+            )
 
         def _reset_db(self, _) -> None:
             resp = rumps.alert(
@@ -392,6 +467,24 @@ elif sys.platform == "win32":
         def _restart(self, _icon, _item) -> None:
             threading.Thread(target=self._controller.restart, daemon=True).start()
 
+        def _http_only_checked(self, _item) -> bool:
+            # Re-read on every menu open, the same shape `_get_status_label`
+            # uses — pystray calls this each time rather than caching it.
+            return _read_persisted_http_only()
+
+        def _toggle_http_only(self, _icon, _item) -> None:
+            import ctypes
+
+            mb_iconinformation = 0x40
+            new_value = not _read_persisted_http_only()
+            _write_persisted_http_only(new_value)
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                _http_restart_message(new_value),
+                "Restart Required",
+                mb_iconinformation,
+            )
+
         def _reset_db(self, _icon, _item) -> None:
             import ctypes
 
@@ -439,6 +532,11 @@ elif sys.platform == "win32":
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem("Restart Server", self._restart),
                 pystray.MenuItem("Reset Database…", self._reset_db),
+                pystray.MenuItem(
+                    _HTTP_TOGGLE_LABEL,
+                    self._toggle_http_only,
+                    checked=self._http_only_checked,
+                ),
                 pystray.MenuItem("View Logs", self._view_logs),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(f"Trusty Track v{TT_VERSION}", None),
@@ -467,7 +565,7 @@ if __name__ == "__main__":
             for _ in range(60):
                 try:
                     with urllib.request.urlopen(
-                        f"{APP_URL}/health", timeout=1, context=_SSL_CTX
+                        f"{APP_URL}/health", timeout=1, **_health_check_kwargs()
                     ) as r:
                         if r.status == 200:
                             webbrowser.open(APP_URL)

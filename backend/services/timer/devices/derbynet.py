@@ -175,8 +175,24 @@ DERBY_TIMER = TimerProfile(
 # Bert Drake
 # ---------------------------------------------------------------------------
 #
-# Reports gate-open unprompted *and* answers a gate query, which is why push
-# and poll have to coexist rather than being alternatives.
+# Reports gate-open unprompted *and* answers a gate query, and — unlike every
+# other profile carrying both — this one genuinely needs both (issue #636).
+# drakedev.com's protocol page documents `B` as "sent when race starts (gate
+# opened - Begin)" and nothing else: the device has no push of its own for the
+# gate *closing*, only the on-demand `C` query, answered `Gc`/`Go`. So
+# gate_state_is_knowable is True here, not for its own sake, but because it is
+# the only way ARMED→READY is reachable at all for this device — without it
+# `polls_the_gate()` is false, nothing ever asks `C`, and READY (and so the
+# pushed `B` below, which only means anything from READY) is a dead end. That
+# was this profile's shape before #636: gate_state_is_knowable stayed False
+# specifically to keep polling off, on the reasoning that nothing would ever
+# tell the poll loop a race had started — true at the time, because a pushed
+# `B` from READY only fell back to ARMED. It is no longer true: `B` now routes
+# through gate_open_starts_race (below) into the same `_start_race()` a
+# matched RaceStarted would use, which cancels the poll task as its first act
+# — see `TimerManager._handle_event`'s `GateOpen` branch. So the Champ's
+# #340/Pack936 trap (asking `C` straight through a live run) cannot recur: the
+# pushed edge is exactly the "something" that used to be missing.
 
 BERT_DRAKE = TimerProfile(
     name="Bert Drake timer",
@@ -186,14 +202,8 @@ BERT_DRAKE = TimerProfile(
     probe=(b"V",),
     identification=(re.compile(rb"Bert Drake"),),
     heat_prep=HeatPrep(arm=b"R"),
-    # gate_state_is_knowable stays False. Unlike DerbyTimer and PDT, this
-    # profile has no matcher of its own for a race starting — its only
-    # RACE_STARTED-shaped signal is the pushed `B` (Event.GATE_OPEN above),
-    # which the manager treats as "gate reopened", not "race started" (see
-    # ``TimerManager._handle_event``). Turning polling on here hits the same
-    # trap the companion issue documents for the Champ: the poll loop keeps
-    # asking `C` every 250ms straight through a live run, because nothing
-    # tells it the run has started (issue #340).
+    gate_state_is_knowable=True,
+    gate_open_starts_race=True,
     gate_watcher=GateWatcher(
         command=b"C",
         matchers=(

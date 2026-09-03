@@ -17,6 +17,21 @@ CONF_DIR="/etc/trustytrack"
 SERVICE_USER="trustytrack"
 REPO_URL="https://github.com/dknowles2/trusty-track.git"
 
+# TRUSTYTRACK_HTTP_ONLY
+# (docs/reference/roles-and-permissions.md#https-certificates-and-plain-http):
+# skip certificate generation and serve plain HTTP instead. `sudo` drops the caller's
+# environment by default, so setting this means running the script as
+# `sudo TRUSTYTRACK_HTTP_ONLY=1 ./scripts/install-pi.sh` (or `sudo -E`), not
+# `export`ing it beforehand.
+http_only_raw="${TRUSTYTRACK_HTTP_ONLY:-}"
+if [[ "${http_only_raw,,}" =~ ^(1|true|yes|on)$ ]]; then
+    HTTP_ONLY=true
+    SCHEME="http"
+else
+    HTTP_ONLY=false
+    SCHEME="https"
+fi
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -124,6 +139,11 @@ setup_user_and_dirs() {
 # 7. Generate self-signed TLS certificate
 # ---------------------------------------------------------------------------
 setup_tls() {
+    if [[ "$HTTP_ONLY" == "true" ]]; then
+        info "TRUSTYTRACK_HTTP_ONLY is set — skipping certificate generation"
+        return
+    fi
+
     mkdir -p "$CONF_DIR"
 
     if [[ -f "$CONF_DIR/cert.pem" && -f "$CONF_DIR/key.pem" ]]; then
@@ -153,6 +173,13 @@ setup_env() {
     cat > "$CONF_DIR/env" <<EOF
 TRUSTYTRACK_DATA_DIR=$DATA_DIR
 EOF
+    if [[ "$HTTP_ONLY" == "true" ]]; then
+        # Persisted here, not just used during install: the systemd service
+        # reads this file (`EnvironmentFile=-/etc/trustytrack/env`) on every
+        # start, including after a reboot, whereas the flag on the install
+        # command line only exists for this one run.
+        echo "TRUSTYTRACK_HTTP_ONLY=1" >> "$CONF_DIR/env"
+    fi
     success "Environment file written to $CONF_DIR/env"
 }
 
@@ -160,6 +187,11 @@ EOF
 # 8. Install and enable systemd service
 # ---------------------------------------------------------------------------
 install_service() {
+    # Belt and braces: git preserves this file's executable bit, but the
+    # unit's ExecStart depends on it, and a lost bit would otherwise show up
+    # as "permission denied" three steps later in `journalctl`.
+    chmod +x "$INSTALL_DIR/scripts/pi-start.sh"
+
     # Write the service unit from the bundled file if available, else inline it
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     if [[ -f "$SCRIPT_DIR/trustytrack.service" ]]; then
@@ -175,11 +207,7 @@ Type=simple
 User=trustytrack
 WorkingDirectory=/opt/trustytrack
 EnvironmentFile=-/etc/trustytrack/env
-ExecStart=/opt/trustytrack/backend/venv/bin/uvicorn backend.api.main:app \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --ssl-keyfile /etc/trustytrack/key.pem \
-    --ssl-certfile /etc/trustytrack/cert.pem
+ExecStart=/opt/trustytrack/scripts/pi-start.sh
 Restart=on-failure
 RestartSec=5
 
@@ -255,7 +283,7 @@ EOF
     systemctl enable hostapd dnsmasq
     systemctl restart hostapd dnsmasq
 
-    success "Hotspot configured — connect to 'TrustyTrack' Wi-Fi, then open https://trustytrack.local:8000"
+    success "Hotspot configured — connect to 'TrustyTrack' Wi-Fi, then open $SCHEME://trustytrack.local:8000"
 }
 
 # ---------------------------------------------------------------------------
@@ -297,11 +325,17 @@ main() {
     echo "======================================"
     echo
     echo "Access Trusty Track at:"
-    echo "  https://$PI_IP:8000         (by IP address)"
-    echo "  https://trustytrack.local:8000   (mDNS — from any device on the network)"
+    echo "  $SCHEME://$PI_IP:8000         (by IP address)"
+    echo "  $SCHEME://trustytrack.local:8000   (mDNS — from any device on the network)"
     echo
-    echo "Note: Your browser will warn about the self-signed certificate."
-    echo "Click 'Advanced' → 'Proceed to trustytrack.local (unsafe)' to continue."
+    if [[ "$HTTP_ONLY" == "true" ]]; then
+        echo "Note: TRUSTYTRACK_HTTP_ONLY is set, so this is plain HTTP — no"
+        echo "certificate warning, but the camera and check-in scanner only work"
+        echo "on the Pi itself. See docs/reference/roles-and-permissions.md."
+    else
+        echo "Note: Your browser will warn about the self-signed certificate."
+        echo "Click 'Advanced' → 'Proceed to trustytrack.local (unsafe)' to continue."
+    fi
     echo
     echo "To check the service status:  sudo systemctl status trustytrack"
     echo "To view logs:                 sudo journalctl -u trustytrack -f"
@@ -310,7 +344,7 @@ main() {
     # Print QR code if qrencode is available
     if command -v qrencode &>/dev/null; then
         echo "Scan to open on your phone:"
-        qrencode -t ansiutf8 "https://$PI_IP:8000"
+        qrencode -t ansiutf8 "$SCHEME://$PI_IP:8000"
     fi
 }
 

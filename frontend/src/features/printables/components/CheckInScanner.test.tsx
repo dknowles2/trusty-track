@@ -197,3 +197,37 @@ describe('CheckInScanner when the camera will not open', () => {
         expect(screen.getByLabelText('Car number')).toBeInTheDocument();
     });
 });
+
+describe('CheckInScanner over an insecure origin (#593)', () => {
+    // TRUSTYTRACK_HTTP_ONLY, or a second device reached by plain
+    // http://<lan-ip>: `navigator.mediaDevices` does not exist at all, so a
+    // volunteer must not be told this looks like a permissions refusal.
+    afterEach(() => {
+        Object.defineProperty(window, 'isSecureContext', {
+            configurable: true,
+            value: undefined,
+        });
+    });
+
+    it('explains the secure-connection requirement rather than blaming permissions', async () => {
+        (window as unknown as { BarcodeDetector: unknown }).BarcodeDetector = class {};
+        Object.defineProperty(window, 'isSecureContext', {
+            configurable: true,
+            value: false,
+        });
+        const getUserMedia = vi.fn();
+        Object.defineProperty(navigator, 'mediaDevices', {
+            configurable: true,
+            value: { getUserMedia },
+        });
+
+        open();
+
+        expect(
+            await screen.findByText(/needs a secure connection/),
+        ).toBeInTheDocument();
+        expect(screen.getByLabelText('Car number')).toBeInTheDocument();
+        // Never even asked — no permissions prompt to blame.
+        expect(getUserMedia).not.toHaveBeenCalled();
+    });
+});
