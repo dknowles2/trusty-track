@@ -923,6 +923,8 @@ Also a subscription. It watches **two** channels — `timer_state:{track_id}` fo
 
 Don't reintroduce a merge on the client; extend `domain/heat_session.py` instead.
 
+**The current heat and On Deck show the same kind of picture** (#608). Both panels of `RaceExecution.tsx` render `RacerAvatar` — the racer's own portrait, falling back to initials — rather than the current heat showing faces while On Deck showed the car photo (falling back to a gold roundel carrying the car number). They sit side by side on one screen, and the audience display's own lane cards (`Observation.tsx`) were already faces throughout; the split was On Deck's alone. A face is what the person calling racers to the start line needs, and the car number stays as plain text beside the name for the wrangler staging by number — the car photo itself is one click away on the roster. The operator screen is not a public surface (see "Name display" above), so this is unrelated to `shouldShowRacerPhoto`'s gating: both panels always show the portrait when one is on file.
+
 ### What the operator screen does between heats
 
 Issue #13. `RaceExecution.tsx` used to encode the race-day flow as six `useEffect`s guarding each other with mirror state, two refs, a derived boolean and an `eslint-disable react-hooks/exhaustive-deps`. It is now one machine in `features/racing/raceFlow.ts`, with `useRaceFlow.ts` as the only wiring.

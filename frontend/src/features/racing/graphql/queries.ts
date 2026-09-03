@@ -166,7 +166,6 @@ export const GET_RACE_CONTROL_DATA = gql`
         lastName
         carNumber
         racerImageUrl
-        carImageUrl
       }
       heats {
         id
