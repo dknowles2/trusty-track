@@ -61,7 +61,7 @@ and a stopwatch it is a perfectly good answer.
 | --- | --- | --- | --- | --- | --- |
 | **Cost** | Free | $60 Lite, $80 Pro | Free | $65 | Free |
 | **Licence** | Apache 2.0 | Proprietary | MIT | Proprietary | Proprietary |
-| **Runs on** | macOS, Windows, Docker, Pi | Windows, macOS | Windows, macOS, Linux, Pi | Windows | Windows |
+| **Runs on** | Windows, macOS, Pi, Docker | Windows, macOS | Windows, macOS, Linux, Pi | Windows | Windows |
 | **What you install** | One app | One app | A zip holding a bundled web server | One app | One app |
 | **Other screens** | Any browser on the network | Single machine | Any browser on the network | Single machine | Single machine |
 | **Telling screens apart** | Names itself on connect, rename any time | — | Named by hand, one at a time | — | — |
