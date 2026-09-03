@@ -19,8 +19,9 @@ walkthrough, see [Connecting a Hardware Timer](../hardware-timer.md).
 | Bill V's Derby Timer | Yes | Protocol documentation only |
 | Derby Magic (19200 baud) | Yes | Protocol documentation only |
 | Derby Magic (9600 baud) | **No — pick it by hand** | Protocol documentation only |
+| FastTrack P-series | **No — pick it by hand** | Protocol documentation only |
 
-The Micro Wizard is the timer Trusty Track has been built against. Nine of
+The Micro Wizard is the timer Trusty Track has been built against. Ten of
 the rest are adapted from
 [DerbyNet](https://github.com/jeffpiazza/derbynet)'s definitions; Bill V's
 Derby Timer is its own protocol, transcribed from the manufacturer's own
@@ -63,7 +64,7 @@ timer**:
 
 ### The Timer Model picker
 
-**Detect automatically** works for nine of the eleven models. Pick one
+**Detect automatically** works for nine of the twelve models. Pick one
 yourself when:
 
 - **Yours is the NewBold family.** It never announces itself and talks at a
@@ -73,6 +74,8 @@ yourself when:
   identical to the 19200 baud model's, so nothing can tell the two apart by
   asking — picking the 9600 one is what tells Trusty Track which speed to
   use.
+- **Yours is a FastTrack P-series.** It has no identification banner at
+  all, so there is nothing for a search to ask it.
 - **You would rather it did not ask.** Detection sends a short question to
   everything plugged in. Harmless as far as anyone knows, but picking a
   model skips the asking.
@@ -134,7 +137,7 @@ these hold:
    release is fitted; on a Micro Wizard it is a separately-sold accessory,
    and without it the command is accepted and quietly ignored.
 2. **The timer model has a command for it.** The Micro Wizard, the PDT and
-   both Derby Magic profiles do; the other seven do not.
+   both Derby Magic profiles do; the other eight do not.
 
 The button only appears while a heat is armed. Releasing the gate with no
 heat armed would send cars down a track nothing is timing, and those runs
@@ -170,7 +173,7 @@ claims**, once it has identified itself:
 | --- | --- | --- | --- |
 | Micro Wizard K1 / K2 / K3 (FastTrack) | Yes | Yes | No |
 | "The Champ" (SmartLine / BestTrack) | No | No | Yes (double-sided units only) |
-| Derby Timer, PDT, Bert Drake, The Judge, JIT Racemaster, NewBold, Bill V's Derby Timer, Derby Magic (either baud rate) | No | No | No |
+| Derby Timer, PDT, Bert Drake, The Judge, JIT Racemaster, NewBold, Bill V's Derby Timer, Derby Magic (either baud rate), FastTrack P-series | No | No | No |
 
 **Indicates timing started** means the timer says, on its own, the instant a
 run begins — the same signal Trusty Track uses to move a heat from *Staged*
