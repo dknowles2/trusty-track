@@ -1402,7 +1402,12 @@ Before `AuditExtension`, so a demo refusal is recorded like any other (#219's ru
 **Extension order is load-bearing and reads backwards, same as its two neighbours — and `RaceLockExtension` sits at the far end from `AuditExtension`, innermost of all four:**
 
 ```python
-extensions=[RaceLockExtension, RolePolicyExtension, DemoPolicyExtension, AuditExtension]
+extensions = [
+    RaceLockExtension,
+    RolePolicyExtension,
+    DemoPolicyExtension,
+    AuditExtension,
+]
 ```
 
 A *later* extension wraps an earlier one and so runs its own check *first*. `RaceLockExtension` is listed **before** `RolePolicyExtension` — to its left, the more deeply nested position — specifically so the role policy's own check runs first: a `VIEWER` attempting `updateHeatResult` on a locked race should be told their role cannot do that, not that the race happens to be locked; the lock check never runs unless the role policy has already let the mutation through. `test_race_lock.py::test_the_role_policy_is_asked_before_the_lock` is the test that fails to a one-line reordering, the same shape as `test_audit_log.py::TestRefusals` for the two extensions on the other end. Still inside `AuditExtension`'s wrap regardless of exactly where between it and the role policy it sits, so a lock refusal is recorded exactly like any other (#219).
