@@ -219,22 +219,37 @@ class Ack:
 
 
 @dataclass(frozen=True)
-class GateWatcher:
-    """How to ask the device whether the start gate is closed.
+class ScopedQuery:
+    """A command whose answer is read only in the window right after it.
 
-    Some timers report both edges unprompted; others only answer when asked.
-    Both exist in the wild and a profile may carry both — the Bert Drake
-    reports gate-open on its own *and* answers a `C` query.
+    Some devices' answers are too short to be trusted as ordinary matchers —
+    a bare `0`, `.` or digit would claim traffic that has nothing to do with
+    the question. ``TimerManager`` sends ``command`` and then, for a short
+    window afterwards, tries the line against ``matchers`` before anything
+    else gets a look at it; outside that window ``matchers`` are never
+    consulted at all, so ``parse_line`` sees the same traffic it always did.
 
-    ``matchers`` are deliberately **not** part of the profile's general matcher
-    list. The answers are as short as `0`, `U` or `.`, which would claim
-    unrelated traffic if they were tried against every line; they are applied
-    only inside the window that follows a poll. That scoping is the whole
-    reason this is a separate field rather than three more matchers.
+    Two questions are this shape today, and share this one type rather than
+    each carrying a copy of the window mechanics: whether the start gate is
+    closed (``TimerProfile.gate_watcher``, asked on a poll while a heat is
+    ARMED or READY — some devices report both edges unprompted instead, and a
+    profile may carry both, the Bert Drake reports gate-open on its own *and*
+    answers a `C` query) and how many lanes the device has
+    (``TimerProfile.lane_count_query``, asked once after setup completes on
+    connect, never while a heat is armed or running). What differs between
+    them is *when* ``TimerManager`` sends the command, not how the answer is
+    read — see ``TimerProfile.read_gate`` / ``read_lane_count`` and
+    ``TimerManager._query_lane_count`` / ``_gate_poll_loop``.
     """
 
     command: bytes
     matchers: tuple["Matcher", ...]
+
+
+#: A gate watcher is a scoped query asked repeatedly, on a poll, rather than
+#: once. Kept as its own name at the call sites (``gate_watcher=GateWatcher(...)``)
+#: because that is what it means there, even though the type is shared.
+GateWatcher = ScopedQuery
 
 
 @dataclass(frozen=True)
@@ -429,6 +444,13 @@ class TimerProfile:
     #: Ignored entirely unless ``gate_state_is_knowable`` — a profile may name a
     #: query the hardware does not really answer.
     gate_watcher: GateWatcher | None = None
+    #: Present when the device says its lane count only in answer to a query,
+    #: rather than volunteering it (contrast ``DERBY_TIMER``'s and ``PDT``'s
+    #: ordinary ``LANE_COUNT`` matchers, which are already general — the
+    #: Champ's answer is a bare digit, which would claim any single-digit
+    #: line if it were one of those). ``TimerManager`` asks once, after setup
+    #: completes on connect, and never while a heat is armed or running.
+    lane_count_query: ScopedQuery | None = None
 
     # -- The interface TimerManager uses ------------------------------------
 
@@ -503,12 +525,34 @@ class TimerProfile:
 
         Only ever called on lines received inside a poll's response window.
         """
-        if self.gate_watcher is None:
+        return self._read_scoped(self.gate_watcher, line)
+
+    def read_lane_count(self, line: bytes) -> "TimerEvent | None":
+        """Read a line as an answer to the lane-count query, or ``None``.
+
+        Only ever called on lines received inside the window that follows
+        ``TimerManager`` sending ``lane_count_query.command`` — see
+        ``TimerManager._query_lane_count``. Outside that window a bare digit
+        is ordinary traffic, exactly the reasoning ``read_gate`` above rests
+        on for a bare `0`, `U` or `.`.
+        """
+        return self._read_scoped(self.lane_count_query, line)
+
+    def _read_scoped(
+        self, query: "ScopedQuery | None", line: bytes
+    ) -> "TimerEvent | None":
+        """Shared reading rule for both kinds of scoped query.
+
+        A gate reading and a lane-count reading are the same shape: a short
+        answer that only means anything inside the window that followed the
+        question that drew it out.
+        """
+        if query is None:
             return None
         cleaned = line.strip()
         if not cleaned:
             return None
-        for matcher in self.gate_watcher.matchers:
+        for matcher in query.matchers:
             match = matcher.pattern.search(cleaned)
             if match is not None:
                 return self._event_from(matcher, match)

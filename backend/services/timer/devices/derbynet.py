@@ -32,6 +32,7 @@ from .base import (
     Group,
     HeatPrep,
     Matcher,
+    ScopedQuery,
     TimerProfile,
     lane_letter,
     lane_number,
@@ -357,8 +358,12 @@ THE_JUDGE = TimerProfile(
 # wrong in the most quietly damaging way available.
 #
 # DerbyNet additionally interrogates this timer for its lane count with an `on`
-# query whose answer is a bare digit. A matcher that broad would claim any
-# single-digit line, so it is left out until there is somewhere safe to put it.
+# query whose answer is a bare digit — too broad for an ordinary matcher, the
+# same reason the gate answers above are read through `gate_watcher` rather
+# than `matchers`. `lane_count_query` (issue #637) is that safe place: a
+# `ScopedQuery` asked once, right after setup completes on connect, and read
+# only inside the short window that follows — never a general matcher, so a
+# bare "4" arriving any other time is ordinary unclaimed traffic.
 #
 # GPRM's compatibility matrix lists a "Photo Finish Trigger" for this model,
 # on double-sided units only (#553). The trigger is a discrete hardware signal
@@ -404,6 +409,17 @@ CHAMP = TimerProfile(
         matchers=(
             Matcher(re.compile(rb"^0$"), Event.GATE_CLOSED),
             Matcher(re.compile(rb"^1$"), Event.GATE_OPEN),
+        ),
+    ),
+    # `on` draws the lane count out as a bare digit — see the module comment
+    # above this profile for why that has to be a `ScopedQuery` rather than an
+    # ordinary matcher.
+    lane_count_query=ScopedQuery(
+        command=b"on",
+        matchers=(
+            Matcher(
+                re.compile(rb"^(\d)$"), Event.LANE_COUNT, lane=Group(1, lane_number)
+            ),
         ),
     ),
     # See DERBY_TIMER's comment: no documented device timeout, just enough to

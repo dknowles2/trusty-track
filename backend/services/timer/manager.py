@@ -73,7 +73,13 @@ FORCE_RESULTS_POLL_SECONDS = 0.05
 #: `U` or `.`, so they are only read as gate answers inside it — outside, they
 #: are ordinary traffic and must be left to the profile's real matchers.
 GATE_POLL_SECONDS = 0.25
-GATE_WINDOW_SECONDS = 0.1
+
+#: How long after a scoped query's command an answer still counts as an
+#: answer to it — shared by the gate poll above and the one-shot lane-count
+#: query below, since both need the same "read only inside this window,
+#: general traffic outside it" mechanics for the same reason: a bare digit is
+#: as ambiguous as a bare `0`.
+QUERY_WINDOW_SECONDS = 0.1
 
 #: How long after a device says anything before the gate may be polled again.
 #:
@@ -193,6 +199,11 @@ class TimerManager:
         self._gate_poll_task: asyncio.Task | None = None
         #: Until when an incoming line may be read as a gate answer.
         self._gate_window_until: float = 0.0
+        #: Until when an incoming line may be read as a lane-count answer.
+        #: Same mechanics as ``_gate_window_until``, kept as its own field
+        #: rather than shared because the two queries are never open for the
+        #: same reason at the same time — see ``_query_lane_count``.
+        self._lane_count_window_until: float = 0.0
         #: The device said its gate option is off; stop asking until reconnect.
         self._gate_watcher_off = False
         #: When the device last said anything, so polling can yield to it.
@@ -817,6 +828,17 @@ class TimerManager:
                 if await self._handle_gate_reading(reading):
                     return
 
+        # Same shape, for the lane-count query: a bare digit would claim any
+        # single-digit line as ``parse_line``'s general matchers, so it is
+        # read only inside the window that followed asking for it — see
+        # `_query_lane_count`.
+        if asyncio.get_event_loop().time() < self._lane_count_window_until:
+            lane_count_reading = self._device.read_lane_count(line)
+            if lane_count_reading is not None:
+                self._lane_count_window_until = 0.0
+                await self._handle_event(lane_count_reading)
+                return
+
         # Check whether this line is the expected acknowledgment for the oldest
         # pending command. We do this before parse_line so that acks are consumed
         # here rather than falling through to the generic catch-alls in the device.
@@ -916,6 +938,12 @@ class TimerManager:
                         self._device_lane_mask(self._lane_mask)
                     )
                 )
+            elif next_state == TimerState.IDLE and is_ident:
+                # No heat armed, so this is a genuine "just connected" moment
+                # rather than a mid-event reconnect — the lane-count query's
+                # one defined moment (issue #637). Mirrors the ARMED branch
+                # above in being gated on `is_ident`, not merely `identified`.
+                await self._query_lane_count()
 
             await self._transition(next_state)
             # If it was just identification, we are done. If it was an event,
@@ -1394,6 +1422,10 @@ class TimerManager:
 
             await self._send_commands(self._device.initialization_commands())
             await self._transition(TimerState.IDLE)
+            # Straight to IDLE, with no heat to have armed yet — the
+            # lane-count query's defined moment, same as the ordinary
+            # connect path in `_process_line`.
+            await self._query_lane_count()
 
             logger.info(
                 "Timer %d: adopted %s on %s",
@@ -1428,6 +1460,7 @@ class TimerManager:
 
             await self._send_commands(self._device.initialization_commands())
             await self._transition(TimerState.IDLE)
+            await self._query_lane_count()
 
             logger.info(
                 "Timer %d: adopted %s over the browser proxy",
@@ -1533,7 +1566,7 @@ class TimerManager:
                 if now - self._last_rx < GATE_QUIET_SECONDS:
                     continue
 
-                self._gate_window_until = now + GATE_WINDOW_SECONDS
+                self._gate_window_until = now + QUERY_WINDOW_SECONDS
                 await self._write_fn(self._device.wire(watcher.command))
         except asyncio.CancelledError:
             pass
@@ -1572,6 +1605,33 @@ class TimerManager:
             return True
 
         return False
+
+    async def _query_lane_count(self) -> None:
+        """Ask the device how many lanes it has, once, if it says so this way.
+
+        Called only on the way to IDLE — right after an ordinary connection
+        identifies itself (`_process_line`) or a probe hands over an already
+        -identified one (`adopt`, `adopt_profile`). The `_active_heat_id`
+        check below is belt and braces for those last two: they force IDLE
+        outright rather than deriving it from whether a heat is armed, the
+        way `_process_line`'s own call site does, so nothing else guarantees
+        this can't run mid-heat if a probe ever adopts a replacement device
+        while one is armed. A device that volunteers its lane count needs
+        none of this: `DERBY_TIMER` and `PDT` already produce `LANE_COUNT`
+        from an ordinary matcher. This is for the Champ's shape, where the
+        answer to `on` is a bare digit that would claim any single-digit line
+        if it were one of those (issue #637) — sent through `_send_commands`
+        rather than the gate poll's direct `_write_fn`, since this fires once
+        and is worth the same serial-log entry every other setup command
+        gets.
+        """
+        query = self._device.lane_count_query
+        if query is None or self._active_heat_id is not None:
+            return
+        self._lane_count_window_until = (
+            asyncio.get_event_loop().time() + QUERY_WINDOW_SECONDS
+        )
+        await self._send_commands([query.command])
 
     async def nudge_if_unidentified(self) -> bool:
         """Ask a connected-but-silent device who it is.
