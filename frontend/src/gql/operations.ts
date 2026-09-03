@@ -831,6 +831,51 @@ export type GetRunOffHeatsQueryVariables = Exact<{
 
 export type GetRunOffHeatsQuery = { race: { id: number, isLocked: boolean, runOffHeats: Array<{ id: number, settlesRoundId: number | null, recorded: boolean, placement: number | null, lanes: Array<{ lane: number, racerId: number | null }> }> } | null };
 
+export type StartIntermissionMutationVariables = Exact<{
+  raceId: number;
+  durationSeconds: number;
+  label?: string | null | undefined;
+}>;
+
+
+export type StartIntermissionMutation = { startIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+
+export type ExtendIntermissionMutationVariables = Exact<{
+  raceId: number;
+  seconds: number;
+}>;
+
+
+export type ExtendIntermissionMutation = { extendIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+
+export type PauseIntermissionMutationVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type PauseIntermissionMutation = { pauseIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+
+export type ResumeIntermissionMutationVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type ResumeIntermissionMutation = { resumeIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+
+export type EndIntermissionMutationVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type EndIntermissionMutation = { endIntermission: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } };
+
+export type GetRaceIntermissionQueryVariables = Exact<{
+  raceId: number;
+}>;
+
+
+export type GetRaceIntermissionQuery = { race: { id: number, intermission: { active: boolean, remainingSeconds: number, paused: boolean, label: string | null, endsAt: string | null } } | null };
+
 export type SetLaneOutagesMutationVariables = Exact<{
   trackId: number;
   lanes: Array<number> | number;

@@ -376,6 +376,29 @@ def test_creating_an_award_is_refused(client, db, race):
     assert db.query(models.Award).filter(models.Award.race_id == race.id).count() == 0
 
 
+START_INTERMISSION = """
+mutation($raceId: Int!, $durationSeconds: Int!) {
+  startIntermission(raceId: $raceId, durationSeconds: $durationSeconds) { id }
+}
+"""
+
+
+def test_starting_an_intermission_is_refused(client, db, race):
+    """A locked race is presumably done racing (#585); starting a break on
+    it changes the race's own stored columns the same way `createAward`
+    does, so it belongs on the same denylist (#592)."""
+    _lock(db, race)
+
+    body = _post(
+        client, START_INTERMISSION, {"raceId": race.id, "durationSeconds": 300}
+    ).json()
+
+    assert body.get("errors")
+    db.expire_all()
+    db.refresh(race)
+    assert race.intermission_ends_at is None
+
+
 # --------------------------------------------------------------------------- #
 # What stays reachable on a locked race                                        #
 # --------------------------------------------------------------------------- #

@@ -41,6 +41,22 @@ The colours every screen here uses — including the projector's high-contrast
 dark background — come from whichever [theme](themes.md) Display is set to
 in System Settings, not a fixed palette.
 
+## Taking a break
+
+A break called from Race Control (see
+[Taking a Break](../race-day.md#taking-a-break)) takes over every screen
+showing this race, whichever of the six views above it was on — a break is a
+fact about the race, not about which view a display happened to be assigned.
+Each screen shows a countdown, the break's name (or "Intermission" if none
+was given), and a faint preview of the next heat's line-up, so a room that
+has wandered off to the snack table still knows roughly when to come back and
+for what.
+
+The overlay clears itself the instant the countdown reaches zero, or sooner
+if the operator clicks **End now** — there is nothing to acknowledge on the
+display's own end. A paused break shows the time it was paused at rather than
+counting down.
+
 Notes on two of them:
 
 - **Racer photos** goes in car number order rather than shuffling. Families

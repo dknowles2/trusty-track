@@ -524,6 +524,33 @@ class Race(Base):
     exclude_round_winners_from_qualifying_standings: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: A race-scoped break, on the fly or from the round-summary modal's
+    #: "Take a break" row (#592). Stored, not in-memory like a `Display`
+    #: `Assignment` — an intermission describes the *race*, and every screen
+    #: watching it (including the operator's own laptop) has to agree after a
+    #: refresh. See `domain/intermission.py` for the whole rule; these three
+    #: columns are exactly its `State`.
+    #:
+    #: `ends_at` is set while the countdown is running, ISO 8601 UTC like
+    #: `Heat.recorded_at` — a plain string rather than a DateTime column, for
+    #: the same reason: it matches every other timestamp already stored this
+    #: way, and a client computes its own live countdown from it rather than
+    #: polling. Null means either "no intermission" or "paused" — which one
+    #: is `paused_remaining_seconds` below.
+    intermission_ends_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: What the break is called ("Snack break", "Track maintenance"),
+    #: optional either way. Cleared whenever the intermission ends, so a
+    #: stale label cannot resurface on the next one.
+    intermission_label: Mapped[str | None] = mapped_column(String, nullable=True)
+    #: Set instead of `intermission_ends_at` while paused: there is nothing
+    #: counting down for a client to compute against, so the remaining time
+    #: is stored directly. Exactly one of the two is ever non-null while an
+    #: intermission is in progress; both are null when there is none. See
+    #: `domain.intermission` for why this is a second representation rather
+    #: than a boolean flag beside `ends_at`.
+    intermission_paused_remaining_seconds: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
     #: Once an event has concluded, the operator can lock its race to guard
     #: against an accidental edit — a stray tap on a shared tablet weeks
     #: later, not a person with something to hide (#585). Enforced by

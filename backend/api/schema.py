@@ -30,6 +30,7 @@ from backend.db.database import UPLOAD_DIR
 from backend.domain import advancement, audit, lanes
 from backend.domain import displays as domain_displays
 from backend.domain import heat_session as domain_heat_session
+from backend.domain import intermission as domain_intermission
 from backend.domain import name_display as domain_name_display
 from backend.domain import scoring as domain_scoring
 from backend.domain import terminology as domain_terminology
@@ -1428,6 +1429,42 @@ class AwardInput:
 
 
 @strawberry.type
+class Intermission:
+    """A race-scoped break, resolved (#592) — see `domain/intermission.py`.
+
+    ``endsAt`` is carried through unresolved (an ISO 8601 timestamp, or null
+    while paused or inactive) so a client computes its own live countdown
+    from its own clock rather than polling; ``remainingSeconds`` is a
+    snapshot at the moment this was resolved, for a caller with no interest
+    in re-deriving it.
+    """
+
+    active: bool
+    remaining_seconds: int
+    paused: bool
+    label: str | None
+    ends_at: str | None
+
+
+def _intermission_type(race: models.Race, now: datetime) -> Intermission:
+    resolved = domain_intermission.resolve(
+        domain_intermission.State(
+            ends_at=race.intermission_ends_at,
+            paused_remaining_seconds=race.intermission_paused_remaining_seconds,
+            label=race.intermission_label,
+        ),
+        now,
+    )
+    return Intermission(
+        active=resolved.active,
+        remaining_seconds=resolved.remaining_seconds,
+        paused=resolved.paused,
+        label=resolved.label,
+        ends_at=resolved.ends_at,
+    )
+
+
+@strawberry.type
 class Race:
     """
     Represents a Race event, which contains multiple racers, racing groups, and rounds.
@@ -1493,6 +1530,18 @@ class Race:
     #: Enforced by `api.race_lock.RaceLockExtension`, not by anything a
     #: resolver checks; this is a plain field like any other.
     is_locked: bool
+
+    @strawberry.field
+    def intermission(self) -> Intermission:
+        """Whether this race is on a break right now, and for how long
+        (#592). Resolved against the current moment on every read — the
+        same "computed on demand" rule the standings and awards follow — so
+        a countdown that ran out is simply inactive with no cleanup step
+        needed. See `domain/intermission.py`.
+        """
+        return _intermission_type(
+            typing.cast(models.Race, self), datetime.now(timezone.utc)
+        )
 
     @strawberry.field
     def resolved_name_display(self, info: Info) -> str:
@@ -3013,6 +3062,80 @@ class Mutation:
             await _revalidate_timers(info)
             await _publish_races_list()
         return deleted
+
+    # Intermission Mutations (#592)
+    #
+    # All five publish `race_state:{race_id}` with `kind=INTERMISSION` and the
+    # freshly resolved state, which is the display's own leash (see "Telling
+    # an audience display what to show" in CLAUDE.md) — no new channel, and
+    # the observation page merges the payload directly rather than treating
+    # it as a signal to refetch. Refusals from `domain.intermission` (extend/
+    # pause/resume against nothing active) surface as an ordinary GraphQL
+    # error, the same shape `createRunOffHeat`'s validation takes.
+
+    @strawberry.mutation
+    async def start_intermission(
+        self,
+        info: Info,
+        race_id: int,
+        duration_seconds: int,
+        label: str | None = None,
+    ) -> Race:
+        """Begin (or restart) a break.
+
+        No precondition on the current state — a fresh click while one is
+        already running restarts it with the new duration and label, which
+        covers both an on-the-fly change of mind and the round-summary
+        modal's "Take a break" row offering the same presets after a round
+        finishes.
+        """
+        db = info.context["db"]
+        race = crud.start_intermission(db, race_id, duration_seconds, label)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
+    @strawberry.mutation
+    async def extend_intermission(self, info: Info, race_id: int, seconds: int) -> Race:
+        """Add time to the break under way, running or paused."""
+        db = info.context["db"]
+        race = crud.extend_intermission(db, race_id, seconds)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
+    @strawberry.mutation
+    async def pause_intermission(self, info: Info, race_id: int) -> Race:
+        """Freeze the countdown where it stands."""
+        db = info.context["db"]
+        race = crud.pause_intermission(db, race_id)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
+    @strawberry.mutation
+    async def resume_intermission(self, info: Info, race_id: int) -> Race:
+        """Start the countdown again from wherever it was paused."""
+        db = info.context["db"]
+        race = crud.resume_intermission(db, race_id)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
+
+    @strawberry.mutation
+    async def end_intermission(self, info: Info, race_id: int) -> Race:
+        """End the break now. Idempotent — ending one that has already
+        expired on its own is an ordinary click, not a race to catch."""
+        db = info.context["db"]
+        race = crud.end_intermission(db, race_id)
+        await _publish_race_state(
+            race_id, kind=RaceChangeKind.INTERMISSION, intermission_race=race
+        )
+        return typing.cast(Race, race)
 
     # Racer Mutations
     @strawberry.mutation
@@ -4805,6 +4928,10 @@ class RaceChangeKind(enum.Enum):
     SCHEDULE = "SCHEDULE"
     #: Race-level settings changed — name, scoring strategy, trophies.
     RACE_SETTINGS = "RACE_SETTINGS"
+    #: A break started, was extended, paused, resumed or ended (#592).
+    #: Carries ``intermission``, the fully resolved current state — a
+    #: subscriber applies it directly rather than re-querying `Race`.
+    INTERMISSION = "INTERMISSION"
     #: Something changed that has not been classified yet. Treat as "refetch".
     OTHER = "OTHER"
 
@@ -4907,6 +5034,10 @@ class RaceStateChangedEvent:
     heat: Heat | None = None
     racer: Racer | None = None
     round_id: int | None = None
+    #: The fully resolved current state, for ``INTERMISSION`` (#592) — the
+    #: same shape ``Race.intermission`` reads, so a subscriber applies it
+    #: directly rather than treating this as a signal to refetch.
+    intermission: Intermission | None = None
 
 
 @strawberry.type
@@ -4971,6 +5102,7 @@ async def _publish_race_state(
     heat: models.Heat | None = None,
     racer: models.Racer | None = None,
     round_id: int | None = None,
+    intermission_race: models.Race | None = None,
 ) -> None:
     """Publish a RaceStateChangedEvent for *race_id* on the pub/sub bus.
 
@@ -4984,6 +5116,9 @@ async def _publish_race_state(
         heat: The heat that changed, for ``HEAT_RESULT``.
         racer: The racer that changed, for ``RACER``.
         round_id: The round affected, where one is identifiable.
+        intermission_race: The race row to resolve `Intermission` from, for
+            ``INTERMISSION`` (#592) — resolved at the same instant as
+            ``changed_at`` so the two never disagree.
     """
     await pubsub.publish(
         f"race_state:{race_id}",
@@ -4996,6 +5131,11 @@ async def _publish_race_state(
             if racer is not None
             else None,
             round_id=round_id,
+            intermission=(
+                _intermission_type(intermission_race, datetime.now(timezone.utc))
+                if intermission_race is not None
+                else None
+            ),
         ),
     )
 

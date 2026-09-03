@@ -907,4 +907,85 @@ describe('Observation Page', () => {
             expect(document.querySelector('.container')).toHaveAttribute('data-theme', 'newsprint');
         });
     });
+
+    describe('intermission overlay (#592)', () => {
+        const withIntermission = (intermission: any) => ({
+            race: { ...mockRacersData.race, intermission },
+        });
+
+        it('takes over the screen while a break is active', async () => {
+            setupMocks({}, withIntermission({
+                active: true,
+                remainingSeconds: 272,
+                paused: false,
+                label: 'Snack break',
+                endsAt: new Date(Date.now() + 272_000).toISOString(),
+            }));
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('intermission-label')).toHaveTextContent('Snack break');
+            // The ordinary Now Racing / On Deck cards must not render
+            // underneath the break screen.
+            expect(screen.queryByText('Now Racing')).toBeNull();
+        });
+
+        it('shows the ordinary page once nothing is active', async () => {
+            setupMocks({}, withIntermission({
+                active: false,
+                remainingSeconds: 0,
+                paused: false,
+                label: null,
+                endsAt: null,
+            }));
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('intermission-overlay')).toBeNull();
+        });
+
+        it('falls back to the ordinary page once a locally-ticked countdown has run out', async () => {
+            // No new event arrived to say the break ended — the payload is
+            // stale — but the deadline (a few seconds ago) has passed, and
+            // isLiveActive is what catches that without a server round trip.
+            setupMocks({}, withIntermission({
+                active: true,
+                remainingSeconds: 5,
+                paused: false,
+                label: 'Snack break',
+                endsAt: new Date(Date.now() - 5_000).toISOString(),
+            }));
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByText('Now Racing')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('intermission-overlay')).toBeNull();
+        });
+    });
 });

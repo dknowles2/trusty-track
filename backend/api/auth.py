@@ -180,6 +180,14 @@ OPERATOR_ONLY_MUTATIONS = frozenset(
         # `updateHeatResult` above.
         "createRunOffHeat",
         "deleteRunOffHeat",
+        # Intermissions (#592). Operator: the same person who decides when
+        # racing pauses and resumes, not the desk or an unauthenticated
+        # display.
+        "startIntermission",
+        "extendIntermission",
+        "pauseIntermission",
+        "resumeIntermission",
+        "endIntermission",
         # System
         "createInitialConfig",
         "updateInitialConfig",

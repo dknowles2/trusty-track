@@ -8,6 +8,7 @@ import { errorText } from '../../../utils/errors';
 import { ScheduleManagement } from '../components/ScheduleManagement';
 import DisplaysPanel from '../../observation/components/DisplaysPanel';
 import { RaceExecution } from '../components/RaceExecution';
+import IntermissionControl from '../components/IntermissionControl';
 import ReadinessStrip from '../components/ReadinessStrip';
 import { FreeRaceTab } from '../components/FreeRaceTab';
 import {
@@ -735,7 +736,13 @@ export default function RaceControl() {
           </div>
         ) : (
           <>
+            {/* The Race tab is where the operator is standing when a break
+                is called or ends (#592) — the same reasoning that put the
+                displays registry on its own tab rather than in System
+                Settings. */}
+            <IntermissionControl raceId={id} />
             <RaceExecution
+              raceId={id}
               activeExecutionHeat={activeExecutionHeat || null}
               nextExecutionHeat={nextExecutionHeat}
               activeHeatId={activeHeatId}

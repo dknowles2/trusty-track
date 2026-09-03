@@ -347,3 +347,105 @@ export const GET_RUN_OFF_HEATS = gql`
     }
   }
 `;
+
+// Intermissions (#592). All five mutations return the whole `Race` so the
+// caller has the freshly resolved `intermission` with no follow-up query; the
+// same fields also arrive on `raceStateChanged`'s `intermission` payload for
+// a screen that only holds the subscription (see `Observation.tsx`).
+export const START_INTERMISSION_MUTATION = gql`
+  mutation StartIntermission($raceId: Int!, $durationSeconds: Int!, $label: String) {
+    startIntermission(
+      raceId: $raceId
+      durationSeconds: $durationSeconds
+      label: $label
+    ) {
+      id
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
+    }
+  }
+`;
+
+export const EXTEND_INTERMISSION_MUTATION = gql`
+  mutation ExtendIntermission($raceId: Int!, $seconds: Int!) {
+    extendIntermission(raceId: $raceId, seconds: $seconds) {
+      id
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
+    }
+  }
+`;
+
+export const PAUSE_INTERMISSION_MUTATION = gql`
+  mutation PauseIntermission($raceId: Int!) {
+    pauseIntermission(raceId: $raceId) {
+      id
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
+    }
+  }
+`;
+
+export const RESUME_INTERMISSION_MUTATION = gql`
+  mutation ResumeIntermission($raceId: Int!) {
+    resumeIntermission(raceId: $raceId) {
+      id
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
+    }
+  }
+`;
+
+export const END_INTERMISSION_MUTATION = gql`
+  mutation EndIntermission($raceId: Int!) {
+    endIntermission(raceId: $raceId) {
+      id
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
+    }
+  }
+`;
+
+// The control on Race Control's Displays tab reads the race's current
+// intermission this way rather than waiting on a `raceStateChanged` event —
+// it needs to render correctly on first load too (an operator who reloads
+// mid-break).
+export const GET_RACE_INTERMISSION = gql`
+  query GetRaceIntermission($raceId: Int!) {
+    race(raceId: $raceId) {
+      id
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
+    }
+  }
+`;

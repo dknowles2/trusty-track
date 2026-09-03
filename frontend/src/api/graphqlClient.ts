@@ -70,6 +70,7 @@ export const EMBEDDED_TYPES = [
   'HeatResultRow',
   'HeatSession',
   'InitialConfigStatus',
+  'Intermission',
   'LaneResult',
   'LaneTimeStat',
   'LeaderboardEntry',

@@ -271,6 +271,11 @@ LOCKED_MUTATION_RESOLVERS: dict[str, Callable[[Session, dict[str, Any]], bool]] 
     "populateRace": _direct_locked,
     "applyMasterRunningOrder": _direct_locked,
     "startFreeRaceHeat": _direct_locked,
+    "startIntermission": _direct_locked,
+    "extendIntermission": _direct_locked,
+    "pauseIntermission": _direct_locked,
+    "resumeIntermission": _direct_locked,
+    "endIntermission": _direct_locked,
     # Named `heatId`.
     "deleteHeat": _heat_locked,
     "deleteFreeRaceHeat": _heat_locked,

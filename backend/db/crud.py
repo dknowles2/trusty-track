@@ -16,6 +16,7 @@ from backend.domain import (
     awards,
     balanced,
     elimination,
+    intermission,
     lanes,
     latecomers,
     practice,
@@ -257,6 +258,101 @@ def delete_race(db: Session, race_id: int) -> bool:
     db.delete(race)
     db.commit()
     return True
+
+
+# --------------------------------------------------------------------------- #
+# Intermission (#592)                                                         #
+# --------------------------------------------------------------------------- #
+#
+# Five thin wrappers around `domain/intermission.py`'s pure functions: read
+# the race's three columns into an `intermission.State`, call the rule, write
+# the result back. All the actual decisions — what counts as active, what a
+# pause freezes, what "extend" adds to — live in the domain module and are
+# tested there with no database; this is only the I/O half of that split.
+
+
+def _intermission_state(race: models.Race) -> intermission.State:
+    return intermission.State(
+        ends_at=race.intermission_ends_at,
+        paused_remaining_seconds=race.intermission_paused_remaining_seconds,
+        label=race.intermission_label,
+    )
+
+
+def _write_intermission_state(race: models.Race, state: intermission.State) -> None:
+    race.intermission_ends_at = state.ends_at
+    race.intermission_paused_remaining_seconds = state.paused_remaining_seconds
+    race.intermission_label = state.label
+
+
+def start_intermission(
+    db: Session, race_id: int, duration_seconds: int, label: str | None
+) -> models.Race:
+    """Begin (or restart) a break. See `domain.intermission.start`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(
+        race,
+        intermission.start(duration_seconds, label, datetime.now(timezone.utc)),
+    )
+    db.commit()
+    db.refresh(race)
+    return race
+
+
+def extend_intermission(db: Session, race_id: int, seconds: int) -> models.Race:
+    """Add time to the break under way. See `domain.intermission.extend`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(
+        race,
+        intermission.extend(
+            _intermission_state(race), seconds, datetime.now(timezone.utc)
+        ),
+    )
+    db.commit()
+    db.refresh(race)
+    return race
+
+
+def pause_intermission(db: Session, race_id: int) -> models.Race:
+    """Freeze the countdown. See `domain.intermission.pause`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(
+        race, intermission.pause(_intermission_state(race), datetime.now(timezone.utc))
+    )
+    db.commit()
+    db.refresh(race)
+    return race
+
+
+def resume_intermission(db: Session, race_id: int) -> models.Race:
+    """Start the countdown again. See `domain.intermission.resume`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(
+        race,
+        intermission.resume(_intermission_state(race), datetime.now(timezone.utc)),
+    )
+    db.commit()
+    db.refresh(race)
+    return race
+
+
+def end_intermission(db: Session, race_id: int) -> models.Race:
+    """Clear the break, idempotently. See `domain.intermission.end`."""
+    race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if race is None:
+        raise ValueError("Race not found")
+    _write_intermission_state(race, intermission.end())
+    db.commit()
+    db.refresh(race)
+    return race
 
 
 def get_tracks(db: Session) -> list[models.Track]:
