@@ -138,6 +138,18 @@ describe('sheet geometry', () => {
         expect(perSheet(specFor('drivers-license'))).toBe(10);
     });
 
+    it('counts a full sheet of Avery 5163 car labels — 2 columns x 5 rows', () => {
+        // The spec is sized to 3.75in wide (not the label's literal 4in) so
+        // two columns fit the page's shared half-inch margin; see the
+        // comment on the DOCUMENTS entry for why. The count this test pins
+        // is the thing that has to match the physical sheet regardless.
+        expect(perSheet(specFor('car-sticker'))).toBe(10);
+    });
+
+    it('takes three sheets for a roster of 21 car labels', () => {
+        expect(sheetCount(21, specFor('car-sticker'))).toBe(3);
+    });
+
     it('clamps to the page rather than trusting a spec that would overflow it', () => {
         // Every real DocumentSpec has columns exactly equal to the page's
         // physical capacity, so a spec that claims more columns than the

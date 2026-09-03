@@ -15,6 +15,10 @@ export interface PrintableRacer {
     car_name?: string;
     racing_group_id?: number;
     racer_image_url?: string;
+    /** The inspected weight, in ounces — read by the car label (#617) for
+     * the impound-pit weight field. Absent or `0` both mean "not weighed",
+     * the same convention `weightVerdict` uses. */
+    car_weight?: number | null;
 }
 
 /** The event, as far as a printable is concerned. */
@@ -31,7 +35,7 @@ export interface PrintableRacingGroup {
     color: string;
 }
 
-export type DocumentKind = 'pit-pass' | 'drivers-license' | 'check-in-code';
+export type DocumentKind = 'pit-pass' | 'drivers-license' | 'check-in-code' | 'car-sticker';
 
 export interface DocumentSpec {
     kind: DocumentKind;
@@ -74,6 +78,27 @@ export const DOCUMENTS: readonly DocumentSpec[] = [
         widthIn: 2.5,
         heightIn: 2.5,
         columns: 3,
+    },
+    {
+        kind: 'car-sticker',
+        label: 'Car labels',
+        blurb: 'For the underside of the car or the impound box: number, name, den, weight and a scan code.',
+        // Sized for Avery 5163 (2in x 4in shipping labels, 10 per Letter
+        // sheet, 2 columns x 5 rows). Avery's own template uses a 0.5in
+        // top/bottom margin — which is exactly PAGE_HEIGHT_IN below, so 5
+        // rows of a true 2in-tall label already land pixel-for-pixel on the
+        // die cuts — but a 0.156in *side* margin, narrower than the flat
+        // 0.5in every other document on this page assumes (`PAGE_WIDTH_IN`,
+        // and the shared `@page` rule in `PrintSheet.css`). Two literal 4in
+        // columns need 8in of width and only 7.5in is on offer under that
+        // shared assumption, so the card is 3.75in wide rather than 4in —
+        // two columns of 3.75in fill the 7.5in exactly. That keeps the
+        // count and grid (10 per sheet, 2x5) Avery's own layout promises,
+        // at the cost of a bit of unused margin inside each real die-cut
+        // label rather than the sticker running edge to edge.
+        widthIn: 3.75,
+        heightIn: 2,
+        columns: 2,
     },
 ];
 

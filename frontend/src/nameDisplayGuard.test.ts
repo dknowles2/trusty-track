@@ -57,6 +57,8 @@ const ABBREVIATING_SURFACES: Record<string, string> = {
         "Named explicitly in the issue's printables list.",
     'features/printables/components/DriversLicense.tsx':
         "Named explicitly in the issue's printables list.",
+    'features/printables/components/CarSticker.tsx':
+        'The impound label (#617) — affixed to a car or box, read by whoever is in the pits, not the operator desk.',
     'features/printables/heatSheet.ts':
         'The heat sheet.',
     'features/printables/resultsSheet.ts':
