@@ -41,7 +41,7 @@ describe('which sections are offered', () => {
 });
 
 describe('what stops a save', () => {
-    const track = (name: string, laneCount = 4) => ({ name, laneCount });
+    const track = (name: string, laneCount = 4, scaleRatio = 25) => ({ name, laneCount, scaleRatio });
 
     it('passes a filled-in form', () => {
         expect(firstProblem('Pack 42', [track('Main Track')])).toBeNull();
@@ -82,6 +82,17 @@ describe('what stops a save', () => {
             message: 'Main Track needs between 1 and 8 lanes.',
         });
         expect(firstProblem('Pack 42', [track('Main Track', 0)])?.section).toBe('tracks');
+    });
+
+    it('refuses a non-positive scale ratio (#610)', () => {
+        // The server refuses this too (`scale_ratio_is_positive`), whatever
+        // "Show scale speed" is set to — a value nothing could ever use is
+        // wrong to store, not just wrong to display.
+        expect(firstProblem('Pack 42', [track('Main Track', 4, 0)])).toEqual({
+            section: 'tracks',
+            message: 'Main Track needs a scale ratio greater than zero.',
+        });
+        expect(firstProblem('Pack 42', [track('Main Track', 4, -1)])?.section).toBe('tracks');
     });
 
     it('refuses a race with no track at all', () => {

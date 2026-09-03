@@ -1118,3 +1118,155 @@ describe('Name display (#552)', () => {
         expect(mockUpdate.mock.calls[0][0].config.nameDisplay).toBe('FIRST_ONLY');
     });
 });
+
+describe('Scale speed (#610 stage 3)', () => {
+    afterEach(cleanup);
+
+    const configuredWith = (tracks: unknown[]) => {
+        (useQuery as any).mockReturnValue([{
+            data: {
+                initialConfig: {
+                    initialized: true,
+                    organizationName: 'Pack 42',
+                    debugMode: false,
+                    tracks,
+                },
+            },
+            fetching: false,
+            error: null,
+        }, vi.fn()]);
+    };
+
+    const saved = (over: Record<string, unknown> = {}) => ({
+        id: 1, name: 'Main Track', laneCount: 4, lengthFeet: 40, timerType: 'FAKE',
+        serialPort: null, timerProfile: null, remoteStartInstalled: false,
+        scaleRatio: 25, showScaleSpeed: true, ...over,
+    });
+
+    it('renders the stored ratio when scale speed is on', async () => {
+        configuredWith([saved({ scaleRatio: 30 })]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+
+        expect(await screen.findByLabelText('Show scale speed')).toBeChecked();
+        expect(screen.getByLabelText(/^Scale /)).toHaveValue(30);
+    });
+
+    it('hides the ratio input once the checkbox is off', async () => {
+        // Stored, not discarded — the field is only hidden, so a track that
+        // has turned scale speed off keeps whatever ratio it last had.
+        configuredWith([saved({ showScaleSpeed: false })]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+
+        expect(await screen.findByLabelText('Show scale speed')).not.toBeChecked();
+        expect(screen.queryByLabelText(/^Scale /)).toBeNull();
+    });
+
+    it('shows the ratio input again once the checkbox is switched back on', async () => {
+        configuredWith([saved({ showScaleSpeed: false })]);
+        (useMutation as any).mockReturnValue([{ fetching: false }, vi.fn()]);
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+        await user.click(await screen.findByLabelText('Show scale speed'));
+
+        expect(screen.getByLabelText(/^Scale /)).toBeInTheDocument();
+    });
+
+    it('reports an edited ratio and a toggled flag into the submitted TrackInput', async () => {
+        configuredWith([saved()]);
+        const mockUpdate = vi.fn().mockResolvedValue({ data: { updateInitialConfig: { initialized: true } } });
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+
+        const ratio = await screen.findByLabelText(/^Scale /);
+        await user.clear(ratio);
+        await user.type(ratio, '16');
+
+        await user.click(screen.getByText('Save Settings'));
+
+        await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
+        expect(mockUpdate.mock.calls[0][0].config.tracks[0]).toMatchObject({
+            scaleRatio: 16,
+            showScaleSpeed: true,
+        });
+    });
+
+    it('refuses a non-positive ratio with a sentence naming the track', async () => {
+        // The server refuses this regardless of "Show scale speed" — a
+        // stored ratio nothing could ever use is wrong to save, not just
+        // wrong to display — so the client catches it too
+        // (`sections.ts`'s `firstProblem`), the same way it catches a bad
+        // lane count. The input's own `min` would otherwise catch this
+        // itself while its section is on screen, so the edit happens on
+        // Tracks and the save happens after switching away — the same
+        // "browser cannot point at a field it is not rendering" case
+        // `firstProblem` exists for.
+        configuredWith([saved()]);
+        const mockUpdate = vi.fn().mockResolvedValue({ data: {} });
+        (useMutation as any).mockImplementation((query: any) =>
+            documentText(query).includes('mutation UpdateInitialConfig')
+                ? [{ fetching: false }, mockUpdate]
+                : [{ fetching: false }, vi.fn()],
+        );
+        const user = (await import('@testing-library/user-event')).default.setup();
+        render(
+            <MemoryRouter>
+                <AlertProvider>
+                    <SystemSettings />
+                </AlertProvider>
+            </MemoryRouter>,
+        );
+
+        await openSection('tracks');
+
+        const ratio = await screen.findByLabelText(/^Scale /);
+        await user.clear(ratio);
+        await user.type(ratio, '0');
+
+        await openSection('general');
+        await user.click(screen.getByText('Save Settings'));
+
+        expect(
+            await screen.findByText(/Main Track needs a scale ratio greater than zero/i),
+        ).toBeInTheDocument();
+        expect(mockUpdate).not.toHaveBeenCalled();
+    });
+});
