@@ -11,16 +11,23 @@ captured string into a lane or a time are new code per device. Every profile
 here says so in its ``provenance``, which the timer check page shows, and
 nobody should be told their timer works until one of them has actually run.
 
-Three models from DerbyNet are deliberately absent:
+Two models from DerbyNet are deliberately absent:
 
 * **SuperTimer II** reports a result in two separate messages, takes its lane
   mask as one binary-encoded command, and scales times by 10000. Three
   mechanisms for one device.
-* **FastTrack P-series** is a variant DerbyNet carries without a prober,
-  distinguished from its sibling only by the port settings a user picks by
-  hand.
 * **ChampSRM** is a rebadged Champ whose banner differs; adding it is a second
   identification pattern once anyone has one to test against.
+
+The **FastTrack P-series** (issue #634) *is* here now, but it needed the same
+kind of judgment call NewBold and the 9600-baud Derby Magic did. DerbyNet's
+own ``FastTrackPSeries.java`` never calls ``.prober(...)`` at all — by the
+``Profile`` class's own comment, "No prober => not detectable" — so this
+device has no identification banner and no probe command, on any baud rate.
+``FASTTRACK_P_SERIES`` below carries no ``probe``/``identification`` for that
+reason, not because of an ambiguity with a sibling profile the way the two
+Derby Magic variants have one: there simply is nothing to send it that draws
+out an identifying reply. Chosen by hand, the same shape as ``NEWBOLD``.
 
 Derby Magic (issue #633) is *not* on that list, but its two baud-rate variants
 needed one judgment call of their own. DerbyNet's ``DerbyMagic`` (19200 baud)
@@ -538,6 +545,59 @@ DERBY_MAGIC_9600 = TimerProfile(
 )
 
 
+# ---------------------------------------------------------------------------
+# FastTrack P-series
+# ---------------------------------------------------------------------------
+#
+# https://github.com/jeffpiazza/derbynet/blob/master/timer/src/org/jeffpiazza/derby/profiles/FastTrackPSeries.java
+# (issue #634). Not the MicroWizard's own FastTrack K/Q family in
+# `microwizard.py` — a different lineage that happens to share a brand name.
+#
+# DerbyNet's definition is nine lines: baud/framing, six lanes, an unknowable
+# gate, a single setup command `RF`, and one matcher. No `.prober(...)` call
+# at all, which by the Profile class's own comment ("No prober => not
+# detectable") is DerbyNet's own way of saying this device cannot be found —
+# see the module docstring above for why that is not the same situation as
+# the two Derby Magic variants. No heat_prep either: DerbyNet declares none,
+# the same absence as The Judge's, so lane masking and arming are left to
+# HeatPrep()'s defaults (nothing sent).
+#
+# The lane-result pattern is character-for-character the Champ's own —
+# ` *([A-Z])=(\d\.\d+)([^ ]?)` — lettered lanes, an optional trailing place
+# character. Left uncaptured for the same reason as the Champ's and Derby
+# Magic's: nothing here documents what the symbol means, and a guessed
+# mapping is worse than no place at all. `repeat=True` for the same reason
+# too — a device answering in this shape reports every lane on one line.
+
+FASTTRACK_P_SERIES = TimerProfile(
+    name="FastTrack P-series",
+    key="fasttrack-p-series",
+    provenance=_UNTESTED.format("FastTrack P-series")
+    + (
+        " DerbyNet carries it with no prober at all — its own definition "
+        "calls neither a probe command nor an identification pattern, so "
+        "there is nothing to send it that draws out a reply distinguishing "
+        "it from anything else. It has to be chosen by hand, the same as "
+        "NewBold."
+    ),
+    max_lanes=6,
+    gate_state_is_knowable=False,
+    # No probe/identification: see the module docstring and the comment
+    # above. Chosen by hand, exactly like NEWBOLD.
+    setup=(b"RF",),
+    heat_prep=HeatPrep(),
+    matchers=(
+        Matcher(
+            re.compile(rb" *([A-Z])=(\d\.\d+)([^ ]?)"),
+            Event.LANE_RESULT,
+            lane=Group(1, lane_letter),
+            time=Group(2, seconds),
+            repeat=True,
+        ),
+    ),
+)
+
+
 #: Everything adapted here, in the order a prober should try them. Profiles
 #: without an identification banner are included for selection but the prober
 #: skips them on its own.
@@ -551,4 +611,5 @@ ADAPTED_FROM_DERBYNET: tuple[TimerProfile, ...] = (
     NEWBOLD,
     DERBY_MAGIC,
     DERBY_MAGIC_9600,
+    FASTTRACK_P_SERIES,
 )

@@ -33,6 +33,7 @@ from backend.services.timer.devices.derbynet import (
     DERBY_MAGIC,
     DERBY_MAGIC_9600,
     DERBY_TIMER,
+    FASTTRACK_P_SERIES,
     JIT_RACEMASTER,
     NEWBOLD,
     PDT,
@@ -83,6 +84,11 @@ def one(result) -> object:
         (DERBY_MAGIC, b"3=3.4567!", 3, 3.4567),
         # The 9600 variant is the same protocol at a different baud rate.
         (DERBY_MAGIC_9600, b"7=3.4567", 7, 3.4567),
+        # FastTrack P-series letters its lanes like the Champ, and shares its
+        # exact pattern -- ` *([A-Z])=(\d\.\d+)([^ ]?)`, taken verbatim from
+        # FastTrackPSeries.java.
+        (FASTTRACK_P_SERIES, b"A=3.456", 1, 3.456),
+        (FASTTRACK_P_SERIES, b"C=3.456", 3, 3.456),
     ],
 )
 def test_a_result_line_is_read_as_a_result(
@@ -98,6 +104,14 @@ def test_a_result_line_is_read_as_a_result(
 def test_the_champ_reports_every_lane_on_one_line():
     """Like the MicroWizard, so the matcher repeats."""
     events = CHAMP.parse_line(b' A=3.001! B=3.002" C=3.003#')
+
+    assert isinstance(events, list)
+    assert [e.lane for e in events] == [1, 2, 3]
+
+
+def test_the_fasttrack_p_series_reports_every_lane_on_one_line():
+    """Same pattern as the Champ's, letter-for-letter."""
+    events = FASTTRACK_P_SERIES.parse_line(b' A=3.001! B=3.002" C=3.003#')
 
     assert isinstance(events, list)
     assert [e.lane for e in events] == [1, 2, 3]
@@ -338,6 +352,15 @@ def test_only_the_19200_derby_magic_can_be_probed_for():
     assert DERBY_MAGIC_9600.baud_rate == 9600
 
 
+def test_the_fasttrack_p_series_has_no_prober_at_all():
+    """Unlike the Derby Magic pair, this is not a collision with a sibling
+    profile -- DerbyNet's own definition never calls `.prober(...)`, so there
+    is nothing here to weaken a guard against. It has to be chosen by hand,
+    the same as NEWBOLD and DERBY_MAGIC_9600."""
+    assert not FASTTRACK_P_SERIES.probe
+    assert not FASTTRACK_P_SERIES.identification
+
+
 def test_lane_masking_uses_each_timers_own_lane_naming():
     # Numbered from '1'...
     assert DERBY_TIMER.prepare_heat_commands(0b101)[:1] == [b"C"]
@@ -403,6 +426,7 @@ def test_the_adapted_profiles_are_registered():
         JIT_RACEMASTER,
         DERBY_MAGIC,
         DERBY_MAGIC_9600,
+        FASTTRACK_P_SERIES,
     ):
         assert profile in ALL_PROFILES
 
@@ -447,6 +471,7 @@ def test_the_replayed_ones_say_which_evidence_they_have():
         CHAMP,
         DERBY_MAGIC,
         DERBY_MAGIC_9600,
+        FASTTRACK_P_SERIES,
     ):
         assert "never been tried with the real device" in profile.provenance
 
