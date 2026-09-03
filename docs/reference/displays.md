@@ -120,6 +120,25 @@ whoever is standing there to learn its name. The badge fades on its own.
   rather than stored (see [Names, and telling one screen from
   another](#names-and-telling-one-screen-from-another) above).
 
+## Two screens, one computer
+
+A computer with two monitors — a projector next to an operator's own preview,
+say — can drive both as separate screens. Opening the Live page a second time
+on the same computer used to report the identical screen twice, because every
+browser tab on one machine shares that machine's stored identity: assigning a
+view to one moved both windows at once.
+
+- **Race Control → Displays** has an **Open a new display window** button.
+  It opens a second window that is already its own screen — nothing to type,
+  and nothing for it to contend with the tab that opened it.
+- **Reloading a display window keeps its identity.** A genuinely new tab or
+  window, opened the ordinary way rather than with the button, still becomes
+  a screen of its own on the list — it just does not carry over a name or
+  assignment from the tab it was opened alongside.
+- **A link with `?displayId=` in it always names a specific screen**, which
+  is what the button's new window carries — useful if you ever want to bookmark
+  a particular monitor's address rather than opening it fresh each time.
+
 ## Connection behaviour
 
 Displays hold a live connection and update themselves; nobody refreshes

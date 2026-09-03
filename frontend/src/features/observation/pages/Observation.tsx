@@ -6,7 +6,7 @@ import RacerAvatar from '../../management/components/RacerAvatar';
 import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } from '@mdi/js';
 import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import PhotoSlideshow from '../components/PhotoSlideshow';
-import { displayId } from '../displayIdentity';
+import { displayId, startDeviceClaimHeartbeat } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName';
@@ -81,7 +81,13 @@ export default function Observation() {
   // This screen's identity, and what it has been told to show (#174). The
   // subscription is also how the display registers itself: it holds no PIN and
   // is a VIEWER, so it can make no mutation — it is told, it does not ask.
-  const thisDisplayId = useMemo(() => displayId(), []);
+  //
+  // `?displayId=` names a specific screen (#590) — how Race Control's "Open a
+  // new display window" button gives a second monitor an id of its own
+  // rather than sharing this computer's single stored one.
+  const displayIdParam = searchParams.get('displayId');
+  const thisDisplayId = useMemo(() => displayId(displayIdParam), [displayIdParam]);
+  useEffect(() => startDeviceClaimHeartbeat(thisDisplayId), [thisDisplayId]);
   const [assignmentResult] = useSubscription({
     query: DisplayAssignmentSubscription,
     variables: { displayId: thisDisplayId, raceId: id },

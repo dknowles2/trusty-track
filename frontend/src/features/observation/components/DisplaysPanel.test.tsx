@@ -26,7 +26,7 @@ const renameDisplay = vi.fn().mockResolvedValue({ data: {} });
 // display's name, which a component-local list could never see.
 const suggestDisplayName = vi.fn();
 
-function renderPanel(view: string, cycleSeconds = 10, connected = true, awards = 2) {
+function renderPanel(view: string, cycleSeconds = 10, connected = true, awards = 2, hasDisplay = true) {
     // Two queries, and they answer different questions: the list of screens,
     // and whether the race has any awards to announce.
     type QueryArgs = { query: { definitions: { name?: { value?: string } }[] } };
@@ -52,7 +52,7 @@ function renderPanel(view: string, cycleSeconds = 10, connected = true, awards =
         return [
             {
                 data: {
-                    displays: [
+                    displays: !hasDisplay ? [] : [
                         {
                             displayId: 'd-1',
                             name: 'Gym north',
@@ -292,5 +292,51 @@ describe("the rename form's new-name reroll (#521)", () => {
         fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
         expect(renameDisplay).toHaveBeenCalledWith({ displayId: 'd-1', name: 'Bold Beaver' });
+    });
+});
+
+describe('opening a new display window (#590)', () => {
+    // A second monitor on the operator's own computer used to share this
+    // computer's single stored id with every other tab; this button hands a
+    // freshly opened one an id of its own, baked into the URL, so it never
+    // has to contend with a tab already claiming this machine's device id.
+    it('opens a fresh screen for this race, with nothing to type', () => {
+        renderPanel('STANDINGS');
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Open a new display window' }));
+
+        expect(openSpy).toHaveBeenCalledTimes(1);
+        const [url, target, features] = openSpy.mock.calls[0];
+        expect(url).toMatch(/^\/race\/1\/observation\?displayId=.+$/);
+        expect(target).toBe('_blank');
+        // noopener, so the new window starts with no sessionStorage carried
+        // over from this one — its identity comes entirely from the URL.
+        expect(features).toBe('noopener');
+
+        openSpy.mockRestore();
+    });
+
+    it('mints a different id on every click, so two windows never collide', () => {
+        renderPanel('STANDINGS');
+        const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+        const button = screen.getByRole('button', { name: 'Open a new display window' });
+        fireEvent.click(button);
+        fireEvent.click(button);
+
+        const firstUrl = openSpy.mock.calls[0][0];
+        const secondUrl = openSpy.mock.calls[1][0];
+        expect(firstUrl).not.toBe(secondUrl);
+
+        openSpy.mockRestore();
+    });
+
+    it('is offered even before any display has opened', () => {
+        renderPanel('STANDINGS', 10, true, 2, false);
+        expect(screen.getByText('No audience displays are open yet.')).toBeInTheDocument();
+        expect(
+            screen.getByRole('button', { name: 'Open a new display window' }),
+        ).toBeInTheDocument();
     });
 });
