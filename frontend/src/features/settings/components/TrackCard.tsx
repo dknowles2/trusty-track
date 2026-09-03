@@ -56,6 +56,11 @@ interface Props {
   track: TrackFields;
   timerModels: readonly TimerModel[];
   canRemove: boolean;
+  // True on the public cloud demo (`initialConfig.demoMode`). The proxy
+  // timer needs a browser to hold the serial port open for the whole race,
+  // and the backend already refuses that WebSocket on a demo — this only
+  // stops the settings page offering a control that cannot work.
+  demoMode?: boolean;
   onChange: (field: string, value: string | number | boolean) => void;
   onRemove: () => void;
   onLaneOutages: (outages: number[]) => void;
@@ -88,6 +93,7 @@ export default function TrackCard({
   track,
   timerModels,
   canRemove,
+  demoMode,
   onChange,
   onRemove,
   onLaneOutages,
@@ -95,6 +101,14 @@ export default function TrackCard({
 }: Props) {
   const { vehicleLower } = useTerminology();
   const chosen = timerModels.find((m) => m.key === track.timerProfile);
+  // Hidden on the demo, following `displayView.viewOptionsFor`'s rule for
+  // the awards view: an option that can only disappoint is worse than one
+  // that is absent. But kept when it is *already* this track's own value —
+  // a seed archive can carry a track saved with it, and a `<select>` whose
+  // current value is missing from its own options renders with nothing
+  // chosen, telling the operator nothing about what is actually set.
+  const proxyUnavailable = !!demoMode && track.timerType === 'AUTO_DETECT_PROXY';
+  const showProxyOption = !demoMode || track.timerType === 'AUTO_DETECT_PROXY';
   const unusualFraming =
     chosen &&
     (chosen.baudRate !== 9600 ||
@@ -254,7 +268,9 @@ export default function TrackCard({
         >
           <option value="FAKE">Fake Timer (Manual Control)</option>
           <option value="AUTO_DETECT_BACKEND">Plugged into this machine</option>
-          <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
+          {showProxyOption && (
+            <option value="AUTO_DETECT_PROXY">Plugged into the laptop running the browser</option>
+          )}
           <option value="NONE">No timer — I'll enter results by hand</option>
         </select>
       </div>
@@ -263,6 +279,13 @@ export default function TrackCard({
         <p style={{ color: 'var(--text-muted-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
           Race Execution won't try to arm a timer. Enter Results becomes the main way
           to record a heat's result — times for a Timed race, finishing order for Points.
+        </p>
+      )}
+
+      {proxyUnavailable && (
+        <p style={{ color: 'var(--warning-color)', fontSize: '0.85rem', margin: '0.5rem 0 0' }}>
+          Not available in the cloud demo — a browser tab cannot hold a timer's serial
+          port open for a shared instance. Choose another timer type.
         </p>
       )}
 
