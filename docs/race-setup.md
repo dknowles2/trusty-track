@@ -51,7 +51,7 @@ You can add racers one by one for small events or late registrations, or bulk-im
 1. Click the **Add Racer** button. (The arrow beside it is for the other two ways in — **Import from CSV** and **Populate Test Data**.)
 2. Enter the racer's **First Name** and **Last Name**.
 3. Enter a **Car Number** (if not using **Auto number** later).
-4. Select the appropriate **Den**. **Car Name**, **Car Weight** and a photo can all be filled in now or left until check-in.
+4. Select the appropriate **Den**. **Car Name**, **Car Weight** and a photo can all be filled in now or left until check-in. A photo taken or uploaded here can be straightened and cropped the same way as at check-in — see [Straightening a Photo](race-day.md#straightening-a-photo).
 5. Click **Save Racer** — or **Save and add another**, which saves this racer and hands you the form back for the next one.
 
 **Save and add another** is for typing a roster in at a sitting. It keeps the den you were working through, since rosters usually arrive grouped that way, and clears everything else. The car number is deliberately *not* carried forward or incremented: under manual numbering, the next car is not reliably the last one plus one, and a wrong number that looks deliberate is worse than a blank one.

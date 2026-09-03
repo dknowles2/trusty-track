@@ -481,7 +481,7 @@ The design emphasizes intuitive user journeys and accessibility.
 
 -   **Initial Configuration:** Guided wizard-like flow with clear steps and reasonable defaults.
 -   **Race Configuration:** Interactive forms with real-time feedback on proposed changes (e.g., car numbering strategy impact).
--   **Racer Details:** Flexible input options (bulk CSV, manual per-racer) with optional image uploads and auto-cropping.
+-   **Racer Details:** Flexible input options (bulk CSV, manual per-racer) with optional image uploads. A photo can be rotated and cropped client-side, on a canvas, before it uploads — right after a camera capture, or later through a **Rotate / Recrop** control on a photo already on file.
 -   **Race Check-In:** Streamlined process using camera-based scanning for quick racer lookup.
 -   **Printables:** Sheet-first. The print page renders the whole sheet at paper size and the browser prints it; the operator's selection carries over from the roster, and an empty selection means the whole roster. Only the QR code comes from the backend.
 -   **Race Operation:** Clear visualization of race progression and simple controls.
