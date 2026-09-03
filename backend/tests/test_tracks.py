@@ -199,6 +199,148 @@ def test_update_track_serial_port(client):
     assert data["serialPort"] == "/dev/ttyUSB99"
 
 
+class TestScaleSpeed:
+    """#610 stage 2: `scaleRatio` and `showScaleSpeed` round-trip on a track."""
+
+    def test_create_track_defaults(self, client):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "Default Scale Track"}) {
+                        scaleRatio
+                        showScaleSpeed
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" not in resp, resp
+        data = resp["data"]["createTrack"]
+        assert data["scaleRatio"] == 25
+        assert data["showScaleSpeed"] is True
+
+    def test_create_and_update_round_trip(self, client):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {
+                        name: "Space Derby Track",
+                        scaleRatio: 100,
+                        showScaleSpeed: false
+                    }) {
+                        id
+                        scaleRatio
+                        showScaleSpeed
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" not in resp, resp
+        created = resp["data"]["createTrack"]
+        assert created["scaleRatio"] == 100
+        assert created["showScaleSpeed"] is False
+        track_id = created["id"]
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateTrack(id: {track_id}, track: {{
+                        name: "Space Derby Track",
+                        scaleRatio: 12.5,
+                        showScaleSpeed: true
+                    }}) {{
+                        scaleRatio
+                        showScaleSpeed
+                    }}
+                }}
+                """
+            },
+        ).json()
+        assert "errors" not in resp, resp
+        updated = resp["data"]["updateTrack"]
+        assert updated["scaleRatio"] == 12.5
+        assert updated["showScaleSpeed"] is True
+
+        # Reading back through the query path agrees with what the mutation
+        # returned — the two must not disagree about what was stored.
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                query {
+                    tracks {
+                        id
+                        scaleRatio
+                        showScaleSpeed
+                    }
+                }
+                """
+            },
+        ).json()
+        row = next(t for t in resp["data"]["tracks"] if int(t["id"]) == int(track_id))
+        assert row["scaleRatio"] == 12.5
+        assert row["showScaleSpeed"] is True
+
+    def test_create_track_refuses_zero_scale_ratio(self, client, db):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "Bad Ratio", scaleRatio: 0}) {
+                        id
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        assert "scale ratio must be greater than zero" in str(resp["errors"])
+        assert crud.get_tracks(db) == []
+
+    def test_create_track_refuses_negative_scale_ratio(self, client, db):
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": """
+                mutation {
+                    createTrack(track: {name: "Bad Ratio", scaleRatio: -5}) {
+                        id
+                    }
+                }
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        assert crud.get_tracks(db) == []
+
+    def test_update_track_refuses_zero_scale_ratio(self, client, db):
+        track = crud.create_track(db, schemas.TrackCreate(name="Good Track"))
+
+        resp = client.post(
+            "/graphql",
+            json={
+                "query": f"""
+                mutation {{
+                    updateTrack(id: {track.id}, track: {{scaleRatio: 0}}) {{
+                        scaleRatio
+                    }}
+                }}
+                """
+            },
+        ).json()
+        assert "errors" in resp
+        db.refresh(track)
+        assert track.scale_ratio == 25
+
+
 class TestLaneCountBounds:
     """#320: a lane count nothing downstream can act on is refused at the edge.
 

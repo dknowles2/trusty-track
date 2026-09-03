@@ -30,6 +30,11 @@ export interface TrackFields {
   timerProfile: string;
   remoteStartInstalled: boolean;
   reverseLanes: boolean;
+  // The vehicle-to-real-life ratio scale speed is computed against, and
+  // whether this track offers scale speed at all (#610). Round-tripped here
+  // with no control yet — stage 3 adds the card's inputs for them.
+  scaleRatio: number;
+  showScaleSpeed: boolean;
   laneOutages?: number[];
   historicalRecords?: HistoricalRecord[];
 }

@@ -9,10 +9,13 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     false,
+    true,
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from backend.domain.scale_speed import DEFAULT_SCALE
 
 from .database import Base
 
@@ -303,6 +306,31 @@ class Track(Base):
     #: be wired either way at two different tables. See #553.
     reverse_lanes: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
+    )
+    #: The vehicle-to-real-life ratio scale speed is computed against (#610).
+    #: A ~7-inch BSA Pinewood Derby car against a ~175-inch real car is 1:25 —
+    #: ``domain.scale_speed.DEFAULT_SCALE``, imported rather than repeated
+    #: here so there is one place that says why 25. A float, not an int: a
+    #: Space Derby rocket or a Raingutter Regatta boat is not built to a
+    #: round ratio, and ``domain.scale_speed.scale_mph`` already takes a
+    #: float.
+    scale_ratio: Mapped[float] = mapped_column(
+        Float,
+        nullable=False,
+        default=DEFAULT_SCALE,
+        server_default=sa_text(str(DEFAULT_SCALE)),
+    )
+    #: Whether scale speed is offered on this track's surfaces at all.
+    #:
+    #: A plain flag, not "length_feet > 0 and this" folded together — a
+    #: track's length can be filled in later, and flipping this off is how an
+    #: operator running a Space Derby (where the ratio does not apply, or the
+    #: whole idea is unwanted) says so once rather than the length forever
+    #: standing in for the choice. Every reader that decides whether to show
+    #: scale speed (stage 4) ANDs this with ``length_feet`` being positive —
+    #: this column alone does not guarantee a length exists to compute from.
+    show_scale_speed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
     )
 
     races: Mapped[list["Race"]] = relationship("Race", back_populates="track")

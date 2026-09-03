@@ -614,6 +614,8 @@ Rules in `domain/tiebreak.py` (the `RUN_OFF` resolution) and `domain/lanes.py`; 
 
 This is stage 1 of #610 — the pure rule only. A `tracks.scale_ratio` column, GraphQL wiring, the System Settings control, and rendering on the projector and timing views are later stages.
 
+**Stage 2 (storage and API)** adds `Track.scale_ratio` (`float`, `NOT NULL`, default `DEFAULT_SCALE`, migration `0042_track_scale_speed`) and `Track.show_scale_speed` (`bool`, `NOT NULL`, default `true`), exposed as `scaleRatio`/`showScaleSpeed` on the `Track` GraphQL type and on `TrackInput` (so `createTrack`, `updateTrack` and the per-track entries in `updateInitialConfig`'s track list all carry them, the same one input three mutations already share). `show_scale_speed` is deliberately a plain flag rather than folded together with "`length_feet` is positive" — a track's length can be filled in after the ratio is set, and an operator running a format the ratio does not apply to needs one control to turn the whole idea off. Every later reader that decides whether to actually display a speed (stage 4) ANDs this flag with a positive `length_feet`; the column alone does not promise a length exists to compute from. `scale_ratio` is refused at zero or below in `schemas.TrackBase`, the same "sentence a volunteer understands" shape `lane_count`'s bounds already use.
+
 ### Championship advancement
 
 Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.get_advancing_racers()`.

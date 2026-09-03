@@ -232,6 +232,40 @@ def test_legacy_database_with_empty_alembic_version_is_adopted(tmp_path):
         engine.dispose()
 
 
+def test_a_track_created_before_scale_speed_reads_the_default(tmp_path):
+    """A pre-`0042` track gets the same values a brand-new one would (#610).
+
+    ``scale_ratio`` and ``show_scale_speed`` are both `NOT NULL` with a server
+    default, so a row that predates the columns is backfilled by the `ALTER
+    TABLE ADD COLUMN` itself rather than needing any data migration — this
+    pins that the backfilled values are `25` and `True`, matching
+    `domain.scale_speed.DEFAULT_SCALE` and a fresh track's own defaults.
+    """
+    db = build_pre_alembic_database(
+        tmp_path,
+        seed=lambda conn: conn.execute(
+            text(
+                "INSERT INTO tracks (id, name, lane_count, timer_type) "
+                "VALUES (1, 'Legacy Track', 4, 'FAKE')"
+            )
+        ),
+    )
+
+    result = _run_init_db(tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    engine = create_engine(f"sqlite:///{db}")
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("select scale_ratio, show_scale_speed from tracks where id = 1")
+            ).one()
+            assert row.scale_ratio == 25
+            assert bool(row.show_scale_speed) is True
+    finally:
+        engine.dispose()
+
+
 def _alembic_check(data_dir: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "-m", "alembic", "check"],

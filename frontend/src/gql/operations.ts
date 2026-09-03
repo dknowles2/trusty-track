@@ -172,7 +172,9 @@ export type TrackInput = {
   name?: string;
   remoteStartInstalled?: boolean;
   reverseLanes?: boolean;
+  scaleRatio?: number;
   serialPort?: string | null | undefined;
+  showScaleSpeed?: boolean;
   timerProfile?: string | null | undefined;
   timerType?: string;
 };

@@ -749,6 +749,8 @@ type Track {
   timerProfile: String
   remoteStartInstalled: Boolean!
   reverseLanes: Boolean!
+  scaleRatio: Float!
+  showScaleSpeed: Boolean!
   laneOutages: [Int!]!
   historicalRecords: [HistoricalTrackRecord!]!
   races: [Race!]!
@@ -764,6 +766,8 @@ input TrackInput {
   timerProfile: String = null
   remoteStartInstalled: Boolean! = false
   reverseLanes: Boolean! = false
+  scaleRatio: Float! = 25
+  showScaleSpeed: Boolean! = true
 }
 
 type TrackRecord {
