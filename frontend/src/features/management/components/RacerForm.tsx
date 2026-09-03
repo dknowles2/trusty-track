@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import CameraCapture from '../../../components/ui/CameraCapture';
+import CameraCapture, { dataUrlToFile } from '../../../components/ui/CameraCapture';
+import ImageCropModal from '../../../components/ui/ImageCropModal';
 import { CAR_ASPECT, PORTRAIT_ASPECT } from '../../../components/ui/imageEdit';
 import { useQuery, useMutation } from 'urql';
 import { GET_RACE_RACING_GROUPS, UPLOAD_IMAGE } from '../graphql/queries';
@@ -77,6 +78,11 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
 
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState<'none' | 'racer' | 'car'>('none');
+  // Which photo is being straightened, if either — a photo already on file
+  // (uploaded rather than just taken through `CameraCapture`) has no crop
+  // step of its own until now (#619 stage 3). `'none'` hides the modal the
+  // same way `showCamera` hides the camera overlay.
+  const [cropTarget, setCropTarget] = useState<'none' | 'racer' | 'car'>('none');
   // Where the cursor goes after "Save and add another": without this the focus
   // sits on a button and the next name has to be reached for with the mouse,
   // which is most of what the button was meant to save.
@@ -120,6 +126,18 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
           }
       };
       reader.readAsDataURL(file);
+  };
+
+  // A straightened photo goes through the same door a newly chosen one
+  // does — `uploadFile` — rather than replacing the stored URL in place.
+  // The old upload is not edited on the server; a new one is made and
+  // `formData` is pointed at it, exactly as picking a new file or retaking
+  // a camera shot already does. `cropTarget` (not `showCamera`, which the
+  // crop modal here never opens) says which field the result belongs to.
+  const handleCropConfirm = (dataUrl: string) => {
+      if (cropTarget === 'none') return;
+      uploadFile(dataUrlToFile(dataUrl, `edited-${Date.now()}.jpg`), cropTarget);
+      setCropTarget('none');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -321,6 +339,16 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                         📷 Camera
                     </button>
                 </div>
+                {formData.racer_image_url && (
+                    <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={() => setCropTarget('racer')}
+                        style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                        ⟳ Rotate / Recrop
+                    </button>
+                )}
             </div>
              {/* Car Image Upload */}
              <div>
@@ -352,6 +380,16 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                         📷 Camera
                     </button>
                 </div>
+                {formData.car_image_url && (
+                    <button
+                        type="button"
+                        className="secondary-btn"
+                        onClick={() => setCropTarget('car')}
+                        style={{ width: '100%', marginTop: '5px', padding: '5px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                        ⟳ Rotate / Recrop
+                    </button>
+                )}
             </div>
         </div>
 
@@ -385,6 +423,19 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
             // the pit pass both already assume one — where a car is
             // photographed side-on and wants the landscape ratio (#619).
             aspect={showCamera === 'car' ? CAR_ASPECT : PORTRAIT_ASPECT}
+          />
+      )}
+
+      {cropTarget !== 'none' && (
+          <ImageCropModal
+            open
+            src={cropTarget === 'car' ? formData.car_image_url ?? '' : formData.racer_image_url ?? ''}
+            title="Rotate / recrop photo"
+            // Same rule as the camera's own crop step: a racer's portrait
+            // is square, a car photo is landscape (#619).
+            aspect={cropTarget === 'car' ? CAR_ASPECT : PORTRAIT_ASPECT}
+            onCancel={() => setCropTarget('none')}
+            onConfirm={handleCropConfirm}
           />
       )}
     </div>
