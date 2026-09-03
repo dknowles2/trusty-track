@@ -241,7 +241,7 @@ Delivered over the existing `/graphql` endpoint using the `graphql-ws` subprotoc
 -   `subscription currentlyRacing(raceId)` — Current heat racers and lane assignments.
 -   `subscription timingStats(raceId)` — Per-lane timing for the most recently recorded heat, official or free. Carries `recordBreak` when the heat beat the track record as it stood before this race (`services/records.py`); a free heat never does, since an exhibition run cannot hold a record.
 -   `subscription heats(raceId)` — Full round/heat list with completion status.
--   `subscription displayAssignment(displayId, raceId, name)` — What one screen should show. **Subscribing is how a display registers**: it holds no PIN and is a `VIEWER`, so it can make no mutation, and the socket closing is the only signal it has gone.
+-   `subscription displayAssignment(displayId, raceId, name)` — What one screen should show. **Subscribing is how a display registers**: it holds no PIN and is a `VIEWER`, so it can make no mutation, and the socket closing is the only signal it has gone. Also carries `displayThemeSetting` (#586) — the organization's stored Display theme, unresolved — so a theme change made in System Settings reaches an already-open screen over the same socket, with no reload. `updateInitialConfig` nudges every connected display's channel when `displayTheme` changes.
 -   `subscription displays(raceId)` — The operator's list, as screens come and go.
 -   `subscription timerStatus(trackId)` — Device state.
 -   `subscription heatSession(trackId, heatId)` — The merged live view; see below.

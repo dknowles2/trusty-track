@@ -9,9 +9,6 @@ import { gql } from 'urql';
  */
 export const RACE_AWARDS_QUERY = gql`
   query RaceAwards($raceId: Int!) {
-    initialConfig {
-      displayTheme
-    }
     race(raceId: $raceId) {
       id
       name

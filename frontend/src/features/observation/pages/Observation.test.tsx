@@ -750,4 +750,51 @@ describe('Observation Page', () => {
             expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
         });
     });
+
+    describe('the Display theme, pushed live (#586)', () => {
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        it('re-applies the theme when a later displayAssignment payload carries a new one, with no reload', async () => {
+            let displayAssignment: any = {
+                name: 'Plucky Puffin',
+                identifySeq: 0,
+                assigned: false,
+                view: 'STANDINGS',
+                cycleSeconds: 10,
+                displayThemeSetting: 'old-glory',
+            };
+            (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats: null } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                if (query === DisplayAssignmentSubscription) return [{ data: { displayAssignment } }];
+                return [{ data: null }];
+            });
+
+            const { rerender } = render(renderTree());
+            await waitFor(() => {
+                expect(document.querySelector('.container')).toHaveAttribute('data-theme', 'old-glory');
+            });
+
+            // The operator changes the Display theme in System Settings — no
+            // reload, just the next payload on the subscription this screen
+            // already holds open.
+            displayAssignment = { ...displayAssignment, displayThemeSetting: 'newsprint' };
+            act(() => {
+                rerender(renderTree());
+            });
+
+            expect(document.querySelector('.container')).toHaveAttribute('data-theme', 'newsprint');
+        });
+    });
 });

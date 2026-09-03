@@ -2052,9 +2052,25 @@ class Display:
     #: the ceremony's steps: the value a screen arrives holding, on connect
     #: or reconnect, is history rather than an instruction.
     identify_seq: int
+    #: The organization's stored Display theme setting (#498, #586) —
+    #: `"MATCH_APP"` or a `ThemeKey`, unresolved: the frontend already owns
+    #: `resolveDisplayTheme`, and shipping the resolved tokens here as well
+    #: would be a second copy of that vocabulary free to disagree with it.
+    #:
+    #: Only `displayAssignment` resolves this for real, because that is the
+    #: one subscription a live screen holds open for the whole event (#174's
+    #: "leash") — carrying the theme on it is what lets a change reach an
+    #: already-open screen with no new socket. Every other place this type is
+    #: built (the operator's own `displays` list and panel mutations) leaves
+    #: the default: the operator's screen is not itself styled by the Display
+    #: theme, and none of those documents select this field, so the default
+    #: never reaches a client to disagree with the subscription's real value.
+    display_theme_setting: str = "MATCH_APP"
 
 
-def _display(display: displays_service.Display) -> Display:
+def _display(
+    display: displays_service.Display, display_theme_setting: str = "MATCH_APP"
+) -> Display:
     return Display(
         display_id=display.display_id,
         name=display.name,
@@ -2068,12 +2084,44 @@ def _display(display: displays_service.Display) -> Display:
         slide_seq=display.slide_seq,
         slide_delta=display.slide_delta,
         identify_seq=display.identify_seq,
+        display_theme_setting=display_theme_setting,
     )
+
+
+def _display_theme_setting(db: Session) -> str:
+    """The organization's stored Display theme setting, or the default.
+
+    Read fresh rather than cached: `display_assignment` holds its `db` open
+    for the whole connection (#174), and a subscription that re-reads the
+    database has to see a value another request just committed, not the one
+    the session had cached from opening the socket.
+    """
+    organization = db.query(models.Organization).first()
+    return organization.display_theme if organization else "MATCH_APP"
 
 
 async def _publish_displays(race_id: int) -> None:
     """Tell the operator's list that something about a display changed."""
     await pubsub.publish(f"displays:{race_id}", None)
+
+
+async def _broadcast_display_theme_change() -> None:
+    """Nudge every connected display to re-read the Display theme (#586).
+
+    `Organization.display_theme` is install-wide, not race-scoped (#498), so
+    this is not `_publish_displays`'s job — that channel is per-race and
+    tells the *operator's* list something changed, not a screen showing it.
+    A theme change has to reach every screen currently open regardless of
+    which race it happens to be pointed at, which is what
+    `DisplayRegistry.all_ids` is for.
+
+    Publishing `None` on each display's own `display_assignment:{id}` channel
+    is enough: `display_assignment` re-reads the organization row on *every*
+    event on that channel, whatever raised it, so this doubles as "you have
+    mail" rather than needing to carry a payload of its own.
+    """
+    for display_id in displays_service.registry.all_ids():
+        await pubsub.publish(f"display_assignment:{display_id}", None)
 
 
 RACES_LIST_CHANNEL = "races_list"
@@ -4144,11 +4192,14 @@ class Mutation:
             db.refresh(organization)
 
         if organization:
+            previous_display_theme = organization.display_theme
             _apply_pins(organization, config)
             _apply_themes(organization, config)
             _apply_terminology(organization, config)
             _apply_name_display(organization, config)
             db.commit()
+            if organization.display_theme != previous_display_theme:
+                await _broadcast_display_theme_change()
 
         # Tracks are matched to database rows by id, not by list position
         # (#318): the form can reorder or remove a track from the middle of
@@ -5015,7 +5066,7 @@ class Subscription:
 
     @strawberry.subscription
     async def display_assignment(
-        self, display_id: str, race_id: int, name: str | None = None
+        self, info: Info, display_id: str, race_id: int, name: str | None = None
     ) -> AsyncGenerator[Display, None]:
         """What this display should be showing, pushed as it changes (#174).
 
@@ -5030,16 +5081,30 @@ class Subscription:
         registered before anything it needs to hear can be published, or an
         assignment made in that window reaches no one and the screen sits on
         the wrong view for the rest of the event.
+
+        **Also carries the Display surface's theme (#586).** This is the one
+        subscription a live screen holds open for the whole event — the
+        "leash" `Observation.tsx`'s own comment names — so it is also the
+        seam that lets an operator changing the theme in System Settings
+        reach a screen that is already open, with no new socket and no
+        polling. `updateInitialConfig` publishes to every connected display's
+        own channel when `display_theme` changes; on every event on this
+        channel (a real assignment or that nudge) the current organization
+        row is re-read, so a screen that was merely renamed picks up a theme
+        changed a moment earlier for free, and vice versa.
         """
+        db = info.context["db"]
         async with pubsub.subscribe(f"display_assignment:{display_id}") as stream:
             display = displays_service.registry.connect(display_id, race_id, name)
             await _publish_displays(race_id)
             try:
-                yield _display(display)
+                yield _display(display, _display_theme_setting(db))
                 async for _ in stream:
                     current = displays_service.registry.get(display_id)
                     if current is not None:
-                        yield _display(current)
+                        db.expire_all()
+                        _loaders(info).clear()
+                        yield _display(current, _display_theme_setting(db))
             finally:
                 # The socket closing is the only signal that a screen has gone
                 # away, so it has to be handled however the generator ends —
