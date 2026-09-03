@@ -69,13 +69,13 @@ _The Per-Racer Stats table sorted by average time (the default). Click a sortabl
 
 The Top Moments section highlights two memorable heats from the event:
 
-- **Fastest Heat** — the single quickest recorded time of the entire event, with the racer's name and which heat it occurred in.
+- **Fastest Heat** — the single quickest recorded time of the entire event, with the racer's name and which heat it occurred in. If the track has [scale speed](reference/race-settings.md#scale-speed) turned on, a real-world MPH shows underneath it.
 - **Closest Race** — the heat where the margin between the fastest and slowest finisher was smallest (the most exciting race of the day), with the time gap in seconds.
 
 These cards appear automatically once enough heats have been completed.
 
 ![Top Moments Cards](assets/screenshots/race-stats/05-top-moments.png)
-_The Top Moments section highlights the fastest heat of the day and the closest finish._
+_The Top Moments section highlights the fastest heat of the day and the closest finish — with the fastest heat's real-world scale speed shown underneath, since this track has that turned on._
 
 ---
 

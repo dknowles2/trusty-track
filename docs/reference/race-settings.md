@@ -117,7 +117,7 @@ both.
 | --- | --- |
 | **Track Name** | Names it in race forms and settings |
 | **Lanes** | How many lanes the track has. Schedules are built for this — lowering it mid-event brings existing heats into line, see [turning down a track's lane count](mid-race-changes.md#turning-down-a-tracks-lane-count) |
-| **Length (Feet)** | Recorded for reference |
+| **Length (Feet)** | How far a car travels down the track — used to work out [scale speed](#scale-speed), if that's turned on |
 | **Timer Type** | Fake, plugged into this machine, plugged into the laptop running the browser, or no timer at all — see [Timers](timers.md#the-four-timer-types) and [No timer](#no-timer) below |
 | **Serial Port** | Almost always blank. Fill it only to force a specific port; it is then used exactly as typed |
 | **Timer Model** | Almost always *Detect automatically*. See [the model picker](timers.md#the-timer-model-picker) |
@@ -125,6 +125,29 @@ both.
 | **The timer's cable is wired backwards** | Flips every result so the timer's lane 1 matches the track's highest lane, instead of rewiring the timer or renumbering the track — see [reverse lane numbering](timers.md#reverse-lane-numbering) |
 | **Lanes in service** | Untick a lane that has stopped working. Unlike the rest of the card, this **saves the moment you click it** — see [a lane stops working](mid-race-changes.md#a-lane-stops-working) |
 | **Track records from past years** | Records from before Trusty Track, entered by hand for the Stats page's record board. Saves as soon as you add one — see [the track record](stats-and-exports.md#the-track-record) |
+
+### Scale speed
+
+The question every scout asks after a heat is how fast that was, in *real*
+miles per hour. A pinewood derby car is a scale model — about 7 inches long
+against a full-size car's roughly 175 — so its heat time and the track's
+length are enough to work out how fast the full-size car would have to go to
+cover the same ground in the same time. A typical 3-second run down a
+40-foot track comes out to around 200 MPH.
+
+**Show scale speed**, beside Length (Feet) on the track's card, turns it on.
+A **Scale** field appears beneath it once it is, already filled in with
+**25** — the standard 1:25 ratio a BSA pinewood derby car is built to. That
+ratio is a fact about the car, not the app, so change it for anything built
+differently: a Space Derby rocket or a Raingutter Regatta boat is not 1:25.
+Leave the checkbox off if scale speed does not suit your event at all.
+
+It needs both the checkbox on **and** a length recorded — a track with no
+length shows no speed however the checkbox is set, since there is nothing to
+convert from. Once both are set, the speed appears beside a heat's time on
+the [projector view and the Last heat's times
+view](displays.md#the-six-views), and the fastest heat of the race gets its
+own line on the [Stats page](stats-and-exports.md#top-moments).
 
 ### No timer
 

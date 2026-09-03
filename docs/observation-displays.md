@@ -69,7 +69,7 @@ _Mid-round: the heat on the track, the one on deck, and the one after that. Each
 
 The **Standings** tab shows the current leaderboard for all racers, updated after each completed heat. It is deliberately narrow for reading at a distance — rank, racer, average time or points (whichever the race scores by), and runs. A racer's den category shows beneath their name when their den has one. The fuller table, with car number and den, is on the Standings page — the **Standings** tab in the race navigation bar.
 
-Switch to the **Timing Stats** tab to see the results of the most recently recorded heat: every car that ran it, in finishing order, with its place and its time.
+Switch to the **Timing Stats** tab to see the results of the most recently recorded heat: every car that ran it, in finishing order, with its place and its time — plus a rough real-world scale speed beside it, on a track that has [scale speed](reference/race-settings.md#scale-speed) turned on.
 
 ### When the track record falls
 
@@ -205,11 +205,11 @@ Projector Mode fills the entire screen with a dark background and large, high-vi
 - **Right side (35% of screen)**: Top 5 standings with large rank numbers, racer avatars, and each racer's average time or points
 
 ![Projector Mode — Full View](assets/screenshots/observation/07-projector-mode-full.png)
-_Projector Mode, caught with the heat-results overlay up — here celebrating a broken track record. Large text and high contrast make it easy to read from across a room._
+_Projector Mode, caught with the heat-results overlay up — here celebrating a broken track record, with each time's scale speed alongside it. Large text and high contrast make it easy to read from across a room._
 
 ### Heat Results Overlay
 
-After each heat finishes, a brief **results overlay** appears over the full screen for about 5 seconds, showing each racer's name, photo, placement, and finish time. It then fades away automatically, returning to the standing leaderboard view.
+After each heat finishes, a brief **results overlay** appears over the full screen for about 5 seconds, showing each racer's name, photo, placement, and finish time — with a scale speed alongside it wherever the track has [that](reference/race-settings.md#scale-speed) turned on. It then fades away automatically, returning to the standing leaderboard view.
 
 If the heat [broke the track record](#when-the-track-record-falls), a gold
 banner tops the overlay with the new time and the record it beat.
