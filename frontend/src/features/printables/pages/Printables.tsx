@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'urql';
 import { Icon } from '@mdi/react';
@@ -11,15 +11,18 @@ import {
     racersToPrint,
     sheetCount,
     specFor,
+    type DocumentSpec,
     type PrintableRacingGroup,
     type PrintableRace,
     type PrintableRacer,
 } from '../documents';
+import CarSticker from '../components/CarSticker';
 import CheckInCode from '../components/CheckInCode';
 import DriversLicense from '../components/DriversLicense';
 import PitPass from '../components/PitPass';
 import { GET_PRINTABLES } from '../graphql/queries';
 import { printablesThemeRootProps } from '../printablesTheme';
+import { useTerminology } from '../../../context/TerminologyContext';
 import '../PrintSheet.css';
 
 interface GQLRacer {
@@ -30,6 +33,25 @@ interface GQLRacer {
     carName?: string;
     racingGroupId?: number;
     racerImageUrl?: string;
+    carWeight?: number | null;
+}
+
+/**
+ * The picker's own label for a document, resolved against terminology.
+ *
+ * `DOCUMENTS` is pure (`documents.ts` takes no React), so a label naming the
+ * vehicle word — only the car label does — is filled in here rather than
+ * baked into the static spec, the same "pure helper takes the word as a
+ * parameter" split every other terminology-aware `.ts` file in this feature
+ * uses (#496 stage 4). Every other document's label names nothing
+ * configurable and passes through unchanged.
+ *
+ * The singular word, not the plural — "Car labels" reads as "labels for a
+ * car", the same modifying-noun shape `CarSticker`'s own "{vehicle} Label"
+ * header uses, not "labels for several cars".
+ */
+function labelFor(option: DocumentSpec, vehicle: string): string {
+    return option.kind === 'car-sticker' ? `${vehicle} labels` : option.label;
 }
 
 /**
@@ -46,6 +68,7 @@ export default function Printables() {
     const { raceId } = useParams<{ raceId: string }>();
     const parsedRaceId = raceId ? parseInt(raceId) : 0;
     const [searchParams, setSearchParams] = useSearchParams();
+    const { vehicle } = useTerminology();
 
     const [{ data, fetching, error }] = useQuery({
         query: GET_PRINTABLES,
@@ -54,6 +77,21 @@ export default function Printables() {
     });
 
     const spec = specFor(searchParams.get('kind'));
+    // Named rather than tested inline in the JSX below: `terminologyGuard`
+    // scans raw text sitting between two JSX tags for the word "car", and
+    // `spec.kind === 'car-sticker'` written there is exactly that — the kind
+    // string, not display copy, but the guard cannot tell the two apart. An
+    // identifier has no word boundary in the middle of it for `\bcar\b` to
+    // match, the same reason "denominator" does not flag "den".
+    const isCarLabel = spec.kind === 'car-sticker';
+
+    // The car label's own "print before check-in" option (#617). A per-print
+    // toggle rather than a stored setting: the same sheet gets run off twice
+    // on the day — once before the scale opens, with the weight line left
+    // blank on purpose, and again afterwards with the recorded weights — so
+    // remembering the choice between visits would print the wrong one of the
+    // two half the time.
+    const [printBeforeCheckIn, setPrintBeforeCheckIn] = useState(false);
 
     const race: PrintableRace | null = data?.race
         ? {
@@ -80,6 +118,7 @@ export default function Printables() {
             car_name: r.carName,
             racing_group_id: r.racingGroupId,
             racer_image_url: r.racerImageUrl,
+            car_weight: r.carWeight,
         }));
         return racersToPrint(racers, parseIds(searchParams.get('racers')));
     }, [data, searchParams]);
@@ -126,11 +165,22 @@ export default function Printables() {
                             aria-pressed={option.kind === spec.kind}
                             onClick={() => chooseKind(option.kind)}
                         >
-                            <span className="printables-kind-label">{option.label}</span>
+                            <span className="printables-kind-label">{labelFor(option, vehicle)}</span>
                             <span className="printables-kind-blurb">{option.blurb}</span>
                         </button>
                     ))}
                 </div>
+
+                {isCarLabel && (
+                    <label className="printables-option">
+                        <input
+                            type="checkbox"
+                            checked={printBeforeCheckIn}
+                            onChange={(e) => setPrintBeforeCheckIn(e.target.checked)}
+                        />
+                        Leave the weight blank (printing before check-in)
+                    </label>
+                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span className="printables-summary">
@@ -185,6 +235,18 @@ export default function Printables() {
                                     race={race}
                                     racingGroup={racingGroup}
                                     nameDisplay={nameDisplay}
+                                />
+                            );
+                        }
+                        if (isCarLabel) {
+                            return (
+                                <CarSticker
+                                    key={racer.id}
+                                    racer={racer}
+                                    race={race}
+                                    racingGroup={racingGroup}
+                                    nameDisplay={nameDisplay}
+                                    printBeforeCheckIn={printBeforeCheckIn}
                                 />
                             );
                         }

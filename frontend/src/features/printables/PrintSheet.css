@@ -73,6 +73,16 @@
     font-size: 0.9rem;
 }
 
+/* The car label's own "print before check-in" toggle — shown only while
+ * that document is selected (#617). */
+.printables-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--print-text-color);
+}
+
 /* The sheet itself. Same geometry on screen and on paper. */
 .print-sheets {
     display: grid;

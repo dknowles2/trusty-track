@@ -188,4 +188,67 @@ describe('Printables', () => {
 
         expect(screen.getByText('Race not found.')).toBeInTheDocument();
     });
+
+    it('offers car labels in the picker', () => {
+        mockRace();
+        open();
+
+        expect(screen.getByRole('button', { name: /Car labels/ })).toBeInTheDocument();
+    });
+
+    it('switches to car labels and renders one card per racer', async () => {
+        mockRace();
+        open();
+
+        await userEvent.click(screen.getByRole('button', { name: /Car labels/ }));
+
+        expect(document.querySelectorAll('.car-sticker')).toHaveLength(2);
+        expect(screen.getByRole('button', { name: /Car labels/ })).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        );
+    });
+
+    it('prints selected racers as car labels in car-number order', () => {
+        mockRace();
+        open('?kind=car-sticker&racers=11,12');
+
+        expect(document.querySelectorAll('.car-sticker')).toHaveLength(2);
+        expect(cardNames()).toEqual(['Sam Okafor', 'Alex Rivera']);
+    });
+
+    it('offers the print-before-check-in checkbox only for car labels, unchecked by default', () => {
+        mockRace();
+        open();
+
+        expect(
+            screen.queryByLabelText(/Leave the weight blank/),
+        ).not.toBeInTheDocument();
+    });
+
+    it('shows the checkbox once car labels is chosen, and it forces the weight blank when checked', async () => {
+        mockRace({
+            ...RACE,
+            racers: [{ ...RACE.racers[0], carWeight: 4.98 }],
+        });
+        open('?kind=car-sticker');
+
+        const card = document.querySelector('.car-sticker') as HTMLElement;
+        expect(within(card).getByText('4.98 oz')).toBeInTheDocument();
+
+        const checkbox = screen.getByLabelText(/Leave the weight blank/);
+        expect(checkbox).not.toBeChecked();
+
+        await userEvent.click(checkbox);
+
+        expect(checkbox).toBeChecked();
+        expect(within(card).getByText('____ oz')).toBeInTheDocument();
+    });
+
+    it('says how much paper the 10-per-sheet car label grid needs', () => {
+        mockRace();
+        open('?kind=car-sticker');
+
+        expect(screen.getByText(/2 cards · 1 sheet of Letter · 10 per sheet/)).toBeInTheDocument();
+    });
 });

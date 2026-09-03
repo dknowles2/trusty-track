@@ -27,6 +27,7 @@ export const GET_PRINTABLES = gql`
         lastName
         carNumber
         carName
+        carWeight
         racingGroupId
         racerImageUrl
       }
