@@ -27,6 +27,14 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+# A sibling module, not `packaging.log_viewer`: this script has no package
+# `__init__.py` (nor should it — PyPI's own `packaging` library is a common
+# transitive dependency, and a real package here would shadow or collide
+# with it). Python and PyInstaller both resolve a bare `import log_viewer`
+# against this script's own directory, which is the ordinary way a launcher
+# script keeps a helper module beside it.
+from log_viewer import build_view_logs_command, console_app_available
+
 try:
     from backend.version import __version__ as version
 
@@ -330,7 +338,10 @@ if sys.platform == "darwin":
 
         def _view_logs(self, _) -> None:
             LOG_PATH.touch(exist_ok=True)
-            subprocess.run(["open", str(LOG_PATH)], check=False)
+            command = build_view_logs_command(
+                "Darwin", LOG_PATH, console_available=console_app_available()
+            )
+            subprocess.run(command, check=False)
 
         def _quit(self, _) -> None:
             threading.Thread(target=self._controller.stop, daemon=True).start()
@@ -408,7 +419,11 @@ elif sys.platform == "win32":
 
         def _view_logs(self, _icon, _item) -> None:
             LOG_PATH.touch(exist_ok=True)
-            os.startfile(str(LOG_PATH))
+            command = build_view_logs_command("Windows", LOG_PATH)
+            # A new, visible console window, not the tray process's own
+            # (invisible) one — CREATE_NEW_CONSOLE is what `os.startfile`
+            # gave Notepad for free, and PowerShell has no window otherwise.
+            subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
 
         def _quit(self, icon, _item) -> None:
             icon.stop()

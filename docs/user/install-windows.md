@@ -125,6 +125,12 @@ Your data folder (`%APPDATA%\TrustyTrack\`) is not deleted by the uninstaller. D
 
 ## Troubleshooting
 
+### Watching the application log
+
+Right-click the **TrustyTrack** icon in the system tray and choose **View
+Logs**. This opens a PowerShell window that follows the log live, so you can
+watch what the app is doing as you reproduce a problem.
+
 ### Other devices cannot reach the app
 
 This usually means the Windows Firewall prompt from Step 4 was dismissed or
