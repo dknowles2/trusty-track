@@ -1090,6 +1090,24 @@ were about the track and which about the device at the end of it. Lanes in
 service and track records still save on click rather than on **Save Settings**,
 and still say so.
 
+**Advanced is the last form section, not folded into Backup** ([#659](https://github.com/dknowles2/trusty-track/issues/659)).
+Debugging Mode used to sit at the foot of General, which put it near the
+*top* of the page once the page was sectioned — the opposite of what an
+operator opening Settings should meet first. Appending it to Backup was the
+issue's other suggestion and does not fit this page's own split: Backup lives
+**outside** the `<form>` specifically because a Restore button is destructive
+and one misclick from a submit button is a real risk, where Debugging Mode is
+an ordinary boolean with no such hazard. Pulling it out of the form to sit
+beside Backup would solve a problem it does not have while creating one it
+would — a field the "Save Settings" button no longer saves. So it is its own
+`isFormSection` entry instead, ordered after Tracks and before Backup in both
+`SECTIONS` and `FORM_SECTIONS`: last among the ordinary fields, still one
+`<form>`, still one Save. On the first-run wizard, where `sectionsFor(false)`
+renders every section in order with no nav, this reads as one more heading
+near the foot of a long page rather than as a change in behavior — the
+control itself has not moved relative to the fields around it, only relative
+to General.
+
 ### Themes
 
 Three independently configurable colour surfaces (#498) — **App** (the

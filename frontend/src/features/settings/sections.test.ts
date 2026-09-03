@@ -8,6 +8,7 @@ describe('which sections are offered', () => {
             'appearance',
             'access',
             'tracks',
+            'advanced',
             'backup',
         ]);
     });
@@ -27,7 +28,16 @@ describe('which sections are offered', () => {
             'appearance',
             'access',
             'tracks',
+            'advanced',
         ]);
+    });
+
+    it('keeps Advanced inside the form, last (#659)', () => {
+        // Unlike Backup, nothing Advanced holds is destructive — Debugging
+        // Mode is an ordinary field, saved by the same "Save Settings" button
+        // as the organization name — so there is no misclick to guard
+        // against, and it stays part of one Save.
+        expect(isFormSection('advanced')).toBe(true);
     });
 
     it('says what each section is for', () => {
