@@ -12,6 +12,12 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize, edited]
 
+# v7 split the single release-drafter action into two sub-actions —
+# `drafter` and `autolabeler` — each doing exactly one of the two jobs
+# below. There is no longer a `disable-autolabeler`/`disable-releaser`
+# input to tell one action to do only half its work; each job instead
+# invokes the sub-action for the half it wants, which is also what keeps
+# the `permissions:` blocks below minimal and accurate.
 permissions:
   contents: read
 
@@ -31,10 +37,9 @@ jobs:
     concurrency:
       group: release-drafter
     steps:
-      - uses: release-drafter/release-drafter@v7
+      - uses: release-drafter/release-drafter/drafter@v7
         with:
           config-name: release-drafter.yml
-          disable-autolabeler: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -52,9 +57,8 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: release-drafter/release-drafter@v7
+      - uses: release-drafter/release-drafter/autolabeler@v7
         with:
           config-name: release-drafter.yml
-          disable-releaser: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

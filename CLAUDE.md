@@ -1487,7 +1487,7 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 | #13 | The race-day flow is one machine in `features/racing/raceFlow.ts`, not effects |
 | #17 | Standings cover preliminary rounds only |
 | #26 | The PPC scheduler fills every lane; `test_domain_scheduling.py` holds the properties |
-| #45 | `ruff check` and `ruff format --check` gate CI over `backend scripts packaging`. Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
+| #45 | `ruff check` and `ruff format --check` gate CI over the whole tree (`uv run ruff check .` / `uv run ruff format --check .`, which also covers Python code blocks inside Markdown files, not just `backend scripts packaging`). Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
 | #125 | Foreign keys are enforced on every connection, and `heat_lanes` carries `ON DELETE` actions. Deletion ordering is the schema's rule, not Python's |
 | #14 | **Keep GraphQL.** 48 mutations against 17 queries — the cost sits where GraphQL adds nothing, and does not shrink in REST |
 | #72 | `heats.lane_results` is dropped. `heat_lanes` is the only copy; migration `0013` proved that per database rather than waiting on a release |
