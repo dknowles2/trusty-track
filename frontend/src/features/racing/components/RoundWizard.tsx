@@ -99,7 +99,7 @@ export const RoundWizard: React.FC<RoundWizardProps> = ({
 
     // Championship Rounds
     for (const round of championshipRounds) {
-      let participatingRacers = 0;
+      let participatingRacers;
       if (round.source === 'ALL' || round.source === 'PREVIOUS') {
         participatingRacers = round.numTopRacers;
       } else {
