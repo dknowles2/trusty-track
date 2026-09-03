@@ -11,12 +11,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useSubscription } from 'urql';
 import AwardArtwork from '../artwork';
 import { CeremonyAward, deltaForKey, slideFor, stepIndex } from '../ceremony';
 import { RACE_AWARDS_QUERY } from '../graphql/queries';
-import { displayId } from '../../observation/displayIdentity';
+import { displayId, startDeviceClaimHeartbeat } from '../../observation/displayIdentity';
 import { DisplayAssignmentSubscription } from '../../observation/graphql/queries';
 import IdentifyPresence from '../../observation/IdentifyPresence';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
@@ -27,6 +27,7 @@ export default function AwardCeremony() {
   const { raceId } = useParams<{ raceId: string }>();
   const id = parseInt(raceId || '0');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { groupLower } = useTerminology();
   const [index, setIndex] = useState(0);
 
@@ -38,7 +39,14 @@ export default function AwardCeremony() {
   // Holding the same subscription here keeps the screen present, and an
   // assignment to any other view sends it back to the observation page to
   // carry it out.
-  const thisDisplayId = useMemo(() => displayId(), []);
+  //
+  // `?displayId=` (#590) matters less here than on Observation, since a
+  // redirect into this page never carries one — but a screen opened on this
+  // route directly still resolves the same way, and `displayId()` is the one
+  // door either way.
+  const displayIdParam = searchParams.get('displayId');
+  const thisDisplayId = useMemo(() => displayId(displayIdParam), [displayIdParam]);
+  useEffect(() => startDeviceClaimHeartbeat(thisDisplayId), [thisDisplayId]);
   const [assignmentResult] = useSubscription({
     query: DisplayAssignmentSubscription,
     variables: { displayId: thisDisplayId, raceId: id },

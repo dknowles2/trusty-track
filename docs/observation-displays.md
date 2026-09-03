@@ -154,6 +154,12 @@ Two things worth knowing:
 The six views a screen can show, and how assignment behaves, are in
 [Audience display views](reference/displays.md).
 
+> [!TIP]
+> **Two monitors on the same computer** used to report as a single screen —
+> assigning one moved both. The **Open a new display window** button above
+> the list opens a second window that is its own screen from the start, with
+> nothing to type. See [Two screens, one computer](reference/displays.md#two-screens-one-computer).
+
 > [!NOTE]
 > **Awards ceremony** is in the dropdown once the race has awards — set them
 > up on the [Awards page](awards.md) first. It puts the ceremony on that
@@ -228,6 +234,10 @@ The standard Observation page (not Projector Mode) works well on a tablet placed
 ### Multiple Displays
 
 You can open the Observation page on as many devices as you want simultaneously — every device shows the same live data. One common setup: Projector Mode on the main screen, plus the standard view on a tablet for the operator.
+
+This includes two monitors plugged into one computer — see [Two screens, one
+computer](reference/displays.md#two-screens-one-computer) for the button that
+makes the second one its own display rather than a mirror of the first.
 
 ---
 

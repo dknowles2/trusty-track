@@ -15,7 +15,15 @@
 import { useState } from 'react';
 import { useClient, useMutation, useQuery, useSubscription } from 'urql';
 import { Icon } from '@mdi/react';
-import { mdiCheckCircle, mdiCircleOutline, mdiClose, mdiDice5, mdiPencil, mdiFlashOutline } from '@mdi/js';
+import {
+    mdiCheckCircle,
+    mdiCircleOutline,
+    mdiClose,
+    mdiDice5,
+    mdiPencil,
+    mdiFlashOutline,
+    mdiOpenInNew,
+} from '@mdi/js';
 
 import {
     ADVANCE_DISPLAY,
@@ -29,6 +37,7 @@ import {
     SUGGEST_DISPLAY_NAME,
 } from '../graphql/queries';
 import { viewCycles, viewOptionsFor, type DisplayView } from '../displayView';
+import { newDisplayWindowUrl } from '../displayIdentity';
 
 interface DisplayRow {
     displayId: string;
@@ -91,6 +100,14 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
 
     const displays: DisplayRow[] = liveResult.data?.displays ?? queryResult.data?.displays ?? [];
 
+    // Two monitors on this same computer used to report as one screen,
+    // because every tab shares this computer's `localStorage` — assigning a
+    // view moved both at once (#590). Opening the window this way, rather
+    // than pointing at Live and letting a second tab find its own id, hands
+    // the new tab a fresh one up front, so there is nothing for it to
+    // contend with the tab that opened it.
+    const openNewDisplay = () => window.open(newDisplayWindowUrl(raceId), '_blank', 'noopener');
+
     if (displays.length === 0) {
         return (
             <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted-color)' }}>
@@ -99,12 +116,30 @@ export default function DisplaysPanel({ raceId }: { raceId: number }) {
                     Open <strong>Live</strong> on a screen anywhere on this network and it will
                     appear here — there is nothing to set up first.
                 </p>
+                <button
+                    type="button"
+                    onClick={openNewDisplay}
+                    className="secondary-btn"
+                    style={{ marginTop: '1rem', padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                    <Icon path={mdiOpenInNew} size={0.7} />
+                    Open a new display window
+                </button>
             </div>
         );
     }
 
     return (
         <div style={{ display: 'grid', gap: '0.75rem' }}>
+            <button
+                type="button"
+                onClick={openNewDisplay}
+                className="secondary-btn"
+                style={{ justifySelf: 'start', padding: '0.4rem 0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+                <Icon path={mdiOpenInNew} size={0.7} />
+                Open a new display window
+            </button>
             {displays.map((display) => (
                 <div
                     key={display.displayId}

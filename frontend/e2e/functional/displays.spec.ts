@@ -118,6 +118,80 @@ test('an unassigned display still follows its own URL', async ({ browser, page }
     await displayContext.close();
 });
 
+test('two windows on the same computer register as two distinct displays', async ({ page, context }) => {
+    // The reported bug (#590): every tab on one computer shares its
+    // `localStorage`, so two monitors plugged into the same operator's
+    // laptop reported the identical id and an assignment moved both at
+    // once. `context.newPage()` rather than `browser.newContext()` is the
+    // point of this spec — a new *context* starts with empty storage of its
+    // own, which is a different machine as far as this feature is
+    // concerned, and every other spec in this file uses one for exactly
+    // that reason. Sharing the context is what makes this the actual
+    // situation being fixed, with neither window told which id to use.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Same Computer Displays Race');
+
+    const first = await context.newPage();
+    await first.goto(`/race/${raceId}/observation`);
+    await first.waitForLoadState('networkidle');
+
+    const second = await context.newPage();
+    await second.goto(`/race/${raceId}/observation`);
+    await second.waitForLoadState('networkidle');
+
+    await page.goto(`/race/${raceId}/control/displays`);
+    const rows = page.locator('[data-testid^="display-"]');
+    await expect(rows).toHaveCount(2, { timeout: 10000 });
+
+    // Assigning the first row must move exactly one window, not both.
+    await rows.nth(0).getByRole('combobox').selectOption('TIMING');
+    await expect
+        .poll(
+            async () => {
+                const firstPressed = await first
+                    .getByRole('button', { name: /Timing Stats/i })
+                    .getAttribute('aria-pressed');
+                const secondPressed = await second
+                    .getByRole('button', { name: /Timing Stats/i })
+                    .getAttribute('aria-pressed');
+                return [firstPressed, secondPressed].filter((pressed) => pressed === 'true').length;
+            },
+            { timeout: 10000 },
+        )
+        .toBe(1);
+
+    // A reload keeps a window's own identity — it neither becomes a third
+    // display nor swaps places with the other window.
+    await second.reload();
+    await second.waitForLoadState('networkidle');
+    await page.goto(`/race/${raceId}/control/displays`);
+    await expect(rows).toHaveCount(2, { timeout: 10000 });
+
+    await first.close();
+    await second.close();
+});
+
+test('the operator can open a second display window with one click', async ({ page, context }) => {
+    // Race Control's own launcher (#590): a fresh id baked into the URL, so
+    // the new window is a distinct screen from the moment it opens rather
+    // than briefly contending with this tab's own claim on the shared
+    // device id.
+    await ensureConfigured(page);
+    const { raceId } = await seedRace(page, 'Open New Display Race');
+
+    await page.goto(`/race/${raceId}/control/displays`);
+    const [popup] = await Promise.all([
+        context.waitForEvent('page'),
+        page.getByRole('button', { name: 'Open a new display window' }).click(),
+    ]);
+    await popup.waitForLoadState('networkidle');
+    expect(popup.url()).toContain(`/race/${raceId}/observation?displayId=`);
+
+    await expect(page.locator('[data-testid^="display-"]')).toHaveCount(1, { timeout: 10000 });
+
+    await popup.close();
+});
+
 /*
  * There is deliberately no spec here for "a viewer cannot assign a display".
  * Asserting it needs an operator PIN set on this backend, which every other
