@@ -120,12 +120,40 @@ test('take screenshots', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Save Racer' })).toBeVisible();
     await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/04-add-racer-form.png') });
 
-    // Cancelled, because the roster is populated below rather than typed.
-    await page.getByRole('button', { name: /Cancel/i }).click();
+    // Saved, not cancelled (#607) — the caption below says the racer "will now
+    // appear in your roster", so the picture needs one actually in it.
+    const manualForm = page.locator('form');
+    await manualForm.getByLabel('First Name').fill('Jamie');
+    await manualForm.getByLabel('Last Name').fill('Delgado');
+    await manualForm.getByLabel('Car Number').fill('7');
+    await page.getByRole('button', { name: 'Save Racer' }).click();
     await expect(page.getByRole('button', { name: 'Save Racer' })).toBeHidden();
+    await expect(page.locator('.racer-row').filter({ hasText: 'Delgado' }).first()).toBeVisible();
 
-    // The roster with nothing in it yet, from the racer-list section's angle.
+    // The roster with the one racer just typed in, from the racer-list
+    // section's angle.
     await page.screenshot({ path: path.join(screenshotsDir, 'race-setup/05-racer-list-manual.png') });
+
+    // Removed again through the API rather than the roster's own delete
+    // control, which would be its own screenshot-worthy flow. Everything below
+    // — the checked-in counts, the seeded roster's car numbers — assumes
+    // exactly the populated roster, not this one hand-typed extra racer, and
+    // the seeded generator keys off the race's *name* (not a racer count or
+    // id) so removing this one first changes nothing it produces. Queried by
+    // id rather than assumed, since `createRacer`'s own id is not in hand from
+    // a UI submission.
+    const manualRacer = await gql<{ race: { racers: Array<{ id: number }> } }>(
+        page,
+        `query DocsManualRacer($raceId: Int!) { race(raceId: $raceId) { racers { id } } }`,
+        { raceId },
+    );
+    for (const racer of manualRacer.race.racers) {
+        await gql(page, `mutation DocsDeleteManualRacer($id: Int!) { deleteRacer(id: $id) }`, { id: racer.id });
+    }
+    // Deleted straight through the backend, so reload before the roster is
+    // touched again.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
 
     // The CSV import dialog.
     await page.locator('.split-btn-arrow').click();
