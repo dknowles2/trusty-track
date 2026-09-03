@@ -51,6 +51,7 @@ __all__ = [
     "SpeedRule",
     "can_be_voted_on",
     "default_artwork_key",
+    "eligible_standings",
     "place_is_contested",
     "rank_tally",
     "recipient_of",
@@ -119,10 +120,13 @@ class SpeedRule:
         return round_id_in(self.source)
 
 
-def _eligible(rule: SpeedRule, standings: Sequence[Standing]) -> Sequence[Standing]:
+def eligible_standings(
+    rule: SpeedRule, standings: Sequence[Standing]
+) -> Sequence[Standing]:
     """``standings``, narrowed to the racing group and put in the rule's own
-    direction — the shared first half of :func:`recipient_of` and
-    :func:`place_is_contested`, so the two cannot narrow differently.
+    direction — the shared first half of :func:`recipient_of`,
+    :func:`place_is_contested` and :mod:`backend.domain.roll_down`, so none
+    of the three can narrow differently.
     """
     eligible = standings
     if rule.racing_group_id is not None:
@@ -156,7 +160,7 @@ def recipient_of(rule: SpeedRule, standings: Sequence[Standing]) -> int | None:
     this award goes wrong in a room. Same rule, same reason, as
     :func:`backend.domain.advancement._picking_order`.
     """
-    eligible = _eligible(rule, standings)
+    eligible = eligible_standings(rule, standings)
     index = rule.place - 1
     if index >= len(eligible):
         return None
@@ -180,7 +184,7 @@ def place_is_contested(rule: SpeedRule, standings: Sequence[Standing]) -> bool:
     :func:`recipient_of`'s ``None``: there is nothing to contest about a
     trophy nobody has run for.
     """
-    eligible = _eligible(rule, standings)
+    eligible = eligible_standings(rule, standings)
     index = rule.place - 1
     if index >= len(eligible):
         return False
