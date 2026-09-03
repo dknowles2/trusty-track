@@ -34,6 +34,7 @@ from backend.domain import name_display as domain_name_display
 from backend.domain import scoring as domain_scoring
 from backend.domain import terminology as domain_terminology
 from backend.domain.scale_speed import DEFAULT_SCALE
+from backend.domain.scale_speed import scale_mph as domain_scale_mph
 from backend.services import displays as displays_service
 from backend.services import network, scoring
 from backend.services import records as records_service
@@ -1149,6 +1150,11 @@ class RaceStats:
     racing_group_stats: list[RacingGroupStat]
     heat_results: list[HeatResultRow]
     track_records: list[TrackRecord]
+    #: The fastest heat's time (`highlights`' `FASTEST_HEAT` entry) converted
+    #: to scale speed (#610), or null under the same conditions as
+    #: `TimingStatsLane.scaleMph` — the track's scale speed turned off, no
+    #: configured length, or no heat has finished yet to be fastest.
+    top_scale_mph: float | None
 
 
 @strawberry.type
@@ -2735,6 +2741,7 @@ class Query:
             ],
             heat_results=[HeatResultRow(**hr) for hr in data["heat_results"]],
             track_records=[TrackRecord(**tr) for tr in data["track_records"]],
+            top_scale_mph=data["top_scale_mph"],
         )
 
 
@@ -4912,6 +4919,10 @@ class TimingStatsLane:
     time: float | None
     place: int | None
     racer_image_url: str | None
+    #: The scale speed this lane's time converts to (#610), or null when the
+    #: track has scale speed turned off, has no configured length, or this
+    #: lane has no time to convert. See `domain.scale_speed.scale_mph`.
+    scale_mph: float | None
 
 
 @strawberry.type
@@ -5327,6 +5338,23 @@ class Subscription:
                     race=race_row.name_display if race_row else None,
                 )
 
+                # Loaded once, through the same per-operation cache the
+                # record-break baseline's `race_row.track_id` lookup could
+                # have used — a lane count's worth of tracks is one query,
+                # not one per lane (#610, `test_query_counts.py`).
+                track_row = (
+                    _loaders(info).track_by_id(race_row.track_id)
+                    if race_row and race_row.track_id
+                    else None
+                )
+
+                def _scale_mph(seconds: float | None) -> float | None:
+                    if track_row is None or not track_row.show_scale_speed:
+                        return None
+                    return domain_scale_mph(
+                        track_row.length_feet, seconds, track_row.scale_ratio
+                    )
+
                 lane_stats = []
                 for lane in heat_lanes:
                     racer = racer_map.get(lane.racer_id)
@@ -5343,6 +5371,7 @@ class Subscription:
                             car_name=racer.car_name if racer else None,
                             time=lane.seconds,
                             place=lane.place,
+                            scale_mph=_scale_mph(lane.seconds),
                             racer_image_url=racer.racer_image_url if racer else None,
                         )
                     )

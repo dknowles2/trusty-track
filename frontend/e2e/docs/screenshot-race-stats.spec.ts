@@ -86,7 +86,10 @@ test('screenshot the race stats page', async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 800 });
     await ensureConfigured(page);
 
-    const trackId = await ownTrack(page, 'Race Stats Track');
+    // A configured length (#610) — `ownTrack` otherwise leaves it null, and
+    // the "Top scale speed" line beside the Fastest Heat card would have
+    // nothing to compute from.
+    const trackId = await ownTrack(page, 'Race Stats Track', 4, 'FAKE', 40);
     const raceId = await seedRace(page, {
         name: 'Pack 42 Stats Derby',
         trackId,

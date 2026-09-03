@@ -954,6 +954,7 @@ export type RaceStats = {
   racerStats: Array<RacerStat>;
   racingGroupStats: Array<RacingGroupStat>;
   scoringStrategy: Scalars['String']['output'];
+  topScaleMph?: Maybe<Scalars['Float']['output']>;
   totalHeatsCompleted: Scalars['Int']['output'];
   totalHeatsScheduled: Scalars['Int']['output'];
   totalRacers: Scalars['Int']['output'];
@@ -1253,6 +1254,7 @@ export type TimingStatsLane = {
   place?: Maybe<Scalars['Int']['output']>;
   racerImageUrl?: Maybe<Scalars['String']['output']>;
   racerName: Scalars['String']['output'];
+  scaleMph?: Maybe<Scalars['Float']['output']>;
   time?: Maybe<Scalars['Float']['output']>;
 };
 
