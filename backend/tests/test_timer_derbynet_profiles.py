@@ -178,6 +178,21 @@ def test_a_reported_lane_count_is_read(profile: TimerProfile, line: bytes, lanes
     assert event.lanes == lanes
 
 
+def test_the_champs_lane_count_is_a_scoped_query_not_a_general_matcher():
+    """DerbyNet's `on` draws a bare digit -- `^(\\d)$` -- which would claim
+    any single-digit line if it were an ordinary matcher, the same trap the
+    gate answers below are read through `gate_watcher` to avoid. It only
+    means a lane count inside the window that follows the query, so it lives
+    on `lane_count_query` and `read_lane_count` rather than `matchers` and
+    `parse_line` (issue #637)."""
+    assert CHAMP.parse_line(b"4") is None
+
+    event = CHAMP.read_lane_count(b"4")
+
+    assert isinstance(event, LaneCount)
+    assert event.lanes == 4
+
+
 # ---------------------------------------------------------------------------
 # Gate answers
 # ---------------------------------------------------------------------------
