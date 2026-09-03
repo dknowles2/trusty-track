@@ -27,7 +27,7 @@ function copyWithExecCommand(text: string): boolean {
     textarea.focus();
     textarea.select();
 
-    let copied = false;
+    let copied: boolean;
     try {
         copied = document.execCommand('copy');
     } catch {
