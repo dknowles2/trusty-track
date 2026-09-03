@@ -139,6 +139,14 @@ To update to a new version:
 
 ## Troubleshooting
 
+### Watching the application log
+
+Click the **TrustyTrack** icon in the menu bar (top of the screen, near the
+clock) and choose **View Logs**. This opens Console.app showing the log file
+and following it live, so you can watch what the app is doing as you
+reproduce a problem. (If your Mac doesn't have Console.app, it opens a
+Terminal window running `tail` instead.)
+
 ### App bounces in the Dock and doesn't open
 
 The app may be failing to start. Try:
