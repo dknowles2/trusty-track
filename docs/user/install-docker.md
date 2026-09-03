@@ -224,16 +224,6 @@ ports:
 
 Then access the app at `http://localhost:8080`.
 
-### "Permission denied: '/data'" in the logs
-
-You are running an image built before August 2026. It created no `/data`
-directory, and the app cannot write one as its non-root user. Pull a newer
-image:
-
-```bash
-docker pull ghcr.io/dknowles2/trusty-track:latest
-```
-
 ### Container exits immediately
 
 Check the container logs:
