@@ -291,10 +291,13 @@ export const BULK_ASSIGN_PHOTOS = gql`
  * One mutation rather than the five round trips a client would need — race,
  * racingGroups, roster, check-in, rounds — because a rehearsal that fails half way
  * leaves the operator with a broken race to tidy up.
+ *
+ * Resumes the most recent rehearsal rather than building another one (#588)
+ * unless `startNew` says otherwise — see Home.tsx's `handlePractice`.
  */
 export const CREATE_PRACTICE_RACE = gql`
-  mutation CreatePracticeRace {
-    createPracticeRace {
+  mutation CreatePracticeRace($startNew: Boolean) {
+    createPracticeRace(startNew: $startNew) {
       id
       name
     }

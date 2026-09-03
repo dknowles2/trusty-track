@@ -2409,6 +2409,20 @@ class Query:
         )
 
     @strawberry.field
+    def practice_race(self, info: Info) -> Race | None:
+        """The rehearsal already under way, if there is one (#588).
+
+        Home reads this to decide whether its button should say "Resume
+        practice race" instead of "Try a practice race", and whether it needs
+        a second, smaller "Start new" action beside it — the same question
+        `createPracticeRace` answers for itself before deciding whether to
+        build anything. Answered once, here, rather than the frontend
+        re-deriving the naming rule from the race list: two copies of a rule
+        are two chances for them to disagree (#48).
+        """
+        return typing.cast(Any, crud.existing_practice_race(info.context["db"]))
+
+    @strawberry.field
     def timer_models(self) -> list[TimerModel]:
         """Every timer model a track can be set to, in probe order.
 
@@ -4349,8 +4363,15 @@ class Mutation:
         return f"Populated race {race_id} with {config.count} racers"
 
     @strawberry.mutation
-    async def create_practice_race(self, info: Info) -> Race:
+    async def create_practice_race(self, info: Info, start_new: bool = False) -> Race:
         """A whole event on a fake timer, ready to run (#201).
+
+        Resumes the most recent rehearsal rather than building another one
+        (#588): a double click, or simply visiting Home a second time, must
+        not leave cruft in the races list. `startNew` is the deliberate
+        override for an operator who really does want to start over — it
+        gets a fresh race, counted up the usual way, rather than reopening
+        one they are done with.
 
         One mutation rather than the five round trips a client would need —
         race, racing groups, roster, check-in, rounds — because a rehearsal that fails
@@ -4358,6 +4379,9 @@ class Mutation:
         the opposite of the confidence this exists to give.
         """
         db = info.context["db"]
+        existing = None if start_new else crud.existing_practice_race(db)
+        if existing is not None:
+            return typing.cast(Any, existing)
         new_race = typing.cast(Any, crud.create_practice_race(db))
         # Inserts a race the same as createRace, and #300's signal is a rule
         # about every insert into `races`, not just the ones reached through

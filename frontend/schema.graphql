@@ -352,7 +352,7 @@ type Mutation {
   resetTimer(trackId: Int!): Boolean!
   updateInitialConfig(config: InitialConfigInput!): InitialConfigStatus!
   populateRace(raceId: Int!, config: PopulateTestDataInput!): String!
-  createPracticeRace: Race!
+  createPracticeRace(startNew: Boolean! = false): Race!
   importRacers(raceId: Int!, csvData: String!): Int!
   createRound(raceId: Int!, roundData: RoundCreateInput!): [Round!]!
   reorderHeats(heatUpdates: [HeatReorderItemInput!]!): HeatReorderResponse!
@@ -397,6 +397,7 @@ type Query {
   suggestDisplayName(displayId: String!, avoid: String = null): String!
   auditLog(raceId: Int = null, limit: Int! = 200, beforeId: Int = null): [AuditLogEntry!]!
   races(skip: Int! = 0, limit: Int! = 100): [Race!]!
+  practiceRace: Race
   timerModels: [TimerModel!]!
   version: String!
   networkAddresses: [String!]!

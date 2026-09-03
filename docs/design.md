@@ -170,6 +170,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 **GraphQL Queries:**
 
 -   `races(skip, limit)` — List all races.
+-   `practiceRace` — The rehearsal already under way, if there is one (#588). Identified by name (`domain/practice.py`), the same rule `createPracticeRace` checks before deciding whether to build a new one; Home reads this to offer "Resume practice race" instead of "Try a practice race" without re-deriving the naming rule itself.
 -   `race(raceId)` — Get a single race with nested `racers`, `racingGroups`, `rounds`, `heats`, `leaderboard`, `awards`. Carries `votingOpen` (#305); each `Award` carries `votable` and `voteTally` (ranked `(racer, voteCount)` pairs, from `services/awards.vote_tallies_for` — one query for the whole race, not one per award). Carries `terminology` — this race's override layered over its organization's default (`domain/terminology.py`, #496 stage 3; #551 adds the vehicle term) — plus the raw `racingGroupSingular`/`racingGroupPlural`/`organizationSingular`/`organizationPlural`/`vehicleSingular`/`vehiclePlural`/`vehicleArtworkKey` override fields the edit form reads back.
 -   `racers(raceId, skip, limit)` — List racers.
 -   `auditLog(raceId, limit, beforeId)` — The activity timeline, newest first. Operator-only, and it enforces that itself: the role policy guards mutations, and this is the query a wall display must never be able to run (#219).
@@ -206,7 +207,7 @@ The backend exposes a **GraphQL API** at `/graphql` (using Strawberry) for all d
 -   Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 -   Run-off heats (#550): `createRunOffHeat(raceId, racerIds, settlesRoundId)` — a `RunOffHeat` (`kind = RUN_OFF`, no `roundId`) holding the tied racers, armed and recorded through the ordinary `prepareHeat`/`updateHeatResult` path like any other heat by id. It never feeds an aggregate score, a track record, or the schedule it did not come from — `Race.runOffHeats`, `RunOffHeat.placement` and `Heat.runOffPlacement` are all computed fresh on every read (never stored), and `domain.tiebreak`'s `RUN_OFF` resolution beats the race's own configured tiebreaker whenever a decided run-off exists for exactly the tied cluster in question. `deleteRunOffHeat` removes one that has not been run yet, the operator's undo for a mistake.
 -   Config: `createInitialConfig`, `updateInitialConfig` — both accept the organization's terminology default (racing group, organization, and, since #551, vehicle) the same way they accept the PINs and the themes: absent leaves it alone, and `clearTerminology` (not a non-null sentinel — the built-in Scouting words *are* the null state) is the way back to it (#496 stage 3). Both also accept the organization's name-display default (#552) the same way they accept the themes: `"FULL"` *is* the non-null off state here, so absent leaves it alone and no clear flag is needed at this layer
--   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data), `createPracticeRace` (a whole rehearsal event on a fake timer)
+-   Data: `importRacers` (CSV), `uploadImage` (base64), `populateRace` (test data), `createPracticeRace` (a whole rehearsal event on a fake timer; resumes the most recent one rather than building another unless `startNew` is set, #588)
 
 **REST Endpoints (binary responses):**
 

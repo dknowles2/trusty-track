@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, gql } from 'urql';
 import { CREATE_PRACTICE_RACE, CREATE_RACE } from '../graphql/queries';
@@ -21,6 +21,10 @@ const GET_RACES = gql`
             registeredCount
             checkedInCount
         }
+        practiceRace {
+            id
+            name
+        }
     }
 `;
 
@@ -31,6 +35,11 @@ interface Race {
     location: string;
     registeredCount: number;
     checkedInCount: number;
+}
+
+interface PracticeRace {
+    id: number;
+    name: string;
 }
 
 export default function Home() {
@@ -66,21 +75,39 @@ export default function Home() {
         }
     };
 
+    // Re-entrancy guard for `handlePractice`, on top of the button's own
+    // `disabled={practiceResult.fetching}` below. Two clicks can land before
+    // urql's fetching flag has made it into a render — a synchronous ref
+    // closes that window rather than trusting the timing (#588).
+    const startingPractice = useRef(false);
+
     // The rehearsal (#201). It lands on Race Control rather than the roster,
     // because what somebody wants to practise is race day — the roster is the
     // part they have already done at a kitchen table.
-    const handlePractice = async () => {
+    //
+    // Resumes the rehearsal already under way rather than building another
+    // one (#588) — the mutation decides that server-side, using the same
+    // rule `practiceRace` below reads to choose the button's wording, so the
+    // frontend never has to guess which race that is. `startNew` is the
+    // deliberate "start over" action, offered only once there is something
+    // to start over from.
+    const handlePractice = async (startNew = false) => {
+        if (startingPractice.current) return;
+        startingPractice.current = true;
         try {
-            const result = await createPracticeRace({});
+            const result = await createPracticeRace({ startNew });
             if (result.error) throw result.error;
             navigate(`/race/${result.data.createPracticeRace.id}/control/race`);
         } catch (e) {
             console.error("Failed to create practice race", e);
             showAlert("Could not create a practice race", "Error");
+        } finally {
+            startingPractice.current = false;
         }
     };
 
     const races: Race[] = data?.races || [];
+    const practiceRace: PracticeRace | null = data?.practiceRace ?? null;
 
     return (
         <div className="container" style={{ padding: '2rem' }}>
@@ -95,17 +122,42 @@ export default function Home() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {/* Rehearsal, beside the real thing rather than hidden
                         away. The night before an event is when a volunteer
-                        wants it, and they will not go looking for it. */}
+                        wants it, and they will not go looking for it. Once
+                        one exists, this resumes it rather than piling up
+                        another (#588); "Start new" is the deliberate way
+                        past that. */}
                     <button
-                        onClick={handlePractice}
+                        onClick={() => handlePractice(false)}
                         className="secondary-btn"
                         data-testid="practice-race"
                         disabled={practiceResult.fetching}
                         style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                         <Icon path={mdiSchool} size={0.8} />
-                        {practiceResult.fetching ? 'Setting up…' : 'Try a practice race'}
+                        {practiceResult.fetching
+                            ? (practiceRace ? 'Resuming…' : 'Setting up…')
+                            : (practiceRace ? 'Resume practice race' : 'Try a practice race')}
                     </button>
+                    {practiceRace && (
+                        <button
+                            onClick={() => handlePractice(true)}
+                            data-testid="practice-race-start-new"
+                            disabled={practiceResult.fetching}
+                            title="Start a new rehearsal instead of resuming this one"
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                font: 'inherit',
+                                fontSize: '0.85rem',
+                                color: 'var(--scouting-blue)',
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Start new
+                        </button>
+                    )}
                     <button onClick={() => setShowCreate(true)} className="primary-btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Icon path={mdiPlus} size={0.8} /> Create New Race
                     </button>
@@ -145,7 +197,7 @@ export default function Home() {
                                 <tr><td colSpan={6} style={{ padding: '20px', textAlign: 'center' }}>
                                     No races found. Create one to get started — or{' '}
                                     <button
-                                        onClick={handlePractice}
+                                        onClick={() => handlePractice(false)}
                                         data-testid="practice-race-empty"
                                         disabled={practiceResult.fetching}
                                         style={{

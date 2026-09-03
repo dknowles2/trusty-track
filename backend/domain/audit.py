@@ -286,7 +286,9 @@ ACTION_PHRASES: dict[str, str] = {
     "setLaneOutages": "Changed which lanes are in service",
     "createInitialConfig": "Set the system up",
     "updateInitialConfig": "Changed system settings",
-    "createPracticeRace": "Created a practice race",
+    # True whether this call built a new one or resumed one already under
+    # way (#588) — the audit log has no return value to read, only the call.
+    "createPracticeRace": "Opened a practice race",
     "populateRace": "Added test data",
     # Not mutations — the two seams a mutation-only log would miss.
     "heatResultRecorded": "Heat result recorded",

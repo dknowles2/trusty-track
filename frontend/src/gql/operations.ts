@@ -506,7 +506,9 @@ export type BulkAssignPhotosMutationVariables = Exact<{
 
 export type BulkAssignPhotosMutation = { bulkAssignPhotos: number };
 
-export type CreatePracticeRaceMutationVariables = Exact<{ [key: string]: never; }>;
+export type CreatePracticeRaceMutationVariables = Exact<{
+  startNew?: boolean | null | undefined;
+}>;
 
 
 export type CreatePracticeRaceMutation = { createPracticeRace: { id: number, name: string } };
@@ -514,7 +516,7 @@ export type CreatePracticeRaceMutation = { createPracticeRace: { id: number, nam
 export type GetRacesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetRacesQuery = { races: Array<{ id: number, name: string, dateTime: string | null, location: string | null, registeredCount: number, checkedInCount: number }> };
+export type GetRacesQuery = { races: Array<{ id: number, name: string, dateTime: string | null, location: string | null, registeredCount: number, checkedInCount: number }>, practiceRace: { id: number, name: string } | null };
 
 export type LeaderboardSubscriptionSubscriptionVariables = Exact<{
   raceId: number;
