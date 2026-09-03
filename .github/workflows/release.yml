@@ -361,7 +361,7 @@ jobs:
       # is it made public. A release page that appears with no assets on it is
       # the thing every install guide's download link points at.
       - name: Draft the release notes
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         with:
           config-name: release-drafter.yml
           tag: ${{ github.ref_name }}
