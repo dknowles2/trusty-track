@@ -604,6 +604,16 @@ Rules in `domain/tiebreak.py` (the `RUN_OFF` resolution) and `domain/lanes.py`; 
 
 **The projector's results overlay needs the same edge detector as `roundCompletion.ts`, and got it late** (#335). `timingStats` delivers an opening payload on connect — the subscription's usual shape — so a projector opened or reconnecting mid-event was popping the "Heat Results" overlay for whichever heat happened to be last, possibly minutes ago: `seen === null` meant history, not news, and this subscription had no `seen` at all. `features/observation/resultsOverlay.ts` supplies it. Its key is `heatId` plus `recordedAt` rather than `roundName`-`heatNumber`: the latter is unchanged by a correction, so a re-recorded heat never re-triggered the overlay. `recorded_at` is exposed on the `TimingStats` GraphQL type for exactly this — it is otherwise the same field #59 already uses to rank official and free heats together.
 
+### Scale speed
+
+`domain/scale_speed.py` — `scale_mph(length_feet, time_seconds, scale=DEFAULT_SCALE)` (#610). `Track.length_feet` was collected and never read; the question every scout asks after a heat is how fast that was in *real* miles per hour, which is a plain unit conversion once a length and an elapsed time exist: `(length_feet / time_seconds) * (3600 / 5280) * scale`.
+
+**`scale` is a parameter, not a constant.** `DEFAULT_SCALE = 25` is the standard BSA Pinewood Derby ratio — a ~7-inch car against a ~175-inch real one — but it is a fact about the *vehicle*, and this app's vehicle is configurable (see Terminology's `vehicle_singular`/`vehicle_plural`, #551). A Space Derby rocket or a Raingutter Regatta boat is not built to 1:25, so the ratio has to travel with the track rather than being baked into the arithmetic.
+
+**A non-positive time is the DNF marker, same as everywhere else scoring reads a time** (see Scoring above) — it and a non-positive or missing length, and a non-positive scale, all resolve to `None` rather than a number nobody should read.
+
+This is stage 1 of #610 — the pure rule only. A `tracks.scale_ratio` column, GraphQL wiring, the System Settings control, and rendering on the projector and timing views are later stages.
+
 ### Championship advancement
 
 Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.get_advancing_racers()`.
