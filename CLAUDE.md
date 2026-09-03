@@ -71,6 +71,7 @@ backend/
     populate.py       # Test data generator (populateRace mutation)
   domain/             # Pure rules — no SQLAlchemy, no Strawberry (see below)
     awards.py         # Who wins what
+    roll_down.py      # At most one trophy per racer: the resolution order, and why
     lanes.py          # Lane value object + predicates over a heat's lanes
     scheduling.py     # PPC algorithm
     scoring.py        # TIMED / POINTS aggregation and ranking
@@ -691,6 +692,26 @@ On the frontend, `/race/:raceId/awards` is a fourth tab on `RaceModeToggle` besi
 **Artwork is committed SVG, not fetched or generated.** Same reasoning as the chime being two oscillators rather than an audio file: the venue has no internet, so every picture `artwork.tsx` can draw ships in the bundle. They are original line-art in the app's own palette (`--scouting-blue`, `--cub-scouting-gold`), not clipart pulled from anywhere, so there is no licence to track. A key `artwork.tsx` does not recognise (an old award saved by a build that had fewer keys, say) renders nothing rather than throwing — the same "print blank rather than crash" rule the heat sheet's deleted-racer case follows.
 
 **The certificate is its own module, sibling to `heatSheet.ts`**, not a `DocumentSpec` card. One certificate per sheet is the same shape problem the heat sheet had: `documents.ts` sizes a card repeated to a grid, and a certificate is one full-page document, so `printables/certificate.ts` holds its own pure rules and `pages/Certificate.tsx` shares only the print stylesheet. Reached from the Awards screen's **Print certificates** link, next to **Present** — the two ends of the same ceremony, one for the room and one for the wall afterwards. One certificate is built per award, using its *current* recipient exactly as the results sheet's award lines do — an award nobody has decided yet still gets a certificate, printed with the name left blank, rather than being skipped; skipping would mean reprinting the whole batch the moment judging finishes. An award with no `artworkKey` gets a plain certificate — a border and the event's name, no clipart — which is also what an award saved before this feature existed still prints.
+
+### At most one trophy per racer
+
+Rule in `domain/roll_down.py` ([#615](https://github.com/dknowles2/trusty-track/issues/615), stage 1 — the pure rule only; nothing reads it yet). The near-universal pack policy: the pack champion does not also take first in their den, the den trophy *rolls down* to the next fastest car, and more children leave holding something. Awards were resolved in isolation, so the operator did this by hand.
+
+**Stage 1 was cut as the rule rather than the column the issue suggested.** A `Race.one_trophy_per_racer` column nothing reads is dead weight, and the genuinely open question here is the resolution order — which a pure module can pin with tests that read no database, in the tradition of `scale_speed.py` and `tiebreak.py`. The column, the `services/awards.py` wiring and the `loaders.award_recipients` memoisation are stage 2, where they belong together.
+
+**Computed, never stored, same as every other award.** A roll-down is a way of *reading* the standings, not a second answer: `resolve_awards` takes the awards in presentation order plus the standings each source names — the same `_standings_cache` the service already loads once per distinct source — and returns every recipient in one pass. That is what keeps it inside `test_query_counts.py`'s budget: the cost is the standings loads the service already pays, and nothing per award. `one_trophy_per_racer=False` returns byte for byte what `recipient_of` per award returns today, which is what lets the service have one code path.
+
+**The order is the whole problem, and it is stated, total and stable — never dictionary or query order.** A *podium* is one standings list read one way — `(source, racing_group_id, from_bottom)` — and its places are one cascade. Resolution is podium-major:
+
+1. **Race-wide podiums before group-scoped ones.** The tradition's own statement: the champion's den trophy rolls, never the reverse. Breadth is read off the rule alone — no `racing_group_id` means race-wide, whatever round it reads.
+2. **Among podiums of the same breadth, the one presented later first**, placed by its *last* award. A ceremony builds to the biggest trophy, so the last thing announced is the one nobody hands back; presentation order (#170) is the operator's one existing control, so no second one has to be kept in step with it. It also keeps two race-wide podiums (a final's and a prelim's) from interleaving place by place, which would hand second in the final the prelim trophy and third in the final the final's own silver.
+3. **Within a podium, first before second before third, whatever order they are announced in.** Announcing third first is the normal way to build suspense; resolving it first hands third to the third fastest car and then rolls first place past two cars already holding something.
+
+**Only holders of awards on *other* podiums are removed from a podium's candidates.** Removing everyone is the trap: second place would index past its own first-place winner into the wrong row. `Resolution.passed_over` reports the other-podium holders above the recipient (the cause of the roll) and not the same-podium ones (the ordinary cascade), with `position` saying which row was actually read — the material for "Liam (2nd in Wolves; Jordan won Pack Champion)", because an unexplained empty trophy reads as a bug.
+
+**A judged award never displaces a speed trophy and is never displaced** — judgment call, open to veto. A computed rule does not override a judge, and nobody knows who painted the second-best car, so it cannot roll; and it does not *block* either, because judging finishes after racing and a Best Paint pick landing at four must not silently move the pack trophy read out at three. The collision is reported instead (`Resolution.duplicate_of`), which is what stage 3's "already holds Fastest Overall — award anyway?" warning reads. The "vice versa" half of the tradition (a speed winner ineligible for a judged award) is therefore a person's decision with a warning, not an automatic exclusion.
+
+**What is left:** stage 2 — the column, migration, `RaceUpdateInput` field, and `services/awards.recipients_of` building `AwardEntry` rows in `(sort_order, id)` order and calling `resolve_awards`, with the provenance carried onto the `Award` GraphQL type; stage 3 — `awardText.ts` turning `position`/`passed_over`/`duplicate_of` into the sentence, the Race Settings checkbox, and the judged-award picker's warning; stage 4 — the docs pages.
 
 ### Voting for judged awards
 
