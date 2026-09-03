@@ -187,6 +187,25 @@ class Group:
 
 
 @dataclass(frozen=True)
+class Positional:
+    """A lane number taken from where a match falls among repeated matches on
+    one line, not from anything captured.
+
+    ``repeat``'s ordinary case is a device that *names* its own lane in each
+    occurrence — the MicroWizard's ``A=3.001!``, the Champ's ``C=3.456``. Some
+    timers report a fixed number of lanes on one line with no letter or
+    number of their own, only position: Bill V's two-lane ``Times:
+    h-a.aaaa j-b.bbbb`` always means lane 1 then lane 2, never the reverse.
+    ``base`` is the first occurrence's lane number; the second occurrence is
+    ``base + 1``, and so on. Only meaningful on a ``repeat`` matcher — a
+    non-repeating match has exactly one occurrence, so this would always
+    resolve to ``base``.
+    """
+
+    base: int = 1
+
+
+@dataclass(frozen=True)
 class Matcher:
     """A pattern, the event it means, and where the event's values are.
 
@@ -197,7 +216,7 @@ class Matcher:
 
     pattern: re.Pattern[bytes]
     event: Event
-    lane: Group | None = None
+    lane: "Group | Positional | None" = None
     time: Group | None = None
     place: Group | None = None
     #: Apply across the whole line rather than once, producing one event per
@@ -573,8 +592,8 @@ class TimerProfile:
         for matcher in self.matchers:
             if matcher.repeat:
                 events = [
-                    self._event_from(matcher, match)
-                    for match in matcher.pattern.finditer(cleaned)
+                    self._event_from(matcher, match, occurrence=i)
+                    for i, match in enumerate(matcher.pattern.finditer(cleaned))
                 ]
                 found = [event for event in events if event is not None]
                 if found:
@@ -595,9 +614,17 @@ class TimerProfile:
         return None
 
     def _event_from(
-        self, matcher: Matcher, match: "re.Match[bytes]"
+        self, matcher: Matcher, match: "re.Match[bytes]", occurrence: int = 0
     ) -> "TimerEvent | None":
-        """Build the event a match means, or ``None`` for the silent ones."""
+        """Build the event a match means, or ``None`` for the silent ones.
+
+        ``occurrence`` is this match's position among a ``repeat`` matcher's
+        matches on the same line — 0 for the first, 1 for the second, and so
+        on. It is only consulted when the matcher's ``lane`` is a
+        :class:`Positional` rather than a captured :class:`Group`; every
+        other caller passes the default, since a non-repeating match has
+        nothing to number.
+        """
         if matcher.event is Event.RACE_STARTED:
             return RaceStarted()
         if matcher.event is Event.GATE_CLOSED:
@@ -607,14 +634,30 @@ class TimerProfile:
         if matcher.event is Event.GATE_UNSUPPORTED:
             return GateWatcherUnsupported()
         if matcher.event is Event.LANE_COUNT:
-            return LaneCount(lanes=int(_read(matcher.lane, match, 0)))
+            return LaneCount(lanes=self._lane_value(matcher.lane, match, occurrence))
         if matcher.event is Event.LANE_RESULT:
             return LaneResult(
-                lane=int(_read(matcher.lane, match, 0)),
+                lane=self._lane_value(matcher.lane, match, occurrence),
                 time_seconds=_read(matcher.time, match, 0.0),
                 place=int(_read(matcher.place, match, 0)),
             )
         return None
+
+    @staticmethod
+    def _lane_value(
+        lane: "Group | Positional | None",
+        match: "re.Match[bytes]",
+        occurrence: int,
+    ) -> int:
+        """Read a matcher's lane, however it is stated.
+
+        A :class:`Positional` lane is not captured at all, so there is no
+        group to hand to :func:`_read` — it is derived from where this match
+        fell among a ``repeat`` matcher's matches instead.
+        """
+        if isinstance(lane, Positional):
+            return lane.base + occurrence
+        return int(_read(lane, match, 0))
 
 
 def _read(group: Group | None, match: "re.Match[bytes]", default: float) -> float:
