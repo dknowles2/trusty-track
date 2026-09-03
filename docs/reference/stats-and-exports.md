@@ -38,7 +38,10 @@ everyone-in-every-lane round, where every car has run every lane.
 
 ### Top moments
 
-- **Fastest Heat** — the single quickest time of the event, and whose it was.
+- **Fastest Heat** — the single quickest time of the event, and whose it
+  was. When the track has [scale speed](race-settings.md#scale-speed)
+  turned on, a "Top scale speed" line underneath converts that time into a
+  rough real-world MPH.
 - **Closest Race** — the heat with the smallest gap between first and last.
 
 ### Den comparison

@@ -37,6 +37,12 @@ carry a banner, in the [theme](themes.md)'s own accent colour, naming the new
 time and the record it beat. It fires only for a record that stood before
 today's race.
 
+When a track has [scale speed](race-settings.md#scale-speed) turned on, the
+Projector view's results overlay and the Last heat's times view show it
+too — a rough real-world MPH beside each recorded time, worked out from the
+track's own length and scale ratio. A track with no length recorded, or
+with scale speed turned off, shows the time alone.
+
 The colours every screen here uses — including the projector's high-contrast
 dark background — come from whichever [theme](themes.md) Display is set to
 in System Settings, not a fixed palette.
