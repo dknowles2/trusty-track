@@ -542,6 +542,74 @@
     font-weight: bold;
 }
 
+/* --- Car label (#617) --------------------------------------------------
+ *
+ * The impound label: affixed to the underside of a car or an impound box,
+ * not carried around like a pit pass or a licence. No photo and no
+ * security wash — the only decoration it keeps is the header bar every
+ * card on this page already has, for the same "which event is this" glance
+ * as the rest of the sheet gives.
+ */
+.car-sticker .print-card-body {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px 8px;
+}
+
+/* Large enough to read across a pit table without lifting the car —
+   sized well past the driver's licence plate number, which only has to be
+   read at arm's length. */
+.car-sticker-number-block {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.95in;
+    border: 2px solid var(--print-primary-color);
+    border-radius: 6px;
+    background: var(--print-surface-color);
+}
+
+.car-sticker-number {
+    font-family: var(--font-header);
+    font-weight: bold;
+    font-size: 2.4rem;
+    line-height: 1;
+    color: var(--print-primary-color);
+}
+
+.car-sticker-fields {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+}
+
+.car-sticker-name {
+    font-size: 0.86rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.car-sticker-weight {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.car-sticker-qr {
+    flex-shrink: 0;
+    align-self: center;
+    width: 0.85in;
+    height: 0.85in;
+    /* A QR code is squares; smoothing them is what makes a scan fail. */
+    image-rendering: pixelated;
+}
+
 /* --- Paper ------------------------------------------------------------- */
 
 @media print {
