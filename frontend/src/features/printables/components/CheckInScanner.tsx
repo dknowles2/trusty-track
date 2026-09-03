@@ -90,6 +90,20 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
         let timer: ReturnType<typeof setInterval> | undefined;
 
         const start = async () => {
+            // `navigator.mediaDevices` does not exist at all outside a
+            // secure context (https:// or localhost), so calling straight
+            // into it throws a bare TypeError indistinguishable, to the
+            // operator, from a permissions refusal — the wrong thing to
+            // troubleshoot when the real cause is TRUSTYTRACK_HTTP_ONLY or a
+            // check-in tablet reached by plain http://<lan-ip>. Checked
+            // against `=== false` rather than falsy: a real browser always
+            // reports a boolean here, so this only fires on a genuine
+            // insecure origin, never on an environment that has not
+            // implemented the property at all.
+            if (window.isSecureContext === false) {
+                setCameraBlocked(true);
+                return;
+            }
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: 'environment' },
@@ -205,7 +219,11 @@ export default function CheckInScanner({ raceId, racers, onRacer, onClose }: Pro
                     <Icon path={mdiAlertCircleOutline} size={0.9} color="var(--caution-icon-color)" />
                     <span>
                         {cameraBlocked
-                            ? `Could not open the camera. Type a ${vehicleLower} number instead.`
+                            ? window.isSecureContext === false
+                                ? 'The camera needs a secure connection. Open Trusty Track on ' +
+                                    'the computer running the server, or switch HTTPS back on. ' +
+                                    `Type a ${vehicleLower} number instead.`
+                                : `Could not open the camera. Type a ${vehicleLower} number instead.`
                             : 'This browser cannot scan QR codes — Chrome and Edge can. ' +
                                 `Type the ${vehicleLower} number instead; everything else works the same.`}
                     </span>

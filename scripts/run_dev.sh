@@ -18,6 +18,37 @@ cd "$PROJECT_ROOT"
 if [ -d ".venv" ]; then
     source .venv/bin/activate
 fi
+
+# TRUSTYTRACK_HTTP_ONLY (see
+# docs/reference/roles-and-permissions.md#https-certificates-and-plain-http):
+# skip certificate generation and run the backend as plain HTTP, same as every other server
+# entry point. Dev's HTTPS frontend variant (:5174) exists to exercise the
+# secure-context-only features against a real certificate, so it is skipped
+# too — there is no backend certificate left for it to proxy to.
+http_only="${TRUSTYTRACK_HTTP_ONLY:-}"
+if [[ "${http_only,,}" =~ ^(1|true|yes|on)$ ]]; then
+    HTTP_ONLY=true
+else
+    HTTP_ONLY=false
+fi
+
+if [[ "$HTTP_ONLY" == "true" ]]; then
+    export VITE_BACKEND_URL=http://localhost:8005
+
+    echo "TRUSTYTRACK_HTTP_ONLY is set — starting Backend (HTTP :8005)..."
+    uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8005 > backend.log 2>&1 &
+    BACKEND_PID=$!
+
+    echo "Starting Frontend (HTTP :5173)..."
+    cd "$PROJECT_ROOT/frontend"
+    rm -rf node_modules/.vite
+    npm run dev &
+    FRONTEND_HTTP_PID=$!
+
+    wait $BACKEND_PID $FRONTEND_HTTP_PID
+    exit 0
+fi
+
 # Generate certificates if they don't exist
 "$SCRIPT_DIR/generate_certs.sh"
 

@@ -98,6 +98,11 @@ Because the Pi uses a self-signed certificate (not from a commercial authority),
 
 You only need to do this once per device.
 
+If the warning is a bigger problem for your event than losing the camera on a
+second device — a shared tablet, say — you can skip the certificate entirely
+and serve plain HTTP instead. See [HTTPS, certificates, and plain
+HTTP](../reference/roles-and-permissions.md#https-certificates-and-plain-http).
+
 ---
 
 ## Keeping Trusty Track running
@@ -171,3 +176,5 @@ Look for error messages. Common causes: missing Python packages (re-run the inst
 ### Camera not working
 
 Camera access requires HTTPS, which the Pi provides via its self-signed certificate. Make sure you've accepted the certificate warning in your browser (see Step 4 above).
+
+If you deliberately turned HTTPS off (`TRUSTYTRACK_HTTP_ONLY`), this is expected on every device except the Pi itself — see [HTTPS, certificates, and plain HTTP](../reference/roles-and-permissions.md#https-certificates-and-plain-http).
