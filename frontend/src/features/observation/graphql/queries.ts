@@ -74,6 +74,7 @@ export const TimingStatsSubscription = gql`
         time
         place
         racerImageUrl
+        scaleMph
       }
       recordBreak {
         newSeconds

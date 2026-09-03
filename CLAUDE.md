@@ -618,6 +618,8 @@ This is stage 1 of #610 — the pure rule only. A `tracks.scale_ratio` column, G
 
 **Stage 3 (the operator's control)** puts the checkbox and the ratio input on the track's own card in System Settings (`TrackCard.tsx`), beside Length (feet) — a track fact, like lane count and length, not a race-day one, so it saves with **Save Settings** rather than on click the way lanes-in-service and track records do. The ratio input is shown only while "Show scale speed" is on, and `firstProblem` (`sections.ts`) refuses a non-positive ratio client-side too, naming the track by number — the server refuses it in `schemas.TrackBase` regardless of the flag, so a value nothing could ever use should not reach Save either. The label reads the vehicle word through `useTerminology()` rather than saying "car" outright, the same rule `terminologyGuard.test.ts` holds every settings control to.
 
+**Stage 4 (rendering) computes the number server-side and only formats it on the frontend** — the same "one rule, composed once" shape #552 already uses for a lane's display name. `Subscription.timing_stats` carries `TimingStatsLane.scaleMph`, one lane's own time converted through `domain.scale_speed.scale_mph`; `raceStats` carries `RaceStats.topScaleMph`, the fastest-heat highlight's time converted the same way, read off the highlight `services/stats.compute_race_stats` had already computed rather than rescanning the heats for the quickest time a second way. Both apply the AND stage 2 promised: null unless `Track.show_scale_speed` is on **and** `length_feet` is positive, on top of `scale_mph`'s own null for a non-positive (DNF) time. `formatScaleMph` (`frontend/src/features/observation/scaleSpeed.ts`) is the one place a number becomes "213 mph" — rounded to a whole number, since a hand-measured track length and a millisecond-precision timer do not support a decimal's worth of confidence — and it does not second-guess a null, since the server has already decided when there is nothing to show. `Observation.tsx`'s live timing view and its projector results overlay, and `RaceStats.tsx`'s Fastest Heat card, are the three places it renders; none of them says "car" — the surfaces render a number, not a rename of the vehicle word `useTerminology()` already owns.
+
 ### Championship advancement
 
 Rules in `domain/advancement.py`; entry points are `advanceRound` and `scoring.get_advancing_racers()`.
@@ -1087,6 +1089,24 @@ were about the track and which about the device at the end of it. Lanes in
 service and track records still save on click rather than on **Save Settings**,
 and still say so.
 
+**Advanced is the last form section, not folded into Backup** ([#659](https://github.com/dknowles2/trusty-track/issues/659)).
+Debugging Mode used to sit at the foot of General, which put it near the
+*top* of the page once the page was sectioned — the opposite of what an
+operator opening Settings should meet first. Appending it to Backup was the
+issue's other suggestion and does not fit this page's own split: Backup lives
+**outside** the `<form>` specifically because a Restore button is destructive
+and one misclick from a submit button is a real risk, where Debugging Mode is
+an ordinary boolean with no such hazard. Pulling it out of the form to sit
+beside Backup would solve a problem it does not have while creating one it
+would — a field the "Save Settings" button no longer saves. So it is its own
+`isFormSection` entry instead, ordered after Tracks and before Backup in both
+`SECTIONS` and `FORM_SECTIONS`: last among the ordinary fields, still one
+`<form>`, still one Save. On the first-run wizard, where `sectionsFor(false)`
+renders every section in order with no nav, this reads as one more heading
+near the foot of a long page rather than as a change in behavior — the
+control itself has not moved relative to the fields around it, only relative
+to General.
+
 ### Themes
 
 Three independently configurable colour surfaces (#498) — **App** (the
@@ -1487,7 +1507,7 @@ The architecture review of 2026-07-24 is **closed** ([#18](https://github.com/dk
 | #13 | The race-day flow is one machine in `features/racing/raceFlow.ts`, not effects |
 | #17 | Standings cover preliminary rounds only |
 | #26 | The PPC scheduler fills every lane; `test_domain_scheduling.py` holds the properties |
-| #45 | `ruff check` and `ruff format --check` gate CI over `backend scripts packaging`. Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
+| #45 | `ruff check` and `ruff format --check` gate CI over the whole tree (`uv run ruff check .` / `uv run ruff format --check .`, which also covers Python code blocks inside Markdown files, not just `backend scripts packaging`). Keep the tree at zero findings — the point was that a lint nobody enforces accumulates debt in files nobody touches |
 | #125 | Foreign keys are enforced on every connection, and `heat_lanes` carries `ON DELETE` actions. Deletion ordering is the schema's rule, not Python's |
 | #14 | **Keep GraphQL.** 48 mutations against 17 queries — the cost sits where GraphQL adds nothing, and does not shrink in REST |
 | #72 | `heats.lane_results` is dropped. `heat_lanes` is the only copy; migration `0013` proved that per database rather than waiting on a release |

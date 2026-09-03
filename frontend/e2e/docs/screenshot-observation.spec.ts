@@ -93,7 +93,10 @@ test('screenshot the audience displays', async ({ page, browser }) => {
     await page.setViewportSize({ width: 1200, height: 800 });
     await ensureConfigured(page);
 
-    const trackId = await ownTrack(page, 'Audience Display Track');
+    // A configured length (#610) — `ownTrack` otherwise leaves it null, and
+    // with no length there is nothing for scale speed to compute from, so
+    // the results overlay and timing view would show no speed at all.
+    const trackId = await ownTrack(page, 'Audience Display Track', 4, 'FAKE', 40);
     await seedHistoricalRecord(page, trackId, PREVIOUS_RECORD);
 
     const raceId = await seedRace(page, {

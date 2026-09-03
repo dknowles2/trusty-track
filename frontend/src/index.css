@@ -936,6 +936,16 @@ input:checked + .slider:before {
   color: var(--display-accent-color);
 }
 
+/* The scale speed riding alongside a lane's time (#610) — a fraction of the
+   time's own size, since the time is the number this overlay exists to
+   announce and the speed is the fact that makes it fun. */
+.overlay-scale-mph {
+  font-size: 2.2vmin;
+  font-weight: 700;
+  font-family: sans-serif;
+  color: var(--display-text-muted-color);
+}
+
 /* Overlay Avatar */
 .overlay-result-item img,
 .overlay-result-item div[style*="border-radius: 50%"] {

@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { GET_RACE_STATS } from '../graphql/queries';
 import { useTerminology } from '../../../context/TerminologyContext';
+import { formatScaleMph } from '../../observation/scaleSpeed';
 import './RaceStats.css';
 
 // ---- Types ----
@@ -101,6 +102,7 @@ interface RaceStatsData {
   racingGroupStats: RacingGroupStat[];
   heatResults: HeatResultRow[];
   trackRecords: TrackRecord[];
+  topScaleMph: number | null;
 }
 
 /** "Mar 14, 2026" from the race's stored date, or nothing if it has none. */
@@ -374,6 +376,11 @@ export default function RaceStats() {
                           ? `Δ ${hl.margin.toFixed(3)}s`
                           : '—'}
                     </div>
+                    {hl.type === 'FASTEST_HEAT' && formatScaleMph(stats.topScaleMph) && (
+                      <div className="race-stats__highlight-scale-mph">
+                        Top scale speed: {formatScaleMph(stats.topScaleMph)}
+                      </div>
+                    )}
                     <div className="race-stats__highlight-sub">
                       {hl.type === 'FASTEST_HEAT' && hl.racerName && (
                         <span>{hl.racerName} &mdash; </span>

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import CameraCapture from '../../../components/ui/CameraCapture';
+import { CAR_ASPECT, PORTRAIT_ASPECT } from '../../../components/ui/imageEdit';
 import { useQuery, useMutation } from 'urql';
 import { GET_RACE_RACING_GROUPS, UPLOAD_IMAGE } from '../graphql/queries';
 import { carryOver } from '../racerEntry';
@@ -380,6 +381,10 @@ export default function RacerForm({ initialData, raceId, onSubmit, onCancel, sub
                 uploadFile(file, showCamera as 'racer' | 'car');
                 setShowCamera('none');
             }}
+            // A racer's own portrait crops to a square — `RacerAvatar` and
+            // the pit pass both already assume one — where a car is
+            // photographed side-on and wants the landscape ratio (#619).
+            aspect={showCamera === 'car' ? CAR_ASPECT : PORTRAIT_ASPECT}
           />
       )}
     </div>

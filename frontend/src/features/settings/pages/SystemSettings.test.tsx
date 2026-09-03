@@ -25,7 +25,7 @@ import { useQuery, useMutation } from 'urql';
  * (the first run does not — it is a wizard, and shows the lot). So a test
  * about a track, a lane or the backup panel has to say where it is looking.
  */
-const openSection = async (id: 'general' | 'appearance' | 'access' | 'tracks' | 'backup') => {
+const openSection = async (id: 'general' | 'appearance' | 'access' | 'tracks' | 'advanced' | 'backup') => {
     const user = (await import('@testing-library/user-event')).default.setup();
     await user.click(await screen.findByTestId(`settings-nav-${id}`));
 };
@@ -632,14 +632,18 @@ describe('the settings sections', () => {
         ],
     };
 
-    it('shows the whole form at once on the first run', async () => {
+    it('shows the whole form at once on the first run, Debugging Mode included', async () => {
         // A wizard is not sectioned. Somebody who has never seen the app is
-        // not going to go looking for the two fields they have not filled in.
+        // not going to go looking for the two fields they have not filled in
+        // — and that includes Debugging Mode (#659), which still has to
+        // appear somewhere in the one-page wizard even though it now lives
+        // in its own section on a configured install.
         renderWith({ initialized: false, organizationName: '', tracks: [] });
 
         expect(await screen.findByLabelText('Organization Name')).toBeInTheDocument();
         expect(screen.getByPlaceholderText('e.g. Main Track')).toBeInTheDocument();
         expect(screen.getByLabelText('Operator PIN')).toBeInTheDocument();
+        expect(screen.getByLabelText('Debugging Mode')).toBeInTheDocument();
         expect(screen.queryByTestId('settings-nav')).toBeNull();
     });
 
@@ -655,6 +659,23 @@ describe('the settings sections', () => {
         await openSection('tracks');
         expect(screen.getByLabelText('Track Name')).toBeInTheDocument();
         expect(screen.queryByLabelText('Organization Name')).toBeNull();
+    });
+
+    it('keeps Debugging Mode out of General, in its own Advanced section (#659)', async () => {
+        // It used to sit at the foot of General, which put it near the top
+        // of the whole page once the page was sectioned — an operator opening
+        // Settings landed on the one control most likely to confuse them.
+        renderWith(configured);
+
+        expect(await screen.findByTestId('settings-nav')).toBeInTheDocument();
+        expect(screen.getByTestId('settings-nav-advanced')).toBeInTheDocument();
+        // General is on screen (it is where the nav opens) and does not hold it.
+        expect(screen.getByTestId('general-panel')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Debugging Mode')).toBeNull();
+
+        await openSection('advanced');
+        expect(screen.getByLabelText('Debugging Mode')).toBeInTheDocument();
+        expect(screen.queryByTestId('general-panel')).toBeNull();
     });
 
     it('keeps an edit made in a section that is no longer on screen', async () => {

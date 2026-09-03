@@ -171,6 +171,15 @@
   margin-top: 0.25rem;
 }
 
+/* The fastest heat's time converted to a scale speed (#610) — a fact about
+   that same card, not a card of its own. */
+.race-stats__highlight-scale-mph {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-strong-muted-color);
+  margin-top: 0.15rem;
+}
+
 .race-stats__export-buttons {
   display: flex;
   gap: 1rem;
