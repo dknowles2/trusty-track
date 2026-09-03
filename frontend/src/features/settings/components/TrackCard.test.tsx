@@ -60,7 +60,7 @@ const models: TimerModel[] = [standardModel, undetectableModel];
 
 function renderCard(
     trackOverrides: Partial<TrackFields> = {},
-    cardOverrides: { canRemove?: boolean; timerModels?: TimerModel[] } = {},
+    cardOverrides: { canRemove?: boolean; timerModels?: TimerModel[]; demoMode?: boolean } = {},
 ) {
     mockMutations();
     const onChange = vi.fn();
@@ -75,6 +75,7 @@ function renderCard(
                     track={{ ...baseTrack, ...trackOverrides }}
                     timerModels={cardOverrides.timerModels ?? models}
                     canRemove={cardOverrides.canRemove ?? true}
+                    demoMode={cardOverrides.demoMode}
                     onChange={onChange}
                     onRemove={onRemove}
                     onLaneOutages={onLaneOutages}
@@ -227,6 +228,34 @@ describe('TrackCard', () => {
         it('shows the serial port field only for the backend-direct timer', () => {
             renderCard({ timerType: 'AUTO_DETECT_BACKEND' });
             expect(screen.getByLabelText(/Serial Port/)).toBeInTheDocument();
+        });
+
+        it('offers all four options when not in the cloud demo', () => {
+            renderCard({}, { demoMode: false });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'AUTO_DETECT_PROXY', 'NONE']);
+        });
+
+        it('omits the browser-proxy option in the cloud demo', () => {
+            renderCard({ timerType: 'FAKE' }, { demoMode: true });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'NONE']);
+            expect(
+                screen.queryByText(/not available in the cloud demo/i),
+            ).not.toBeInTheDocument();
+        });
+
+        it('keeps the browser-proxy option, with an unavailable note, when a track is already set to it in the demo', () => {
+            renderCard({ timerType: 'AUTO_DETECT_PROXY' }, { demoMode: true });
+            const options = within(screen.getByLabelText('Timer Type'))
+                .getAllByRole('option')
+                .map((o) => (o as HTMLOptionElement).value);
+            expect(options).toEqual(['FAKE', 'AUTO_DETECT_BACKEND', 'AUTO_DETECT_PROXY', 'NONE']);
+            expect(screen.getByText(/not available in the cloud demo/i)).toBeInTheDocument();
         });
     });
 

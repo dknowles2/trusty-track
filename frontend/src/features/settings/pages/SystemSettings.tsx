@@ -27,6 +27,7 @@ const GET_INITIAL_CONFIG = `
       pinRequired
       checkinPinSet
       isOperator
+      demoMode
       displayTheme
       printablesTheme
       racingGroupSingular
@@ -747,6 +748,7 @@ export default function SystemConfig() {
                       track={track}
                       timerModels={timerModels}
                       canRemove={tracks.length > 1}
+                      demoMode={!!data?.initialConfig?.demoMode}
                       onChange={(field, value) => handleTrackChange(index, field, value)}
                       onRemove={() => removeTrack(index)}
                       onLaneOutages={(laneOutages) =>
