@@ -757,6 +757,40 @@ describe('RaceExecution', () => {
         expect(screen.getAllByText('Jane Smith')).toHaveLength(2);
     });
 
+    it('shows racer portraits in On Deck, not car photos (#608)', () => {
+        // The current heat's lanes have always shown the racer's own
+        // portrait (falling back to initials); On Deck used to show the
+        // car photo instead (falling back to a car-number roundel), so the
+        // same heat read as a column of faces beside a column of cars. A
+        // racer with a car photo but no racer photo is the sharpest case:
+        // the old On Deck would have shown the car photo it did have, and
+        // the fixed version must show the initials fallback instead.
+        const racersWithCarPhotoOnly = {
+            ...mockRacers,
+            103: { id: 103, firstName: 'Amy', lastName: 'Lee', carNumber: 3, racerImageUrl: null, carImageUrl: 'http://example.com/car103.jpg' },
+        };
+        render(
+            <RaceExecution
+                {...defaultProps}
+                racers={racersWithCarPhotoOnly}
+                activeExecutionHeat={{ ...mockHeat, roundId: 1 }}
+                nextExecutionHeat={{
+                    ...mockHeat,
+                    id: 2,
+                    heatNumber: 2,
+                    roundId: 1,
+                    lanes: [lane({ lane: 1, racerId: 103 })],
+                }}
+            />
+        );
+
+        // No car photo anywhere in On Deck, and no roundel — the initials
+        // fallback (RacerAvatar's own empty state) stands in for it.
+        expect(screen.queryByAltText(/Amy Lee|#3/)).not.toBeInTheDocument();
+        expect(document.querySelector('img[src="http://example.com/car103.jpg"]')).not.toBeInTheDocument();
+        expect(screen.getByTitle('Amy Lee')).toHaveTextContent('AL');
+    });
+
     it('renders "Round Not Ready" when heat has placeholders', () => {
         const placeholderHeat: Heat = {
             id: 2,

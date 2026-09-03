@@ -768,31 +768,15 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                                                                                             <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-faint-color)', width: '30px' }}>L{r.lane}</div>
 
                                                                                             <div style={{ width: '60px', height: '60px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                                                {racer?.carImageUrl ? (
-                                                                                                    <img
-                                                                                                        src={racer.carImageUrl}
-                                                                                                        alt={`${vehicle} #${racer.carNumber}`}
-                                                                                                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', border: '1px solid var(--divider-color)' }}
-                                                                                                    />
-                                                                                                ) : (
-                                                                                                    <div style={{
-                                                                                                        width: '100%',
-                                                                                                        height: '100%',
-                                                                                                        background: 'var(--cub-scouting-gold)',
-                                                                                                        color: 'var(--scouting-blue)',
-                                                                                                        borderRadius: '50%',
-                                                                                                        display: 'flex',
-                                                                                                        flexDirection: 'column',
-                                                                                                        alignItems: 'center',
-                                                                                                        justifyContent: 'center',
-                                                                                                        fontWeight: 'bold',
-                                                                                                        border: '1px solid #d4af37',
-                                                                                                        boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)'
-                                                                                                    }}>
-                                                                                                        <div style={{ fontSize: '0.6rem', opacity: 0.8, textTransform: 'uppercase', lineHeight: 1 }}>{vehicle}</div>
-                                                                                                        <div style={{ fontSize: '1.25rem', lineHeight: 1 }}>{racer?.carNumber ?? '-'}</div>
-                                                                                                    </div>
-                                                                                                )}
+                                                                                                <RacerAvatar
+                                                                                                    racer={{
+                                                                                                        id: racer?.id || r.racerId || 0,
+                                                                                                        first_name: racer?.firstName || '',
+                                                                                                        last_name: racer?.lastName || '',
+                                                                                                        racer_image_url: racer?.racerImageUrl
+                                                                                                    }}
+                                                                                                    size="60px"
+                                                                                                />
                                                                                             </div>
 
                                                                                             <div style={{ flex: 1, minWidth: 0 }}>
