@@ -667,4 +667,34 @@ describe('RaceControl Page', () => {
 
         expect(mockReExecute).not.toHaveBeenCalled();
     });
+
+    // -----------------------------------------------------------------
+    // A route to race settings (#589)
+    // -----------------------------------------------------------------
+    //
+    // Race Control had no way to reach the race's own settings at all —
+    // only the Roster page's "Edit Details" button did. This sends the
+    // operator to the Roster page with the same `?edit=true` Home's row
+    // action uses, rather than a `/settings` route the edit form has never
+    // had.
+
+    it('offers a route to the race settings the roster page already edits', async () => {
+        render(
+            <AlertProvider>
+                <MemoryRouter initialEntries={[`/race/${mockRaceId}/control`]}>
+                    <Routes>
+                        <Route path="/race/:raceId/control/:tab?" element={<RaceControl />} />
+                        <Route path="/race/:raceId" element={<div data-testid="landed-on-roster">roster</div>} />
+                    </Routes>
+                </MemoryRouter>
+            </AlertProvider>
+        );
+
+        const editButton = await screen.findByTestId('race-control-edit-race');
+        fireEvent.click(editButton);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('landed-on-roster')).toBeInTheDocument();
+        });
+    });
 });

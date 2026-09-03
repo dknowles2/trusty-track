@@ -60,6 +60,19 @@ vi.mock('urql', async (importOriginal) => {
     };
 });
 
+// Only `useNavigate` is mocked — everything else (MemoryRouter, Link) stays
+// real, so the overflow menu's "Edit race" action can be checked by what it
+// actually calls rather than by asserting on an `href` a `<button>` has none
+// of.
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+        ...actual,
+        useNavigate: () => mockNavigate,
+    };
+});
+
 // Cleanup after each test
 afterEach(() => {
     cleanup();
@@ -204,6 +217,61 @@ describe('Home Page', () => {
 
             await waitFor(() => {
                 expect(practiceFn).toHaveBeenCalledWith({ startNew: true });
+            });
+        });
+    });
+
+    describe('race row navigation (#589)', () => {
+        // Home used to say "Control" and "View" for the same two
+        // destinations the race navigation row calls "Control" and "Live" —
+        // one vocabulary, not two.
+        it('labels the two everyday actions the same as the race navigation row', async () => {
+            renderHome({
+                races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+            });
+
+            await screen.findByText('Annual Derby');
+            expect(screen.getByRole('link', { name: /Control/ })).toHaveAttribute('href', '/race/7/control');
+            expect(screen.getByRole('link', { name: /Live/ })).toHaveAttribute('href', '/race/7/observation');
+            expect(screen.queryByText('View')).not.toBeInTheDocument();
+        });
+
+        it('names the race title link\'s own destination', async () => {
+            renderHome({
+                races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+            });
+
+            const titleLink = await screen.findByRole('link', { name: 'Annual Derby' });
+            expect(titleLink).toHaveAttribute('href', '/race/7');
+            expect(titleLink).toHaveAttribute('title', expect.stringMatching(/roster/i));
+        });
+
+        it('offers Roster and Edit race behind the row\'s overflow menu', async () => {
+            renderHome({
+                races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+            });
+
+            await screen.findByText('Annual Derby');
+            expect(screen.queryByTestId('race-menu-roster-7')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('race-menu-edit-7')).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByTestId('race-more-menu-7'));
+
+            expect(screen.getByTestId('race-menu-roster-7')).toBeInTheDocument();
+            expect(screen.getByTestId('race-menu-edit-7')).toBeInTheDocument();
+        });
+
+        it('sends the Edit race action to the roster page with the edit modal requested', async () => {
+            renderHome({
+                races: [{ id: 7, name: 'Annual Derby', dateTime: null, location: null, registeredCount: 0, checkedInCount: 0 }],
+            });
+
+            await screen.findByText('Annual Derby');
+            fireEvent.click(screen.getByTestId('race-more-menu-7'));
+            fireEvent.click(screen.getByTestId('race-menu-edit-7'));
+
+            await waitFor(() => {
+                expect(mockNavigate).toHaveBeenCalledWith('/race/7?edit=true');
             });
         });
     });

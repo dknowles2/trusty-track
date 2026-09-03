@@ -23,7 +23,7 @@ import {
   APPLY_MASTER_RUNNING_ORDER_MUTATION,
 } from '../graphql/queries';
 import { Icon } from '@mdi/react';
-import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple } from '@mdi/js';
+import { mdiCalendarRange, mdiFlagCheckered, mdiRacingHelmet, mdiPlay, mdiRefresh, mdiMonitorMultiple, mdiPencil } from '@mdi/js';
 import type { Heat, Racer, Round, AdvancementStatus, LaneInput, Lane } from '../types';
 import { hasRun, hasTimes, byPlace, cleared, assignPlaces, shouldDerivePlaces } from '../lanes';
 import { executionComparator } from '../runningOrder';
@@ -658,7 +658,21 @@ export default function RaceControl() {
             </div>
         </div>
 
-        <div style={{ minWidth: '160px' }} />
+        {/* Race settings had no route from Race Control at all — only from
+            the Roster page's own "Edit Details" button (#589). This opens
+            the same modal there rather than inventing a settings page of
+            its own; the spacer this replaced existed only to balance the
+            centered tab group against the title on the left. */}
+        <div style={{ minWidth: '160px', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => navigate(`/race/${id}?edit=true`)}
+            className="secondary-btn"
+            data-testid="race-control-edit-race"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px', whiteSpace: 'nowrap' }}
+          >
+            <Icon path={mdiPencil} size={0.7} /> Edit race
+          </button>
+        </div>
       </div>
 
       {/* Pre-flight (#200). Not on the Free Race tab, where an exhibition run

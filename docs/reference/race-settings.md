@@ -5,7 +5,9 @@ Every field on the race form and the track card, and what each one does.
 ## The race
 
 Set when you create a race (**+ Create New Race** on Home) and editable
-afterwards from the Roster page.
+afterwards from the Roster page's **Edit Details** button — or, without going
+there first, from **Edit race** in a race row's **⋯** menu on Home, or from
+the **Edit race** button on Race Control. All three open the same form.
 
 | Field | What it does |
 | --- | --- |

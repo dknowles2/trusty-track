@@ -380,7 +380,11 @@ test('take screenshots', async ({ page }) => {
     // twice on the critical path. The times are the same either way; they come
     // from the seeded generator, not from how long the wait was.
     await runFakeHeat(page, await nextUnrunHeatId(page, raceId));
-    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
+    // Not an exact match: the heat's own "Edit" button carries the "E"
+    // shortcut hint in its accessible name ("Edit E"), and Race Control's
+    // "Edit race" button (#589) shares the "Edit" prefix — the lookahead is
+    // what keeps this to the heat's button specifically.
+    await expect(page.getByRole('button', { name: /^Edit(?! race)/ })).toBeVisible({ timeout: 30000 });
 
     // The pre-flight readiness strip goes away once a heat is recorded, but
     // only when the refetch behind it lands — until then the page still says
@@ -546,7 +550,11 @@ test('take screenshots', async ({ page }) => {
         timeout: 30000,
     });
     await runFakeHeat(page, await nextUnrunHeatId(page, raceId));
-    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
+    // Not an exact match: the heat's own "Edit" button carries the "E"
+    // shortcut hint in its accessible name ("Edit E"), and Race Control's
+    // "Edit race" button (#589) shares the "Edit" prefix — the lookahead is
+    // what keeps this to the heat's button specifically.
+    await expect(page.getByRole('button', { name: /^Edit(?! race)/ })).toBeVisible({ timeout: 30000 });
 
     await page.goto(`/race/${raceId}/standings`);
     await page.waitForLoadState('networkidle');

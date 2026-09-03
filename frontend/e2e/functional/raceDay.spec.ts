@@ -209,7 +209,12 @@ test('an operator override replaces the recorded time', async ({ page }) => {
         timeout: 30000,
     });
 
-    await page.getByRole('button', { name: 'Edit' }).click();
+    // The heat's own "Edit" button carries a keyboard-shortcut hint in its
+    // accessible name ("Edit E") and Race Control's own "Edit race" button
+    // (#589) shares the "Edit" prefix, so an exact match finds neither and a
+    // bare substring finds both — the lookahead is what keeps this one to
+    // the heat's button specifically.
+    await page.getByRole('button', { name: /^Edit(?! race)/ }).click();
     const editor = page.getByRole('dialog', { name: /Edit Results/ });
     await expect(editor).toBeVisible();
 
@@ -360,7 +365,9 @@ test('with auto-advance off the screen stays on the heat that just ran', async (
     await page.getByRole('button', { name: 'Finish Heat' }).click();
 
     // The recorded heat's own controls, all three of which were unreachable.
-    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible({ timeout: 30000 });
+    // See the lookahead's own comment above: an exact match misses this
+    // button too, since its accessible name includes the "E" shortcut hint.
+    await expect(page.getByRole('button', { name: /^Edit(?! race)/ })).toBeVisible({ timeout: 30000 });
     await expect(page.getByRole('button', { name: /^Next Heat/ })).toBeVisible();
 
     // Long enough that an auto-advance would have fired: the countdown is ten

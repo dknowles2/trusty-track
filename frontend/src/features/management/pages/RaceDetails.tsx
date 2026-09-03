@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from 'urql';
 import type { GetRaceDetailsQuery } from '../../../gql/operations';
 import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
@@ -60,6 +60,7 @@ export default function RaceDetails() {
   const { showAlert, showConfirm } = useAlert();
   const { group, groups, groupLower, groupsLower, vehicle } = useTerminology();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // GraphQL Queries
   // Typed with the generated operation type on purpose. Untyped, `data` is
@@ -209,6 +210,40 @@ export default function RaceDetails() {
 
   // Race Edit State
   const [isEditingRace, setIsEditingRace] = useState(false);
+
+  // Home's "Edit race" row action (#589) and Race Control's own settings
+  // link both land here rather than on a route of their own — the edit form
+  // has always been this page's modal, not a page, so a direct link opens
+  // it with `?edit=true` instead of inventing `/race/:id/settings`.
+  //
+  // Opening the modal is an "adjust state while rendering" case, not an
+  // effect (React's own name for this — see "You Might Not Need an Effect"):
+  // it compares against the *previous render's* value of the param, which is
+  // what lets the operator reopen the modal via the same link a second time.
+  // A plain `if (param === 'true') setIsEditingRace(true)` inside an effect
+  // reads as the same fix and calls a `useState` setter unconditionally on
+  // every render where the param is present, including the render right
+  // after the operator has closed the modal by hand but before the param
+  // below has finished being stripped.
+  const editParam = searchParams.get('edit');
+  const [prevEditParam, setPrevEditParam] = useState<string | null>(null);
+  if (editParam !== prevEditParam) {
+    setPrevEditParam(editParam);
+    if (editParam === 'true') setIsEditingRace(true);
+  }
+
+  // Stripping the param is a genuine effect — synchronizing the browser's
+  // own address bar, not this component's state — so it stays one. Left in
+  // place, reloading this tab or coming back to it with the browser's Back
+  // button would reopen a modal nobody asked for this time.
+  useEffect(() => {
+    if (searchParams.get('edit') !== 'true') return;
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('edit');
+      return next;
+    }, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // Roster View State
   const [isGroupedByRacingGroup, setIsGroupedByRacingGroup] = useState(false);
