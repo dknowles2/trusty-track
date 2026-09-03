@@ -443,6 +443,7 @@ type Race {
   dropWorstRuns: Int!
   excludeRoundWinnersFromQualifyingStandings: Boolean!
   nameDisplay: String
+  isLocked: Boolean!
   resolvedNameDisplay: String!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
@@ -534,6 +535,7 @@ input RaceUpdateInput {
   excludeRoundWinnersFromQualifyingStandings: Boolean = null
   nameDisplay: String = null
   clearNameDisplay: Boolean! = false
+  isLocked: Boolean = null
 }
 
 type Racer {

@@ -38,6 +38,9 @@ export const GET_RACE_DETAILS = gql`
       # terminology overrides above.
       nameDisplay
       resolvedNameDisplay
+      # Whether the race is locked against further edits (#585) — gates the
+      # roster toolbar and drives the "Locked" badge.
+      isLocked
       registeredCount
       checkedInCount
       racingGroups {

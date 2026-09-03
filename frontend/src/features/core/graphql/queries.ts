@@ -18,6 +18,10 @@ export const GET_RACES_NAV = gql`
     races {
       id
       name
+      # Whether the race is locked against further edits (#585) — the race
+      # pill's "Locked" badge, the one place every race-scoped page shows
+      # the race's own name.
+      isLocked
     }
   }
 `;

@@ -12,6 +12,7 @@ import { useAlert } from '../../../context/AlertContext';
 import { errorText } from '../../../utils/errors';
 import { runOffAnnouncement } from '../runOff';
 import type { GetRunOffHeatsQuery } from '../../../gql/operations';
+import { RACE_LOCKED_MESSAGE } from '../../core/raceLockMessage';
 
 type RunOffHeatRow = NonNullable<GetRunOffHeatsQuery['race']>['runOffHeats'][number];
 
@@ -68,6 +69,9 @@ export default function RunOffControl({
   // race can hold several run-offs (different cuts, or a corrected re-run
   // after one was deleted), so this is a client-side match on racer ids
   // rather than "the most recent one".
+  const raceLocked = existingResult.data?.race?.isLocked ?? false;
+  const lockedTitle = RACE_LOCKED_MESSAGE;
+
   const runOffHeats: RunOffHeatRow[] = existingResult.data?.race?.runOffHeats ?? [];
   const existing = runOffHeats.find((heat: RunOffHeatRow) => {
     if (heat.settlesRoundId !== settlesRoundId) return false;
@@ -164,6 +168,8 @@ export default function RunOffControl({
         className="secondary-btn"
         data-testid="start-run-off-btn"
         onClick={handleCreate}
+        disabled={raceLocked}
+        title={raceLocked ? lockedTitle : undefined}
         style={{ padding: '6px 12px', fontSize: '0.85rem' }}
       >
         Start run-off
@@ -199,6 +205,8 @@ export default function RunOffControl({
               type="button"
               className="secondary-btn"
               onClick={handlePrepare}
+              disabled={raceLocked}
+              title={raceLocked ? lockedTitle : undefined}
               style={{ padding: '4px 10px', fontSize: '0.8rem', marginRight: '8px' }}
             >
               {phase === 'RUNNING' ? 'Racing…' : 'Arm timer'}
@@ -231,6 +239,8 @@ export default function RunOffControl({
               type="button"
               className="primary-btn"
               onClick={handleRecordManually}
+              disabled={raceLocked}
+              title={raceLocked ? lockedTitle : undefined}
               style={{ padding: '4px 10px', fontSize: '0.8rem' }}
             >
               Record result
@@ -240,6 +250,8 @@ export default function RunOffControl({
             type="button"
             className="secondary-btn"
             onClick={handleDelete}
+            disabled={raceLocked}
+            title={raceLocked ? lockedTitle : undefined}
             style={{ padding: '4px 10px', fontSize: '0.8rem', marginTop: '8px' }}
           >
             Cancel run-off

@@ -24,6 +24,7 @@ from backend.api.auth import AuditExtension, RolePolicyExtension
 from backend.api.demo_policy import DemoPolicyExtension
 from backend.api.loaders import RequestLoaders
 from backend.api.pubsub import pubsub
+from backend.api.race_lock import RaceLockExtension
 from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
 from backend.domain import advancement, audit, lanes
@@ -903,6 +904,13 @@ class RaceUpdateInput:
     #: the same reason `clear_terminology` exists: absent already means
     #: leave alone, so nothing else can ask for null.
     clear_name_display: bool = False
+    #: Locking or unlocking the race (#585). Absent means leave alone, same
+    #: as every other field here; `false` is an ordinary value (the unlock),
+    #: not a sentinel needing its own clear flag. `api.race_lock` is what
+    #: actually restricts what an *update_race* carrying this may also
+    #: change while the race is currently locked — see
+    #: `race_lock.is_lock_only_update`.
+    is_locked: bool | None = None
 
 
 @strawberry.input
@@ -1474,6 +1482,11 @@ class Race:
     #: organization's setting (#552) — what the race edit form reads back to
     #: populate its picker, distinct from `resolvedNameDisplay` below.
     name_display: str | None
+    #: Whether the race is locked against further edits (#585) — set from
+    #: Race Control or the race edit form once an event has concluded.
+    #: Enforced by `api.race_lock.RaceLockExtension`, not by anything a
+    #: resolver checks; this is a plain field like any other.
+    is_locked: bool
 
     @strawberry.field
     def resolved_name_display(self, info: Info) -> str:
@@ -5503,17 +5516,30 @@ schema = strawberry.Schema(
     # it covers the WebSocket as well as HTTP — see `api/auth.py` for why the
     # second layer the design sketch proposed is not here.
     # Order is load-bearing and reads backwards: a later extension *wraps* an
-    # earlier one, so `AuditExtension` has to come second to see the
-    # `PermissionDeniedError` the policy raises — otherwise a refused mutation
-    # is turned away with nothing recorded, which is the line the log most
-    # wants (#219). Measured rather than assumed; the first draft had these the
-    # other way round and recorded no refusals at all.
+    # earlier one, so `AuditExtension` has to come last to see the
+    # `PermissionDeniedError` any of the three policies raise — otherwise a
+    # refused mutation is turned away with nothing recorded, which is the line
+    # the log most wants (#219). Measured rather than assumed; the first draft
+    # had these the other way round and recorded no refusals at all.
     # `test_audit_log.py::TestRefusals` fails if they are swapped back.
-    # `DemoPolicyExtension` sits between them, and both neighbours matter:
-    # before `AuditExtension` so a demo refusal is recorded like any other, and
-    # after `RolePolicyExtension` so it runs *first* — on a demo no PIN is set,
-    # so every caller is `OPERATOR` and the role policy would have allowed the
-    # mutation and reported the wrong reason. Inert unless `TRUSTYTRACK_DEMO_MODE`
-    # is set; see `api/demo_policy.py`.
-    extensions=[RolePolicyExtension, DemoPolicyExtension, AuditExtension],
+    # `DemoPolicyExtension` sits between the role policy and the audit log,
+    # and both neighbours matter: before `AuditExtension` so a demo refusal is
+    # recorded like any other, and after `RolePolicyExtension` so it runs
+    # *first* — on a demo no PIN is set, so every caller is `OPERATOR` and the
+    # role policy would have allowed the mutation and reported the wrong
+    # reason. Inert unless `TRUSTYTRACK_DEMO_MODE` is set; see
+    # `api/demo_policy.py`.
+    # `RaceLockExtension` sits at the *other* end, innermost of all four — it
+    # runs last, immediately before the real resolver, so `test_race_lock.py`
+    # and #585's own reasoning both depend on the role policy having already
+    # let the mutation through: a `VIEWER` denied `updateHeatResult` outright
+    # should hear that, not that the race happens to be locked. Still inside
+    # `AuditExtension`'s wrap, so a lock refusal is recorded exactly like any
+    # other. See `api/race_lock.py` for the allowed-while-locked list.
+    extensions=[
+        RaceLockExtension,
+        RolePolicyExtension,
+        DemoPolicyExtension,
+        AuditExtension,
+    ],
 )

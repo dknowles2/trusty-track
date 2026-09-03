@@ -11,6 +11,7 @@ import { buildCreateRaceInput } from '../../management/raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiAccountGroup, mdiMedal, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
+import LockedBadge from './LockedBadge';
 import logoUrl from '../../../assets/logo_transparent.png';
 import { UnlockButton } from './UnlockButton';
 import { useChrome } from '../../../context/ChromeContext';
@@ -19,7 +20,7 @@ export default function Navigation() {
   const { hidden: chromeHidden } = useChrome();
   const { showAlert } = useAlert();
   const [{ data: navData }, reexecuteRacesNav] = useQuery({ query: GET_RACES_NAV });
-  const races: { id: number; name: string }[] = navData?.races || [];
+  const races: { id: number; name: string; isLocked: boolean }[] = navData?.races || [];
 
   // #300: a race created, renamed or deleted in another tab (or another
   // device on the same network) left this list, and the browser tab's title
@@ -63,7 +64,7 @@ export default function Navigation() {
 
   const match = location.pathname.match(/\/race\/(\d+)/);
   const raceId = match ? match[1] : null;
-  const activeRace = raceId ? races.find((r: { id: number; name: string }) => r.id === parseInt(raceId)) : null;
+  const activeRace = raceId ? races.find((r: { id: number; name: string; isLocked: boolean }) => r.id === parseInt(raceId)) : null;
 
   const links: { to: string; label: string; icon: string }[] = [];
   if (raceId) {
@@ -139,6 +140,7 @@ export default function Navigation() {
             >
               <Icon path={mdiFlagCheckered} size={0.8} color="var(--on-primary-color)" />
               {activeRace ? activeRace.name : 'Select a Race'}
+              {activeRace?.isLocked && <LockedBadge size="small" />}
               <Icon path={isRaceDropdownOpen ? mdiChevronUp : mdiChevronDown} size={0.6} color="var(--on-primary-color)" style={{ opacity: 0.8 }} />
             </button>
 
@@ -163,13 +165,15 @@ export default function Navigation() {
                   border: '1px solid var(--divider-color)'
                 }}>
                   <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                    {races.map((r: { id: number; name: string }) => (
+                    {races.map((r: { id: number; name: string; isLocked: boolean }) => (
                       <Link
                         key={r.id}
                         to={`/race/${r.id}`}
                         onClick={() => setIsRaceDropdownOpen(false)}
                         style={{
-                          display: 'block',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
                           padding: '10px 18px',
                           textDecoration: 'none',
                           color: raceId === r.id.toString() ? 'var(--scouting-blue)' : 'var(--text-heading-alt-color)',
@@ -183,6 +187,7 @@ export default function Navigation() {
                         onMouseLeave={(e) => ! (raceId === r.id.toString()) && (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         {r.name}
+                        {r.isLocked && <LockedBadge size="small" />}
                       </Link>
                     ))}
                     {races.length === 0 && (
@@ -347,7 +352,7 @@ export default function Navigation() {
               {/* Drawer Content */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
                 <h3 style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-faint-color)', margin: '1rem 0 0.5rem 0.5rem', letterSpacing: '1px' }}>Races</h3>
-                {races.map((r: { id: number; name: string }) => (
+                {races.map((r: { id: number; name: string; isLocked: boolean }) => (
                   <div key={r.id}>
                     <Link
                       to={`/race/${r.id}`}
@@ -355,6 +360,7 @@ export default function Navigation() {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
+                        gap: '8px',
                         padding: '12px 16px',
                         textDecoration: 'none',
                         color: raceId === r.id.toString() ? 'var(--scouting-blue)' : 'var(--text-heading-alt-color)',
@@ -365,6 +371,7 @@ export default function Navigation() {
                       }}
                     >
                       {r.name}
+                      {r.isLocked && <LockedBadge size="small" />}
                     </Link>
                     {/* If this is the active race, show its sub-links */}
                     {raceId === r.id.toString() && (

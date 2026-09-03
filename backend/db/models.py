@@ -524,6 +524,20 @@ class Race(Base):
     exclude_round_winners_from_qualifying_standings: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    #: Once an event has concluded, the operator can lock its race to guard
+    #: against an accidental edit — a stray tap on a shared tablet weeks
+    #: later, not a person with something to hide (#585). Enforced by
+    #: `api.race_lock.RaceLockExtension`, a third schema extension beside the
+    #: role policy and the demo policy: reads and the handful of mutations
+    #: that are about screens rather than the record (`castVote`, the display
+    #: mutations) stay open, and `updateRace` itself is allowed only when the
+    #: payload does nothing but flip this flag back off — see that module for
+    #: the full allowed-while-locked list and why. Off by default, so every
+    #: race that existed before this column did reads exactly as it did
+    #: before.
+    is_locked: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     organization: Mapped["Organization"] = relationship(
         "Organization", back_populates="races"

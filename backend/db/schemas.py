@@ -307,6 +307,13 @@ class RaceUpdate(BaseModel):
     #: because `"FULL"` here is a real value distinct from "inherit", the
     #: same reason `clearTerminology` exists.
     name_display: str | None = None
+    #: Whether the race is locked against further edits (#585). Absent means
+    #: leave alone, same as everything else on this update; `false` is an
+    #: ordinary value (the unlock), not a sentinel needing its own clear
+    #: flag — the same shape `master_running_order` and `voting_open` use.
+    #: `api.race_lock.RaceLockExtension` is what actually enforces the lock;
+    #: this column is read-write like any other field here.
+    is_locked: bool | None = None
 
     @field_validator("drop_worst_runs")
     @classmethod
