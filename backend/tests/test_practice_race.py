@@ -186,6 +186,48 @@ class TestItsName:
         assert race.name == crud.PRACTICE_RACE_NAME
 
 
+@pytest.mark.usefixtures("configured")
+class TestResuming:
+    """#588: a double click, or a second visit to Home, must not leave
+    cruft in the races list — the operator should land back on the
+    rehearsal already under way."""
+
+    def test_nothing_exists_before_the_first_rehearsal(self, db):
+        assert crud.existing_practice_race(db) is None
+
+    def test_it_finds_the_one_that_was_created(self, db):
+        race = crud.create_practice_race(db)
+
+        found = crud.existing_practice_race(db)
+
+        assert found is not None
+        assert found.id == race.id
+
+    def test_it_finds_the_most_recently_created_one(self, db):
+        crud.create_practice_race(db)
+        second = crud.create_practice_race(db)
+
+        found = crud.existing_practice_race(db)
+
+        assert found is not None
+        assert found.id == second.id
+
+    def test_it_is_not_confused_by_a_race_the_operator_named_similarly(
+        self, db, configured
+    ):
+        group, track = configured
+        crud.create_race(
+            db,
+            schemas.RaceCreate(
+                name=f"{crud.PRACTICE_RACE_NAME} for Pack 42",
+                organization_id=group.id,
+                track_id=track.id,
+            ),
+        )
+
+        assert crud.existing_practice_race(db) is None
+
+
 class TestThroughGraphQL:
     @pytest.mark.usefixtures("configured")
     def test_the_mutation_returns_a_race_to_open(self, client):
@@ -211,3 +253,65 @@ class TestThroughGraphQL:
         )
 
         assert response.json().get("errors")
+
+    @pytest.mark.usefixtures("configured")
+    def test_a_second_call_resumes_rather_than_duplicates(self, client):
+        """The bug in #588: clicking "Try a practice race" more than once
+        used to leave a second race in the list."""
+        first = client.post(
+            "/graphql",
+            json={"query": "mutation { createPracticeRace { id name } }"},
+        ).json()["data"]["createPracticeRace"]
+
+        second = client.post(
+            "/graphql",
+            json={"query": "mutation { createPracticeRace { id name } }"},
+        ).json()["data"]["createPracticeRace"]
+
+        assert second["id"] == first["id"]
+        assert second["name"] == first["name"]
+
+        races = client.post(
+            "/graphql", json={"query": "query { races { id } }"}
+        ).json()["data"]["races"]
+        assert len(races) == 1
+
+    @pytest.mark.usefixtures("configured")
+    def test_start_new_builds_a_fresh_one_instead(self, client):
+        """The deliberate escape hatch: an operator who really does want to
+        start over is not stuck reopening a rehearsal they are done with."""
+        first = client.post(
+            "/graphql",
+            json={"query": "mutation { createPracticeRace { id name } }"},
+        ).json()["data"]["createPracticeRace"]
+
+        second = client.post(
+            "/graphql",
+            json={
+                "query": "mutation { createPracticeRace(startNew: true) { id name } }"
+            },
+        ).json()["data"]["createPracticeRace"]
+
+        assert second["id"] != first["id"]
+        assert second["name"] == f"{crud.PRACTICE_RACE_NAME} 2"
+
+    @pytest.mark.usefixtures("configured")
+    def test_practice_race_query_is_null_before_any_rehearsal(self, client):
+        response = client.post(
+            "/graphql", json={"query": "query { practiceRace { id } }"}
+        )
+
+        assert response.json()["data"]["practiceRace"] is None
+
+    @pytest.mark.usefixtures("configured")
+    def test_practice_race_query_finds_the_existing_one(self, client):
+        created = client.post(
+            "/graphql",
+            json={"query": "mutation { createPracticeRace { id name } }"},
+        ).json()["data"]["createPracticeRace"]
+
+        response = client.post(
+            "/graphql", json={"query": "query { practiceRace { id name } }"}
+        )
+
+        assert response.json()["data"]["practiceRace"] == created

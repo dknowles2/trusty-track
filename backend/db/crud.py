@@ -18,6 +18,7 @@ from backend.domain import (
     elimination,
     lanes,
     latecomers,
+    practice,
     running_order,
     scheduling,
     terminology,
@@ -3090,10 +3091,10 @@ def vote_counts_for_awards(
 #: The name of the track a practice race falls back to creating.
 PRACTICE_TRACK_NAME = "Practice Track"
 
-#: The stem every practice race is named from. It has to be recognisable at a
-#: glance on the Home page — the whole point is that nobody confuses it with
-#: the real event.
-PRACTICE_RACE_NAME = "Practice Race"
+#: Re-exported so existing callers (and the test suite) can keep saying
+#: `crud.PRACTICE_RACE_NAME`; the naming rule itself now lives in
+#: `domain.practice`, which needs to be importable with no database (#588).
+PRACTICE_RACE_NAME = practice.PRACTICE_RACE_NAME
 
 #: Enough racers to feel like an event without being a chore to sit through.
 #: Twenty is `populate`'s default and twenty heats is most of an afternoon.
@@ -3133,9 +3134,8 @@ def practice_track(db: Session) -> models.Track:
 def _next_practice_name(db: Session) -> str:
     """A free name, since ``races.name`` is unique.
 
-    Counts up rather than stamping a timestamp: an operator rehearsing twice
-    should see "Practice Race" and "Practice Race 2", not two names with
-    seconds in them.
+    The rule is `domain.practice.next_practice_name`; this is just the query
+    that supplies its input.
     """
     taken = {
         name
@@ -3143,12 +3143,35 @@ def _next_practice_name(db: Session) -> str:
         .filter(models.Race.name.like(f"{PRACTICE_RACE_NAME}%"))
         .all()
     }
-    if PRACTICE_RACE_NAME not in taken:
-        return PRACTICE_RACE_NAME
-    suffix = 2
-    while f"{PRACTICE_RACE_NAME} {suffix}" in taken:
-        suffix += 1
-    return f"{PRACTICE_RACE_NAME} {suffix}"
+    return practice.next_practice_name(taken)
+
+
+def existing_practice_race(db: Session) -> models.Race | None:
+    """The most recent rehearsal still on the books, if there is one (#588).
+
+    Resuming this one — rather than building another — is what keeps a
+    double click, or simply visiting Home a second time, from leaving cruft
+    in the races list. `createPracticeRace` reads this before deciding
+    whether to create anything, and `Query.practiceRace` reads it too, so the
+    Home page can offer "Resume practice race" without re-deriving the naming
+    rule itself (#48's lesson about a rule answered twice).
+
+    Ordered by id, not by name: `PRACTICE_RACE_NAME`'s own counter does not
+    survive a deletion in the middle, so an operator who deletes "Practice
+    Race 2" and rehearses again gets a fresh "Practice Race 2" that is
+    *newer* than a surviving "Practice Race 3" — name order and creation
+    order can disagree, and only the id is honest about which came last.
+    """
+    candidates = (
+        db.query(models.Race)
+        .filter(models.Race.name.like(f"{PRACTICE_RACE_NAME}%"))
+        .order_by(models.Race.id.desc())
+        .all()
+    )
+    for race in candidates:
+        if practice.is_practice_race_name(race.name):
+            return race
+    return None
 
 
 def create_practice_race(db: Session) -> models.Race:
@@ -3165,6 +3188,12 @@ def create_practice_race(db: Session) -> models.Race:
     It includes a championship round on purpose. Advancement is the part of
     race day that surprises people, and a rehearsal that stops before the final
     leaves out the bit worth practising.
+
+    Always builds a new one — it is the primitive `existing_practice_race`
+    stands in front of, not the thing a caller wanting "resume, or create if
+    there isn't one" (#588) should call directly. That caller is the
+    `createPracticeRace` resolver, which checks `existing_practice_race`
+    first.
     """
     from backend.db import populate
 

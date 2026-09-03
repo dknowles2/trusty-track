@@ -465,6 +465,11 @@ export type MutationCreateInitialConfigArgs = {
 };
 
 
+export type MutationCreatePracticeRaceArgs = {
+  startNew?: Scalars['Boolean']['input'];
+};
+
+
 export type MutationCreateRaceArgs = {
   race: RaceInput;
 };
@@ -757,6 +762,7 @@ export type Query = {
   initialConfig: InitialConfigStatus;
   networkAddresses: Array<Scalars['String']['output']>;
   organizations: Array<Organization>;
+  practiceRace?: Maybe<Race>;
   race?: Maybe<Race>;
   raceStats?: Maybe<RaceStats>;
   racer?: Maybe<Racer>;

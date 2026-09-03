@@ -10,6 +10,15 @@
 import { test, expect } from '@playwright/test';
 import { ensureConfigured, gql } from './support';
 
+// A practice race is identified by name, not scoped to a test the way a
+// seeded race is (#588's "The practice race" section in CLAUDE.md) — every
+// test here is contending for the *same* "Practice Race" slot. Under the
+// ordinary fully-parallel config two of these clicking at once would resume
+// one another's rehearsal rather than each getting its own, which is exactly
+// the bug #588 fixed and exactly what makes these tests non-deterministic
+// together. Serial trades a few seconds of wall clock for that determinism.
+test.describe.configure({ mode: 'serial' });
+
 test('one click reaches a heat that can be run', async ({ page }) => {
     await ensureConfigured(page);
 
@@ -20,7 +29,12 @@ test('one click reaches a heat that can be run', async ({ page }) => {
     // the heat rather than asserting a button exists, because "ready to arm a
     // heat" is the entire promise and a screen that merely looks ready is what
     // a volunteer would find out about at the start line.
-    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/);
+    //
+    // The navigation waits on the mutation building the whole rehearsal — a
+    // dozen racers with photographs, a schedule, a final — which is well
+    // past the default 5s assertion timeout; every `toHaveURL` below waiting
+    // on the same click gets the same allowance.
+    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
     await expect(page.getByText('Ready to start')).toBeVisible({ timeout: 30000 });
 
     const times = page.getByText(/^\d+\.\d{4}s$/);
@@ -39,7 +53,7 @@ test('it never puts a practice race on real hardware', async ({ page }) => {
 
     await page.goto('/');
     await page.getByTestId('practice-race').click();
-    await expect(page).toHaveURL(/\/race\/(\d+)\/control\/race/);
+    await expect(page).toHaveURL(/\/race\/(\d+)\/control\/race/, { timeout: 30000 });
 
     const raceId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
     const data = await gql<{ race: { track: { timerType: string } } }>(
@@ -56,7 +70,7 @@ test('it is built out enough to rehearse the whole day', async ({ page }) => {
 
     await page.goto('/');
     await page.getByTestId('practice-race').click();
-    await expect(page).toHaveURL(/\/race\/(\d+)\/control\/race/);
+    await expect(page).toHaveURL(/\/race\/(\d+)\/control\/race/, { timeout: 30000 });
     const raceId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
 
     const data = await gql<{
@@ -86,14 +100,36 @@ test('it is built out enough to rehearse the whole day', async ({ page }) => {
     expect(data.race.rounds.map((r) => r.advancementSource)).toContain('ALL');
 });
 
-test('a second rehearsal does not collide with the first', async ({ page }) => {
-    // `races.name` is unique, so this would otherwise fail at the point the
-    // operator is least equipped to understand why.
+test('clicking again resumes the same rehearsal rather than duplicating it (#588)', async ({
+    page,
+}) => {
     await ensureConfigured(page);
 
     await page.goto('/');
     await page.getByTestId('practice-race').click();
-    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/);
+    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
+    const firstId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
+
+    await page.goto('/');
+    // The button itself says so before it is even clicked.
+    await expect(page.getByTestId('practice-race')).toHaveText(/Resume practice race/);
+    await page.getByTestId('practice-race').click();
+    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
+    const secondId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
+
+    expect(secondId).toBe(firstId);
+});
+
+test('start new builds a genuinely fresh rehearsal instead', async ({ page }) => {
+    // The deliberate escape hatch: an operator who really does want to start
+    // over is not stuck reopening one they are done with. `races.name` is
+    // unique, so this also proves the counted-up name still works once a
+    // rehearsal is being resumed by default.
+    await ensureConfigured(page);
+
+    await page.goto('/');
+    await page.getByTestId('practice-race').click();
+    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
     const firstId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
     const firstName = (
         await gql<{ race: { name: string } }>(
@@ -104,8 +140,8 @@ test('a second rehearsal does not collide with the first', async ({ page }) => {
     ).race.name;
 
     await page.goto('/');
-    await page.getByTestId('practice-race').click();
-    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/);
+    await page.getByTestId('practice-race-start-new').click();
+    await expect(page).toHaveURL(/\/race\/\d+\/control\/race/, { timeout: 30000 });
     const secondId = Number(page.url().match(/\/race\/(\d+)\//)![1]);
     const secondName = (
         await gql<{ race: { name: string } }>(

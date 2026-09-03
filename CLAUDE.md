@@ -349,7 +349,7 @@ Databases created before Alembic are detected at startup (app tables present, no
 
 Defined entirely in `backend/api/schema.py`.
 
-**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `organizations`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `suggestDisplayName`, `version`, `networkAddresses`
+**Queries:** `auditLog`, `races`, `race`, `racers`, `racer`, `tracks`, `organizations`, `rounds`, `initialConfig`, `advancementStatus`, `raceStats`, `timerStatus`, `timerModels`, `heatSession`, `freeRaceHeats`, `activeFreeRaceHeat`, `randomFreeRaceLanes`, `displays`, `suggestDisplayName`, `version`, `networkAddresses`, `practiceRace`
 
 **Mutations:**
 
@@ -712,6 +712,10 @@ Rules in `domain/awards.can_be_voted_on` and `domain/awards.rank_tally`, databas
 **The name counts up.** `races.name` is unique, so a second rehearsal would otherwise fail at the point the operator is least equipped to understand why — and a counter reads better than a timestamp on the Home page.
 
 There is deliberately no "is a practice race" column. The name is what tells an operator, and a flag would be a schema change for something cosmetic that nothing else branches on.
+
+**Clicking the button twice must not leave two rehearsals in the list** ([#588](https://github.com/dknowles2/trusty-track/issues/588)). With no stored flag, "is there one already?" has to be answered from the name, and `domain/practice.py` is where that rule lives — pure, so both ends of the app can ask it without disagreeing (#48's lesson about a rule answered twice): `crud.existing_practice_race` reads it to decide whether `createPracticeRace` should build anything, and `Query.practiceRace` reads it so Home can offer "Resume practice race" without re-deriving the naming rule itself from the race list. **Resuming beats duplicating**: the mutation returns the most recently created rehearsal (highest id — `PRACTICE_RACE_NAME`'s own counter does not survive a deletion in the middle, so name order and creation order can disagree) rather than building another, and `startNew: Boolean` is the deliberate escape hatch for an operator who really does want to start over, offered on Home as a small "Start new" action beside the primary button rather than a second confirm dialog — the simplest honest shape for "I know, start a fresh one anyway."
+
+**The frontend closes its own half of the race independently of the backend's.** `disabled={practiceResult.fetching}` already existed and stays, but urql's `fetching` flag only becomes true once a render has caught up with the mutation having started — two clicks landing in the same tick can both fire before that happens. `Home.tsx`'s `handlePractice` therefore also holds a synchronous `useRef` guard, set before the `await` and cleared in a `finally`, so a genuine double click cannot send two requests regardless of render timing. Belt and braces: the backend's resume behaviour is what actually prevents cruft even if this guard is ever removed, and the guard is what keeps a rapid double click from being two round trips instead of one.
 
 ### The weight limit
 
