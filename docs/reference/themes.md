@@ -37,11 +37,13 @@ lives only on this device and never reaches a wall display or a printer, so
 there is no App picker for either of them to follow, and the option is named
 for what it actually shows now.
 
-**Changing Display or Printables does not repaint a screen that is already
-open.** A wall display or projector already running mid-event picks up a
-new theme on its next reload or reconnect, not instantly — the same
-simplicity as entering an operator PIN reloading the page. Pick a theme
-before the race starts, not mid-ceremony.
+**Changing Display repaints a wall display or projector that is already
+open, live** — no reload needed. It reaches the screen over the same
+connection that already tells it what to show, so a theme picked mid-event
+takes effect on every open screen within a moment. **Printables is
+different**: a printed page is not a live connection, so a theme change
+there only affects the next thing you print — nothing to "repaint" on paper
+already handed out.
 
 ## The seven themes
 

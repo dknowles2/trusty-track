@@ -166,6 +166,18 @@ class DisplayRegistry:
             key=lambda d: (not d.connected, d.name.lower()),
         )
 
+    def all_ids(self) -> list[str]:
+        """Every display known to this process, regardless of race.
+
+        For the one thing that is genuinely install-wide rather than
+        race-scoped: the Display surface's theme (`Organization.display_theme`,
+        #498) lives on the organization, not on a race, so a change to it has
+        to reach every connected screen whatever race it happens to be
+        pointed at — the ordinary `for_race` scoping would miss a screen left
+        on a second race sharing the install.
+        """
+        return list(self._displays.keys())
+
     # -- writing ----------------------------------------------------------
 
     def assign(

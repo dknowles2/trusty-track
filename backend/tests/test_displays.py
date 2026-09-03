@@ -140,6 +140,15 @@ class TestPresence:
         assert registry.for_race(1) == []
         assert [d.display_id for d in registry.for_race(2)] == ["abc"]
 
+    def test_all_ids_spans_every_race(self, registry):
+        # The Display theme (#498) is install-wide, not race-scoped, so the
+        # one thing that has to reach every screen regardless of which race
+        # it is pointed at (#586) needs a walk `for_race` cannot give it.
+        registry.connect("abc", race_id=1)
+        registry.connect("def", race_id=2)
+
+        assert sorted(registry.all_ids()) == ["abc", "def"]
+
 
 class TestAssignment:
     def test_a_new_display_has_not_been_told_anything(self, registry):

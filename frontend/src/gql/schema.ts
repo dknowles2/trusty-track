@@ -89,6 +89,7 @@ export type Display = {
   cycleSeconds: Scalars['Int']['output'];
   description: Scalars['String']['output'];
   displayId: Scalars['String']['output'];
+  displayThemeSetting: Scalars['String']['output'];
   identifySeq: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   pacedByAPerson: Scalars['Boolean']['output'];

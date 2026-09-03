@@ -53,9 +53,6 @@ const GET_INITIAL_DATA = `
         division
       }
     }
-    initialConfig {
-      displayTheme
-    }
   }
 `;
 
@@ -198,8 +195,16 @@ export default function Observation() {
   // device's own App theme happens to be — see `resolveSurfaceKey`'s own
   // comment for why that is the only resolution that can be the same on
   // every wall display in the room (#528).
+  //
+  // Read off the `displayAssignment` subscription rather than a one-shot
+  // query (#586): that subscription is the leash this screen already holds
+  // open for the whole event, and `updateInitialConfig` nudges every
+  // connected display's own channel when the operator changes the theme in
+  // System Settings — so re-deriving from each new payload is what makes a
+  // theme change reach an already-open screen with no reload. Before the
+  // first payload arrives this falls back to the default, same as before.
   const displayThemeSetting: SurfaceThemeSetting =
-    (initialData?.initialConfig?.displayTheme as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
+    (assignment?.displayThemeSetting as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
   const { key: displayThemeKey, theme: displayTheme } = resolveDisplayTheme(displayThemeSetting);
   const displayThemeStyle = displayTheme.tokens as React.CSSProperties;
 

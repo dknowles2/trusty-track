@@ -69,8 +69,14 @@ export default function AwardCeremony() {
   // own root: this is the audience-facing surface, and the default option
   // (stored as 'MATCH_APP', shown as "Field Uniform (default)") resolves
   // the same way on every screen in the room (#528).
+  //
+  // Read off `displayAssignment` rather than the award query's own
+  // `initialConfig` (#586) — this page already holds that subscription open
+  // for the whole ceremony (see the comment above it), and it is what lets a
+  // theme change made in System Settings reach this screen live, the same as
+  // Observation.tsx.
   const displayThemeSetting: SurfaceThemeSetting =
-    (result.data?.initialConfig?.displayTheme as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
+    (assignment?.displayThemeSetting as SurfaceThemeSetting | undefined) ?? 'MATCH_APP';
   const { key: displayThemeKey, theme: displayTheme } = resolveDisplayTheme(displayThemeSetting);
   const displayThemeStyle = displayTheme.tokens as React.CSSProperties;
 

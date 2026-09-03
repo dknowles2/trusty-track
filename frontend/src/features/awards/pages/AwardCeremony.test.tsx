@@ -95,6 +95,7 @@ function mockAssignment(
         slideDelta?: number;
         name?: string;
         identifySeq?: number | null;
+        displayThemeSetting?: string;
       }
     | null,
 ) {
@@ -328,5 +329,25 @@ describe('Identify reaches this screen too (#519)', () => {
     rerender();
 
     expect(screen.queryByTestId('identify-flash')).not.toBeInTheDocument();
+  });
+});
+
+describe('the Display theme, pushed live (#586)', () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('re-applies the theme when a later displayAssignment payload carries a new one, with no reload', () => {
+    mockAssignment({ assigned: false, view: 'AWARDS', displayThemeSetting: 'old-glory' });
+    const { rerender } = renderCeremonyForRerender();
+
+    expect(document.querySelector('[data-theme]')).toHaveAttribute('data-theme', 'old-glory');
+
+    // The operator changes the Display theme in System Settings — no
+    // reload, just the next payload on the subscription this page already
+    // holds open (see "stays on the operator leash" above).
+    mockAssignment({ assigned: false, view: 'AWARDS', displayThemeSetting: 'newsprint' });
+    rerender();
+
+    expect(document.querySelector('[data-theme]')).toHaveAttribute('data-theme', 'newsprint');
   });
 });

@@ -85,6 +85,7 @@ type Display {
   slideSeq: Int!
   slideDelta: Int!
   identifySeq: Int!
+  displayThemeSetting: String!
 }
 
 enum DisplayView {

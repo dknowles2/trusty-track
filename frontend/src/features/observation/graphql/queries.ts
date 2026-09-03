@@ -121,6 +121,7 @@ export const DisplayAssignmentSubscription = gql`
       slideSeq
       slideDelta
       identifySeq
+      displayThemeSetting
     }
   }
 `;
