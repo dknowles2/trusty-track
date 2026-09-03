@@ -301,12 +301,30 @@ class TimerProfile:
     #: False when the timer cannot say whether the start gate is closed, which
     #: makes READY unreachable for it — see ``TimerManager._handle_event``.
     gate_state_is_knowable: bool = False
-    #: True for a poll-only device with no matcher of its own for a race
-    #: starting — the gate opening *is* the only start signal. A polled
-    #: gate-open observed while READY is then read as ``RaceStarted`` (stop
-    #: polling, transition to RUNNING, send the on-start commands) instead of
-    #: falling back to ARMED. Ignored unless ``gate_state_is_knowable`` and
-    #: ``gate_watcher`` are both set — see ``TimerManager._handle_gate_reading``.
+    #: True for a device with no matcher of its own for a race starting — the
+    #: gate opening *is* the only start signal. A gate-open observed while
+    #: READY is then read as ``RaceStarted`` (stop polling, transition to
+    #: RUNNING, send the on-start commands) instead of falling back to ARMED,
+    #: whichever of the two ways the manager learns of the gate opening:
+    #:
+    #: - **Polled** (``TimerManager._handle_gate_reading``): consulted only
+    #:   inside a poll's response window, which only exists at all when
+    #:   ``gate_state_is_knowable`` and ``gate_watcher`` are both set — that
+    #:   pair is what makes polling, and so READY, reachable in the first
+    #:   place. The Champ reaches READY this way and is told the race has
+    #:   started this way too — polled all the way through.
+    #: - **Pushed** (``TimerManager._handle_event``'s ``GateOpen`` branch):
+    #:   this half needs neither flag. A device that reports its own edges
+    #:   has already done its own debouncing and is believed once, the same
+    #:   asymmetry ``GateBelief`` documents for a pushed ``GateClosed`` — so
+    #:   the branch reads straight off the event with no poll window
+    #:   involved. Bert Drake reaches RUNNING this way, but reaches READY the
+    #:   *other* way: it has no push of its own for the gate closing, only
+    #:   the ``C``/``Gc``/``Go`` query, so it keeps ``gate_state_is_knowable``
+    #:   True and polls to get from ARMED to READY, then the pushed `B`
+    #:   finishes the job through this flag — see its profile comment. A
+    #:   device could in principle push both edges and need
+    #:   ``gate_state_is_knowable`` not at all; none currently does.
     gate_open_starts_race: bool = False
     #: False for the fake timer, which has no port to open.
     requires_serial: bool = True
