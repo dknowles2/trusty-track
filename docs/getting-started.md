@@ -26,13 +26,13 @@ The first time you launch Trusty Track, or when you need to adjust your organiza
 
 The first time, everything below is on one page, in order — fill it in from top
 to bottom. Afterwards the page splits into sections listed down the left —
-**General**, **Appearance**, **Access**, **Tracks** and **Backup** — and shows one at a time.
+**General**, **Appearance**, **Access**, **Tracks**, **Advanced** and **Backup**
+— and shows one at a time.
 **Save Settings** saves the lot, whichever section you are looking at.
 
 ### Organization Details
 
 - **Organization Name**: The name of your Cub Scout Pack, school, or group (e.g., "Pack 123").
-- **Debugging Mode**: Off by default. Turning it on shows extra timer controls and logs during races — leave it off unless you're troubleshooting.
 
 ### Appearance
 
@@ -56,6 +56,10 @@ Trusty Track needs to know about your physical race track:
 - **Timer Type**: Select the device connected to your track. Use **Fake Timer (Manual Control)** for testing or practicing without physical hardware, or **No timer — I'll enter results by hand** if your pack genuinely has no electronic timer. If you have an electronic finish line, the [Hardware Timer guide](hardware-timer.md) covers plugging it in and checking it works — worth doing the week before, not on race morning.
 
 If you run more than one track, **+ Add Another Track** adds another to the same form.
+
+### Advanced
+
+- **Debugging Mode**: Off by default. Turning it on shows extra timer controls and logs during races — leave it off unless you're troubleshooting.
 
 ![System Settings Form](assets/screenshots/getting-started/02-system-settings.png)
 

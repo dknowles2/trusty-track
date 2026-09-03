@@ -651,18 +651,6 @@ export default function SystemConfig() {
                       ))}
                     </div>
                   </fieldset>
-
-                  <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <input
-                      type="checkbox"
-                      id="debug_mode"
-                      checked={debugMode}
-                      onChange={(e) => setDebugMode(e.target.checked)}
-                      style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
-                    <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
-                  </div>
                 </section>
               )}
 
@@ -782,6 +770,32 @@ export default function SystemConfig() {
                   >
                     + Add Another Track
                   </button>
+                </section>
+              )}
+
+              {/* Advanced (#659) — last of the form sections, and ordinary
+                  form state rather than pulled out of the form the way Backup
+                  is: nothing here is destructive, so there is no misclick to
+                  guard against, only clutter to keep out of an operator's
+                  first look. Debugging Mode used to sit at the foot of
+                  General, which put it near the *top* of the page once the
+                  page was sectioned — this is the one control that lives
+                  here today, and the section exists so a later troubleshooting
+                  control has somewhere to go that is not General. */}
+              {shows('advanced') && (
+                <section aria-labelledby="settings-advanced" data-testid="advanced-panel">
+                  {sectioned ? <SectionHeading id="advanced" sectioned={sectioned} /> : <h2 style={{ marginBottom: '0.5rem' }}>Advanced</h2>}
+                  <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input
+                      type="checkbox"
+                      id="debug_mode"
+                      checked={debugMode}
+                      onChange={(e) => setDebugMode(e.target.checked)}
+                      style={{ width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="debug_mode" style={{ fontWeight: 'bold', cursor: 'pointer' }}>Debugging Mode</label>
+                    <small style={{ color: 'var(--text-muted-color)', marginLeft: 'auto' }}>When enabled, additional timer controls and logs are shown during races.</small>
+                  </div>
                 </section>
               )}
 
