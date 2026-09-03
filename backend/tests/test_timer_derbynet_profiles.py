@@ -295,6 +295,48 @@ def test_lane_masking_uses_each_timers_own_lane_naming():
 
 
 # ---------------------------------------------------------------------------
+# Acknowledgements (issue #631)
+# ---------------------------------------------------------------------------
+
+
+def test_the_pdt_expects_k_for_its_reset():
+    """dfgtec's Ready Response: the recording answers every `R` with `K`
+    (`#on R` / `K` in pdt.playback). Without this, `R` -- sent from `setup`,
+    `heat_prep.arm` and the GATE_CLOSED handler above -- had no declared
+    acknowledgement pattern at all."""
+    expected = PDT.expected_response_for(b"R")
+    assert expected is not None
+    assert expected.pattern == rb"^K$"
+
+
+async def test_the_pdt_consumes_its_reset_ack_rather_than_logging_it_unrecognized():
+    """Mirrors the MicroWizard's own acks -- `_process_line` checks
+    `_pending_acks` before `parse_line`, so a correctly declared ack is
+    consumed there and never reaches the device's matchers at all. Before
+    this profile declared one, `K` fell through unmatched (`parse_line`
+    returns `None` for it -- no matcher claims a bare `K`) and was silently
+    dropped as an unrecognized line instead of closing out the command that
+    was actually waiting on it."""
+    manager = TimerManager(track_id=1, device=PDT)
+    await manager._send_commands([b"R"])
+    assert manager._pending_acks
+
+    await manager.receive_bytes(b"K\n")
+
+    assert not manager._pending_acks
+
+
+def test_a_bare_k_is_never_read_as_identification():
+    """The ack is matched only against the *oldest pending command* in
+    `_pending_acks`, never against `identification` -- PDT identifies itself
+    with `vert=`, and a `K` arriving with nothing pending (or after its ack
+    was already consumed) must fall through as ordinary, unrecognized
+    traffic rather than being mistaken for the device announcing itself."""
+    assert PDT.is_identified_by(b"K") is False
+    assert PDT.parse_line(b"K") is None
+
+
+# ---------------------------------------------------------------------------
 # The set as a whole
 # ---------------------------------------------------------------------------
 

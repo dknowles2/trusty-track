@@ -26,6 +26,7 @@ Four models from DerbyNet are deliberately absent:
 import re
 
 from .base import (
+    Ack,
     Event,
     GateWatcher,
     Group,
@@ -280,6 +281,12 @@ PDT = TimerProfile(
         Event.GATE_CLOSED: (b"R",),
         Event.RESULTS_OVERDUE: (b"F",),
     },
+    # The recording answers every `R` with `K` (dfgtec's Ready Response) —
+    # `#on R` / `K` in pdt.playback. Without this, `K` reached `parse_line`
+    # unmatched and was silently dropped rather than consumed as the ack for
+    # the reset sent from `setup`, `heat_prep.arm` and the GATE_CLOSED->R
+    # above.
+    acks=(Ack(re.compile(rb"^R$"), re.compile(rb"^K$")),),
     matchers=(
         # DerbyNet's profile matches `B`; the device in their recording says
         # `RACING`. Both are accepted rather than choosing between a profile
