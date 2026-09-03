@@ -265,6 +265,14 @@ export type InitialConfigStatus = {
   version: Scalars['String']['output'];
 };
 
+export type Intermission = {
+  active: Scalars['Boolean']['output'];
+  endsAt?: Maybe<Scalars['String']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  paused: Scalars['Boolean']['output'];
+  remainingSeconds: Scalars['Int']['output'];
+};
+
 export type LaneResult = {
   lane: Scalars['Int']['output'];
   place?: Maybe<Scalars['Int']['output']>;
@@ -341,12 +349,15 @@ export type Mutation = {
   deleteRunOffHeat: Scalars['Boolean']['output'];
   deleteTrack: Scalars['Boolean']['output'];
   deleteTrackRecord: Scalars['Boolean']['output'];
+  endIntermission: Race;
+  extendIntermission: Race;
   fakeTimerFinish: Scalars['Boolean']['output'];
   fakeTimerStart: Scalars['Boolean']['output'];
   forceResults: Scalars['Boolean']['output'];
   forgetDisplay: Scalars['Boolean']['output'];
   identifyDisplay?: Maybe<Display>;
   importRacers: Scalars['Int']['output'];
+  pauseIntermission: Race;
   populateRace: Scalars['String']['output'];
   prepareHeat: Scalars['Boolean']['output'];
   reconnectTimer: Scalars['Boolean']['output'];
@@ -357,8 +368,10 @@ export type Mutation = {
   reorderAwards: Array<Award>;
   reorderHeats: HeatReorderResponse;
   resetTimer: Scalars['Boolean']['output'];
+  resumeIntermission: Race;
   setLaneOutages: Array<Scalars['Int']['output']>;
   startFreeRaceHeat: FreeRaceHeat;
+  startIntermission: Race;
   startTimerTest: Scalars['Boolean']['output'];
   updateAward?: Maybe<Award>;
   updateHeatResult?: Maybe<Heat>;
@@ -567,6 +580,17 @@ export type MutationDeleteTrackRecordArgs = {
 };
 
 
+export type MutationEndIntermissionArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationExtendIntermissionArgs = {
+  raceId: Scalars['Int']['input'];
+  seconds: Scalars['Int']['input'];
+};
+
+
 export type MutationFakeTimerFinishArgs = {
   heatId: Scalars['Int']['input'];
   isFreeRace?: Scalars['Boolean']['input'];
@@ -596,6 +620,11 @@ export type MutationIdentifyDisplayArgs = {
 
 export type MutationImportRacersArgs = {
   csvData: Scalars['String']['input'];
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationPauseIntermissionArgs = {
   raceId: Scalars['Int']['input'];
 };
 
@@ -655,6 +684,11 @@ export type MutationResetTimerArgs = {
 };
 
 
+export type MutationResumeIntermissionArgs = {
+  raceId: Scalars['Int']['input'];
+};
+
+
 export type MutationSetLaneOutagesArgs = {
   lanes: Array<Scalars['Int']['input']>;
   trackId: Scalars['Int']['input'];
@@ -663,6 +697,13 @@ export type MutationSetLaneOutagesArgs = {
 
 export type MutationStartFreeRaceHeatArgs = {
   laneAssignments: Array<FreeRaceLaneAssignmentInput>;
+  raceId: Scalars['Int']['input'];
+};
+
+
+export type MutationStartIntermissionArgs = {
+  durationSeconds: Scalars['Int']['input'];
+  label?: InputMaybe<Scalars['String']['input']>;
   raceId: Scalars['Int']['input'];
 };
 
@@ -876,6 +917,7 @@ export type Race = {
   globalStartNumber: Scalars['Int']['output'];
   heats: Array<Heat>;
   id: Scalars['Int']['output'];
+  intermission: Intermission;
   isLocked: Scalars['Boolean']['output'];
   leaderboard: Array<LeaderboardEntry>;
   location?: Maybe<Scalars['String']['output']>;
@@ -915,6 +957,7 @@ export type RaceLeaderboardArgs = {
 
 export type RaceChangeKind =
   | 'HEAT_RESULT'
+  | 'INTERMISSION'
   | 'OTHER'
   | 'RACER'
   | 'RACE_SETTINGS'
@@ -939,6 +982,7 @@ export type RaceInput = {
 export type RaceStateChangedEvent = {
   changedAt: Scalars['String']['output'];
   heat?: Maybe<Heat>;
+  intermission?: Maybe<Intermission>;
   kind: RaceChangeKind;
   raceId: Scalars['Int']['output'];
   racer?: Maybe<Racer>;
