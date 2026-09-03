@@ -47,6 +47,7 @@ function statsPayload(overrides: object = {}) {
         racingGroupStats: [],
         heatResults: [],
         trackRecords: [],
+        topScaleMph: null,
         ...overrides,
     };
 }
@@ -354,6 +355,32 @@ describe('highlights', () => {
     it('is absent when the race has no highlights yet', () => {
         renderStats(statsPayload({ highlights: [] }));
         expect(screen.queryByText('Top Moments')).toBeNull();
+    });
+});
+
+describe('top scale speed (#610)', () => {
+    const fastestHeat = {
+        type: 'FASTEST_HEAT',
+        roundName: 'Round 1',
+        heatNumber: 2,
+        globalHeatNumber: 5,
+        racerName: 'Ada Lovelace',
+        time: 3.2,
+        margin: null,
+    };
+
+    it('shows the top scale speed beside the fastest heat card', () => {
+        renderStats(statsPayload({ highlights: [fastestHeat], topScaleMph: 213.1 }));
+
+        expect(screen.getByText('Fastest Heat')).toBeInTheDocument();
+        expect(screen.getByText('Top scale speed: 213 mph')).toBeInTheDocument();
+    });
+
+    it('shows nothing extra when the track has no scale speed to report', () => {
+        renderStats(statsPayload({ highlights: [fastestHeat], topScaleMph: null }));
+
+        expect(screen.getByText('Fastest Heat')).toBeInTheDocument();
+        expect(screen.queryByText(/Top scale speed/)).toBeNull();
     });
 });
 

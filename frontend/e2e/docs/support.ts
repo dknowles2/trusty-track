@@ -138,11 +138,12 @@ export async function ownTrack(
     name: string,
     laneCount = 4,
     timerType = 'FAKE',
+    lengthFeet?: number,
 ): Promise<number> {
     const created = await gql<{ createTrack: { id: number } }>(
         page,
         `mutation OwnTrack($track: TrackInput!) { createTrack(track: $track) { id } }`,
-        { track: { name, laneCount, timerType } },
+        { track: { name, laneCount, timerType, lengthFeet } },
     );
     return created.createTrack.id;
 }

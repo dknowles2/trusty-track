@@ -505,6 +505,7 @@ type RaceStats {
   racingGroupStats: [RacingGroupStat!]!
   heatResults: [HeatResultRow!]!
   trackRecords: [TrackRecord!]!
+  topScaleMph: Float
 }
 
 input RaceUpdateInput {
@@ -737,6 +738,7 @@ type TimingStatsLane {
   time: Float
   place: Int
   racerImageUrl: String
+  scaleMph: Float
 }
 
 type Track {
