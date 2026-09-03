@@ -81,6 +81,13 @@ export function sectionsFor(isEditing: boolean): readonly Section[] {
 export interface TrackForValidation {
   name: string;
   laneCount: number;
+  // The vehicle-to-real-life ratio scale speed is computed against (#610).
+  // The input carries `min`/`step`, which catches a bad value while the
+  // track's own card is on screen — this is the same "the browser cannot
+  // point at a field it is not rendering" case `laneCount` already covers,
+  // and the server refuses a non-positive ratio regardless of whether scale
+  // speed is even switched on for this track.
+  scaleRatio: number;
 }
 
 export interface Problem {
@@ -134,6 +141,12 @@ export function firstProblem(
       return {
         section: 'tracks',
         message: `${track.name} needs between 1 and 8 lanes.`,
+      };
+    }
+    if (!(track.scaleRatio > 0)) {
+      return {
+        section: 'tracks',
+        message: `${track.name} needs a scale ratio greater than zero.`,
       };
     }
   }

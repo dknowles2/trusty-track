@@ -17,6 +17,7 @@
 import { Link } from 'react-router-dom';
 import TrackLanes from './TrackLanes';
 import TrackRecords, { type HistoricalRecord } from './TrackRecords';
+import { useTerminology } from '../../../context/TerminologyContext';
 
 export interface TrackFields {
   // Absent until the track has been saved, which is also when it can first
@@ -31,8 +32,8 @@ export interface TrackFields {
   remoteStartInstalled: boolean;
   reverseLanes: boolean;
   // The vehicle-to-real-life ratio scale speed is computed against, and
-  // whether this track offers scale speed at all (#610). Round-tripped here
-  // with no control yet — stage 3 adds the card's inputs for them.
+  // whether this track offers scale speed at all (#610). Controlled by the
+  // checkbox and number input beside Length (feet), below.
   scaleRatio: number;
   showScaleSpeed: boolean;
   laneOutages?: number[];
@@ -92,6 +93,7 @@ export default function TrackCard({
   onLaneOutages,
   onRecords,
 }: Props) {
+  const { vehicleLower } = useTerminology();
   const chosen = timerModels.find((m) => m.key === track.timerProfile);
   const unusualFraming =
     chosen &&
@@ -173,6 +175,48 @@ export default function TrackCard({
             style={textInput}
           />
         </div>
+      </div>
+
+      {/* Beside Length (feet), because scale speed is nothing without a
+          length to compute from (#610) — the flag below is ANDed with a
+          positive length wherever a speed is actually rendered, so a track
+          with no length shows none regardless of this setting. */}
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+          <input
+            type="checkbox"
+            id={`track-show-scale-speed-${index}`}
+            checked={!!track.showScaleSpeed}
+            onChange={(e) => onChange('showScaleSpeed', e.target.checked)}
+          />
+          Show scale speed
+        </label>
+        <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.25rem' }}>
+          Converts a heat&apos;s time into a real-world speed, shown beside the recorded
+          time. A track with no length recorded shows no speed, whatever this says.
+        </small>
+        {track.showScaleSpeed && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <label htmlFor={`track-scale-ratio-${index}`} style={fieldLabel}>
+              Scale (1:25 is standard for a pinewood derby {vehicleLower})
+            </label>
+            <input
+              type="number"
+              id={`track-scale-ratio-${index}`}
+              value={track.scaleRatio}
+              onChange={(e) => onChange('scaleRatio', parseFloat(e.target.value) || 0)}
+              min="0.01"
+              step="0.01"
+              required
+              style={textInput}
+            />
+            <small style={{ color: 'var(--text-muted-color)', display: 'block', marginTop: '0.25rem' }}>
+              How many times smaller than life-size the {vehicleLower} is. 25 is the usual
+              1:25 pinewood derby scale; a Space Derby or Raingutter Regatta {vehicleLower} may
+              use a different number, or turn scale speed off above.
+            </small>
+          </div>
+        )}
       </div>
 
       {/* Under the lane count, because "how many lanes" and "which of them
