@@ -86,7 +86,12 @@ test('screenshot the print sheets', async ({ page }) => {
         );
     }
 
-    for (const kind of ['pit-pass', 'drivers-license', 'check-in-code']) {
+    // `car-sticker` is the impound label (#617). These racers are not
+    // checked in or weighed until further down this spec, so its weight
+    // line prints blank — the ordinary look for a batch run off before the
+    // scale opens, with no need to touch the "leave the weight blank"
+    // checkbox to get there.
+    for (const kind of ['pit-pass', 'drivers-license', 'check-in-code', 'car-sticker']) {
         await page.goto(`/race/${raceId}/print?kind=${kind}`);
         await expect(page.locator('.print-card').first()).toBeVisible();
         // The QR codes come from the backend as images; a sheet caught

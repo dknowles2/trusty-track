@@ -4,13 +4,14 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
 — nothing to install, no PDFs. For the walkthrough, see the
 [Printables guide](../printables.md).
 
-## The six documents
+## The seven documents
 
 | Document | Where | What it is |
 | --- | --- | --- |
 | **Pit passes** | Roster → ⋯ → Print | Lanyard-sized, six per sheet: photo, name, den, car, event details |
 | **Driver's licences** | Roster → ⋯ → Print | Business-card sized, ten per sheet — the same size as stationery-shop card stock. The car number is the biggest thing on it, and there is a line for the scout to sign |
 | **Check-in codes** | Roster → ⋯ → Print | A QR code per racer, twelve per sheet, name and car number underneath |
+| **Car labels** | Roster → ⋯ → Print | Avery 5163 shipping-label sized, ten per sheet: car number, name, racing group, inspected weight, and a scan code — for the underside of the car or the impound box |
 | **Heat sheet** | Race Control → Schedule | The running order: a table per round, a row per heat, a column per lane, and an empty **Result** column to write into |
 | **Results sheet** | Standings → Print results | Awards and winners at the top, then the standings — overall, and a table per den |
 | **Certificates** | Race → Awards → Print certificates | One certificate per award, one per sheet, in the ceremony's running order — with artwork for a ready-made superlative or a speed award |
@@ -29,8 +30,8 @@ Everything Trusty Track puts on paper. All of it comes off a normal printer
 
 ## Names on paper
 
-Pit passes, driver's licences, the heat sheet, the results sheet and
-certificates all print a racer's full name by default. **Names on public
+Pit passes, driver's licences, car labels, the heat sheet, the results sheet
+and certificates all print a racer's full name by default. **Names on public
 screens**, in System Settings (with a per-race override on the race's edit
 form), can shorten it to "Jordan M." or "Jordan" everywhere on this list
 instead — the same setting that shortens names on the audience displays and
@@ -65,6 +66,26 @@ says which case it hit:
 | --- | --- |
 | No racer has car number *N* | Nobody on the roster holds that number |
 | More than one racer has car number *N* — find them by name | Manual numbering allows duplicates; look the racer up on the roster instead |
+
+## Car labels
+
+Sized for **Avery 5163** shipping labels — 2in × 4in, ten per Letter sheet in
+two columns of five. A label goes on the underside of the car or on the
+impound box, so a pit wrangler can find car #24 among fifty near-identical
+wedges without flipping anything over or touching the axles. The car number
+is the loudest thing on it; the racing group, the name and the inspected
+weight are secondary, and the same check-in QR code every other printable
+draws from is there too, so a wrangler with a phone can confirm a car
+without reading anything at all. Unlike the pit pass and the driver's
+licence it carries no photo.
+
+Impound labels are usually printed twice — once before the scale opens, and
+again once every car has a weight on file. Tick **Leave the weight blank
+(printing before check-in)** for the first run: it prints `____ oz` in place
+of the weight regardless of what is on record, so a batch run off before
+inspection cannot claim a weight that has not been checked yet. Leave it
+unticked to print the recorded weight, to two decimal places — a racer who
+has not been weighed yet still prints blank either way.
 
 ## The heat sheet
 
