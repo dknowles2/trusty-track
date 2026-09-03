@@ -88,6 +88,7 @@ We need to allow multiple modes of racer import:
 
 1.  Bulk-import - Allow the user to upload a CSV of participants. We should suggest a suitable format that matches the required text fields, but also allow an arbitrary CSV to be uploaded and then allow the user to map the columns in the CSV to the specific fields we need to consume.
 2.  Manual import - Allow the user to import racers individually  This could happen either before the race, or on race-day. In either case, the input form is likely very similar.
+3.  Import from another derby program's database — GrandPrix Race Manager ([#618](https://github.com/dknowles2/trusty-track/issues/618)) and DerbyNet ([#661](https://github.com/dknowles2/trusty-track/issues/661)). 🚧 *The GPRM parser (`backend/domain/gprm.py`, `backend/services/importers/gprm.py`) is implemented; the mutation and the upload/preview screen are not yet.*
 
 #### Printables
 
