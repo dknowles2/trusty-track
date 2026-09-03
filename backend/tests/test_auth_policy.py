@@ -446,8 +446,21 @@ def test_the_pin_is_not_stored_in_the_clear(client, db):
     _post(client, SET_CONFIG, {"config": _config(operatorPin="1234")})
 
     stored = db.query(models.Organization).first().operator_pin_hash
-    assert stored and "1234" not in stored
+    assert stored is not None
+
+    # A plain `"1234" not in stored` check is flaky by construction: the
+    # digest is 64 random hex characters, and a given 4-hex-digit run turns
+    # up in it by chance about 1 time in 200. Check the shape instead — a
+    # salt$digest pair of hex strings, neither of which is the PIN itself —
+    # and that only the right PIN verifies against it.
+    assert stored != "1234"
+    assert not stored.startswith("1234")
+    salt, digest = stored.split("$")
+    assert len(salt) == 32 and all(c in "0123456789abcdef" for c in salt)
+    assert len(digest) == 64 and all(c in "0123456789abcdef" for c in digest)
+
     assert auth.verify_pin("1234", stored)
+    assert not auth.verify_pin("4321", stored)
 
 
 def test_saving_settings_without_a_pin_leaves_it_alone(client, db):
