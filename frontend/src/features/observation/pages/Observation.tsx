@@ -13,6 +13,7 @@ import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName'
 import { readUrl, resolveView } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
+import { formatScaleMph } from '../scaleSpeed';
 import { runOffAnnouncement } from '../../racing/runOff';
 import IdentifyPresence from '../IdentifyPresence';
 import IntermissionOverlay from '../components/IntermissionOverlay';
@@ -137,6 +138,7 @@ export default function Observation() {
       racerImageUrl?: string;
       carName?: string;
       time: number | null;
+      scaleMph?: number | null;
     }[];
     recordBreak?: RecordBreak | null;
   } | null>(null);
@@ -584,6 +586,9 @@ export default function Observation() {
               </div>
               <div className="overlay-time">
                 {lane.time?.toFixed(3)}s
+                {formatScaleMph(lane.scaleMph) && (
+                  <span className="overlay-scale-mph"> · {formatScaleMph(lane.scaleMph)}</span>
+                )}
               </div>
             </div>
           ))}
@@ -862,6 +867,15 @@ export default function Observation() {
                       </div>
                       <div className="timing-time" style={{ fontSize: '2.5rem', fontWeight: 'bold', fontFamily: 'monospace' }}>
                         {lane.time?.toFixed(3)}s
+                        {formatScaleMph(lane.scaleMph) && (
+                          <span
+                            className="timing-scale-mph"
+                            style={{ fontSize: '1.2rem', fontWeight: 'normal', color: 'var(--display-text-muted-color)' }}
+                          >
+                            {' '}
+                            · {formatScaleMph(lane.scaleMph)}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}

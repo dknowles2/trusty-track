@@ -58,6 +58,7 @@ query GetRaceStats($raceId: Int!) {
     trackRecords {
       timeSeconds racerName carNumber raceId raceName raceDate
     }
+    topScaleMph
   }
 }
 """

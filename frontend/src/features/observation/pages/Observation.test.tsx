@@ -664,6 +664,116 @@ describe('Observation Page', () => {
         vi.useRealTimers();
     });
 
+    describe('scale speed beside a lane\'s time (#610)', () => {
+        it('shows the scale speed on the timing view when the lane carries one', async () => {
+            setupMocks({
+                timingStats: {
+                    heatId: 1,
+                    roundName: 'Round 1',
+                    heatNumber: 1,
+                    lanes: [
+                        { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.2, place: 1, scaleMph: 213.1 },
+                    ]
+                }
+            });
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            screen.getByText('Timing Stats').click();
+
+            await waitFor(() => {
+                expect(screen.getByText('3.200s')).toBeInTheDocument();
+            });
+            expect(screen.getByText('· 213 mph')).toBeInTheDocument();
+        });
+
+        it('shows nothing extra when the lane carries no scale speed', async () => {
+            setupMocks({
+                timingStats: {
+                    heatId: 1,
+                    roundName: 'Round 1',
+                    heatNumber: 1,
+                    lanes: [
+                        { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.2, place: 1, scaleMph: null },
+                    ]
+                }
+            });
+
+            render(
+                <MemoryRouter initialEntries={['/race/1/observation']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+
+            screen.getByText('Timing Stats').click();
+
+            await waitFor(() => {
+                expect(screen.getByText('3.200s')).toBeInTheDocument();
+            });
+            expect(screen.queryByText(/mph/)).not.toBeInTheDocument();
+        });
+
+        it('shows the scale speed in the projector results overlay', async () => {
+            // Same shape as "shows the overlay for a heat that finishes after
+            // the page has loaded" above: the opening payload (heat 1) is
+            // history, and heat 2 finishing afterwards is news that pops the
+            // overlay (#335).
+            let timingStats: any = {
+                heatId: 1,
+                recordedAt: '2026-01-01T00:00:00Z',
+                roundName: 'Round 1',
+                heatNumber: 1,
+                lanes: [
+                    { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.6, place: 1, racerImageUrl: null, scaleMph: null },
+                ]
+            };
+
+            (useQuery as any).mockReturnValue([{ data: mockRacersData, fetching: false, error: null }]);
+            (useSubscription as any).mockImplementation(({ query }: { query: any }) => {
+                if (query === LeaderboardSubscription) return [{ data: { leaderboard: [] } }];
+                if (query === OnDeckSubscription) return [{ data: { onDeck: [] } }];
+                if (query === CurrentlyRacingSubscription) return [{ data: { currentlyRacing: null } }];
+                if (query === TimingStatsSubscription) return [{ data: { timingStats } }];
+                if (query === ActiveFreeRaceHeatSubscription) return [{ data: { activeFreeRaceHeat: null } }];
+                if (query === TIMER_STATUS_SUBSCRIPTION) return [{ data: { timerStatus: { status: { activeHeatId: null } } } }];
+                return [{ data: null }];
+            });
+
+            const renderTree = () => (
+                <MemoryRouter initialEntries={['/race/1/observation?projector=true']}>
+                    <Routes>
+                        <Route path="/race/:raceId/observation" element={<Observation />} />
+                    </Routes>
+                </MemoryRouter>
+            );
+            const { rerender } = render(renderTree());
+            expect(screen.queryByText('Heat Results')).not.toBeInTheDocument();
+
+            timingStats = {
+                ...timingStats,
+                heatId: 2,
+                recordedAt: '2026-01-01T00:05:00Z',
+                lanes: [
+                    { laneNumber: 1, racerName: 'Speedy McQueen', carName: '95', time: 3.2, place: 1, racerImageUrl: null, scaleMph: 213.1 },
+                ],
+            };
+            act(() => {
+                rerender(renderTree());
+            });
+
+            expect(screen.getByText('Heat Results')).toBeInTheDocument();
+            expect(screen.getByText('· 213 mph')).toBeInTheDocument();
+        });
+    });
+
     describe('naming this screen (#495)', () => {
         const renderTree = () => (
             <MemoryRouter initialEntries={['/race/1/observation']}>

@@ -12,6 +12,7 @@ from typing import Any, TypedDict
 from sqlalchemy.orm import Session
 
 from backend.db import crud, models
+from backend.domain.scale_speed import scale_mph
 from backend.services import records
 
 DNF_PENALTY = 9.999
@@ -166,6 +167,19 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
     racer_stats = _compute_racer_stats(
         all_results, racer_heat_counts, racer_map, racing_group_map
     )
+    highlights = _compute_highlights(heats_with_rounds, racer_map)
+
+    # The same conversion `timing_stats` applies per lane (#610), read off
+    # the fastest-heat highlight just computed rather than re-scanning the
+    # heats for the quickest time a second way. `scale_mph` already resolves
+    # a missing or non-positive length to `None`; the `show_scale_speed` flag
+    # is this reader's own half of that AND, same as every other surface.
+    fastest = next((h for h in highlights if h["type"] == "FASTEST_HEAT"), None)
+    top_scale_mph = (
+        scale_mph(track.length_feet, fastest["time"], track.scale_ratio)
+        if track and track.show_scale_speed and fastest
+        else None
+    )
 
     return {
         "race_id": race.id,
@@ -179,9 +193,10 @@ def compute_race_stats(db: Session, race_id: int) -> dict | None:
             {k: v for k, v in rs.items() if k != "_racing_group_id"}
             for rs in racer_stats
         ],
-        "highlights": _compute_highlights(heats_with_rounds, racer_map),
+        "highlights": highlights,
         "racing_group_stats": _compute_racing_group_stats(racer_stats, racing_groups),
         "heat_results": _compute_heat_results(heats_with_rounds, racer_map),
+        "top_scale_mph": top_scale_mph,
         # The record belongs to the track, not the race: every race ever run
         # on it competes. A race with no track has nothing to hold a record.
         # `track_records` returns dataclasses (`TrackRecordEntry`); converted
