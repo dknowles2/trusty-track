@@ -78,7 +78,7 @@ After a specific race has been initialized, we now need to know *who* is racing.
   - (optional) Car Name
     - We don't expect this to be known when initially configuring racer details, but we want to allow the option
   - (optinal) Racer Picture
-    - Allow uploading a headshot of the racer. We should auto-crop this as appropriate.
+    - Allow uploading a headshot of the racer. We should auto-crop this as appropriate. ✅ *Cropping is implemented, but by the operator rather than automatically — a browser-side rotate/crop tool ([#619](https://github.com/dknowles2/trusty-track/issues/619)) opens after a camera capture, and reopens on an existing photo through the **⟳ Rotate / Recrop** button. See [Straightening a Photo](race-day.md#straightening-a-photo).*
   - (optional) Car Picture
     - Allow uploading a picture of the car itself.
   - Car Passed Inspection (bool)

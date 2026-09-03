@@ -48,10 +48,23 @@ _The Roster page at the start of race day. Every racer has a gold **Check In** b
 _The check-in modal for a racer, with "Passed Inspection / Checked In" toggled on._
 
 ![Check-In Modal — With Photo](assets/screenshots/race-day/03-check-in-modal-with-photo.png)
-_A racer photo loaded in the check-in modal. Photos appear on the live audience display during the race._
+_A racer photo loaded in the check-in modal. Photos appear on the live audience display during the race. Once a photo is on file, a **⟳ Rotate / Recrop** button appears beneath it — see below._
 
 ![Racer List After Check-In](assets/screenshots/race-day/04-racer-list-after-check-in.png)
 _After saving, that racer's button turns green and reads **Checked In / Edit**. Clicking it again reopens the same form._
+
+---
+
+### Straightening a Photo
+
+Photos taken at the check-in table are rarely framed well — snapped sideways, off to one side, or with the car lost in a corner of the shot while table clutter fills the rest. Every racer and car photo can be rotated and recropped right in the browser, with no need to retake the picture.
+
+- **A photo taken with the Camera button** goes straight into this step after you tap **Capture** — straighten and crop it before it is ever attached to the racer.
+- **A photo already on file** — uploaded from disk, or captured earlier — gets a **⟳ Rotate / Recrop** button beneath it. Click it to reopen the same tool on the existing photo.
+
+Drag the crop box to reposition it, or drag a corner to resize it — the arrow keys nudge it a little at a time. **⟲ Rotate left** / **⟳ Rotate right** turn the photo a quarter turn. A racer's own portrait crops to a square, matching the round photo used elsewhere in the app and on the pit pass; a car photo crops to a wider, landscape shape. Click **Use this photo** to keep the result, or **Cancel** (or press Escape) to leave the photo as it was.
+
+All of this happens in your browser — nothing is uploaded until you confirm the crop, so a shot you decide not to use never leaves the device.
 
 ---
 
@@ -129,7 +142,7 @@ Photos that are uploaded but not assigned to any racer are silently skipped — 
 > If an upload fails (for example, due to a slow network), a **Retry** link appears on that card. Other cards are not affected — you can assign and apply the successful uploads while retrying the failed ones.
 
 > [!NOTE]
-> Photos can also be added individually through each racer's check-in form (see [Checking In a Racer](#checking-in-a-racer) above). The bulk upload tool is most useful when photos were taken as a batch outside the app and you want to assign them all at once.
+> Photos can also be added individually through each racer's check-in form (see [Checking In a Racer](#checking-in-a-racer) above). The bulk upload tool is most useful when photos were taken as a batch outside the app and you want to assign them all at once. A photo assigned this way has no rotate or crop step of its own — if one needs straightening, open that racer's check-in form afterward and use [**⟳ Rotate / Recrop**](#straightening-a-photo).
 
 ---
 
