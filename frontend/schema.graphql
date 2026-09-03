@@ -256,6 +256,14 @@ type InitialConfigStatus {
   resolvedNameDisplay: String!
 }
 
+type Intermission {
+  active: Boolean!
+  remainingSeconds: Int!
+  paused: Boolean!
+  label: String
+  endsAt: String
+}
+
 type LaneResult {
   lane: Int!
   racerId: Int
@@ -300,6 +308,11 @@ type Mutation {
   createRace(race: RaceInput!): Race!
   updateRace(id: Int!, race: RaceUpdateInput!): Race
   deleteRace(id: Int!): Boolean!
+  startIntermission(raceId: Int!, durationSeconds: Int!, label: String = null): Race!
+  extendIntermission(raceId: Int!, seconds: Int!): Race!
+  pauseIntermission(raceId: Int!): Race!
+  resumeIntermission(raceId: Int!): Race!
+  endIntermission(raceId: Int!): Race!
   assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
   identifyDisplay(displayId: String!): Display
@@ -443,6 +456,7 @@ type Race {
   dropWorstRuns: Int!
   excludeRoundWinnersFromQualifyingStandings: Boolean!
   nameDisplay: String
+  intermission: Intermission!
   resolvedNameDisplay: String!
   terminology: Terminology!
   leaderboard(roundId: Int = null, includeAllRounds: Boolean! = false): [LeaderboardEntry!]!
@@ -465,6 +479,7 @@ enum RaceChangeKind {
   ROSTER
   SCHEDULE
   RACE_SETTINGS
+  INTERMISSION
   OTHER
 }
 
@@ -490,6 +505,7 @@ type RaceStateChangedEvent {
   heat: Heat
   racer: Racer
   roundId: Int
+  intermission: Intermission
 }
 
 type RaceStats {

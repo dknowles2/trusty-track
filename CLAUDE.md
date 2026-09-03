@@ -366,6 +366,7 @@ Defined entirely in `backend/api/schema.py`.
 - Audience displays: `assignDisplay`, `advanceDisplay`, `identifyDisplay`, `renameDisplay`, `forgetDisplay`
 - Free race: `startFreeRaceHeat`, `recordFreeRaceResult`, `deleteFreeRaceHeat`
 - Run-off: `createRunOffHeat`, `deleteRunOffHeat`
+- Intermission: `startIntermission`, `extendIntermission`, `pauseIntermission`, `resumeIntermission`, `endIntermission`
 - System/data: `createInitialConfig`, `updateInitialConfig`, `importRacers`, `uploadImage`, `populateRace`, `createPracticeRace`
 
 **Subscriptions:** `raceStateChanged`, `racesChanged`, `timerStatus`, `heatSession`, `leaderboard`, `heats`, `onDeck`, `currentlyRacing`, `timingStats`, `freeRaceHeat`, `activeFreeRaceHeat`, `displayAssignment`, `displays`

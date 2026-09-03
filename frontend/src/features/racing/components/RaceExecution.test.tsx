@@ -75,6 +75,7 @@ describe('RaceExecution', () => {
     const mockMutationFn = vi.fn();
 
     const defaultProps = {
+        raceId: 1,
         activeExecutionHeat: mockHeat,
         nextExecutionHeat: null,
         upcomingHeats: [],
@@ -541,6 +542,39 @@ describe('RaceExecution', () => {
         const modal = screen.getByTestId('mock-modal');
         expect(within(modal).getByText('Round Complete!')).toBeInTheDocument();
         expect(within(modal).getByText('Top 1 racers advance to the next round.')).toBeInTheDocument();
+    });
+
+    it('offers to take a break from the round summary (#592)', async () => {
+        const mockSummary = {
+            isReady: true,
+            requiresAdvancement: true,
+            alreadyAdvanced: false,
+            roundId: 2,
+            advancingRacers: [
+                { racerId: 101, firstName: 'John', lastName: 'Doe', carNumber: 1, racingGroupName: 'Lions', score: 3.5, rank: 1, isAdvancing: true }
+            ],
+            source: 'ALL',
+            numRacers: 1,
+            fromBottom: false,
+            fieldIsStale: false,
+            contestedCut: false
+        };
+
+        render(
+            <RaceExecution
+                {...defaultProps}
+                roundSummary={mockSummary}
+            />
+        );
+
+        const modal = screen.getByTestId('mock-modal');
+        fireEvent.click(within(modal).getByTestId('round-summary-break-600'));
+
+        expect(mockMutationFn).toHaveBeenCalledWith({
+            raceId: defaultProps.raceId,
+            durationSeconds: 600,
+            label: null,
+        });
     });
 
     it('says who is advancing from, in the built-in words (#532)', () => {

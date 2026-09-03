@@ -493,6 +493,26 @@ _The Stats page part-way through the race, with heats completed and lane fairnes
 
 ---
 
+### Taking a Break
+
+Real race nights have real breaks — a snack table, a stuck sprinkler, the gap
+before the championship round starts. **Take a break** on the Race tab starts
+a countdown (5, 10, 15 minutes, or a custom length) that every audience
+display picks up automatically: whatever a screen was showing switches to a
+full-screen countdown with the break's name and a faint preview of who races
+next, until the time runs out or you end it early.
+
+The same presets also appear on the **Round Complete!** summary, since a
+round finishing is exactly when a break is most often called.
+
+While a break is running, its bar shows the time remaining and three
+controls: **+5 min** to extend it, **Pause**/**Resume** to freeze and restart
+the countdown, and **End now** to clear it immediately. See
+[Audience display views](reference/displays.md#taking-a-break) for what the
+wall displays show.
+
+---
+
 ## Part 4: Championship Rounds (Optional)
 
 When the last qualifying heat is recorded, Trusty Track works out who has made the championship round and shows a summary of them. Click **Start Next Round** to move on. The summary appears because a championship round was waiting to be filled — if you did not configure one, there is nothing to decide and no summary appears.

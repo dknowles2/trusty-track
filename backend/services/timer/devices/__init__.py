@@ -7,7 +7,6 @@ has no protocol to probe for and is chosen explicitly, by setting a track's
 """
 
 from .base import TimerProfile
-from .bill_v import BILL_V
 from .derbynet import ADAPTED_FROM_DERBYNET
 from .fake import FAKE
 from .microwizard import MICROWIZARD
@@ -16,15 +15,10 @@ from .no_timer import NO_TIMER
 #: Every real device, in the order a prober should try them.
 #:
 #: The MicroWizard leads because it is the model this project was built around
-#: and the one most likely to be on the other end of the cable. Most of the
-#: rest are adapted from DerbyNet; Bill V's is its own protocol, transcribed
-#: from issue #632. None has been run against its hardware — see
-#: ``derbynet.py``, ``bill_v.py`` and each profile's ``provenance``.
-ALL_PROFILES: tuple[TimerProfile, ...] = (
-    MICROWIZARD,
-    *ADAPTED_FROM_DERBYNET,
-    BILL_V,
-)
+#: and the one most likely to be on the other end of the cable. The rest are
+#: adapted from DerbyNet and none has been run against its hardware — see
+#: ``derbynet.py`` and each profile's ``provenance``.
+ALL_PROFILES: tuple[TimerProfile, ...] = (MICROWIZARD, *ADAPTED_FROM_DERBYNET)
 
 #: The profile assumed when a track is in an auto-detect mode, until a probe
 #: replaces it — and, on either transport, when nothing answers one. Named in
@@ -43,7 +37,6 @@ def by_key(key: str) -> TimerProfile | None:
 __all__ = [
     "ADAPTED_FROM_DERBYNET",
     "ALL_PROFILES",
-    "BILL_V",
     "DEFAULT_PROFILE",
     "FAKE",
     "MICROWIZARD",

@@ -15,6 +15,9 @@ import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import { runOffAnnouncement } from '../../racing/runOff';
 import IdentifyPresence from '../IdentifyPresence';
+import IntermissionOverlay from '../components/IntermissionOverlay';
+import { useRaceStateChanged } from '../../core/hooks/useRaceStateChanged';
+import { isLiveActive, NONE as NO_INTERMISSION, type IntermissionData } from '../../racing/intermission';
 import { TIMER_STATUS_SUBSCRIPTION } from '../../racing/graphql/queries';
 import { resolveDisplayTheme } from '../../../theming/applyTheme';
 import type { SurfaceThemeSetting } from '../../../theming/themes';
@@ -33,6 +36,13 @@ const GET_INITIAL_DATA = `
       id
       scoringStrategy
       resolvedNameDisplay
+      intermission {
+        active
+        remainingSeconds
+        paused
+        label
+        endsAt
+      }
       track {
         id
       }
@@ -186,13 +196,33 @@ export default function Observation() {
   }, [isFullScreenView]);
 
   // Initial query for static-ish data (racers)
-  const [initialResult] = useQuery({
+  const [initialResult, reExecuteInitial] = useQuery({
     query: GET_INITIAL_DATA,
     variables: { id },
     pause: !id || isNaN(id),
   });
 
   const { data: initialData } = initialResult;
+
+  // Intermissions (#592) ride the same `race_state:{raceId}` channel every
+  // other race-level change already publishes on — no new subscription
+  // socket for this screen, just this page's usual "something changed,
+  // re-read" hook pointed at the query that already carries `intermission`.
+  useRaceStateChanged(id, () => reExecuteInitial({ requestPolicy: 'network-only' }));
+
+  const intermission: IntermissionData = initialData?.race?.intermission ?? NO_INTERMISSION;
+
+  // Ticks the overlay's countdown once a second while it is actually
+  // running — not while paused, where nothing is counting down and there
+  // is nothing to re-render for.
+  const [, setIntermissionTick] = useState(0);
+  useEffect(() => {
+    if (!intermission.active || intermission.paused) return;
+    const timer = setInterval(() => setIntermissionTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [intermission.active, intermission.paused, intermission.endsAt]);
+
+  const intermissionActive = isLiveActive(intermission, new Date());
 
   // The Display surface's theme (#498) — this whole page, projector mode or
   // not, is the audience-facing surface the spec means by "Display". Every
@@ -396,6 +426,30 @@ export default function Observation() {
   );
 
   if (!id || isNaN(id)) return <div className="container" style={{ padding: '20px' }}>Invalid Race ID</div>;
+
+  // The break screen takes over the whole display, whatever view it was
+  // assigned (#592) — a break is a fact about the race, not about which of
+  // standings/timing/projector/slideshow a screen happened to be showing
+  // when the operator called it. `IdentifyPresence` is skipped here: flashing
+  // a display's name over a countdown the room is trying to read is a
+  // second-order concern this issue does not cover.
+  if (intermissionActive) {
+    return (
+      <div className="container projector-mode" data-theme={displayThemeKey} style={displayThemeStyle}>
+        <IntermissionOverlay
+          intermission={intermission}
+          nextUpRacers={nextHeatRacers.map(({ lane, racer }) => ({
+            lane,
+            firstName: racer.firstName,
+            lastName: racer.lastName,
+            carNumber: racer.carNumber,
+          }))}
+          nextUpInfo={onDeckHeat ? `Round ${onDeckHeat.roundNumber}, Heat ${onDeckHeat.globalHeatNumber ?? onDeckHeat.heatNumber}` : null}
+          vehicleLabel={vehicle}
+        />
+      </div>
+    );
+  }
 
   const renderHeatCard = (title: string, entries: LaneEntry[], isNext: boolean = false, iconPath?: string, heatInfo?: string, exhibition?: boolean) => {
     const isEmpty = entries.length === 0;

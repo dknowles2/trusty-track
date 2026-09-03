@@ -5,7 +5,8 @@ import { FakeTimerMole } from './FakeTimerMole';
 import { HardwareTimerMole } from './HardwareTimerMole';
 import { TimerStatusBadge } from './TimerStatusBadge';
 import { SerialProxyConnector } from './SerialProxyConnector';
-import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS } from '../graphql/queries';
+import { HEAT_SESSION_SUBSCRIPTION, PREPARE_HEAT, ABORT_HEAT, FORCE_RESULTS, START_INTERMISSION_MUTATION } from '../graphql/queries';
+import { INTERMISSION_PRESETS } from '../intermission';
 import { heatsEstimate } from '../../../utils/duration';
 import { ESTIMATED_HEAT_DURATION_MIN } from '../../../utils/constants';
 import { estimatedFinishTime, formatClockTime, paceLabel, type PaceEstimate } from '../pace';
@@ -30,6 +31,7 @@ import { chimeEnabled, playChime, setChimeEnabled, shouldChime } from '../chime'
 import { isTypingTarget, shortcutFor, SHORTCUT_HINTS } from '../shortcuts';
 import { useRaceFlow } from '../useRaceFlow';
 import { useAlert } from '../../../context/AlertContext';
+import { errorText } from '../../../utils/errors';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { advancingFromLabel } from '../roundSummaryText';
 
@@ -64,6 +66,9 @@ const KBD_STYLE: React.CSSProperties = {
 };
 
 interface RaceExecutionProps {
+    /** For the round-summary modal's "Take a break" row (#592) — the only
+     * thing here that calls an intermission mutation directly. */
+    raceId: number;
     activeExecutionHeat: Heat | null;
     nextExecutionHeat: Heat | null;
     activeHeatId: number | null;
@@ -98,6 +103,7 @@ interface RaceExecutionProps {
 }
 
 export const RaceExecution: React.FC<RaceExecutionProps> = ({
+    raceId,
     activeExecutionHeat,
     nextExecutionHeat,
     onRunHeat,
@@ -123,7 +129,7 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [editingResults, setEditingResults] = useState<EditableLane[]>([]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0.0);
     const [showAutoAdvanceTooltip, setShowAutoAdvanceTooltip] = useState(false);
-    const { showConfirm } = useAlert();
+    const { showConfirm, showAlert } = useAlert();
     const { orgLower, groupLower, vehicle, vehiclesLower } = useTerminology();
 
     // The live view, assembled by the server (#7). What used to be here was a
@@ -139,6 +145,14 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
     const [, prepareHeat] = useMutation(PREPARE_HEAT);
     const [, abortHeat] = useMutation(ABORT_HEAT);
     const [, forceResults] = useMutation(FORCE_RESULTS);
+    const [, startIntermission] = useMutation(START_INTERMISSION_MUTATION);
+
+    const handleTakeABreak = async (seconds: number) => {
+        const result = await startIntermission({ raceId, durationSeconds: seconds, label: null });
+        if (result.error) {
+            showAlert(errorText(result.error, 'The intermission could not be started.'), 'Error');
+        }
+    };
 
     // What is saved. Editing and skipping write against this, not against the
     // live view — an operator overriding a result is changing the record.
@@ -916,6 +930,28 @@ export const RaceExecution: React.FC<RaceExecutionProps> = ({
                     >
                         Start Next Round <Icon path={mdiArrowRight} size={1} />
                     </button>
+                </div>
+
+                {/* A round finishing is exactly when a break is most often
+                    called (#592) — this is a button on the modal already
+                    here, not new machine state in `raceFlow.ts`: nothing
+                    about "a round just ended" needs to survive a refresh
+                    that `IntermissionControl` on the Race tab does not
+                    already cover. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--divider-color)' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted-color)' }}>Or take a break:</span>
+                    {INTERMISSION_PRESETS.map((preset) => (
+                        <button
+                            key={preset.seconds}
+                            type="button"
+                            className="secondary-btn"
+                            data-testid={`round-summary-break-${preset.seconds}`}
+                            onClick={() => handleTakeABreak(preset.seconds)}
+                            style={{ padding: '5px 10px', fontSize: '0.8rem' }}
+                        >
+                            {preset.label}
+                        </button>
+                    ))}
                 </div>
             </Modal>
 

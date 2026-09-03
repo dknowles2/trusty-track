@@ -39,7 +39,7 @@ which is a couple of steps more than a double-click. Their
 [playground](https://hosting.derbynet.org/playground.php) hands you a private
 instance for a few hours if you want a look first.
 
-Seven of Trusty Track's nine timer profiles are adapted from DerbyNet's protocol
+Seven of Trusty Track's eight timer profiles are adapted from DerbyNet's protocol
 notes, under its licence and credited in the source. A pack with an unusual timer
 has Jeff Piazza to thank for that, not us.
 
@@ -65,7 +65,7 @@ and a stopwatch it is a perfectly good answer.
 | **What you install** | One app | One app | A zip holding a bundled web server | One app | One app |
 | **Other screens** | Any browser on the network | Single machine | Any browser on the network | Single machine | Single machine |
 | **Telling screens apart** | Names itself on connect, rename any time | — | Named by hand, one at a time | — | — |
-| **Timer models listed** | 9 | 6, plus custom in Pro | 8 | Their own | By hand or timer |
+| **Timer models listed** | 8 | 6, plus custom in Pro | 8 | Their own | By hand or timer |
 | **Race formats** | Perfect-N, championship, elimination, balanced, slowest | Several, more in Pro | Several | Several | Elimination only |
 | **Racer limit** | None | None | None | None | 15 |
 | **Racer and car photos** | Yes | Pro only | Yes | — | — |
@@ -82,7 +82,7 @@ GrandPrix Race Manager is on version twenty-six. Both have run into race-day
 problems that have not come up here yet, and if your derby is next week and it is
 your first, that history counts for more than any feature.
 
-Six of the nine timer models listed here have never been connected to the actual
+Five of the eight timer models listed here have never been connected to the actual
 hardware. They were built from DerbyNet's written notes, and only the ones marked
 *Tested* on the [front page](https://trusty-track.com/#timers) have been checked
 against recordings of a real device. [Hardware Timer](hardware-timer.md) explains

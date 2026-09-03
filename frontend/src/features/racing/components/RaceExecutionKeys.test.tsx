@@ -51,6 +51,7 @@ describe('race day keys and sound', () => {
     const onNextHeat = vi.fn();
 
     const props = (over: Record<string, unknown> = {}) => ({
+        raceId: 1,
         activeExecutionHeat: recorded,
         nextExecutionHeat: nextHeat,
         upcomingHeats: [],

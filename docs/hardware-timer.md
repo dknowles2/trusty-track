@@ -30,8 +30,8 @@ lane dies on the morning of the event.
 
 ## Which timers work
 
-Nine models, led by the **Micro Wizard K1 / K2 / K3** — the timer Trusty
-Track has been built against. Eight of the nine are found automatically;
+Eight models, led by the **Micro Wizard K1 / K2 / K3** — the timer Trusty
+Track has been built against. Seven of the eight are found automatically;
 the NewBold family has to be picked by hand. The full list, and how well
 each has been tested, is in [the timer reference](reference/timers.md#which-timers-work).
 
