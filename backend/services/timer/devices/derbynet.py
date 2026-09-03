@@ -11,16 +11,36 @@ captured string into a lane or a time are new code per device. Every profile
 here says so in its ``provenance``, which the timer check page shows, and
 nobody should be told their timer works until one of them has actually run.
 
-Four models from DerbyNet are deliberately absent:
+Three models from DerbyNet are deliberately absent:
 
 * **SuperTimer II** reports a result in two separate messages, takes its lane
   mask as one binary-encoded command, and scales times by 10000. Three
   mechanisms for one device.
-* **FastTrack P-series** and **DerbyMagic 9600** are variants that DerbyNet
-  carries without probers, distinguished from their siblings only by the port
-  settings a user picks by hand.
+* **FastTrack P-series** is a variant DerbyNet carries without a prober,
+  distinguished from its sibling only by the port settings a user picks by
+  hand.
 * **ChampSRM** is a rebadged Champ whose banner differs; adding it is a second
   identification pattern once anyone has one to test against.
+
+Derby Magic (issue #633) is *not* on that list, but its two baud-rate variants
+needed one judgment call of their own. DerbyNet's ``DerbyMagic`` (19200 baud)
+and ``DerbyMagic9600`` are, on the wire, the same device: ``DerbyMagic9600``'s
+own definition is ``DerbyMagic``'s with only the port speed changed — same
+prober command, same identification banner, same setup and matchers. Real
+hardware sorts the two apart for free, because a device wired for one speed
+answers garbled at the other; but
+``test_no_two_profiles_answer_the_same_probe_the_same_way`` (in
+``test_timer_derbynet_profiles.py``) compares identification *patterns*
+against each other, not framing, so giving both variants an identical pattern
+would trip that guard over an ambiguity that does not actually exist on a
+wire. Rather than weaken a guard that holds for every other pair,
+``DERBY_MAGIC_9600`` below carries no ``probe``/``identification`` at all —
+the same "found by its framing, not its banner" shape ``NEWBOLD`` already
+has, and ``timerModels``'s own ``detectable`` flag already exists to tell the
+picker so. ``DERBY_MAGIC`` (19200 baud) is the one a probe can find, and it
+is also the first profile here at a framing other than the common 9600 8-N-1
+besides NewBold's own 1200/7/2 — a path the shipped set had not otherwise
+exercised.
 """
 
 import re
@@ -449,6 +469,75 @@ CHAMP = TimerProfile(
 )
 
 
+# ---------------------------------------------------------------------------
+# Derby Magic
+# ---------------------------------------------------------------------------
+#
+# http://www.derbymagic.com/files/Timer.pdf, http://www.derbymagic.com/files/GPRM.pdf
+# (issue #633). Two variants, at two baud rates, and otherwise byte-for-byte
+# the same device — see the module docstring above for why only the 19200
+# one carries a prober.
+#
+# The lane-result pattern's third group, an optional place character drawn
+# from a wider symbol range than the `!"#$%&` table `place_symbol` already
+# reads (the Champ's own equivalent group), is left uncaptured for the same
+# reason the Champ's is: nothing here documents what the symbols mean, and a
+# guessed mapping is worse than no place at all.
+
+DERBY_MAGIC = TimerProfile(
+    name="Derby Magic timer",
+    key="derby-magic",
+    provenance=_UNTESTED.format("Derby Magic"),
+    baud_rate=19200,
+    max_lanes=8,
+    gate_state_is_knowable=False,
+    probe=(b"V",),
+    identification=(re.compile(rb"Derby Magic"),),
+    setup=(b"R",),
+    remote_start=(b"S",),
+    matchers=(
+        Matcher(re.compile(rb"^B$"), Event.RACE_STARTED),
+        Matcher(
+            re.compile(rb"([1-8])=(\d\.\d+)([!-/:-@])? *"),
+            Event.LANE_RESULT,
+            lane=Group(1, lane_number),
+            time=Group(2, seconds),
+            repeat=True,
+        ),
+    ),
+)
+
+
+DERBY_MAGIC_9600 = TimerProfile(
+    name="Derby Magic timer (9600 baud)",
+    key="derby-magic-9600",
+    provenance=_UNTESTED.format("Derby Magic (9600 baud)")
+    + (
+        " Its identification banner is byte-for-byte the same as the 19200 "
+        "baud model's, so it cannot be told apart by a probe and has to be "
+        "chosen by hand."
+    ),
+    # baud_rate defaults to 9600, same as everything but NEWBOLD and
+    # DERBY_MAGIC above.
+    max_lanes=8,
+    gate_state_is_knowable=False,
+    # No probe/identification: see the module docstring. Chosen by hand,
+    # exactly like NEWBOLD.
+    setup=(b"R",),
+    remote_start=(b"S",),
+    matchers=(
+        Matcher(re.compile(rb"^B$"), Event.RACE_STARTED),
+        Matcher(
+            re.compile(rb"([1-8])=(\d\.\d+)([!-/:-@])? *"),
+            Event.LANE_RESULT,
+            lane=Group(1, lane_number),
+            time=Group(2, seconds),
+            repeat=True,
+        ),
+    ),
+)
+
+
 #: Everything adapted here, in the order a prober should try them. Profiles
 #: without an identification banner are included for selection but the prober
 #: skips them on its own.
@@ -460,4 +549,6 @@ ADAPTED_FROM_DERBYNET: tuple[TimerProfile, ...] = (
     CHAMP,
     JIT_RACEMASTER,
     NEWBOLD,
+    DERBY_MAGIC,
+    DERBY_MAGIC_9600,
 )
