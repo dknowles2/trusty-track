@@ -19,6 +19,10 @@ vi.mock('urql', async (importOriginal) => {
 import { useQuery } from 'urql';
 import RaceForm, { RaceFormData } from './RaceForm';
 
+// The override lives in the "Words and names" section, which is a click away
+// while editing (#587) — the form opens on Event.
+const openWords = () => userEvent.click(screen.getByTestId('race-settings-nav-words'));
+
 beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useQuery).mockReturnValue([
@@ -36,7 +40,7 @@ describe('creating a race', () => {
 });
 
 describe('editing a race with no override', () => {
-    it('shows the checkbox unchecked and no options', () => {
+    it('shows the checkbox unchecked and no options', async () => {
         render(
             <RaceForm
                 onSubmit={vi.fn()}
@@ -46,6 +50,7 @@ describe('editing a race with no override', () => {
                 initialData={{ name: 'Pack 42 Derby' }}
             />,
         );
+        await openWords();
 
         const checkbox = screen.getByLabelText('Override names on public screens for this race');
         expect(checkbox).not.toBeChecked();
@@ -63,6 +68,7 @@ describe('editing a race with no override', () => {
                 initialData={{ name: 'Pack 42 Derby' }}
             />,
         );
+        await openWords();
 
         await userEvent.click(screen.getByLabelText('Override names on public screens for this race'));
         expect(screen.getByLabelText(/^Full name/)).toBeChecked();
@@ -85,6 +91,7 @@ describe('editing a race with no override', () => {
                 initialData={{ name: 'Pack 42 Derby', name_display: 'FIRST_ONLY' }}
             />,
         );
+        await openWords();
 
         expect(screen.getByLabelText('Override names on public screens for this race')).toBeChecked();
         expect(screen.getByLabelText(/^First name only/)).toBeChecked();

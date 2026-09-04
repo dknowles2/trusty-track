@@ -98,6 +98,7 @@ frontend/src/
     core/                     # Navigation, shared queries
     management/               # Home, RaceDetails, racer/racing-group forms, imports
       #   RaceDetails' roster toolbar: three controls, then an overflow
+      raceSettingsSections.ts #   the race form's sections and what stops a save — pure
     racing/                   # RaceControl, RaceExecution, scheduling, free race, timer UI
       raceFlow.ts             #   the race-day machine — pure, no React
       useRaceFlow.ts          #   its only wiring to React
@@ -1110,6 +1111,63 @@ Two friction points the issue raised had no button behind them at all — the ra
 Move-to-racing-group is still a menu, because six racing groups will not fit on the bar — but it opens **downward** now rather than flying out sideways, which retired `denMenuSide`, `denMenuContainerRef`, `moveDenTimeoutRef` and the two hover handlers that measured which side had room.
 
 **Only the actions that remove something clear the selection** ([#420](https://github.com/dknowles2/trusty-track/issues/420)). The desk works a queue: select everyone, Auto number, then Check In — and until now the first click cleared the selection along with everything else, so the second landed on nothing, silently, because the bar it would have used had just disappeared. Check In, Auto number and Move to racing group now leave `selectedRacerIds` standing after they succeed, so that sequence is one selection rather than two. Clear numbers and Delete still clear it — both remove data (numbers, or the rows themselves) rather than adding to it, so a selection surviving them is a chance to repeat a destructive action by mistake, not a convenience. The explicit **✕** is unaffected either way.
+
+### The race form is sectioned, except when creating
+
+`RaceForm.tsx`, with the vocabulary and the validation in
+`features/management/raceSettingsSections.ts` ([#587](https://github.com/dknowles2/trusty-track/issues/587)).
+The form had grown to one 500px modal column holding, in edit mode, the lock,
+a name, a date, a location, two five-option fieldsets, four numeric inputs,
+six checkboxes and — behind two of those — seven more text boxes and a radio
+group. An operator opening it to turn on the weight check scrolled past the
+scoring rules to find it. It is now four sections, one on screen at a time,
+with the same `SettingsNav` down the left that System Settings uses — the
+component went generic over its section id for this, and its two links out
+moved to `SystemSettings.tsx` as children, so there is one nav and one
+stylesheet rather than two that can drift.
+
+**The sections are the questions an operator opens the form with, not where
+a column lives.** *Event* (lock, name, date, location, track, interleave —
+"which track" is an event fact and sits with the name, and the running order
+is how the event runs on that track); *Scoring* (method, drop worst, ties,
+championship trophies, the Grand Finals exclusion, one trophy per racer —
+all three of the last are "who wins"); *Check-in* (numbering, the weight
+check); *Words and names* (the terminology and name-display overrides —
+both about what strangers read). The blurbs deliberately name no built-in
+vocabulary, since the last section exists so a race can replace it.
+
+**The create form is the wizard case and is flat**, exactly as the first run
+of System Settings is: `sectionsFor(false)` returns nothing and the form
+renders every field under the same four headings, so the create form teaches
+the vocabulary the edit form is later navigated by. *Words and names* holds
+nothing at all while creating — both controls are update-only — so it is
+absent there rather than an empty heading.
+
+**Validation moved into `firstProblem`, the same way and for the same
+reason as the settings page.** The browser only validates the fields it is
+rendering, so with one section on screen an empty race name in *Event* is not
+in the document while somebody is on *Scoring*, and nothing native fires.
+`handleSubmit` checks the whole form and **switches to the section holding
+the problem**. Every rule there restates a constraint an input already
+carried (`required`, `min`, `max`) — with one addition: a blank custom word.
+The terminology inputs never had `required`, and `updateRace` does not refuse
+an empty string, so an operator could save a race whose word for its racing
+groups was `""` while the docs promised "there is no way to save an empty
+word". The inputs carry `required` now too, so the browser still points at
+the field when it is on screen. `RaceFormSections.test.tsx` renders a problem
+in a section that is not up and asserts the switch; note a test for the
+*empty*-name case has to submit from another section or use whitespace,
+because jsdom honours `required` on a rendered input before the form's own
+check ever runs.
+
+**What the issue asked for that is not here, and why.** Its "Track & Lanes"
+and "Timer & Hardware" tabs describe track settings, which are per track in
+System Settings — shared hardware in the room, not a race fact (#171's
+reasoning) — so the race form only picks a track and says where the rest
+lives. Its "Displays & Media" tab names a display theme (per install, in
+System Settings → Appearance) and header text and sponsor images, which do
+not exist. Its discoverability items — a one-click route from Race Control
+and an explicit action on Home's race table — had already landed in #589.
 
 ### The settings page is sectioned, except the first time
 
