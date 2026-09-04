@@ -1470,8 +1470,6 @@ Two consequences worth knowing. `docs/derbynet-timer-protocol.md` came out of `t
 
 **Don't reintroduce a plan directory.** Write the rule here when it lands, and open an issue for what has not.
 
-`TODO.md` at the repo root is a mostly-completed feature checklist.
-
 ---
 
 ## What CI checks
