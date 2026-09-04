@@ -6,8 +6,8 @@ import type { GetInitialConfigStatusQuery } from '../../../gql/operations';
 import { activeNavLink } from '../activeNavLink';
 import { CREATE_RACE } from '../../management/graphql/queries';
 import Modal from '../../../components/ui/Modal';
-import RaceForm, { RaceFormData } from '../../management/components/RaceForm';
-import { buildCreateRaceInput } from '../../management/raceInput';
+import RaceSetupWizard from '../../management/components/RaceSetupWizard';
+import { buildCreateRaceInput, type RaceSetupData } from '../../management/raceInput';
 import { useAlert } from '../../../context/AlertContext';
 import { Icon } from '@mdi/react';
 import { mdiFlagCheckered, mdiChevronUp, mdiChevronDown, mdiPlus, mdiCog, mdiAccountGroup, mdiMedal, mdiVideo, mdiMenu, mdiClose, mdiTrophy, mdiChartBar } from '@mdi/js';
@@ -83,7 +83,7 @@ export default function Navigation() {
       );
   }
 
-  const handleCreateRace = async (data: RaceFormData) => {
+  const handleCreateRace = async (data: RaceSetupData) => {
     try {
       const raceInput = buildCreateRaceInput(data);
       const result = await createRaceMutation({ race: raceInput });
@@ -517,11 +517,11 @@ export default function Navigation() {
           isOpen={showCreateModal}
           onClose={() => setShowCreateModal(false)}
           title="Create New Race Event"
+          maxWidth="680px"
       >
-          <RaceForm
+          <RaceSetupWizard
               onSubmit={handleCreateRace}
               onCancel={() => setShowCreateModal(false)}
-              submitLabel="Create Race"
           />
       </Modal>
     </>

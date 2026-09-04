@@ -116,6 +116,35 @@ export async function docsTrackId(page: Page): Promise<number> {
     return track.id;
 }
 
+/**
+ * Step past the setup wizard's opening choice, if it is there (#662).
+ *
+ * The wizard opens on "start from scratch or copy a previous race" only when
+ * *some* race exists — and the docs specs run at once against one backend,
+ * so whether another spec's race exists at the moment this one opens the
+ * dialog is not something a spec can know. Either way, this lands on the
+ * questions step, which is the same for everyone.
+ */
+export async function passSetupStart(page: Page): Promise<void> {
+    const start = page.getByTestId('setup-step-start');
+    const kind = page.getByTestId('setup-step-kind');
+    await expect(start.or(kind)).toBeVisible();
+    if (await start.isVisible()) {
+        await page.getByTestId('setup-next').click();
+    }
+    await expect(kind).toBeVisible();
+}
+
+/** Through the wizard on its default answers — a pack's six dens — to the
+ * create-race form, for a spec that only wants a race. */
+export async function skipToRaceForm(page: Page): Promise<void> {
+    await passSetupStart(page);
+    await page.getByTestId('setup-next').click();
+    await expect(page.getByTestId('setup-step-groups')).toBeVisible();
+    await page.getByTestId('setup-next').click();
+    await expect(page.getByLabel('Event Name')).toBeVisible();
+}
+
 export async function organizationId(page: Page): Promise<number> {
     const config = await gql<{ organizations: Array<{ id: number }> }>(
         page,

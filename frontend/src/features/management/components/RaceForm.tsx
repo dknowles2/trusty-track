@@ -118,6 +118,10 @@ interface RaceFormProps {
     onCancel: () => void;
     onDelete?: () => void;
     submitLabel?: string;
+    /** What the secondary button says. "Cancel" on its own; "Back" when the
+     * form is the last step of the setup wizard (#662), where leaving it
+     * means returning to the groups step rather than abandoning the race. */
+    cancelLabel?: string;
     /**
      * Whether this is editing an existing race rather than creating one.
      * Two things hang off it. The update-only controls — the lock, the
@@ -168,7 +172,7 @@ function GroupHeading({ id, sectioned }: { id: RaceSectionId; sectioned: boolean
     );
 }
 
-export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', isEditing = false }: RaceFormProps) {
+export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, submitLabel = 'Save', cancelLabel = 'Cancel', isEditing = false }: RaceFormProps) {
     const { group, groupLower, groupsLower, org, vehicle, vehicleLower, vehiclesLower } = useTerminology();
     const [formData, setFormData] = useState<RaceFormData>({
         name: '',
@@ -976,7 +980,7 @@ export default function RaceForm({ initialData, onSubmit, onCancel, onDelete, su
                         className="secondary-btn"
                         style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted-color)' }}
                     >
-                        Cancel
+                        {cancelLabel}
                     </button>
                 </div>
 

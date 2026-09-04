@@ -16,7 +16,69 @@ is up. If something in a section that is not on screen would stop the save —
 a blank name, say — the form switches to that section and says what is wrong,
 rather than refusing over a field you cannot see. The **+ Create New Race**
 form is the same fields on one page under the same headings, since the first
-time through you are filling everything in anyway.
+time through you are filling everything in anyway — it is the last step of
+the setup wizard, described next.
+
+## Creating a race: the setup wizard
+
+**+ Create New Race** opens a short wizard rather than the bare form, so a
+race arrives with its dens already made and its words already chosen. **Next**
+and **Back** move between the steps; nothing is saved until **Create Race** on
+the last one.
+
+| Step | What it asks |
+| --- | --- |
+| **Start** | Only once a race already exists: **Start from scratch**, or **Copy settings from a previous race** (below). |
+| **Kind of event** | What is being raced — **Pinewood Derby** (cars), **Space Derby** (rockets) or **Raingutter Regatta** (boats). Who is holding it — **Cub Scouts**, **Awana**, **A school**, or **Something else**. For Cub Scouts, whether it is **one pack's own derby** or **a district or council derby**. The line at the bottom says which three words the race will use. |
+| **Dens** | A ready-made list from those answers, to adjust: the six Cub Scout ranks (Lion through Arrow of Light, each in its rank colour, each with a Category to match) for a pack or a district; Awana's Cubbies, Sparks, T&T, Trek and Journey; nothing yet for a school or anyone else, since their groups are their own. Rename, recolour, add or remove; each is offered the next free block of a hundred car numbers, which you can clear. An empty list is fine for a race that does not group racers. |
+| **Details** | The race form — everything under [The race](#the-race) above. |
+
+**The answers become words, and only the words that differ are stored.** A
+pack's Pinewood Derby on an ordinary install answers to "Pack", "Den" and
+"Car" already, so the wizard stores no override for it and the race simply
+inherits the install's words — changing them later in System Settings still
+reaches it. A Space Derby, a school, a district derby: those store the
+seven-word override described under [The words on screen](#the-words-on-screen),
+exactly as though you had ticked **Use different words for this race**
+afterwards, and the edit form's **Words and names** section shows it that way.
+
+| Answer | Organization | Racing group | Vehicle |
+| --- | --- | --- | --- |
+| Cub Scouts, one pack's own derby | Pack | Den | — |
+| Cub Scouts, a district or council derby | District | Rank | — |
+| Awana | Club | Group | — |
+| A school | School | Grade | — |
+| Something else | Organization | Group | — |
+| Pinewood Derby | — | — | Car |
+| Space Derby | — | — | Rocket (with the rocket picture) |
+| Raingutter Regatta | — | — | Boat (with the boat picture) |
+
+These are starting points, not rules: every word can be changed on the edit
+form afterwards, and every den on the **Dens** step or from **Manage Dens**.
+
+### Copying a previous race
+
+Once any race exists, the wizard's first step offers **Copy settings from a
+previous race**. Pick one from the list and the questions are skipped — the
+previous race is the answer — and you go straight to its dens, with its
+settings filled in on the form.
+
+**Copied:** every den, with its name, colour, Category and car number range;
+the scoring method, **Drop worst run(s)**, **Ties** and **Championship
+Trophies**; the car numbering strategy and start number; the weight limit (or
+no weight check, if it had none); the race's own words, if it had any; and
+the location.
+
+**Not copied:** the name and date, which are what make it a new race; the
+roster, check-in, photos, rounds, heats, results, awards and votes; the QR
+code display text; the running-order, trophy and name-display settings the
+edit form offers only after a race exists; and the lock. A race that
+inherited the install's words stays inheriting when copied, rather than
+freezing whatever they resolved to that day.
+
+![The Start step with Copy settings from a previous race chosen and last year's derby picked, listing the six dens it will copy](../assets/screenshots/getting-started/03-new-race-copy.png)
+_Copying last year's derby: its six dens come across, and the form opens on
+its scoring and numbering. The roster does not — that is this year's._
 
 ![The Edit Race Details dialog, with the section list down the left and the Scoring section up](../assets/screenshots/race-setup/11-edit-race-settings.png)
 _The edit form open on **Scoring**. The other three sections are one click
@@ -344,11 +406,15 @@ and a plural for each word — plus the vehicle picture below them._
 
 **A race can override that default of its own** — one venue running a pack
 derby in March and a school's own derby in May, on the same install, without
-either one showing the other's words. Create the race first with the default
-words, then open the edit form, go to **Words and names**, and tick **Use
-different words for this race**; the checkbox is not offered on the **+
-Create New Race** form, because there is nothing to override until the race
-exists.
+either one showing the other's words. The setup wizard's **Kind of event**
+step is where a new race's words are chosen — a Space Derby held by a school
+says "Rocket", "Grade" and "School" from its first screen — and it stores
+them as this override only where they differ from the install's own words
+(see [Creating a race](#creating-a-race-the-setup-wizard)). To change them
+afterwards, or for a race created before the wizard existed, open the edit
+form, go to **Words and names**, and tick **Use different words for this
+race**. The seven boxes are not on the create form itself, because the
+wizard's questions are where a new race's words come from.
 
 **Unticking the checkbox returns to inheriting** — the organization's own
 words if it has set any, the built-in Scouting words otherwise. It does not

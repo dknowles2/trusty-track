@@ -94,29 +94,51 @@ When you are done, open the practice race and delete it like any other race.
 Once your system settings are configured, you're ready to create a race event.
 
 1. From the Home page, click the **+ Create New Race** button.
-2. Fill in the **Create New Race Event** form. It is one page, in three
-   groups — the same groups you will find down the side of the edit form
-   later on:
-   - Under **Event**:
-     - **Event Name**: A name for your race (e.g., "2024 Pinewood Derby").
-     - **Date & Time**: When the race will take place.
-     - **Location**: Where the race is being held.
-     - **Track / Timer**: Select which track you'll be using for this event.
-   - Under **Scoring**:
-     - **Scoring**: Four methods — **Timed** (average heat time), **Points** (finishing places added up), **Cumulative time** (heat times added up), and **Fastest single run** (each racer's single best time). Every option shows its own one-line description right on the form. See [Scoring & Championships](scoring-and-championships.md) for what each means on race day.
-     - **Drop worst run(s)**: `0` is off. Set it above `0` to drop each racer's worst counted results before scoring, once everyone who has raced has enough runs to spare.
-     - **Ties**: How a tied score is settled where it decides something. **Leave it shared** is the default.
-     - **Championship Trophies**: How many cars go into the final (3 by default).
-   - Under **Check-in**:
-     - **Car Numbering**: Choose how car numbers should be assigned (Manual allows you to enter numbers during check-in).
-     - **Check car weights at inspection**: On by default at 5.0 oz, the usual pack rule. Change the limit, or turn the check off entirely if your pack does not weigh cars.
+2. The **Create New Race Event** dialog walks you through a few short steps.
+   Each one has **Next** and **Back**, so nothing is final until the last.
+   - **Start** — only shown once you already have a race. Choose **Start from
+     scratch**, or **Copy settings from a previous race** to reuse last year's
+     dens, scoring, numbering and words. What is copied, and what is not, is
+     listed in [Copying a previous race](reference/race-settings.md#copying-a-previous-race).
+   - **Kind of event** — what is being raced (Pinewood Derby, Space Derby or
+     Raingutter Regatta), who is holding it (Cub Scouts, Awana, a school, or
+     something else) and, for Cub Scouts, whether it is one pack's own derby
+     or a district one. The line at the bottom says which words the race
+     will use — "Pack", "Den" and "Car" for a pack's Pinewood Derby.
 
-   Every field is explained in
-   [Race and track settings](reference/race-settings.md).
+   ![The Kind of event step, asking what is being raced and who is holding it](assets/screenshots/getting-started/03-new-race-questions.png)
 
-![New Race Form](assets/screenshots/getting-started/03-new-race-form.png)
+   - **Dens** — a ready-made list from your answers: the six Cub Scout ranks
+     for a pack, each with its rank colour and a block of a hundred car
+     numbers. Rename, recolour, remove or add to them here, or leave the list
+     empty if your race does not group racers. They can all be changed later
+     from **Manage Dens** on the Roster page.
 
-After clicking **Create Race**, you will be taken to the **Roster** page.
+   ![The Dens step, listing Lion through Arrow of Light with a colour, a category and a number range each](assets/screenshots/getting-started/03-new-race-groups.png)
+
+   - **Details** — the race form itself. It is one page, in three groups —
+     the same groups you will find down the side of the edit form later on:
+     - Under **Event**:
+       - **Event Name**: A name for your race (e.g., "2024 Pinewood Derby").
+       - **Date & Time**: When the race will take place.
+       - **Location**: Where the race is being held.
+       - **Track / Timer**: Select which track you'll be using for this event.
+     - Under **Scoring**:
+       - **Scoring**: Four methods — **Timed** (average heat time), **Points** (finishing places added up), **Cumulative time** (heat times added up), and **Fastest single run** (each racer's single best time). Every option shows its own one-line description right on the form. See [Scoring & Championships](scoring-and-championships.md) for what each means on race day.
+       - **Drop worst run(s)**: `0` is off. Set it above `0` to drop each racer's worst counted results before scoring, once everyone who has raced has enough runs to spare.
+       - **Ties**: How a tied score is settled where it decides something. **Leave it shared** is the default.
+       - **Championship Trophies**: How many cars go into the final (3 by default).
+     - Under **Check-in**:
+       - **Car Numbering**: Choose how car numbers should be assigned (Manual allows you to enter numbers during check-in).
+       - **Check car weights at inspection**: On by default at 5.0 oz, the usual pack rule. Change the limit, or turn the check off entirely if your pack does not weigh cars.
+
+     Every field is explained in
+     [Race and track settings](reference/race-settings.md).
+
+   ![New Race Form](assets/screenshots/getting-started/03-new-race-form.png)
+
+3. Click **Create Race**. The race and its dens are created together, and you
+   are taken to the **Roster** page.
 
 ## 6. Following the Setup Checklist
 
@@ -129,19 +151,21 @@ A new race opens with a **Setting up this race** panel at the top of the Roster 
 
 Each item ticks itself off as you do it — there is nothing to mark complete by hand — and the panel shows a button for whichever step you are on. Once all four are behind you it disappears, so it is only ever on screen while something is genuinely outstanding.
 
-If your pack does not use dens, skip the first step: it counts as done as soon as you have racers.
+If you set the race up with the wizard, the first step is already done — the dens it made are
+there. If your pack does not use dens, skip that step: it counts as done as soon as you have racers.
 
-## 7. Setting Up Dens
+## 7. Changing Your Dens
 
-Before adding racers, you should define your racing groups, typically called "Dens" in Cub Scouting.
+Racers are grouped into racing groups, typically called "Dens" in Cub Scouting. The setup wizard has
+already made yours; this is where you change them — or add them, for a race that started with none.
 
 1. On the **Roster** page, click **⋯** at the top right of the roster and choose **Manage Dens**.
-2. Click **+ Add New Den** and enter the name (e.g., "Lions", "Tigers").
+2. Click the pencil beside a den to rename or recolour it, or **+ Add New Den** to add one.
 3. Each den is offered a car number range to itself — 100–199 for the first den, 200–299 for the next. Change or clear those numbers if you number cars some other way.
 
-![The racing group manager, listing each group with its colour and car number range](assets/screenshots/getting-started/04-racing-group-management.png)
+![The racing group manager, listing the six dens the wizard made, each with its colour and car number range](assets/screenshots/getting-started/04-racing-group-management.png)
 
-With your dens configured, your race is ready for racer registration and check-in!
+With your dens in place, your race is ready for racer registration and check-in!
 
 ![Empty Race Details](assets/screenshots/getting-started/05-race-details-empty.png)
 _A race with no racers yet. The setup checklist at the top is pointing at the next thing to do; it will remove itself once all four steps are done._
