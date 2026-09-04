@@ -204,6 +204,33 @@ export const GET_RACE_CONTROL_DATA = gql`
         # name client-side against race.racingGroups, which the query
         # already fetches.
         racingGroupId
+        # An elimination round's record so far, wave by wave (#710) — the
+        # schedule screen's chart. Null for every other round style, which
+        # is what the toggle offering the chart keys off.
+        eliminationChart {
+          maxLosses
+          decided
+          waves {
+            number
+            heats {
+              heatId
+              heatNumber
+              finished
+              lanes {
+                lane
+                racerId
+                outcome
+                lossesAfter
+                out
+              }
+            }
+          }
+          standings {
+            racerId
+            losses
+            alive
+          }
+        }
         advancementStatus {
           isReady
           requiresAdvancement

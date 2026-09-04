@@ -66,6 +66,11 @@ nothing to reprint when somebody does not show up.
 - A racer who checks in late joins the next set on a clean record — but
   never a race that is already decided. Checking in after the final heat
   does not restart it.
+- The Schedule screen's **Chart view** shows the round set by set — who
+  won, who lost, and who is still in it — for whichever rounds are
+  elimination. It is a record of what has already happened, never a
+  prediction: the set that comes after the one on screen does not exist
+  yet, so it is never drawn.
 - An elimination round cannot also be a championship round. Its survivors
   *can* feed one: point a championship round at the elimination round and
   the last cars standing race a timed final. See

@@ -32,6 +32,7 @@ from backend.db import crud, models, schemas
 from backend.db.database import UPLOAD_DIR
 from backend.domain import advancement, audit, lanes, roster_import
 from backend.domain import displays as domain_displays
+from backend.domain import elimination as domain_elimination
 from backend.domain import heat_session as domain_heat_session
 from backend.domain import intermission as domain_intermission
 from backend.domain import name_display as domain_name_display
@@ -506,6 +507,74 @@ def _advancement_status(info: Info, race_id: int, round_id: int) -> AdvancementS
 
 
 @strawberry.type
+class EliminationChartLane:
+    """One lane of one heat on an elimination round's chart (#710).
+
+    `outcome` is `WON`, `LOST`, `SKIPPED`, or null when nothing was counted
+    for the lane — the heat has not run, or it held a lone finisher. Every
+    `LOST` here is a loss in `domain.elimination.losses_by_racer`, so the
+    chart cannot disagree with the counts that draw the next wave.
+    """
+
+    lane: int
+    racer_id: int | None
+    outcome: str | None
+    #: The racer's losses once this heat is counted; for a heat yet to run,
+    #: the losses so far.
+    losses_after: int
+    #: At the loss limit from this heat on.
+    out: bool
+
+
+@strawberry.type
+class EliminationChartHeat:
+    heat_id: int
+    heat_number: int
+    finished: bool
+    lanes: list[EliminationChartLane]
+
+
+@strawberry.type
+class EliminationWave:
+    """One set of heats the schedule grew at once — see `elimination.waves_of`."""
+
+    number: int
+    heats: list[EliminationChartHeat]
+
+
+@strawberry.type
+class EliminationStandingEntry:
+    """Where a racer stands in the round: still racing, or out."""
+
+    racer_id: int
+    losses: int
+    alive: bool
+
+
+@strawberry.type
+class EliminationChart:
+    """The record of an elimination round so far, wave by wave (#710).
+
+    Not a bracket. A bracket draws matchups that have not happened, and this
+    format grows its schedule from the results rather than promising one —
+    so this draws only the heats that exist: the waves raced, the pending
+    wave (real rows, not a guess), and who is still standing. The wave after
+    the pending one is deliberately absent, because nobody knows who will be
+    in it until this one is scored.
+
+    `standings` is filtered to who is still checked in, the same population
+    `extend_elimination_round` fields the next wave from (#313), so a
+    withdrawn car is not shown as still racing. `decided` reads
+    `crud.is_round_complete`, the one copy of that rule.
+    """
+
+    max_losses: int
+    decided: bool
+    waves: list[EliminationWave]
+    standings: list[EliminationStandingEntry]
+
+
+@strawberry.type
 class Round:
     """
     Represents a single round of racing.
@@ -553,6 +622,64 @@ class Round:
     def advancement_status(self, info: Info) -> AdvancementStatus:
         """Check if a round is ready to advance."""
         return _advancement_status(info, self.race_id, self.id)
+
+    @strawberry.field
+    def elimination_chart(self, info: Info) -> EliminationChart | None:
+        """The round's record so far, wave by wave — elimination rounds only.
+
+        Null for every other scheduling strategy: PPC and balanced rounds
+        have no bracket-shaped truth to draw (#710). Reads the heats and lanes
+        off the loaders' per-race batch, so asking for it costs the schedule
+        screen nothing per heat.
+        """
+        if self.scheduling_strategy != models.SchedulingStrategy.ELIMINATION:
+            return None
+        db = info.context["db"]
+        loaders = _loaders(info)
+        heats = sorted(
+            loaders.heats_for_round(self.race_id, self.id),
+            key=lambda heat: heat.heat_number,
+        )
+        heat_lanes = [
+            loaders.lane_values_for_heat(self.race_id, heat.id) for heat in heats
+        ]
+        threshold = self.elimination_losses or 1
+        eligible = set(crud.eligible_racer_ids(db, self.race_id, self.racing_group_id))
+        return EliminationChart(
+            max_losses=threshold,
+            decided=crud.is_round_complete(db, self.id),
+            waves=[
+                EliminationWave(
+                    number=wave.number,
+                    heats=[
+                        EliminationChartHeat(
+                            heat_id=heats[heat.index].id,
+                            heat_number=heats[heat.index].heat_number,
+                            finished=heat.finished,
+                            lanes=[
+                                EliminationChartLane(
+                                    lane=lane.lane,
+                                    racer_id=lane.racer_id,
+                                    outcome=lane.outcome,
+                                    losses_after=lane.losses_after,
+                                    out=lane.out,
+                                )
+                                for lane in heat.lanes
+                            ],
+                        )
+                        for heat in wave.heats
+                    ],
+                )
+                for wave in domain_elimination.chart(heat_lanes, threshold)
+            ],
+            standings=[
+                EliminationStandingEntry(
+                    racer_id=entry.racer_id, losses=entry.losses, alive=entry.alive
+                )
+                for entry in domain_elimination.standings(heat_lanes, threshold)
+                if entry.racer_id in eligible
+            ],
+        )
 
 
 @strawberry.type

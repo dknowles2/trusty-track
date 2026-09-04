@@ -146,6 +146,39 @@ enum DisplayView {
   OVERLAY
 }
 
+type EliminationChart {
+  maxLosses: Int!
+  decided: Boolean!
+  waves: [EliminationWave!]!
+  standings: [EliminationStandingEntry!]!
+}
+
+type EliminationChartHeat {
+  heatId: Int!
+  heatNumber: Int!
+  finished: Boolean!
+  lanes: [EliminationChartLane!]!
+}
+
+type EliminationChartLane {
+  lane: Int!
+  racerId: Int
+  outcome: String
+  lossesAfter: Int!
+  out: Boolean!
+}
+
+type EliminationStandingEntry {
+  racerId: Int!
+  losses: Int!
+  alive: Boolean!
+}
+
+type EliminationWave {
+  number: Int!
+  heats: [EliminationChartHeat!]!
+}
+
 type FreeRaceHeat {
   id: Int!
   raceId: Int!
@@ -750,6 +783,7 @@ type Round {
   racingGroupId: Int
   heats: [Heat!]!
   advancementStatus: AdvancementStatus!
+  eliminationChart: EliminationChart
 }
 
 input RoundCreateInput {
