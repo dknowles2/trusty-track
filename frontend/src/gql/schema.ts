@@ -47,12 +47,15 @@ export type AuditLogEntry = {
 
 export type Award = {
   artworkKey?: Maybe<Scalars['String']['output']>;
+  duplicateOf?: Maybe<Award>;
   fromBottom: Scalars['Boolean']['output'];
   id: Scalars['Int']['output'];
   kind: Scalars['String']['output'];
   name: Scalars['String']['output'];
+  passedOver: Array<AwardPassedOver>;
   place?: Maybe<Scalars['Int']['output']>;
   placeContested: Scalars['Boolean']['output'];
+  position?: Maybe<Scalars['Int']['output']>;
   raceId: Scalars['Int']['output'];
   racingGroup?: Maybe<RacingGroup>;
   racingGroupId?: Maybe<Scalars['Int']['output']>;
@@ -74,6 +77,13 @@ export type AwardInput = {
   sortOrder?: InputMaybe<Scalars['Int']['input']>;
   source?: InputMaybe<Scalars['String']['input']>;
   votable?: Scalars['Boolean']['input'];
+};
+
+export type AwardPassedOver = {
+  award?: Maybe<Award>;
+  awardId: Scalars['Int']['output'];
+  racer?: Maybe<Racer>;
+  racerId: Scalars['Int']['output'];
 };
 
 export type AwardVoteTally = {
@@ -971,6 +981,7 @@ export type Race = {
   masterRunningOrder: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
   nameDisplay?: Maybe<Scalars['String']['output']>;
+  oneTrophyPerRacer: Scalars['Boolean']['output'];
   organization: Organization;
   organizationId: Scalars['Int']['output'];
   organizationPlural?: Maybe<Scalars['String']['output']>;
@@ -1068,6 +1079,7 @@ export type RaceUpdateInput = {
   masterRunningOrder?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
   nameDisplay?: InputMaybe<Scalars['String']['input']>;
+  oneTrophyPerRacer?: InputMaybe<Scalars['Boolean']['input']>;
   organizationPlural?: InputMaybe<Scalars['String']['input']>;
   organizationSingular?: InputMaybe<Scalars['String']['input']>;
   racingGroupPlural?: InputMaybe<Scalars['String']['input']>;

@@ -20,7 +20,7 @@ import { useRunMutation } from '../../../context/runMutation';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { errorText } from '../../../utils/errors';
 import AwardArtwork from '../artwork';
-import { carLabel, describeSpeedAward, racerLabel } from '../awardText';
+import { carLabel, describeSpeedAward, duplicateOfNote, racerLabel, rollDownNote } from '../awardText';
 import AwardForm, { AwardDraft } from '../components/AwardForm';
 import BallotShare from '../components/BallotShare';
 import {
@@ -62,6 +62,15 @@ type AwardRow = {
     carNumber?: number | null;
     racerImageUrl?: string | null;
   } | null;
+  /** The roll-down's own provenance (#615) — see `awardText.rollDownNote`
+   * and `duplicateOfNote`. All three are the isolated per-award answer
+   * (no explanation) whenever `Race.oneTrophyPerRacer` is off. */
+  position?: number | null;
+  passedOver?: {
+    racer?: { firstName: string; lastName: string; carNumber?: number | null } | null;
+    award?: { name: string } | null;
+  }[] | null;
+  duplicateOf?: { id: number; name: string } | null;
 };
 
 export default function Awards() {
@@ -351,6 +360,22 @@ export default function Awards() {
                   ? describeSpeedAward(award, rounds, racingGroups, groupLower)
                   : 'Chosen by the judges'}
               </div>
+              {/* The roll-down's own explanation (#615) — a trophy that
+                  did not go to the standings' own Nth place, or a judged
+                  pick that collides with a speed trophy the same racer
+                  already holds. Neither fires while
+                  `Race.oneTrophyPerRacer` is off. */}
+              {(() => {
+                const note =
+                  award.kind === 'SPEED'
+                    ? rollDownNote(award, award.position, award.passedOver ?? [])
+                    : duplicateOfNote(award.duplicateOf);
+                return note ? (
+                  <div style={{ color: 'var(--warning-soft-color)', fontSize: '0.8rem', marginTop: '0.15rem' }}>
+                    {note}
+                  </div>
+                ) : null;
+              })()}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
@@ -460,6 +485,7 @@ export default function Awards() {
           rounds={rounds}
           racingGroups={racingGroups}
           racers={racers}
+          awards={awards}
           submitLabel="Add award"
           onSubmit={handleCreate}
           onCancel={() => setAdding(false)}
@@ -487,6 +513,8 @@ export default function Awards() {
             rounds={rounds}
             racingGroups={racingGroups}
             racers={racers}
+            awards={awards}
+            excludeAwardId={editing.id}
             submitLabel="Save changes"
             onSubmit={handleUpdate}
             onCancel={() => setEditing(null)}

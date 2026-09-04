@@ -16,6 +16,7 @@ const baseFormData: RaceFormData = {
     weight_limit_oz: 5.0,
     master_running_order: false,
     exclude_round_winners_from_qualifying_standings: false,
+    one_trophy_per_racer: false,
 };
 
 describe('buildCreateRaceInput', () => {

@@ -21,6 +21,7 @@ import {
   NamedRacingGroup,
   NamedRound,
   ALL_SOURCE,
+  awardHolderWarning,
   positionLabel,
   racerLabel,
   roundLabel,
@@ -47,6 +48,12 @@ export interface AwardFormRacer {
   carNumber?: number | null;
 }
 
+export interface AwardFormAward {
+  id: number;
+  name: string;
+  recipient?: { id: number } | null;
+}
+
 interface Props {
   initial?: Partial<AwardDraft>;
   rounds: NamedRound[];
@@ -55,6 +62,18 @@ interface Props {
   submitLabel: string;
   onSubmit: (draft: AwardDraft) => void;
   onCancel: () => void;
+  /**
+   * The race's other awards, for the judged-award picker's own warning
+   * (#615): a coordinator picking a racer who already holds a trophy is
+   * worth flagging, whatever `Race.oneTrophyPerRacer` is set to — the
+   * picker never refuses the pick, only says so. Optional so a caller with
+   * no need for the warning (there is currently none) is not forced to
+   * thread empty award lists through.
+   */
+  awards?: AwardFormAward[];
+  /** The award being edited, if any — excluded from the collision check so
+   * the warning does not fire against the award's own current recipient. */
+  excludeAwardId?: number | null;
 }
 
 const EMPTY: AwardDraft = {
@@ -79,6 +98,8 @@ export default function AwardForm({
   submitLabel,
   onSubmit,
   onCancel,
+  awards = [],
+  excludeAwardId = null,
 }: Props) {
   const { groupLower, orgLower, vehicleLower } = useTerminology();
   const [draft, setDraft] = useState<AwardDraft>({ ...EMPTY, ...initial });
@@ -294,6 +315,18 @@ export default function AwardForm({
                 </option>
               ))}
             </select>
+            {/* A coordinator picking a racer who already holds another
+                award is worth a nudge (#615) — this never blocks the pick,
+                since a person's own choice is never overridden by a
+                computed rule. */}
+            {(() => {
+              const warning = awardHolderWarning(draft.racerId, awards, excludeAwardId);
+              return warning ? (
+                <small style={{ color: 'var(--warning-soft-color)', display: 'block', marginTop: '0.3rem' }}>
+                  {warning}
+                </small>
+              ) : null;
+            })()}
           </div>
 
           <label style={{ display: 'block' }}>

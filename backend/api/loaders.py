@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from backend.db import crud, models
 from backend.domain import lanes
+from backend.domain import roll_down as domain_roll_down
 from backend.domain import scoring as domain_scoring
 from backend.services import awards as awards_service
 from backend.services import scoring
@@ -48,9 +49,10 @@ class RequestLoaders:
         self._lanes: dict[int, dict[int, list[models.HeatLane]]] = {}
         self._lane_values: dict[tuple[int, int], list[lanes.Lane]] = {}
         self._awards_by_race: dict[int, list[models.Award]] = {}
-        self._award_recipients: dict[int, dict[int, int | None]] = {}
+        self._award_resolutions: dict[int, dict[int, domain_roll_down.Resolution]] = {}
         self._award_vote_tallies: dict[int, dict[int, list[tuple[int, int]]]] = {}
         self._award_contested: dict[int, dict[int, bool]] = {}
+        self._races: dict[int, models.Race | None] = {}
 
         event.listen(db, "after_commit", self._on_commit)
 
@@ -70,9 +72,10 @@ class RequestLoaders:
         self._lanes.clear()
         self._lane_values.clear()
         self._awards_by_race.clear()
-        self._award_recipients.clear()
+        self._award_resolutions.clear()
         self._award_vote_tallies.clear()
         self._award_contested.clear()
+        self._races.clear()
 
     # ------------------------------------------------------------------ #
     # Collections, loaded once per race                                    #
@@ -217,6 +220,17 @@ class RequestLoaders:
             )
         return self._organizations[organization_id]
 
+    def race_by_id(self, race_id: int) -> models.Race | None:
+        """Memoised race row, so a field needing one of its plain columns
+        (`one_trophy_per_racer`, #615) does not cost a second query alongside
+        whatever already loaded the race for the top-level `race` field.
+        """
+        if race_id not in self._races:
+            self._races[race_id] = (
+                self._db.query(models.Race).filter(models.Race.id == race_id).first()
+            )
+        return self._races[race_id]
+
     # ------------------------------------------------------------------ #
     # Derived values                                                       #
     # ------------------------------------------------------------------ #
@@ -243,18 +257,41 @@ class RequestLoaders:
             )
         return self._leaderboards[key]
 
-    def award_recipients(self, race_id: int) -> dict[int, int | None]:
-        """Memoised ``{award_id: racer_id or None}`` for a whole race (#170).
+    def award_resolutions(self, race_id: int) -> dict[int, domain_roll_down.Resolution]:
+        """Memoised ``{award_id: Resolution}`` for a whole race (#170, #615).
 
         Whole-race and cached because resolving one speed award is a full
         scoring pass over the heats it draws from, and an awards screen asks
         for every award at once. Per-award resolution would be one pass each.
+
+        Reads `Race.one_trophy_per_racer` off the memoised race row rather
+        than letting `awards_service.resolutions_of` query it itself — the
+        top-level `race` query resolver already loaded a `Race`, on a
+        different path, so this is the one place that would otherwise be a
+        second, avoidable query for the same row.
         """
-        if race_id not in self._award_recipients:
-            self._award_recipients[race_id] = awards_service.recipients_of(
-                self._db, race_id, self.awards_for_race(race_id)
+        if race_id not in self._award_resolutions:
+            race = self.race_by_id(race_id)
+            self._award_resolutions[race_id] = awards_service.resolutions_of(
+                self._db,
+                race_id,
+                self.awards_for_race(race_id),
+                one_trophy_per_racer=bool(race and race.one_trophy_per_racer),
             )
-        return self._award_recipients[race_id]
+        return self._award_resolutions[race_id]
+
+    def award_recipients(self, race_id: int) -> dict[int, int | None]:
+        """Memoised ``{award_id: racer_id or None}`` for a whole race (#170).
+
+        The recipient half of :meth:`award_resolutions`, honouring the
+        race's own `one_trophy_per_racer` setting — unlike
+        `awards_service.recipients_of`, which is always the isolated
+        resolution.
+        """
+        return {
+            award_id: resolution.recipient
+            for award_id, resolution in self.award_resolutions(race_id).items()
+        }
 
     def award_vote_tallies(self, race_id: int) -> dict[int, list[tuple[int, int]]]:
         """Memoised ``{award_id: [(racer_id, vote_count), ...]}`` (#305).
