@@ -149,12 +149,18 @@ def _names_in(line: str) -> set[str]:
 
 
 def _listed_names(text: str, start: int) -> set[str]:
-    """The operations a list under ``start`` actually lists.
+    """The names a list under ``start`` actually lists.
 
     The anchor's own line counts, because `CLAUDE.md` writes its queries and
     subscriptions inline rather than as a list. Everything stops at the next
     heading — without that bound the last list in a document runs on into the
     rest of it.
+
+    A blank line does **not** end the scan on its own — §3.2's entities are
+    separated by one in places (`RacingGroup` to `Racer`, `Round` to `Heat`),
+    where the operation lists this function was written for have none within
+    a list, only around it. Relying on the heading check to bound every list
+    keeps one rule for both rather than growing a second, list-shaped one.
     """
     lines = text[start:].split("\n")
     names = _names_in(lines[0])
@@ -163,8 +169,6 @@ def _listed_names(text: str, start: int) -> set[str]:
         if line.startswith(("#", "**")):
             break
         if not line.strip():
-            if in_list:
-                break
             continue
         if line.startswith("-"):
             in_list = True
@@ -174,17 +178,19 @@ def _listed_names(text: str, start: int) -> set[str]:
     return names
 
 
-def _documented_operations(text: str, anchors: list[str]) -> set[str]:
-    """Backticked names inside the blocks that list operations.
+def _documented_names(text: str, anchors: list[str]) -> set[str]:
+    """Backticked names inside the blocks named by ``anchors``.
 
     Scoped to those blocks rather than the whole file: both documents discuss
     plenty of names that are not operations — Python functions, columns, and
-    `laneResults`, which is named precisely because it was *removed* — and an
-    operation mentioned only in prose *outside* these blocks (a design aside
-    in a completely different section, say) does not count as documented.
+    `laneResults`, which is named precisely because it was *removed* — and a
+    name mentioned only in prose *outside* these blocks (a design aside in a
+    completely different section, say) does not count as documented.
     `previewDerbynetImport` and `confirmDerbynetImport` shipped exactly that
     way once: named only in the roster-import prose, absent from this list,
     and the old whole-file forward check could not tell the difference.
+    `AuditEntry` shipped the same way against §3.2's entity list — present in
+    the file, just under `## 4. Frontend Design` instead.
     """
     found: set[str] = set()
     for anchor in anchors:
@@ -207,10 +213,8 @@ AGENT_GUIDE_ANCHORS = ["**Queries:**", "**Mutations:**", "**Subscriptions:**"]
 
 #: Computed once at collection time — both directions read the same blocks,
 #: so there is one parse of each file rather than one per operation.
-DESIGN_OPERATIONS = _documented_operations(DESIGN.read_text(), DESIGN_ANCHORS)
-AGENT_GUIDE_OPERATIONS = _documented_operations(
-    AGENT_GUIDE.read_text(), AGENT_GUIDE_ANCHORS
-)
+DESIGN_OPERATIONS = _documented_names(DESIGN.read_text(), DESIGN_ANCHORS)
+AGENT_GUIDE_OPERATIONS = _documented_names(AGENT_GUIDE.read_text(), AGENT_GUIDE_ANCHORS)
 
 
 @pytest.mark.parametrize("operation", ALL_OPERATIONS)
@@ -260,12 +264,24 @@ def _model_names() -> list[str]:
     )
 
 
+MODEL_ANCHORS = ["**Key Entities:**"]
+
+#: Computed once at collection time, same reasoning as `DESIGN_OPERATIONS`.
+DESIGN_MODELS = _documented_names(DESIGN.read_text(), MODEL_ANCHORS)
+
+
 @pytest.mark.parametrize("model", _model_names())
 def test_the_design_document_names_every_model(model):
-    """§3.2 is the data model. `LaneOutage` shipped without an entry (#171)."""
-    assert f"`{model}`" in DESIGN.read_text(), (
-        f"`{model}` is a table and is not in docs/design.md §3.2. "
-        "Document it, or exempt it in UNDOCUMENTED_MODELS with a reason."
+    """§3.2 is the data model — a model named only somewhere else in the file
+    is not documented, just mentioned. `LaneOutage` shipped with no entry at
+    all (#171); `AuditEntry` shipped an entry under `## 4. Frontend Design`
+    instead of §3.2, which the old whole-file search could not tell apart
+    from being documented in the right place (#718).
+    """
+    assert model in DESIGN_MODELS, (
+        f"`{model}` is a table and is not in docs/design.md §3.2's Key "
+        "Entities list. Document it there, or exempt it in "
+        "UNDOCUMENTED_MODELS with a reason."
     )
 
 
