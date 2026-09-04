@@ -211,6 +211,12 @@ export interface RacerSeed {
     car: number;
     carName: string;
     racingGroup?: string;
+    /** Whether this racer has passed inspection / checked in. Defaults to
+     * `true` — every existing caller seeds a race that is past check-in, so
+     * changing the default would change every screenshot that already
+     * exists. `screenshot-checkin.spec.ts` is the one caller that sets this
+     * to `false`, to picture check-in still under way. */
+    checkedIn?: boolean;
 }
 
 /** The first heat of `raceId` that nothing has recorded a time in. */
@@ -393,7 +399,7 @@ export async function seedRacers(
                     lastName: racer.last,
                     carNumber: racer.car,
                     carName: racer.carName,
-                    carPassedInspection: true,
+                    carPassedInspection: racer.checkedIn ?? true,
                     ...(await photosFor(page, index)),
                 },
             },

@@ -59,6 +59,11 @@ class DisplayView(str, Enum):
     #: nothing else. See ``ScrollBehavior`` for how it gets through a list
     #: longer than one screen can hold at once.
     STANDINGS_ONLY = "STANDINGS_ONLY"
+    #: Who has checked in and who has not, grouped by racing group — a
+    #: "Please Check In" kiosk for the gym wall or the entrance before racing
+    #: starts (#612). See ``Assignment.show_checked_in`` for the one setting
+    #: specific to it.
+    CHECKIN = "CHECKIN"
 
 
 class ScrollBehavior(str, Enum):
@@ -95,11 +100,20 @@ class Assignment:
     ``STANDINGS_ONLY``, and is carried regardless, so an operator flipping a
     screen to standings and back does not lose the interval they chose.
     ``scroll_behavior`` is the same shape, for ``STANDINGS_ONLY`` alone.
+    ``show_checked_in`` is ``CHECKIN``'s own rider, for the same reason: a
+    large pack's screen switched away from ``CHECKIN`` and back keeps
+    whichever choice the operator made.
     """
 
     view: DisplayView = DEFAULT_VIEW
     cycle_seconds: int = 10
     scroll_behavior: ScrollBehavior = DEFAULT_SCROLL_BEHAVIOR
+    #: Whether ``CHECKIN`` lists a group's already-checked-in racers or only
+    #: the ones still pending. Defaults to listing everybody — DerbyNet's own
+    #: kiosk does, and a pack small enough to fit is the common case; a pack
+    #: big enough that the full roster does not fit one screen is what the
+    #: pending-only mode is for (#612).
+    show_checked_in: bool = True
 
     def __post_init__(self) -> None:
         if self.cycle_seconds < 1:
@@ -132,6 +146,10 @@ def describe(assignment: Assignment) -> str:
         if assignment.scroll_behavior is ScrollBehavior.SMOOTH:
             return f"Standings only, scrolling every {assignment.cycle_seconds}s"
         return f"Standings only, paging every {assignment.cycle_seconds}s"
+    if assignment.view is DisplayView.CHECKIN:
+        if assignment.show_checked_in:
+            return "Check-in progress"
+        return "Check-in progress — pending only"
     return {
         DisplayView.STANDINGS: "Standings",
         DisplayView.TIMING: "Last heat's times",

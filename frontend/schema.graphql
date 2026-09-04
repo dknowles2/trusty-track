@@ -119,6 +119,7 @@ type Display {
   view: DisplayView!
   cycleSeconds: Int!
   scrollBehavior: ScrollBehavior!
+  showCheckedIn: Boolean!
   connected: Boolean!
   assigned: Boolean!
   description: String!
@@ -137,6 +138,7 @@ enum DisplayView {
   AWARDS
   SLIDESHOW
   STANDINGS_ONLY
+  CHECKIN
 }
 
 type FreeRaceHeat {
@@ -385,7 +387,7 @@ type Mutation {
   pauseIntermission(raceId: Int!): Race!
   resumeIntermission(raceId: Int!): Race!
   endIntermission(raceId: Int!): Race!
-  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null): Display
+  assignDisplay(view: DisplayView!, displayId: String!, cycleSeconds: Int = null, scrollBehavior: ScrollBehavior = null, showCheckedIn: Boolean = null): Display
   advanceDisplay(displayId: String!, delta: Int!): Display
   identifyDisplay(displayId: String!): Display
   renameDisplay(displayId: String!, name: String!): Display

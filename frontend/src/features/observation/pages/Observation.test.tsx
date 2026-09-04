@@ -1157,4 +1157,176 @@ describe('Observation Page', () => {
             expect(screen.queryByTestId('standings-only-view')).not.toBeInTheDocument();
         });
     });
+
+    describe('check-in progress (#612)', () => {
+        const renderTree = () => (
+            <MemoryRouter initialEntries={['/race/1/observation']}>
+                <Routes>
+                    <Route path="/race/:raceId/observation" element={<Observation />} />
+                </Routes>
+            </MemoryRouter>
+        );
+
+        const checkinRacersData = {
+            race: {
+                id: 1,
+                racers: [
+                    { id: 1, firstName: 'Speedy', lastName: 'McQueen', carNumber: 95, racerImageUrl: null, racingGroupId: 1, carPassedInspection: true },
+                    { id: 2, firstName: 'Doc', lastName: 'Hudson', carNumber: 51, racerImageUrl: null, racingGroupId: 1, carPassedInspection: false },
+                ],
+                racingGroups: [{ id: 1, name: 'Wolves', color: '#f00', division: null }],
+            },
+        };
+
+        it('hides Now Racing and On Deck, and shows check-in progress by racing group', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: true,
+                    },
+                    currentlyRacing: {
+                        id: 2,
+                        roundNumber: 1,
+                        heatNumber: 2,
+                        lanes: [{ lane: 1, racerId: 2, placeholderSlot: null }],
+                    },
+                },
+                checkinRacersData,
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            });
+            expect(screen.queryByText('Now Racing')).not.toBeInTheDocument();
+            expect(screen.queryByText('On Deck')).not.toBeInTheDocument();
+            expect(screen.getByText('1 of 2 checked in')).toBeInTheDocument();
+            expect(screen.getByTestId('checkin-group-1')).toHaveTextContent('Doc Hudson');
+        });
+
+        it('hides the app chrome, the same as projector mode and the slideshow', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: true,
+                    },
+                },
+                checkinRacersData,
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            });
+            expect(document.querySelector('.container.projector-mode')).toBeInTheDocument();
+        });
+
+        it('drops already-checked-in racers when the operator sets pending-only', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: false,
+                    },
+                },
+                checkinRacersData,
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            });
+            const wolves = screen.getByTestId('checkin-group-1');
+            expect(wolves).not.toHaveTextContent('Speedy McQueen');
+            expect(wolves).toHaveTextContent('Doc Hudson');
+        });
+
+        it('says racing is underway once a heat has been recorded, without hiding the roster', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: true,
+                    },
+                    timingStats: {
+                        heatId: 1,
+                        roundName: 'All Pack',
+                        heatNumber: 1,
+                        globalHeatNumber: null,
+                        recordedAt: new Date().toISOString(),
+                        lanes: [{ laneNumber: 1, place: 1, racerName: 'Speedy McQueen', time: 3.2 }],
+                    },
+                },
+                checkinRacersData,
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('checkin-racing-underway')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('checkin-view')).toBeInTheDocument();
+            expect(screen.getByTestId('checkin-group-1')).toHaveTextContent('Doc Hudson');
+        });
+
+        it('yields to an intermission (#592) — a break is a fact about the race, not the assigned view', async () => {
+            setupMocks(
+                {
+                    displayAssignment: {
+                        name: 'Plucky Puffin',
+                        identifySeq: 0,
+                        assigned: true,
+                        view: 'CHECKIN',
+                        cycleSeconds: 10,
+                        scrollBehavior: 'PAGING',
+                        showCheckedIn: true,
+                    },
+                },
+                {
+                    race: {
+                        ...checkinRacersData.race,
+                        intermission: {
+                            active: true,
+                            remainingSeconds: 120,
+                            paused: false,
+                            label: 'Snack break',
+                            endsAt: new Date(Date.now() + 120_000).toISOString(),
+                        },
+                    },
+                },
+            );
+
+            render(renderTree());
+
+            await waitFor(() => {
+                expect(screen.getByTestId('intermission-overlay')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('checkin-view')).not.toBeInTheDocument();
+        });
+    });
 });

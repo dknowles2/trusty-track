@@ -4,7 +4,7 @@ What a screen on the wall can show, and how telling it what to show works.
 For the setup walkthrough, see the
 [Observation Displays guide](../observation-displays.md).
 
-## The seven views
+## The eight views
 
 Every screen with the Live page open can be switched between these, from
 **Race Control → Displays** or by its own URL:
@@ -17,6 +17,7 @@ Every screen with the Live page open can be switched between these, from
 | **Projector** | The full-screen, high-contrast layout: the live heat large on the left, top five standings on the right, and a brief results overlay after each heat |
 | **Racer photos** | A slideshow of the check-in photos: headshot, car, name, number, den |
 | **Standings only** | The leaderboard alone, filling the whole screen — no Now Racing / On Deck panels. For a pack whose standings are too long to share the screen with anything else |
+| **Check-in progress** | Who has checked in and who has not, grouped by den, on a screen at the entrance or the gym wall — see [below](#check-in-progress) |
 | **Awards ceremony** | The [ceremony](../awards.md#announcing-them), one award at a time. Unlike every other view, it only moves when a person does — either at the screen, or with the **‹** and **›** buttons on its row in the operator's list |
 
 **The ceremony only appears once you have awards.** A race with none is not
@@ -67,7 +68,7 @@ in System Settings, not a fixed palette.
 
 A break called from Race Control (see
 [Taking a Break](../race-day.md#taking-a-break)) takes over every screen
-showing this race, whichever of the seven views above it was on — a break is
+showing this race, whichever of the eight views above it was on — a break is
 a fact about the race, not about which view a display happened to be
 assigned.
 Each screen shows a countdown, the break's name (or "Intermission" if none
@@ -80,7 +81,7 @@ if the operator clicks **End now** — there is nothing to acknowledge on the
 display's own end. A paused break shows the time it was paused at rather than
 counting down.
 
-Notes on three of them:
+Notes on four of them:
 
 - **Racer photos** goes in car number order rather than shuffling. Families
   are watching for their own child, and in order everybody comes round once
@@ -97,8 +98,39 @@ Notes on three of them:
   going for as long as the screen is left open — walking away for an hour
   and coming back does not leave the list stuck partway through or drifted
   off schedule.
+- **Check-in progress** groups the roster by den, each with a progress bar
+  and the count of cars still to come — see the next section.
 
-## Shortening a racer's name
+## Check-in progress
+
+The gym-wall answer to "are there any more Wolves who haven't checked in?" —
+one card per den, a progress bar and a count for each, and the cars still
+pending listed by number and name underneath. It reads live off the same
+check-in status the roster's own **Checked In / Edit** button sets, so a car
+checked in at the desk drops off this screen within a second or two, on
+every screen assigned to it.
+
+**List everybody, or pending only.** By default a den's card lists every
+car, a small ✓ against the ones already through. A large pack can switch a
+screen to **Pending only** on its row in the Displays panel — the same
+control **Standings only**'s paging/auto-scroll choice sits next to — which
+drops the checked-in rows entirely and keeps the card down to the cars still
+needed at the scale.
+
+**Before anyone is registered, it says so** rather than showing an empty
+grid of dens. Once every registered car is through, it says that too — "All
+42 checked in!" — instead of leaving an empty list where the missing names
+used to be.
+
+**It keeps working once racing starts, quieter rather than gone.** A car
+can arrive after the first heat and still join the schedule (see
+[Mid-race changes](mid-race-changes.md)), so this screen has no reason to
+disappear the moment racing begins — nothing on it could switch itself away
+even if it should, since a display holds no PIN and can be told what to show
+only from Race Control (see "How assignment works" below). Once the first
+heat is recorded it shows a small note that racing is underway and cars can
+still check in at the desk, and shrinks its own type a little to say, without
+words, that the room's attention has moved on.
 
 These screens are on a gym wall, in a room open to whoever walked in — worth
 knowing if a child's full name showing there is a concern. **Names on public

@@ -33,6 +33,7 @@ function renderPanel(
     awards = 2,
     hasDisplay = true,
     scrollBehavior = 'PAGING',
+    showCheckedIn = true,
 ) {
     // Two queries, and they answer different questions: the list of screens,
     // and whether the race has any awards to announce.
@@ -66,6 +67,7 @@ function renderPanel(
                             view,
                             cycleSeconds,
                             scrollBehavior,
+                            showCheckedIn,
                             description: 'Standings',
                             pacedByAPerson: view === 'AWARDS',
                             connected,
@@ -167,6 +169,36 @@ describe('the paging/auto-scroll control (#663)', () => {
     });
 });
 
+describe('the everybody/pending-only control (#612)', () => {
+    it('is offered for check-in progress', () => {
+        renderPanel('CHECKIN');
+        expect(screen.getByLabelText('Who Gym north lists')).toBeTruthy();
+    });
+
+    it('is absent for every other view', () => {
+        renderPanel('STANDINGS');
+        expect(screen.queryByLabelText('Who Gym north lists')).toBeNull();
+    });
+
+    it('reflects the display’s current choice', () => {
+        renderPanel('CHECKIN', 10, true, 2, true, 'PAGING', false);
+        const select = screen.getByLabelText('Who Gym north lists') as HTMLSelectElement;
+        expect(select.value).toBe('PENDING');
+    });
+
+    it('sends the choice, keeping the row on check-in', () => {
+        renderPanel('CHECKIN');
+        fireEvent.change(screen.getByLabelText('Who Gym north lists'), {
+            target: { value: 'PENDING' },
+        });
+        expect(assignDisplay).toHaveBeenCalledWith({
+            displayId: 'd-1',
+            view: 'CHECKIN',
+            showCheckedIn: false,
+        });
+    });
+});
+
 describe('driving a ceremony from the operator’s list', () => {
     it('offers Next and Previous for a screen showing the ceremony', () => {
         renderPanel('AWARDS');
@@ -230,6 +262,7 @@ describe('offering the ceremony as a view', () => {
             'Projector',
             'Racer photos',
             'Standings only',
+            'Check-in progress',
         ]);
     });
 

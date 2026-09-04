@@ -100,6 +100,12 @@ families arrive.
 ![Racer List Showing Inspection Status](assets/screenshots/race-day/05-check-in-progress.png)
 _The roster part-way through check-in — green for done, gold for still to come, and the count beside the heading saying how far there is to go._
 
+This view is behind the check-in desk's own screen, though — nobody else in
+the room can see it. Put it up where families can, instead: assign a screen
+to the [**Check-in progress**](reference/displays.md#check-in-progress) view
+from **Race Control → Displays**, and the same question ("is my car through
+yet?") is answered by looking at the wall rather than asking the desk.
+
 ---
 
 ### Uploading Photos in Bulk

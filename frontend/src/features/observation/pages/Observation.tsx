@@ -9,11 +9,12 @@ import { mdiFire, mdiChevronDoubleRight, mdiTrophy, mdiTimerOutline, mdiVideo } 
 import { TimerStatusBadge } from '../../racing/components/TimerStatusBadge';
 import PhotoSlideshow from '../components/PhotoSlideshow';
 import StandingsOnlyView from '../components/StandingsOnlyView';
+import CheckInDisplayView from '../components/CheckInDisplayView';
 import { displayId, startDeviceClaimHeartbeat } from '../displayIdentity';
 import { useChrome } from '../../../context/ChromeContext';
 import { useTerminology } from '../../../context/TerminologyContext';
 import { formatDisplayName, shouldShowRacerPhoto } from '../../core/displayName';
-import { readUrl, resolveView, DEFAULT_SCROLL_BEHAVIOR } from '../displayView';
+import { readUrl, resolveView, DEFAULT_SCROLL_BEHAVIOR, DEFAULT_SHOW_CHECKED_IN } from '../displayView';
 import { recordBreakDetail, type RecordBreak } from '../recordBreak';
 import { observeHeatResult, type SeenHeatResult } from '../resultsOverlay';
 import { formatScaleMph } from '../scaleSpeed';
@@ -64,6 +65,7 @@ const GET_INITIAL_DATA = `
         carImageUrl
         carName
         racingGroupId
+        carPassedInspection
       }
       racingGroups {
         id
@@ -95,7 +97,7 @@ export default function Observation() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const id = parseInt(raceId || '0');
-  const { vehicle } = useTerminology();
+  const { vehicle, group } = useTerminology();
 
   // This screen's identity, and what it has been told to show (#174). The
   // subscription is also how the display registers itself: it holds no PIN and
@@ -127,6 +129,7 @@ export default function Observation() {
               view: assignment.view,
               cycleSeconds: assignment.cycleSeconds,
               scrollBehavior: assignment.scrollBehavior ?? DEFAULT_SCROLL_BEHAVIOR,
+              showCheckedIn: assignment.showCheckedIn ?? DEFAULT_SHOW_CHECKED_IN,
             }
           : null,
         urlIntent,
@@ -188,7 +191,8 @@ export default function Observation() {
   // one of them (#175) — it fills the viewport, and a scrollbar down the side
   // of a photo on a projector is exactly the sort of thing nobody notices
   // until the room is full.
-  const isFullScreenView = isProjectorMode || behaviour.slideshow || behaviour.standingsOnly;
+  const isFullScreenView =
+    isProjectorMode || behaviour.slideshow || behaviour.standingsOnly || behaviour.checkin;
 
   // Tell the app's furniture to get out of the way. `Navigation` cannot work
   // this out for itself any more: an assigned view changes no URL, so before
@@ -333,6 +337,7 @@ export default function Observation() {
     racerImageUrl?: string;
     carName?: string;
     racingGroupId?: number | null;
+    carPassedInspection?: boolean;
   }
 
   const racersMap = useMemo(() => {
@@ -671,6 +676,51 @@ export default function Observation() {
           vehicle={vehicle}
           scrollBehavior={behaviour.scrollBehavior}
           cycleMs={behaviour.cycleMs}
+        />
+      </div>
+    );
+  }
+
+  // --- CHECK-IN (#612) ---
+  // Who has checked in and who has not, grouped by racing group — for the
+  // entrance or the gym wall before racing starts. Ahead of the standard mode
+  // render for the same reason every other full-screen view here is: this is
+  // a view of its own, not a tab within the usual layout.
+  if (behaviour.checkin) {
+    return (
+      <div
+        className="container projector-mode"
+        data-theme={displayThemeKey}
+        style={{
+          maxWidth: '100%',
+          padding: 0,
+          background: 'var(--display-bg-color)',
+          color: 'var(--display-text-color)',
+          ...displayThemeStyle,
+        }}
+      >
+        <IdentifyPresence assignment={assignment} />
+        <CheckInDisplayView
+          racers={(initialData?.race?.racers ?? []).map((r: Racer) => ({
+            id: r.id,
+            firstName: r.firstName,
+            lastName: r.lastName,
+            carNumber: r.carNumber ?? null,
+            carPassedInspection: !!r.carPassedInspection,
+            racingGroupId: r.racingGroupId,
+          }))}
+          racingGroups={initialData?.race?.racingGroups ?? []}
+          nameDisplay={nameDisplay}
+          groupWord={group}
+          showCheckedIn={behaviour.showCheckedIn}
+          // Racing "beginning" is the first heat's result landing — the same
+          // signal `timingStats` (`lastHeatResults`) already carries for the
+          // Last Heat's Times tab, so this costs no extra query. Once true
+          // the screen de-emphasizes itself rather than hiding: a latecomer
+          // can still check in (#172), and nothing on a VIEWER-held screen
+          // can call `assignDisplay` to switch itself away (#15).
+          racingHasBegun={!!lastHeatResults}
+          loading={initialResult.fetching && !initialData}
         />
       </div>
     );

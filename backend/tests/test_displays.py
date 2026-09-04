@@ -76,6 +76,17 @@ class TestTheVocabulary:
         assert "15s" in smooth
         assert "scrolling" in smooth.lower()
 
+    def test_checkin_says_whether_it_lists_everybody_or_only_the_missing(self):
+        everybody = domain.describe(
+            domain.Assignment(view=domain.DisplayView.CHECKIN, show_checked_in=True)
+        )
+        assert "pending" not in everybody.lower()
+
+        pending_only = domain.describe(
+            domain.Assignment(view=domain.DisplayView.CHECKIN, show_checked_in=False)
+        )
+        assert "pending" in pending_only.lower()
+
 
 class TestPresence:
     def test_a_display_appears_when_it_connects(self, registry):
@@ -257,6 +268,23 @@ class TestAssignment:
             registry.get("abc").assignment.scroll_behavior
             is domain.DEFAULT_SCROLL_BEHAVIOR
         )
+
+    def test_a_new_display_defaults_to_showing_everybody_checked_in(self, registry):
+        registry.connect("abc", race_id=1)
+
+        assert registry.get("abc").assignment.show_checked_in is True
+
+    def test_show_checked_in_survives_a_change_of_view(self, registry):
+        # Same shape as the cycle interval and the scroll behaviour above: a
+        # screen flipped away from CHECKIN and back should not lose the
+        # pending-only choice a large pack made to save room.
+        registry.connect("abc", race_id=1)
+        registry.assign("abc", domain.DisplayView.CHECKIN, show_checked_in=False)
+
+        registry.assign("abc", domain.DisplayView.STANDINGS)
+        registry.assign("abc", domain.DisplayView.CHECKIN)
+
+        assert registry.get("abc").assignment.show_checked_in is False
 
 
 class TestNaming:

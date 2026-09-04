@@ -5,6 +5,7 @@ import {
     resolveView,
     VIEW_OPTIONS,
     viewCycles,
+    viewHasCheckedInToggle,
     viewOptionsFor,
     viewScrolls,
 } from './displayView';
@@ -19,6 +20,7 @@ describe('readUrl', () => {
             cycle: false,
             cycleMs: 10000,
             scrollBehavior: 'PAGING',
+            showCheckedIn: true,
         });
     });
 
@@ -29,6 +31,7 @@ describe('readUrl', () => {
             cycle: true,
             cycleMs: 5000,
             scrollBehavior: 'PAGING',
+            showCheckedIn: true,
         });
     });
 
@@ -38,6 +41,14 @@ describe('readUrl', () => {
 
     it('defaults to paging when the URL says nothing about it', () => {
         expect(url('view=standings_only').scrollBehavior).toBe('PAGING');
+    });
+
+    it('reads pending-only check-in off the URL', () => {
+        expect(url('view=checkin&checkin_show=pending').showCheckedIn).toBe(false);
+    });
+
+    it('defaults check-in to showing everybody', () => {
+        expect(url('view=checkin').showCheckedIn).toBe(true);
     });
 });
 
@@ -87,6 +98,21 @@ describe('behaviourFor', () => {
             expect(behaviourFor(view, 10, 1).standingsOnly).toBe(false);
         }
     });
+
+    it('shows the check-in view', () => {
+        expect(behaviourFor('CHECKIN', 10, 1)).toMatchObject({ tab: 'standings', checkin: true });
+    });
+
+    it('carries showCheckedIn through, defaulting to true', () => {
+        expect(behaviourFor('CHECKIN', 10, 1).showCheckedIn).toBe(true);
+        expect(behaviourFor('CHECKIN', 10, 1, 'PAGING', false).showCheckedIn).toBe(false);
+    });
+
+    it('marks checkin false for every other view', () => {
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'CHECKIN')) {
+            expect(behaviourFor(view, 10, 1).checkin).toBe(false);
+        }
+    });
 });
 
 describe('resolveView', () => {
@@ -127,8 +153,10 @@ describe('resolveView', () => {
             cycle: true,
             slideshow: false,
             standingsOnly: false,
+            checkin: false,
             cycleMs: 4000,
             scrollBehavior: 'PAGING',
+            showCheckedIn: true,
             redirectTo: null,
         });
     });
@@ -143,6 +171,10 @@ describe('resolveView', () => {
         expect(resolveView(null, url('view=standings_only'), 1)).toMatchObject({
             standingsOnly: true,
         });
+    });
+
+    it('reaches check-in by URL as well as by assignment', () => {
+        expect(resolveView(null, url('view=checkin'), 1)).toMatchObject({ checkin: true });
     });
 
     it('carries a scroll behavior for a display nobody assigns', () => {
@@ -168,6 +200,22 @@ describe('resolveView', () => {
         ).toBe('SMOOTH');
     });
 
+    it('defaults showCheckedIn to true when an assignment omits it', () => {
+        expect(
+            resolveView({ view: 'CHECKIN', cycleSeconds: 10 }, url(), 1).showCheckedIn,
+        ).toBe(true);
+    });
+
+    it('lets an assignment carry its own showCheckedIn', () => {
+        expect(
+            resolveView(
+                { view: 'CHECKIN', cycleSeconds: 10, showCheckedIn: false },
+                url(),
+                1,
+            ).showCheckedIn,
+        ).toBe(false);
+    });
+
     it('ignores an assignment nobody made', () => {
         // The caller passes null for an unassigned display; this asserts the
         // consequence, which the end-to-end spec caught the hard way: every
@@ -184,7 +232,16 @@ describe('resolveView', () => {
 describe('VIEW_OPTIONS', () => {
     it('offers every view the display understands', () => {
         expect(VIEW_OPTIONS.map((o) => o.view).sort()).toEqual(
-            ['AWARDS', 'CYCLE', 'PROJECTOR', 'SLIDESHOW', 'STANDINGS', 'STANDINGS_ONLY', 'TIMING'].sort(),
+            [
+                'AWARDS',
+                'CHECKIN',
+                'CYCLE',
+                'PROJECTOR',
+                'SLIDESHOW',
+                'STANDINGS',
+                'STANDINGS_ONLY',
+                'TIMING',
+            ].sort(),
         );
     });
 
@@ -195,7 +252,8 @@ describe('VIEW_OPTIONS', () => {
     it('marks exactly the views that advance on a settable timer', () => {
         // The seconds control on the Displays panel follows this flag. The
         // slideshow missing from it was the bug: it cycled at an interval
-        // nothing offered to change.
+        // nothing offered to change. Check-in progress is not a rotation —
+        // it just reflects the roster live.
         expect(
             VIEW_OPTIONS.filter((o) => o.cycles)
                 .map((o) => o.view)
@@ -212,6 +270,7 @@ describe('VIEW_OPTIONS', () => {
         // is its own, not the operator's.
         expect(viewCycles('AWARDS')).toBe(false);
         expect(viewCycles('PROJECTOR')).toBe(false);
+        expect(viewCycles('CHECKIN')).toBe(false);
     });
 });
 
@@ -220,6 +279,15 @@ describe('viewScrolls', () => {
         expect(viewScrolls('STANDINGS_ONLY')).toBe(true);
         for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'STANDINGS_ONLY')) {
             expect(viewScrolls(view)).toBe(false);
+        }
+    });
+});
+
+describe('viewHasCheckedInToggle', () => {
+    it('offers the everybody/pending-only choice only for check-in', () => {
+        expect(viewHasCheckedInToggle('CHECKIN')).toBe(true);
+        for (const { view } of VIEW_OPTIONS.filter((o) => o.view !== 'CHECKIN')) {
+            expect(viewHasCheckedInToggle(view)).toBe(false);
         }
     });
 });
@@ -254,5 +322,11 @@ describe('viewOptionsFor', () => {
         // would for a race with no awards.
         expect(views(false, 'STANDINGS')).toContain('STANDINGS_ONLY');
         expect(views(true, 'STANDINGS')).toContain('STANDINGS_ONLY');
+    });
+
+    it('offers check-in progress unconditionally too', () => {
+        // There is always a roster to show, even an empty one.
+        expect(views(false, 'STANDINGS')).toContain('CHECKIN');
+        expect(views(true, 'STANDINGS')).toContain('CHECKIN');
     });
 });
